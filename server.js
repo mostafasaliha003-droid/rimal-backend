@@ -4,7 +4,7 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
-// ⚠️ تذكير: إذا توقفت بوابة الدفع، قم بتغيير هذا المفتاح بمفتاح جديد من حسابك في Stripe
+// ⚠️ إذا توقفت بوابة الدفع لاحقاً، استبدل هذا المفتاح بمفتاح جديد من حسابك في Stripe
 const stripe = require('stripe')('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');
 
 const app = express();
@@ -26,10 +26,13 @@ function saveDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2))
 
 let verificationCodes = {};
 
-// ⚠️ تذكير: إذا توقف الإيميل عن الإرسال، قم بتغيير كلمة المرور (pass) بكلمة مرور تطبيق جديدة من إعدادات جوجل
+// ✅ تم تحديث كلمة المرور الجديدة الخاصة بالإيميل هنا
 const transporter = nodemailer.createTransport({
     service: 'gmail',
-    auth: { user: 'management@remaltourismllc.com', pass: 'vqtiunlaehuugjwc' }
+    auth: { 
+        user: 'management@remaltourismllc.com', 
+        pass: 'dkvnseslexedcefd' 
+    }
 });
 
 app.get('/admin-panel', (req, res) => res.sendFile(path.join(__dirname, 'admin.html')));
