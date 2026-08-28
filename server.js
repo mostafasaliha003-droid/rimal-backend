@@ -291,6 +291,57 @@ app.get('/api/currency/convert', async (req, res) => {
 });
 
 // ==========================================
+// 🔌 لوحة تحكم الإدارة (Admin Dashboard APIs)
+// ==========================================
+app.get('/api/v1/admin/stats', async (req, res) => {
+    try {
+        const totalBookings = await Booking.countDocuments();
+        const activeBookings = await Booking.countDocuments({ status: 'active' });
+        const cancelledBookings = await Booking.countDocuments({ status: 'cancelled' });
+        
+        const allBookings = await Booking.find().sort({ createdAt: -1 });
+        
+        let totalRevenueAED = 0;
+        allBookings.forEach(b => {
+            if (b.status === 'active') {
+                totalRevenueAED += (b.price || 0);
+            }
+        });
+
+        res.json({
+            success: true,
+            stats: {
+                totalBookings,
+                activeBookings,
+                cancelledBookings,
+                totalRevenueAED
+            },
+            bookings: allBookings
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/v1/admin/update-booking-status', async (req, res) => {
+    try {
+        const { bookingReference, status } = req.body;
+        const booking = await Booking.findOne({ bookingReference });
+        
+        if (!booking) {
+            return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
+        }
+
+        booking.status = status;
+        await booking.save();
+
+        res.json({ success: true, message: `تم تحديث حالة الحجز ${bookingReference} إلى (${status}) بنجاح.` });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==========================================
 // 🔌 Hotel Search API (البحث المتقدم وتصفية الفنادق)
 // ==========================================
 app.get('/api/v1/hotels/search', (req, res) => {
@@ -302,7 +353,7 @@ app.get('/api/v1/hotels/search', (req, res) => {
                 hotelId: "RIMAL-DXB-001",
                 name: "فندق ريا كريك (Reya Creek Hotel)",
                 city: "دبي",
-                address: "ميناء سعيد، دبي",
+                address: "دائرة السياحة والاقتصاد، Block B، Office 610، ميناء سعيد، دبي",
                 starRating: 4,
                 priceAED: 890,
                 basePoints: 350,
@@ -712,7 +763,7 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
 });
 
 app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'index.html'));
+    res.sendFile(path.join(__dirname, 'admin.html'));
 });
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
