@@ -1,5 +1,4 @@
 const express = require('express');
-const mongoose = require('mongoose');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 
@@ -7,26 +6,10 @@ const app = express();
 app.use(express.json());
 app.use(cors());
 
-// 1. الاتصال بقاعدة البيانات MongoDB (بدون خيارات قديمة مسببة للتحذيرات)
-mongoose.connect('mongodb+srv://mostafasalihadroid:dY04Y61kUjO6b1rJ@cluster0.pblx5.mongodb.net/rimal_db?retryWrites=true&w=majority')
-  .then(() => console.log('✅ تم الاتصال بقاعدة بيانات سحابة الرمال الدولية بنجاح واستقرار تام'))
-  .catch(err => console.error('❌ خطأ في الاتصال بقاعدة البيانات:', err));
+// تخزين مؤقت للحجوزات داخل الذاكرة لضمان السرعة والاستقرار
+const memoryBookings = [];
 
-// 2. تصميم هيكل بيانات الحجز في قاعدة البيانات
-const bookingSchema = new mongoose.Schema({
-    bookingReference: String,
-    hotelName: String,
-    customerName: String,
-    email: String,
-    phone: String,
-    companions: String,
-    paymentMethod: String,
-    createdAt: { type: Date, default: Date.now }
-});
-
-const Booking = mongoose.model('Booking', bookingSchema);
-
-// 3. إعداد خدمة النودمايلر (Nodemailer) لإرسال الإيميلات عبر بريد الإدارة
+// إعداد خدمة النودمايلر (Nodemailer) لإرسال الإيميلات عبر بريد الإدارة
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -35,7 +18,7 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// 4. نقطة النهاية (API) لاستقبال الحجوزات وحفظها وإرسال الإيميل
+// نقطة النهاية (API) لاستقبال الحجوزات ومعالجتها وإرسال الإيميل
 app.post('/api/bookings', async (req, res) => {
     try {
         const { hotelName, customerName, email, phone, companions, paymentMethod } = req.body;
@@ -43,20 +26,21 @@ app.post('/api/bookings', async (req, res) => {
         // توليد رقم مرجعي عشوائي للحجز
         const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
 
-        // حفظ الحجز في قاعدة البيانات
-        const newBooking = new Booking({
+        // حفظ الحجز في الذاكرة المؤقتة
+        const newBooking = {
             bookingReference,
             hotelName,
             customerName,
             email,
             phone,
             companions,
-            paymentMethod
-        });
+            paymentMethod,
+            createdAt: new Date()
+        };
 
-        await newBooking.save();
+        memoryBookings.push(newBooking);
 
-        // محتوى البريد الإلكتروني الذي سيتم إرساله
+        // محتوى البريد الإلكتروني الذي سيتم إرساله للعميل والإدارة
         const mailOptions = {
             from: 'management@remaltourismllc.com',
             to: `${email}, management@remaltourismllc.com`,
@@ -86,7 +70,7 @@ app.post('/api/bookings', async (req, res) => {
 
         res.status(201).json({
             success: true,
-            message: 'تم حفظ الحجز وإرسال الإيميل بنجاح',
+            message: 'تم استقبال الحجز وإرسال الإيميل بنجاح',
             bookingReference
         });
 
