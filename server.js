@@ -12,7 +12,6 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-// رابط الاتصال الدائم بـ MongoDB Atlas مع كلمة المرور المحدثة
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:RimalBooking2026@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
 
 mongoose.connect(MONGO_URI, {
@@ -163,4 +162,6 @@ app.get('/', (req, res) => {
 });
 
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, () => { console.log(`🚀 السيرفر يعمل على المنفذ ${PORT} ومربوط بقاعدة بيانات MongoDB الدائمة`); });
+app.listen(PORT, '0.0.0.0', () => { 
+    console.log(`🚀 السيرفر يعمل على المنفذ ${PORT} ومربوط بقاعدة بيانات MongoDB الدائمة`); 
+});
