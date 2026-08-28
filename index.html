@@ -27,7 +27,6 @@
         .wallet-info strong { font-size: 16px; color: var(--accent-coral); font-weight: 900; }
         .nav-btn { background: var(--white); border: 3px solid var(--primary); color: var(--primary); padding: 8px 16px; border-radius: 14px; font-size: 13px; font-weight: 900; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 0 var(--primary); }
         .nav-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--primary); }
-        .nav-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--primary); }
         .nav-btn.account-btn { background: var(--accent-coral); color: white; border-color: #d90429; box-shadow: 0 4px 0 #d90429; }
         .settings-dropdown { background: #e9ecef; padding: 8px 14px; border-radius: 14px; font-size: 13px; font-weight: 800; color: var(--primary); border: 2px solid var(--accent-cyan); display: flex; align-items: center; gap: 6px; cursor: pointer; }
         .settings-dropdown select { background: transparent; border: none; font-weight: 900; font-family: 'Cairo'; color: var(--primary); outline: none; cursor: pointer; }
@@ -45,24 +44,19 @@
         .filters-sidebar { width: 280px; background: white; padding: 22px; border-radius: 22px; box-shadow: var(--shadow); position: sticky; top: 90px; border: 3px solid var(--accent-cyan); }
         .map-btn { width: 100%; background: linear-gradient(135deg, var(--accent-cyan), #0077b6); color: white; border: none; padding: 14px; border-radius: 16px; font-weight: 900; cursor: pointer; display: flex; align-items: center; justify-content: center; gap: 8px; transition: 0.3s; box-shadow: 0 6px 0 #005f73; font-size: 15px; }
         .map-btn:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #005f73; }
-        .map-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 #005f73; }
         .hotel-list { flex: 1; display: flex; flex-direction: column; gap: 24px; }
         .hotel-card { background: var(--white); border-radius: 24px; display: flex; padding: 22px; gap: 22px; box-shadow: var(--shadow); position: relative; align-items: center; border: 3px solid #e9ecef; transition: 0.3s; }
         .hotel-card:hover { border-color: var(--accent-yellow); transform: translateY(-4px); box-shadow: 0 15px 35px rgba(255, 202, 58, 0.25); }
         .earn-ribbon { position: absolute; top: 15px; right: -28px; background: linear-gradient(135deg, var(--accent-coral), #d90429); color: white; padding: 6px 32px; font-size: 12px; font-weight: 900; transform: rotate(45deg); z-index: 5; box-shadow: 0 4px 10px rgba(255, 89, 94, 0.4); }
-        html[dir="ltr"] .earn-ribbon { right: auto; left: -28px; transform: rotate(-45deg); }
         .hotel-img { width: 230px; height: 190px; object-fit: cover; border-radius: 18px; border: 3px solid var(--accent-cyan); }
         .hotel-info { flex: 2; display: flex; flex-direction: column; }
         .hotel-name { font-size: 22px; font-weight: 900; color: var(--primary); margin-bottom: 6px; }
         .hotel-pricing { flex: 1; text-align: left; border-right: 3px dashed #e9ecef; padding-right: 22px; display: flex; flex-direction: column; justify-content: center; }
-        html[dir="ltr"] .hotel-pricing { text-align: right; border-right: none; border-left: 3px dashed #e9ecef; padding-right: 0; padding-left: 22px; }
         .btn-book { background: linear-gradient(135deg, var(--accent-coral), #d90429); color: var(--white); padding: 14px; border: none; font-weight: 900; border-radius: 16px; cursor: pointer; transition: 0.3s; width: 100%; font-size: 16px; box-shadow: 0 6px 0 #b7094c; }
         .btn-book:hover { transform: translateY(-2px); box-shadow: 0 8px 0 #b7094c; background: linear-gradient(135deg, #ff6b6b, #e63946); }
-        .btn-book:active { transform: translateY(2px); box-shadow: 0 2px 0 #b7094c; }
         .hotel-price-display { font-size: 26px; font-weight: 900; color: var(--primary); text-align: inherit; }
         .nights-calc-badge { font-size: 12px; color: var(--accent-purple); font-weight: 800; margin-bottom: 6px; background: rgba(114, 9, 183, 0.1); padding: 4px 10px; border-radius: 8px; display: inline-block; width: fit-content; }
         .funny-policy-box { background: linear-gradient(135deg, #fff3b0, #fffae5); border: 3px dashed var(--accent-coral); border-radius: 16px; padding: 14px; margin: 12px 0; font-size: 13px; color: #495057; font-weight: 700; box-shadow: inset 0 2px 5px rgba(0,0,0,0.03); }
-        .funny-policy-box h4 { color: var(--accent-coral); font-size: 14px; font-weight: 900; margin-bottom: 5px; display: flex; align-items: center; gap: 6px; }
         .live-status { font-size: 13px; color: var(--accent-cyan); font-weight: 800; display: flex; align-items: center; gap: 6px; margin-bottom: 12px; background: rgba(0, 180, 216, 0.1); padding: 8px 14px; border-radius: 12px; }
         .live-pulse { width: 10px; height: 10px; background: var(--accent-cyan); border-radius: 50%; animation: pulse 1s infinite; }
         @keyframes pulse { 0% { transform: scale(1); opacity: 1; } 50% { transform: scale(1.6); opacity: 0.4; } 100% { transform: scale(1); opacity: 1; } }
@@ -71,11 +65,9 @@
         .form-group { margin-bottom: 18px; }
         .form-group label { display: block; font-weight: 900; margin-bottom: 6px; color: var(--primary); }
         .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 14px; border-radius: 14px; border: 2px solid #cbd5e1; outline: none; font-family: 'Cairo'; font-size: 14px; font-weight: 700; }
-        .form-group input:focus { border-color: var(--accent-cyan); box-shadow: 0 0 10px rgba(0, 180, 216, 0.2); }
         .payment-methods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
         .pay-option { border: 2px solid #cbd5e1; border-radius: 14px; padding: 12px; text-align: center; cursor: pointer; font-weight: 800; font-size: 13px; transition: 0.2s; }
         .pay-option input { display: none; }
-        .pay-option:hover { border-color: var(--accent-cyan); background: rgba(0, 180, 216, 0.05); }
         .pay-option.selected { border-color: var(--accent-coral); background: rgba(255, 89, 94, 0.1); color: var(--accent-coral); }
         .card-gateway-box { background: #f8fafc; border: 2px solid #cbd5e0; padding: 18px; border-radius: 16px; margin-bottom: 18px; }
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(31, 58, 64, 0.7); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 3000; }
@@ -87,10 +79,9 @@
         .loading-overlay { position: absolute; top: 0; left: 0; width: 100%; height: 100%; background: rgba(255,255,255,0.95); backdrop-filter: blur(3px); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10; border-radius: 24px; font-weight: 900; color: var(--primary); }
         .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--accent-coral); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-        @media (max-width: 900px) { .search-container { grid-template-columns: 1fr; width: 95%; } .layout-wrapper { flex-direction: column; } .filters-sidebar { width: 100%; position: static; } .hotel-card { flex-direction: column; } .hotel-pricing { border: none; padding: 0; } .payment-methods { grid-template-columns: repeat(2, 1fr); } }
-
         .action-btn { flex: 1; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; font-family: 'Cairo'; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 5px; }
         .action-btn:hover { opacity: 0.85; transform: translateY(-2px); }
+        @media (max-width: 900px) { .search-container { grid-template-columns: 1fr; width: 95%; } .layout-wrapper { flex-direction: column; } .filters-sidebar { width: 100%; position: static; } .hotel-card { flex-direction: column; } .hotel-pricing { border: none; padding: 0; } .payment-methods { grid-template-columns: repeat(2, 1fr); } }
     </style>
 </head>
 <body>
@@ -105,17 +96,7 @@
         </a>
 
         <div class="header-actions">
-            <div class="settings-dropdown">
-                <i class="fa-solid fa-coins" style="color: var(--accent-cyan);"></i>
-                <select id="currencySelect" onchange="changeCurrency()">
-                    <option value="AED">د.إ (AED)</option>
-                    <option value="USD">$ (USD)</option>
-                    <option value="SAR">ر.س (SAR)</option>
-                </select>
-            </div>
-            
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
-
             <div class="wallet-card">
                 <i class="fa-solid fa-piggy-bank" style="color: var(--accent-coral); font-size: 24px;"></i>
                 <div class="wallet-info">
@@ -135,31 +116,19 @@
         <div class="search-container">
             <div class="search-field">
                 <i class="fa-solid fa-magnifying-glass" style="color: var(--accent-coral);"></i>
-                <div class="field-content">
-                    <label>وين ناوي تخيم؟</label>
-                    <input type="text" id="searchInput" placeholder="مثل: Reya Creek..." onkeyup="filterHotels()">
-                </div>
+                <div class="field-content"><label>وين ناوي تخيم؟</label><input type="text" id="searchInput" placeholder="مثل: Reya Creek..." onkeyup="filterHotels()"></div>
             </div>
             <div class="search-field">
                 <i class="fa-regular fa-calendar-check" style="color: var(--accent-coral);"></i>
-                <div class="field-content">
-                    <label>تاريخ الدخول</label>
-                    <input type="date" id="checkInDate" onchange="calculateNightsAndPrice()">
-                </div>
+                <div class="field-content"><label>تاريخ الدخول</label><input type="date" id="checkInDate" onchange="calculateNightsAndPrice()"></div>
             </div>
             <div class="search-field">
                 <i class="fa-regular fa-calendar-xmark" style="color: var(--accent-coral);"></i>
-                <div class="field-content">
-                    <label>تاريخ الخروج</label>
-                    <input type="date" id="checkOutDate" onchange="calculateNightsAndPrice()">
-                </div>
+                <div class="field-content"><label>تاريخ الخروج</label><input type="date" id="checkOutDate" onchange="calculateNightsAndPrice()"></div>
             </div>
             <div class="search-field">
                 <i class="fa-solid fa-user-gear" style="color: var(--accent-coral);"></i>
-                <div class="field-content">
-                    <label>عدد الشلة</label>
-                    <input type="number" id="manualGuestsInput" min="1" max="20" value="2" onchange="calculateNightsAndPrice()">
-                </div>
+                <div class="field-content"><label>عدد الشلة</label><input type="number" id="manualGuestsInput" min="1" max="20" value="2" onchange="calculateNightsAndPrice()"></div>
             </div>
             <div class="search-field" style="background: transparent; border: none; padding: 0;">
                 <button onclick="filterHotels()" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary)); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; height: 60px; width: 100%;">ابحث وانحاش 🚀</button>
@@ -179,14 +148,11 @@
                         <label><input type="radio" name="cityFilter" value="الشارقة" onchange="filterHotels()"> الشارقة 📚</label>
                     </div>
                 </aside>
-                <div class="hotel-list">
-                    <div id="hotelsContainer"></div>
-                </div>
+                <div class="hotel-list"><div id="hotelsContainer"></div></div>
             </div>
         </div>
     </div>
 
-    <!-- لوحة تحكم العميل -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>بوابة حسابك الذكي وحجوزاتك المحفوظة 🚀</h1>
@@ -202,7 +168,6 @@
                     <div style="background: rgba(255, 202, 58, 0.2); padding: 20px; border-radius: 16px; border: 2px dashed var(--accent-yellow);">
                         <h4>💰 حصالة حسابك الدائمة</h4>
                         <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">0</span> نقطة</p>
-                        <!-- الحماية تمت هنا لإضافة dashPointsValue -->
                         <small style="color: var(--accent-coral); font-weight: bold;">تساوي تقريباً: <span id="dashPointsValue">0.00</span> AED</small>
                     </div>
                     <div style="background: rgba(0, 180, 216, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-cyan);">
@@ -212,25 +177,23 @@
                 </div>
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة</h3>
-                    <button onclick="refreshDashboard()" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
+                    <button onclick="refreshDashboard()" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث القائمة</button>
                 </div>
                 <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 15px;"></div>
             </div>
         </div>
     </div>
 
-    <!-- النافذة المنبثقة (Modal) -->
+    <!-- نافذة تسجيل الدخول (Modal) -->
     <div id="socialModal" class="modal-overlay">
         <div class="modal-content">
             <div id="loadingOverlay" class="loading-overlay">
-                <div class="spinner"></div>
-                <p id="loadingText">جاري الاتصال... ⏳</p>
+                <div class="spinner"></div><p id="loadingText">جاري الاتصال... ⏳</p>
             </div>
             <div class="tab-switcher">
                 <button type="button" id="tabLoginBtn" class="tab-btn" onclick="switchTab('login')">تسجيل دخول</button>
                 <button type="button" id="tabRegisterBtn" class="tab-btn active" onclick="switchTab('register')">فتح حساب جديد</button>
             </div>
-            
             <form id="loginForm" onsubmit="handleDirectLogin(event)" style="display: none;">
                 <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل 🔑</h3>
                 <div class="form-group" style="text-align: right;"><label>البريد الإلكتروني:</label><input type="email" id="loginEmail" required></div>
@@ -240,7 +203,6 @@
                     <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333;">إلغاء</button>
                 </div>
             </form>
-
             <div id="registerContainer">
                 <h3 style="color: var(--primary); margin-bottom: 15px;">إنشاء حساب جديد ☁️</h3>
                 <form id="step1Form" onsubmit="requestVerificationCode(event)">
@@ -290,6 +252,9 @@
                             <label class="pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel"> 🏨 ادفع بالاستقبال</label>
                         </div>
                     </div>
+                    <div id="cardDetailsContainer" class="card-gateway-box" style="display: none;">
+                        <h4 style="margin-bottom: 10px; color: var(--primary); font-size: 14px;"><i class="fa-solid fa-lock"></i> الدفع الإلكتروني عبر Stripe</h4>
+                    </div>
                     <button type="submit" class="btn-book" id="btnFinalBook">تثبيت الحجز وإصدار الفاتورة 🔒</button>
                 </form>
             </div>
@@ -298,9 +263,7 @@
 
     <!-- الخريطة -->
     <div id="mapView" class="view-section">
-        <section class="hero" style="padding: 40px 5%;">
-            <h1>خريطة الضياع الإماراتي 🗺️</h1>
-        </section>
+        <section class="hero" style="padding: 40px 5%;"><h1>خريطة الضياع الإماراتي 🗺️</h1></section>
         <div class="container" style="max-width: 1000px;">
             <div class="map-box">
                 <button class="nav-btn" onclick="switchView('mainView')" style="margin-bottom:15px;">رجوع للرئيسية 🔙</button>
@@ -365,12 +328,10 @@
             }
         }
 
-        function handleAccountBtnClick() {
-            if (currentUser) { switchView('registerView'); } else { openAuthModal('register'); }
-        }
-
+        function handleAccountBtnClick() { if (currentUser) { switchView('registerView'); } else { openAuthModal('register'); } }
         function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
         function closeAuthModal() { document.getElementById('socialModal').style.display = 'none'; }
+        
         function switchTab(tab) {
             document.getElementById('tabLoginBtn').classList.toggle('active', tab === 'login');
             document.getElementById('tabRegisterBtn').classList.toggle('active', tab === 'register');
@@ -397,12 +358,13 @@
             } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ في الاتصال'); }
         }
 
+        let tempName='', tempEmail='', tempPassword='', tempPhone='';
         async function requestVerificationCode(e) {
             e.preventDefault();
-            let tempName = document.getElementById('modalName').value;
-            let tempEmail = document.getElementById('modalEmail').value;
-            let tempPassword = document.getElementById('modalPassword').value;
-            let tempPhone = document.getElementById('modalPhone').value;
+            tempName = document.getElementById('modalName').value;
+            tempEmail = document.getElementById('modalEmail').value;
+            tempPassword = document.getElementById('modalPassword').value;
+            tempPhone = document.getElementById('modalPhone').value;
             document.getElementById('loadingOverlay').style.display = 'flex';
             try {
                 const res = await fetch('/api/auth/register-send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: tempEmail, name: tempName, password: tempPassword, phone: tempPhone }) });
@@ -418,7 +380,6 @@
         async function verifyCodeAndRegister(e) {
             e.preventDefault();
             const code = document.getElementById('verificationCodeInput').value;
-            let tempEmail = document.getElementById('modalEmail').value;
             document.getElementById('loadingOverlay').style.display = 'flex';
             try {
                 const res = await fetch('/api/auth/verify-and-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: tempEmail, code }) });
@@ -444,46 +405,49 @@
                 if(data.success) {
                     document.getElementById('userNameDisplay').innerText = data.profile.name;
                     document.getElementById('dashPoints').innerText = data.profile.points;
-                    document.getElementById('displayPoints').innerText = data.profile.points;
-                    
                     const dashVal = document.getElementById('dashPointsValue');
-                    if (dashVal) dashVal.innerText = data.profile.pointsValueAED;
+                    if(dashVal) dashVal.innerText = data.profile.pointsValueAED;
 
                     const bookingsContainer = document.getElementById('dashBookingsList');
                     bookingsContainer.innerHTML = '';
                     if(data.bookings.length === 0) {
                         bookingsContainer.innerHTML = `<div style="padding:15px; text-align:center;">ليس لديك حجوزات حالياً.</div>`;
                     } else {
+                        // حماية البيانات القديمة من التسبب بـ Crash
                         data.bookings.forEach(b => {
-                            const safePolicy = (b.policyText || 'لا يوجد').replace(/'/g, "\\'");
-                            const safeHotel = b.hotelName.replace(/'/g, "\\'");
+                            const safePolicy = (b.policyText || 'لا يوجد').toString().replace(/'/g, "\\'");
+                            const safeHotel = (b.hotelName || 'فندق غير محدد').toString().replace(/'/g, "\\'");
+                            const bPrice = b.price || 0;
+                            const bRef = b.bookingReference || 'بدون مرجع';
+                            const bMethod = b.paymentMethod || 'hotel';
 
                             bookingsContainer.innerHTML += `
                                 <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                                     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                                         <div>
-                                            <strong style="font-size: 16px; color: var(--primary);">${b.hotelName}</strong><br>
-                                            <small style="color:var(--text-muted); font-size: 13px;">المرجع: <strong style="color:var(--accent-coral);">${b.bookingReference}</strong> | المبلغ: <strong>${b.price} AED</strong></small>
+                                            <strong style="font-size: 16px; color: var(--primary);">${safeHotel}</strong><br>
+                                            <small style="color:var(--text-muted); font-size: 13px;">المرجع: <strong style="color:var(--accent-coral);">${bRef}</strong> | المبلغ: <strong>${bPrice} AED</strong></small>
                                         </div>
                                         <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold; font-size: 12px;">مؤكد ✅</span>
                                     </div>
                                     <div style="background: #fffbeb; border: 1px dashed #f59e0b; padding: 10px; border-radius: 10px; font-size: 12px; color: #78350f;">
-                                        <strong><i class="fa-solid fa-file-contract"></i> سياسة الإلغاء:</strong> ${b.policyText || 'لا يوجد'}
+                                        <strong><i class="fa-solid fa-file-contract"></i> سياسة الإلغاء:</strong> ${safePolicy}
                                     </div>
                                     
+                                    <!-- أزرار الفاوتشر المضافة -->
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
-                                        <button onclick="downloadVoucher('${b.bookingReference}', '${safeHotel}', '${b.price}', '${b.paymentMethod}', '${safePolicy}')" class="action-btn" style="background: #0284c7;"><i class="fa-solid fa-download"></i> تحميل فاوتشر</button>
-                                        <button onclick="resendVoucherEmail('${b.bookingReference}')" class="action-btn" style="background: #7c3aed;"><i class="fa-solid fa-envelope"></i> للإيميل</button>
-                                        <button onclick="sendVoucherWhatsApp('${b.bookingReference}', '${safeHotel}', '${b.price}')" class="action-btn" style="background: #16a34a;"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+                                        <button onclick="downloadVoucher('${bRef}', '${safeHotel}', '${bPrice}', '${bMethod}', '${safePolicy}')" class="action-btn" style="background: #0284c7;"><i class="fa-solid fa-download"></i> تحميل فاوتشر</button>
+                                        <button onclick="resendVoucherEmail('${bRef}')" class="action-btn" style="background: #7c3aed;"><i class="fa-solid fa-envelope"></i> للإيميل</button>
+                                        <button onclick="sendVoucherWhatsApp('${bRef}', '${safeHotel}', '${bPrice}')" class="action-btn" style="background: #16a34a;"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
                                     </div>
 
-                                    <button onclick="cancelBookingByClient('${b.bookingReference}')" style="background:#d90429; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; font-family:'Cairo'; font-size:13px; width: 100%; transition: 0.3s; margin-top: 5px;">إلغاء الحجز واسترداد الرسوم ❌</button>
+                                    <button onclick="cancelBookingByClient('${bRef}')" style="background:#d90429; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; font-family:'Cairo'; font-size:13px; width: 100%; transition: 0.3s; margin-top: 5px;">إلغاء الحجز واسترداد الرسوم ❌</button>
                                 </div>
                             `;
                         });
                     }
                 }
-            } catch (e) { console.error(e); }
+            } catch (e) { console.error("Error displaying bookings", e); }
         }
 
         function downloadVoucher(ref, hotel, price, method, policy) {
@@ -491,8 +455,7 @@
             const htmlContent = `
             <html dir="rtl" lang="ar">
             <head>
-                <meta charset="UTF-8">
-                <title>Voucher - ${ref}</title>
+                <meta charset="UTF-8"><title>Voucher - ${ref}</title>
                 <style>
                     body { font-family: Tahoma, Arial, sans-serif; padding: 40px; background: #f8f9fa; }
                     .voucher { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; border: 3px dashed #00b4d8; text-align: right; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
@@ -502,86 +465,63 @@
             </head>
             <body onload="window.print()">
                 <div class="voucher">
-                    <h1>شركة الرمال الدولية 🐪✈️</h1>
-                    <h2 style="text-align: center; color: #0077b6;">تأكيد الحجز (Voucher)</h2>
-                    <div class="info">
-                        <p><strong>اسم العميل:</strong> ${currentUser ? currentUser.name : 'عميل'}</p>
-                        <p><strong>رقم المرجع:</strong> <span style="color:#d90429; font-weight:bold;">${ref}</span></p>
-                        <p><strong>الفندق:</strong> ${hotel}</p>
-                        <p><strong>إجمالي السعر:</strong> ${price} AED</p>
-                        <p><strong>حالة الدفع:</strong> ${payStatus}</p>
-                    </div>
-                    <div class="info" style="background: #fffbeb; border: 1px dashed #f59e0b;">
-                        <p><strong>سياسة الإلغاء المطبقة:</strong> ${policy}</p>
-                    </div>
+                    <h1>شركة الرمال الدولية 🐪✈️</h1><h2 style="text-align: center; color: #0077b6;">تأكيد الحجز (Voucher)</h2>
+                    <div class="info"><p><strong>العميل:</strong> ${currentUser ? currentUser.name : 'عميل'}</p><p><strong>المرجع:</strong> <span style="color:#d90429; font-weight:bold;">${ref}</span></p><p><strong>الفندق:</strong> ${hotel}</p><p><strong>السعر:</strong> ${price} AED</p><p><strong>الدفع:</strong> ${payStatus}</p></div>
+                    <div class="info" style="background: #fffbeb; border: 1px dashed #f59e0b;"><p><strong>سياسة الإلغاء:</strong> ${policy}</p></div>
                     <p style="text-align: center; font-size: 12px; color: #64748b;">رحلة سعيدة! - شركة الرمال الدولية</p>
                 </div>
-            </body>
-            </html>
-            `;
+            </body></html>`;
             const blob = new Blob([htmlContent], { type: 'text/html' });
             const url = URL.createObjectURL(blob);
-            const a = document.createElement('a');
-            a.href = url;
-            a.download = `Voucher_${ref}.html`;
-            document.body.appendChild(a);
-            a.click();
-            document.body.removeChild(a);
-            URL.revokeObjectURL(url);
+            const a = document.createElement('a'); a.href = url; a.download = `Voucher_${ref}.html`;
+            document.body.appendChild(a); a.click(); document.body.removeChild(a); URL.revokeObjectURL(url);
         }
 
         async function resendVoucherEmail(ref) {
             try {
                 alert("جاري إعادة إرسال الفاوتشر إلى بريدك... ⏳");
                 const res = await fetch('/api/bookings/resend-voucher', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
+                    method: 'POST', headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ bookingReference: ref, email: currentUser.email })
                 });
                 const data = await res.json();
                 if (data.success) { alert('✅ ' + data.message); } else { alert('❌ ' + data.error); }
-            } catch (e) { alert('خطأ في الاتصال بالخادم.'); }
+            } catch (e) { alert('خطأ في الاتصال بالسيرفر.'); }
         }
 
         function sendVoucherWhatsApp(ref, hotel, price) {
-            const text = `أهلاً! هذا فاوتشر حجزي من شركة الرمال الدولية 🐪✈️\n\n🏨 الفندق: ${hotel}\n🔖 المرجع: ${ref}\n💰 إجمالي السعر: ${price} AED\n\nشكراً لكم! 🤪`;
+            const text = `أهلاً! هذا فاوتشر حجزي من شركة الرمال الدولية 🐪✈️\n\n🏨 الفندق: ${hotel}\n🔖 المرجع: ${ref}\n💰 السعر: ${price} AED\n\nشكراً لكم!`;
             const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
             window.open(url, '_blank');
         }
 
         async function cancelBookingByClient(bookingReference) {
-            if (!confirm(`هل أنت متأكد من الإلغاء؟ سيتم معالجة الرسوم حسب سياسة الفندق الموضحة أعلاه.`)) return;
+            if (!confirm(`هل أنت متأكد من الإلغاء؟ سيتم معالجة الرسوم حسب سياسة الفندق.`)) return;
             try {
                 const res = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference, email: currentUser.email }) });
                 const data = await res.json();
                 if (data.success) { alert('✅ ' + data.message); fetchUserData(currentUser.email); } 
                 else { alert('❌ ' + data.error); }
-            } catch (e) { alert('خطأ في الاتصال بالخادم. يرجى التأكد من تحديث ملف server.js على Render'); }
+            } catch (e) { alert('خطأ في الاتصال.'); }
         }
 
         function logoutUser() { localStorage.removeItem('rimal_current_user'); currentUser = null; checkUserSession(); switchView('mainView'); }
-
-        function getCalculatedNights() {
-            const checkInInput = document.getElementById('checkInDate');
-            const checkOutInput = document.getElementById('checkOutDate');
-            if(!checkInInput || !checkOutInput) return 1;
-            const checkIn = new Date(checkInInput.value);
-            const checkOut = new Date(checkOutInput.value);
-            const diffDays = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
-            return diffDays > 0 ? diffDays : 1;
-        }
-
-        function calculateNightsAndPrice() { displayHotels(allHotels); }
 
         function displayHotels(hotelsArray) {
             try {
                 const container = document.getElementById('hotelsContainer');
                 if(!container) return;
                 container.innerHTML = '';
-                const nights = getCalculatedNights();
+                const checkInInput = document.getElementById('checkInDate');
+                const checkOutInput = document.getElementById('checkOutDate');
+                let nights = 1;
+                if(checkInInput && checkOutInput) {
+                    const diff = new Date(checkOutInput.value) - new Date(checkInInput.value);
+                    nights = Math.max(1, Math.ceil(diff / (1000 * 60 * 60 * 24)));
+                }
 
                 if(hotelsArray.length === 0) {
-                    container.innerHTML = `<div style="padding:30px; text-align:center; font-weight:800;">عذراً، لا يوجد نتائج! 🤷‍♂️</div>`;
+                    container.innerHTML = `<div style="padding:30px; text-align:center; font-weight:800;">عذراً، لا يوجد نتائج!</div>`;
                     return;
                 }
 
@@ -608,29 +548,20 @@
                         </div>
                     `;
                 });
-            } catch(e) { console.error("Error in displayHotels:", e); }
+            } catch(e) { console.error(e); }
         }
+
+        function calculateNightsAndPrice() { displayHotels(allHotels); }
 
         function filterHotels() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
-            const selectedCityRadio = document.querySelector('input[name="cityFilter"]:checked');
-            const selectedCity = selectedCityRadio ? selectedCityRadio.value : 'all';
-            const filtered = allHotels.filter(hotel => {
-                const matchesNameOrCity = hotel.name.toLowerCase().includes(query) || hotel.city.toLowerCase().includes(query);
-                const matchesCityRadio = (selectedCity === 'all' || hotel.city === selectedCity);
-                return matchesNameOrCity && matchesCityRadio;
-            });
+            const filtered = allHotels.filter(hotel => hotel.name.toLowerCase().includes(query) || hotel.city.toLowerCase().includes(query));
             displayHotels(filtered);
         }
 
         function goToBooking(hotelName, calculatedPoints, priceAED, policyType, policyText, address, phone, mapLink) {
-            selectedHotel = hotelName;
-            currentTotalPriceAED = priceAED;
-            activePolicyType = policyType;
-            activePolicyText = policyText;
-            hotelAddr = address;
-            hotelPh = phone;
-            hotelMap = mapLink;
+            selectedHotel = hotelName; currentTotalPriceAED = priceAED; activePolicyType = policyType; activePolicyText = policyText;
+            hotelAddr = address; hotelPh = phone; hotelMap = mapLink;
 
             document.getElementById('hotelNameTitle').innerText = 'تأكيد الحجز في: ' + hotelName;
             document.getElementById('policyDetailsText').innerText = policyText;
@@ -661,34 +592,25 @@
                 const response = await fetch('/api/bookings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        hotelName: selectedHotel, 
-                        customerName: name, 
-                        email, 
-                        phone, 
-                        paymentMethod, 
-                        price: currentTotalPriceAED, 
-                        policyType: activePolicyType, 
-                        policyText: activePolicyText,
-                        hotelAddress: hotelAddr,
-                        hotelPhone: hotelPh,
-                        hotelMapLink: hotelMap
-                    })
+                    body: JSON.stringify({ hotelName: selectedHotel, customerName: name, email, phone, paymentMethod, price: currentTotalPriceAED, policyType: activePolicyType, policyText: activePolicyText, hotelAddress: hotelAddr, hotelPhone: hotelPh, hotelMapLink: hotelMap })
                 });
                 const data = await response.json();
-                
                 if (!response.ok || !data.success) { throw new Error(data.error); }
 
                 if (paymentMethod !== 'hotel') {
                     const stripeResponse = await fetch('/api/create-checkout-session', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
+                        method: 'POST', headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({ hotelName: selectedHotel, customerName: name, email, price: currentTotalPriceAED })
                     });
                     const sessionData = await stripeResponse.json();
                     if (sessionData.id) {
                         const stripe = Stripe('pk_live_51U9NrKFFbuBDqv4zlRHUyXm2a5tHK7DS1hqOMM281EgNbsPRNhiLlAuo095nO2h5hMF8Z5gGBtni19vHmPBqtG4P0030yie2sz');
                         await stripe.redirectToCheckout({ sessionId: sessionData.id });
+                        return;
+                    } else {
+                        alert("⚠️ مفتاح الدفع (Stripe) متوقف من قبل الشركة، يرجى تحديث المفتاح السري في السيرفر.");
+                        btn.innerText = "تثبيت الحجز وإصدار الفاتورة 🔒";
+                        btn.disabled = false;
                         return;
                     }
                 }
