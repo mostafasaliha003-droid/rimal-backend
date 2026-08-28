@@ -103,19 +103,7 @@
         </a>
 
         <div class="header-actions">
-            <div class="settings-dropdown">
-                <i class="fa-solid fa-coins" style="color: var(--accent-cyan);"></i>
-                <select id="currencySelect" onchange="changeCurrency()">
-                    <option value="AED">د.إ (AED)</option>
-                    <option value="USD">$ (USD)</option>
-                    <option value="SAR">ر.س (SAR)</option>
-                    <option value="EUR">€ (EUR)</option>
-                    <option value="GBP">£ (GBP)</option>
-                </select>
-            </div>
-            
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
-
             <div class="wallet-card">
                 <i class="fa-solid fa-piggy-bank" style="color: var(--accent-coral); font-size: 24px;"></i>
                 <div class="wallet-info">
@@ -273,8 +261,8 @@
         <div class="container" style="max-width: 800px;">
             <div class="booking-box">
                 <div id="hotelPolicyWarningBox" style="background: #fffbeb; border: 2px dashed #f59e0b; padding: 15px; border-radius: 14px; margin-bottom: 20px;">
-                    <h4 style="color: #d97706; margin-bottom: 5px;"><i class="fa-solid fa-shield-halved"></i> سياسة الاسترداد للإلغاء:</h4>
-                    <p id="policyDetailsText" style="font-size: 14px; font-weight: 800; color: #78350f;"></p>
+                    <h4 style="color: #d97706; margin-bottom: 5px;"><i class="fa-solid fa-shield-halved"></i> سياسة الاسترداد والإلغاء:</h4>
+                    <p id="policyDetailsText" style="font-size: 14px; font-weight: 800; color: #78350f; line-height: 1.6;"></p>
                 </div>
                 <form id="bookingForm" onsubmit="confirmReservation(event)">
                     <div class="form-group"><label>الاسم الكريم:</label><input type="text" id="custName" required></div>
@@ -284,7 +272,7 @@
                     </div>
                     <div class="form-group"><label>طريقة الدفع:</label>
                         <div class="payment-methods">
-                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية (آمن)</label>
+                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية</label>
                             <label class="pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel"> 🏨 ادفع بالاستقبال</label>
                         </div>
                     </div>
@@ -313,18 +301,18 @@
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
         let selectedHotel = '', currentTotalPriceAED = 0;
         let activePolicyType = 'full', activePolicyText = '';
-        let tempEmail='', tempName='', tempPassword='', tempPhone='';
+        let hotelAddr = '', hotelPh = '', hotelMap = '';
 
-        // الفنادق مع السياسات كاملة
+        // تعريف الفنادق (تم إضافة العناوين وأرقام الهواتف لإرسالها في الفاوتشر)
         const allHotels = [
-            { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء المبكر.", funnyPolicy: "ممنوع إدخال بطاطس حارة!" },
-            { name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة الغرامة: خصم 20% عند الإلغاء.", funnyPolicy: "سمكة الشيمو ممنوعة!" },
-            { name: "هيلتون دبي نخلة جميرا (Hilton)", city: "دبي", priceAED: 1250, basePoints: 400, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ممنوع الصراخ على البحر!" },
-            { name: "شيراتون مجمع خور دبي", city: "دبي", priceAED: 980, basePoints: 320, img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100%.", funnyPolicy: "الكاسات الزجاجية أثرية!" },
-            { name: "ماريوت ماركيز دبي", city: "دبي", priceAED: 1400, basePoints: 450, img: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "خصم 20% عند الإلغاء.", funnyPolicy: "ممنوع تطل بمكبر صوت!" },
-            { name: "برج العرب جميرا، دبي", city: "دبي", priceAED: 5505, basePoints: 1500, img: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ندفع بالذهب الخالص فقط!" },
-            { name: "قصر الإمارات، أبوظبي", city: "أبوظبي", priceAED: 1651, basePoints: 450, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "خصم 20% عند الإلغاء.", funnyPolicy: "الذهب حقيقي، لا تشتكي!" },
-            { name: "شيراتون الشارقة", city: "الشارقة", priceAED: 950, basePoints: 300, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100%.", funnyPolicy: "الهدوء إجباري جداً!" }
+            { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", address: "شارع بني ياس، ديرة، دبي", phone: "+971 4 212 2222", priceAED: 890, basePoints: 350, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "ممنوع إدخال بطاطس حارة!" },
+            { name: "فندق أتلانتس النخلة، دبي", city: "دبي", address: "نخلة جميرا، دبي", phone: "+971 4 426 2000", priceAED: 2202, basePoints: 600, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "سمكة الشيمو ممنوعة!" },
+            { name: "هيلتون دبي نخلة جميرا (Hilton)", city: "دبي", address: "نخلة جميرا، الغرب، دبي", phone: "+971 4 230 0000", priceAED: 1250, basePoints: 400, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ممنوع الصراخ على البحر!" },
+            { name: "شيراتون مجمع خور دبي", city: "دبي", address: "شارع بني ياس، دبي", phone: "+971 4 228 1111", priceAED: 980, basePoints: 320, img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "الكاسات الزجاجية أثرية!" },
+            { name: "ماريوت ماركيز دبي", city: "دبي", address: "الخليج التجاري، دبي", phone: "+971 4 414 0000", priceAED: 1400, basePoints: 450, img: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "ممنوع تطل بمكبر صوت!" },
+            { name: "برج العرب جميرا، دبي", city: "دبي", address: "شارع جميرا، أم سقيم 3، دبي", phone: "+971 4 301 7777", priceAED: 5505, basePoints: 1500, img: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ندفع بالذهب الخالص فقط!" },
+            { name: "قصر الإمارات، أبوظبي", city: "أبوظبي", address: "طريق الكورنيش، أبوظبي", phone: "+971 2 690 9000", priceAED: 1651, basePoints: 450, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "الذهب حقيقي، لا تشتكي!" },
+            { name: "شيراتون الشارقة", city: "الشارقة", address: "شارع المنتزه، الشارقة", phone: "+971 6 563 0000", priceAED: 950, basePoints: 300, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "الهدوء إجباري جداً!" }
         ];
 
         window.onload = function() {
@@ -334,11 +322,9 @@
                 tomorrow.setDate(today.getDate() + 1);
                 document.getElementById('checkInDate').valueAsDate = today;
                 document.getElementById('checkOutDate').valueAsDate = tomorrow;
-                
                 displayHotels(allHotels);
                 checkUserSession();
 
-                // التحقق إذا العميل عاد من صفحة الدفع (Stripe)
                 const urlParams = new URLSearchParams(window.location.search);
                 if(urlParams.get('payment') === 'success') {
                     alert('✅ تم الدفع بنجاح! تم تأكيد حجزك وإرسال الإيصال لبريدك.');
@@ -357,6 +343,7 @@
             window.scrollTo(0, 0);
         }
 
+        // إعدادات الحساب والمستخدم
         function checkUserSession() {
             const btn = document.getElementById('regBtnText');
             const dashboard = document.getElementById('userDashboard');
@@ -383,6 +370,7 @@
             document.getElementById('registerContainer').style.display = tab === 'register' ? 'block' : 'none';
         }
 
+        // الاتصال بالسيرفر للحسابات
         async function handleDirectLogin(e) {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
@@ -404,10 +392,10 @@
 
         async function requestVerificationCode(e) {
             e.preventDefault();
-            tempName = document.getElementById('modalName').value;
-            tempEmail = document.getElementById('modalEmail').value;
-            tempPassword = document.getElementById('modalPassword').value;
-            tempPhone = document.getElementById('modalPhone').value;
+            let tempName = document.getElementById('modalName').value;
+            let tempEmail = document.getElementById('modalEmail').value;
+            let tempPassword = document.getElementById('modalPassword').value;
+            let tempPhone = document.getElementById('modalPhone').value;
             document.getElementById('loadingOverlay').style.display = 'flex';
             try {
                 const res = await fetch('/api/auth/register-send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: tempEmail, name: tempName, password: tempPassword, phone: tempPhone }) });
@@ -423,6 +411,7 @@
         async function verifyCodeAndRegister(e) {
             e.preventDefault();
             const code = document.getElementById('verificationCodeInput').value;
+            let tempEmail = document.getElementById('modalEmail').value;
             document.getElementById('loadingOverlay').style.display = 'flex';
             try {
                 const res = await fetch('/api/auth/verify-and-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: tempEmail, code }) });
@@ -480,17 +469,18 @@
         }
 
         async function cancelBookingByClient(bookingReference) {
-            if (!confirm(`هل أنت متأكد من الإلغاء؟ سيتم معالجة الرسوم حسب سياسة الفندق الموضحة أعلاه.`)) return;
+            if (!confirm(`هل أنت متأكد من إلغاء الحجز؟ سيتم تطبيق سياسة الفندق.`)) return;
             try {
                 const res = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference, email: currentUser.email }) });
                 const data = await res.json();
                 if (data.success) { alert('✅ ' + data.message); fetchUserData(currentUser.email); } 
                 else { alert('❌ ' + data.error); }
-            } catch (e) { alert('خطأ في الاتصال بالخادم.'); }
+            } catch (e) { alert('خطأ في الاتصال بالخادم. يرجى التأكد من تحديث ملف server.js على Render'); }
         }
 
         function logoutUser() { localStorage.removeItem('rimal_current_user'); currentUser = null; checkUserSession(); switchView('mainView'); }
 
+        // عرض وبحث الفنادق
         function getCalculatedNights() {
             const checkInInput = document.getElementById('checkInDate');
             const checkOutInput = document.getElementById('checkOutDate');
@@ -517,6 +507,8 @@
 
                 hotelsArray.forEach(hotel => {
                     let totalPrice = hotel.priceAED * nights;
+                    let mapUri = "https://maps.google.com/?q=" + encodeURIComponent(hotel.name + " " + hotel.city);
+                    
                     container.innerHTML += `
                         <div class="hotel-card">
                             <div class="earn-ribbon">كاش +${hotel.basePoints * 2 * nights}</div>
@@ -531,7 +523,7 @@
                             </div>
                             <div class="hotel-pricing">
                                 <div class="hotel-price-display">${totalPrice} AED</div>
-                                <button class="btn-book" onclick="goToBooking('${hotel.name}', ${hotel.basePoints * nights}, ${totalPrice}, '${hotel.policyType}', '${hotel.policyText}')">احجز الآن 🚀</button>
+                                <button class="btn-book" onclick="goToBooking('${hotel.name}', ${hotel.basePoints * nights}, ${totalPrice}, '${hotel.policyType}', '${hotel.policyText}', '${hotel.address}', '${hotel.phone}', '${mapUri}')">احجز الآن 🚀</button>
                             </div>
                         </div>
                     `;
@@ -551,11 +543,14 @@
             displayHotels(filtered);
         }
 
-        function goToBooking(hotelName, calculatedPoints, priceAED, policyType, policyText) {
+        function goToBooking(hotelName, calculatedPoints, priceAED, policyType, policyText, address, phone, mapLink) {
             selectedHotel = hotelName;
             currentTotalPriceAED = priceAED;
             activePolicyType = policyType;
             activePolicyText = policyText;
+            hotelAddr = address;
+            hotelPh = phone;
+            hotelMap = mapLink;
 
             document.getElementById('hotelNameTitle').innerText = 'تأكيد الحجز في: ' + hotelName;
             document.getElementById('policyDetailsText').innerText = policyText;
@@ -568,34 +563,44 @@
             document.querySelectorAll('.pay-option').forEach(el => el.classList.remove('selected'));
             element.classList.add('selected');
             element.querySelector('input[type="radio"]').checked = true;
+            const cardBox = document.getElementById('cardDetailsContainer');
+            if(method !== 'hotel') { cardBox.style.display = 'block'; } else { cardBox.style.display = 'none'; }
         }
 
-        // دالة الحفظ وإرسال العميل للدفع بشكل تسلسلي سليم
         async function confirmReservation(e) {
             e.preventDefault();
             const name = document.getElementById('custName').value;
             const email = document.getElementById('custEmail').value;
             const phone = document.getElementById('custPhone').value;
             const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
-            
             const btn = document.getElementById('btnFinalBook');
-            btn.innerText = "جاري الحفظ والمعالجة... ⏳";
+            btn.innerText = "جاري الحفظ وإرسال الفاوتشر... ⏳";
             btn.disabled = true;
 
             try {
-                // 1. تسجيل الحجز وإرسال الإيميل (سيرفر)
+                // حفظ الحجز في السيرفر وإرسال Voucher الايميل
                 const response = await fetch('/api/bookings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hotelName: selectedHotel, customerName: name, email, phone, paymentMethod, price: currentTotalPriceAED, policyType: activePolicyType, policyText: activePolicyText })
+                    body: JSON.stringify({ 
+                        hotelName: selectedHotel, 
+                        customerName: name, 
+                        email, 
+                        phone, 
+                        paymentMethod, 
+                        price: currentTotalPriceAED, 
+                        policyType: activePolicyType, 
+                        policyText: activePolicyText,
+                        hotelAddress: hotelAddr,
+                        hotelPhone: hotelPh,
+                        hotelMapLink: hotelMap
+                    })
                 });
                 const data = await response.json();
                 
-                if (!response.ok || !data.success) {
-                    throw new Error(data.error);
-                }
+                if (!response.ok || !data.success) { throw new Error(data.error); }
 
-                // 2. إذا الدفع ببطاقة -> الانتقال لبوابة Stripe
+                // لو الدفع إلكتروني ننتقل لـ Stripe
                 if (paymentMethod !== 'hotel') {
                     const stripeResponse = await fetch('/api/create-checkout-session', {
                         method: 'POST',
@@ -606,18 +611,18 @@
                     if (sessionData.id) {
                         const stripe = Stripe('pk_live_51U9NrKFFbuBDqv4zlRHUyXm2a5tHK7DS1hqOMM281EgNbsPRNhiLlAuo095nO2h5hMF8Z5gGBtni19vHmPBqtG4P0030yie2sz');
                         await stripe.redirectToCheckout({ sessionId: sessionData.id });
-                        return; // يتوقف الكود ليتم النقل لبوابة الدفع
+                        return;
                     }
                 }
 
-                // 3. إذا الدفع بالاستقبال -> يظهر التأكيد
-                alert(`✅ تم الحجز بنجاح وتم إرسال تأكيد للإيميل!\nالمرجع: ${data.bookingReference}`);
+                // لو الدفع في الاستقبال ننهي العملية هنا
+                alert(`✅ تم الحجز بنجاح! راجع إيميلك بتلاقي الـ Voucher وصلك.\nالمرجع: ${data.bookingReference}`);
                 document.getElementById('bookingForm').reset();
                 switchView('registerView');
                 if(currentUser) fetchUserData(currentUser.email);
 
-            } catch (error) {
-                alert(`❌ عذراً لم يتم إتمام الحجز: ${error.message}`);
+            } catch (error) { 
+                alert(`❌ لم يتم إتمام الحجز: ${error.message}`); 
             } finally {
                 btn.innerText = "تثبيت الحجز وإصدار الفاتورة 🔒";
                 btn.disabled = false;
