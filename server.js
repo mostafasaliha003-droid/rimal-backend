@@ -68,7 +68,6 @@ const transporter = nodemailer.createTransport({
     auth: { user: 'management@remaltourismllc.com', pass: 'dkvnseslexedcefd' }
 });
 
-// مصادقة وتسجيل العملاء
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
         const email = (req.body.email || '').toLowerCase().trim();
@@ -133,7 +132,6 @@ app.get('/api/user/profile', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// الحجوزات، خصم النقاط، وإرسال WhatsApp الآلي
 app.post('/api/bookings', async (req, res) => {
     try {
         let { hotelName, customerName, email, phone, companions, paymentMethod, price, pointsUsed } = req.body;
@@ -145,7 +143,7 @@ app.post('/api/bookings', async (req, res) => {
 
         if (user && pointsUsed && pointsUsed > 0) {
             if (user.points >= pointsUsed) {
-                let discountAmount = pointsUsed / 10; // كل 10 نقاط = 1 درهم
+                let discountAmount = pointsUsed / 10;
                 finalPrice = Math.max(0, price - discountAmount);
                 user.points -= pointsUsed;
             }
@@ -165,7 +163,6 @@ app.post('/api/bookings', async (req, res) => {
             await user.save();
         }
 
-        // توليد الـ PDF وإرسال البريد
         const doc = new PDFDocument();
         let buffers = [];
         doc.on('data', chunk => buffers.push(chunk));
@@ -185,14 +182,12 @@ app.post('/api/bookings', async (req, res) => {
         doc.text(`المرجع: ${bookingReference} | الفندق: ${hotelName} | المبلغ: ${finalPrice} AED`);
         doc.end();
 
-        // محاكاة إرسال رسالة WhatsApp الآلية الفورية
-        console.log(`📱 WhatsApp API sent to ${phone}: أهلاً ${customerName}! تم تأكيد حجزك ${hotelName} برقم مرجع ${bookingReference}. شكراً لاختيارك الرمال الدولية 🌴`);
+        console.log(`📱 WhatsApp API sent to ${phone}: أهلاً ${customerName}! تم تأكيد حجزك ${hotelName} برقم مرجع ${bookingReference}.`);
 
         res.status(201).json({ success: true, message: 'تم تثبيت الحجز بنجاح', bookingReference, finalPrice, updatedPoints: user ? user.points : 500 });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// مسارات الأدمن (Admin Dashboard APIs)
 app.get('/api/admin/bookings', async (req, res) => {
     try {
         const bookings = await Booking.find().sort({ createdAt: -1 });
@@ -202,7 +197,7 @@ app.get('/api/admin/bookings', async (req, res) => {
 
 app.post('/api/admin/bookings/refund-cancel', async (req, res) => {
     try {
-        const { bookingReference, refundType } = req.body; // refundType: 'full', 'partial', 'none'
+        const { bookingReference, refundType } = req.body;
         const booking = await Booking.findOne({ bookingReference });
         if(!booking) return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
 
@@ -210,12 +205,11 @@ app.post('/api/admin/bookings/refund-cancel', async (req, res) => {
         booking.refundType = refundType;
         await booking.save();
 
-        let refundMsg = refundType === 'full' ? 'استرداد كامل المبلغ على نفس الكرت' : refundType === 'partial' ? 'استرداد جزئي مع خصم رسوم' : 'إلغاء بدون استرداد';
-        res.json({ success: true, message: `تم إلغاء الحجز بنجاح (${refundMsg}) واسترداد الأموال للبطاقة.` });
+        let refundMsg = refundType === 'full' ? 'استرداد كامل المبلغ على نفس الكارت' : 'إلغاء بدون استرداد';
+        res.json({ success: true, message: `تم إلغاء الحجز بنجاح (${refundMsg}) وإرسال طلب الاسترداد للبنك.` });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
-// مسارات التقييمات (Reviews APIs)
 app.get('/api/reviews', async (req, res) => {
     try {
         const hotelName = req.query.hotelName;
@@ -246,6 +240,10 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.fontSize(14).text(`المرجع: ${booking.bookingReference}\nالعميل: ${booking.customerName}\nالفندق: ${booking.hotelName}\nالمبلغ: ${booking.price} AED\nالحالة: مؤكد ✅`);
         doc.end();
     } catch (e) { res.status(500).send('خطأ في الـ PDF'); }
+});
+
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
 });
 
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
