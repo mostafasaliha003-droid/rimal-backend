@@ -78,7 +78,6 @@
         .pay-option:hover { border-color: var(--accent-cyan); background: rgba(0, 180, 216, 0.05); }
         .pay-option.selected { border-color: var(--accent-coral); background: rgba(255, 89, 94, 0.1); color: var(--accent-coral); }
         .card-gateway-box { background: #f8fafc; border: 2px solid #cbd5e0; padding: 18px; border-radius: 16px; margin-bottom: 18px; }
-        /* Modal Window */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(31, 58, 64, 0.7); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 3000; }
         .modal-content { background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 480px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 4px solid var(--accent-yellow); text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); max-height: 90vh; overflow-y: auto; position: relative; }
         @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -89,6 +88,10 @@
         .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--accent-coral); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @media (max-width: 900px) { .search-container { grid-template-columns: 1fr; width: 95%; } .layout-wrapper { flex-direction: column; } .filters-sidebar { width: 100%; position: static; } .hotel-card { flex-direction: column; } .hotel-pricing { border: none; padding: 0; } .payment-methods { grid-template-columns: repeat(2, 1fr); } }
+
+        /* ستايل الأزرار الإضافية للفاوتشر */
+        .action-btn { flex: 1; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; font-family: 'Cairo'; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 5px; }
+        .action-btn:hover { opacity: 0.85; transform: translateY(-2px); }
     </style>
 </head>
 <body>
@@ -261,7 +264,7 @@
         <div class="container" style="max-width: 800px;">
             <div class="booking-box">
                 <div id="hotelPolicyWarningBox" style="background: #fffbeb; border: 2px dashed #f59e0b; padding: 15px; border-radius: 14px; margin-bottom: 20px;">
-                    <h4 style="color: #d97706; margin-bottom: 5px;"><i class="fa-solid fa-shield-halved"></i> سياسة الاسترداد والإلغاء:</h4>
+                    <h4 style="color: #d97706; margin-bottom: 5px;"><i class="fa-solid fa-shield-halved"></i> سياسة الاسترداد للإلغاء:</h4>
                     <p id="policyDetailsText" style="font-size: 14px; font-weight: 800; color: #78350f; line-height: 1.6;"></p>
                 </div>
                 <form id="bookingForm" onsubmit="confirmReservation(event)">
@@ -272,27 +275,12 @@
                     </div>
                     <div class="form-group"><label>طريقة الدفع:</label>
                         <div class="payment-methods">
-                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية</label>
+                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية (آمن)</label>
                             <label class="pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel"> 🏨 ادفع بالاستقبال</label>
                         </div>
                     </div>
                     <button type="submit" class="btn-book" id="btnFinalBook">تثبيت الحجز وإصدار الفاتورة 🔒</button>
                 </form>
-            </div>
-        </div>
-    </div>
-
-    <!-- الخريطة -->
-    <div id="mapView" class="view-section">
-        <section class="hero" style="padding: 40px 5%;">
-            <h1>خريطة الضياع الإماراتي 🗺️</h1>
-        </section>
-        <div class="container" style="max-width: 1000px;">
-            <div class="map-box">
-                <button class="nav-btn" onclick="switchView('mainView')" style="margin-bottom:15px;">رجوع للرئيسية 🔙</button>
-                <div style="width: 100%; height: 450px; border-radius: 15px; overflow: hidden; border: 3px solid var(--accent-cyan);">
-                    <iframe width="100%" height="100%" style="border:0;" loading="lazy" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d462562.8472534571!2d54.94729352608466!3d25.075011850125717!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e5f43496ad9c645%3A0xbde66e5084295162!2z2KfZhNmI2LHYqtimINin2YTZhdiq2K3Yr9ip!5e0!3m2!1sar!2sae!4v1650000000000!5m2!1sar!2sae"></iframe>
-                </div>
             </div>
         </div>
     </div>
@@ -303,16 +291,11 @@
         let activePolicyType = 'full', activePolicyText = '';
         let hotelAddr = '', hotelPh = '', hotelMap = '';
 
-        // تعريف الفنادق (تم إضافة العناوين وأرقام الهواتف لإرسالها في الفاوتشر)
         const allHotels = [
-            { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", address: "شارع بني ياس، ديرة، دبي", phone: "+971 4 212 2222", priceAED: 890, basePoints: 350, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "ممنوع إدخال بطاطس حارة!" },
-            { name: "فندق أتلانتس النخلة، دبي", city: "دبي", address: "نخلة جميرا، دبي", phone: "+971 4 426 2000", priceAED: 2202, basePoints: 600, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "سمكة الشيمو ممنوعة!" },
-            { name: "هيلتون دبي نخلة جميرا (Hilton)", city: "دبي", address: "نخلة جميرا، الغرب، دبي", phone: "+971 4 230 0000", priceAED: 1250, basePoints: 400, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ممنوع الصراخ على البحر!" },
-            { name: "شيراتون مجمع خور دبي", city: "دبي", address: "شارع بني ياس، دبي", phone: "+971 4 228 1111", priceAED: 980, basePoints: 320, img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "الكاسات الزجاجية أثرية!" },
-            { name: "ماريوت ماركيز دبي", city: "دبي", address: "الخليج التجاري، دبي", phone: "+971 4 414 0000", priceAED: 1400, basePoints: 450, img: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "ممنوع تطل بمكبر صوت!" },
-            { name: "برج العرب جميرا، دبي", city: "دبي", address: "شارع جميرا، أم سقيم 3، دبي", phone: "+971 4 301 7777", priceAED: 5505, basePoints: 1500, img: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ندفع بالذهب الخالص فقط!" },
-            { name: "قصر الإمارات، أبوظبي", city: "أبوظبي", address: "طريق الكورنيش، أبوظبي", phone: "+971 2 690 9000", priceAED: 1651, basePoints: 450, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "الذهب حقيقي، لا تشتكي!" },
-            { name: "شيراتون الشارقة", city: "الشارقة", address: "شارع المنتزه، الشارقة", phone: "+971 6 563 0000", priceAED: 950, basePoints: 300, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "الهدوء إجباري جداً!" }
+            { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", address: "شارع بني ياس، ديرة، دبي", phone: "+971 4 212 2222", priceAED: 890, basePoints: 350, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء المبكر.", funnyPolicy: "ممنوع إدخال بطاطس حارة!" },
+            { name: "فندق أتلانتس النخلة، دبي", city: "دبي", address: "نخلة جميرا، دبي", phone: "+971 4 426 2000", priceAED: 2202, basePoints: 600, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة الغرامة: خصم 20% عند الإلغاء.", funnyPolicy: "سمكة الشيمو ممنوعة!" },
+            { name: "هيلتون دبي نخلة جميرا", city: "دبي", address: "نخلة جميرا، الغرب، دبي", phone: "+971 4 230 0000", priceAED: 1250, basePoints: 400, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ممنوع الصراخ على البحر!" },
+            { name: "شيراتون مجمع خور دبي", city: "دبي", address: "شارع بني ياس، دبي", phone: "+971 4 228 1111", priceAED: 980, basePoints: 320, img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100%.", funnyPolicy: "الكاسات الزجاجية أثرية!" }
         ];
 
         window.onload = function() {
@@ -343,7 +326,6 @@
             window.scrollTo(0, 0);
         }
 
-        // إعدادات الحساب والمستخدم
         function checkUserSession() {
             const btn = document.getElementById('regBtnText');
             const dashboard = document.getElementById('userDashboard');
@@ -370,7 +352,6 @@
             document.getElementById('registerContainer').style.display = tab === 'register' ? 'block' : 'none';
         }
 
-        // الاتصال بالسيرفر للحسابات
         async function handleDirectLogin(e) {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
@@ -428,9 +409,7 @@
             } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ'); }
         }
 
-        function refreshDashboard() {
-            if(currentUser) fetchUserData(currentUser.email);
-        }
+        function refreshDashboard() { if(currentUser) fetchUserData(currentUser.email); }
 
         async function fetchUserData(email) {
             try {
@@ -447,19 +426,28 @@
                         bookingsContainer.innerHTML = `<div style="padding:15px; text-align:center;">ليس لديك حجوزات حالياً.</div>`;
                     } else {
                         data.bookings.forEach(b => {
+                            // إضافة الأزرار الثلاثة الجديدة للفاوتشر
                             bookingsContainer.innerHTML += `
-                                <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; flex-direction: column; gap: 10px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
+                                <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
                                         <div>
                                             <strong style="font-size: 16px; color: var(--primary);">${b.hotelName}</strong><br>
-                                            <small style="color:var(--text-muted);">المرجع: <strong style="color:var(--accent-coral);">${b.bookingReference}</strong> | المبلغ: <strong>${b.price} AED</strong></small>
+                                            <small style="color:var(--text-muted); font-size: 13px;">المرجع: <strong style="color:var(--accent-coral);">${b.bookingReference}</strong> | المبلغ: <strong>${b.price} AED</strong></small>
                                         </div>
                                         <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold; font-size: 12px;">مؤكد ✅</span>
                                     </div>
                                     <div style="background: #fffbeb; border: 1px dashed #f59e0b; padding: 10px; border-radius: 10px; font-size: 12px; color: #78350f;">
-                                        <strong>سياسة الإلغاء:</strong> ${b.policyText || 'استرداد كامل'}
+                                        <strong><i class="fa-solid fa-file-contract"></i> سياسة الإلغاء:</strong> ${b.policyText || 'لا يوجد'}
                                     </div>
-                                    <button onclick="cancelBookingByClient('${b.bookingReference}')" style="background:#d90429; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; font-family:'Cairo';">إلغاء الحجز واسترداد الرسوم ❌</button>
+                                    
+                                    <!-- أزرار الفاوتشر الجديدة -->
+                                    <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
+                                        <button onclick="downloadVoucher('${b.bookingReference}', '${b.hotelName}', '${b.price}', '${b.paymentMethod}', '${b.policyText}')" class="action-btn" style="background: #0284c7;"><i class="fa-solid fa-download"></i> تحميل فاوتشر</button>
+                                        <button onclick="resendVoucherEmail('${b.bookingReference}')" class="action-btn" style="background: #7c3aed;"><i class="fa-solid fa-envelope"></i> للإيميل</button>
+                                        <button onclick="sendVoucherWhatsApp('${b.bookingReference}', '${b.hotelName}', '${b.price}')" class="action-btn" style="background: #16a34a;"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+                                    </div>
+
+                                    <button onclick="cancelBookingByClient('${b.bookingReference}')" style="background:#d90429; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; font-family:'Cairo'; font-size:13px; width: 100%; transition: 0.3s; margin-top: 5px;">إلغاء الحجز واسترداد الرسوم ❌</button>
                                 </div>
                             `;
                         });
@@ -468,8 +456,74 @@
             } catch (e) { console.error(e); }
         }
 
+        // دالة تنزيل الفاوتشر كملف HTML للطباعة
+        function downloadVoucher(ref, hotel, price, method, policy) {
+            const payStatus = method === 'hotel' ? 'الدفع عند الوصول' : 'مدفوع إلكترونياً (Stripe)';
+            const htmlContent = `
+            <html dir="rtl" lang="ar">
+            <head>
+                <meta charset="UTF-8">
+                <title>Voucher - ${ref}</title>
+                <style>
+                    body { font-family: Tahoma, Arial, sans-serif; padding: 40px; background: #f8f9fa; }
+                    .voucher { max-width: 600px; margin: 0 auto; background: white; padding: 30px; border-radius: 15px; border: 3px dashed #00b4d8; text-align: right; box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+                    h1 { color: #d90429; text-align: center; }
+                    .info { background: #f1f5f9; padding: 15px; border-radius: 10px; margin-bottom: 20px; line-height: 1.6; }
+                </style>
+            </head>
+            <body onload="window.print()">
+                <div class="voucher">
+                    <h1>شركة الرمال الدولية 🐪✈️</h1>
+                    <h2 style="text-align: center; color: #0077b6;">تأكيد الحجز (Voucher)</h2>
+                    <div class="info">
+                        <p><strong>اسم العميل:</strong> ${currentUser.name}</p>
+                        <p><strong>رقم المرجع:</strong> <span style="color:#d90429; font-weight:bold;">${ref}</span></p>
+                        <p><strong>الفندق:</strong> ${hotel}</p>
+                        <p><strong>إجمالي السعر:</strong> ${price} AED</p>
+                        <p><strong>حالة الدفع:</strong> ${payStatus}</p>
+                    </div>
+                    <div class="info" style="background: #fffbeb; border: 1px dashed #f59e0b;">
+                        <p><strong>سياسة الإلغاء المطبقة:</strong> ${policy || 'لا يوجد'}</p>
+                    </div>
+                    <p style="text-align: center; font-size: 12px; color: #64748b;">رحلة سعيدة! - شركة الرمال الدولية</p>
+                </div>
+            </body>
+            </html>
+            `;
+            const blob = new Blob([htmlContent], { type: 'text/html' });
+            const url = URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `Voucher_${ref}.html`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        }
+
+        // دالة طلب إعادة الإرسال للإيميل
+        async function resendVoucherEmail(ref) {
+            try {
+                alert("جاري إعادة إرسال الفاوتشر إلى بريدك... ⏳");
+                const res = await fetch('/api/bookings/resend-voucher', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookingReference: ref, email: currentUser.email })
+                });
+                const data = await res.json();
+                if (data.success) { alert('✅ ' + data.message); } else { alert('❌ ' + data.error); }
+            } catch (e) { alert('خطأ في الاتصال بالخادم.'); }
+        }
+
+        // دالة إرسال الفاوتشر للواتساب
+        function sendVoucherWhatsApp(ref, hotel, price) {
+            const text = `أهلاً! هذا فاوتشر حجزي من شركة الرمال الدولية 🐪✈️\n\n🏨 الفندق: ${hotel}\n🔖 المرجع: ${ref}\n💰 إجمالي السعر: ${price} AED\n\nشكراً لكم! 🤪`;
+            const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
+            window.open(url, '_blank');
+        }
+
         async function cancelBookingByClient(bookingReference) {
-            if (!confirm(`هل أنت متأكد من إلغاء الحجز؟ سيتم تطبيق سياسة الفندق.`)) return;
+            if (!confirm(`هل أنت متأكد من الإلغاء؟ سيتم معالجة الرسوم حسب سياسة الفندق الموضحة أعلاه.`)) return;
             try {
                 const res = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference, email: currentUser.email }) });
                 const data = await res.json();
@@ -480,7 +534,6 @@
 
         function logoutUser() { localStorage.removeItem('rimal_current_user'); currentUser = null; checkUserSession(); switchView('mainView'); }
 
-        // عرض وبحث الفنادق
         function getCalculatedNights() {
             const checkInInput = document.getElementById('checkInDate');
             const checkOutInput = document.getElementById('checkOutDate');
@@ -578,7 +631,6 @@
             btn.disabled = true;
 
             try {
-                // حفظ الحجز في السيرفر وإرسال Voucher الايميل
                 const response = await fetch('/api/bookings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -600,7 +652,6 @@
                 
                 if (!response.ok || !data.success) { throw new Error(data.error); }
 
-                // لو الدفع إلكتروني ننتقل لـ Stripe
                 if (paymentMethod !== 'hotel') {
                     const stripeResponse = await fetch('/api/create-checkout-session', {
                         method: 'POST',
@@ -615,7 +666,6 @@
                     }
                 }
 
-                // لو الدفع في الاستقبال ننهي العملية هنا
                 alert(`✅ تم الحجز بنجاح! راجع إيميلك بتلاقي الـ Voucher وصلك.\nالمرجع: ${data.bookingReference}`);
                 document.getElementById('bookingForm').reset();
                 switchView('registerView');
