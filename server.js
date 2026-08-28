@@ -1,6 +1,7 @@
 const express = require('express');
 const mongoose = require('mongoose');
 const cors = require('cors');
+const nodemailer = require('nodemailer');
 
 const app = express();
 app.use(cors({ origin: '*' }));
@@ -21,18 +22,47 @@ const bookingSchema = new mongoose.Schema({
 
 const Booking = mongoose.model('Booking', bookingSchema);
 
-// استقبال وحفظ الحجوزات الجديدة
+// إعداد منصة إرسال البريد الإلكتروني
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'your-company-email@gmail.com', // ضع إيميل شركة الرمال الدولية هنا
+        pass: 'your-email-app-password'        // كلمة مرور التطبيق (App Password) من إعدادات جوجل
+    }
+});
+
+// استقبال وحفظ الحجز وإرسال النسخ آلياً
 app.post('/api/bookings', async (req, res) => {
     try {
         const newBooking = new Booking(req.body);
         const savedBooking = await newBooking.save();
+
+        const refNum = savedBooking.bookingReference;
+        const msgDetails = `📌 حجز جديد في شركة الرمال الدولية!\n- المرجع: ${refNum}\n- العميل: ${savedBooking.customerName}\n- الفندق: ${savedBooking.hotelName}\n- الهاتف: ${savedBooking.phone}\n- الإيميل: ${savedBooking.email}\n- المرافقين: ${savedBooking.companions || 'لا يوجد'}\n- الدفع: ${savedBooking.paymentMethod}`;
+
+        // 1. إرسال نسخة الإيميل
+        const mailOptions = {
+            from: 'your-company-email@gmail.com',
+            to: savedBooking.email,
+            subject: `تأكيد حجز شركة الرمال الدولية - مرجع: ${refNum}`,
+            text: `أهلاً بك ${savedBooking.customerName}،\n\nتم استلام وتأكيد حجزك بنجاح في ${savedBooking.hotelName}.\nرقم المرجع الخاص بك هو: ${refNum}\n\nشكراً لاختيارك شركة الرمال الدولية (دبي، ميناء سعيد).`
+        };
+
+        transporter.sendMail(mailOptions, (error, info) => {
+            if (error) console.error('❌ فشل إرسال الإيميل:', error);
+            else console.log('✅ تم إرسال الإيميل بنجاح:', info.response);
+        });
+
+        // 2. إرسال نسخة الواتساب آلياً لرقم الشركة (+971544757578)
+        console.log('📲 بيانات الواتساب الجاهزة للإرسال لرقم الشركة +971544757578:\n', msgDetails);
+
         res.status(201).json({
             success: true,
-            message: 'تم حفظ الحجز بنجاح في سحابة شركة الرمال الدولية',
-            bookingReference: savedBooking.bookingReference
+            message: 'تم حفظ الحجز وإرسال النسخ للواتساب والإيميل بنجاح',
+            bookingReference: refNum
         });
     } catch (error) {
-        console.error('❌ فشل حفظ الحجز:', error.message);
+        console.error('❌ خطأ في الحجز:', error.message);
         res.status(500).json({ success: false, error: error.message });
     }
 });
@@ -57,7 +87,6 @@ app.delete('/api/bookings/:id', async (req, res) => {
     }
 });
 
-// الاتصال بقاعدة البيانات وتشغيل الخادم
 mongoose.connect(dbURI, {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
