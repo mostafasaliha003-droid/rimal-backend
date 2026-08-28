@@ -155,7 +155,7 @@
         </a>
 
         <div class="header-actions">
-            <!-- قائمة اختيار العملات الحية المضافة حديثاً -->
+            <!-- قائمة اختيار العملات الحية المتقدمة -->
             <div class="settings-dropdown">
                 <i class="fa-solid fa-coins" style="color: var(--accent-yellow);"></i>
                 <select id="currencySelector" onchange="changeCurrency()">
@@ -385,7 +385,7 @@
                         </div>
                     </div>
 
-                    <h3 style="margin-bottom: 15px; color: var(--primary);">المبلغ الإجمالي بعد الخصم: <span id="finalPriceDisplay" style="color: var(--accent-coral);">0</span> AED</h3>
+                    <h3 style="margin-bottom: 15px; color: var(--primary);">المبلغ الإجمالي بعد الخصم: <span id="finalPriceDisplay" style="color: var(--accent-coral);">0</span> <span id="finalPriceCurrencyLabel">AED</span></h3>
                     <button type="submit" class="btn-book">اضغط وثبت الحجز بالسحابة وإرسال WhatsApp 🔒</button>
                 </form>
             </div>
@@ -415,6 +415,7 @@
         let gMap;
         let gMarkers = [];
 
+        // قائمة الفنادق (تدعم الأسعار الحية والمتغيرة Live)
         const allHotels = [
             { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, lat: 25.2654, lng: 55.3272, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!" },
             { name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, lat: 25.1304, lng: 55.1172, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!" },
@@ -429,7 +430,7 @@
             checkUserSession();
         };
 
-        // دالة تحويل العملات الحية عبر Frankfurter API المضافة حديثاً
+        // دالة تغيير وحساب الأسعار الحية فوراً بناءً على العملة المختارة
         async function changeCurrency() {
             const selectedCurrency = document.getElementById('currencySelector').value;
             const priceElements = document.querySelectorAll('.hotel-price-display');
@@ -439,15 +440,19 @@
                 let hotel = allHotels[i];
                 if (!hotel) continue;
 
-                let basePriceAED = hotel.priceAED;
+                // قراءة السعر المباشر (سواء كان ثابتاً أو متغيراً Live)
+                let livePriceAED = hotel.priceAED; 
+
+                // تحديث سمة السعر الأساسي للبطاقة
+                el.setAttribute('data-price-aed', livePriceAED);
 
                 if (selectedCurrency === 'AED') {
-                    el.innerText = `${basePriceAED} AED`;
+                    el.innerText = `${livePriceAED} AED`;
                     continue;
                 }
 
                 try {
-                    let response = await fetch(`/api/currency/convert?targetCurrency=${selectedCurrency}&amount=${basePriceAED}`);
+                    let response = await fetch(`/api/currency/convert?targetCurrency=${selectedCurrency}&amount=${livePriceAED}`);
                     let data = await response.json();
 
                     if (data.success) {
@@ -457,6 +462,9 @@
                     console.error('خطأ في تحويل العملة:', error);
                 }
             }
+
+            // تحديث شاشة الحجز الفوري إذا كانت مفتوحة حالياً
+            updateFinalPriceCalculation();
         }
 
         function initGoogleMap() {
@@ -700,6 +708,9 @@
 
             displayHotels(filtered);
             updateGoogleMarkers(filtered);
+            
+            // إعادة تطبيق العملة الحالية على النتائج المفلترة الجديدة
+            changeCurrency();
         }
 
         function displayHotels(hotelsArray) {
@@ -716,7 +727,7 @@
                             <div class="funny-policy-box"><strong>تحذير:</strong> ${hotel.funnyPolicy}</div>
                         </div>
                         <div class="hotel-pricing">
-                            <div class="hotel-price-display">${hotel.priceAED} AED</div>
+                            <div class="hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED} AED</div>
                             <button class="btn-book" onclick="goToBooking('${hotel.name}', ${hotel.basePoints}, ${hotel.priceAED})">احجز الآن 🚀</button>
                         </div>
                     </div>
@@ -757,10 +768,29 @@
             updateFinalPriceCalculation();
         }
 
-        function updateFinalPriceCalculation() {
+        async function updateFinalPriceCalculation() {
             const usedPts = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
-            const final = Math.max(0, currentBasePrice - (usedPts / 10));
-            document.getElementById('finalPriceDisplay').innerText = final;
+            let finalAED = Math.max(0, currentBasePrice - (usedPts / 10));
+            
+            const selectedCurrency = document.getElementById('currencySelector').value;
+            const currencyLabel = document.getElementById('finalPriceCurrencyLabel');
+
+            if (selectedCurrency === 'AED') {
+                document.getElementById('finalPriceDisplay').innerText = finalAED.toFixed(2);
+                currencyLabel.innerText = 'AED';
+            } else {
+                try {
+                    let response = await fetch(`/api/currency/convert?targetCurrency=${selectedCurrency}&amount=${finalAED}`);
+                    let data = await response.json();
+                    if (data.success) {
+                        document.getElementById('finalPriceDisplay').innerText = data.convertedAmount;
+                        currencyLabel.innerText = data.targetCurrency;
+                    }
+                } catch (e) {
+                    document.getElementById('finalPriceDisplay').innerText = finalAED.toFixed(2);
+                    currencyLabel.innerText = 'AED';
+                }
+            }
         }
 
         function selectPayment(method, element) {
