@@ -4,6 +4,7 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
+// ⚠️ تذكير: إذا توقفت بوابة الدفع، قم بتغيير هذا المفتاح بمفتاح جديد من حسابك في Stripe
 const stripe = require('stripe')('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');
 
 const app = express();
@@ -25,6 +26,7 @@ function saveDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2))
 
 let verificationCodes = {};
 
+// ⚠️ تذكير: إذا توقف الإيميل عن الإرسال، قم بتغيير كلمة المرور (pass) بكلمة مرور تطبيق جديدة من إعدادات جوجل
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { user: 'management@remaltourismllc.com', pass: 'vqtiunlaehuugjwc' }
@@ -217,9 +219,9 @@ app.post('/api/bookings', async (req, res) => {
             <div style="background: #ffffff; padding: 15px; border-radius: 10px; border: 2px solid #e2e8f0; margin-bottom: 15px;">
                 <h3 style="margin-top: 0; color: #7209b7;">📌 تفاصيل الفندق</h3>
                 <p style="margin: 8px 0;"><strong>🏨 الفندق:</strong> ${hotelName}</p>
-                <p style="margin: 8px 0;"><strong>📍 العنوان:</strong> ${hotelAddress}</p>
-                <p style="margin: 8px 0;"><strong>📞 رقم الفندق:</strong> <a href="tel:${hotelPhone}" style="color: #d90429; text-decoration: none; font-weight: bold;">${hotelPhone}</a></p>
-                <p style="margin: 8px 0;"><strong>🗺️ الموقع:</strong> <a href="${hotelMapLink}" style="color: #00b4d8; font-weight: bold; text-decoration: none;">افتح خريطة جوجل من هنا 🚗</a></p>
+                <p style="margin: 8px 0;"><strong>📍 العنوان:</strong> ${hotelAddress || 'الإمارات'}</p>
+                <p style="margin: 8px 0;"><strong>📞 رقم الفندق:</strong> <a href="tel:${hotelPhone || ''}" style="color: #d90429; text-decoration: none; font-weight: bold;">${hotelPhone || 'غير متوفر'}</a></p>
+                <p style="margin: 8px 0;"><strong>🗺️ الموقع:</strong> <a href="${hotelMapLink || '#'}" style="color: #00b4d8; font-weight: bold; text-decoration: none;">افتح خريطة جوجل من هنا 🚗</a></p>
             </div>
             <div style="background: #ffffff; padding: 15px; border-radius: 10px; border: 2px solid #e2e8f0; margin-bottom: 15px;">
                 <h3 style="margin-top: 0; color: #7209b7;">💸 تفاصيل الفلوس</h3>
@@ -229,7 +231,7 @@ app.post('/api/bookings', async (req, res) => {
             </div>
             <div style="background: #fffbeb; border: 2px dashed #f59e0b; padding: 15px; border-radius: 10px; font-size: 14px; color: #78350f;">
                 <strong style="font-size: 15px;">⚠️ سياسة الإلغاء والاسترداد المطبقة على حجزك:</strong><br><br>
-                ${policyText}
+                ${policyText || 'لا يوجد سياسة محددة.'}
             </div>
         </div>`;
 
