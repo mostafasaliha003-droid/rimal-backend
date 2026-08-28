@@ -2,6 +2,7 @@ const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
+const fs = require('fs');
 const path = require('path');
 const stripe = require('stripe')('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');
 
@@ -10,8 +11,26 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-let usersMemory = [];
-let bookingsMemory = [];
+// نظام التخزين السحابي الدائم عبر ملف JSON
+const DB_FILE = path.join(__dirname, 'database.json');
+
+function loadDB() {
+    if (!fs.existsSync(DB_FILE)) {
+        const initialData = { users: [], bookings: [] };
+        fs.writeFileSync(DB_FILE, JSON.stringify(initialData, null, 2));
+    }
+    try {
+        const data = fs.readFileSync(DB_FILE, 'utf8');
+        return JSON.parse(data);
+    } catch (e) {
+        return { users: [], bookings: [] };
+    }
+}
+
+function saveDB(data) {
+    fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2));
+}
+
 let verificationCodes = {};
 
 const transporter = nodemailer.createTransport({
@@ -22,36 +41,37 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// 1. طلب إرسال كود التحقق وتخزين البيانات المؤقتة
-app.post('/api/auth/send-code', async (req, res) => {
+// 1. طلب تسجيل حساب جديد مع إرسال كود التحقق (OTP)
+app.post('/api/auth/register-send-code', async (req, res) => {
     try {
         const { email, name, password, nationality, birthYear } = req.body;
-        if (!email || !email.includes('@')) {
-            return res.status(400).json({ success: false, error: 'البريد الإلكتروني غير صالح' });
+        const db = loadDB();
+
+        if (db.users.find(u => u.email === email)) {
+            return res.status(400).json({ success: false, error: 'البريد الإلكتروني مسجل مسبقاً! يرجى تسجيل الدخول مباشرة.' });
         }
 
-        const safePassword = password || '123456'; // قيمة احتياطية لمنع خطأ undefined
-        const hashedPassword = bcrypt.hashSync(safePassword, 8);
+        const hashedPassword = bcrypt.hashSync(password || '123456', 8);
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         
         verificationCodes[email] = { 
             code, 
             name, 
             password: hashedPassword, 
-            nationality: nationality || 'غير محدد', 
-            birthYear: birthYear || '2000', 
+            nationality: nationality || 'إماراتي', 
+            birthYear: birthYear || '1990', 
             expires: Date.now() + 10 * 60 * 1000 
         };
 
         const mailOptions = {
             from: 'management@remaltourismllc.com',
             to: email,
-            subject: 'رمز التحقق الخاص بك - شركة الرمال الدولية ✈️',
+            subject: 'رمز التحقق لتسجيل حسابك - شركة الرمال الدولية ✈️',
             html: `
                 <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f7fff7; border: 2px solid #00b4d8; border-radius: 12px; text-align: center;">
                     <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية</h2>
-                    <p>أهلاً بك يا <strong>${name || 'صديقنا'}</strong>،</p>
-                    <p>كود التحقق الخاص بتفعيل حسابك واستلام التحديثات والحجوزات هو:</p>
+                    <p>أهلاً بك يا <strong>${name}</strong> في سحابتك الخاصة،</p>
+                    <p>كود التحقق الخاص بإنشاء حسابك وتفعيل حصالة الـ 500 نقطة هو:</p>
                     <div style="font-size: 32px; font-weight: 900; color: #d90429; background: #fff; padding: 15px; border-radius: 10px; display: inline-block; margin: 15px 0; border: 2px dashed #ffca3a;">
                         ${code}
                     </div>
@@ -67,8 +87,8 @@ app.post('/api/auth/send-code', async (req, res) => {
     }
 });
 
-// 2. التحقق من الكود وتفعيل الحساب بشكل دائم
-app.post('/api/auth/verify-code', (req, res) => {
+// 2. التحقق من الكود وحفظ المستخدم نهائياً في السحابة
+app.post('/api/auth/verify-and-register', (req, res) => {
     try {
         const { email, code } = req.body;
         const record = verificationCodes[email];
@@ -77,7 +97,9 @@ app.post('/api/auth/verify-code', (req, res) => {
             return res.status(400).json({ success: false, error: 'كود التحقق غير صحيح أو انتهت صلاحيته' });
         }
 
-        let user = usersMemory.find(u => u.email === email);
+        const db = loadDB();
+        let user = db.users.find(u => u.email === email);
+
         if (!user) {
             user = {
                 name: record.name,
@@ -85,13 +107,30 @@ app.post('/api/auth/verify-code', (req, res) => {
                 password: record.password,
                 nationality: record.nationality,
                 birthYear: record.birthYear,
-                points: 500, // عيدية ترحيبية
+                points: 500, // عيدية ترحيبية للسحابة
                 cards: []
             };
-            usersMemory.push(user);
+            db.users.push(user);
+            saveDB(db);
         }
 
         delete verificationCodes[email];
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, nationality: user.nationality, birthYear: user.birthYear } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 3. تسجيل الدخول المباشر للعملاء المسجلين مسبقاً (لحماية حجوزاتهم ونقاطهم)
+app.post('/api/auth/login', (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const db = loadDB();
+        const user = db.users.find(u => u.email === email);
+
+        if (!user || !bcrypt.compareSync(password, user.password)) {
+            return res.status(400).json({ success: false, error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة، أو أن الحساب غير مسجل!' });
+        }
 
         res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, nationality: user.nationality, birthYear: user.birthYear } });
     } catch (error) {
@@ -99,11 +138,13 @@ app.post('/api/auth/verify-code', (req, res) => {
     }
 });
 
+// 4. جلب ملف العميل وحجوزاته السحابية
 app.get('/api/user/profile', (req, res) => {
     try {
         const { email } = req.query;
-        const user = usersMemory.find(u => u.email === email);
-        const bookings = bookingsMemory.filter(b => b.email === email);
+        const db = loadDB();
+        const user = db.users.find(u => u.email === email);
+        const bookings = db.bookings.filter(b => b.email === email);
 
         if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
 
@@ -119,33 +160,50 @@ app.get('/api/user/profile', (req, res) => {
     }
 });
 
+// 5. حفظ الحجوزات وتحديث النقاط في السحابة الدائمة
 app.post('/api/bookings', async (req, res) => {
     try {
         const { hotelName, customerName, email, phone, companions, paymentMethod, price } = req.body;
+        const db = loadDB();
         const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
 
         const newBooking = {
             bookingReference, email, hotelName, customerName, phone, companions, paymentMethod, price, createdAt: new Date()
         };
-        bookingsMemory.push(newBooking);
+        db.bookings.push(newBooking);
 
-        let user = usersMemory.find(u => u.email === email);
+        let user = db.users.find(u => u.email === email);
         const earnedPoints = Math.round((price || 100) * 0.5);
-        if (user) { user.points += earnedPoints; }
+        if (user) { 
+            user.points += earnedPoints; 
+        } else {
+            // لو حجز كضيف يتم إنشاء سحابة تلقائية له
+            db.users.push({
+                name: customerName,
+                email,
+                password: bcrypt.hashSync('123456', 8),
+                nationality: 'إماراتي',
+                birthYear: '1990',
+                points: earnedPoints + 500,
+                cards: []
+            });
+        }
 
-        res.status(201).json({ success: true, message: 'تم تثبيت الحجز بنجاح', bookingReference });
+        saveDB(db);
+
+        res.status(201).json({ success: true, message: 'تم تثبيت الحجز وحفظه في سحابتك بنجاح', bookingReference });
 
         setImmediate(async () => {
             try {
                 const mailOptions = {
                     from: 'management@remaltourismllc.com',
                     to: `${email}, management@remaltourismllc.com`,
-                    subject: `تأكيد وفاتورة حجز شركة الرمال الدولية - مرجع: ${bookingReference}`,
+                    subject: `فاتورة وتأكيد حجز شركة الرمال الدولية - مرجع: ${bookingReference}`,
                     html: `
                         <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f7fff7; border: 2px solid #00b4d8; border-radius: 10px;">
-                            <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية - فاتورة الحجز والتأكيد</h2>
+                            <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية - سحابتك الرقمية</h2>
                             <p>أهلاً بك <strong>${customerName}</strong>،</p>
-                            <p>تم تأكيد حجزك وإصدار الفاتورة الرسمية بنجاح!</p>
+                            <p>تم حفظ حجزك في سحابتك الخاصة وإصدار الفاتورة الرسمية بنجاح!</p>
                             <hr style="border: 1px dashed #ccc;">
                             <ul style="list-style: none; padding: 0; line-height: 1.8; color: #333;">
                                 <li><strong>رقم المرجع (الفاتورة):</strong> <span style="color: #d90429; font-size: 18px;">${bookingReference}</span></li>
@@ -196,5 +254,5 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`🚀 الخادم جاهز على المنفذ ${PORT}`);
+    console.log(`🚀 الخادم السحابي جاهز على المنفذ ${PORT}`);
 });
