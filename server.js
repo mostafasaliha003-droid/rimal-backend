@@ -12,14 +12,15 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-// 🌐 رابط الاتصال الدائم بـ MongoDB Atlas المحدث خصيصاً لمشروعك
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:Rimal2026%40@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
 
-mongoose.connect(MONGO_URI)
+mongoose.connect(MONGO_URI, {
+    serverSelectionTimeoutMS: 5000,
+    socketTimeoutMS: 45000,
+})
   .then(() => console.log('✅ تم الاتصال بنجاح بقاعدة بيانات MongoDB Atlas الدائمة'))
   .catch(err => console.error('❌ خطأ في الاتصال بـ MongoDB:', err));
 
-// 📦 نماذج البيانات وقاعدة البيانات السحابية
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
@@ -52,7 +53,6 @@ const transporter = nodemailer.createTransport({
     auth: { user: 'management@remaltourismllc.com', pass: 'dkvnseslexedcefd' }
 });
 
-// مسارات المصادقة والتسجيل
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
         const email = (req.body.email || '').toLowerCase().trim();
@@ -138,7 +138,6 @@ app.get('/api/user/profile', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// مسار حفظ الحجوزات بالسحابة وإضافة النقاط للحصالة
 app.post('/api/bookings', async (req, res) => {
     try {
         let { hotelName, customerName, email, phone, companions, paymentMethod, price } = req.body;
@@ -150,7 +149,7 @@ app.post('/api/bookings', async (req, res) => {
 
         let user = await User.findOne({ email });
         if (user) {
-            user.points += Math.round((price || 100) * 0.2); // مكافأة نقاط عيدية
+            user.points += Math.round((price || 100) * 0.2);
             await user.save();
         }
 
