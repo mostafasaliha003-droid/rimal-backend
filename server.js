@@ -30,15 +30,16 @@ app.post('/api/auth/send-code', async (req, res) => {
             return res.status(400).json({ success: false, error: 'البريد الإلكتروني غير صالح' });
         }
 
-        const hashedPassword = bcrypt.hashSync(password, 8);
+        const safePassword = password || '123456'; // قيمة احتياطية لمنع خطأ undefined
+        const hashedPassword = bcrypt.hashSync(safePassword, 8);
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         
         verificationCodes[email] = { 
             code, 
             name, 
             password: hashedPassword, 
-            nationality, 
-            birthYear, 
+            nationality: nationality || 'غير محدد', 
+            birthYear: birthYear || '2000', 
             expires: Date.now() + 10 * 60 * 1000 
         };
 
@@ -49,7 +50,7 @@ app.post('/api/auth/send-code', async (req, res) => {
             html: `
                 <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f7fff7; border: 2px solid #00b4d8; border-radius: 12px; text-align: center;">
                     <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية</h2>
-                    <p>أهلاً بك يا <strong>${name}</strong>،</p>
+                    <p>أهلاً بك يا <strong>${name || 'صديقنا'}</strong>،</p>
                     <p>كود التحقق الخاص بتفعيل حسابك واستلام التحديثات والحجوزات هو:</p>
                     <div style="font-size: 32px; font-weight: 900; color: #d90429; background: #fff; padding: 15px; border-radius: 10px; display: inline-block; margin: 15px 0; border: 2px dashed #ffca3a;">
                         ${code}
@@ -91,22 +92,6 @@ app.post('/api/auth/verify-code', (req, res) => {
         }
 
         delete verificationCodes[email];
-
-        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, nationality: user.nationality, birthYear: user.birthYear } });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// 3. تسجيل الدخول المباشر بكلمة المرور (للمرات القادمة)
-app.post('/api/auth/login-password', (req, res) => {
-    try {
-        const { email, password } = req.body;
-        const user = usersMemory.find(u => u.email === email);
-
-        if (!user || !bcrypt.compareSync(password, user.password)) {
-            return res.status(400).json({ success: false, error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
-        }
 
         res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, nationality: user.nationality, birthYear: user.birthYear } });
     } catch (error) {
