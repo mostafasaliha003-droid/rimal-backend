@@ -21,16 +21,11 @@ const bookingSchema = new mongoose.Schema({
 
 const Booking = mongoose.model('Booking', bookingSchema);
 
+// استقبال وحفظ الحجوزات الجديدة
 app.post('/api/bookings', async (req, res) => {
     try {
-        // فحص حالة الاتصال الفعلية لحظة الإرسال
-        if (mongoose.connection.readyState !== 1) {
-            throw new Error(`انقطع الاتصال بالسحابة بسبب حظر الشبكة المحلية. حالة الاتصال الحالية: ${mongoose.connection.readyState}`);
-        }
-        
         const newBooking = new Booking(req.body);
-        const savedBooking = await newBooking.save({ maxTimeMS: 5000 }); // تقليل وقت الانتظار
-        
+        const savedBooking = await newBooking.save();
         res.status(201).json({
             success: true,
             message: 'تم حفظ الحجز بنجاح في سحابة شركة الرمال الدولية',
@@ -42,14 +37,35 @@ app.post('/api/bookings', async (req, res) => {
     }
 });
 
-// عدم تشغيل الخادم إلا بعد التأكد التام من استقرار الاتصال بقاعدة البيانات
+// استعراض جميع الحجوزات الواردة للوحة التحكم
+app.get('/api/bookings', async (req, res) => {
+    try {
+        const bookings = await Booking.find().sort({ createdAt: -1 });
+        res.status(200).json({ success: true, data: bookings });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// حذف حجز محدد من لوحة التحكم
+app.delete('/api/bookings/:id', async (req, res) => {
+    try {
+        await Booking.findByIdAndDelete(req.params.id);
+        res.status(200).json({ success: true, message: 'تم حذف الحجز بنجاح' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// الاتصال بقاعدة البيانات وتشغيل الخادم
 mongoose.connect(dbURI, {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
+    family: 4 
 })
 .then(() => {
     console.log('✅ تم الاتصال بقاعدة بيانات سحابة الرمال الدولية بنجاح وباستقرار تام!');
-    const PORT = 5000;
+    const PORT = process.env.PORT || 5000;
     app.listen(PORT, () => console.log(`🚀 الخادم جاهز الآن لاستقبال طلبات الحجز على المنفذ ${PORT}`));
 })
 .catch(err => {
