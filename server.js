@@ -1,18 +1,24 @@
 const express = require('express');
 const cors = require('cors');
-const sgMail = require('@sendgrid/mail');
+const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
-// تعيين مفتاح SendGrid API الفعلي لشركة الرمال الدولية
-sgMail.setApiKey('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');
-
 const app = express();
 app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
+
+// إعداد خدمة Nodemailer باستخدام بريد Gmail الحقيقي وكلمة مرور التطبيق (App Password)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'management@remaltourismllc.com', // ضع هنا بريدك الحقيقي
+        pass: 'xxxx xxxx xxxx xxxx'            // ضع هنا كلمة مرور التطبيق (App Password) المكونة من 16 حرفاً
+    }
+});
 
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:RimalBooking2026@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
 
@@ -64,34 +70,30 @@ const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
 
-// دالة إرسال البريد الاحترافي الموحدة عبر SendGrid API مع طباعة تفاصيل الخطأ بدقة
+// دالة إرسال البريد الموحدة عبر Nodemailer
 async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
-    const msg = {
+    const mailOptions = {
+        from: '"شركة الرمال الدولية ✈️" <management@remaltourismllc.com>',
         to: toEmail,
-        from: 'management@remaltourismllc.com', // البريد الموثق في SendGrid
         subject: subject,
         html: htmlContent,
     };
 
     if (attachmentBuffer && attachmentFilename) {
-        msg.attachments = [
+        mailOptions.attachments = [
             {
-                content: attachmentBuffer.toString('base64'),
                 filename: attachmentFilename,
-                type: 'application/pdf',
-                disposition: 'attachment'
+                content: attachmentBuffer,
+                contentType: 'application/pdf'
             }
         ];
     }
 
     try {
-        const response = await sgMail.send(msg);
-        console.log(`✅ تم إرسال البريد بنجاح عبر SendGrid API إلى: ${toEmail} | الرد:`, response[0].statusCode);
+        await transporter.sendMail(mailOptions);
+        console.log(`✅ تم إرسال البريد بنجاح عبر Nodemailer إلى: ${toEmail}`);
     } catch (error) {
-        console.error('❌ خطأ تفصيلي من SendGrid API:', error.message);
-        if (error.response) {
-            console.error('📋 تفاصيل رفض SendGrid:', JSON.stringify(error.response.body, null, 2));
-        }
+        console.error('❌ خطأ في إرسال البريد عبر Nodemailer:', error);
     }
 }
 
@@ -112,7 +114,7 @@ app.post('/api/auth/register-send-code', async (req, res) => {
             `<div dir="rtl" style="font-family:Cairo; padding:20px; text-align:center;"><h2>كود التحقق الخاص بك يا بطل:</h2><h1 style="color:#d90429; font-size:36px; letter-spacing:5px;">${code}</h1><p>صالح لمدة 10 دقائق.</p></div>`
         );
 
-        res.json({ success: true, message: 'تم إرسال كود التحقق عبر SendGrid!' });
+        res.json({ success: true, message: 'تم إرسال كود التحقق بنجاح!' });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -224,8 +226,6 @@ app.post('/api/bookings', async (req, res) => {
         doc.fontSize(20).text('شركة الرمال الدولية - قسيمة الحجز ✈️', { align: 'center' });
         doc.text(`المرجع: ${bookingReference} | الفندق: ${hotelName} | المبلغ: ${finalPrice} AED`);
         doc.end();
-
-        console.log(`📱 WhatsApp API sent to ${phone}: أهلاً ${customerName}! تم تأكيد حجزك ${hotelName} برقم مرجع ${bookingReference}.`);
 
         res.status(201).json({ success: true, message: 'تم تثبيت الحجز بنجاح', bookingReference, finalPrice, updatedPoints: user ? user.points : 500 });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
