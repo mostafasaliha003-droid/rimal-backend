@@ -267,7 +267,7 @@ app.post('/api/bookings', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// مسار تحويل العملات عبر Frankfurter API المجانية تماماً
+// مسار تحويل العملات الحية عبر Frankfurter API المجانية تماماً
 app.get('/api/currency/convert', async (req, res) => {
     try {
         const { targetCurrency, amount } = req.query;
