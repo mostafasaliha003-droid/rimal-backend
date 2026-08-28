@@ -295,25 +295,123 @@ app.get('/api/currency/convert', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🔌 نظام Booking & Reservation API المتكامل
+// ==========================================
+
+// 1. إنشاء حجز جديد (Create Booking API)
+app.post('/api/v1/bookings/create', async (req, res) => {
+    try {
+        let { hotelName, customerName, email, phone, companions, paymentMethod, price, pointsUsed } = req.body;
+        if (!hotelName || !email || !customerName) {
+            return res.status(400).json({ success: false, error: 'الرجاء إدخال البيانات الأساسية للحجز (اسم الفندق، الاسم، البريد)' });
+        }
+        
+        email = email.toLowerCase().trim();
+        const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
+        let finalPrice = parseFloat(price) || 100;
+        let user = await User.findOne({ email });
+
+        if (user && pointsUsed && pointsUsed > 0) {
+            if (user.points >= pointsUsed) {
+                let discountAmount = pointsUsed / 10;
+                finalPrice = Math.max(0, finalPrice - discountAmount);
+                user.points -= pointsUsed;
+            }
+        }
+
+        const deadline = new Date();
+        deadline.setDate(deadline.getDate() + 2);
+
+        const newBooking = new Booking({ 
+            bookingReference, hotelName, customerName, email, phone, companions, paymentMethod, price: finalPrice,
+            status: 'active', freeCancelDeadline: deadline
+        });
+        await newBooking.save();
+
+        if (user) {
+            user.points += Math.round(finalPrice * 0.2);
+            await user.save();
+        }
+
+        res.status(201).json({
+            success: true,
+            message: 'تم إنشاء وتأكيد الحجز بنجاح عبر الـ API',
+            data: {
+                bookingReference,
+                hotelName,
+                customerName,
+                email,
+                finalPriceAED: finalPrice,
+                status: 'active',
+                remainingPoints: user ? user.points : 500
+            }
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 2. تعديل أو تحديث الحجز (Update Booking API)
+app.put('/api/v1/bookings/update/:reference', async (req, res) => {
+    try {
+        const reference = req.params.reference;
+        const { companions, paymentMethod, status } = req.body;
+
+        const booking = await Booking.findOne({ bookingReference: reference });
+        if (!booking) {
+            return res.status(404).json({ success: false, error: 'الحجز غير موجود برقم المرجع المحدد' });
+        }
+
+        if (companions) booking.companions = companions;
+        if (paymentMethod) booking.paymentMethod = paymentMethod;
+        if (status) booking.status = status;
+
+        await booking.save();
+
+        res.json({
+            success: true,
+            message: 'تم تحديث بيانات الحجز بنجاح',
+            booking
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 3. إلغاء الحجز بشكل آلي (Cancel Booking API)
+app.post('/api/v1/bookings/cancel', async (req, res) => {
+    try {
+        const { bookingReference, refundType } = req.body;
+        const booking = await Booking.findOne({ bookingReference });
+        
+        if (!booking) {
+            return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
+        }
+
+        if (booking.status === 'refunded' || booking.status === 'cancelled') {
+            return res.status(400).json({ success: false, error: 'الحجز ملغي مسبقاً' });
+        }
+
+        booking.status = 'cancelled';
+        booking.refundType = refundType || 'full';
+        await booking.save();
+
+        res.json({
+            success: true,
+            message: `تم إلغاء الحجز رقم (${bookingReference}) وتفعيل مسار الاسترداد (${booking.refundType}) بنجاح.`,
+            bookingReference,
+            status: 'cancelled'
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.get('/api/admin/bookings', async (req, res) => {
     try {
         const bookings = await Booking.find().sort({ createdAt: -1 });
         res.json({ success: true, bookings });
-    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-});
-
-app.post('/api/admin/bookings/refund-cancel', async (req, res) => {
-    try {
-        const { bookingReference, refundType } = req.body;
-        const booking = await Booking.findOne({ bookingReference });
-        if(!booking) return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
-
-        booking.status = 'refunded';
-        booking.refundType = refundType;
-        await booking.save();
-
-        let refundMsg = refundType === 'full' ? 'استرداد كامل المبلغ على نفس الكارت' : 'إلغاء بدون استرداد';
-        res.json({ success: true, message: `تم إلغاء الحجز بنجاح (${refundMsg}) وإرسال طلب الاسترداد للبنك.` });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
