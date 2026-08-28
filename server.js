@@ -227,7 +227,7 @@ app.post('/api/reviews', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
-// مسار تصدير الـ PDF المحسن مع الشعار والنصوص الانجليزية الواضحة 100%
+// مسار تصدير الـ PDF المحسن مع معالجة أسماء العملاء والفنادق والدفع عند الوصول
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
     try {
         const booking = await Booking.findOne({ bookingReference: req.params.reference });
@@ -265,13 +265,16 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.fontSize(12).fillColor('#1f3a40').font('Helvetica-Bold').text('Reservation & Property Details:');
         doc.moveDown(0.8);
 
+        // تحديد نص طريقة الدفع وتوضيح ما إذا كان الدفع عند الوصول
+        let paymentDesc = booking.paymentMethod === 'visa' ? 'Credit Card (Visa - Paid)' : 'Pay at Hotel (Payment to be collected at property check-in)';
+
         const details = [
             ['Guest Name:', booking.customerName || 'N/A'],
             ['Property / Hotel:', booking.hotelName || 'N/A'],
             ['Email Address:', booking.email || 'N/A'],
             ['Phone Number:', booking.phone || 'N/A'],
             ['Companions:', booking.companions || 'None'],
-            ['Payment Method:', booking.paymentMethod === 'visa' ? 'Credit Card (Visa)' : 'Pay at Hotel'],
+            ['Payment Method:', paymentDesc],
             ['Total Amount:', `${booking.price || 0} AED`],
             ['Cancellation Policy:', 'Free cancellation up to 48 hours before check-in.']
         ];
@@ -292,6 +295,9 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.moveDown(0.5);
         doc.fontSize(9).fillColor('#555555').text('• Please present either an electronic or paper copy of your booking confirmation upon check-in.');
         doc.text('• Make sure your name matches your official passport.');
+        if (booking.paymentMethod === 'hotel') {
+            doc.text('• Note: Payment has not been collected online. You will pay the total amount directly to the property upon arrival.');
+        }
         doc.text('• Fun Note: No spicy chips allowed in rooms! Have a wonderful trip with Rimal International. 😂');
 
         doc.moveDown(3);
