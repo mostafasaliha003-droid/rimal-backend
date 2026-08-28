@@ -11,12 +11,12 @@ app.use(express.static(__dirname));
 
 const memoryBookings = [];
 
-// إعداد خدمة النودمايلر (Nodemailer)
+// إعداد خدمة النودمايلر (Nodemailer) بكلمة مرور التطبيق الجديدة
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: 'management@remaltourismllc.com',
-        pass: 'vgrhcsilcikucf'
+        pass: 'vqtiunlaehuugjwc'
     }
 });
 
@@ -39,14 +39,14 @@ app.post('/api/bookings', async (req, res) => {
 
         memoryBookings.push(newBooking);
 
-        // إرسال رد النجاح للمستخدم وفوراً دون انتظار الإيميل لتجنب أي تعطل
+        // إرسال رد النجاح للمستخدم فوراً وبسرعة فائقة
         res.status(201).json({
             success: true,
             message: 'تم تثبيت الحجز بنجاح',
             bookingReference
         });
 
-        // إرسال البريد الإلكتروني في الخلفية بصمت (بدون إيقاف الخادم أو الرد)
+        // إرسال البريد الإلكتروني الحقيقي في الخلفية
         setImmediate(async () => {
             try {
                 const mailOptions = {
@@ -72,9 +72,9 @@ app.post('/api/bookings', async (req, res) => {
                     `
                 };
                 await transporter.sendMail(mailOptions);
-                console.log(`✅ تم إرسال إيميل التأكيد بنجاح للحجز: ${bookingReference}`);
+                console.log(`✅ تم إرسال إيميل التأكيد الحقيقي بنجاح للحجز: ${bookingReference}`);
             } catch (mailError) {
-                console.log(`⚠️ تنبيه: فشل إرسال البريد للإيميل (${email}) بسبب صلاحيات كلمة المرور، ولكن الحجز ثبت بنجاح.`);
+                console.log(`⚠️ تنبيه في إرسال الإيميل: ${mailError.message}`);
             }
         });
 
