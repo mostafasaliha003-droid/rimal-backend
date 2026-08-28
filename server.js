@@ -12,34 +12,23 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-// رابط الاتصال بقاعدة البيانات مع تصحيح الرمز في كلمة المرور
+// 🌐 رابط الاتصال الدائم بـ MongoDB Atlas المحدث خصيصاً لمشروعك
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:Rimal2026%40@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ تم الاتصال بنجاح بقاعدة بيانات MongoDB Atlas الدائمة'))
   .catch(err => console.error('❌ خطأ في الاتصال بـ MongoDB:', err));
 
+// 📦 نماذج البيانات وقاعدة البيانات السحابية
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
     password: { type: String, required: true },
     phone: String,
+    nationality: String,
+    birthYear: Number,
     points: { type: Number, default: 500 },
     createdAt: { type: Date, default: Date.now }
-});
-
-const hotelSchema = new mongoose.Schema({
-    name: { type: String, required: true },
-    city: { type: String, required: true, index: true },
-    address: String,
-    phone: String,
-    priceAED: { type: Number, required: true, index: true },
-    starRating: { type: Number, default: 4 },
-    basePoints: { type: Number, default: 50 },
-    img: String,
-    policyType: { type: String, enum: ['full', 'penalty', 'none'], default: 'full' },
-    policyText: String,
-    funnyPolicy: String
 });
 
 const bookingSchema = new mongoose.Schema({
@@ -49,14 +38,11 @@ const bookingSchema = new mongoose.Schema({
     hotelName: String,
     price: Number,
     paymentMethod: String,
-    policyType: String,
-    policyText: String,
-    paymentIntentId: String,
+    companions: String,
     createdAt: { type: Date, default: Date.now }
 });
 
 const User = mongoose.model('User', userSchema);
-const Hotel = mongoose.model('Hotel', hotelSchema);
 const Booking = mongoose.model('Booking', bookingSchema);
 
 let verificationCodes = {};
@@ -66,53 +52,109 @@ const transporter = nodemailer.createTransport({
     auth: { user: 'management@remaltourismllc.com', pass: 'dkvnseslexedcefd' }
 });
 
-app.get('/api/hotels/advanced-search', async (req, res) => {
+// مسارات المصادقة والتسجيل
+app.post('/api/auth/register-send-code', async (req, res) => {
     try {
-        let { destination, maxPrice, stars, freeCancellation } = req.query;
-        let query = {};
-
-        if (destination && destination.trim() !== '') {
-            query.$or = [
-                { name: { $regex: destination, $options: 'i' } },
-                { city: { $regex: destination, $options: 'i' } }
-            ];
-        }
-        if (maxPrice) {
-            query.priceAED = { $lte: Number(maxPrice) };
-        }
-        if (stars) {
-            let starsArray = Array.isArray(stars) ? stars.map(Number) : [Number(stars)];
-            query.starRating = { $in: starsArray };
-        }
-        if (freeCancellation === 'true') {
-            query.policyType = 'full';
-        }
-
-        let hotels = await Hotel.find(query).sort({ priceAED: 1 });
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { name, password, phone, nationality, birthYear } = req.body;
         
-        if (hotels.length === 0 && !destination) {
-            hotels = [
-                { name: "فندق النخيل ديار", city: "دبي", address: "ميناء سعيد، دبي", phone: "+97145550005", priceAED: 450, starRating: 4, basePoints: 50, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل للأموال 100% في حال الإلغاء." },
-                { name: "فندق الرمال الملكي", city: "دبي", address: "شارع بني ياس، دبي", phone: "+97142122222", priceAED: 890, starRating: 5, basePoints: 350, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء." }
-            ];
-        }
+        const existingUser = await User.findOne({ email });
+        if (existingUser) return res.status(400).json({ success: false, error: 'البريد مسجل مسبقاً!' });
+        
+        const hashedPassword = bcrypt.hashSync(password || '123456', 8);
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        
+        verificationCodes[email] = { code, name, password: hashedPassword, phone, nationality, birthYear, expires: Date.now() + 10 * 60 * 1000 };
 
-        res.json({ success: true, count: hotels.length, hotels });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
+        await transporter.sendMail({
+            from: 'management@remaltourismllc.com',
+            to: email,
+            subject: 'رمز التحقق - شركة الرمال الدولية ✈️',
+            html: `<div dir="rtl" style="padding:20px; text-align:center;"><h2>كود التحقق الخاص بك يا بطل:</h2><h1 style="color:#d90429;">${code}</h1></div>`
+        });
+        res.json({ success: true, message: 'تم إرسال كود التحقق!' });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+app.post('/api/auth/verify-and-register', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { code } = req.body;
+        const record = verificationCodes[email];
+        
+        if (!record || record.code !== code || Date.now() > record.expires) {
+            return res.status(400).json({ success: false, error: 'الكود غير صحيح أو انتهت صلاحيته' });
+        }
+        
+        let user = await User.findOne({ email });
+        if (!user) {
+            user = new User({ 
+                name: record.name, 
+                email, 
+                password: record.password, 
+                phone: record.phone, 
+                nationality: record.nationality, 
+                birthYear: record.birthYear, 
+                points: 500 
+            });
+            await user.save();
+        }
+        delete verificationCodes[email];
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone } });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { password } = req.body;
+        
+        let user = await User.findOne({ email });
+        if (!user) return res.status(400).json({ success: false, error: 'البريد غير مسجل بالسحابة!' });
+        if (!bcrypt.compareSync(password, user.password)) return res.status(400).json({ success: false, error: 'كلمة المرور غير صحيحة' });
+        
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone } });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/user/profile', async (req, res) => {
+    try {
+        const email = (req.query.email || '').toLowerCase().trim();
+        let user = await User.findOne({ email });
+        if(!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
+        
+        let bookings = await Booking.find({ email: email }).sort({ createdAt: -1 });
+        res.json({ 
+            success: true, 
+            profile: { 
+                name: user.name, 
+                email: user.email, 
+                points: user.points, 
+                pointsValueAED: (user.points / 10).toFixed(2), 
+                phone: user.phone 
+            }, 
+            bookings 
+        });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// مسار حفظ الحجوزات بالسحابة وإضافة النقاط للحصالة
 app.post('/api/bookings', async (req, res) => {
     try {
-        let { hotelName, customerName, email, phone, paymentMethod, price, policyType, policyText } = req.body;
+        let { hotelName, customerName, email, phone, companions, paymentMethod, price } = req.body;
         email = (email || '').toLowerCase().trim();
         const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
         
-        const newBooking = new Booking({ bookingReference, hotelName, customerName, email, phone, paymentMethod, price, policyType, policyText });
+        const newBooking = new Booking({ bookingReference, hotelName, customerName, email, phone, companions, paymentMethod, price });
         await newBooking.save();
 
-        res.status(201).json({ success: true, message: 'تم التثبيت', bookingReference });
+        let user = await User.findOne({ email });
+        if (user) {
+            user.points += Math.round((price || 100) * 0.2); // مكافأة نقاط عيدية
+            await user.save();
+        }
+
+        res.status(201).json({ success: true, message: 'تم تثبيت الحجز بنجاح', bookingReference });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
