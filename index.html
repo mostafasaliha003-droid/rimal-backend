@@ -160,7 +160,7 @@
 
         .card-gateway-box { background: #f8fafc; border: 2px solid #cbd5e0; padding: 18px; border-radius: 16px; margin-bottom: 18px; }
 
-        /* تصميم الـ Popup Modal الاحترافي */
+        /* نافذة الـ Popup Modal الاحترافية لكود التحقق */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(31, 58, 64, 0.7); backdrop-filter: blur(5px);
@@ -314,7 +314,6 @@
         </section>
 
         <div class="container">
-            <!-- نموذج تسجيل الدخول (يختفي عند تسجيل الدخول) -->
             <div class="auth-box" id="authBoxContainer">
                 <h2 style="color: var(--primary); margin-bottom: 20px;"><i class="fa-solid fa-user-lock"></i> تسجيل الدخول / إنشاء حساب</h2>
                 
@@ -323,20 +322,6 @@
                     <button type="button" onclick="socialLogin('Facebook')" style="background: #4267B2; color: white; padding: 12px; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;"><i class="fa-brands fa-facebook"></i> المتابعة بواسطة Facebook</button>
                     <button type="button" onclick="socialLogin('Instagram')" style="background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: white; padding: 12px; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;"><i class="fa-brands fa-instagram"></i> المتابعة بواسطة Instagram</button>
                 </div>
-
-                <div style="text-align: center; margin: 15px 0; font-weight: bold; color: #6c757d;">أو التسجيل بالبريد الإلكتروني</div>
-
-                <form onsubmit="handleEmailAuth(event)">
-                    <div class="form-group">
-                        <label>البريد الإلكتروني:</label>
-                        <input type="email" id="loginEmail" required placeholder="name@remaltourismllc.com">
-                    </div>
-                    <div class="form-group">
-                        <label>كلمة السر:</label>
-                        <input type="password" id="loginPass" required placeholder="••••••••">
-                    </div>
-                    <button type="submit" class="btn-book" style="width: 100%; margin-top: 10px;">دخول / تسجيل 🌟</button>
-                </form>
             </div>
 
             <!-- لوحة تحكم العميل (تظهر بعد تسجيل الدخول) -->
@@ -346,7 +331,6 @@
                     <button onclick="logoutUser()" style="background: var(--accent-coral); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">تسجيل خروج</button>
                 </div>
 
-                <!-- إحصائيات النقاط والمال -->
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
                     <div style="background: rgba(255, 202, 58, 0.2); padding: 20px; border-radius: 16px; border: 2px dashed var(--accent-yellow);">
                         <h4>💰 حصالة النقاط والفلوس</h4>
@@ -359,36 +343,44 @@
                     </div>
                 </div>
 
-                <!-- إدارة الحجوزات -->
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة</h3>
                     <button onclick="fetchUserData(currentUser.email)" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
                 </div>
-                <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 12px;">
-                    <!-- يتم جلب الحجوزات هنا ديناميكياً -->
-                </div>
+                <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
             </div>
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول المنبثقة الذكية (Popup Modal) -->
+    <!-- نافذة تسجيل الدخول الذكية مع رمز التحقق OTP المنبثقة -->
     <div id="socialModal" class="modal-overlay">
         <div class="modal-content">
-            <h3 id="modalTitle" style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول</h3>
-            <p id="modalSub" style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; font-weight: 700;">أدخل بياناتك للمتابعة السريعة</p>
+            <h3 id="modalTitle" style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid fa-shield-halved"></i> التحقق من الهوية</h3>
+            <p id="modalSub" style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; font-weight: 700;">أدخل اسمك وبريدك الإلكتروني لتلقي كود التأكيد</p>
             
-            <form onsubmit="handleModalAuth(event)">
+            <form id="step1Form" onsubmit="requestVerificationCode(event)">
                 <div class="form-group" style="text-align: right;">
-                    <label>الاسم الكامل:</label>
-                    <input type="text" id="modalName" required placeholder="اسمك الكريم">
+                    <label>الاسم الكريم:</label>
+                    <input type="text" id="modalName" required placeholder="اسمك كما في الجواز">
                 </div>
                 <div class="form-group" style="text-align: right;">
-                    <label>البريد الإلكتروني:</label>
+                    <label>البريد الإلكتروني (لاستلام الفواتير والتحديثات):</label>
                     <input type="email" id="modalEmail" required placeholder="name@remaltourismllc.com">
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button type="submit" class="btn-book" style="flex: 2;">تأكيد الدخول 🚀</button>
+                    <button type="submit" class="btn-book" style="flex: 2;">إرسال كود التحقق 📨</button>
                     <button type="button" class="btn-book" onclick="closeSocialModal()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">إلغاء</button>
+                </div>
+            </form>
+
+            <form id="step2Form" onsubmit="verifyCodeAndLogin(event)" style="display: none;">
+                <div class="form-group" style="text-align: center;">
+                    <label style="color: var(--accent-coral); font-size: 14px;">أدخل كود الـ 6 أرقام المرسل إلى إيميلك:</label>
+                    <input type="text" id="verificationCodeInput" maxlength="6" required placeholder="123456" style="text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: 900;">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn-book" style="flex: 2;">تأكيد الدخول 🚀</button>
+                    <button type="button" class="btn-book" onclick="resetModalSteps()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">رجوع</button>
                 </div>
             </form>
         </div>
@@ -438,7 +430,7 @@
 
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div class="form-group">
-                            <label id="lblEmailBook">الإيميل (عشان ندز لك رسالة التأكيد وتصيح على السعر):</label>
+                            <label id="lblEmailBook">الإيميل (لاستلام الفاتورة وتأكيد الحجز):</label>
                             <input type="email" id="custEmail" required placeholder="khalid@remaltourismllc.com">
                         </div>
                         <div class="form-group">
@@ -663,58 +655,142 @@
         };
 
         let currentLang = "ar";
+        let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
+        let activePlatform = 'Email';
+        let tempEmail = '';
+        let tempName = '';
 
-        function changeLanguage() {
-            currentLang = document.getElementById('langSelect').value;
-            const t = translations[currentLang] || translations.ar;
-            const htmlRoot = document.getElementById('htmlRoot');
+        let selectedHotel = '';
+        let pointsToAdd = 0;
+        let currentTotalPriceAED = 0;
+        let searchTimeout = null;
 
-            if (currentLang === 'ar') {
-                htmlRoot.setAttribute('dir', 'rtl');
-                htmlRoot.setAttribute('lang', 'ar');
-            } else {
-                htmlRoot.setAttribute('dir', 'ltr');
-                htmlRoot.setAttribute('lang', currentLang);
+        window.onload = function() {
+            const today = new Date();
+            const tomorrow = new Date();
+            tomorrow.setDate(today.getDate() + 1);
+            
+            document.getElementById('checkInDate').valueAsDate = today;
+            document.getElementById('checkOutDate').valueAsDate = tomorrow;
+
+            displayHotels(allHotels);
+            checkUserSession();
+        };
+
+        function checkUserSession() {
+            if (currentUser) {
+                document.getElementById('authBoxContainer').style.display = 'none';
+                document.getElementById('userDashboard').style.display = 'block';
+                fetchUserData(currentUser.email);
             }
+        }
 
-            document.getElementById('pageTitle').innerText = t.pageTitle;
-            document.getElementById('brandName').innerText = t.brandName;
-            document.getElementById('brandSub').innerText = t.brandSub;
-            document.getElementById('walletLabel').innerText = t.walletLabel;
-            document.getElementById('pointsLabel').innerText = t.pointsLabel;
-            document.getElementById('regBtnText').innerHTML = `<i class="fa-solid fa-user-plus"></i> ${t.regBtnText}`;
-            document.getElementById('heroTitle').innerText = t.heroTitle;
-            document.getElementById('heroSubtitle').innerText = t.heroSubtitle;
-            document.getElementById('lblSearchHotel').innerText = t.lblSearchHotel;
-            document.getElementById('lblCheckIn').innerText = t.lblCheckIn;
-            document.getElementById('lblCheckOut').innerText = t.lblCheckOut;
-            document.getElementById('lblManualGuests').innerText = t.lblManualGuests;
-            document.getElementById('searchBtnText').innerText = t.searchBtnText;
-            document.getElementById('mapBtnText').innerHTML = `<i class="fa-solid fa-map-location-dot"></i> ${t.mapBtnText}`;
-            document.getElementById('filterTitle').innerText = t.filterTitle;
-            document.getElementById('cityAll').innerText = t.cityAll;
-            document.getElementById('syncText').innerText = t.syncText;
-            document.getElementById('mapHeaderTitle').innerText = t.mapHeaderTitle;
-            document.getElementById('mapHeaderSub').innerText = t.mapHeaderSub;
-            document.getElementById('mapBoxTitle').innerText = t.mapBoxTitle;
-            document.getElementById('backMapBtn').innerText = t.backMapBtn;
-            document.getElementById('bookHeaderTitle').innerText = t.bookHeaderTitle;
-            document.getElementById('bookHeaderSub').innerText = t.bookHeaderSub;
-            document.getElementById('lblFullName').innerText = t.lblFullName;
-            document.getElementById('lblEmailBook').innerText = t.lblEmailBook;
-            document.getElementById('lblPhoneBook').innerText = t.lblPhoneBook;
-            document.getElementById('lblCompBook').innerText = t.lblCompBook;
-            document.getElementById('lblPayMethod').innerText = t.lblPayMethod;
-            document.getElementById('payVisa').innerText = t.payVisa;
-            document.getElementById('payMada').innerText = t.payMada;
-            document.getElementById('payHotel').innerText = t.payHotel;
-            document.getElementById('cardDetailsTitle').innerText = t.cardDetailsTitle;
-            document.getElementById('earnRewardPrefix').innerText = t.earnRewardPrefix;
-            document.getElementById('earnRewardSuffix').innerText = t.earnRewardSuffix;
-            document.getElementById('btnFinalBook').innerText = t.btnFinalBook;
-            document.getElementById('btnBackBook').innerText = t.btnBackBook;
+        function socialLogin(platform) {
+            activePlatform = platform;
+            document.getElementById('modalTitle').innerHTML = `<i class="fa-brands fa-${platform.toLowerCase()}"></i> تسجيل عبر ${platform}`;
+            document.getElementById('modalSub').innerText = `ربط وتأكيد حسابك في ${platform} مع شركة الرمال الدولية`;
+            document.getElementById('socialModal').style.display = 'flex';
+            resetModalSteps();
+        }
 
-            filterHotels();
+        function resetModalSteps() {
+            document.getElementById('step1Form').style.display = 'block';
+            document.getElementById('step2Form').style.display = 'none';
+            document.getElementById('verificationCodeInput').value = '';
+        }
+
+        async function requestVerificationCode(e) {
+            e.preventDefault();
+            tempName = document.getElementById('modalName').value;
+            tempEmail = document.getElementById('modalEmail').value;
+
+            try {
+                const res = await fetch('/api/auth/send-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: tempEmail, name: tempName })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert('✅ تم إرسال كود التحقق (OTP) بنجاح إلى بريدك الإلكتروني!');
+                    document.getElementById('step1Form').style.display = 'none';
+                    document.getElementById('step2Form').style.display = 'block';
+                } else {
+                    alert('❌ خطأ: ' + data.error);
+                }
+            } catch (err) {
+                alert('❌ خطأ في الاتصال بالخادم');
+            }
+        }
+
+        async function verifyCodeAndLogin(e) {
+            e.preventDefault();
+            const code = document.getElementById('verificationCodeInput').value;
+
+            try {
+                const res = await fetch('/api/auth/verify-code', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: tempEmail, code })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    currentUser = data.user;
+                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+                    closeSocialModal();
+                    checkUserSession();
+                    alert(`🎉 أهلاً بك يا ${currentUser.name}! تم تأكيد حسابك بنجاح وحصلت على 500 نقطة ترحيبية.`);
+                } else {
+                    alert('❌ كود التحقق غير صحيح أو منتهي الصلاحية.');
+                }
+            } catch (err) {
+                alert('❌ خطأ في التحقق من الكود');
+            }
+        }
+
+        function closeSocialModal() {
+            document.getElementById('socialModal').style.display = 'none';
+            resetModalSteps();
+        }
+
+        async function fetchUserData(email) {
+            try {
+                const res = await fetch(`/api/user/profile?email=${email}`);
+                const data = await res.json();
+                if(data.success) {
+                    document.getElementById('userNameDisplay').innerText = data.profile.name;
+                    document.getElementById('dashPoints').innerText = data.profile.points;
+                    document.getElementById('displayPoints').innerText = data.profile.points;
+                    document.getElementById('dashPointsValue').innerText = data.profile.pointsValueAED + ' AED';
+
+                    const bookingsContainer = document.getElementById('dashBookingsList');
+                    bookingsContainer.innerHTML = '';
+                    if(data.bookings.length === 0) {
+                        bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">ليس لديك حجوزات حالياً، ستصلك فواتيرك وتحديثاتك هنا فوراً!</div>`;
+                    } else {
+                        data.bookings.forEach(b => {
+                            bookingsContainer.innerHTML += `
+                                <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>${b.hotelName}</strong><br>
+                                        <small style="color:var(--text-muted);">رقم المرجع (الفاتورة): <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | الدفع: ${b.paymentMethod}</small>
+                                    </div>
+                                    <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold;">مؤكد ومُفوتر ✅</span>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function logoutUser() {
+            localStorage.removeItem('rimal_current_user');
+            currentUser = null;
+            document.getElementById('authBoxContainer').style.display = 'block';
+            document.getElementById('userDashboard').style.display = 'none';
         }
 
         const allHotels = [
@@ -854,134 +930,57 @@
         const currencySymbols = { AED: "AED", USD: "$", SAR: "SAR", EUR: "€", GBP: "£", KWD: "KWD", BHD: "BHD", QAR: "QAR" };
         let currentCurrency = "AED";
 
-        let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
-        let activePlatform = 'Email';
+        function changeLanguage() {
+            currentLang = document.getElementById('langSelect').value;
+            const t = translations[currentLang] || translations.ar;
+            const htmlRoot = document.getElementById('htmlRoot');
 
-        let selectedHotel = '';
-        let pointsToAdd = 0;
-        let currentTotalPriceAED = 0;
-        let searchTimeout = null;
-
-        window.onload = function() {
-            const today = new Date();
-            const tomorrow = new Date();
-            tomorrow.setDate(today.getDate() + 1);
-            
-            document.getElementById('checkInDate').valueAsDate = today;
-            document.getElementById('checkOutDate').valueAsDate = tomorrow;
-
-            displayHotels(allHotels);
-            checkUserSession();
-        };
-
-        function checkUserSession() {
-            if (currentUser) {
-                document.getElementById('authBoxContainer').style.display = 'none';
-                document.getElementById('userDashboard').style.display = 'block';
-                fetchUserData(currentUser.email);
+            if (currentLang === 'ar') {
+                htmlRoot.setAttribute('dir', 'rtl');
+                htmlRoot.setAttribute('lang', 'ar');
+            } else {
+                htmlRoot.setAttribute('dir', 'ltr');
+                htmlRoot.setAttribute('lang', currentLang);
             }
-        }
 
-        async function handleEmailAuth(e) {
-            e.preventDefault();
-            const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPass').value;
+            document.getElementById('pageTitle').innerText = t.pageTitle;
+            document.getElementById('brandName').innerText = t.brandName;
+            document.getElementById('brandSub').innerText = t.brandSub;
+            document.getElementById('walletLabel').innerText = t.walletLabel;
+            document.getElementById('pointsLabel').innerText = t.pointsLabel;
+            document.getElementById('regBtnText').innerHTML = `<i class="fa-solid fa-user-plus"></i> ${t.regBtnText}`;
+            document.getElementById('heroTitle').innerText = t.heroTitle;
+            document.getElementById('heroSubtitle').innerText = t.heroSubtitle;
+            document.getElementById('lblSearchHotel').innerText = t.lblSearchHotel;
+            document.getElementById('lblCheckIn').innerText = t.lblCheckIn;
+            document.getElementById('lblCheckOut').innerText = t.lblCheckOut;
+            document.getElementById('lblManualGuests').innerText = t.lblManualGuests;
+            document.getElementById('searchBtnText').innerText = t.searchBtnText;
+            document.getElementById('mapBtnText').innerHTML = `<i class="fa-solid fa-map-location-dot"></i> ${t.mapBtnText}`;
+            document.getElementById('filterTitle').innerText = t.filterTitle;
+            document.getElementById('cityAll').innerText = t.cityAll;
+            document.getElementById('syncText').innerText = t.syncText;
+            document.getElementById('mapHeaderTitle').innerText = t.mapHeaderTitle;
+            document.getElementById('mapHeaderSub').innerText = t.mapHeaderSub;
+            document.getElementById('mapBoxTitle').innerText = t.mapBoxTitle;
+            document.getElementById('backMapBtn').innerText = t.backMapBtn;
+            document.getElementById('bookHeaderTitle').innerText = t.bookHeaderTitle;
+            document.getElementById('bookHeaderSub').innerText = t.bookHeaderSub;
+            document.getElementById('lblFullName').innerText = t.lblFullName;
+            document.getElementById('lblEmailBook').innerText = t.lblEmailBook;
+            document.getElementById('lblPhoneBook').innerText = t.lblPhoneBook;
+            document.getElementById('lblCompBook').innerText = t.lblCompBook;
+            document.getElementById('lblPayMethod').innerText = t.lblPayMethod;
+            document.getElementById('payVisa').innerText = t.payVisa;
+            document.getElementById('payMada').innerText = t.payMada;
+            document.getElementById('payHotel').innerText = t.payHotel;
+            document.getElementById('cardDetailsTitle').innerText = t.cardDetailsTitle;
+            document.getElementById('earnRewardPrefix').innerText = t.earnRewardPrefix;
+            document.getElementById('earnRewardSuffix').innerText = t.earnRewardSuffix;
+            document.getElementById('btnFinalBook').innerText = t.btnFinalBook;
+            document.getElementById('btnBackBook').innerText = t.btnBackBook;
 
-            try {
-                const res = await fetch('/api/auth/login-register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password, provider: 'email' })
-                });
-                const data = await res.json();
-                if(data.success) {
-                    currentUser = data.user;
-                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
-                    checkUserSession();
-                    alert('تم تسجيل الدخول بنجاح! 🚀');
-                } else {
-                    alert('خطأ: ' + data.error);
-                }
-            } catch (err) {
-                alert('خطأ في الاتصال بالخادم');
-            }
-        }
-
-        function socialLogin(platform) {
-            activePlatform = platform;
-            document.getElementById('modalTitle').innerHTML = `<i class="fa-brands fa-${platform.toLowerCase()}"></i> تسجيل الدخول عبر ${platform}`;
-            document.getElementById('modalSub').innerText = `ربط حسابك في ${platform} مع شركة الرمال الدولية`;
-            document.getElementById('socialModal').style.display = 'flex';
-        }
-
-        function closeSocialModal() {
-            document.getElementById('socialModal').style.display = 'none';
-        }
-
-        async function handleModalAuth(e) {
-            e.preventDefault();
-            const name = document.getElementById('modalName').value;
-            const email = document.getElementById('modalEmail').value;
-
-            try {
-                const res = await fetch('/api/auth/login-register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, name, provider: activePlatform.toLowerCase() })
-                });
-                const data = await res.json();
-                if(data.success) {
-                    currentUser = data.user;
-                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
-                    closeSocialModal();
-                    checkUserSession();
-                    alert(`✅ أهلاً بك يا ${name}! تم تسجيل الدخول بنجاح عبر ${activePlatform}.`);
-                } else {
-                    alert('❌ خطأ: ' + (data.error || 'يرجى المحاولة لاحقاً'));
-                }
-            } catch (err) {
-                alert('❌ خطأ في الاتصال بالخادم');
-            }
-        }
-
-        async function fetchUserData(email) {
-            try {
-                const res = await fetch(`/api/user/profile?email=${email}`);
-                const data = await res.json();
-                if(data.success) {
-                    document.getElementById('userNameDisplay').innerText = data.profile.name;
-                    document.getElementById('dashPoints').innerText = data.profile.points;
-                    document.getElementById('displayPoints').innerText = data.profile.points;
-                    document.getElementById('dashPointsValue').innerText = data.profile.pointsValueAED + ' AED';
-
-                    const bookingsContainer = document.getElementById('dashBookingsList');
-                    bookingsContainer.innerHTML = '';
-                    if(data.bookings.length === 0) {
-                        bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">ليس لديك حجوزات حالياً، ابدأ بحجز رحلتك الأولى!</div>`;
-                    } else {
-                        data.bookings.forEach(b => {
-                            bookingsContainer.innerHTML += `
-                                <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center;">
-                                    <div>
-                                        <strong>${b.hotelName}</strong><br>
-                                        <small style="color:var(--text-muted);">رقم المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | الدفع: ${b.paymentMethod}</small>
-                                    </div>
-                                    <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold;">مؤكد ✅</span>
-                                </div>
-                            `;
-                        });
-                    }
-                }
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        function logoutUser() {
-            localStorage.removeItem('rimal_current_user');
-            currentUser = null;
-            document.getElementById('authBoxContainer').style.display = 'block';
-            document.getElementById('userDashboard').style.display = 'none';
+            filterHotels();
         }
 
         function getCalculatedNights() {
@@ -1166,7 +1165,7 @@
 
                 if (response.ok && data.success) {
                     const refNumber = data.bookingReference || 'RIMAL-XXXX';
-                    alert(`✅ تم تثبيت الحجز بنجاح يا بطل!\n\nرقم المرجع: ${refNumber}\n\nتم إرسال تفاصيل الحجز وتأكيد الإيميل بنجاح.`);
+                    alert(`✅ تم تثبيت الحجز وإرسال الفاتورة بنجاح!\n\nرقم المرجع: ${refNumber}\n\nتابع بريدك الإلكتروني لاستلام تفاصيل الحجز والتحديثات.`);
 
                     document.getElementById('bookingForm').reset();
                     document.getElementById('cardDetailsContainer').style.display = 'none';
