@@ -296,15 +296,81 @@ app.get('/api/currency/convert', async (req, res) => {
 });
 
 // ==========================================
+// 🔌 Availability & Rates API (التحقق من التوافر والأسعار)
+// ==========================================
+app.post('/api/v1/hotels/availability-rates', async (req, res) => {
+    try {
+        let { hotelName, checkInDate, checkOutDate, guests, currency } = req.body;
+
+        if (!hotelName || !checkInDate || !checkOutDate) {
+            return res.status(400).json({ 
+                success: false, 
+                error: 'الرجاء تحديد اسم الفندق وتواريخ الدخول والخروج للتحقق من التوافر.' 
+            });
+        }
+
+        const start = new Date(checkInDate);
+        const end = new Date(checkOutDate);
+        const diffTime = Math.abs(end - start);
+        const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
+
+        let basePricePerNightAED = 450;
+        if (hotelName.includes('أتلانتس')) basePricePerNightAED = 2202;
+        if (hotelName.includes('قصر الإمارات')) basePricePerNightAED = 1651;
+
+        let totalBaseAED = basePricePerNightAED * nights;
+        let finalPrice = totalBaseAED;
+        let targetCurrency = (currency || 'AED').toUpperCase();
+
+        if (targetCurrency !== 'AED') {
+            try {
+                const currencyRes = await fetch(`https://api.frankfurter.app/latest?from=AED&to=${targetCurrency}`);
+                const currencyData = await currencyRes.json();
+                if (currencyData.rates && currencyData.rates[targetCurrency]) {
+                    const rate = currencyData.rates[targetCurrency];
+                    finalPrice = (totalBaseAED * rate).toFixed(2);
+                }
+            } catch (err) {
+                console.error('خطأ في جلب سعر العملة الحية:', err);
+            }
+        }
+
+        res.json({
+            success: true,
+            availability: {
+                status: 'AVAILABLE',
+                hotelName,
+                checkIn: checkInDate,
+                checkOut: checkOutDate,
+                nightsCount: nights,
+                guestsCount: guests || 2,
+                priceBreakdown: {
+                    baseCurrency: 'AED',
+                    pricePerNightAED: basePricePerNightAED,
+                    totalPriceAED: totalBaseAED
+                },
+                convertedPricing: {
+                    currency: targetCurrency,
+                    finalTotal: finalPrice
+                },
+                cancellationPolicy: 'استرداد كامل مجاني حتى قبل الموعد بـ 48 ساعة ✨',
+                funnyNote: 'احجز الآن ولا تفكر كثيرًا، العرض ساري حتى نفاد البطاطس الحارة! 😂'
+            }
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==========================================
 // 🔌 نظام Booking & Reservation API المتكامل
 // ==========================================
-
-// 1. إنشاء حجز جديد (Create Booking API)
 app.post('/api/v1/bookings/create', async (req, res) => {
     try {
         let { hotelName, customerName, email, phone, companions, paymentMethod, price, pointsUsed } = req.body;
         if (!hotelName || !email || !customerName) {
-            return res.status(400).json({ success: false, error: 'الرجاء إدخال البيانات الأساسية للحجز (اسم الفندق، الاسم، البريد)' });
+            return res.status(400).json({ success: false, error: 'الرجاء إدخال البيانات الأساسية للحجز' });
         }
         
         email = email.toLowerCase().trim();
@@ -352,7 +418,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
     }
 });
 
-// 2. تعديل أو تحديث الحجز (Update Booking API)
 app.put('/api/v1/bookings/update/:reference', async (req, res) => {
     try {
         const reference = req.params.reference;
@@ -379,7 +444,6 @@ app.put('/api/v1/bookings/update/:reference', async (req, res) => {
     }
 });
 
-// 3. إلغاء الحجز بشكل آلي (Cancel Booking API)
 app.post('/api/v1/bookings/cancel', async (req, res) => {
     try {
         const { bookingReference, refundType } = req.body;
