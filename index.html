@@ -78,6 +78,7 @@
         .pay-option:hover { border-color: var(--accent-cyan); background: rgba(0, 180, 216, 0.05); }
         .pay-option.selected { border-color: var(--accent-coral); background: rgba(255, 89, 94, 0.1); color: var(--accent-coral); }
         .card-gateway-box { background: #f8fafc; border: 2px solid #cbd5e0; padding: 18px; border-radius: 16px; margin-bottom: 18px; }
+        /* Modal Window */
         .modal-overlay { position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(31, 58, 64, 0.7); backdrop-filter: blur(5px); display: none; justify-content: center; align-items: center; z-index: 3000; }
         .modal-content { background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 480px; box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 4px solid var(--accent-yellow); text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); max-height: 90vh; overflow-y: auto; position: relative; }
         @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
@@ -110,22 +111,10 @@
                     <option value="SAR">ر.س (SAR)</option>
                     <option value="EUR">€ (EUR)</option>
                     <option value="GBP">£ (GBP)</option>
-                    <option value="KWD">د.ك (KWD)</option>
-                    <option value="BHD">د.ب (BHD)</option>
-                    <option value="QAR">ر.ق (QAR)</option>
                 </select>
             </div>
-
-            <div class="settings-dropdown">
-                <i class="fa-solid fa-globe" style="color: var(--accent-cyan);"></i>
-                <select id="langSelect" onchange="changeLanguage()">
-                    <option value="ar">العربية</option>
-                    <option value="en">English</option>
-                    <option value="fr">Français</option>
-                    <option value="de">Deutsch</option>
-                </select>
-            </div>
-
+            
+            <!-- زر الحساب المتغير الذي يفتح الـ Modal أو يدخل للحساب -->
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
 
             <div class="wallet-card">
@@ -138,593 +127,271 @@
         </div>
     </header>
 
+    <!-- الواجهة الرئيسية -->
     <div id="mainView" class="view-section active">
         <section class="hero">
             <h1 id="heroTitle">عروض فنادق تخلّيك تفكّر تسحب على الدوام! 🏝️💸</h1>
-            <p id="heroSubtitle">حدد تاريخ روحتك ورجعتك، وخل الباقي علينا (ولا تنسَ تقرأ مقالب سياسات الفنادق تحت! 😂)</p>
+            <p id="heroSubtitle">حدد تاريخ روحتك ورجعتك، وخل الباقي علينا</p>
         </section>
 
         <div class="search-container">
             <div class="search-field">
                 <i class="fa-solid fa-magnifying-glass" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
-                    <label id="lblSearchHotel">وين ناوي تخيم؟ (الفندق أو الإمارة)</label>
-                    <input type="text" id="searchInput" placeholder="مثل: Reya Creek, دبي، شيراتون..." onkeyup="triggerLiveSearch()">
+                    <label>وين ناوي تخيم؟</label>
+                    <input type="text" id="searchInput" placeholder="مثل: Reya Creek..." onkeyup="filterHotels()">
                 </div>
             </div>
             <div class="search-field">
                 <i class="fa-regular fa-calendar-check" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
-                    <label id="lblCheckIn">تاريخ الروحة (الدخول)</label>
+                    <label>تاريخ الدخول</label>
                     <input type="date" id="checkInDate" onchange="calculateNightsAndPrice()">
                 </div>
             </div>
             <div class="search-field">
                 <i class="fa-regular fa-calendar-xmark" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
-                    <label id="lblCheckOut">تاريخ العودة (الخروج)</label>
+                    <label>تاريخ الخروج</label>
                     <input type="date" id="checkOutDate" onchange="calculateNightsAndPrice()">
                 </div>
             </div>
             <div class="search-field">
                 <i class="fa-solid fa-user-gear" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
-                    <label id="lblManualGuests">عدد الشلة (Manual)</label>
+                    <label>عدد الشلة</label>
                     <input type="number" id="manualGuestsInput" min="1" max="20" value="2" onchange="calculateNightsAndPrice()">
                 </div>
             </div>
             <div class="search-field" style="background: transparent; border: none; padding: 0;">
-                <button onclick="filterHotels()" id="searchBtnText" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary)); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; height: 60px; width: 100%; font-family: 'Cairo'; box-shadow: 0 4px 0 #3c096c;">ابحث وانحاش 🚀</button>
+                <button onclick="filterHotels()" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary)); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; height: 60px; width: 100%;">ابحث وانحاش 🚀</button>
             </div>
         </div>
 
         <div class="container">
             <div class="layout-wrapper">
-                
                 <aside class="filters-sidebar">
-                    <button class="map-btn" id="mapBtnText" onclick="switchView('mapView')"><i class="fa-solid fa-map-location-dot"></i> طيارة ع الخريطة 🗺️</button>
+                    <button class="map-btn" onclick="switchView('mapView')"><i class="fa-solid fa-map-location-dot"></i> طيارة ع الخريطة 🗺️</button>
                     <hr style="border: 0; border-top: 3px dashed #e2e8f0; margin: 20px 0;">
-                    <h3 id="filterTitle" style="font-size: 16px; color: var(--primary); margin-bottom: 15px; font-weight: 900;">نقّط على الإمارة 📍</h3>
+                    <h3 style="font-size: 16px; color: var(--primary); margin-bottom: 15px; font-weight: 900;">الإمارات 📍</h3>
                     <div style="display: flex; flex-direction: column; gap: 8px; font-weight: 800;">
-                        <label><input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()"> <span id="cityAll">كل الإمارات (وين ما تهب الهبايب)</span></label>
-                        <label><input type="radio" name="cityFilter" value="دبي" onchange="filterHotels()"> دبي (دار الحي والفلوس) 🏙️</label>
-                        <label><input type="radio" name="cityFilter" value="أبوظبي" onchange="filterHotels()"> أبوظبي (عاصمة الكشخة) 👑</label>
-                        <label><input type="radio" name="cityFilter" value="الشارقة" onchange="filterHotels()"> الشارقة (الروقان والهدوء) 📚</label>
-                        <label><input type="radio" name="cityFilter" value="عجمان" onchange="filterHotels()"> عجمان (الرزق الهادي) 🌊</label>
-                        <label><input type="radio" name="cityFilter" value="رأس الخيمة" onchange="filterHotels()"> رأس الخيمة (جبل الجيس والمغامرة) ⛰️</label>
-                        <label><input type="radio" name="cityFilter" value="الفجيرة" onchange="filterHotels()"> الفجيرة (البحر والجبال الحمر) 🌴</label>
-                        <label><input type="radio" name="cityFilter" value="أم القيوين" onchange="filterHotels()"> أم القيوين (الاسترخاء الصامت) 🛶</label>
+                        <label><input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()"> كل الإمارات</label>
+                        <label><input type="radio" name="cityFilter" value="دبي" onchange="filterHotels()"> دبي 🏙️</label>
+                        <label><input type="radio" name="cityFilter" value="أبوظبي" onchange="filterHotels()"> أبوظبي 👑</label>
+                        <label><input type="radio" name="cityFilter" value="الشارقة" onchange="filterHotels()"> الشارقة 📚</label>
                     </div>
                 </aside>
-
                 <div class="hotel-list">
-                    <div id="liveStatusBox" class="live-status" style="display: none;">
-                        <div class="live-pulse"></div> <span id="syncText">جاري البحث عن أسعار ما تخطر على بال إبليس...</span>
-                    </div>
                     <div id="hotelsContainer"></div>
                 </div>
             </div>
         </div>
     </div>
 
-    <!-- لوحة تحكم العميل وسحابته الخاصة -->
+    <!-- لوحة تحكم العميل -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
-            <h1>بوابة سحابتك الذكية وحجوزاتك المحفوظة 🚀</h1>
-            <p>تابع رصيدك بحصالة حسابك، نقاطك، وفواتيرك بكل أمان وثقة!</p>
+            <h1>بوابة حسابك الذكي وحجوزاتك المحفوظة 🚀</h1>
+            <p>تابع رصيدك بحصالة حسابك، وإدارتك لحجوزاتك بكل أمان!</p>
         </section>
-
         <div class="container">
             <div id="userDashboard" class="auth-box" style="display: none; max-width: 900px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed var(--accent-yellow); padding-bottom: 15px; margin-bottom: 20px;">
                     <h2>أهلاً بك يا بطل، <span id="userNameDisplay" style="color: var(--accent-coral);"></span> 👋</h2>
                     <button onclick="logoutUser()" style="background: var(--accent-coral); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">تسجيل خروج</button>
                 </div>
-
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
                     <div style="background: rgba(255, 202, 58, 0.2); padding: 20px; border-radius: 16px; border: 2px dashed var(--accent-yellow);">
                         <h4>💰 حصالة حسابك الدائمة</h4>
-                        <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة</p>
-                        <small style="color: var(--accent-coral); font-weight: bold;">تساوي تقريباً: <span id="dashPointsValue">50.00</span> AED</small>
+                        <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">0</span> نقطة</p>
                     </div>
                     <div style="background: rgba(0, 180, 216, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-cyan);">
                         <h4>☁️ حالة السحابة الخاصة</h4>
-                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل وآمن 🔒 (حجوزاتك محمية تماماً)</div>
+                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل وآمن 🔒 (حجوزاتك محمية)</div>
                     </div>
                 </div>
-
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السحابية وسياسات الإلغاء</h3>
-                    <button onclick="fetchUserData(currentUser.email)" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
+                    <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة</h3>
+                    <button onclick="refreshDashboard()" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
                 </div>
-                <!-- هنا ستظهر الحجوزات مع زر الإلغاء -->
                 <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 15px;"></div>
             </div>
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول/الإنشاء السحابية (Modal) -->
+    <!-- النافذة المنبثقة (Modal) -->
     <div id="socialModal" class="modal-overlay">
-        <div class="modal-content" style="position: relative;">
+        <div class="modal-content">
             <div id="loadingOverlay" class="loading-overlay">
                 <div class="spinner"></div>
-                <p id="loadingText">جاري الاتصال بالسحابة الآمنة... ⏳</p>
+                <p id="loadingText">جاري الاتصال... ⏳</p>
             </div>
-
-            <!-- أزرار التبديل -->
             <div class="tab-switcher">
-                <button type="button" id="tabLoginBtn" class="tab-btn" onclick="switchTab('login')">تسجيل دخول (حساب سابق)</button>
+                <button type="button" id="tabLoginBtn" class="tab-btn" onclick="switchTab('login')">تسجيل دخول</button>
                 <button type="button" id="tabRegisterBtn" class="tab-btn active" onclick="switchTab('register')">فتح حساب جديد</button>
             </div>
-
-            <!-- نموذج تسجيل الدخول للعملاء القدامى -->
+            
             <form id="loginForm" onsubmit="handleDirectLogin(event)" style="display: none;">
-                <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل المسجل مسبقاً 🔑</h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">أدخل بريدك وكلمة المرور للوصول إلى سحابتك وحجوزاتك السابقة.</p>
-                <div class="form-group" style="text-align: right;">
-                    <label>البريد الإلكتروني المسجل:</label>
-                    <input type="email" id="loginEmail" required placeholder="name@remaltourismllc.com">
-                </div>
-                <div class="form-group" style="text-align: right;">
-                    <label>كلمة المرور السحابية:</label>
-                    <input type="password" id="loginPassword" required placeholder="••••••••">
-                </div>
+                <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل 🔑</h3>
+                <div class="form-group" style="text-align: right;"><label>البريد الإلكتروني:</label><input type="email" id="loginEmail" required></div>
+                <div class="form-group" style="text-align: right;"><label>كلمة المرور:</label><input type="password" id="loginPassword" required></div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button type="submit" class="btn-book" style="flex: 2;">استرجاع حسابي والدخول 🚀</button>
-                    <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">إلغاء</button>
+                    <button type="submit" class="btn-book" style="flex: 2;">دخول 🚀</button>
+                    <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333;">إلغاء</button>
                 </div>
             </form>
 
-            <!-- نموذج فتح حساب جديد والتحقق عبر الـ OTP -->
             <div id="registerContainer">
-                <h3 style="color: var(--primary); margin-bottom: 15px;">إنشاء سحابة وحساب جديد ☁️</h3>
-                
+                <h3 style="color: var(--primary); margin-bottom: 15px;">إنشاء حساب جديد ☁️</h3>
                 <form id="step1Form" onsubmit="requestVerificationCode(event)">
-                    <div class="form-group" style="text-align: right;">
-                        <label>الاسم الكريم:</label>
-                        <input type="text" id="modalName" required placeholder="اسمك كما في الجواز">
-                    </div>
-                    <div class="form-group" style="text-align: right;">
-                        <label>البريد الإلكتروني (لاستلام الفواتير والتحديثات):</label>
-                        <input type="email" id="modalEmail" required placeholder="name@remaltourismllc.com">
-                    </div>
-                    <div class="form-group" style="text-align: right;">
-                        <label>كلمة المرور (لحماية حسابك):</label>
-                        <input type="password" id="modalPassword" required placeholder="••••••••">
-                    </div>
-                    <div class="form-group" style="text-align: right;">
-                        <label>رقم العميل (الهاتف):</label>
-                        <input type="tel" id="modalPhone" required placeholder="+971 50 123 4567">
-                    </div>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
-                        <div class="form-group" style="text-align: right;">
-                            <label>الجنسية:</label>
-                            <select id="modalNationality" required style="width:100%; padding:14px; border-radius:14px; border:2px solid #cbd5e1; font-family:'Cairo'; font-weight:700;">
-                                <option value="إماراتي">إماراتي 🇦🇪</option>
-                                <option value="سعودي">سعودي 🇸🇦</option>
-                                <option value="سوري">سوري 🇸🇾</option>
-                                <option value="مصري">مصري 🇪🇬</option>
-                                <option value="أردني">أردني 🇯🇴</option>
-                                <option value="لبناني">لبناني 🇱🇧</option>
-                                <option value="أخرى">جنسية أخرى 🌍</option>
-                            </select>
-                        </div>
-                        <div class="form-group" style="text-align: right;">
-                            <label>سنة الميلاد:</label>
-                            <input type="number" id="modalBirthYear" min="1940" max="2010" required placeholder="1990">
-                        </div>
-                    </div>
+                    <div class="form-group" style="text-align: right;"><label>الاسم الكريم:</label><input type="text" id="modalName" required></div>
+                    <div class="form-group" style="text-align: right;"><label>البريد الإلكتروني:</label><input type="email" id="modalEmail" required></div>
+                    <div class="form-group" style="text-align: right;"><label>كلمة المرور:</label><input type="password" id="modalPassword" required></div>
+                    <div class="form-group" style="text-align: right;"><label>رقم الهاتف:</label><input type="tel" id="modalPhone" required></div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button type="submit" class="btn-book" style="flex: 2;">إرسال كود التحقق 📨</button>
-                        <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">إلغاء</button>
+                        <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333;">إلغاء</button>
                     </div>
                 </form>
-
                 <form id="step2Form" onsubmit="verifyCodeAndRegister(event)" style="display: none;">
                     <div class="form-group" style="text-align: center;">
-                        <label style="color: var(--accent-coral); font-size: 14px;">أدخل كود الـ 6 أرقام المرسل إلى إيميلك:</label>
-                        <input type="text" id="verificationCodeInput" maxlength="6" required placeholder="123456" style="text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: 900;">
+                        <label style="color: var(--accent-coral);">أدخل كود الـ 6 أرقام:</label>
+                        <input type="text" id="verificationCodeInput" maxlength="6" required style="text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: 900;">
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="submit" class="btn-book" style="flex: 2;">تأكيد وتفعيل الحساب 🚀</button>
-                        <button type="button" class="btn-book" onclick="resetModalSteps()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">رجوع</button>
+                        <button type="submit" class="btn-book" style="flex: 2;">تأكيد وتفعيل 🚀</button>
                     </div>
                 </form>
             </div>
         </div>
     </div>
 
-    <div id="mapView" class="view-section">
-        <section class="hero" style="padding: 40px 5%;">
-            <h1 id="mapHeaderTitle">خريطة الضياع الإماراتي 🗺️</h1>
-            <p id="mapHeaderSub">شوف وين الفندق بالضبط عشان ما تضيع وتنام عند دبي مول بالشارع!</p>
-        </section>
-
-        <div class="container" style="max-width: 1000px;">
-            <div class="map-box">
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="color: var(--primary);"><i class="fa-solid fa-map-pin" style="color: var(--accent-coral);"></i> <span id="mapBoxTitle">رادار الفنادق المجاورة (لا تحاتون، كلهم يبون فلوسكم)</span></h3>
-                    <button class="nav-btn" onclick="switchView('mainView')" id="backMapBtn">ارجع، توبنا 🔙</button>
-                </div>
-                <div style="width: 100%; height: 450px; border-radius: 15px; overflow: hidden; border: 3px solid var(--accent-cyan);">
-                    <iframe 
-                        width="100%" 
-                        height="100%" 
-                        style="border:0;" 
-                        loading="lazy" 
-                        allowfullscreen 
-                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d462562.8472534571!2d54.94729352608466!3d25.075011850125717!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e5f43496ad9c645%3A0xbde66e5084295162!2z2KfZhNmI2LHYqtimINin2YTZhdiq2K3Yr9ip!5e0!3m2!1sar!2sae!4v1650000000000!5m2!1sar!2sae">
-                    </iframe>
-                </div>
-            </div>
-        </div>
-    </div>
-
+    <!-- شاشة الحجز -->
     <div id="bookingView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
-            <h1 id="bookHeaderTitle">ساعة الحقيقة ودفع الغرامة (الحجز) 📝</h1>
-            <p id="bookHeaderSub">تأكد أن اسمك مطابق لجواز سفرك، مو تروح تسافر باسم زميلك بالدوام!</p>
+            <h1 id="hotelNameTitle"></h1>
+            <p>تأكد من شروط السياسة وأحكام الإلغاء قبل تأكيد الدفع!</p>
         </section>
-
         <div class="container" style="max-width: 800px;">
             <div class="booking-box">
-                <h2 id="hotelNameTitle" style="color: var(--primary); margin-bottom: 20px; border-bottom: 3px dashed var(--accent-yellow); padding-bottom: 10px;"></h2>
-
-                <!-- صندوق توضيح سياسة الاسترداد قبل الحجز -->
                 <div id="hotelPolicyWarningBox" style="background: #fffbeb; border: 2px dashed #f59e0b; padding: 15px; border-radius: 14px; margin-bottom: 20px;">
                     <h4 style="color: #d97706; margin-bottom: 5px;"><i class="fa-solid fa-shield-halved"></i> سياسة الاسترداد والإلغاء:</h4>
                     <p id="policyDetailsText" style="font-size: 14px; font-weight: 800; color: #78350f; line-height: 1.6;"></p>
                 </div>
-
                 <form id="bookingForm" onsubmit="confirmReservation(event)">
-                    <div class="form-group">
-                        <label id="lblFullName">الاسم الكريم (مثل ما مكتوب بالجواز مو بالبطاقة الشخصية):</label>
-                        <input type="text" id="custName" required placeholder="مثال: KHALID SULTAN AL-FALASI">
-                    </div>
-
+                    <div class="form-group"><label>الاسم الكريم:</label><input type="text" id="custName" required></div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
-                        <div class="form-group">
-                            <label id="lblEmailBook">الإيميل (لاستلام الفاتورة وتأكيد الحجز بالسحابة):</label>
-                            <input type="email" id="custEmail" required placeholder="khalid@remaltourismllc.com">
-                        </div>
-                        <div class="form-group">
-                            <label id="lblPhoneBook">رقم التليفون (اللي بنزعجك عليه وقت الخصومات):</label>
-                            <input type="tel" id="custPhone" required placeholder="+971 50 123 4567">
-                        </div>
+                        <div class="form-group"><label>الإيميل:</label><input type="email" id="custEmail" required></div>
+                        <div class="form-group"><label>رقم الهاتف:</label><input type="tel" id="custPhone" required></div>
                     </div>
-
-                    <div class="form-group">
-                        <label id="lblCompBook">أسماء المرافقين (النشبة اللي بيخربون عليك السفرة):</label>
-                        <textarea id="custCompanions" rows="2" placeholder="اكتب أسمائهم عشان نعرف منو نلوم إذا ضاعت الشنطة"></textarea>
-                    </div>
-
-                    <div class="form-group">
-                        <label id="lblPayMethod">اختر طريقة السطو على محفظتك (الدفع):</label>
+                    <div class="form-group"><label>طريقة الدفع:</label>
                         <div class="payment-methods">
-                            <label class="pay-option" onclick="selectPayment('visa', this)">
-                                <input type="radio" name="payMethod" value="visa" required> 💳 <span id="payVisa">فيزا / ماستر</span>
-                            </label>
-                            <label class="pay-option" onclick="selectPayment('mada', this)">
-                                <input type="radio" name="payMethod" value="mada"> 💳 <span id="payMada">مدى (حقتنا)</span>
-                            </label>
-                            <label class="pay-option" onclick="selectPayment('applepay', this)">
-                                <input type="radio" name="payMethod" value="applepay">  Apple Pay
-                            </label>
-                            <label class="pay-option" onclick="selectPayment('hotel', this)">
-                                <input type="radio" name="payMethod" value="hotel"> 🏨 <span id="payHotel">ادفع بالاستقبال (وهرب)</span>
-                            </label>
+                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية</label>
+                            <label class="pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel"> 🏨 ادفع بالاستقبال</label>
                         </div>
                     </div>
-
-                    <div id="cardDetailsContainer" class="card-gateway-box" style="display: none;">
-                        <h4 style="margin-bottom: 10px; color: var(--primary); font-size: 14px;"><i class="fa-solid fa-lock"></i> <span id="cardDetailsTitle">الدفع الإلكتروني الآمن عبر Stripe</span></h4>
-                        <p style="font-size: 12px; color: var(--text-muted);">بالضغط على زر الدفع أدناه، سيتم تحويلك إلى صفحة الدفع الآمنة المعتمدة لإتمام المعاملة.</p>
-                    </div>
-
-                    <div style="background: rgba(255, 89, 94, 0.1); padding: 14px; border-radius: 12px; margin-bottom: 15px; font-weight: 800; color: var(--primary); border: 2px dashed var(--accent-coral);">
-                        🎁 <span id="earnRewardPrefix">بتكشخ وبتكسب معنا</span> <span id="rewardPoints" style="color: var(--accent-coral); font-weight: 900;">0</span> <span id="earnRewardSuffix">نقطة عيدية للحساب تقدر تبدلها بقهوة!</span>
-                    </div>
-
-                    <div style="display: flex; gap: 10px;">
-                        <button type="submit" class="btn-book" id="btnFinalBook" style="flex: 2;">اضغط وودّع الراتب 🔒</button>
-                        <button type="button" class="btn-book" onclick="switchView('mainView')" id="btnBackBook" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">هونت رجعني</button>
-                    </div>
+                    <button type="submit" class="btn-book">تثبيت الحجز وإصدار الفاتورة 🔒</button>
                 </form>
             </div>
         </div>
     </div>
 
-    <div id="notification"></div>
+    <!-- الخريطة -->
+    <div id="mapView" class="view-section">
+        <section class="hero" style="padding: 40px 5%;">
+            <h1>خريطة الضياع الإماراتي 🗺️</h1>
+        </section>
+        <div class="container" style="max-width: 1000px;">
+            <div class="map-box">
+                <button class="nav-btn" onclick="switchView('mainView')" style="margin-bottom:15px;">رجوع للرئيسية 🔙</button>
+                <div style="width: 100%; height: 450px; border-radius: 15px; overflow: hidden; border: 3px solid var(--accent-cyan);">
+                    <iframe width="100%" height="100%" style="border:0;" loading="lazy" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d462562.8472534571!2d54.94729352608466!3d25.075011850125717!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e5f43496ad9c645%3A0xbde66e5084295162!2z2KfZhNmI2LHYqtimINin2YTZhdiq2K3Yr9ip!5e0!3m2!1sar!2sae!4v1650000000000!5m2!1sar!2sae"></iframe>
+                </div>
+            </div>
+        </div>
+    </div>
 
     <script>
-        const translations = {
-            ar: {
-                pageTitle: "شركة الرمال الدولية | احجز، فلّها، واكسب! ✈️",
-                brandName: "الرمال الدولية",
-                brandSub: "اضحك، احجز، وفلّها! 🤪✈️",
-                walletLabel: "حصالة حسابك الدائمة",
-                pointsLabel: "نقطة",
-                regBtnText: "افتح حساب / دخول",
-                heroTitle: "عروض فنادق تخلّيك تفكّر تسحب على الدوام! 🏝️💸",
-                heroSubtitle: "حدد تاريخ روحتك ورجعتك، وخل الباقي علينا (ولا تنسَ تقرأ مقالب سياسات الفنادق تحت! 😂)",
-                lblSearchHotel: "وين ناوي تخيم؟ (الفندق أو الإمارة)",
-                lblCheckIn: "تاريخ الروحة (الدخول)",
-                lblCheckOut: "تاريخ العودة (الخروج)",
-                lblManualGuests: "عدد الشلة (Manual)",
-                searchBtnText: "ابحث وانحاش 🚀",
-                mapBtnText: "طيارة ع الخريطة 🗺️",
-                filterTitle: "نقّط على الإمارة 📍",
-                cityAll: "كل الإمارات (وين ما تهب الهبايب)",
-                syncText: "جاري البحث عن أسعار ما تخطر على بال إبليس...",
-                mapHeaderTitle: "خريطة الضياع الإماراتي 🗺️",
-                mapHeaderSub: "شوف وين الفندق بالضبط عشان ما تضيع وتنام عند دبي مول بالشارع!",
-                mapBoxTitle: "رادار الفنادق المجاورة (لا تحاتون، كلهم يبون فلوسكم)",
-                backMapBtn: "ارجع، توبنا 🔙",
-                bookHeaderTitle: "ساعة الحقيقة ودفع الغرامة (الحجز) 📝",
-                bookHeaderSub: "تأكد أن اسمك مطابق لجواز سفرك، مو تروح تسافر باسم زميلك بالدوام!",
-                lblFullName: "الاسم الكريم (مثل ما مكتوب بالجواز مو بالبطاقة الشخصية):",
-                lblEmailBook: "الإيميل (لاستلام الفاتورة وتأكيد الحجز بالسحابة):",
-                lblPhoneBook: "رقم التليفون (اللي بنزعجك عليه وقت الخصومات):",
-                lblCompBook: "أسماء المرافقين (النشبة اللي بيخربون عليك السفرة):",
-                lblPayMethod: "اختر طريقة السطو على محفظتك (الدفع):",
-                payVisa: "فيزا / ماستر",
-                payMada: "مدى (حقتنا)",
-                payHotel: "ادفع بالاستقبال (وهرب)",
-                cardDetailsTitle: "الدفع الإلكتروني الآمن عبر Stripe",
-                earnRewardPrefix: "بتكشخ وبتكسب معنا",
-                earnRewardSuffix: "نقطة عيدية للحساب تقدر تبدلها بقهوة!",
-                btnFinalBook: "اضغط وودّع الراتب 🔒",
-                btnBackBook: "هونت رجعني",
-                perNightText: "ليالي الرواق (إجمالي الشقا)",
-                guestsText: "أشخاص (صاحيين ونايمين)",
-                bookBtnCard: "احجز وضحك عالدنيا 🚀",
-                ratingText: "يفووز 🔥"
-            },
-            en: {
-                pageTitle: "Rimal International | Book, Chill, and Earn! ✈️",
-                brandName: "Rimal Intl",
-                brandSub: "Laugh, Book, & Escape! 🤪✈️",
-                walletLabel: "Cash Piggy 🤑",
-                pointsLabel: "Points",
-                regBtnText: "Account / Login",
-                heroTitle: "Hotel Deals That Make You Want to Quit Your Job! 🏝️💸",
-                heroSubtitle: "Pick your dates and let us handle the chaos (and read the hilarious hotel policies below! 😂)",
-                lblSearchHotel: "Where are you camping? (Hotel or Emirate)",
-                lblCheckIn: "Departure Date (Check-in)",
-                lblCheckOut: "Return Date (Check-out)",
-                lblManualGuests: "Squad Size (Manual)",
-                searchBtnText: "Search & Run 🚀",
-                mapBtnText: "Flight on Map 🗺️",
-                filterTitle: "Pick Your Emirate 📍",
-                cityAll: "All Emirates (Wherever the wind blows)",
-                syncText: "Searching for prices crazier than your boss...",
-                mapHeaderTitle: "UAE Lost & Found Map 🗺️",
-                mapHeaderSub: "See where the hotel is so you don't end up sleeping outside Dubai Mall!",
-                mapBoxTitle: "Nearby Hotels Radar (Don't worry, they all want your money)",
-                backMapBtn: "Go Back, I'm Scared 🔙",
-                bookHeaderTitle: "Hour of Truth & Fine Payment (Booking) 📝",
-                bookHeaderSub: "Make sure your name matches your passport, not your gym ID!",
-                lblFullName: "Full Name (as in passport, not Instagram):",
-                lblEmailBook: "Email (so we can spam you with confirmations):",
-                lblPhoneBook: "Phone Number (for promo call annoyances):",
-                lblCompBook: "Companion Names (the annoying ones):",
-                lblPayMethod: "Choose Wallet Robbery Method (Payment):",
-                payVisa: "Visa / Mastercard",
-                payMada: "Mada (Local)",
-                payHotel: "Pay at Desk (and run)",
-                cardDetailsTitle: "Secure Stripe Payment",
-                earnRewardPrefix: "You will flex & earn",
-                earnRewardSuffix: "holiday points to trade for coffee!",
-                btnFinalBook: "Click & Say Goodbye to Salary 🔒",
-                btnBackBook: "Take Me Back",
-                perNightText: "for selected nights (Total Chaos)",
-                guestsText: "People (awake & asleep)",
-                bookBtnCard: "Book & Laugh at Life 🚀",
-                ratingText: "Legendary 🔥"
-            },
-            fr: {
-                pageTitle: "Rimal International | Réservez, Profitez, Gagnez! ✈️",
-                brandName: "Rimal Intl",
-                brandSub: "Rire, Réserver, et Fuir! 🤪✈️",
-                walletLabel: "Tirelire Cash 🤑",
-                pointsLabel: "Points",
-                regBtnText: "Compte / Connexion",
-                heroTitle: "Offres d'hôtels qui vous donnent envie de démissionner ! 🏝️💸",
-                heroSubtitle: "Choisissez vos dates et lisez les politiques drôles des hôtels !",
-                lblSearchHotel: "Où campez-vous ? (Hôtel ou Émirat)",
-                lblCheckIn: "Date de départ",
-                lblCheckOut: "Date de retour",
-                lblManualGuests: "Taille de l'équipe (Manuel)",
-                searchBtnText: "Chercher & Fuir 🚀",
-                mapBtnText: "Carte Interactive 🗺️",
-                filterTitle: "Filtrer par Émirat 📍",
-                cityAll: "Tous les Émirats",
-                syncText: "Recherche de prix fous...",
-                mapHeaderTitle: "Carte des Perdues 🗺️",
-                mapHeaderSub: "Voir l'emplacement de l'hôtel",
-                mapBoxTitle: "Radar des Hôtels",
-                backMapBtn: "Retour 🔙",
-                bookHeaderTitle: "Heure de Vérité (Réservation) 📝",
-                bookHeaderSub: "Assurez-vous que votre nom correspond à votre passeport !",
-                lblFullName: "Nom Complet:",
-                lblEmailBook: "E-mail:",
-                lblPhoneBook: "Numéro de Téléphone:",
-                lblCompBook: "Noms des Compagnons:",
-                lblPayMethod: "Mode de Paiement:",
-                payVisa: "Visa / Mastercard",
-                payMada: "Mada",
-                payHotel: "Payer à l'Hôtel",
-                cardDetailsTitle: "Paiement Sécurisé Stripe",
-                earnRewardPrefix: "Vous gagnez",
-                earnRewardSuffix: "points !",
-                btnFinalBook: "Payer et dire adieu au salaire 🔒",
-                btnBackBook: "Retour",
-                perNightText: "pour les nuits sélectionnées",
-                guestsText: "Personnes",
-                bookBtnCard: "Réserver & Rire 🚀",
-                ratingText: "Légendaire 🔥"
-            },
-            de: {
-                pageTitle: "Rimal International | Buchen, Genießen, Verdienen! ✈️",
-                brandName: "Rimal Intl",
-                brandSub: "Lachen, Buchen, Abhaun! 🤪✈️",
-                walletLabel: "Sparschwein 🤑",
-                pointsLabel: "Punkte",
-                regBtnText: "Konto / Login",
-                heroTitle: "Hotelangebote, die Sie kündigen lassen wollen! 🏝️💸",
-                heroSubtitle: "Wählen Sie Ihre Daten und lesen Sie die urkomischen Hotelrichtlinien!",
-                lblSearchHotel: "Wo campen Sie? (Hotel oder Emirat)",
-                lblCheckIn: "Anreisedatum",
-                lblCheckOut: "Abreisedatum",
-                lblManualGuests: "Gruppengröße (Manuell)",
-                searchBtnText: "Suchen & Weg 🚀",
-                mapBtnText: "Karte anzeigen 🗺️",
-                filterTitle: "Nach Emirat filtern 📍",
-                cityAll: "Alle Emirate",
-                syncText: "Suche nach verrückten Preisen...",
-                mapHeaderTitle: "Hotelkarte 🗺️",
-                mapHeaderSub: "Standort anzeigen",
-                mapBoxTitle: "Hotel-Radar",
-                backMapBtn: "Zurück 🔙",
-                bookHeaderTitle: "Stunde der Wahrheit (Buchung) 📝",
-                bookHeaderSub: "Stellen Sie sicher, dass Ihr Name zum Reisepass passt!",
-                lblFullName: "Vollständiger Name:",
-                lblEmailBook: "E-Mail:",
-                lblPhoneBook: "Telefonnummer:",
-                lblCompBook: "Begleiter:",
-                lblPayMethod: "Zahlungsmethode:",
-                payVisa: "Visa / Mastercard",
-                payMada: "Mada",
-                payHotel: "Im Hotel bezahlen",
-                cardDetailsTitle: "Sichere Stripe-Zahlung",
-                earnRewardPrefix: "Sie verdienen",
-                earnRewardSuffix: "Punkte!",
-                btnFinalBook: "Bezahlen & Gehalt verabschieden 🔒",
-                btnBackBook: "Zurück",
-                perNightText: "für ausgewählte Nächte",
-                guestsText: "Personen",
-                bookBtnCard: "Buchen & Lachen 🚀",
-                ratingText: "Legendär 🔥"
-            }
-        };
-
-        let currentLang = "ar";
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
-        
-        let tempEmail = '';
-        let tempName = '';
-        let tempPassword = '';
-        let tempPhone = '';
-        let tempNationality = '';
-        let tempBirthYear = '';
+        let selectedHotel = '', currentTotalPriceAED = 0;
+        let activePolicyType = 'full', activePolicyText = '';
+        let tempEmail='', tempName='', tempPassword='', tempPhone='';
 
-        let selectedHotel = '';
-        let pointsToAdd = 0;
-        let currentTotalPriceAED = 0;
-        let searchTimeout = null;
-
-        // متغيرات لسياسة الاسترداد
-        let activePolicyType = 'full';
-        let activePolicyText = '';
+        // تعريف الفنادق (كاملة مع السياسات)
+        const allHotels = [
+            { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "ممنوع إدخال بطاطس حارة!" },
+            { name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "سمكة الشيمو ممنوعة!" },
+            { name: "هيلتون دبي نخلة جميرا (Hilton)", city: "دبي", priceAED: 1250, basePoints: 400, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ممنوع الصراخ على البحر!" },
+            { name: "شيراتون مجمع خور دبي", city: "دبي", priceAED: 980, basePoints: 320, img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "الكاسات الزجاجية أثرية!" },
+            { name: "ماريوت ماركيز دبي", city: "دبي", priceAED: 1400, basePoints: 450, img: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "ممنوع تطل بمكبر صوت!" },
+            { name: "برج العرب جميرا، دبي", city: "دبي", priceAED: 5505, basePoints: 1500, img: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "ندفع بالذهب الخالص فقط!" },
+            { name: "قصر الإمارات، أبوظبي", city: "أبوظبي", priceAED: 1651, basePoints: 450, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "الذهب حقيقي، لا تشتكي!" },
+            { name: "شيراتون الشارقة", city: "الشارقة", priceAED: 950, basePoints: 300, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء.", funnyPolicy: "الهدوء إجباري جداً!" }
+        ];
 
         window.onload = function() {
-            const today = new Date();
-            const tomorrow = new Date();
-            tomorrow.setDate(today.getDate() + 1);
-            
-            document.getElementById('checkInDate').valueAsDate = today;
-            document.getElementById('checkOutDate').valueAsDate = tomorrow;
-
-            displayHotels(allHotels);
-            checkUserSession();
+            try {
+                const today = new Date();
+                const tomorrow = new Date();
+                tomorrow.setDate(today.getDate() + 1);
+                document.getElementById('checkInDate').valueAsDate = today;
+                document.getElementById('checkOutDate').valueAsDate = tomorrow;
+                displayHotels(allHotels);
+                checkUserSession();
+            } catch(e) { console.error(e); }
         };
 
+        function switchView(viewId) {
+            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
+            document.getElementById(viewId).classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        // إعدادات الحساب والمستخدم
         function checkUserSession() {
             const btn = document.getElementById('regBtnText');
+            const dashboard = document.getElementById('userDashboard');
             if (currentUser) {
-                btn.innerHTML = `<i class="fa-solid fa-user-check"></i> ${currentUser.name}`;
-                document.getElementById('userDashboard').style.display = 'block';
+                if(btn) btn.innerHTML = `<i class="fa-solid fa-user-check"></i> ${currentUser.name}`;
+                if(dashboard) dashboard.style.display = 'block';
                 fetchUserData(currentUser.email);
             } else {
-                btn.innerHTML = `<i class="fa-solid fa-user-plus"></i> افتح حساب / دخول`;
-                document.getElementById('userDashboard').style.display = 'none';
+                if(btn) btn.innerHTML = `<i class="fa-solid fa-user-plus"></i> افتح حساب / دخول`;
+                if(dashboard) dashboard.style.display = 'none';
             }
         }
 
         function handleAccountBtnClick() {
-            if (currentUser) {
-                switchView('registerView');
-            } else {
-                openAuthModal('register');
-            }
+            if (currentUser) { switchView('registerView'); } else { openAuthModal('register'); }
         }
 
-        function openAuthModal(mode) {
-            document.getElementById('socialModal').style.display = 'flex';
-            switchTab(mode);
-        }
-
-        function closeAuthModal() {
-            document.getElementById('socialModal').style.display = 'none';
-        }
-
+        function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
+        function closeAuthModal() { document.getElementById('socialModal').style.display = 'none'; }
         function switchTab(tab) {
-            const loginBtn = document.getElementById('tabLoginBtn');
-            const regBtn = document.getElementById('tabRegisterBtn');
-            const loginForm = document.getElementById('loginForm');
-            const regContainer = document.getElementById('registerContainer');
-
-            if (tab === 'login') {
-                loginBtn.classList.add('active');
-                regBtn.classList.remove('active');
-                loginForm.style.display = 'block';
-                regContainer.style.display = 'none';
-            } else {
-                regBtn.classList.add('active');
-                loginBtn.classList.remove('active');
-                regContainer.style.display = 'block';
-                loginForm.style.display = 'none';
-            }
+            document.getElementById('tabLoginBtn').classList.toggle('active', tab === 'login');
+            document.getElementById('tabRegisterBtn').classList.toggle('active', tab === 'register');
+            document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+            document.getElementById('registerContainer').style.display = tab === 'register' ? 'block' : 'none';
         }
 
-        function resetModalSteps() {
-            document.getElementById('step1Form').style.display = 'block';
-            document.getElementById('step2Form').style.display = 'none';
-            document.getElementById('verificationCodeInput').value = '';
-            document.getElementById('loadingOverlay').style.display = 'none';
-        }
-
+        // الاتصال بالسيرفر للحسابات
         async function handleDirectLogin(e) {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
-
-            document.getElementById('loadingText').innerText = "جاري استرجاع حسابك وحجوزاتك... ☁️";
             document.getElementById('loadingOverlay').style.display = 'flex';
-
             try {
-                const res = await fetch('/api/auth/login', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email, password })
-                });
+                const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
                 const data = await res.json();
                 document.getElementById('loadingOverlay').style.display = 'none';
-
                 if (data.success) {
                     currentUser = data.user;
                     localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
                     closeAuthModal();
                     checkUserSession();
                     switchView('registerView');
-                    alert(`✅ أهلاً بك مجدداً يا ${currentUser.name}! تم استرجاع حسابك وحجوزاتك بالكامل.`);
-                } else {
-                    alert('❌ خطأ: ' + data.error);
-                }
-            } catch (err) {
-                document.getElementById('loadingOverlay').style.display = 'none';
-                alert('❌ خطأ في الاتصال بالخادم');
-            }
+                } else { alert('❌ ' + data.error); }
+            } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ في الاتصال'); }
         }
 
         async function requestVerificationCode(e) {
@@ -733,64 +400,39 @@
             tempEmail = document.getElementById('modalEmail').value;
             tempPassword = document.getElementById('modalPassword').value;
             tempPhone = document.getElementById('modalPhone').value;
-            tempNationality = document.getElementById('modalNationality').value;
-            tempBirthYear = document.getElementById('modalBirthYear').value;
-
-            document.getElementById('loadingText').innerText = "جاري إنشاء حسابك وإرسال كود التحقق... 📨";
             document.getElementById('loadingOverlay').style.display = 'flex';
-
             try {
-                const res = await fetch('/api/auth/register-send-code', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: tempEmail, name: tempName, password: tempPassword, phone: tempPhone, nationality: tempNationality, birthYear: tempBirthYear })
-                });
+                const res = await fetch('/api/auth/register-send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: tempEmail, name: tempName, password: tempPassword, phone: tempPhone }) });
                 const data = await res.json();
                 document.getElementById('loadingOverlay').style.display = 'none';
-
                 if(data.success) {
-                    alert('✅ تم إرسال كود التحقق بنجاح إلى بريدك الإلكتروني!');
                     document.getElementById('step1Form').style.display = 'none';
                     document.getElementById('step2Form').style.display = 'block';
-                } else {
-                    alert('❌ خطأ: ' + data.error);
-                }
-            } catch (err) {
-                document.getElementById('loadingOverlay').style.display = 'none';
-                alert('❌ خطأ في الاتصال بالخادم');
-            }
+                } else { alert('❌ ' + data.error); }
+            } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ'); }
         }
 
         async function verifyCodeAndRegister(e) {
             e.preventDefault();
             const code = document.getElementById('verificationCodeInput').value;
-
-            document.getElementById('loadingText').innerText = "جاري تفعيل حسابك وحفظ بياناتك بالسحابة... 🚀";
             document.getElementById('loadingOverlay').style.display = 'flex';
-
             try {
-                const res = await fetch('/api/auth/verify-and-register', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: tempEmail, code })
-                });
+                const res = await fetch('/api/auth/verify-and-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: tempEmail, code }) });
                 const data = await res.json();
                 document.getElementById('loadingOverlay').style.display = 'none';
-
                 if(data.success) {
                     currentUser = data.user;
                     localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
                     closeAuthModal();
                     checkUserSession();
                     switchView('registerView');
-                    alert(`🎉 مبارك إنشاء حسابك يا ${currentUser.name}! تم منحك 500 نقطة ترحيبية.`);
-                } else {
-                    alert('❌ كود التحقق غير صحيح.');
-                }
-            } catch (err) {
-                document.getElementById('loadingOverlay').style.display = 'none';
-                alert('❌ خطأ في التحقق');
-            }
+                    alert(`🎉 تم تفعيل الحساب!`);
+                } else { alert('❌ كود غير صحيح.'); }
+            } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ'); }
+        }
+
+        function refreshDashboard() {
+            if(currentUser) fetchUserData(currentUser.email);
         }
 
         async function fetchUserData(email) {
@@ -801,85 +443,95 @@
                     document.getElementById('userNameDisplay').innerText = data.profile.name;
                     document.getElementById('dashPoints').innerText = data.profile.points;
                     document.getElementById('displayPoints').innerText = data.profile.points;
-                    document.getElementById('dashPointsValue').innerText = data.profile.pointsValueAED;
 
                     const bookingsContainer = document.getElementById('dashBookingsList');
                     bookingsContainer.innerHTML = '';
                     if(data.bookings.length === 0) {
-                        bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">حسابك نظيف حالياً، ابدأ بحجز رحلتك الأولى لتدون هنا!</div>`;
+                        bookingsContainer.innerHTML = `<div style="padding:15px; text-align:center;">ليس لديك حجوزات حالياً.</div>`;
                     } else {
                         data.bookings.forEach(b => {
                             bookingsContainer.innerHTML += `
-                                <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
-                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
+                                <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; flex-direction: column; gap: 10px;">
+                                    <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap;">
                                         <div>
                                             <strong style="font-size: 16px; color: var(--primary);">${b.hotelName}</strong><br>
-                                            <span style="color:var(--text-muted); font-size: 13px;">رقم المرجع: <strong style="color:var(--accent-coral);">${b.bookingReference}</strong> | المبلغ: <strong>${b.price} AED</strong></span>
+                                            <small style="color:var(--text-muted);">المرجع: <strong style="color:var(--accent-coral);">${b.bookingReference}</strong> | المبلغ: <strong>${b.price} AED</strong></small>
                                         </div>
-                                        <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold; font-size: 12px;">محفوظ بالحساب ✅</span>
+                                        <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold; font-size: 12px;">مؤكد ✅</span>
                                     </div>
                                     <div style="background: #fffbeb; border: 1px dashed #f59e0b; padding: 10px; border-radius: 10px; font-size: 12px; color: #78350f;">
-                                        <strong><i class="fa-solid fa-file-contract"></i> سياسة الإلغاء والاسترداد المطبقة:</strong> ${b.policyText || 'سياسة الاسترداد الكامل.'}
+                                        <strong>سياسة الإلغاء:</strong> ${b.policyText || 'استرداد كامل'}
                                     </div>
-                                    <button onclick="cancelBookingByClient('${b.bookingReference}')" style="background:#d90429; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; font-family:'Cairo'; font-size:13px; width: 100%; transition: 0.3s;">إلغاء الحجز واسترداد الرسوم ❌</button>
+                                    <button onclick="cancelBookingByClient('${b.bookingReference}')" style="background:#d90429; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; font-family:'Cairo';">إلغاء الحجز واسترداد الرسوم ❌</button>
                                 </div>
                             `;
                         });
                     }
                 }
-            } catch (e) {
-                console.error(e);
-            }
+            } catch (e) { console.error(e); }
         }
 
-        // دالة إلغاء الحجز من قبل العميل واحتساب الغرامات
         async function cancelBookingByClient(bookingReference) {
-            if (!confirm(`هل أنت متأكد من رغبتك في إلغاء الحجز رقم (${bookingReference})؟\nسيتم تطبيق سياسة الاسترداد الخاصة بالفندق.`)) return;
+            if (!confirm(`هل أنت متأكد من إلغاء الحجز؟ سيتم تطبيق سياسة الفندق.`)) return;
             try {
-                const res = await fetch('/api/bookings/cancel', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bookingReference, email: currentUser.email })
-                });
+                const res = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference, email: currentUser.email }) });
                 const data = await res.json();
-                if (data.success) {
-                    alert('✅ ' + data.message);
-                    fetchUserData(currentUser.email); // تحديث القائمة بعد الإلغاء
-                } else { alert('❌ ' + data.error); }
-            } catch (e) { alert('خطأ في الاتصال بالخادم، قد يكون بسبب عدم تحديث ملف الخادم الجديد.'); }
+                if (data.success) { alert('✅ ' + data.message); fetchUserData(currentUser.email); } 
+                else { alert('❌ ' + data.error); }
+            } catch (e) { alert('خطأ في الاتصال بالخادم. يرجى التأكد من تحديث ملف server.js على Render'); }
         }
 
-        function logoutUser() {
-            localStorage.removeItem('rimal_current_user');
-            currentUser = null;
-            checkUserSession();
-            switchView('mainView');
+        function logoutUser() { localStorage.removeItem('rimal_current_user'); currentUser = null; checkUserSession(); switchView('mainView'); }
+
+        // عرض وبحث الفنادق
+        function getCalculatedNights() {
+            const checkInInput = document.getElementById('checkInDate');
+            const checkOutInput = document.getElementById('checkOutDate');
+            if(!checkInInput || !checkOutInput) return 1;
+            const checkIn = new Date(checkInInput.value);
+            const checkOut = new Date(checkOutInput.value);
+            const diffDays = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+            return diffDays > 0 ? diffDays : 1;
         }
 
-        // إضافة خصائص سياسات الاسترداد للفنادق
-        const allHotels = [
-            { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", rating: "9.3", priceAED: 890, basePoints: 350, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", tag: "إطلالة خور دبي العصرية ✨", policyType: "full", policyText: "استرداد كامل للمبلغ 100% في حال الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: ممنوع إدخال بطاطس حارة للغرفة، وإذا شخرت بصوت عالي بالليل، بنحطك بغرفة لحالك مع قطط الشارع!" },
-            { name: "فندق أتلانتس النخلة، دبي", city: "دبي", rating: "9.2", priceAED: 2202, basePoints: 600, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", tag: "دخول مجاني لأكوافنتشر 🌊", policyType: "penalty", policyText: "سياسة الغرامة: يتم خصم 20% رسوم جزائية عند الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: سمكة الشيمو ممنوعة من المسابح، وإذا سرقت فوطة الفندق بيطلع لك اسمك في نشرة الإخبار!" },
-            { name: "هيلتون دبي نخلة جميرا (Hilton)", city: "دبي", rating: "9.0", priceAED: 1250, basePoints: 400, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", tag: "إطلالة بحرية ساحرة 🌴", policyType: "none", policyText: "غير قابل للاسترداد نهائياً، الإلغاء دون استرداد أي مبلغ.", funnyPolicy: "🚨 سياسة الفندق: ممنوع الصراخ على البحر وتقول ليش الموج عالي، البحر بروحه مأزم!" },
-            { name: "شيراتون مجمع خور دبي (Sheraton)", city: "دبي", rating: "8.7", priceAED: 980, basePoints: 320, img: "https://images.unsplash.com/photo-1590490360182-c33d57733427?auto=format&fit=crop&w=600&q=80", tag: "قريب من الأسواق التراثية 🛍️", policyType: "full", policyText: "استرداد كامل للمبلغ 100% في حال الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: الكاسات الزجاجية إذا انكسرت، بنحسبها عليك أثرية من العصور الوسطى!" },
-            { name: "ماريوت ماركيز دبي (Marriott)", city: "دبي", rating: "9.1", priceAED: 1400, basePoints: 450, img: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=600&q=80", tag: "أحد أطول الفنادق عالمياً 🏙️", policyType: "penalty", policyText: "سياسة الغرامة: يتم خصم 20% رسوم جزائية عند الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: ممنوع تطل من الشرفة ومعك مكبر صوت تنادي ربعك بالشارع!" },
-            { name: "برج العرب جميرا، دبي", city: "دبي", rating: "9.8", priceAED: 5505, basePoints: 1500, img: "https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=600&q=80", tag: "الفخامة والملوكية المطلقة 💎", policyType: "none", policyText: "غير قابل للاسترداد نهائياً، الإلغاء دون استرداد أي مبلغ.", funnyPolicy: "🚨 سياسة الفندق: ممنوع تطلب قهوة تركي وتقول ببطاقة الصراف، هنا ندفع بالذهب الخالص فقط!" },
-            { name: "قصر الإمارات ماندَرين أورينتال، أبوظبي", city: "أبوظبي", rating: "9.5", priceAED: 1651, basePoints: 450, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", tag: "كابتشينو بذهب عيار 24 👑", policyType: "penalty", policyText: "سياسة الغرامة: يتم خصم 20% رسوم جزائية عند الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: إذا طلبت ذهب بالكابتشينو واكتشفت أنه صبغ أصفر، ما لك حق تشتكي عند الشرطة!" },
-            { name: "شيراتون أبوظبي ريزورت آند توورز", city: "أبوظبي", rating: "8.9", priceAED: 1100, basePoints: 350, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", tag: "شاطئ خاص استثنائي 🏖️", policyType: "full", policyText: "استرداد كامل للمبلغ 100% في حال الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: ممنوع تبني قلاع رملية وتكتب عليها اسم طليقتك السابقة." },
-            { name: "شيراتون الشارقة بيتش ريزورت", city: "الشارقة", rating: "8.8", priceAED: 950, basePoints: 300, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", tag: "هدوء واسترخاء عائلي 🌴", policyType: "full", policyText: "استرداد كامل للمبلغ 100% في حال الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: الهدوء إجباري، وإذا ضحكت بصوت عالي بنخليك تنظف مسبح الأطفال بالفرشاة." },
-            { name: "فندق عجمان بالاس (Ajman Palace)", city: "عجمان", rating: "8.9", priceAED: 820, basePoints: 270, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", tag: "أجواء عربية أصيلة وشاطئ رملي 🌊", policyType: "none", policyText: "غير قابل للاسترداد نهائياً، الإلغاء دون استرداد أي مبلغ.", funnyPolicy: "🚨 سياسة الفندق: ممنوع تجيب معك تمر من برا، إحنا بنأكلك تمر لين تتعقد." },
-            { name: "ريتز كارلتون رأس الخيمة، ساحل الحمرا", city: "رأس الخيمة", rating: "9.6", priceAED: 1800, basePoints: 550, img: "https://images.unsplash.com/photo-1571896349842-33c89424de2d?auto=format&fit=crop&w=600&q=80", tag: "فلل خاصة على الشاطئ مباشرة 🌴", policyType: "penalty", policyText: "سياسة الغرامة: يتم خصم 20% رسوم جزائية عند الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: إذا طلعت الجبل وشفت جني، لا تتصل بالاستقبال لأنهم مشغولين." },
-            { name: "منتجع وسبا إنتركونتيننتال الفجيرة", city: "الفجيرة", rating: "9.2", priceAED: 1350, basePoints: 420, img: "https://images.unsplash.com/photo-1520250497591-112f2f40a3f4?auto=format&fit=crop&w=600&q=80", tag: "إطلالة خيالية على جبال وسواحل دبا ⛰️", policyType: "full", policyText: "استرداد كامل للمبلغ 100% في حال الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: الجبال اللي ورانا مو ملكك، لا تحاول تتسلقها بالبيجاما." },
-            { name: "فندق أم القيوين بيتش هتل", city: "أم القيوين", rating: "8.3", priceAED: 550, basePoints: 180, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", tag: "ملاذ هادئ بعيد عن صخب المدن 🏕️", policyType: "full", policyText: "استرداد كامل للمبلغ 100% في حال الإلغاء.", funnyPolicy: "🚨 سياسة الفندق: السكون تام، حتى صدى صوتك ممنوع داخل الغرفة!" }
-        ];
+        function calculateNightsAndPrice() { displayHotels(allHotels); }
 
-        const currencyRates = { AED: 1, USD: 0.27, SAR: 1.02, EUR: 0.25, GBP: 0.21, KWD: 0.084, BHD: 0.10, QAR: 0.99 };
-        const currencySymbols = { AED: "AED", USD: "$", SAR: "SAR", EUR: "€", GBP: "£", KWD: "KWD", BHD: "BHD", QAR: "QAR" };
-        let currentCurrency = "AED";
+        function displayHotels(hotelsArray) {
+            try {
+                const container = document.getElementById('hotelsContainer');
+                if(!container) return;
+                container.innerHTML = '';
+                const nights = getCalculatedNights();
 
-        function changeCurrency() { currentCurrency = document.getElementById('currencySelect').value; filterHotels(); }
-        function triggerLiveSearch() { filterHotels(); }
-        
+                if(hotelsArray.length === 0) {
+                    container.innerHTML = `<div style="padding:30px; text-align:center; font-weight:800;">عذراً، لا يوجد نتائج! 🤷‍♂️</div>`;
+                    return;
+                }
+
+                hotelsArray.forEach(hotel => {
+                    let totalPrice = hotel.priceAED * nights;
+                    container.innerHTML += `
+                        <div class="hotel-card">
+                            <div class="earn-ribbon">كاش +${hotel.basePoints * 2 * nights}</div>
+                            <img src="${hotel.img}" class="hotel-img" alt="${hotel.name}">
+                            <div class="hotel-info">
+                                <div class="hotel-name">${hotel.name}</div>
+                                <div style="color: var(--accent-coral); font-size: 13px; font-weight: 800;"><i class="fa-solid fa-star"></i> ${hotel.city}</div>
+                                <div class="nights-calc-badge" style="margin-top: 5px;"><i class="fa-solid fa-moon"></i> ${nights} ليالي</div>
+                                <div style="background:#f1f5f9; padding:8px 12px; border-radius:10px; font-size:12px; font-weight:bold; color:#334155; margin-top:5px;">
+                                    <i class="fa-solid fa-file-contract" style="color:#0284c7;"></i> سياسة الإلغاء: <span style="color:#0f172a;">${hotel.policyText}</span>
+                                </div>
+                            </div>
+                            <div class="hotel-pricing">
+                                <div class="hotel-price-display">${totalPrice} AED</div>
+                                <button class="btn-book" onclick="goToBooking('${hotel.name}', ${hotel.basePoints * nights}, ${totalPrice}, '${hotel.policyType}', '${hotel.policyText}')">احجز الآن 🚀</button>
+                            </div>
+                        </div>
+                    `;
+                });
+            } catch(e) { console.error("Error in displayHotels:", e); }
+        }
+
         function filterHotels() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
             const selectedCityRadio = document.querySelector('input[name="cityFilter"]:checked');
@@ -892,72 +544,16 @@
             displayHotels(filtered);
         }
 
-        function switchView(viewId) {
-            document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
-            document.getElementById(viewId).classList.add('active');
-            window.scrollTo(0, 0);
-        }
-
-        function displayHotels(hotelsArray) {
-            const container = document.getElementById('hotelsContainer');
-            container.innerHTML = '';
-            const nights = getCalculatedNights();
-            const manualGuests = document.getElementById('manualGuestsInput').value || 2;
-
-            if(hotelsArray.length === 0) {
-                container.innerHTML = `<div style="background:white; padding:30px; border-radius:15px; text-align:center; font-weight:800; color:var(--text-muted);">عذراً، مالقينا شي.. يمكن طايرين بالهوا! 🤷‍♂️</div>`;
-                return;
-            }
-
-            const rate = currencyRates[currentCurrency];
-            const symbol = currencySymbols[currentCurrency];
-
-            hotelsArray.forEach(hotel => {
-                let totalPrice = Math.round(hotel.priceAED * nights * rate);
-                
-                container.innerHTML += `
-                    <div class="hotel-card">
-                        <div class="earn-ribbon">كاش +${hotel.basePoints * 2 * nights} نقطة</div>
-                        <img src="${hotel.img}" class="hotel-img" alt="${hotel.name}">
-                        <div class="hotel-info">
-                            <div class="hotel-name">${hotel.name}</div>
-                            <div style="color: var(--accent-coral); font-size: 13px; font-weight: 800;"><i class="fa-solid fa-star"></i> ${hotel.city}</div>
-                            <div style="font-size: 13px; color: var(--text-muted); margin: 4px 0; font-weight: 700;"><i class="fa-solid fa-location-dot"></i> الإمارات - <strong>${hotel.city}</strong></div>
-                            
-                            <div class="nights-calc-badge"><i class="fa-solid fa-moon"></i> ${nights} ليالي شقاء | <i class="fa-solid fa-user"></i> ${manualGuests} أشخاص</div>
-
-                            <div class="funny-policy-box">
-                                <h4><i class="fa-solid fa-triangle-exclamation"></i> تحذير وسياسة الفندق</h4>
-                                <p>${hotel.funnyPolicy}</p>
-                            </div>
-                            <!-- عرض سياسة الاسترداد في كرت الفندق -->
-                            <div style="background:#f1f5f9; padding:8px 12px; border-radius:10px; font-size:12px; font-weight:bold; color:#334155; margin-top:5px;">
-                                <i class="fa-solid fa-file-contract" style="color:#0284c7;"></i> سياسة الإلغاء: <span style="color:#0f172a;">${hotel.policyText}</span>
-                            </div>
-                        </div>
-                        <div class="hotel-pricing">
-                            <div class="hotel-price-display">${totalPrice.toLocaleString()} ${symbol}</div>
-                            <span style="color: var(--text-muted); font-size: 11px; margin-bottom: 10px; font-weight: 700;">ليالي الرواق (إجمالي الشقا)</span>
-                            <button class="btn-book" onclick="goToBooking('${hotel.name}', ${hotel.basePoints * nights}, ${hotel.priceAED * nights}, '${hotel.policyType}', '${hotel.policyText}')">احجز وضحك عالدنيا 🚀</button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
-
-        function goToBooking(hotelName, calculatedPoints, priceAEDForNights, policyType, policyText) {
+        function goToBooking(hotelName, calculatedPoints, priceAED, policyType, policyText) {
             selectedHotel = hotelName;
-            pointsToAdd = calculatedPoints * 2;
-            currentTotalPriceAED = priceAEDForNights;
+            currentTotalPriceAED = priceAED;
             activePolicyType = policyType;
             activePolicyText = policyText;
 
-            document.getElementById('hotelNameTitle').innerText = 'رحلة البهدلة في: ' + hotelName;
-            document.getElementById('rewardPoints').innerText = pointsToAdd;
+            document.getElementById('hotelNameTitle').innerText = 'تأكيد الحجز في: ' + hotelName;
             document.getElementById('policyDetailsText').innerText = policyText;
 
             if(currentUser && currentUser.email) { document.getElementById('custEmail').value = currentUser.email; }
-            if(currentUser && currentUser.phone) { document.getElementById('custPhone').value = currentUser.phone; }
             switchView('bookingView');
         }
 
@@ -965,8 +561,6 @@
             document.querySelectorAll('.pay-option').forEach(el => el.classList.remove('selected'));
             element.classList.add('selected');
             element.querySelector('input[type="radio"]').checked = true;
-            const cardBox = document.getElementById('cardDetailsContainer');
-            if(method !== 'hotel') { cardBox.style.display = 'block'; } else { cardBox.style.display = 'none'; }
         }
 
         async function confirmReservation(e) {
@@ -974,51 +568,22 @@
             const name = document.getElementById('custName').value;
             const email = document.getElementById('custEmail').value;
             const phone = document.getElementById('custPhone').value;
-            const companions = document.getElementById('custCompanions').value;
             const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
 
             try {
-                if (paymentMethod !== 'hotel') {
-                    const stripeResponse = await fetch('/api/create-checkout-session', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ hotelName: selectedHotel, customerName: name, email, price: currentTotalPriceAED })
-                    });
-                    const sessionData = await stripeResponse.json();
-                    if (sessionData.id) {
-                        const stripe = Stripe('pk_live_51U9NrKFFbuBDqv4zlRHUyXm2a5tHK7DS1hqOMM281EgNbsPRNhiLlAuo095nO2h5hMF8Z5gGBtni19vHmPBqtG4P0030yie2sz');
-                        await stripe.redirectToCheckout({ sessionId: sessionData.id });
-                        return;
-                    }
-                }
-
                 const response = await fetch('/api/bookings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        hotelName: selectedHotel, 
-                        customerName: name, 
-                        email, 
-                        phone, 
-                        companions, 
-                        paymentMethod, 
-                        price: currentTotalPriceAED,
-                        policyType: activePolicyType,
-                        policyText: activePolicyText
-                    })
+                    body: JSON.stringify({ hotelName: selectedHotel, customerName: name, email, phone, paymentMethod, price: currentTotalPriceAED, policyType: activePolicyType, policyText: activePolicyText })
                 });
                 const data = await response.json();
                 if (response.ok && data.success) {
-                    alert(`✅ تم تثبيت الحجز بنجاح وحفظه في حسابك!\n\nرقم المرجع: ${data.bookingReference}`);
+                    alert(`✅ تم تثبيت الحجز بنجاح!\nرقم المرجع: ${data.bookingReference}`);
                     document.getElementById('bookingForm').reset();
                     switchView('registerView');
                     if(currentUser) fetchUserData(currentUser.email);
-                } else {
-                    throw new Error(data.error);
-                }
-            } catch (error) {
-                alert(`❌ عذراً لم يتم إتمام الحجز، تأكد من تحديث الخادم: ${error.message}`);
-            }
+                } else { throw new Error(data.error); }
+            } catch (error) { alert(`❌ لم يتم إتمام الحجز: ${error.message}`); }
         }
     </script>
 </body>
