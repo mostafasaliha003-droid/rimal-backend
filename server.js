@@ -1,15 +1,19 @@
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+const path = require('path');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
 
-// تخزين مؤقت للحجوزات داخل الذاكرة لضمان السرعة والاستقرار
+// السماح بقراءة الملفات الثابتة (مثل index.html والصور)
+app.use(express.static(__dirname));
+
+// تخزين مؤقت للحجوزات داخل الذاكرة
 const memoryBookings = [];
 
-// إعداد خدمة النودمايلر (Nodemailer) لإرسال الإيميلات عبر بريد الإدارة
+// إعداد خدمة النودمايلر (Nodemailer) لإرسال الإيميلات
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -18,15 +22,13 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// نقطة النهاية (API) لاستقبال الحجوزات ومعالجتها وإرسال الإيميل
+// نقطة النهاية (API) لاستقبال الحجوزات وإرسال الإيميل
 app.post('/api/bookings', async (req, res) => {
     try {
         const { hotelName, customerName, email, phone, companions, paymentMethod } = req.body;
         
-        // توليد رقم مرجعي عشوائي للحجز
         const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
 
-        // حفظ الحجز في الذاكرة المؤقتة
         const newBooking = {
             bookingReference,
             hotelName,
@@ -40,7 +42,6 @@ app.post('/api/bookings', async (req, res) => {
 
         memoryBookings.push(newBooking);
 
-        // محتوى البريد الإلكتروني الذي سيتم إرساله للعميل والإدارة
         const mailOptions = {
             from: 'management@remaltourismllc.com',
             to: `${email}, management@remaltourismllc.com`,
@@ -64,7 +65,6 @@ app.post('/api/bookings', async (req, res) => {
             `
         };
 
-        // إرسال الإيميل
         await transporter.sendMail(mailOptions);
         console.log(`✅ تم إرسال إيميل التأكيد بنجاح للحجز: ${bookingReference}`);
 
@@ -80,7 +80,12 @@ app.post('/api/bookings', async (req, res) => {
     }
 });
 
-// تشغيل الخادم على المنفذ المتاح أو المنفذ 5000
+// توجيه الصفحة الرئيسية مباشرة لعرض ملف index.html
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
+
+// تشغيل الخادم
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
     console.log(`🚀 الخادم جاهز الآن لاستقبال طلبات الحجز على المنفذ ${PORT}`);
