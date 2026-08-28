@@ -151,7 +151,7 @@
             <p>تابع رصيدك بحصالة حسابك، وإدارتك لحجوزاتك بكل أمان!</p>
         </section>
         <div class="container">
-            <div id="userDashboard" class="auth-box" style="display: block; max-width: 900px;">
+            <div id="userDashboard" class="auth-box" style="display: none; max-width: 900px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed var(--accent-yellow); padding-bottom: 15px; margin-bottom: 20px;">
                     <h2>أهلاً بك يا بطل، <span id="userNameDisplay" style="color: var(--accent-coral);"></span> 👋</h2>
                     <button onclick="logoutUser()" style="background: var(--accent-coral); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">تسجيل خروج</button>
@@ -264,7 +264,7 @@
     </div>
 
     <script>
-        let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || { name: "محمد لطفي", email: "mostafasaliha003@gmail.com", points: 500 };
+        let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
         let selectedHotel = '', currentTotalPriceAED = 0;
         let activePolicyType = 'full', activePolicyText = '';
         let hotelAddr = '', hotelPh = '', hotelMap = '';
@@ -289,8 +289,10 @@
                 if(urlParams.get('payment') === 'success') {
                     alert('✅ تم الدفع بنجاح! تم تأكيد حجزك وإرسال الفاوتشر لبريدك.');
                     window.history.replaceState({}, document.title, "/"); 
-                    switchView('registerView');
-                    fetchUserData(currentUser.email);
+                    if(currentUser) {
+                        switchView('registerView');
+                        fetchUserData(currentUser.email);
+                    }
                 } else if (urlParams.get('payment') === 'cancelled') {
                     alert('❌ تم إلغاء عملية الدفع.');
                     window.history.replaceState({}, document.title, "/");
@@ -302,7 +304,7 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             window.scrollTo(0, 0);
-            if (viewId === 'registerView') {
+            if (viewId === 'registerView' && currentUser) {
                 fetchUserData(currentUser.email);
             }
         }
@@ -310,16 +312,23 @@
         function checkUserSession() {
             const btn = document.getElementById('regBtnText');
             const dashboard = document.getElementById('userDashboard');
-            if (currentUser) {
+            if (currentUser && currentUser.email) {
                 if(btn) btn.innerHTML = `<i class="fa-solid fa-user-check"></i> ${currentUser.name}`;
                 if(dashboard) dashboard.style.display = 'block';
                 fetchUserData(currentUser.email);
+            } else {
+                if(btn) btn.innerHTML = `<i class="fa-solid fa-user-plus"></i> افتح حساب / دخول`;
+                if(dashboard) dashboard.style.display = 'none';
             }
         }
 
         function handleAccountBtnClick() { 
-            switchView('registerView'); 
-            fetchUserData(currentUser.email);
+            if (currentUser && currentUser.email) { 
+                switchView('registerView'); 
+                fetchUserData(currentUser.email);
+            } else { 
+                openAuthModal('register'); 
+            } 
         }
 
         function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
@@ -347,7 +356,6 @@
                     closeAuthModal();
                     checkUserSession();
                     switchView('registerView');
-                    fetchUserData(currentUser.email);
                 } else { alert('❌ ' + data.error); }
             } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ في الاتصال'); }
         }
@@ -385,34 +393,32 @@
                     closeAuthModal();
                     checkUserSession();
                     switchView('registerView');
-                    fetchUserData(currentUser.email);
                     alert(`🎉 تم تفعيل الحساب!`);
                 } else { alert('❌ كود غير صحيح.'); }
             } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ'); }
         }
 
         function refreshDashboard() { 
-            fetchUserData(currentUser ? currentUser.email : 'mostafasaliha003@gmail.com');
+            if(currentUser && currentUser.email) fetchUserData(currentUser.email); 
         }
 
         async function fetchUserData(email) {
             try {
-                const targetEmail = email || (currentUser ? currentUser.email : 'mostafasaliha003@gmail.com');
-                const res = await fetch(`/api/user/profile?email=${encodeURIComponent(targetEmail)}`);
+                if(!email) return;
+                const res = await fetch(`/api/user/profile?email=${encodeURIComponent(email)}`);
                 const data = await res.json();
-                
                 const bookingsContainer = document.getElementById('dashBookingsList');
                 if(!bookingsContainer) return;
                 
                 if(data.success) {
-                    document.getElementById('userNameDisplay').innerText = data.profile.name || currentUser.name;
+                    document.getElementById('userNameDisplay').innerText = data.profile.name;
                     document.getElementById('dashPoints').innerText = data.profile.points;
                     const dashVal = document.getElementById('dashPointsValue');
                     if(dashVal) dashVal.innerText = data.profile.pointsValueAED;
 
                     bookingsContainer.innerHTML = '';
                     if(!data.bookings || data.bookings.length === 0) {
-                        bookingsContainer.innerHTML = `<div style="padding:20px; text-align:center; font-weight:bold; color:#64748b; background:#f8fafc; border-radius:12px;">ليس لديك حجوزات مسجلة حالياً.</div>`;
+                        bookingsContainer.innerHTML = `<div style="padding:20px; text-align:center; font-weight:bold; color:#64748b; background:#f8fafc; border-radius:12px;">ليس لديك حجوزات مسجلة لهذا الحساب حالياً.</div>`;
                     } else {
                         data.bookings.forEach(b => {
                             const safePolicy = (b.policyText || 'لا يوجد').toString().replace(/'/g, "\\'");
@@ -522,7 +528,7 @@
                 alert("جاري إعادة إرسال الفاوتشر إلى بريدك... ⏳");
                 const res = await fetch('/api/bookings/resend-voucher', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bookingReference: ref, email: currentUser ? currentUser.email : 'mostafasaliha003@gmail.com' })
+                    body: JSON.stringify({ bookingReference: ref, email: currentUser.email })
                 });
                 const data = await res.json();
                 if (data.success) { alert('✅ ' + data.message); } else { alert('❌ ' + data.error); }
@@ -541,19 +547,24 @@
                 const res = await fetch('/api/bookings/cancel', { 
                     method: 'POST', 
                     headers: { 'Content-Type': 'application/json' }, 
-                    body: JSON.stringify({ bookingReference, email: currentUser ? currentUser.email : 'mostafasaliha003@gmail.com' }) 
+                    body: JSON.stringify({ bookingReference, email: currentUser.email }) 
                 });
                 const data = await res.json();
                 if (data.success) { 
                     alert('✅ ' + data.message); 
-                    fetchUserData(currentUser ? currentUser.email : 'mostafasaliha003@gmail.com'); 
+                    fetchUserData(currentUser.email); 
                 } else { 
                     alert('❌ ' + data.error); 
                 }
             } catch (e) { alert('خطأ في الاتصال.'); }
         }
 
-        function logoutUser() { localStorage.removeItem('rimal_current_user'); currentUser = null; checkUserSession(); switchView('mainView'); }
+        function logoutUser() { 
+            localStorage.removeItem('rimal_current_user'); 
+            currentUser = null; 
+            checkUserSession(); 
+            switchView('mainView'); 
+        }
 
         function displayHotels(hotelsArray) {
             try {
@@ -608,13 +619,22 @@
         }
 
         function goToBooking(hotelName, calculatedPoints, priceAED, policyType, policyText, address, phone, mapLink) {
+            if (!currentUser || !currentUser.email) {
+                alert('⚠️ يرجى تسجيل الدخول أو إنشاء حساب أولاً لتتمكن من إتمام الحجز باسمك!');
+                openAuthModal('register');
+                return;
+            }
+
             selectedHotel = hotelName; currentTotalPriceAED = priceAED; activePolicyType = policyType; activePolicyText = policyText;
             hotelAddr = address; hotelPh = phone; hotelMap = mapLink;
 
             document.getElementById('hotelNameTitle').innerText = 'تأكيد الحجز في: ' + hotelName;
             document.getElementById('policyDetailsText').innerText = policyText;
 
-            if(currentUser && currentUser.email) { document.getElementById('custEmail').value = currentUser.email; }
+            if(currentUser && currentUser.email) { 
+                document.getElementById('custEmail').value = currentUser.email; 
+                document.getElementById('custName').value = currentUser.name; 
+            }
             switchView('bookingView');
         }
 
