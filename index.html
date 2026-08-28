@@ -151,7 +151,7 @@
             <p>تابع رصيدك بحصالة حسابك، وإدارتك لحجوزاتك بكل أمان!</p>
         </section>
         <div class="container">
-            <div id="userDashboard" class="auth-box" style="display: none; max-width: 900px;">
+            <div id="userDashboard" class="auth-box" style="display: block; max-width: 900px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed var(--accent-yellow); padding-bottom: 15px; margin-bottom: 20px;">
                     <h2>أهلاً بك يا بطل، <span id="userNameDisplay" style="color: var(--accent-coral);"></span> 👋</h2>
                     <button onclick="logoutUser()" style="background: var(--accent-coral); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">تسجيل خروج</button>
@@ -289,7 +289,10 @@
                 if(urlParams.get('payment') === 'success') {
                     alert('✅ تم الدفع بنجاح! تم تأكيد حجزك وإرسال الفاوتشر لبريدك.');
                     window.history.replaceState({}, document.title, "/"); 
-                    if(currentUser) switchView('registerView');
+                    if(currentUser) {
+                        switchView('registerView');
+                        fetchUserData(currentUser.email);
+                    }
                 } else if (urlParams.get('payment') === 'cancelled') {
                     alert('❌ تم إلغاء عملية الدفع.');
                     window.history.replaceState({}, document.title, "/");
@@ -301,6 +304,9 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             window.scrollTo(0, 0);
+            if (viewId === 'registerView' && currentUser) {
+                fetchUserData(currentUser.email);
+            }
         }
 
         function checkUserSession() {
@@ -316,7 +322,15 @@
             }
         }
 
-        function handleAccountBtnClick() { if (currentUser) { switchView('registerView'); } else { openAuthModal('register'); } }
+        function handleAccountBtnClick() { 
+            if (currentUser) { 
+                switchView('registerView'); 
+                fetchUserData(currentUser.email);
+            } else { 
+                openAuthModal('register'); 
+            } 
+        }
+
         function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
         function closeAuthModal() { document.getElementById('socialModal').style.display = 'none'; }
         
@@ -342,6 +356,7 @@
                     closeAuthModal();
                     checkUserSession();
                     switchView('registerView');
+                    fetchUserData(currentUser.email);
                 } else { alert('❌ ' + data.error); }
             } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ في الاتصال'); }
         }
@@ -379,16 +394,23 @@
                     closeAuthModal();
                     checkUserSession();
                     switchView('registerView');
+                    fetchUserData(currentUser.email);
                     alert(`🎉 تم تفعيل الحساب!`);
                 } else { alert('❌ كود غير صحيح.'); }
             } catch (err) { document.getElementById('loadingOverlay').style.display = 'none'; alert('خطأ'); }
         }
 
-        function refreshDashboard() { if(currentUser) fetchUserData(currentUser.email); }
+        function refreshDashboard() { 
+            if(currentUser) {
+                fetchUserData(currentUser.email);
+            } else {
+                alert('يرجى تسجيل الدخول أولاً');
+            }
+        }
 
         async function fetchUserData(email) {
             try {
-                const res = await fetch(`/api/user/profile?email=${email}`);
+                const res = await fetch(`/api/user/profile?email=${encodeURIComponent(email)}`);
                 const data = await res.json();
                 if(data.success) {
                     document.getElementById('userNameDisplay').innerText = data.profile.name;
@@ -398,8 +420,8 @@
 
                     const bookingsContainer = document.getElementById('dashBookingsList');
                     bookingsContainer.innerHTML = '';
-                    if(data.bookings.length === 0) {
-                        bookingsContainer.innerHTML = `<div style="padding:15px; text-align:center;">ليس لديك حجوزات حالياً.</div>`;
+                    if(!data.bookings || data.bookings.length === 0) {
+                        bookingsContainer.innerHTML = `<div style="padding:15px; text-align:center; font-weight:bold; color:#64748b;">ليس لديك حجوزات سابقة أو نشطة حالياً.</div>`;
                     } else {
                         data.bookings.forEach(b => {
                             const safePolicy = (b.policyText || 'لا يوجد').toString().replace(/'/g, "\\'");
@@ -409,7 +431,6 @@
                             const bMethod = b.paymentMethod || 'hotel';
                             const pType = b.policyType || 'full';
 
-                            // تحديد نص وزر الإلغاء حسب السياسة الفعلية للحجز
                             let cancelBtnText = 'إلغاء الحجز واسترداد الرسوم ❌';
                             let cancelBtnColor = '#d90429';
                             if (pType === 'full') {
@@ -436,7 +457,6 @@
                                         <strong><i class="fa-solid fa-file-contract"></i> سياسة الإلغاء:</strong> ${safePolicy}
                                     </div>
                                     
-                                    <!-- أزرار الفاوتشر المضافة (تنزيل PDF وإرسال) -->
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
                                         <button onclick="downloadVoucherPDF('${bRef}', '${safeHotel}', '${bPrice}', '${bMethod}', '${safePolicy}')" class="action-btn" style="background: #0284c7;"><i class="fa-solid fa-file-pdf"></i> تحميل PDF</button>
                                         <button onclick="resendVoucherEmail('${bRef}')" class="action-btn" style="background: #7c3aed;"><i class="fa-solid fa-envelope"></i> للإيميل</button>
@@ -452,7 +472,6 @@
             } catch (e) { console.error("Error displaying bookings", e); }
         }
 
-        // دالة تحميل الفاوتشر بصيغة PDF احترافية باستخدام نافذة الطباعة المنبثقة
         function downloadVoucherPDF(ref, hotel, price, method, policy) {
             const payStatus = method === 'hotel' ? 'الدفع عند الوصول' : 'مدفوع إلكترونياً (Stripe Test)';
             const printWindow = window.open('', '_blank');
