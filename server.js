@@ -11,7 +11,6 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-// إعداد خدمة Nodemailer باستخدام بريد Gmail الحقيقي وكلمة مرور التطبيق المفعلة
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -70,7 +69,6 @@ const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
 
-// دالة إرسال البريد الموحدة عبر Nodemailer
 async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
     const mailOptions = {
         from: '"شركة الرمال الدولية ✈️" <management@remaltourismllc.com>',
@@ -208,7 +206,6 @@ app.post('/api/bookings', async (req, res) => {
             await user.save();
         }
 
-        // توليد قسيمة PDF بسيطة ومرحة
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
         let buffers = [];
         doc.on('data', chunk => buffers.push(chunk));
@@ -233,7 +230,6 @@ app.post('/api/bookings', async (req, res) => {
             } catch (mailErr) { console.error(mailErr); }
         });
 
-        // محتوى ملف الـ PDF المرتب والنظيف
         doc.fontSize(22).fillColor('#1f3a40').font('Helvetica-Bold').text('RIMAL INTERNATIONAL', { align: 'center' });
         doc.fontSize(10).fillColor('#ff595e').font('Helvetica').text('Laugh, Book, & Escape! - Official Booking Voucher ✈️', { align: 'center' });
         
@@ -267,7 +263,6 @@ app.post('/api/bookings', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// مسار تحويل العملات الحية عبر Frankfurter API المجانية تماماً
 app.get('/api/currency/convert', async (req, res) => {
     try {
         const { targetCurrency, amount } = req.query;
@@ -290,6 +285,82 @@ app.get('/api/currency/convert', async (req, res) => {
         } else {
             res.status(400).json({ success: false, error: 'العملة غير متوفرة أو غير مدعومة' });
         }
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==========================================
+// 🔌 Hotel Search API (البحث المتقدم وتصفية الفنادق)
+// ==========================================
+app.get('/api/v1/hotels/search', (req, res) => {
+    try {
+        const { query, city, maxPrice, starRating } = req.query;
+        
+        const searchableHotels = [
+            {
+                hotelId: "RIMAL-DXB-001",
+                name: "فندق ريا كريك (Reya Creek Hotel)",
+                city: "دبي",
+                address: "ميناء سعيد، دبي",
+                starRating: 4,
+                priceAED: 890,
+                basePoints: 350,
+                image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
+                funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!"
+            },
+            {
+                hotelId: "RIMAL-DXB-002",
+                name: "فندق أتلانتس النخلة، دبي",
+                city: "دبي",
+                address: "نخلة جميرا، دبي",
+                starRating: 5,
+                priceAED: 2202,
+                basePoints: 600,
+                image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80",
+                funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!"
+            },
+            {
+                hotelId: "RIMAL-AUH-001",
+                name: "قصر الإمارات ماندَرين أورينتال، أبوظبي",
+                city: "أبوظبي",
+                address: "كورنيش أبوظبي، أبوظبي",
+                starRating: 5,
+                priceAED: 1651,
+                basePoints: 450,
+                image: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80",
+                funnyPolicy: "ندفع بالذهب الخالص فقط!"
+            }
+        ];
+
+        let results = searchableHotels;
+
+        if (query) {
+            const q = query.toLowerCase().trim();
+            results = results.filter(h => h.name.toLowerCase().includes(q) || h.city.toLowerCase().includes(q));
+        }
+
+        if (city && city !== 'all') {
+            results = results.filter(h => h.city === city);
+        }
+
+        if (maxPrice) {
+            const max = parseFloat(maxPrice);
+            results = results.filter(h => h.priceAED <= max);
+        }
+
+        if (starRating) {
+            const stars = parseInt(starRating);
+            results = results.filter(h => h.starRating === stars);
+        }
+
+        res.json({
+            success: true,
+            searchCriteria: { query: query || 'None', city: city || 'all', maxPrice: maxPrice || 'None' },
+            count: results.length,
+            results
+        });
+
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
