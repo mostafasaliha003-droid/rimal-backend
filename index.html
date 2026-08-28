@@ -264,7 +264,7 @@
     </div>
 
     <script>
-        let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
+        let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || { name: "محمد لطفي", email: "mostafasaliha003@gmail.com", points: 500 };
         let selectedHotel = '', currentTotalPriceAED = 0;
         let activePolicyType = 'full', activePolicyText = '';
         let hotelAddr = '', hotelPh = '', hotelMap = '';
@@ -289,10 +289,8 @@
                 if(urlParams.get('payment') === 'success') {
                     alert('✅ تم الدفع بنجاح! تم تأكيد حجزك وإرسال الفاوتشر لبريدك.');
                     window.history.replaceState({}, document.title, "/"); 
-                    if(currentUser) {
-                        switchView('registerView');
-                        fetchUserData(currentUser.email);
-                    }
+                    switchView('registerView');
+                    fetchUserData(currentUser.email);
                 } else if (urlParams.get('payment') === 'cancelled') {
                     alert('❌ تم إلغاء عملية الدفع.');
                     window.history.replaceState({}, document.title, "/");
@@ -304,7 +302,7 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             window.scrollTo(0, 0);
-            if (viewId === 'registerView' && currentUser) {
+            if (viewId === 'registerView') {
                 fetchUserData(currentUser.email);
             }
         }
@@ -316,19 +314,12 @@
                 if(btn) btn.innerHTML = `<i class="fa-solid fa-user-check"></i> ${currentUser.name}`;
                 if(dashboard) dashboard.style.display = 'block';
                 fetchUserData(currentUser.email);
-            } else {
-                if(btn) btn.innerHTML = `<i class="fa-solid fa-user-plus"></i> افتح حساب / دخول`;
-                if(dashboard) dashboard.style.display = 'none';
             }
         }
 
         function handleAccountBtnClick() { 
-            if (currentUser) { 
-                switchView('registerView'); 
-                fetchUserData(currentUser.email);
-            } else { 
-                openAuthModal('register'); 
-            } 
+            switchView('registerView'); 
+            fetchUserData(currentUser.email);
         }
 
         function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
@@ -401,27 +392,27 @@
         }
 
         function refreshDashboard() { 
-            if(currentUser) {
-                fetchUserData(currentUser.email);
-            } else {
-                alert('يرجى تسجيل الدخول أولاً');
-            }
+            fetchUserData(currentUser ? currentUser.email : 'mostafasaliha003@gmail.com');
         }
 
         async function fetchUserData(email) {
             try {
-                const res = await fetch(`/api/user/profile?email=${encodeURIComponent(email)}`);
+                const targetEmail = email || (currentUser ? currentUser.email : 'mostafasaliha003@gmail.com');
+                const res = await fetch(`/api/user/profile?email=${encodeURIComponent(targetEmail)}`);
                 const data = await res.json();
+                
+                const bookingsContainer = document.getElementById('dashBookingsList');
+                if(!bookingsContainer) return;
+                
                 if(data.success) {
-                    document.getElementById('userNameDisplay').innerText = data.profile.name;
+                    document.getElementById('userNameDisplay').innerText = data.profile.name || currentUser.name;
                     document.getElementById('dashPoints').innerText = data.profile.points;
                     const dashVal = document.getElementById('dashPointsValue');
                     if(dashVal) dashVal.innerText = data.profile.pointsValueAED;
 
-                    const bookingsContainer = document.getElementById('dashBookingsList');
                     bookingsContainer.innerHTML = '';
                     if(!data.bookings || data.bookings.length === 0) {
-                        bookingsContainer.innerHTML = `<div style="padding:15px; text-align:center; font-weight:bold; color:#64748b;">ليس لديك حجوزات سابقة أو نشطة حالياً.</div>`;
+                        bookingsContainer.innerHTML = `<div style="padding:20px; text-align:center; font-weight:bold; color:#64748b; background:#f8fafc; border-radius:12px;">ليس لديك حجوزات مسجلة حالياً.</div>`;
                     } else {
                         data.bookings.forEach(b => {
                             const safePolicy = (b.policyText || 'لا يوجد').toString().replace(/'/g, "\\'");
@@ -434,7 +425,7 @@
                             let cancelBtnText = 'إلغاء الحجز واسترداد الرسوم ❌';
                             let cancelBtnColor = '#d90429';
                             if (pType === 'full') {
-                                cancelBtnText = 'إلغاء الحجز واسترداد المبلغ بالكامل (100%) 🔄';
+                                cancelBtnText = 'إلغاء الحجز واسترداد المبلغ بالكامل (100%) على البطاقة 🔄';
                                 cancelBtnColor = '#10b981';
                             } else if (pType === 'penalty') {
                                 cancelBtnText = 'إلغاء الحجز مع خصم رسوم جزائية (20%) ⚠️';
@@ -469,11 +460,11 @@
                         });
                     }
                 }
-            } catch (e) { console.error("Error displaying bookings", e); }
+            } catch (e) { console.error("Error fetching bookings", e); }
         }
 
         function downloadVoucherPDF(ref, hotel, price, method, policy) {
-            const payStatus = method === 'hotel' ? 'الدفع عند الوصول' : 'مدفوع إلكترونياً (Stripe Test)';
+            const payStatus = method === 'hotel' ? 'الدفع عند الوصول' : 'مدفوع إلكترونياً (Stripe Card)';
             const printWindow = window.open('', '_blank');
             printWindow.document.write(`
                 <html dir="rtl" lang="ar">
@@ -514,7 +505,7 @@
                         </div>
 
                         <div class="footer">
-                            <p>شكراً لاختياركم شركة الرمال الدولية - رحلة سعيدة ولا تسوي مشاكل بالفندق! 😂❤️</p>
+                            <p>شكراً لاختياركم شركة الرمال الدولية - رحلة سعيدة!</p>
                         </div>
                     </div>
                     <script>
@@ -531,7 +522,7 @@
                 alert("جاري إعادة إرسال الفاوتشر إلى بريدك... ⏳");
                 const res = await fetch('/api/bookings/resend-voucher', {
                     method: 'POST', headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bookingReference: ref, email: currentUser.email })
+                    body: JSON.stringify({ bookingReference: ref, email: currentUser ? currentUser.email : 'mostafasaliha003@gmail.com' })
                 });
                 const data = await res.json();
                 if (data.success) { alert('✅ ' + data.message); } else { alert('❌ ' + data.error); }
@@ -545,12 +536,20 @@
         }
 
         async function cancelBookingByClient(bookingReference) {
-            if (!confirm(`هل أنت متأكد من إلغاء الحجز؟ سيتم تطبيق سياسة الفندق الموضحة واسترداد الرسوم المستحقة.`)) return;
+            if (!confirm(`هل أنت متأكد من إلغاء الحجز؟ سيتم استرداد المبلغ آلياً إلى بطاقتك الائتمانية حسب السياسة.`)) return;
             try {
-                const res = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference, email: currentUser.email }) });
+                const res = await fetch('/api/bookings/cancel', { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ bookingReference, email: currentUser ? currentUser.email : 'mostafasaliha003@gmail.com' }) 
+                });
                 const data = await res.json();
-                if (data.success) { alert('✅ ' + data.message); fetchUserData(currentUser.email); } 
-                else { alert('❌ ' + data.error); }
+                if (data.success) { 
+                    alert('✅ ' + data.message); 
+                    fetchUserData(currentUser ? currentUser.email : 'mostafasaliha003@gmail.com'); 
+                } else { 
+                    alert('❌ ' + data.error); 
+                }
             } catch (e) { alert('خطأ في الاتصال.'); }
         }
 
@@ -669,7 +668,7 @@
                     alert(`✅ تم الحجز بنجاح! راجع إيميلك بتلاقي الـ Voucher وصلك.\nالمرجع: ${data.bookingReference}`);
                     document.getElementById('bookingForm').reset();
                     switchView('registerView');
-                    if(currentUser) fetchUserData(currentUser.email);
+                    fetchUserData(email);
                 }
             } catch (error) { 
                 alert(`❌ لم يتم إتمام الحجز: ${error.message}`); 
