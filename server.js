@@ -12,7 +12,7 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-// رابط الاتصال بقاعدة البيانات مع كلمة المرور الخالية من الرموز المعقدة
+// رابط الاتصال الدائم بـ MongoDB Atlas مع كلمة المرور المحدثة
 const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:RimalBooking2026@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
 
 mongoose.connect(MONGO_URI, {
