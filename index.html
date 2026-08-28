@@ -155,7 +155,6 @@
         </a>
 
         <div class="header-actions">
-            <!-- قائمة اختيار العملات الحية المتقدمة -->
             <div class="settings-dropdown">
                 <i class="fa-solid fa-coins" style="color: var(--accent-yellow);"></i>
                 <select id="currencySelector" onchange="changeCurrency()">
@@ -166,7 +165,6 @@
                 </select>
             </div>
 
-            <!-- قائمة اختيار اللغات المتقدمة -->
             <div class="settings-dropdown">
                 <i class="fa-solid fa-globe" style="color: var(--accent-cyan);"></i>
                 <select id="languageSelect" onchange="changeLanguage(this.value)">
@@ -229,7 +227,6 @@
             </div>
         </div>
 
-        <!-- قسم الخريطة التفاعلية الرسمية المتطورة (Google Maps API) -->
         <div class="container" style="margin-top: -10px; margin-bottom: 25px;">
             <div style="background: white; padding: 15px; border-radius: 22px; box-shadow: var(--shadow); border: 3px solid var(--accent-cyan);">
                 <h3 style="color: var(--primary); margin-bottom: 12px; font-weight: 900;"><i class="fa-solid fa-map-location-dot" style="color: var(--accent-coral);"></i> خريطة الفنادق الحية في الإمارات 🗺️</h3>
@@ -256,7 +253,6 @@
         </div>
     </div>
 
-    <!-- واجهة تتبع الحجز السريع للزوار (Guest Lookup) -->
     <div id="lookupView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>تتبع حجزك السريع برقم المرجع 🔍</h1>
@@ -283,7 +279,6 @@
         </div>
     </div>
 
-    <!-- لوحة تحكم العميل والحجوزات -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>بوابة حسابك الذكي وحجوزاتك المحفوظة بالسحابة 🚀</h1>
@@ -317,7 +312,6 @@
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول والإنشاء -->
     <div id="socialModal" class="modal-overlay">
         <div class="modal-content">
             <div class="tab-switcher">
@@ -354,7 +348,6 @@
         </div>
     </div>
 
-    <!-- نافذة إتمام الحجز مع استخدام النقاط -->
     <div id="bookingView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>ساعة الحقيقة ودفع الغرامة (الحجز) 📝</h1>
@@ -392,7 +385,6 @@
         </div>
     </div>
 
-    <!-- عنصر ترجمة جوجل المخفي -->
     <div id="google_translate_element" style="display:none;"></div>
 
     <script type="text/javascript">
@@ -406,7 +398,6 @@
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
-    <!-- ربط مكتبة خرائط جوجل الرسمية -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCkqVnoRsRtoETOTqR68CUtyk0o0E3XaEQ&callback=initGoogleMap"></script>
 
     <script>
