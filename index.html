@@ -89,7 +89,6 @@
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
         @media (max-width: 900px) { .search-container { grid-template-columns: 1fr; width: 95%; } .layout-wrapper { flex-direction: column; } .filters-sidebar { width: 100%; position: static; } .hotel-card { flex-direction: column; } .hotel-pricing { border: none; padding: 0; } .payment-methods { grid-template-columns: repeat(2, 1fr); } }
 
-        /* ستايل الأزرار الإضافية للفاوتشر */
         .action-btn { flex: 1; color: white; border: none; padding: 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; font-family: 'Cairo'; transition: 0.3s; display: flex; align-items: center; justify-content: center; gap: 5px; }
         .action-btn:hover { opacity: 0.85; transform: translateY(-2px); }
     </style>
@@ -106,12 +105,22 @@
         </a>
 
         <div class="header-actions">
+            <div class="settings-dropdown">
+                <i class="fa-solid fa-coins" style="color: var(--accent-cyan);"></i>
+                <select id="currencySelect" onchange="changeCurrency()">
+                    <option value="AED">د.إ (AED)</option>
+                    <option value="USD">$ (USD)</option>
+                    <option value="SAR">ر.س (SAR)</option>
+                </select>
+            </div>
+            
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
+
             <div class="wallet-card">
                 <i class="fa-solid fa-piggy-bank" style="color: var(--accent-coral); font-size: 24px;"></i>
                 <div class="wallet-info">
                     <span id="walletLabel">حصالة حسابك الدائمة</span>
-                    <strong><span id="displayPoints">500</span> <span id="pointsLabel">نقطة</span></strong>
+                    <strong><span id="displayPoints">0</span> <span id="pointsLabel">نقطة</span></strong>
                 </div>
             </div>
         </div>
@@ -193,6 +202,8 @@
                     <div style="background: rgba(255, 202, 58, 0.2); padding: 20px; border-radius: 16px; border: 2px dashed var(--accent-yellow);">
                         <h4>💰 حصالة حسابك الدائمة</h4>
                         <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">0</span> نقطة</p>
+                        <!-- الحماية تمت هنا لإضافة dashPointsValue -->
+                        <small style="color: var(--accent-coral); font-weight: bold;">تساوي تقريباً: <span id="dashPointsValue">0.00</span> AED</small>
                     </div>
                     <div style="background: rgba(0, 180, 216, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-cyan);">
                         <h4>☁️ حالة السحابة الخاصة</h4>
@@ -265,7 +276,7 @@
             <div class="booking-box">
                 <div id="hotelPolicyWarningBox" style="background: #fffbeb; border: 2px dashed #f59e0b; padding: 15px; border-radius: 14px; margin-bottom: 20px;">
                     <h4 style="color: #d97706; margin-bottom: 5px;"><i class="fa-solid fa-shield-halved"></i> سياسة الاسترداد للإلغاء:</h4>
-                    <p id="policyDetailsText" style="font-size: 14px; font-weight: 800; color: #78350f; line-height: 1.6;"></p>
+                    <p id="policyDetailsText" style="font-size: 14px; font-weight: 800; color: #78350f;"></p>
                 </div>
                 <form id="bookingForm" onsubmit="confirmReservation(event)">
                     <div class="form-group"><label>الاسم الكريم:</label><input type="text" id="custName" required></div>
@@ -275,12 +286,27 @@
                     </div>
                     <div class="form-group"><label>طريقة الدفع:</label>
                         <div class="payment-methods">
-                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية (آمن)</label>
+                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية</label>
                             <label class="pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel"> 🏨 ادفع بالاستقبال</label>
                         </div>
                     </div>
                     <button type="submit" class="btn-book" id="btnFinalBook">تثبيت الحجز وإصدار الفاتورة 🔒</button>
                 </form>
+            </div>
+        </div>
+    </div>
+
+    <!-- الخريطة -->
+    <div id="mapView" class="view-section">
+        <section class="hero" style="padding: 40px 5%;">
+            <h1>خريطة الضياع الإماراتي 🗺️</h1>
+        </section>
+        <div class="container" style="max-width: 1000px;">
+            <div class="map-box">
+                <button class="nav-btn" onclick="switchView('mainView')" style="margin-bottom:15px;">رجوع للرئيسية 🔙</button>
+                <div style="width: 100%; height: 450px; border-radius: 15px; overflow: hidden; border: 3px solid var(--accent-cyan);">
+                    <iframe width="100%" height="100%" style="border:0;" loading="lazy" src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d462562.8472534571!2d54.94729352608466!3d25.075011850125717!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e5f43496ad9c645%3A0xbde66e5084295162!2z2KfZhNmI2LHYqtimINin2YTZhdiq2K3Yr9ip!5e0!3m2!1sar!2sae!4v1650000000000!5m2!1sar!2sae"></iframe>
+                </div>
             </div>
         </div>
     </div>
@@ -419,6 +445,9 @@
                     document.getElementById('userNameDisplay').innerText = data.profile.name;
                     document.getElementById('dashPoints').innerText = data.profile.points;
                     document.getElementById('displayPoints').innerText = data.profile.points;
+                    
+                    const dashVal = document.getElementById('dashPointsValue');
+                    if (dashVal) dashVal.innerText = data.profile.pointsValueAED;
 
                     const bookingsContainer = document.getElementById('dashBookingsList');
                     bookingsContainer.innerHTML = '';
@@ -426,7 +455,9 @@
                         bookingsContainer.innerHTML = `<div style="padding:15px; text-align:center;">ليس لديك حجوزات حالياً.</div>`;
                     } else {
                         data.bookings.forEach(b => {
-                            // إضافة الأزرار الثلاثة الجديدة للفاوتشر
+                            const safePolicy = (b.policyText || 'لا يوجد').replace(/'/g, "\\'");
+                            const safeHotel = b.hotelName.replace(/'/g, "\\'");
+
                             bookingsContainer.innerHTML += `
                                 <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; flex-direction: column; gap: 10px; margin-bottom: 10px;">
                                     <div style="display: flex; justify-content: space-between; align-items: flex-start; flex-wrap: wrap; gap: 10px;">
@@ -440,11 +471,10 @@
                                         <strong><i class="fa-solid fa-file-contract"></i> سياسة الإلغاء:</strong> ${b.policyText || 'لا يوجد'}
                                     </div>
                                     
-                                    <!-- أزرار الفاوتشر الجديدة -->
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
-                                        <button onclick="downloadVoucher('${b.bookingReference}', '${b.hotelName}', '${b.price}', '${b.paymentMethod}', '${b.policyText}')" class="action-btn" style="background: #0284c7;"><i class="fa-solid fa-download"></i> تحميل فاوتشر</button>
+                                        <button onclick="downloadVoucher('${b.bookingReference}', '${safeHotel}', '${b.price}', '${b.paymentMethod}', '${safePolicy}')" class="action-btn" style="background: #0284c7;"><i class="fa-solid fa-download"></i> تحميل فاوتشر</button>
                                         <button onclick="resendVoucherEmail('${b.bookingReference}')" class="action-btn" style="background: #7c3aed;"><i class="fa-solid fa-envelope"></i> للإيميل</button>
-                                        <button onclick="sendVoucherWhatsApp('${b.bookingReference}', '${b.hotelName}', '${b.price}')" class="action-btn" style="background: #16a34a;"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
+                                        <button onclick="sendVoucherWhatsApp('${b.bookingReference}', '${safeHotel}', '${b.price}')" class="action-btn" style="background: #16a34a;"><i class="fa-brands fa-whatsapp"></i> واتساب</button>
                                     </div>
 
                                     <button onclick="cancelBookingByClient('${b.bookingReference}')" style="background:#d90429; color:white; border:none; padding:10px; border-radius:8px; cursor:pointer; font-weight:bold; font-family:'Cairo'; font-size:13px; width: 100%; transition: 0.3s; margin-top: 5px;">إلغاء الحجز واسترداد الرسوم ❌</button>
@@ -456,7 +486,6 @@
             } catch (e) { console.error(e); }
         }
 
-        // دالة تنزيل الفاوتشر كملف HTML للطباعة
         function downloadVoucher(ref, hotel, price, method, policy) {
             const payStatus = method === 'hotel' ? 'الدفع عند الوصول' : 'مدفوع إلكترونياً (Stripe)';
             const htmlContent = `
@@ -476,14 +505,14 @@
                     <h1>شركة الرمال الدولية 🐪✈️</h1>
                     <h2 style="text-align: center; color: #0077b6;">تأكيد الحجز (Voucher)</h2>
                     <div class="info">
-                        <p><strong>اسم العميل:</strong> ${currentUser.name}</p>
+                        <p><strong>اسم العميل:</strong> ${currentUser ? currentUser.name : 'عميل'}</p>
                         <p><strong>رقم المرجع:</strong> <span style="color:#d90429; font-weight:bold;">${ref}</span></p>
                         <p><strong>الفندق:</strong> ${hotel}</p>
                         <p><strong>إجمالي السعر:</strong> ${price} AED</p>
                         <p><strong>حالة الدفع:</strong> ${payStatus}</p>
                     </div>
                     <div class="info" style="background: #fffbeb; border: 1px dashed #f59e0b;">
-                        <p><strong>سياسة الإلغاء المطبقة:</strong> ${policy || 'لا يوجد'}</p>
+                        <p><strong>سياسة الإلغاء المطبقة:</strong> ${policy}</p>
                     </div>
                     <p style="text-align: center; font-size: 12px; color: #64748b;">رحلة سعيدة! - شركة الرمال الدولية</p>
                 </div>
@@ -501,7 +530,6 @@
             URL.revokeObjectURL(url);
         }
 
-        // دالة طلب إعادة الإرسال للإيميل
         async function resendVoucherEmail(ref) {
             try {
                 alert("جاري إعادة إرسال الفاوتشر إلى بريدك... ⏳");
@@ -515,7 +543,6 @@
             } catch (e) { alert('خطأ في الاتصال بالخادم.'); }
         }
 
-        // دالة إرسال الفاوتشر للواتساب
         function sendVoucherWhatsApp(ref, hotel, price) {
             const text = `أهلاً! هذا فاوتشر حجزي من شركة الرمال الدولية 🐪✈️\n\n🏨 الفندق: ${hotel}\n🔖 المرجع: ${ref}\n💰 إجمالي السعر: ${price} AED\n\nشكراً لكم! 🤪`;
             const url = `https://wa.me/?text=${encodeURIComponent(text)}`;
