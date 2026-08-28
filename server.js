@@ -34,7 +34,8 @@ app.get('/admin-panel', (req, res) => res.sendFile(path.join(__dirname, 'admin.h
 
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
-        const { email, name, password, phone, nationality, birthYear } = req.body;
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { name, password, phone, nationality, birthYear } = req.body;
         const db = loadDB();
         if (db.users.find(u => u.email === email)) return res.status(400).json({ success: false, error: 'البريد مسجل مسبقاً!' });
         
@@ -54,7 +55,8 @@ app.post('/api/auth/register-send-code', async (req, res) => {
 
 app.post('/api/auth/verify-and-register', (req, res) => {
     try {
-        const { email, code } = req.body;
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { code } = req.body;
         const record = verificationCodes[email];
         if (!record || record.code !== code || Date.now() > record.expires) return res.status(400).json({ success: false, error: 'الكود غير صحيح' });
         
@@ -72,7 +74,8 @@ app.post('/api/auth/verify-and-register', (req, res) => {
 
 app.post('/api/auth/login', (req, res) => {
     try {
-        const { email, password } = req.body;
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { password } = req.body;
         const db = loadDB();
         const user = db.users.find(u => u.email === email);
         if (!user || !bcrypt.compareSync(password, user.password)) return res.status(400).json({ success: false, error: 'البيانات غير صحيحة' });
@@ -82,11 +85,12 @@ app.post('/api/auth/login', (req, res) => {
 
 app.get('/api/user/profile', (req, res) => {
     try {
-        const { email } = req.query;
+        const email = (req.query.email || '').toLowerCase().trim();
         const db = loadDB();
         const user = db.users.find(u => u.email === email);
         const bookings = db.bookings.filter(b => b.email === email);
-        if (!user) return res.status(404).json({ success: false, error: 'غير موجود' });
+        
+        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
         res.json({ success: true, profile: { name: user.name, email: user.email, points: user.points, pointsValueAED: (user.points / 10).toFixed(2), phone: user.phone }, bookings });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -107,7 +111,8 @@ app.get('/api/admin/data', (req, res) => {
 
 app.post('/api/bookings/cancel', async (req, res) => {
     try {
-        const { bookingReference, email } = req.body;
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { bookingReference } = req.body;
         const db = loadDB();
         const bookingIndex = db.bookings.findIndex(b => b.bookingReference === bookingReference && b.email === email);
         if (bookingIndex === -1) return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
@@ -142,10 +147,10 @@ app.post('/api/bookings/cancel', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// المسار الجديد: طلب إعادة إرسال الفاوتشر
 app.post('/api/bookings/resend-voucher', async (req, res) => {
     try {
-        const { bookingReference, email } = req.body;
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { bookingReference } = req.body;
         const db = loadDB();
         const booking = db.bookings.find(b => b.bookingReference === bookingReference && b.email === email);
 
@@ -187,7 +192,8 @@ app.post('/api/bookings/resend-voucher', async (req, res) => {
 
 app.post('/api/bookings', async (req, res) => {
     try {
-        const { hotelName, customerName, email, phone, companions, paymentMethod, price, policyType, policyText, hotelAddress, hotelPhone, hotelMapLink } = req.body;
+        let { hotelName, customerName, email, phone, companions, paymentMethod, price, policyType, policyText, hotelAddress, hotelPhone, hotelMapLink } = req.body;
+        email = (email || '').toLowerCase().trim();
         const db = loadDB();
         const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
         
