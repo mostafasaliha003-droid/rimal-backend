@@ -1,18 +1,48 @@
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
+const mongoose = require('mongoose');
+const bcrypt = require('bcryptjs');
 const path = require('path');
 const stripe = require('stripe')('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');
 
 const app = express();
 app.use(express.json());
 app.use(cors());
-
 app.use(express.static(__dirname));
 
-const memoryBookings = [];
+// الاتصال بقاعدة البيانات (MongoDB)
+mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/rimal_db', {
+    useNewUrlParser: true,
+    useUnifiedTopology: true
+}).then(() => console.log('📦 متصل بقاعدة بيانات MongoDB بنجاح')).catch(err => console.log('DB Error:', err));
 
-// إعداد خدمة النودمايلر (Nodemailer) بكلمة مرور التطبيق
+// نموذج العميل (User Schema)
+const userSchema = new mongoose.Schema({
+    name: String,
+    email: { type: String, unique: true, required: true },
+    password: { type: String },
+    authProvider: { type: String, default: 'email' },
+    points: { type: Number, default: 500 }, // عيدية ترحيبية 500 نقطة
+    cards: [{ brand: String, last4: String, exp: String }]
+});
+const User = mongoose.model('User', userSchema);
+
+// نموذج الحجز (Booking Schema)
+const bookingSchema = new mongoose.Schema({
+    bookingReference: String,
+    email: String,
+    hotelName: String,
+    customerName: String,
+    phone: String,
+    companions: String,
+    paymentMethod: String,
+    price: Number,
+    createdAt: { type: Date, default: Date.now }
+});
+const Booking = mongoose.model('Booking', bookingSchema);
+
+// إعداد خدمة النودمايلر للإيميلات
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -21,34 +51,83 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// مسار تثبيت الحجز العادي
+// مسار التسجيل وتسجيل الدخول بالبريد الإلكتروني أو وسائل التواصل
+app.post('/api/auth/login-register', async (req, res) => {
+    try {
+        const { email, name, password, provider } = req.body;
+        let user = await User.findOne({ email });
+
+        if (!user) {
+            const hashedPassword = password ? await bcrypt.hash(password, 10) : '';
+            user = new User({
+                name: name || email.split('@')[0],
+                email,
+                password: hashedPassword,
+                authProvider: provider || 'email',
+                points: 500
+            });
+            await user.save();
+        }
+
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, cards: user.cards } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// مسار جلب بيانات العميل (الحجوزات، النقاط، وقيمتها بالدرهم، والبطاقات)
+app.get('/api/user/profile', async (req, res) => {
+    try {
+        const { email } = req.query;
+        const user = await User.findOne({ email });
+        const bookings = await Booking.find({ email });
+
+        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
+
+        // حساب قيمة النقاط بالعملة (مثلاً كل 100 نقطة = 10 درهم إماراتي)
+        const pointsValueAED = (user.points / 10).toFixed(2);
+
+        res.json({
+            success: true,
+            profile: {
+                name: user.name,
+                email: user.email,
+                points: user.points,
+                pointsValueAED: pointsValueAED,
+                cards: user.cards || []
+            },
+            bookings
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// مسار تثبيت الحجز وتحديث النقاط
 app.post('/api/bookings', async (req, res) => {
     try {
-        const { hotelName, customerName, email, phone, companions, paymentMethod } = req.body;
-        
+        const { hotelName, customerName, email, phone, companions, paymentMethod, price } = req.body;
         const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
 
-        const newBooking = {
+        const newBooking = new Booking({
             bookingReference,
+            email,
             hotelName,
             customerName,
-            email,
             phone,
             companions,
             paymentMethod,
-            createdAt: new Date()
-        };
-
-        memoryBookings.push(newBooking);
-
-        // إرسال رد النجاح للمستخدم فوراً وبسرعة فائقة
-        res.status(201).json({
-            success: true,
-            message: 'تم تثبيت الحجز بنجاح',
-            bookingReference
+            price
         });
+        await newBooking.save();
 
-        // إرسال البريد الإلكتروني الحقيقي في الخلفية
+        // إضافة نقاط للعميل بناءً على الحجز
+        const earnedPoints = Math.round((price || 100) * 0.5);
+        await User.findOneAndUpdate({ email }, { $inc: { points: earnedPoints } });
+
+        res.status(201).json({ success: true, message: 'تم تثبيت الحجز بنجاح', bookingReference });
+
+        // إرسال الإيميل في الخلفية
         setImmediate(async () => {
             try {
                 const mailOptions = {
@@ -74,21 +153,17 @@ app.post('/api/bookings', async (req, res) => {
                     `
                 };
                 await transporter.sendMail(mailOptions);
-                console.log(`✅ تم إرسال إيميل التأكيد الحقيقي بنجاح للحجز: ${bookingReference}`);
             } catch (mailError) {
                 console.log(`⚠️ تنبيه في إرسال الإيميل: ${mailError.message}`);
             }
         });
 
     } catch (error) {
-        console.error('❌ خطأ:', error);
-        if (!res.headersSent) {
-            res.status(500).json({ success: false, error: error.message });
-        }
+        res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// مسار إنشاء جلسة الدفع الإلكتروني الفعلي عبر Stripe
+// مسار إنشاء جلسة الدفع الإلكتروني عبر Stripe
 app.post('/api/create-checkout-session', async (req, res) => {
     try {
         const { hotelName, customerName, email, price } = req.body;
@@ -97,24 +172,23 @@ app.post('/api/create-checkout-session', async (req, res) => {
             payment_method_types: ['card'],
             line_items: [{
                 price_data: {
-                    currency: 'aed', // العملة بالدرهم الإماراتي
+                    currency: 'aed',
                     product_data: {
                         name: `حجز فندق: ${hotelName}`,
-                        description: `حجز مؤكد لصالح العميل: ${customerName}`,
+                        description: `حجز لصالح العميل: ${customerName}`,
                     },
-                    unit_amount: (price || 100) * 100, // السعر بالفلوس (الافتراضي 100 درهم إذا لم يُرسل)
+                    unit_amount: (price || 100) * 100,
                 },
                 quantity: 1,
             }],
             mode: 'payment',
-            success_url: `https://rimal-api.onrender.com/success.html`,
-            cancel_url: `https://rimal-api.onrender.com/cancel.html`,
+            success_url: `https://rimal-api.onrender.com/?payment=success`,
+            cancel_url: `https://rimal-api.onrender.com/?payment=cancelled`,
             customer_email: email,
         });
 
         res.json({ id: session.id });
     } catch (error) {
-        console.error('❌ Stripe Error:', error);
         res.status(500).json({ error: error.message });
     }
 });
@@ -123,7 +197,7 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
-const PORT = process.env.PORT || 5000;
+const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
     console.log(`🚀 الخادم جاهز على المنفذ ${PORT}`);
 });
