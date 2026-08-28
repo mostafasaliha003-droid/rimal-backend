@@ -7,7 +7,6 @@
     
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- استدعاء مكتبة Stripe الرسمية -->
     <script src="https://js.stripe.com/v3/"></script>
     
     <style>
@@ -213,13 +212,13 @@
                 </select>
             </div>
 
-            <button class="nav-btn account-btn" id="regBtnText" onclick="switchView('registerView')"><i class="fa-solid fa-user-plus"></i> افتح حساب يا بطل!</button>
+            <button class="nav-btn account-btn" id="regBtnText" onclick="switchView('registerView')"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
 
             <div class="wallet-card">
                 <i class="fa-solid fa-piggy-bank" style="color: var(--accent-coral); font-size: 24px;"></i>
                 <div class="wallet-info">
                     <span id="walletLabel">حصالة الكاش 🤑</span>
-                    <strong><span id="displayPoints">0</span> <span id="pointsLabel">نقطة</span></strong>
+                    <strong><span id="displayPoints">500</span> <span id="pointsLabel">نقطة</span></strong>
                 </div>
             </div>
         </div>
@@ -294,36 +293,67 @@
         </div>
     </div>
 
+    <!-- قسم تسجيل الدخول ولوحة التحكم الذكية -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
-            <h1 id="regHeaderTitle">سجّل معنا قبل ما يفوتك الكاش والتخفيضات! 💸</h1>
-            <p id="regHeaderSub">سجل بياناتك وخذ هدية ترحيبية تخليك تحس نفسك مليونير لمدة دقيقة.</p>
+            <h1>بوابة تسجيل الدخول ولوحة التحكم الذكية 🚀</h1>
+            <p>سجل دخولك عبر وسائل التواصل أو الإيميل، وتابع رصيدك وحجوزاتك بكل سهولة!</p>
         </section>
 
         <div class="container">
-            <div class="auth-box">
-                <h2 style="color: var(--primary); margin-bottom: 20px;"><i class="fa-solid fa-user-astronaut"></i> <span id="regFormTitle">افتح حساب يا وحش الحجوزات</span></h2>
-                <form onsubmit="handleRegister(event)">
+            <!-- نموذج تسجيل الدخول (يختفي عند تسجيل الدخول) -->
+            <div class="auth-box" id="authBoxContainer">
+                <h2 style="color: var(--primary); margin-bottom: 20px;"><i class="fa-solid fa-user-lock"></i> تسجيل الدخول / إنشاء حساب</h2>
+                
+                <div style="display: flex; flex-direction: column; gap: 10px; margin-bottom: 20px;">
+                    <button type="button" onclick="socialLogin('Google')" style="background: #db4437; color: white; padding: 12px; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;"><i class="fa-brands fa-google"></i> المتابعة بواسطة Google</button>
+                    <button type="button" onclick="socialLogin('Facebook')" style="background: #4267B2; color: white; padding: 12px; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;"><i class="fa-brands fa-facebook"></i> المتابعة بواسطة Facebook</button>
+                    <button type="button" onclick="socialLogin('Instagram')" style="background: linear-gradient(45deg, #f09433, #e6683c, #dc2743, #cc2366, #bc1888); color: white; padding: 12px; border: none; border-radius: 12px; font-weight: 900; cursor: pointer;"><i class="fa-brands fa-instagram"></i> المتابعة بواسطة Instagram</button>
+                </div>
+
+                <div style="text-align: center; margin: 15px 0; font-weight: bold; color: #6c757d;">أو التسجيل بالبريد الإلكتروني</div>
+
+                <form onsubmit="handleEmailAuth(event)">
                     <div class="form-group">
-                        <label id="lblName">الاسم اللي يطلع في تذاكر السفر:</label>
-                        <input type="text" id="regName" required placeholder="مثال: عنتر بن شداد الهاملي">
+                        <label>البريد الإلكتروني:</label>
+                        <input type="email" id="loginEmail" required placeholder="name@remaltourismllc.com">
                     </div>
                     <div class="form-group">
-                        <label id="lblEmail">إيميلك (اللي يوصلك عليه فواتير الإفلاس):</label>
-                        <input type="email" id="regEmail" required placeholder="antar@mubasher.ae">
+                        <label>كلمة السر:</label>
+                        <input type="password" id="loginPass" required placeholder="••••••••">
                     </div>
-                    <div class="form-group">
-                        <label id="lblPass">كلمة السر (حط شي صعب عشان ما تكنسل السفرة):</label>
-                        <input type="password" id="regPass" required placeholder="••••••••">
-                    </div>
-                    <div style="background: rgba(255, 202, 58, 0.2); padding: 14px; border-radius: 12px; margin-bottom: 15px; font-weight: 800; color: var(--primary); border: 2px dashed var(--accent-yellow);" id="regBonusText">
-                        🎁 عيدية ترحيبية: سيتم زرع +500 نقطة غصب عن السيستم في حصالتك!
-                    </div>
-                    <div style="display: flex; gap: 10px;">
-                        <button type="submit" class="btn-book" id="btnSubmitReg" style="flex: 2;">سجل واكشخ 🌟</button>
-                        <button type="button" class="btn-book" onclick="switchView('mainView')" id="btnCancelReg" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">هونت</button>
-                    </div>
+                    <button type="submit" class="btn-book" style="width: 100%; margin-top: 10px;">دخول / تسجيل 🌟</button>
                 </form>
+            </div>
+
+            <!-- لوحة تحكم العميل (تظهر بعد تسجيل الدخول) -->
+            <div id="userDashboard" class="auth-box" style="display: none; max-width: 900px;">
+                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed var(--accent-yellow); padding-bottom: 15px; margin-bottom: 20px;">
+                    <h2>أهلاً بك يا بطل، <span id="userNameDisplay" style="color: var(--accent-coral);"></span> 👋</h2>
+                    <button onclick="logoutUser()" style="background: var(--accent-coral); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">تسجيل خروج</button>
+                </div>
+
+                <!-- إحصائيات النقاط والمال -->
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
+                    <div style="background: rgba(255, 202, 58, 0.2); padding: 20px; border-radius: 16px; border: 2px dashed var(--accent-yellow);">
+                        <h4>💰 حصالة النقاط والفلوس</h4>
+                        <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة</p>
+                        <small style="color: var(--accent-coral); font-weight: bold;">تساوي تقريباً: <span id="dashPointsValue">50.00</span> درهم إماراتي</small>
+                    </div>
+                    <div style="background: rgba(0, 180, 216, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-cyan);">
+                        <h4>💳 البطاقات البنكية المحفوظة</h4>
+                        <div id="dashCardsList" style="margin-top: 8px; font-weight: bold; color: var(--text-muted);">لا توجد بطاقات محفوظة حالياً (تتم الحماية عبر Stripe)</div>
+                    </div>
+                </div>
+
+                <!-- إدارة الحجوزات -->
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
+                    <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة</h3>
+                    <button onclick="fetchUserData(currentUser.email)" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
+                </div>
+                <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 12px;">
+                    <!-- يتم جلب الحجوزات هنا ديناميكياً -->
+                </div>
             </div>
         </div>
     </div>
@@ -373,7 +403,7 @@
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px;">
                         <div class="form-group">
                             <label id="lblEmailBook">الإيميل (عشان ندز لك رسالة التأكيد وتصيح على السعر):</label>
-                            <input type="email" id="custEmail" required placeholder="khalid@hotel-bhk.ae">
+                            <input type="email" id="custEmail" required placeholder="khalid@remaltourismllc.com">
                         </div>
                         <div class="form-group">
                             <label id="lblPhoneBook">رقم التليفون (اللي بنزعجك عليه وقت الخصومات):</label>
@@ -432,7 +462,7 @@
                 brandSub: "اضحك، احجز، وفلّها! 🤪✈️",
                 walletLabel: "حصالة الكاش 🤑",
                 pointsLabel: "نقطة",
-                regBtnText: "افتاح حساب يا بطل!",
+                regBtnText: "افتح حساب / دخول",
                 heroTitle: "عروض فنادق تخلّيك تفكّر تسحب على الدوام! 🏝️💸",
                 heroSubtitle: "حدد تاريخ روحتك ورجعتك، وخل الباقي علينا (ولا تنسَ تقرأ مقالب سياسات الفنادق تحت! 😂)",
                 lblSearchHotel: "وين ناوي تخيم؟ (الفندق أو الإمارة)",
@@ -444,15 +474,6 @@
                 filterTitle: "نقّط على الإمارة 📍",
                 cityAll: "كل الإمارات (وين ما تهب الهبايب)",
                 syncText: "جاري البحث عن أسعار ما تخطر على بال إبليس...",
-                regHeaderTitle: "سجّل معنا قبل ما يفوتك الكاش والتخفيضات! 💸",
-                regHeaderSub: "سجل بياناتك وخذ هدية ترحيبية تخليك تحس نفسك مليونير لمدة دقيقة.",
-                regFormTitle: "افتح حساب يا وحش الحجوزات",
-                lblName: "الاسم اللي يطلع في تذاكر السفر:",
-                lblEmail: "إيميلك (اللي يوصلك عليه فواتير الإفلاس):",
-                lblPass: "كلمة السر (حط شي صعب عشان ما تكنسل السفرة):",
-                regBonusText: "🎁 عيدية ترحيبية: سيتم زرع +500 نقطة غصب عن السيستم في حصالتك!",
-                btnSubmitReg: "سجل واكشخ 🌟",
-                btnCancelReg: "هونت",
                 mapHeaderTitle: "خريطة الضياع الإماراتي 🗺️",
                 mapHeaderSub: "شوف وين الفندق بالضبط عشان ما تضيع وتنام عند دبي مول بالشارع!",
                 mapBoxTitle: "رادار الفنادق المجاورة (لا تحاتون، كلهم يبون فلوسكم)",
@@ -483,7 +504,7 @@
                 brandSub: "Laugh, Book, & Escape! 🤪✈️",
                 walletLabel: "Cash Piggy 🤑",
                 pointsLabel: "Points",
-                regBtnText: "Open Account, Champ!",
+                regBtnText: "Account / Login",
                 heroTitle: "Hotel Deals That Make You Want to Quit Your Job! 🏝️💸",
                 heroSubtitle: "Pick your dates and let us handle the chaos (and read the hilarious hotel policies below! 😂)",
                 lblSearchHotel: "Where are you camping? (Hotel or Emirate)",
@@ -495,15 +516,6 @@
                 filterTitle: "Pick Your Emirate 📍",
                 cityAll: "All Emirates (Wherever the wind blows)",
                 syncText: "Searching for prices crazier than your boss...",
-                regHeaderTitle: "Register Before Discounts Run Out! 💸",
-                regHeaderSub: "Sign up and get a welcome gift that makes you feel rich for 1 minute.",
-                regFormTitle: "Open an Account, Booking Beast",
-                lblName: "Name on Boarding Pass:",
-                lblEmail: "Email (for bankruptcy bills):",
-                lblPass: "Password (make it hard so you don't cancel):",
-                regBonusText: "🎁 Welcome Bonus: +500 points forced into your piggy bank!",
-                btnSubmitReg: "Sign Up & Flex 🌟",
-                btnCancelReg: "Nevermind",
                 mapHeaderTitle: "UAE Lost & Found Map 🗺️",
                 mapHeaderSub: "See where the hotel is so you don't end up sleeping outside Dubai Mall!",
                 mapBoxTitle: "Nearby Hotels Radar (Don't worry, they all want your money)",
@@ -534,7 +546,7 @@
                 brandSub: "Rire, Réserver, et Fuir! 🤪✈️",
                 walletLabel: "Tirelire Cash 🤑",
                 pointsLabel: "Points",
-                regBtnText: "Ouvrir un compte !",
+                regBtnText: "Compte / Connexion",
                 heroTitle: "Offres d'hôtels qui vous donnent envie de démissionner ! 🏝️💸",
                 heroSubtitle: "Choisissez vos dates et lisez les politiques drôles des hôtels !",
                 lblSearchHotel: "Où campez-vous ? (Hôtel ou Émirat)",
@@ -546,15 +558,6 @@
                 filterTitle: "Filtrer par Émirat 📍",
                 cityAll: "Tous les Émirats",
                 syncText: "Recherche de prix fous...",
-                regHeaderTitle: "Inscrivez-vous ! 💸",
-                regHeaderSub: "Obtenez un cadeau de bienvenue instantané.",
-                regFormTitle: "Ouvrir un Compte",
-                lblName: "Nom sur le Passeport:",
-                lblEmail: "E-mail:",
-                lblPass: "Mot de passe:",
-                regBonusText: "🎁 Bonus de bienvenue : +500 points offerts !",
-                btnSubmitReg: "S'inscrire 🌟",
-                btnCancelReg: "Annuler",
                 mapHeaderTitle: "Carte des Perdues 🗺️",
                 mapHeaderSub: "Voir l'emplacement de l'hôtel",
                 mapBoxTitle: "Radar des Hôtels",
@@ -585,7 +588,7 @@
                 brandSub: "Lachen, Buchen, Abhaun! 🤪✈️",
                 walletLabel: "Sparschwein 🤑",
                 pointsLabel: "Punkte",
-                regBtnText: "Konto öffnen!",
+                regBtnText: "Konto / Login",
                 heroTitle: "Hotelangebote, die Sie kündigen lassen wollen! 🏝️💸",
                 heroSubtitle: "Wählen Sie Ihre Daten und lesen Sie die urkomischen Hotelrichtlinien!",
                 lblSearchHotel: "Wo campen Sie? (Hotel oder Emirat)",
@@ -597,15 +600,6 @@
                 filterTitle: "Nach Emirat filtern 📍",
                 cityAll: "Alle Emirate",
                 syncText: "Suche nach verrückten Preisen...",
-                regHeaderTitle: "Registrieren! 💸",
-                regHeaderSub: "Erhalten Sie sofortige Willkommenspunkte.",
-                regFormTitle: "Konto eröffnen",
-                lblName: "Name im Pass:",
-                lblEmail: "E-Mail:",
-                lblPass: "Passwort:",
-                regBonusText: "🎁 Willkommensbonus: +500 Punkte gutgeschrieben!",
-                btnSubmitReg: "Registrieren 🌟",
-                btnCancelReg: "Abbrechen",
                 mapHeaderTitle: "Hotelkarte 🗺️",
                 mapHeaderSub: "Standort anzeigen",
                 mapBoxTitle: "Hotel-Radar",
@@ -664,15 +658,6 @@
             document.getElementById('filterTitle').innerText = t.filterTitle;
             document.getElementById('cityAll').innerText = t.cityAll;
             document.getElementById('syncText').innerText = t.syncText;
-            document.getElementById('regHeaderTitle').innerText = t.regHeaderTitle;
-            document.getElementById('regHeaderSub').innerText = t.regHeaderSub;
-            document.getElementById('regFormTitle').innerText = t.regFormTitle;
-            document.getElementById('lblName').innerText = t.lblName;
-            document.getElementById('lblEmail').innerText = t.lblEmail;
-            document.getElementById('lblPass').innerText = t.lblPass;
-            document.getElementById('regBonusText').innerText = t.regBonusText;
-            document.getElementById('btnSubmitReg').innerText = t.btnSubmitReg;
-            document.getElementById('btnCancelReg').innerText = t.btnCancelReg;
             document.getElementById('mapHeaderTitle').innerText = t.mapHeaderTitle;
             document.getElementById('mapHeaderSub').innerText = t.mapHeaderSub;
             document.getElementById('mapBoxTitle').innerText = t.mapBoxTitle;
@@ -833,8 +818,8 @@
         const currencySymbols = { AED: "AED", USD: "$", SAR: "SAR", EUR: "€", GBP: "£", KWD: "KWD", BHD: "BHD", QAR: "QAR" };
         let currentCurrency = "AED";
 
-        let pointsBalance = parseInt(localStorage.getItem('rimal_points')) || 0;
-        document.getElementById('displayPoints').innerText = pointsBalance;
+        // إدارة جلسة المستخدم محلياً
+        let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
 
         let selectedHotel = '';
         let pointsToAdd = 0;
@@ -850,7 +835,103 @@
             document.getElementById('checkOutDate').valueAsDate = tomorrow;
 
             displayHotels(allHotels);
+            checkUserSession();
         };
+
+        function checkUserSession() {
+            if (currentUser) {
+                document.getElementById('authBoxContainer').style.display = 'none';
+                document.getElementById('userDashboard').style.display = 'block';
+                fetchUserData(currentUser.email);
+            }
+        }
+
+        async function handleEmailAuth(e) {
+            e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPass').value;
+
+            try {
+                const res = await fetch('/api/auth/login-register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, password, provider: 'email' })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    currentUser = data.user;
+                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+                    checkUserSession();
+                    alert('تم تسجيل الدخول بنجاح! 🚀');
+                } else {
+                    alert('خطأ: ' + data.error);
+                }
+            } catch (err) {
+                alert('خطأ في الاتصال بالخادم');
+            }
+        }
+
+        async function socialLogin(platform) {
+            const fakeEmail = prompt(`أدخل إيميلك المسجل في ${platform}:`, `user_${Math.floor(Math.random()*1000)}@remaltourismllc.com`);
+            if(!fakeEmail) return;
+
+            try {
+                const res = await fetch('/api/auth/login-register', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: fakeEmail, name: `${platform} User`, provider: platform.toLowerCase() })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    currentUser = data.user;
+                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+                    checkUserSession();
+                    alert(`أهلاً بك عبر ${platform}! تم تسجيل دخولك بنجاح 🌟`);
+                }
+            } catch (err) {
+                alert('حدث خطأ أثناء الاتصال');
+            }
+        }
+
+        async function fetchUserData(email) {
+            try {
+                const res = await fetch(`/api/user/profile?email=${email}`);
+                const data = await res.json();
+                if(data.success) {
+                    document.getElementById('userNameDisplay').innerText = data.profile.name;
+                    document.getElementById('dashPoints').innerText = data.profile.points;
+                    document.getElementById('displayPoints').innerText = data.profile.points;
+                    document.getElementById('dashPointsValue').innerText = data.profile.pointsValueAED + ' AED';
+
+                    const bookingsContainer = document.getElementById('dashBookingsList');
+                    bookingsContainer.innerHTML = '';
+                    if(data.bookings.length === 0) {
+                        bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">ليس لديك حجوزات حالياً، ابدأ بحجز رحلتك الأولى!</div>`;
+                    } else {
+                        data.bookings.forEach(b => {
+                            bookingsContainer.innerHTML += `
+                                <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center;">
+                                    <div>
+                                        <strong>${b.hotelName}</strong><br>
+                                        <small style="color:var(--text-muted);">رقم المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | الدفع: ${b.paymentMethod}</small>
+                                    </div>
+                                    <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold;">مؤكد ✅</span>
+                                </div>
+                            `;
+                        });
+                    }
+                }
+            } catch (e) {
+                console.error(e);
+            }
+        }
+
+        function logoutUser() {
+            localStorage.removeItem('rimal_current_user');
+            currentUser = null;
+            document.getElementById('authBoxContainer').style.display = 'block';
+            document.getElementById('userDashboard').style.display = 'none';
+        }
 
         function getCalculatedNights() {
             const checkIn = new Date(document.getElementById('checkInDate').value);
@@ -949,17 +1030,6 @@
             window.scrollTo(0, 0);
         }
 
-        function handleRegister(e) {
-            e.preventDefault();
-            const name = document.getElementById('regName').value;
-            pointsBalance += 500;
-            localStorage.setItem('rimal_points', pointsBalance);
-            document.getElementById('displayPoints').innerText = pointsBalance;
-
-            alert(currentLang === 'ar' ? `يا هلا بـ ${name}! تم فتح الحساب وإضافة +500 نقطة بحصالتك، لا تطيرهم عالبطاطس! 🍟` : `Welcome ${name}! Account opened & +500 points added to your piggy bank! 🎉`);
-            switchView('mainView');
-        }
-
         function goToBooking(hotelName, calculatedPoints, priceAEDForNights) {
             selectedHotel = hotelName;
             pointsToAdd = calculatedPoints * 2;
@@ -967,6 +1037,11 @@
 
             document.getElementById('hotelNameTitle').innerText = (currentLang === 'ar' ? 'رحلة البهدلة في: ' : 'Booking Trap: ') + hotelName;
             document.getElementById('rewardPoints').innerText = pointsToAdd;
+
+            // تعبئة البريد تلقائياً إذا كان المستخدم مسجلاً دخول
+            if(currentUser && currentUser.email) {
+                document.getElementById('custEmail').value = currentUser.email;
+            }
 
             switchView('bookingView');
         }
@@ -1005,9 +1080,8 @@
             };
 
             try {
-                // إذا تم اختيار الدفع الإلكتروني (وليس الاستقبال)، يتم توليد جلسة Stripe والتحويل إليها
                 if (paymentMethod !== 'hotel') {
-                    const stripeResponse = await fetch('https://rimal-api.onrender.com/api/create-checkout-session', {
+                    const stripeResponse = await fetch('/api/create-checkout-session', {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
                         body: JSON.stringify({
@@ -1026,14 +1100,13 @@
                         if (result.error) {
                             alert(result.error.message);
                         }
-                        return; // الخروج لتحويل العميل لبوابة Stripe بنجاح
+                        return;
                     } else {
                         throw new Error(sessionData.error || 'تعذر إنشاء جلسة الدفع');
                     }
                 }
 
-                // الحجز العادي عند اختيار الدفع بالاستقبال
-                const response = await fetch('https://rimal-api.onrender.com/api/bookings', {
+                const response = await fetch('/api/bookings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(bookingData)
@@ -1042,12 +1115,7 @@
                 const data = await response.json();
 
                 if (response.ok && data.success) {
-                    pointsBalance += pointsToAdd;
-                    localStorage.setItem('rimal_points', pointsBalance);
-                    document.getElementById('displayPoints').innerText = pointsBalance;
-
                     const refNumber = data.bookingReference || 'RIMAL-XXXX';
-                    
                     alert(`✅ تم تثبيت الحجز بنجاح يا بطل!\n\nرقم المرجع: ${refNumber}\n\nتم إرسال تفاصيل الحجز وتأكيد الإيميل بنجاح.`);
 
                     document.getElementById('bookingForm').reset();
