@@ -1,16 +1,8 @@
-{
-  "name": "rimal-backend",
-  "version": "1.0.0",
-  "description": "Rimal International Hotel Booking API",
-  "main": "server.js",
-  "scripts": {
-    "start": "node server.js"
-  },
-  "dependencies": {
-    "bcryptjs": "^2.4.3",
-    "cors": "^2.8.5",
-    "express": "^4.18.2",
-    "nodemailer": "^6.9.1",
-    "stripe": "^14.25.0"
-  }
+"dependencies": {
+  "bcryptjs": "^2.4.3",
+  "cors": "^2.8.5",
+  "express": "^4.18.2",
+  "mongoose": "^8.0.0",
+  "nodemailer": "^6.9.7",
+  "stripe": "^14.0.0"
 }
