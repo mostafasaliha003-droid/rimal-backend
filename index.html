@@ -1005,10 +1005,7 @@
                 paymentMethod: paymentMethod
             };
 
-            const notif = document.getElementById('notification');
-
             try {
-                // إرسال البيانات مباشرة لرابط الـ API على Render
                 const response = await fetch('https://rimal-api.onrender.com/api/bookings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1023,24 +1020,18 @@
                     document.getElementById('displayPoints').innerText = pointsBalance;
 
                     const refNumber = data.bookingReference || 'RIMAL-XXXX';
-                    notif.style.background = 'linear-gradient(135deg, #059669, #047857)';
-                    notif.innerText = currentLang === 'ar' ? `✅ تم تثبيت الحجز بنجاح! المرجع: ${refNumber} (تم إرسال النسخ للإيميل والواتساب)` : `✅ Confirmed! Ref: ${refNumber}`;
-                    notif.style.display = 'block';
+                    
+                    // تنبيه مباشر يظهر للمستخدم برقم المرجع وتأكيد الإيميل
+                    alert(`✅ تم تثبيت الحجز بنجاح يا بطل!\n\nرقم المرجع: ${refNumber}\n\nتم إرسال تفاصيل الحجز وتأكيد الإيميل بنجاح.`);
 
-                    setTimeout(() => {
-                        notif.style.display = 'none';
-                        document.getElementById('bookingForm').reset();
-                        document.getElementById('cardDetailsContainer').style.display = 'none';
-                        switchView('mainView');
-                    }, 4000);
+                    document.getElementById('bookingForm').reset();
+                    document.getElementById('cardDetailsContainer').style.display = 'none';
+                    switchView('mainView');
                 } else {
                     throw new Error(data.error || 'فشل في حفظ الحجز');
                 }
             } catch (error) {
-                notif.style.background = 'linear-gradient(135deg, #d90429, #991b1b)';
-                notif.innerText = `❌ تعذر إتمام الحجز: ${error.message}`;
-                notif.style.display = 'block';
-                setTimeout(() => { notif.style.display = 'none'; }, 4000);
+                alert(`❌ عذراً لم يتم إتمام الحجز: ${error.message}`);
             }
         }
     </script>
