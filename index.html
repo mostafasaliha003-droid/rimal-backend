@@ -159,6 +159,19 @@
         .pay-option.selected { border-color: var(--accent-coral); background: rgba(255, 89, 94, 0.1); color: var(--accent-coral); }
 
         .card-gateway-box { background: #f8fafc; border: 2px solid #cbd5e0; padding: 18px; border-radius: 16px; margin-bottom: 18px; }
+
+        /* تصميم الـ Popup Modal الاحترافي */
+        .modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(31, 58, 64, 0.7); backdrop-filter: blur(5px);
+            display: none; justify-content: center; align-items: center; z-index: 3000;
+        }
+        .modal-content {
+            background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 450px;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 4px solid var(--accent-yellow);
+            text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        }
+        @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
         #notification {
             position: fixed; bottom: 30px; left: 50%; transform: translateX(-50%); background: linear-gradient(135deg, var(--accent-coral), #d90429); color: white;
@@ -355,6 +368,29 @@
                     <!-- يتم جلب الحجوزات هنا ديناميكياً -->
                 </div>
             </div>
+        </div>
+    </div>
+
+    <!-- نافذة تسجيل الدخول المنبثقة الذكية (Popup Modal) -->
+    <div id="socialModal" class="modal-overlay">
+        <div class="modal-content">
+            <h3 id="modalTitle" style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid fa-right-to-bracket"></i> تسجيل الدخول</h3>
+            <p id="modalSub" style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; font-weight: 700;">أدخل بياناتك للمتابعة السريعة</p>
+            
+            <form onsubmit="handleModalAuth(event)">
+                <div class="form-group" style="text-align: right;">
+                    <label>الاسم الكامل:</label>
+                    <input type="text" id="modalName" required placeholder="اسمك الكريم">
+                </div>
+                <div class="form-group" style="text-align: right;">
+                    <label>البريد الإلكتروني:</label>
+                    <input type="email" id="modalEmail" required placeholder="name@remaltourismllc.com">
+                </div>
+                <div style="display: flex; gap: 10px; margin-top: 20px;">
+                    <button type="submit" class="btn-book" style="flex: 2;">تأكيد الدخول 🚀</button>
+                    <button type="button" class="btn-book" onclick="closeSocialModal()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">إلغاء</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -819,6 +855,7 @@
         let currentCurrency = "AED";
 
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
+        let activePlatform = 'Email';
 
         let selectedHotel = '';
         let pointsToAdd = 0;
@@ -870,31 +907,40 @@
             }
         }
 
-        async function socialLogin(platform) {
-            const userEmail = prompt(`أهلاً بك! أدخل البريد الإلكتروني المرتبط بحسابك على ${platform}:`, `user_${Math.floor(Math.random()*1000)}@remaltourismllc.com`);
-            if(!userEmail || !userEmail.includes('@')) {
-                if(userEmail !== null) alert('الرجاء إدخال بريد إلكتروني صحيح.');
-                return;
-            }
+        function socialLogin(platform) {
+            activePlatform = platform;
+            document.getElementById('modalTitle').innerHTML = `<i class="fa-brands fa-${platform.toLowerCase()}"></i> تسجيل الدخول عبر ${platform}`;
+            document.getElementById('modalSub').innerText = `ربط حسابك في ${platform} مع شركة الرمال الدولية`;
+            document.getElementById('socialModal').style.display = 'flex';
+        }
+
+        function closeSocialModal() {
+            document.getElementById('socialModal').style.display = 'none';
+        }
+
+        async function handleModalAuth(e) {
+            e.preventDefault();
+            const name = document.getElementById('modalName').value;
+            const email = document.getElementById('modalEmail').value;
 
             try {
                 const res = await fetch('/api/auth/login-register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: userEmail, name: `${platform} User`, provider: platform.toLowerCase() })
+                    body: JSON.stringify({ email, name, provider: activePlatform.toLowerCase() })
                 });
                 const data = await res.json();
                 if(data.success) {
                     currentUser = data.user;
                     localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+                    closeSocialModal();
                     checkUserSession();
-                    alert(`✅ تم ربط وتسجيل الدخول بنجاح عبر ${platform}! أهلاً بك في شركة الرمال الدولية.`);
+                    alert(`✅ أهلاً بك يا ${name}! تم تسجيل الدخول بنجاح عبر ${activePlatform}.`);
                 } else {
-                    alert('❌ حدث خطأ أثناء المصادقة: ' + (data.error || 'يرجى المحاولة لاحقاً'));
+                    alert('❌ خطأ: ' + (data.error || 'يرجى المحاولة لاحقاً'));
                 }
             } catch (err) {
-                console.error(err);
-                alert('❌ تعذر الاتصال بخادم المصادقة.');
+                alert('❌ خطأ في الاتصال بالخادم');
             }
         }
 
