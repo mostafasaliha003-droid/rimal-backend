@@ -64,11 +64,11 @@ const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
 
-// دالة إرسال البريد الاحترافي الموحدة عبر SendGrid API
+// دالة إرسال البريد الاحترافي الموحدة عبر SendGrid API مع طباعة تفاصيل الخطأ بدقة
 async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
     const msg = {
         to: toEmail,
-        from: 'management@remaltourismllc.com', // البريد الرسمي الموثق لشركة الرمال الدولية
+        from: 'management@remaltourismllc.com', // البريد الموثق في SendGrid
         subject: subject,
         html: htmlContent,
     };
@@ -85,12 +85,12 @@ async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBu
     }
 
     try {
-        await sgMail.send(msg);
-        console.log(`✅ تم إرسال البريد بنجاح عبر SendGrid API إلى: ${toEmail}`);
+        const response = await sgMail.send(msg);
+        console.log(`✅ تم إرسال البريد بنجاح عبر SendGrid API إلى: ${toEmail} | الرد:`, response[0].statusCode);
     } catch (error) {
-        console.error('❌ خطأ في إرسال البريد عبر SendGrid:', error);
+        console.error('❌ خطأ تفصيلي من SendGrid API:', error.message);
         if (error.response) {
-            console.error(error.response.body);
+            console.error('📋 تفاصيل رفض SendGrid:', JSON.stringify(error.response.body, null, 2));
         }
     }
 }
