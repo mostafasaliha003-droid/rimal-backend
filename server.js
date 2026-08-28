@@ -4,8 +4,8 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
-// ⚠️ إذا توقفت بوابة الدفع لاحقاً، استبدل هذا المفتاح بمفتاح جديد من حسابك في Stripe
-const stripe = require('stripe')('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');
+// ✅ تم تحديث مفتاح الدفع السري بنجاح
+const stripe = require('stripe')('sk_test_51U9NrgF2L2Zp7ynOmT46T8dRcAwW8gScf5OtOU23wE4NZSAVF4ZUlspuB1WI62aqMzblavLr6zHfW3HaDAx2hhZx00IC95noxG');
 
 const app = express();
 app.use(express.json());
@@ -26,7 +26,6 @@ function saveDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2))
 
 let verificationCodes = {};
 
-// ✅ تم تحديث كلمة المرور الجديدة الخاصة بالإيميل هنا
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: { 
