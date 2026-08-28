@@ -132,6 +132,23 @@ app.get('/api/user/profile', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// مسار البحث السريع عن الحجز (Guest Lookup)
+app.post('/api/bookings/lookup', async (req, res) => {
+    try {
+        let { bookingReference, email } = req.body;
+        bookingReference = (bookingReference || '').trim();
+        email = (email || '').toLowerCase().trim();
+
+        const booking = await Booking.findOne({ bookingReference, email });
+        if (!booking) {
+            return res.status(404).json({ success: false, error: 'لم يتم العثور على حجز بهذا الرقم والإيميل المطابق!' });
+        }
+        res.json({ success: true, booking });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.post('/api/bookings', async (req, res) => {
     try {
         let { hotelName, customerName, email, phone, companions, paymentMethod, price, pointsUsed } = req.body;
@@ -227,7 +244,7 @@ app.post('/api/reviews', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
-// مسار تصدير الـ PDF المحسن مع معالجة أسماء العملاء والفنادق والدفع عند الوصول
+// مسار تصدير الـ PDF المحسن (مع الشعار وتوضيح الدفع عند الوصول ونظافة الحروف)
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
     try {
         const booking = await Booking.findOne({ bookingReference: req.params.reference });
@@ -238,7 +255,6 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         res.setHeader('Content-Disposition', `attachment; filename=Rimal-Voucher-${booking.bookingReference}.pdf`);
         doc.pipe(res);
 
-        // إضافة الشعار (Logo)
         const logoPath = path.join(__dirname, '6eacaf6a-cbc4-4406-aef8-708797c931cb-removebg-preview.png');
         try {
             doc.image(logoPath, 40, 35, { width: 50 });
@@ -246,7 +262,6 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
             console.log('Logo image not found, skipping logo rendering.');
         }
 
-        // Header
         doc.fillColor('#1f3a40').fontSize(18).font('Helvetica-Bold').text('RIMAL INTERNATIONAL', 100, 42, { align: 'left' });
         doc.fontSize(9).fillColor('#ff595e').font('Helvetica').text('Laugh, Book, & Escape! - Official Booking Voucher ✈️', 100, 62, { align: 'left' });
         
@@ -254,18 +269,15 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
         doc.moveDown(1);
 
-        // Booking ID Box
         doc.rect(40, doc.y, 515, 45).fillAndStroke('#f7fff7', '#00b4d8');
         let boxY = doc.y + 12;
         doc.fillColor('#1f3a40').fontSize(12).font('Helvetica-Bold').text(`Booking ID Reference: ${booking.bookingReference}`, 55, boxY);
         doc.fontSize(11).fillColor('#0077b6').text('Status: CONFIRMED ✅', 390, boxY);
         doc.moveDown(3);
 
-        // Details Section
         doc.fontSize(12).fillColor('#1f3a40').font('Helvetica-Bold').text('Reservation & Property Details:');
         doc.moveDown(0.8);
 
-        // تحديد نص طريقة الدفع وتوضيح ما إذا كان الدفع عند الوصول
         let paymentDesc = booking.paymentMethod === 'visa' ? 'Credit Card (Visa - Paid)' : 'Pay at Hotel (Payment to be collected at property check-in)';
 
         const details = [
@@ -290,7 +302,6 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
         doc.moveDown(1.5);
 
-        // Important Notes
         doc.fontSize(11).font('Helvetica-Bold').fillColor('#ff595e').text('Important Notes & Hotel Rules:');
         doc.moveDown(0.5);
         doc.fontSize(9).fillColor('#555555').text('• Please present either an electronic or paper copy of your booking confirmation upon check-in.');
