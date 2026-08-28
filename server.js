@@ -267,6 +267,34 @@ app.post('/api/bookings', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// مسار تحويل العملات عبر Frankfurter API المجانية تماماً
+app.get('/api/currency/convert', async (req, res) => {
+    try {
+        const { targetCurrency, amount } = req.query;
+        const baseAmount = parseFloat(amount) || 100;
+        const currency = (targetCurrency || 'USD').toUpperCase();
+
+        const response = await fetch(`https://api.frankfurter.app/latest?from=AED&to=${currency}`);
+        const data = await response.json();
+
+        if (data.rates && data.rates[currency]) {
+            const rate = data.rates[currency];
+            const convertedAmount = (baseAmount * rate).toFixed(2);
+            return res.json({ 
+                success: true, 
+                baseCurrency: 'AED', 
+                targetCurrency: currency, 
+                rate, 
+                convertedAmount 
+            });
+        } else {
+            res.status(400).json({ success: false, error: 'العملة غير متوفرة أو غير مدعومة' });
+        }
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.get('/api/admin/bookings', async (req, res) => {
     try {
         const bookings = await Booking.find().sort({ createdAt: -1 });
