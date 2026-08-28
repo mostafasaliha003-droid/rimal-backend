@@ -61,12 +61,6 @@
         }
         .nav-btn.account-btn { background: var(--accent-coral); color: white; border-color: #d90429; box-shadow: 0 4px 0 #d90429; }
 
-        .settings-dropdown {
-            background: #e9ecef; padding: 8px 14px; border-radius: 14px; font-size: 13px; font-weight: 800; color: var(--primary);
-            border: 2px solid var(--accent-cyan); display: flex; align-items: center; gap: 6px; cursor: pointer;
-        }
-        .settings-dropdown select { background: transparent; border: none; font-weight: 900; font-family: 'Cairo'; color: var(--primary); outline: none; cursor: pointer; }
-
         .hero {
             background: linear-gradient(135deg, rgba(31, 58, 64, 0.92), rgba(114, 9, 183, 0.88)), url('https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1920&q=80') center/cover;
             padding: 60px 5% 90px; color: var(--white); text-align: center; border-bottom: 6px solid var(--accent-yellow);
@@ -88,11 +82,7 @@
         .layout-wrapper { display: flex; gap: 30px; align-items: flex-start; margin-top: 20px; }
 
         .filters-sidebar { width: 280px; background: white; padding: 22px; border-radius: 22px; box-shadow: var(--shadow); position: sticky; top: 90px; border: 3px solid var(--accent-cyan); }
-        .map-btn { 
-            width: 100%; background: linear-gradient(135deg, var(--accent-cyan), #0077b6); color: white; border: none; padding: 14px; border-radius: 16px; font-weight: 900; cursor: pointer; 
-            display: flex; align-items: center; justify-content: center; gap: 8px; box-shadow: 0 6px 0 #005f73; font-size: 15px; 
-        }
-
+        
         .hotel-list { flex: 1; display: flex; flex-direction: column; gap: 24px; }
         .hotel-card { 
             background: var(--white); border-radius: 24px; display: flex; padding: 22px; gap: 22px; box-shadow: var(--shadow); 
@@ -114,7 +104,6 @@
             cursor: pointer; width: 100%; font-size: 16px; box-shadow: 0 6px 0 #b7094c; 
         }
         .hotel-price-display { font-size: 26px; font-weight: 900; color: var(--primary); }
-        .nights-calc-badge { font-size: 12px; color: var(--accent-purple); font-weight: 800; margin-bottom: 6px; background: rgba(114, 9, 183, 0.1); padding: 4px 10px; border-radius: 8px; width: fit-content; }
 
         .funny-policy-box {
             background: linear-gradient(135deg, #fff3b0, #fffae5); border: 3px dashed var(--accent-coral); border-radius: 16px;
@@ -126,7 +115,7 @@
         .form-group label { display: block; font-weight: 900; margin-bottom: 6px; color: var(--primary); }
         .form-group input, .form-group textarea, .form-group select { width: 100%; padding: 14px; border-radius: 14px; border: 2px solid #cbd5e1; outline: none; font-family: 'Cairo'; font-size: 14px; font-weight: 700; }
         
-        .payment-methods { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 18px; }
+        .payment-methods { display: grid; grid-template-columns: repeat(2, 1fr); gap: 10px; margin-bottom: 18px; }
         .pay-option { border: 2px solid #cbd5e1; border-radius: 14px; padding: 12px; text-align: center; cursor: pointer; font-weight: 800; font-size: 13px; }
         .pay-option input { display: none; }
         .pay-option.selected { border-color: var(--accent-coral); background: rgba(255, 89, 94, 0.1); color: var(--accent-coral); }
@@ -143,14 +132,6 @@
         .tab-switcher { display: flex; background: #e2e8f0; border-radius: 12px; padding: 4px; margin-bottom: 20px; }
         .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; font-weight: 900; font-family: 'Cairo'; cursor: pointer; border-radius: 10px; color: var(--text-muted); }
         .tab-btn.active { background: white; color: var(--primary); }
-
-        .loading-overlay {
-            position: absolute; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(255,255,255,0.95); display: none; flex-direction: column; justify-content: center; align-items: center; z-index: 10;
-            border-radius: 24px; font-weight: 900; color: var(--primary);
-        }
-        .spinner { width: 50px; height: 50px; border: 5px solid #f3f3f3; border-top: 5px solid var(--accent-coral); border-radius: 50%; animation: spin 1s linear infinite; margin-bottom: 15px; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body>
@@ -165,15 +146,7 @@
         </a>
 
         <div class="header-actions">
-            <div class="settings-dropdown">
-                <i class="fa-solid fa-coins" style="color: var(--accent-cyan);"></i>
-                <select id="currencySelect" onchange="changeCurrency()">
-                    <option value="AED">د.إ (AED)</option>
-                    <option value="USD">$ (USD)</option>
-                    <option value="SAR">ر.س (SAR)</option>
-                </select>
-            </div>
-
+            <button class="nav-btn" onclick="switchView('lookupView')"><i class="fa-solid fa-search"></i> تتبع حجز سريع</button>
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
 
             <div class="wallet-card">
@@ -245,6 +218,33 @@
         </div>
     </div>
 
+    <!-- واجهة تتبع الحجز السريع للزوار (Guest Lookup) -->
+    <div id="lookupView" class="view-section">
+        <section class="hero" style="padding: 40px 5%;">
+            <h1>تتبع حجزك السريع برقم المرجع 🔍</h1>
+            <p>استعلم عن حالة حجزك وحمل قسيمة الـ PDF فوراً!</p>
+        </section>
+
+        <div class="container" style="max-width: 600px;">
+            <div class="booking-box">
+                <h2 style="color: var(--primary); margin-bottom: 20px;">بحث عن الحجز 🔎</h2>
+                <form id="lookupForm" onsubmit="quickLookupBooking(event)">
+                    <div class="form-group">
+                        <label>رقم مرجع الحجز (Booking ID):</label>
+                        <input type="text" id="lookupRef" required placeholder="مثل: RIMAL-123456">
+                    </div>
+                    <div class="form-group">
+                        <label>البريد الإلكتروني المسجل:</label>
+                        <input type="email" id="lookupEmail" required placeholder="name@example.com">
+                    </div>
+                    <button type="submit" class="btn-book" style="margin-top: 15px;">بحث عن الحجز وتحميل PDF 🚀</button>
+                    <button type="button" onclick="switchView('mainView')" style="margin-top: 10px; width: 100%; padding: 12px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: bold; cursor: pointer;">رجوع للرئيسية 🔙</button>
+                </form>
+                <div id="lookupResult" style="margin-top: 20px;"></div>
+            </div>
+        </div>
+    </div>
+
     <!-- لوحة تحكم العميل والحجوزات -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
@@ -279,28 +279,9 @@
         </div>
     </div>
 
-    <!-- لوحة تحكم الأدمن السرية (تفتح فقط عند الرابط /admin) -->
-    <div id="adminView" class="view-section">
-        <div class="container" style="max-width: 1000px; margin-top: 40px;">
-            <div style="background: white; padding: 35px; border-radius: 24px; border: 4px solid var(--accent-purple); box-shadow: var(--shadow);">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed var(--accent-cyan); padding-bottom: 15px; margin-bottom: 25px;">
-                    <h2>🛠️ لوحة تحكم الإدارة الحصرية (Admin Dashboard)</h2>
-                    <button class="nav-btn" onclick="switchView('mainView')">رجوع للموقع 🔙</button>
-                </div>
-                <h3>إدارة جميع حجوزات العملاء والمدفوعات والاسترداد المالي للبطاقات</h3>
-                <div id="adminBookingsList" style="margin-top: 20px; display: flex; flex-direction: column; gap: 15px;"></div>
-            </div>
-        </div>
-    </div>
-
     <!-- نافذة تسجيل الدخول والإنشاء -->
     <div id="socialModal" class="modal-overlay">
         <div class="modal-content">
-            <div id="loadingOverlay" class="loading-overlay">
-                <div class="spinner"></div>
-                <p id="loadingText">جاري الاتصال بالسحابة الآمنة... ⏳</p>
-            </div>
-
             <div class="tab-switcher">
                 <button type="button" id="tabLoginBtn" class="tab-btn" onclick="switchTab('login')">تسجيل دخول</button>
                 <button type="button" id="tabRegisterBtn" class="tab-btn active" onclick="switchTab('register')">حساب جديد</button>
@@ -331,6 +312,7 @@
                     <button type="submit" class="btn-book">تأكيد وتفعيل 🚀</button>
                 </form>
             </div>
+            <button type="button" onclick="closeAuthModal()" style="margin-top:15px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
         </div>
     </div>
 
@@ -360,8 +342,8 @@
                     <div class="form-group">
                         <label>طريقة الدفع:</label>
                         <div class="payment-methods">
-                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 فيزا</label>
-                            <label class="pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel"> 🏨 بالاستقبال</label>
+                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 فيزا (دفع إلكتروني)</label>
+                            <label class="pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel"> 🏨 بالاستقبال (عند الوصول)</label>
                         </div>
                     </div>
 
@@ -377,10 +359,6 @@
         let tempEmail = '', tempName = '', tempPassword = '', tempPhone = '', selectedHotel = '', currentBasePrice = 0;
 
         window.onload = function() {
-            if (window.location.pathname === '/admin') {
-                loadAdminDashboard();
-                return;
-            }
             document.getElementById('checkInDate').valueAsDate = new Date();
             let tomorrow = new Date(); tomorrow.setDate(new Date().getDate() + 1);
             document.getElementById('checkOutDate').valueAsDate = tomorrow;
@@ -459,6 +437,48 @@
             } catch (err) { alert('❌ خطأ'); }
         }
 
+        // دالة التتبع السريع للحجز (Guest Lookup)
+        async function quickLookupBooking(e) {
+            e.preventDefault();
+            const bookingReference = document.getElementById('lookupRef').value.trim();
+            const email = document.getElementById('lookupEmail').value.trim();
+            const resultDiv = document.getElementById('lookupResult');
+            
+            resultDiv.innerHTML = '<p style="text-align:center; color:var(--accent-cyan);">جاري البحث في السحابة... ⏳</p>';
+
+            try {
+                const res = await fetch('/api/bookings/lookup', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookingReference, email })
+                });
+                const data = await res.json();
+
+                if (data.success) {
+                    const b = data.booking;
+                    const isActive = b.status === 'active';
+                    resultDiv.innerHTML = `
+                        <div style="background: #fdfdfe; border: 2px solid ${isActive ? '#00b4d8' : '#ff595e'}; padding: 20px; border-radius: 16px; margin-top: 15px;">
+                            <h3 style="color: var(--primary); margin-bottom: 8px;">${b.hotelName}</h3>
+                            <p><strong>اسم العميل:</strong> ${b.customerName}</p>
+                            <p><strong>المرجع:</strong> <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span></p>
+                            <p><strong>المبلغ الإجمالي:</strong> ${b.price} AED</p>
+                            <p><strong>الحالة:</strong> <span style="color:${isActive ? 'green' : 'red'}; font-weight:bold;">${isActive ? 'مؤكد بالسحابة ✅' : 'ملغي ❌'}</span></p>
+                            <div style="margin-top: 15px;">
+                                <a href="/api/bookings/pdf/${b.bookingReference}" target="_blank" style="background: var(--primary); color: white; padding: 10px 15px; border-radius: 10px; font-weight: bold; text-decoration: none; display: inline-block;">
+                                    <i class="fa-solid fa-file-pdf"></i> تحميل قسيمة الـ PDF 📄
+                                </a>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    resultDiv.innerHTML = `<div style="background: rgba(255,89,94,0.1); color: var(--accent-coral); padding: 15px; border-radius: 12px; text-align: center; font-weight: bold;">❌ ${data.error}</div>`;
+                }
+            } catch (err) {
+                resultDiv.innerHTML = `<div style="background: rgba(255,89,94,0.1); color: var(--accent-coral); padding: 15px; border-radius: 12px; text-align: center; font-weight: bold;">❌ حدث خطأ أثناء الاتصال بالسحابة.</div>`;
+            }
+        }
+
         async function fetchUserData(email) {
             try {
                 const res = await fetch(`/api/user/profile?email=${email}`);
@@ -483,7 +503,7 @@
                                         <strong style="font-size: 16px; color: var(--primary);">${b.hotelName}</strong><br>
                                         <small style="color:var(--text-muted);">رقم المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | المبلغ: ${b.price} AED</small><br>
                                         <small style="color: var(--accent-purple); font-weight: bold;">📌 سياسة الإلغاء: ${b.cancellationPolicy}</small><br>
-                                        <small style="color: #495057;">⏳ آخر وقت للإلغاء المجاني (Deadline): ${deadlineStr}</small>
+                                        <small style="color: #495057;">⏳ آخر وقت للإلغاء المجاني: ${deadlineStr}</small>
                                     </div>
                                     <div style="display: flex; gap: 8px; align-items: center;">
                                         <span style="background: ${isActive ? 'rgba(0,180,216,0.1)' : 'rgba(255,89,94,0.1)'}; color: ${isActive ? 'var(--accent-cyan)' : 'var(--accent-coral)'}; padding:5px 12px; border-radius:8px; font-weight:bold;">
@@ -619,53 +639,6 @@
                     fetchUserData(currentUser.email);
                 } else { throw new Error(data.error); }
             } catch (error) { alert(`❌ عذراً لم يتم إتمام الحجز: ${error.message}`); }
-        }
-
-        async function loadAdminDashboard() {
-            switchView('adminView');
-            try {
-                const res = await fetch('/api/admin/bookings');
-                const data = await res.json();
-                const list = document.getElementById('adminBookingsList');
-                list.innerHTML = '';
-                if(data.bookings.length === 0) {
-                    list.innerHTML = '<div style="text-align:center; padding:20px;">لا توجد حجوزات مسجلة في النظام حالياً.</div>';
-                    return;
-                }
-                data.bookings.forEach(b => {
-                    list.innerHTML += `
-                        <div style="background:#f8f9fa; padding:18px; border-radius:14px; border:2px solid #e2e8f0; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
-                            <div>
-                                <strong style="font-size:16px; color:var(--primary);">${b.customerName}</strong> (${b.email})<br>
-                                الفندق: <strong>${b.hotelName}</strong> | المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | المبلغ: ${b.price} AED<br>
-                                الحالة: <span style="color:${b.status==='active'?'green':'red'}; font-weight:bold;">${b.status}</span>
-                            </div>
-                            <div style="display:flex; gap:8px;">
-                                <button onclick="adminCancel('${b.bookingReference}', 'full')" style="background:var(--accent-cyan); color:white; border:none; padding:8px 14px; border-radius:8px; font-weight:bold; cursor:pointer;">إلغاء واسترداد كامل للكرت</button>
-                                <button onclick="adminCancel('${b.bookingReference}', 'none')" style="background:var(--accent-coral); color:white; border:none; padding:8px 14px; border-radius:8px; font-weight:bold; cursor:pointer;">إلغاء بدون استرداد</button>
-                            </div>
-                        </div>
-                    `;
-                });
-            } catch (e) {
-                console.error(e);
-            }
-        }
-
-        async function adminCancel(ref, refundType) {
-            if(!confirm('هل أنت متأكد من تنفيذ هذا الإجراء واسترداد المبلغ للبطاقة؟')) return;
-            try {
-                const res = await fetch('/api/admin/bookings/refund-cancel', {
-                    method: 'POST',
-                    headers: {'Content-Type':'application/json'},
-                    body: JSON.stringify({ bookingReference: ref, refundType })
-                });
-                const data = await res.json();
-                alert(data.message);
-                loadAdminDashboard();
-            } catch (e) {
-                alert('حدث خطأ أثناء الإلغاء');
-            }
         }
     </script>
 </body>
