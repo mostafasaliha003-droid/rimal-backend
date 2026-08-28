@@ -1,7 +1,6 @@
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
-const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
 const path = require('path');
 const stripe = require('stripe')('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');
@@ -11,36 +10,9 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-// الاتصال بقاعدة البيانات (MongoDB)
-mongoose.connect(process.env.MONGO_URI || 'mongodb://localhost:27017/rimal_db', {
-    useNewUrlParser: true,
-    useUnifiedTopology: true
-}).then(() => console.log('📦 متصل بقاعدة بيانات MongoDB بنجاح')).catch(err => console.log('DB Error:', err));
-
-// نموذج العميل (User Schema)
-const userSchema = new mongoose.Schema({
-    name: String,
-    email: { type: String, unique: true, required: true },
-    password: { type: String },
-    authProvider: { type: String, default: 'email' },
-    points: { type: Number, default: 500 }, // عيدية ترحيبية 500 نقطة
-    cards: [{ brand: String, last4: String, exp: String }]
-});
-const User = mongoose.model('User', userSchema);
-
-// نموذج الحجز (Booking Schema)
-const bookingSchema = new mongoose.Schema({
-    bookingReference: String,
-    email: String,
-    hotelName: String,
-    customerName: String,
-    phone: String,
-    companions: String,
-    paymentMethod: String,
-    price: Number,
-    createdAt: { type: Date, default: Date.now }
-});
-const Booking = mongoose.model('Booking', bookingSchema);
+// تخزين مؤقت في الذاكرة الحية (يعمل بكفاءة تامة على Render)
+let usersMemory = [];
+let bookingsMemory = [];
 
 // إعداد خدمة النودمايلر للإيميلات
 const transporter = nodemailer.createTransport({
@@ -51,22 +23,21 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// مسار التسجيل وتسجيل الدخول بالبريد الإلكتروني أو وسائل التواصل
+// مسار التسجيل وتسجيل الدخول
 app.post('/api/auth/login-register', async (req, res) => {
     try {
-        const { email, name, password, provider } = req.body;
-        let user = await User.findOne({ email });
+        const { email, name, provider } = req.body;
+        let user = usersMemory.find(u => u.email === email);
 
         if (!user) {
-            const hashedPassword = password ? await bcrypt.hash(password, 10) : '';
-            user = new User({
+            user = {
                 name: name || email.split('@')[0],
                 email,
-                password: hashedPassword,
                 authProvider: provider || 'email',
-                points: 500
-            });
-            await user.save();
+                points: 500, // عيدية ترحيبية 500 نقطة
+                cards: []
+            };
+            usersMemory.push(user);
         }
 
         res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, cards: user.cards } });
@@ -75,16 +46,15 @@ app.post('/api/auth/login-register', async (req, res) => {
     }
 });
 
-// مسار جلب بيانات العميل (الحجوزات، النقاط، وقيمتها بالدرهم، والبطاقات)
-app.get('/api/user/profile', async (req, res) => {
+// مسار جلب بيانات العميل
+app.get('/api/user/profile', (req, res) => {
     try {
         const { email } = req.query;
-        const user = await User.findOne({ email });
-        const bookings = await Booking.find({ email });
+        const user = usersMemory.find(u => u.email === email);
+        const bookings = bookingsMemory.filter(b => b.email === email);
 
         if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
 
-        // حساب قيمة النقاط بالعملة (مثلاً كل 100 نقطة = 10 درهم إماراتي)
         const pointsValueAED = (user.points / 10).toFixed(2);
 
         res.json({
@@ -109,7 +79,7 @@ app.post('/api/bookings', async (req, res) => {
         const { hotelName, customerName, email, phone, companions, paymentMethod, price } = req.body;
         const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
 
-        const newBooking = new Booking({
+        const newBooking = {
             bookingReference,
             email,
             hotelName,
@@ -117,13 +87,17 @@ app.post('/api/bookings', async (req, res) => {
             phone,
             companions,
             paymentMethod,
-            price
-        });
-        await newBooking.save();
+            price,
+            createdAt: new Date()
+        };
+        bookingsMemory.push(newBooking);
 
-        // إضافة نقاط للعميل بناءً على الحجز
+        // تحديث نقاط المستخدم
+        let user = usersMemory.find(u => u.email === email);
         const earnedPoints = Math.round((price || 100) * 0.5);
-        await User.findOneAndUpdate({ email }, { $inc: { points: earnedPoints } });
+        if (user) {
+            user.points += earnedPoints;
+        }
 
         res.status(201).json({ success: true, message: 'تم تثبيت الحجز بنجاح', bookingReference });
 
