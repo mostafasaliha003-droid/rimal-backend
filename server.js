@@ -208,7 +208,8 @@ app.post('/api/bookings', async (req, res) => {
             await user.save();
         }
 
-        const doc = new PDFDocument();
+        // توليد قسيمة PDF بسيطة ومرحة
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
         let buffers = [];
         doc.on('data', chunk => buffers.push(chunk));
         doc.on('end', async () => {
@@ -217,14 +218,49 @@ app.post('/api/bookings', async (req, res) => {
                 await sendProfessionalEmail(
                     email,
                     `تأكيد حجزك في ${hotelName} - شركة الرمال الدولية ✈️`,
-                    `<div dir="rtl" style="font-family:Cairo; padding:20px;"><h1>أهلاً بك يا بطل! 🤪✈️</h1><p>تم تأكيد حجزك الفندقي برقم المرجع: <strong>${bookingReference}</strong> والمبلغ: ${finalPrice} AED.</p><p>تجد قسيمة الحجز (PDF) مرفقة مع هذه الرسالة.</p></div>`,
+                    `<div dir="rtl" style="font-family:Arial, sans-serif; padding:20px; background:#f4f6f8; border-radius:10px;">
+                        <h2 style="color:#1f3a40;">مرحباً بك يا بطل! ✈️</h2>
+                        <p>تم تثبيت وتأكيد حجزك الفندقي بكل نجاح عبر منصة <b>شركة الرمال الدولية</b>.</p>
+                        <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
+                        <p><b>رقم المرجع:</b> ${bookingReference}</p>
+                        <p><b>الفندق:</b> ${hotelName}</p>
+                        <p><b>الإجمالي المدفوع:</b> ${finalPrice} AED</p>
+                        <p style="color:#0077b6; margin-top:20px;">تجد تفاصيل قسيمة الحجز الرسمية (PDF) مرفقة مع هذه الرسالة. نتمنى لك إقامة ممتعة ولا تنسَ: <i>Laugh, Book, & Escape!</i> 😂</p>
+                    </div>`,
                     pdfBuffer,
-                    `Voucher-${bookingReference}.pdf`
+                    `Rimal-Voucher-${bookingReference}.pdf`
                 );
             } catch (mailErr) { console.error(mailErr); }
         });
-        doc.fontSize(20).text('شركة الرمال الدولية - قسيمة الحجز ✈️', { align: 'center' });
-        doc.text(`المرجع: ${bookingReference} | الفندق: ${hotelName} | المبلغ: ${finalPrice} AED`);
+
+        // محتوى ملف الـ PDF المرتب والنظيف
+        doc.fontSize(22).fillColor('#1f3a40').font('Helvetica-Bold').text('RIMAL INTERNATIONAL', { align: 'center' });
+        doc.fontSize(10).fillColor('#ff595e').font('Helvetica').text('Laugh, Book, & Escape! - Official Booking Voucher ✈️', { align: 'center' });
+        
+        doc.moveDown(1.5);
+        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+        doc.moveDown(1.5);
+
+        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${bookingReference}`);
+        doc.moveDown(0.8);
+
+        doc.fontSize(11).fillColor('#333333').font('Helvetica');
+        doc.text(`Guest Name: ${customerName || 'N/A'}`);
+        doc.text(`Hotel / Property: ${hotelName || 'N/A'}`);
+        doc.text(`Email Address: ${email || 'N/A'}`);
+        doc.text(`Phone Number: ${phone || 'N/A'}`);
+        doc.text(`Companions: ${companions || 'None'}`);
+        doc.text(`Payment Method: ${paymentMethod === 'visa' ? 'Credit Card (Paid)' : 'Pay at Hotel'}`);
+        doc.text(`Total Amount: ${finalPrice} AED`);
+
+        doc.moveDown(1.5);
+        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+        doc.moveDown(1);
+
+        doc.fontSize(10).fillColor('#ff595e').font('Helvetica-Bold').text('Fun Note & Rules:');
+        doc.fontSize(9).fillColor('#555555').font('Helvetica').text('• No spicy chips allowed in rooms! Have a wonderful trip with Rimal International. 😂');
+        doc.text('• Free cancellation up to 48 hours before check-in.');
+
         doc.end();
 
         res.status(201).json({ success: true, message: 'تم تثبيت الحجز بنجاح', bookingReference, finalPrice, updatedPoints: user ? user.points : 500 });
@@ -275,69 +311,37 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         const booking = await Booking.findOne({ bookingReference: req.params.reference });
         if(!booking) return res.status(404).send('Booking not found');
 
-        const doc = new PDFDocument({ margin: 40, size: 'A4' });
+        const doc = new PDFDocument({ margin: 50, size: 'A4' });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `attachment; filename=Rimal-Voucher-${booking.bookingReference}.pdf`);
         doc.pipe(res);
 
-        const logoPath = path.join(__dirname, '6eacaf6a-cbc4-4406-aef8-708797c931cb-removebg-preview.png');
-        try {
-            doc.image(logoPath, 40, 35, { width: 50 });
-        } catch (imgErr) {
-            console.log('Logo image not found, skipping logo rendering.');
-        }
-
-        doc.fillColor('#1f3a40').fontSize(18).font('Helvetica-Bold').text('RIMAL INTERNATIONAL', 100, 42, { align: 'left' });
-        doc.fontSize(9).fillColor('#ff595e').font('Helvetica').text('Laugh, Book, & Escape! - Official Booking Voucher ✈️', 100, 62, { align: 'left' });
+        doc.fontSize(22).fillColor('#1f3a40').font('Helvetica-Bold').text('RIMAL INTERNATIONAL', { align: 'center' });
+        doc.fontSize(10).fillColor('#ff595e').font('Helvetica').text('Laugh, Book, & Escape! - Official Booking Voucher ✈️', { align: 'center' });
         
-        doc.moveDown(2);
-        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
-        doc.moveDown(1);
-
-        doc.rect(40, doc.y, 515, 45).fillAndStroke('#f7fff7', '#00b4d8');
-        let boxY = doc.y + 12;
-        doc.fillColor('#1f3a40').fontSize(12).font('Helvetica-Bold').text(`Booking ID Reference: ${booking.bookingReference}`, 55, boxY);
-        doc.fontSize(11).fillColor('#0077b6').text('Status: CONFIRMED ✅', 390, boxY);
-        doc.moveDown(3);
-
-        doc.fontSize(12).fillColor('#1f3a40').font('Helvetica-Bold').text('Reservation & Property Details:');
-        doc.moveDown(0.8);
-
-        let paymentDesc = booking.paymentMethod === 'visa' ? 'Credit Card (Visa - Paid)' : 'Pay at Hotel (Payment to be collected at property check-in)';
-
-        const details = [
-            ['Guest Name:', booking.customerName || 'N/A'],
-            ['Property / Hotel:', booking.hotelName || 'N/A'],
-            ['Email Address:', booking.email || 'N/A'],
-            ['Phone Number:', booking.phone || 'N/A'],
-            ['Companions:', booking.companions || 'None'],
-            ['Payment Method:', paymentDesc],
-            ['Total Amount:', `${booking.price || 0} AED`],
-            ['Cancellation Policy:', 'Free cancellation up to 48 hours before check-in.']
-        ];
-
-        let startY = doc.y;
-        details.forEach(item => {
-            doc.fontSize(10).font('Helvetica-Bold').fillColor('#1f3a40').text(item[0], 50, startY, { width: 150 });
-            doc.font('Helvetica').fillColor('#333333').text(item[1], 210, startY, { width: 330 });
-            startY += 20;
-        });
-
-        doc.y = startY + 15;
-        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+        doc.moveDown(1.5);
+        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
         doc.moveDown(1.5);
 
-        doc.fontSize(11).font('Helvetica-Bold').fillColor('#ff595e').text('Important Notes & Hotel Rules:');
-        doc.moveDown(0.5);
-        doc.fontSize(9).fillColor('#555555').text('• Please present either an electronic or paper copy of your booking confirmation upon check-in.');
-        doc.text('• Make sure your name matches your official passport.');
-        if (booking.paymentMethod === 'hotel') {
-            doc.text('• Note: Payment has not been collected online. You will pay the total amount directly to the property upon arrival.');
-        }
-        doc.text('• Fun Note: No spicy chips allowed in rooms! Have a wonderful trip with Rimal International. 😂');
+        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${booking.bookingReference}`);
+        doc.moveDown(0.8);
 
-        doc.moveDown(3);
-        doc.fontSize(10).font('Helvetica-Bold').fillColor('#1f3a40').text('Authorized Stamp & Signature', { align: 'left' });
+        doc.fontSize(11).fillColor('#333333').font('Helvetica');
+        doc.text(`Guest Name: ${booking.customerName || 'N/A'}`);
+        doc.text(`Hotel / Property: ${booking.hotelName || 'N/A'}`);
+        doc.text(`Email Address: ${booking.email || 'N/A'}`);
+        doc.text(`Phone Number: ${booking.phone || 'N/A'}`);
+        doc.text(`Companions: ${booking.companions || 'None'}`);
+        doc.text(`Payment Method: ${booking.paymentMethod === 'visa' ? 'Credit Card (Paid)' : 'Pay at Hotel'}`);
+        doc.text(`Total Amount: ${booking.price} AED`);
+
+        doc.moveDown(1.5);
+        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
+        doc.moveDown(1);
+
+        doc.fontSize(10).fillColor('#ff595e').font('Helvetica-Bold').text('Fun Note & Rules:');
+        doc.fontSize(9).fillColor('#555555').font('Helvetica').text('• No spicy chips allowed in rooms! Have a wonderful trip with Rimal International. 😂');
+        doc.text('• Free cancellation up to 48 hours before check-in.');
 
         doc.end();
     } catch (e) { 
