@@ -157,7 +157,7 @@
 
         .card-gateway-box { background: #f8fafc; border: 2px solid #cbd5e0; padding: 18px; border-radius: 16px; margin-bottom: 18px; }
 
-        /* نافذة الـ Modal المتقدمة مع التبويب الاحترافي */
+        /* نافذة الـ Modal الاحترافية مع تبديل التبويبات */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(31, 58, 64, 0.7); backdrop-filter: blur(5px);
@@ -239,13 +239,13 @@
                 </select>
             </div>
 
-            <!-- زر الحساب المتغير (يتحول تلقائياً إلى اسم العميل بعد الدخول) -->
+            <!-- زر الحساب المتغير (يتحول لاسم العميل بعد تسجيل الدخول) -->
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
 
             <div class="wallet-card">
                 <i class="fa-solid fa-piggy-bank" style="color: var(--accent-coral); font-size: 24px;"></i>
                 <div class="wallet-info">
-                    <span id="walletLabel">حصالة السحابة 🤑</span>
+                    <span id="walletLabel">حصالة حسابك الدائمة</span>
                     <strong><span id="displayPoints">500</span> <span id="pointsLabel">نقطة</span></strong>
                 </div>
             </div>
@@ -324,20 +324,20 @@
     <!-- لوحة تحكم العميل وسحابته الخاصة -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
-            <h1>بوابة سحابتك الذكية وحجوزاتك المحفوظة 🚀</h1>
-            <p>تابع رصيدك السحابي، نقاطك، وفواتيرك بكل أمان وثقة!</p>
+            <h1>بوابة حسابك الذكي وحجوزاتك المحفوظة 🚀</h1>
+            <p>تابع رصيدك بحصالة حسابك، نقاطك، وفواتيرك بكل أمان وثقة!</p>
         </section>
 
         <div class="container">
             <div id="userDashboard" class="auth-box" style="display: none; max-width: 900px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed var(--accent-yellow); padding-bottom: 15px; margin-bottom: 20px;">
-                    <h2>أهلاً بك في سحابتك، <span id="userNameDisplay" style="color: var(--accent-coral);"></span> 👋</h2>
+                    <h2>أهلاً بك يا بطل، <span id="userNameDisplay" style="color: var(--accent-coral);"></span> 👋</h2>
                     <button onclick="logoutUser()" style="background: var(--accent-coral); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">تسجيل خروج</button>
                 </div>
 
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
                     <div style="background: rgba(255, 202, 58, 0.2); padding: 20px; border-radius: 16px; border: 2px dashed var(--accent-yellow);">
-                        <h4>💰 حصالة السحابة الدائمة</h4>
+                        <h4>💰 حصالة حسابك الدائمة</h4>
                         <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة</p>
                         <small style="color: var(--accent-coral); font-weight: bold;">تساوي تقريباً: <span id="dashPointsValue">50.00</span> AED</small>
                     </div>
@@ -348,7 +348,7 @@
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السحابية السابقة والنشطة</h3>
+                    <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة</h3>
                     <button onclick="fetchUserData(currentUser.email)" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
                 </div>
                 <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
@@ -356,7 +356,7 @@
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول/الإنشاء السحابية (Modal) -->
+    <!-- نافذة تسجيل الدخول/الإنشاء (Modal) -->
     <div id="socialModal" class="modal-overlay">
         <div class="modal-content" style="position: relative;">
             <div id="loadingOverlay" class="loading-overlay">
@@ -370,10 +370,10 @@
                 <button type="button" id="tabRegisterBtn" class="tab-btn active" onclick="switchTab('register')">فتح حساب جديد</button>
             </div>
 
-            <!-- نموذج تسجيل الدخول للعملاء القدامى (لحماية حجوزاتهم ونقاطهم) -->
+            <!-- نموذج تسجيل الدخول للعملاء القدامى -->
             <form id="loginForm" onsubmit="handleDirectLogin(event)" style="display: none;">
                 <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل المسجل مسبقاً 🔑</h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">أدخل بريدك وكلمة المرور للوصول إلى سحابتك وحجوزاتك السابقة.</p>
+                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">أدخل بريدك وكلمة المرور للوصول إلى حسابك وحجوزاتك السابقة.</p>
                 <div class="form-group" style="text-align: right;">
                     <label>البريد الإلكتروني المسجل:</label>
                     <input type="email" id="loginEmail" required placeholder="name@remaltourismllc.com">
@@ -383,14 +383,14 @@
                     <input type="password" id="loginPassword" required placeholder="••••••••">
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
-                    <button type="submit" class="btn-book" style="flex: 2;">استرجاع سحابتي والدخول 🚀</button>
+                    <button type="submit" class="btn-book" style="flex: 2;">استرجاع حسابي والدخول 🚀</button>
                     <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">إلغاء</button>
                 </div>
             </form>
 
-            <!-- نموذج فتح حساب جديد والتحقق عبر الـ OTP -->
+            <!-- نموذج فتح حساب جديد والتحقق عبر الـ OTP مع رقم العميل -->
             <div id="registerContainer">
-                <h3 style="color: var(--primary); margin-bottom: 15px;">إنشاء سحابة وحساب جديد ☁️</h3>
+                <h3 style="color: var(--primary); margin-bottom: 15px;">إنشاء حساب جديد ☁️</h3>
                 
                 <form id="step1Form" onsubmit="requestVerificationCode(event)">
                     <div class="form-group" style="text-align: right;">
@@ -402,8 +402,13 @@
                         <input type="email" id="modalEmail" required placeholder="name@remaltourismllc.com">
                     </div>
                     <div class="form-group" style="text-align: right;">
-                        <label>كلمة المرور (لحماية سحابتك):</label>
+                        <label>كلمة المرور (لحماية حسابك):</label>
                         <input type="password" id="modalPassword" required placeholder="••••••••">
+                    </div>
+                    <!-- حقل رقم العميل المطلوب -->
+                    <div class="form-group" style="text-align: right;">
+                        <label>رقم العميل (رقم الهاتف):</label>
+                        <input type="tel" id="modalPhone" required placeholder="+971 50 123 4567">
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
                         <div class="form-group" style="text-align: right;">
@@ -525,7 +530,7 @@
                     </div>
 
                     <div style="background: rgba(255, 89, 94, 0.1); padding: 14px; border-radius: 12px; margin-bottom: 15px; font-weight: 800; color: var(--primary); border: 2px dashed var(--accent-coral);">
-                        🎁 <span id="earnRewardPrefix">بتكشخ وبتكسب معنا</span> <span id="rewardPoints" style="color: var(--accent-coral); font-weight: 900;">0</span> <span id="earnRewardSuffix">نقطة عيدية للسحابة تقدر تبدلها بقهوة!</span>
+                        🎁 <span id="earnRewardPrefix">بتكشخ وبتكسب معنا</span> <span id="rewardPoints" style="color: var(--accent-coral); font-weight: 900;">0</span> <span id="earnRewardSuffix">نقطة عيدية للحساب تقدر تبدلها بقهوة!</span>
                     </div>
 
                     <div style="display: flex; gap: 10px;">
@@ -545,7 +550,7 @@
                 pageTitle: "شركة الرمال الدولية | احجز، فلّها، واكسب! ✈️",
                 brandName: "الرمال الدولية",
                 brandSub: "اضحك، احجز، وفلّها! 🤪✈️",
-                walletLabel: "حصالة السحابة 🤑",
+                walletLabel: "حصالة حسابك الدائمة",
                 pointsLabel: "نقطة",
                 regBtnText: "افتح حساب / دخول",
                 heroTitle: "عروض فنادق تخلّيك تفكّر تسحب على الدوام! 🏝️💸",
@@ -575,7 +580,7 @@
                 payHotel: "ادفع بالاستقبال (وهرب)",
                 cardDetailsTitle: "الدفع الإلكتروني الآمن عبر Stripe",
                 earnRewardPrefix: "بتكشخ وبتكسب معنا",
-                earnRewardSuffix: "نقطة عيدية للسحابة تقدر تبدلها بقهوة!",
+                earnRewardSuffix: "نقطة عيدية للحساب تقدر تبدلها بقهوة!",
                 btnFinalBook: "اضغط وودّع الراتب 🔒",
                 btnBackBook: "هونت رجعني",
                 perNightText: "ليالي الرواق (إجمالي الشقا)",
@@ -717,6 +722,7 @@
         let tempEmail = '';
         let tempName = '';
         let tempPassword = '';
+        let tempPhone = '';
         let tempNationality = '';
         let tempBirthYear = '';
 
@@ -740,7 +746,6 @@
         function checkUserSession() {
             const btn = document.getElementById('regBtnText');
             if (currentUser) {
-                // تحويل زر افتح حساب إلى اسم المستخدم الحقيقي
                 btn.innerHTML = `<i class="fa-solid fa-user-check"></i> ${currentUser.name}`;
                 document.getElementById('userDashboard').style.display = 'block';
                 fetchUserData(currentUser.email);
@@ -752,10 +757,8 @@
 
         function handleAccountBtnClick() {
             if (currentUser) {
-                // إذا كان مسجل دخول، نقله إلى لوحة تحكمه
                 switchView('registerView');
             } else {
-                // إذا لم يكن مسجل، افتح نافذة الدخول/التسجيل السحابي
                 openAuthModal('register');
             }
         }
@@ -800,7 +803,7 @@
             const email = document.getElementById('loginEmail').value;
             const password = document.getElementById('loginPassword').value;
 
-            document.getElementById('loadingText').innerText = "جاري استرجاع سحابتك وحجوزاتك السابقة... ☁️";
+            document.getElementById('loadingText').innerText = "جاري استرجاع حسابك وحجوزاتك... ☁️";
             document.getElementById('loadingOverlay').style.display = 'flex';
 
             try {
@@ -818,7 +821,7 @@
                     closeAuthModal();
                     checkUserSession();
                     switchView('registerView');
-                    alert(`✅ أهلاً بك مجدداً يا ${currentUser.name}! تم استرجاع سحابتك وحجوزاتك بالكامل.`);
+                    alert(`✅ أهلاً بك مجدداً يا ${currentUser.name}! تم استرجاع حسابك وحجوزاتك بالكامل.`);
                 } else {
                     alert('❌ خطأ: ' + data.error);
                 }
@@ -833,17 +836,18 @@
             tempName = document.getElementById('modalName').value;
             tempEmail = document.getElementById('modalEmail').value;
             tempPassword = document.getElementById('modalPassword').value;
+            tempPhone = document.getElementById('modalPhone').value;
             tempNationality = document.getElementById('modalNationality').value;
             tempBirthYear = document.getElementById('modalBirthYear').value;
 
-            document.getElementById('loadingText').innerText = "جاري إنشاء سحابتك وإرسال كود التحقق... 📨";
+            document.getElementById('loadingText').innerText = "جاري إنشاء حسابك وإرسال كود التحقق... 📨";
             document.getElementById('loadingOverlay').style.display = 'flex';
 
             try {
                 const res = await fetch('/api/auth/register-send-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: tempEmail, name: tempName, password: tempPassword, nationality: tempNationality, birthYear: tempBirthYear })
+                    body: JSON.stringify({ email: tempEmail, name: tempName, password: tempPassword, phone: tempPhone, nationality: tempNationality, birthYear: tempBirthYear })
                 });
                 const data = await res.json();
                 document.getElementById('loadingOverlay').style.display = 'none';
@@ -865,7 +869,7 @@
             e.preventDefault();
             const code = document.getElementById('verificationCodeInput').value;
 
-            document.getElementById('loadingText').innerText = "جاري تفعيل سحابتك وحفظ بياناتك بالسحابة الدائمة... 🚀";
+            document.getElementById('loadingText').innerText = "جاري تفعيل حسابك وحفظ بياناتك بالسحابة... 🚀";
             document.getElementById('loadingOverlay').style.display = 'flex';
 
             try {
@@ -883,7 +887,7 @@
                     closeAuthModal();
                     checkUserSession();
                     switchView('registerView');
-                    alert(`🎉 مبارك إنشاء سحابتك يا ${currentUser.name}! تم منحك 500 نقطة ترحيبية.`);
+                    alert(`🎉 مبارك إنشاء حسابك يا ${currentUser.name}! تم منحك 500 نقطة ترحيبية.`);
                 } else {
                     alert('❌ كود التحقق غير صحيح.');
                 }
@@ -906,16 +910,16 @@
                     const bookingsContainer = document.getElementById('dashBookingsList');
                     bookingsContainer.innerHTML = '';
                     if(data.bookings.length === 0) {
-                        bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">سحابتك نظيفة حالياً، ابدأ بحجز رحلتك الأولى لتدون هنا!</div>`;
+                        bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">حسابك نظيف حالياً، ابدأ بحجز رحلتك الأولى لتدون هنا!</div>`;
                     } else {
                         data.bookings.forEach(b => {
                             bookingsContainer.innerHTML += `
                                 <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 15px; border-radius: 14px; display: flex; justify-content: space-between; align-items: center;">
                                     <div>
                                         <strong>${b.hotelName}</strong><br>
-                                        <small style="color:var(--text-muted);">رقم المرجع السحابي: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | المبلغ: ${b.price} AED</small>
+                                        <small style="color:var(--text-muted);">رقم المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | المبلغ: ${b.price} AED</small>
                                     </div>
-                                    <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold;">محفوظ بالسحابة ✅</span>
+                                    <span style="background: rgba(0,180,216,0.1); color:var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold;">محفوظ بالحساب ✅</span>
                                 </div>
                             `;
                         });
@@ -952,124 +956,6 @@
         const currencyRates = { AED: 1, USD: 0.27, SAR: 1.02, EUR: 0.25, GBP: 0.21, KWD: 0.084, BHD: 0.10, QAR: 0.99 };
         const currencySymbols = { AED: "AED", USD: "$", SAR: "SAR", EUR: "€", GBP: "£", KWD: "KWD", BHD: "BHD", QAR: "QAR" };
         let currentCurrency = "AED";
-
-        function changeLanguage() {
-            currentLang = document.getElementById('langSelect').value;
-            const t = translations[currentLang] || translations.ar;
-            const htmlRoot = document.getElementById('htmlRoot');
-
-            if (currentLang === 'ar') {
-                htmlRoot.setAttribute('dir', 'rtl');
-                htmlRoot.setAttribute('lang', 'ar');
-            } else {
-                htmlRoot.setAttribute('dir', 'ltr');
-                htmlRoot.setAttribute('lang', currentLang);
-            }
-
-            document.getElementById('pageTitle').innerText = t.pageTitle;
-            document.getElementById('brandName').innerText = t.brandName;
-            document.getElementById('brandSub').innerText = t.brandSub;
-            document.getElementById('walletLabel').innerText = t.walletLabel;
-            document.getElementById('pointsLabel').innerText = t.pointsLabel;
-            
-            if (!currentUser) {
-                document.getElementById('regBtnText').innerHTML = `<i class="fa-solid fa-user-plus"></i> ${t.regBtnText}`;
-            }
-
-            document.getElementById('heroTitle').innerText = t.heroTitle;
-            document.getElementById('heroSubtitle').innerText = t.heroSubtitle;
-            document.getElementById('lblSearchHotel').innerText = t.lblSearchHotel;
-            document.getElementById('lblCheckIn').innerText = t.lblCheckIn;
-            document.getElementById('lblCheckOut').innerText = t.lblCheckOut;
-            document.getElementById('lblManualGuests').innerText = t.lblManualGuests;
-            document.getElementById('searchBtnText').innerText = t.searchBtnText;
-            document.getElementById('mapBtnText').innerHTML = `<i class="fa-solid fa-map-location-dot"></i> ${t.mapBtnText}`;
-            document.getElementById('filterTitle').innerText = t.filterTitle;
-            document.getElementById('cityAll').innerText = t.cityAll;
-            document.getElementById('syncText').innerText = t.syncText;
-            document.getElementById('mapHeaderTitle').innerText = t.mapHeaderTitle;
-            document.getElementById('mapHeaderSub').innerText = t.mapHeaderSub;
-            document.getElementById('mapBoxTitle').innerText = t.mapBoxTitle;
-            document.getElementById('backMapBtn').innerText = t.backMapBtn;
-            document.getElementById('bookHeaderTitle').innerText = t.bookHeaderTitle;
-            document.getElementById('bookHeaderSub').innerText = t.bookHeaderSub;
-            document.getElementById('lblFullName').innerText = t.lblFullName;
-            document.getElementById('lblEmailBook').innerText = t.lblEmailBook;
-            document.getElementById('lblPhoneBook').innerText = t.lblPhoneBook;
-            document.getElementById('lblCompBook').innerText = t.lblCompBook;
-            document.getElementById('lblPayMethod').innerText = t.lblPayMethod;
-            document.getElementById('payVisa').innerText = t.payVisa;
-            document.getElementById('payMada').innerText = t.payMada;
-            document.getElementById('payHotel').innerText = t.payHotel;
-            document.getElementById('cardDetailsTitle').innerText = t.cardDetailsTitle;
-            document.getElementById('earnRewardPrefix').innerText = t.earnRewardPrefix;
-            document.getElementById('earnRewardSuffix').innerText = t.earnRewardSuffix;
-            document.getElementById('btnFinalBook').innerText = t.btnFinalBook;
-            document.getElementById('btnBackBook').innerText = t.btnBackBook;
-
-            filterHotels();
-        }
-
-        function getCalculatedNights() {
-            const checkIn = new Date(document.getElementById('checkInDate').value);
-            const checkOut = new Date(document.getElementById('checkOutDate').value);
-            const diffTime = checkOut - checkIn;
-            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
-            return diffDays > 0 ? diffDays : 1;
-        }
-
-        function calculateNightsAndPrice() {
-            displayHotels(allHotels);
-        }
-
-        function displayHotels(hotelsArray) {
-            const container = document.getElementById('hotelsContainer');
-            container.innerHTML = '';
-
-            const t = translations[currentLang] || translations.ar;
-            const nights = getCalculatedNights();
-            const manualGuests = document.getElementById('manualGuestsInput').value || 2;
-
-            if(hotelsArray.length === 0) {
-                container.innerHTML = `<div style="background:white; padding:30px; border-radius:15px; text-align:center; font-weight:800; color:var(--text-muted);">عذراً، مالقينا شي.. يمكن طايرين بالهوا! 🤷‍♂️</div>`;
-                return;
-            }
-
-            const rate = currencyRates[currentCurrency];
-            const symbol = currencySymbols[currentCurrency];
-
-            hotelsArray.forEach(hotel => {
-                let totalPrice = Math.round(hotel.priceAED * nights * rate);
-                
-                container.innerHTML += `
-                    <div class="hotel-card">
-                        <div class="earn-ribbon">كاش +${hotel.basePoints * 2 * nights} ${t.pointsLabel}</div>
-                        <img src="${hotel.img}" class="hotel-img" alt="${hotel.name}">
-                        <div class="hotel-info">
-                            <div class="hotel-name">${hotel.name}</div>
-                            <div style="color: var(--accent-coral); font-size: 13px; font-weight: 800;"><i class="fa-solid fa-star"></i> ${hotel.city}</div>
-                            <div style="font-size: 13px; color: var(--text-muted); margin: 4px 0; font-weight: 700;"><i class="fa-solid fa-location-dot"></i> الإمارات - <strong>${hotel.city}</strong></div>
-                            
-                            <div class="nights-calc-badge"><i class="fa-solid fa-moon"></i> ${nights} ${currentLang === 'ar' ? 'ليالي شقاء' : 'Nights'} | <i class="fa-solid fa-user"></i> ${manualGuests} ${t.guestsText}</div>
-
-                            <div class="funny-policy-box">
-                                <h4><i class="fa-solid fa-triangle-exclamation"></i> ${currentLang === 'ar' ? 'تحذير وسياسة الفندق' : 'Hotel Funny Policy'}</h4>
-                                <p>${hotel.funnyPolicy}</p>
-                            </div>
-
-                            <div style="display:inline-flex; align-items:center; gap:6px; background:#f4f7f6; padding:4px 10px; border-radius:6px; font-size:12px; font-weight:900; color:var(--primary);">
-                                <span style="background:var(--accent-cyan); color:white; padding:2px 6px; border-radius:4px;">${hotel.rating}</span> ${t.ratingText}
-                            </div>
-                        </div>
-                        <div class="hotel-pricing">
-                            <div class="hotel-price-display">${totalPrice.toLocaleString()} ${symbol}</div>
-                            <span style="color: var(--text-muted); font-size: 11px; margin-bottom: 10px; font-weight: 700;">${t.perNightText}</span>
-                            <button class="btn-book" onclick="goToBooking('${hotel.name}', ${hotel.basePoints * nights}, ${hotel.priceAED * nights})">${t.bookBtnCard}</button>
-                        </div>
-                    </div>
-                `;
-            });
-        }
 
         function changeCurrency() {
             currentCurrency = document.getElementById('currencySelect').value;
