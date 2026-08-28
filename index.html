@@ -157,7 +157,7 @@
 
         .card-gateway-box { background: #f8fafc; border: 2px solid #cbd5e0; padding: 18px; border-radius: 16px; margin-bottom: 18px; }
 
-        /* نافذة الـ Modal الاحترافية مع تبديل التبويبات */
+        /* نافذة الـ Modal المنبثقة للتسجيل والدخول */
         .modal-overlay {
             position: fixed; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(31, 58, 64, 0.7); backdrop-filter: blur(5px);
@@ -239,7 +239,7 @@
                 </select>
             </div>
 
-            <!-- زر الحساب المتغير (يتحول تلقائياً لاسم العميل بعد تسجيل الدخول) -->
+            <!-- زر الحساب المتغير -->
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
 
             <div class="wallet-card">
@@ -321,7 +321,7 @@
         </div>
     </div>
 
-    <!-- لوحة تحكم العميل وحسابه الدائم -->
+    <!-- لوحة تحكم العميل وسحابته الخاصة -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>بوابة حسابك الذكي وحجوزاتك المحفوظة 🚀</h1>
@@ -356,7 +356,7 @@
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول/الإنشاء (Modal) -->
+    <!-- نافذة تسجيل الدخول/الإنشاء المنبثقة (Modal) -->
     <div id="socialModal" class="modal-overlay">
         <div class="modal-content" style="position: relative;">
             <div id="loadingOverlay" class="loading-overlay">
@@ -364,16 +364,13 @@
                 <p id="loadingText">جاري الاتصال بالسحابة الآمنة... ⏳</p>
             </div>
 
-            <!-- أزرار التبديل (دخول العملاء القدامى vs فتح حساب جديد) -->
             <div class="tab-switcher">
                 <button type="button" id="tabLoginBtn" class="tab-btn" onclick="switchTab('login')">تسجيل دخول (حساب سابق)</button>
                 <button type="button" id="tabRegisterBtn" class="tab-btn active" onclick="switchTab('register')">فتح حساب جديد</button>
             </div>
 
-            <!-- نموذج تسجيل الدخول للعملاء القدامى -->
             <form id="loginForm" onsubmit="handleDirectLogin(event)" style="display: none;">
                 <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل المسجل مسبقاً 🔑</h3>
-                <p style="font-size: 12px; color: var(--text-muted); margin-bottom: 15px;">أدخل بريدك وكلمة المرور للوصول إلى حسابك وحجوزاتك السابقة.</p>
                 <div class="form-group" style="text-align: right;">
                     <label>البريد الإلكتروني المسجل:</label>
                     <input type="email" id="loginEmail" required placeholder="name@remaltourismllc.com">
@@ -384,29 +381,27 @@
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button type="submit" class="btn-book" style="flex: 2;">استرجاع حسابي والدخول 🚀</button>
-                    <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">إلغاء</button>
+                    <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333;">إلغاء</button>
                 </div>
             </form>
 
-            <!-- نموذج فتح حساب جديد والتحقق عبر الـ OTP مع رقم العميل -->
             <div id="registerContainer">
                 <h3 style="color: var(--primary); margin-bottom: 15px;">إنشاء حساب جديد ☁️</h3>
-                
                 <form id="step1Form" onsubmit="requestVerificationCode(event)">
                     <div class="form-group" style="text-align: right;">
                         <label>الاسم الكريم:</label>
                         <input type="text" id="modalName" required placeholder="اسمك كما في الجواز">
                     </div>
                     <div class="form-group" style="text-align: right;">
-                        <label>البريد الإلكتروني (لاستلام الفواتير والتحديثات):</label>
+                        <label>البريد الإلكتروني:</label>
                         <input type="email" id="modalEmail" required placeholder="name@remaltourismllc.com">
                     </div>
                     <div class="form-group" style="text-align: right;">
-                        <label>كلمة المرور (لحماية حسابك):</label>
+                        <label>كلمة المرور:</label>
                         <input type="password" id="modalPassword" required placeholder="••••••••">
                     </div>
                     <div class="form-group" style="text-align: right;">
-                        <label>رقم العميل (رقم الهاتف):</label>
+                        <label>رقم العميل (الهاتف):</label>
                         <input type="tel" id="modalPhone" required placeholder="+971 50 123 4567">
                     </div>
                     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
@@ -417,9 +412,7 @@
                                 <option value="سعودي">سعودي 🇸🇦</option>
                                 <option value="سوري">سوري 🇸🇾</option>
                                 <option value="مصري">مصري 🇪🇬</option>
-                                <option value="أردني">أردني 🇯🇴</option>
-                                <option value="لبناني">لبناني 🇱🇧</option>
-                                <option value="أخرى">جنسية أخرى 🌍</option>
+                                <option value="أخرى">أخرى 🌍</option>
                             </select>
                         </div>
                         <div class="form-group" style="text-align: right;">
@@ -429,18 +422,18 @@
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
                         <button type="submit" class="btn-book" style="flex: 2;">إرسال كود التحقق 📨</button>
-                        <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">إلغاء</button>
+                        <button type="button" class="btn-book" onclick="closeAuthModal()" style="flex: 1; background: #e2e8f0; color: #333;">إلغاء</button>
                     </div>
                 </form>
 
                 <form id="step2Form" onsubmit="verifyCodeAndRegister(event)" style="display: none;">
                     <div class="form-group" style="text-align: center;">
-                        <label style="color: var(--accent-coral); font-size: 14px;">أدخل كود الـ 6 أرقام المرسل إلى إيميلك:</label>
+                        <label style="color: var(--accent-coral);">أدخل كود الـ 6 أرقام المرسل لإيميلك:</label>
                         <input type="text" id="verificationCodeInput" maxlength="6" required placeholder="123456" style="text-align: center; font-size: 24px; letter-spacing: 5px; font-weight: 900;">
                     </div>
                     <div style="display: flex; gap: 10px; margin-top: 20px;">
-                        <button type="submit" class="btn-book" style="flex: 2;">تأكيد وتفعيل الحساب 🚀</button>
-                        <button type="button" class="btn-book" onclick="resetModalSteps()" style="flex: 1; background: #e2e8f0; color: #333; box-shadow: 0 4px 0 #cbd5e1;">رجوع</button>
+                        <button type="submit" class="btn-book" style="flex: 2;">تأكيد وتفعيل 🚀</button>
+                        <button type="button" class="btn-book" onclick="resetModalSteps()" style="flex: 1; background: #e2e8f0; color: #333;">رجوع</button>
                     </div>
                 </form>
             </div>
@@ -460,14 +453,7 @@
                     <button class="nav-btn" onclick="switchView('mainView')" id="backMapBtn">ارجع، توبنا 🔙</button>
                 </div>
                 <div style="width: 100%; height: 450px; border-radius: 15px; overflow: hidden; border: 3px solid var(--accent-cyan);">
-                    <iframe 
-                        width="100%" 
-                        height="100%" 
-                        style="border:0;" 
-                        loading="lazy" 
-                        allowfullscreen 
-                        src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d462562.8472534571!2d54.94729352608466!3d25.075011850125717!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e5f43496ad9c645%3A0xbde66e5084295162!2z2KfZhNmI2LHYqtimINin2YTZhdiq2K3Yr9ip!5e0!3m2!1sar!2sae!4v1650000000000!5m2!1sar!2sae">
-                    </iframe>
+                    <iframe width="100%" height="100%" style="border:0;" loading="lazy" allowfullscreen src="https://www.google.com/maps/embed?pb=!1m18!1m12!1m3!1d462562.8472534571!2d54.94729352608466!3d25.075011850125717!2m3!1f0!2f0!3f0!3m2!1i1024!2i768!4f13.1!3m3!1m2!1s0x3e5f43496ad9c645%3A0xbde66e5084295162!2z2KfZhNmI2LHYqtimINin2YTZhdiq2K3Yr9ip!5e0!3m2!1sar!2sae!4v1650000000000!5m2!1sar!2sae"></iframe>
                 </div>
             </div>
         </div>
@@ -986,6 +972,61 @@
             displayHotels(filtered);
         }
 
+        function displayHotels(hotelsArray) {
+            const container = document.getElementById('hotelsContainer');
+            container.innerHTML = '';
+            const nights = getCalculatedNights();
+            const manualGuests = document.getElementById('manualGuestsInput').value || 2;
+
+            if(hotelsArray.length === 0) {
+                container.innerHTML = `<div style="background:white; padding:30px; border-radius:15px; text-align:center; font-weight:800; color:var(--text-muted);">عذراً، مالقينا شي.. يمكن طايرين بالهوا! 🤷‍♂️</div>`;
+                return;
+            }
+
+            const rate = currencyRates[currentCurrency];
+            const symbol = currencySymbols[currentCurrency];
+
+            hotelsArray.forEach(hotel => {
+                let totalPrice = Math.round(hotel.priceAED * nights * rate);
+                
+                container.innerHTML += `
+                    <div class="hotel-card">
+                        <div class="earn-ribbon">كاش +${hotel.basePoints * 2 * nights} نقطة</div>
+                        <img src="${hotel.img}" class="hotel-img" alt="${hotel.name}">
+                        <div class="hotel-info">
+                            <div class="hotel-name">${hotel.name}</div>
+                            <div style="color: var(--accent-coral); font-size: 13px; font-weight: 800;"><i class="fa-solid fa-star"></i> ${hotel.city}</div>
+                            <div style="font-size: 13px; color: var(--text-muted); margin: 4px 0; font-weight: 700;"><i class="fa-solid fa-location-dot"></i> الإمارات - <strong>${hotel.city}</strong></div>
+                            
+                            <div class="nights-calc-badge"><i class="fa-solid fa-moon"></i> ${nights} ليالي شقاء | <i class="fa-solid fa-user"></i> ${manualGuests} أشخاص</div>
+
+                            <div class="funny-policy-box">
+                                <h4><i class="fa-solid fa-triangle-exclamation"></i> تحذير وسياسة الفندق</h4>
+                                <p>${hotel.funnyPolicy}</p>
+                            </div>
+                        </div>
+                        <div class="hotel-pricing">
+                            <div class="hotel-price-display">${totalPrice.toLocaleString()} ${symbol}</div>
+                            <span style="color: var(--text-muted); font-size: 11px; margin-bottom: 10px; font-weight: 700;">ليالي الرواق (إجمالي الشقا)</span>
+                            <button class="btn-book" onclick="goToBooking('${hotel.name}', ${hotel.basePoints * nights}, ${hotel.priceAED * nights})">احجز وضحك عالدنيا 🚀</button>
+                        </div>
+                    </div>
+                `;
+            });
+        }
+
+        function getCalculatedNights() {
+            const checkIn = new Date(document.getElementById('checkInDate').value);
+            const checkOut = new Date(document.getElementById('checkOutDate').value);
+            const diffTime = checkOut - checkIn;
+            const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+            return diffDays > 0 ? diffDays : 1;
+        }
+
+        function calculateNightsAndPrice() {
+            displayHotels(allHotels);
+        }
+
         function switchView(viewId) {
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
@@ -997,11 +1038,14 @@
             pointsToAdd = calculatedPoints * 2;
             currentTotalPriceAED = priceAEDForNights;
 
-            document.getElementById('hotelNameTitle').innerText = (currentLang === 'ar' ? 'رحلة البهدلة في: ' : 'Booking Trap: ') + hotelName;
+            document.getElementById('hotelNameTitle').innerText = 'رحلة البهدلة في: ' + hotelName;
             document.getElementById('rewardPoints').innerText = pointsToAdd;
 
             if(currentUser && currentUser.email) {
                 document.getElementById('custEmail').value = currentUser.email;
+            }
+            if(currentUser && currentUser.phone) {
+                document.getElementById('custPhone').value = currentUser.phone;
             }
 
             switchView('bookingView');
@@ -1022,72 +1066,26 @@
 
         async function confirmReservation(e) {
             e.preventDefault();
-            
             const name = document.getElementById('custName').value;
             const email = document.getElementById('custEmail').value;
             const phone = document.getElementById('custPhone').value;
             const companions = document.getElementById('custCompanions').value;
-            const selectedPayRadio = document.querySelector('input[name="payMethod"]:checked');
-            const paymentMethod = selectedPayRadio ? selectedPayRadio.value : 'visa';
-
-            const bookingData = {
-                hotelName: selectedHotel,
-                customerName: name,
-                email: email,
-                phone: phone,
-                companions: companions,
-                paymentMethod: paymentMethod,
-                price: currentTotalPriceAED
-            };
+            const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
 
             try {
-                if (paymentMethod !== 'hotel') {
-                    const stripeResponse = await fetch('/api/create-checkout-session', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            hotelName: bookingData.hotelName,
-                            customerName: bookingData.customerName,
-                            email: bookingData.email,
-                            price: bookingData.price
-                        })
-                    });
-
-                    const sessionData = await stripeResponse.json();
-
-                    if (sessionData.id) {
-                        const stripe = Stripe('pk_live_51U9NrKFFbuBDqv4zlRHUyXm2a5tHK7DS1hqOMM281EgNbsPRNhiLlAuo095nO2h5hMF8Z5gGBtni19vHmPBqtG4P0030yie2sz');
-                        const result = await stripe.redirectToCheckout({ sessionId: sessionData.id });
-                        if (result.error) {
-                            alert(result.error.message);
-                        }
-                        return;
-                    } else {
-                        throw new Error(sessionData.error || 'تعذر إنشاء جلسة الدفع');
-                    }
-                }
-
                 const response = await fetch('/api/bookings', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify(bookingData)
+                    body: JSON.stringify({ hotelName: selectedHotel, customerName: name, email, phone, companions, paymentMethod, price: currentTotalPriceAED })
                 });
-
                 const data = await response.json();
-
                 if (response.ok && data.success) {
-                    const refNumber = data.bookingReference || 'RIMAL-XXXX';
-                    alert(`✅ تم تثبيت الحجز وإرسال الفاتورة بنجاح!\n\nرقم المرجع: ${refNumber}\n\nتابع بريدك الإلكتروني لاستلام تفاصيل الحجز والتحديثات.`);
-
+                    alert(`✅ تم تثبيت الحجز بنجاح وحفظه في حسابك!\n\nرقم المرجع: ${data.bookingReference}`);
                     document.getElementById('bookingForm').reset();
-                    document.getElementById('cardDetailsContainer').style.display = 'none';
-                    switchView('mainView');
-                } else {
-                    throw new Error(data.error || 'فشل في حفظ الحجز');
-                }
-            } catch (error) {
-                alert(`❌ عذراً لم يتم إتمام الحجز: ${error.message}`);
-            }
+                    switchView('registerView');
+                    if(currentUser) fetchUserData(currentUser.email);
+                } else { throw new Error(data.error); }
+            } catch (error) { alert(`❌ عذراً لم يتم إتمام الحجز: ${error.message}`); }
         }
     </script>
 </body>
