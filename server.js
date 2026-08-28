@@ -136,14 +136,17 @@ app.post('/api/bookings/cancel', async (req, res) => {
         const booking = db.bookings[bookingIndex];
         let refundStatusMsg = '';
         let refundedAmount = 0;
+        
+        // دعم الحجوزات القديمة التي لم يكن لها سياسة
+        const pType = booking.policyType || 'full';
 
-        if (booking.policyType === 'full') {
+        if (pType === 'full') {
             refundedAmount = booking.price;
             refundStatusMsg = `تم استرداد المبلغ بالكامل (100%): ${refundedAmount} AED`;
-        } else if (booking.policyType === 'penalty') {
+        } else if (pType === 'penalty') {
             let penalty = Math.round(booking.price * 0.2); // خصم 20% رسوم جزائية
             refundedAmount = booking.price - penalty;
-            refundStatusMsg = `تم تطبيق سياسة الغرامة الجزائية (خصم 20% قيمتها ${penalty} AED)، ومبلغ الاسترداد هو: ${refundedAmount} AED`;
+            refundStatusMsg = `تم تطبيق سياسة الغرامة (خصم 20% قيمتها ${penalty} AED)، ومبلغ الاسترداد هو: ${refundedAmount} AED`;
         } else {
             refundedAmount = 0;
             refundStatusMsg = `هذا الحجز غير قابل للاسترداد، وتم إلغاؤه دون أي استرداد مالي.`;
@@ -152,7 +155,6 @@ app.post('/api/bookings/cancel', async (req, res) => {
         db.bookings.splice(bookingIndex, 1);
         saveDB(db);
 
-        // إرسال إيميل بالعملية للعميل
         try {
             await transporter.sendMail({
                 from: 'management@remaltourismllc.com',
