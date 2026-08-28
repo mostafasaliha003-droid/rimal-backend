@@ -22,12 +22,12 @@ const bookingSchema = new mongoose.Schema({
 
 const Booking = mongoose.model('Booking', bookingSchema);
 
-// إعداد منصة إرسال البريد الإلكتروني
+// إعداد منصة إرسال البريد الإلكتروني باستخدام بريد الإدارة الرسمي وكلمة المرور الآمنة
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'your-company-email@gmail.com', // ضع إيميل شركة الرمال الدولية هنا
-        pass: 'your-email-app-password'        // كلمة مرور التطبيق (App Password) من إعدادات جوجل
+        user: 'management@remaltourismllc.com',
+        pass: 'vgrhcsilcikucf'
     }
 });
 
@@ -40,12 +40,12 @@ app.post('/api/bookings', async (req, res) => {
         const refNum = savedBooking.bookingReference;
         const msgDetails = `📌 حجز جديد في شركة الرمال الدولية!\n- المرجع: ${refNum}\n- العميل: ${savedBooking.customerName}\n- الفندق: ${savedBooking.hotelName}\n- الهاتف: ${savedBooking.phone}\n- الإيميل: ${savedBooking.email}\n- المرافقين: ${savedBooking.companions || 'لا يوجد'}\n- الدفع: ${savedBooking.paymentMethod}`;
 
-        // 1. إرسال نسخة الإيميل
+        // 1. إرسال نسخة الإيميل إلى بريد الإدارة والعميل
         const mailOptions = {
-            from: 'your-company-email@gmail.com',
-            to: savedBooking.email,
+            from: 'management@remaltourismllc.com',
+            to: `${savedBooking.email}, management@remaltourismllc.com`,
             subject: `تأكيد حجز شركة الرمال الدولية - مرجع: ${refNum}`,
-            text: `أهلاً بك ${savedBooking.customerName}،\n\nتم استلام وتأكيد حجزك بنجاح في ${savedBooking.hotelName}.\nرقم المرجع الخاص بك هو: ${refNum}\n\nشكراً لاختيارك شركة الرمال الدولية (دبي، ميناء سعيد).`
+            text: `أهلاً بك ${savedBooking.customerName}،\n\nتم استلام وتأكيد حجزك بنجاح في ${savedBooking.hotelName}.\nرقم المرجع الخاص بك هو: ${refNum}\n\nتفاصيل الحجز:\n- الهاتف: ${savedBooking.phone}\n- المرافقين: ${savedBooking.companions || 'لا يوجد'}\n- طريقة الدفع: ${savedBooking.paymentMethod}\n\nشكراً لاختيارك شركة الرمال الدولية (دبي، ميناء سعيد، دائرة السياحة والاقتصاد).`
         };
 
         transporter.sendMail(mailOptions, (error, info) => {
@@ -53,7 +53,7 @@ app.post('/api/bookings', async (req, res) => {
             else console.log('✅ تم إرسال الإيميل بنجاح:', info.response);
         });
 
-        // 2. إرسال نسخة الواتساب آلياً لرقم الشركة (+971544757578)
+        // 2. تسجيل بيانات الواتساب للإشعار في الخلفية
         console.log('📲 بيانات الواتساب الجاهزة للإرسال لرقم الشركة +971544757578:\n', msgDetails);
 
         res.status(201).json({
