@@ -1,12 +1,13 @@
 const express = require('express');
 const cors = require('cors');
-const nodemailer = require('nodemailer');
+const sgMail = require('@sendgrid/mail');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 
-const stripe = require('stripe')('sk_test_51U9NrgF2L2Zp7ynOmT46T8dRcAwW8gScf5OtOU23wE4NZSAVF4ZUlspuB1WI62aqMzblavLr6zHfW3HaDAx2hhZx00IC95noxG');
+// تعيين مفتاح SendGrid API الفعلي لشركة الرمال الدولية
+sgMail.setApiKey('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');
 
 const app = express();
 app.use(express.json());
@@ -63,10 +64,36 @@ const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
 
-const transporter = nodemailer.createTransport({
-    service: 'gmail',
-    auth: { user: 'management@remaltourismllc.com', pass: 'dkvnseslexedcefd' }
-});
+// دالة إرسال البريد الاحترافي الموحدة عبر SendGrid API
+async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
+    const msg = {
+        to: toEmail,
+        from: 'management@remaltourismllc.com', // البريد الرسمي الموثق لشركة الرمال الدولية
+        subject: subject,
+        html: htmlContent,
+    };
+
+    if (attachmentBuffer && attachmentFilename) {
+        msg.attachments = [
+            {
+                content: attachmentBuffer.toString('base64'),
+                filename: attachmentFilename,
+                type: 'application/pdf',
+                disposition: 'attachment'
+            }
+        ];
+    }
+
+    try {
+        await sgMail.send(msg);
+        console.log(`✅ تم إرسال البريد بنجاح عبر SendGrid API إلى: ${toEmail}`);
+    } catch (error) {
+        console.error('❌ خطأ في إرسال البريد عبر SendGrid:', error);
+        if (error.response) {
+            console.error(error.response.body);
+        }
+    }
+}
 
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
@@ -79,13 +106,13 @@ app.post('/api/auth/register-send-code', async (req, res) => {
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         verificationCodes[email] = { code, name, password: hashedPassword, phone, nationality, birthYear, expires: Date.now() + 10 * 60 * 1000 };
 
-        await transporter.sendMail({
-            from: 'management@remaltourismllc.com',
-            to: email,
-            subject: 'رمز التحقق - شركة الرمال الدولية ✈️',
-            html: `<div dir="rtl" style="padding:20px; text-align:center;"><h2>كود التحقق الخاص بك يا بطل:</h2><h1 style="color:#d90429;">${code}</h1></div>`
-        });
-        res.json({ success: true, message: 'تم إرسال كود التحقق!' });
+        await sendProfessionalEmail(
+            email,
+            'رمز التحقق - شركة الرمال الدولية ✈️',
+            `<div dir="rtl" style="font-family:Cairo; padding:20px; text-align:center;"><h2>كود التحقق الخاص بك يا بطل:</h2><h1 style="color:#d90429; font-size:36px; letter-spacing:5px;">${code}</h1><p>صالح لمدة 10 دقائق.</p></div>`
+        );
+
+        res.json({ success: true, message: 'تم إرسال كود التحقق عبر SendGrid!' });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -185,13 +212,13 @@ app.post('/api/bookings', async (req, res) => {
         doc.on('end', async () => {
             let pdfBuffer = Buffer.concat(buffers);
             try {
-                await transporter.sendMail({
-                    from: 'management@remaltourismllc.com',
-                    to: email,
-                    subject: `تأكيد حجزك في ${hotelName} - شركة الرمال الدولية ✈️`,
-                    html: `<div dir="rtl" style="font-family:Cairo; padding:20px;"><h1>أهلاً بك يا بطل! 🤪✈️</h1><p>تم تأكيد حجزك برقم: <strong>${bookingReference}</strong> والمبلغ: ${finalPrice} AED.</p></div>`,
-                    attachments: [{ filename: `Voucher-${bookingReference}.pdf`, content: pdfBuffer }]
-                });
+                await sendProfessionalEmail(
+                    email,
+                    `تأكيد حجزك في ${hotelName} - شركة الرمال الدولية ✈️`,
+                    `<div dir="rtl" style="font-family:Cairo; padding:20px;"><h1>أهلاً بك يا بطل! 🤪✈️</h1><p>تم تأكيد حجزك الفندقي برقم المرجع: <strong>${bookingReference}</strong> والمبلغ: ${finalPrice} AED.</p><p>تجد قسيمة الحجز (PDF) مرفقة مع هذه الرسالة.</p></div>`,
+                    pdfBuffer,
+                    `Voucher-${bookingReference}.pdf`
+                );
             } catch (mailErr) { console.error(mailErr); }
         });
         doc.fontSize(20).text('شركة الرمال الدولية - قسيمة الحجز ✈️', { align: 'center' });
