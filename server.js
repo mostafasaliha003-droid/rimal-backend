@@ -41,6 +41,11 @@ const transporter = nodemailer.createTransport({
     }
 });
 
+// مسار خاص للرابط السري للوحة الإدارة المعزولة عن العملاء
+app.get('/admin-panel', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
 // 1. طلب تسجيل حساب جديد مع إرسال كود التحقق (OTP)
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
@@ -135,6 +140,73 @@ app.post('/api/auth/login', (req, res) => {
         }
 
         res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone, nationality: user.nationality, birthYear: user.birthYear } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// --- لوحة التحكم الإدارية (Admin Panel Backend) ---
+const ADMIN_CREDENTIALS = {
+    username: "admin@remaltourismllc.com",
+    passwordHash: bcrypt.hashSync("Rimal2026@", 8)
+};
+
+app.post('/api/admin/login', (req, res) => {
+    const { username, password } = req.body;
+    if (username === ADMIN_CREDENTIALS.username && bcrypt.compareSync(password, ADMIN_CREDENTIALS.passwordHash)) {
+        res.json({ success: true, token: 'rimal-secure-admin-token-9988' });
+    } else {
+        res.status(401).json({ success: false, error: 'بيانات دخول الإدارة غير صحيحة' });
+    }
+});
+
+app.get('/api/admin/data', (req, res) => {
+    const token = req.headers['authorization'];
+    if (token !== 'rimal-secure-admin-token-9988') {
+        return res.status(403).json({ success: false, error: 'غير مصرح لك بالوصول' });
+    }
+    const db = loadDB();
+    res.json({ success: true, users: db.users, bookings: db.bookings });
+});
+
+app.post('/api/admin/cancel-booking', async (req, res) => {
+    const token = req.headers['authorization'];
+    if (token !== 'rimal-secure-admin-token-9988') {
+        return res.status(403).json({ success: false, error: 'غير مصرح لك بالوصول' });
+    }
+
+    try {
+        const { bookingReference } = req.body;
+        const db = loadDB();
+        const bookingIndex = db.bookings.findIndex(b => b.bookingReference === bookingReference);
+
+        if (bookingIndex === -1) {
+            return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
+        }
+
+        const booking = db.bookings[bookingIndex];
+        db.bookings.splice(bookingIndex, 1);
+        saveDB(db);
+
+        try {
+            await transporter.sendMail({
+                from: 'management@remaltourismllc.com',
+                to: booking.email,
+                subject: `إلغاء حجز واسترداد الأموال - شركة الرمال الدولية (${bookingReference})`,
+                html: `
+                    <div dir="rtl" style="padding:20px; background:#fff5f5; border:2px solid #d90429; border-radius:10px;">
+                        <h2 style="color:#d90429;">⚠️ إشعار بإلغاء الحجز واسترداد الأموال</h2>
+                        <p>عزيزنا العميل <strong>${booking.customerName}</strong>،</p>
+                        <p>تم إلغاء حجزك رقم (<strong>${bookingReference}</strong>) الخاص بفندق <strong>${booking.hotelName}</strong>.</p>
+                        <p>تم بدء عملية استرداد المبلغ بقيمة <strong>${booking.price} AED</strong> وسيرجع إلى حسابك البنكي.</p>
+                    </div>
+                `
+            });
+        } catch (mailErr) {
+            console.log("خطأ إيميل الإلغاء:", mailErr.message);
+        }
+
+        res.json({ success: true, message: 'تم إلغاء الحجز واسترداد الأموال بنجاح!' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
