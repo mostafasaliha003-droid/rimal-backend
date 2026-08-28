@@ -11,12 +11,12 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-// إعداد خدمة Nodemailer باستخدام بريد Gmail الحقيقي وكلمة مرور التطبيق (App Password)
+// إعداد خدمة Nodemailer باستخدام بريد Gmail الحقيقي وكلمة مرور التطبيق المفعلة
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'management@remaltourismllc.com', // ضع هنا بريدك الحقيقي
-        pass: 'xxxx xxxx xxxx xxxx'            // ضع هنا كلمة مرور التطبيق (App Password) المكونة من 16 حرفاً
+        user: 'management@remaltourismllc.com',
+        pass: 'tliy arac oiob deej'
     }
 });
 
