@@ -139,7 +139,6 @@
         .tab-btn { flex: 1; padding: 10px; border: none; background: transparent; font-weight: 900; font-family: 'Cairo'; cursor: pointer; border-radius: 10px; color: var(--text-muted); }
         .tab-btn.active { background: white; color: var(--primary); }
         
-        /* إخفاء شريط ووترمارك قوقل المزعج */
         .goog-te-banner-frame { display: none !important; }
         body { top: 0px !important; }
     </style>
@@ -216,6 +215,14 @@
             </div>
             <div class="search-field" style="background: transparent; border: none; padding: 0;">
                 <button onclick="filterHotels()" id="searchBtnText" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary)); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; height: 60px; width: 100%;">ابحث وانحاش 🚀</button>
+            </div>
+        </div>
+
+        <!-- قسم الخريطة التفاعلية الحية -->
+        <div class="container" style="margin-top: -10px; margin-bottom: 25px;">
+            <div style="background: white; padding: 15px; border-radius: 22px; box-shadow: var(--shadow); border: 3px solid var(--accent-cyan);">
+                <h3 style="color: var(--primary); margin-bottom: 12px; font-weight: 900;"><i class="fa-solid fa-map-location-dot" style="color: var(--accent-coral);"></i> خريطة الفنادق الحية في الإمارات 🗺️</h3>
+                <div id="map" style="width: 100%; height: 350px; border-radius: 16px;"></div>
             </div>
         </div>
 
@@ -374,10 +381,9 @@
         </div>
     </div>
 
-    <!-- عنصر عنصر ترجمة جوجل المخفي (ضروري لعمل الـ API) -->
+    <!-- عنصر عنصر ترجمة جوجل المخفي -->
     <div id="google_translate_element" style="display:none;"></div>
 
-    <!-- سكربت جوجل الرسمي للترجمة الفورية -->
     <script type="text/javascript">
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
@@ -389,9 +395,20 @@
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
+    <!-- ربط خرائط جوجل الحية -->
+    <script async defer src="https://maps.googleapis.com/maps/api/js?key=YOUR_GOOGLE_MAPS_API_KEY&callback=initMap"></script>
+
     <script>
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
         let tempEmail = '', tempName = '', tempPassword = '', tempPhone = '', selectedHotel = '', currentBasePrice = 0;
+        let map;
+        let markers = [];
+
+        const allHotels = [
+            { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, lat: 25.2654, lng: 55.3272, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!" },
+            { name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, lat: 25.1304, lng: 55.1172, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!" },
+            { name: "قصر الإمارات ماندَرين أورينتال، أبوظبي", city: "أبوظبي", priceAED: 1651, basePoints: 450, lat: 24.4624, lng: 54.3211, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", funnyPolicy: "ندفع بالذهب الخالص فقط!" }
+        ];
 
         window.onload = function() {
             document.getElementById('checkInDate').valueAsDate = new Date();
@@ -401,7 +418,45 @@
             checkUserSession();
         };
 
-        // دالة تغيير اللغة عبر قائمة الاختيار وتحديث اتجاه الصفحة (RTL / LTR)
+        function initMap() {
+            const uaeCenter = { lat: 25.2048, lng: 55.2708 };
+            map = new google.maps.Map(document.getElementById("map"), {
+                zoom: 11,
+                center: uaeCenter,
+                styles: [
+                    { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
+                    { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
+                    { elementType: "labels.text.fill", stylers: [{ color: "#1f3a40" }] },
+                    { featureType: "water", elementType: "geometry", stylers: [{ color: "#c9e2fc" }] }
+                ]
+            });
+            updateMapMarkers(allHotels);
+        }
+
+        function updateMapMarkers(hotelsArray) {
+            markers.forEach(marker => marker.setMap(null));
+            markers = [];
+
+            hotelsArray.forEach(hotel => {
+                const marker = new google.maps.Marker({
+                    position: { lat: hotel.lat, lng: hotel.lng },
+                    map: map,
+                    title: hotel.name,
+                    animation: google.maps.Animation.DROP
+                });
+
+                const infowindow = new google.maps.InfoWindow({
+                    content: `<div style="font-family:Cairo; text-align:right; direction:rtl;"><strong>${hotel.name}</strong><br>السعر: ${hotel.priceAED} AED</div>`
+                });
+
+                marker.addListener("click", () => {
+                    infowindow.open(map, marker);
+                });
+
+                markers.push(marker);
+            });
+        }
+
         function changeLanguage(lang) {
             const htmlRoot = document.getElementById('htmlRoot');
             if (lang === 'ar') {
@@ -490,7 +545,6 @@
             } catch (err) { alert('❌ خطأ'); }
         }
 
-        // دالة التتبع السريع للحجز (Guest Lookup)
         async function quickLookupBooking(e) {
             e.preventDefault();
             const bookingReference = document.getElementById('lookupRef').value.trim();
@@ -592,16 +646,20 @@
             switchView('mainView');
         }
 
-        const allHotels = [
-            { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!" },
-            { name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!" },
-            { name: "قصر الإمارات ماندَرين أورينتال، أبوظبي", city: "أبوظبي", priceAED: 1651, basePoints: 450, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", funnyPolicy: "ندفع بالذهب الخالص فقط!" }
-        ];
-
         function filterHotels() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
-            const filtered = allHotels.filter(h => h.name.toLowerCase().includes(query) || h.city.toLowerCase().includes(query));
+            const cityRadio = document.querySelector('input[name="cityFilter"]:checked').value;
+            
+            const filtered = allHotels.filter(h => {
+                const matchesQuery = h.name.toLowerCase().includes(query) || h.city.toLowerCase().includes(query);
+                const matchesCity = (cityRadio === 'all' || h.city === cityRadio);
+                return matchesQuery && matchesCity;
+            });
+
             displayHotels(filtered);
+            if(typeof updateMapMarkers === 'function' && map) {
+                updateMapMarkers(filtered);
+            }
         }
 
         function displayHotels(hotelsArray) {
@@ -630,6 +688,9 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             window.scrollTo(0, 0);
+            if(viewId === 'mainView' && map) {
+                google.maps.event.trigger(map, 'resize');
+            }
         }
 
         function goToBooking(hotelName, points, price) {
