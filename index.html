@@ -27,6 +27,7 @@
         .wallet-info strong { font-size: 16px; color: var(--accent-coral); font-weight: 900; }
         .nav-btn { background: var(--white); border: 3px solid var(--primary); color: var(--primary); padding: 8px 16px; border-radius: 14px; font-size: 13px; font-weight: 900; cursor: pointer; transition: 0.3s; box-shadow: 0 4px 0 var(--primary); }
         .nav-btn:hover { transform: translateY(-2px); box-shadow: 0 6px 0 var(--primary); }
+        .nav-btn:active { transform: translateY(2px); box-shadow: 0 2px 0 var(--primary); }
         .nav-btn.account-btn { background: var(--accent-coral); color: white; border-color: #d90429; box-shadow: 0 4px 0 #d90429; }
         .settings-dropdown { background: #e9ecef; padding: 8px 14px; border-radius: 14px; font-size: 13px; font-weight: 800; color: var(--primary); border: 2px solid var(--accent-cyan); display: flex; align-items: center; gap: 6px; cursor: pointer; }
         .settings-dropdown select { background: transparent; border: none; font-weight: 900; font-family: 'Cairo'; color: var(--primary); outline: none; cursor: pointer; }
@@ -96,7 +97,17 @@
         </a>
 
         <div class="header-actions">
+            <div class="settings-dropdown">
+                <i class="fa-solid fa-coins" style="color: var(--accent-cyan);"></i>
+                <select id="currencySelect" onchange="changeCurrency()">
+                    <option value="AED">د.إ (AED)</option>
+                    <option value="USD">$ (USD)</option>
+                    <option value="SAR">ر.س (SAR)</option>
+                </select>
+            </div>
+            
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
+
             <div class="wallet-card">
                 <i class="fa-solid fa-piggy-bank" style="color: var(--accent-coral); font-size: 24px;"></i>
                 <div class="wallet-info">
@@ -248,7 +259,7 @@
                     </div>
                     <div class="form-group"><label>طريقة الدفع:</label>
                         <div class="payment-methods">
-                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية</label>
+                            <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 بطاقة بنكية (آمن)</label>
                             <label class="pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel"> 🏨 ادفع بالاستقبال</label>
                         </div>
                     </div>
@@ -413,7 +424,6 @@
                     if(data.bookings.length === 0) {
                         bookingsContainer.innerHTML = `<div style="padding:15px; text-align:center;">ليس لديك حجوزات حالياً.</div>`;
                     } else {
-                        // حماية البيانات القديمة من التسبب بـ Crash
                         data.bookings.forEach(b => {
                             const safePolicy = (b.policyText || 'لا يوجد').toString().replace(/'/g, "\\'");
                             const safeHotel = (b.hotelName || 'فندق غير محدد').toString().replace(/'/g, "\\'");
@@ -434,7 +444,6 @@
                                         <strong><i class="fa-solid fa-file-contract"></i> سياسة الإلغاء:</strong> ${safePolicy}
                                     </div>
                                     
-                                    <!-- أزرار الفاوتشر المضافة -->
                                     <div style="display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 8px; margin-top: 5px;">
                                         <button onclick="downloadVoucher('${bRef}', '${safeHotel}', '${bPrice}', '${bMethod}', '${safePolicy}')" class="action-btn" style="background: #0284c7;"><i class="fa-solid fa-download"></i> تحميل فاوتشر</button>
                                         <button onclick="resendVoucherEmail('${bRef}')" class="action-btn" style="background: #7c3aed;"><i class="fa-solid fa-envelope"></i> للإيميل</button>
@@ -603,12 +612,14 @@
                         body: JSON.stringify({ hotelName: selectedHotel, customerName: name, email, price: currentTotalPriceAED })
                     });
                     const sessionData = await stripeResponse.json();
+                    
                     if (sessionData.id) {
-                        const stripe = Stripe('pk_live_51U9NrKFFbuBDqv4zlRHUyXm2a5tHK7DS1hqOMM281EgNbsPRNhiLlAuo095nO2h5hMF8Z5gGBtni19vHmPBqtG4P0030yie2sz');
+                        // ✅ تم التحديث للمفتاح العام التجريبي (Publishable Key)
+                        const stripe = Stripe('pk_test_51U9NrgF2L2Zp7ynOs5mVpNm6pxj5OZDxOmZlcBEbxOZSDdap65X31OzsaKe6xTY6wIKvn6bgG4u3OQSq9NRBfCA300H1qrZt2z');
                         await stripe.redirectToCheckout({ sessionId: sessionData.id });
                         return;
                     } else {
-                        alert("⚠️ مفتاح الدفع (Stripe) متوقف من قبل الشركة، يرجى تحديث المفتاح السري في السيرفر.");
+                        alert("⚠️ حدث خطأ في تكوين جلسة الدفع.");
                         btn.innerText = "تثبيت الحجز وإصدار الفاتورة 🔒";
                         btn.disabled = false;
                         return;
