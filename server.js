@@ -41,7 +41,7 @@ const bookingSchema = new mongoose.Schema({
     price: Number,
     paymentMethod: String,
     companions: String,
-    status: { type: String, default: 'active' }, // active, cancelled, refunded
+    status: { type: String, default: 'active' },
     cancellationPolicy: { type: String, default: 'استرداد كامل مجاني حتى قبل الموعد بـ 48 ساعة ✨' },
     freeCancelDeadline: { type: Date },
     refundType: { type: String, default: 'full' },
@@ -132,7 +132,6 @@ app.get('/api/user/profile', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// مسار البحث السريع عن الحجز (Guest Lookup)
 app.post('/api/bookings/lookup', async (req, res) => {
     try {
         let { bookingReference, email } = req.body;
@@ -244,7 +243,6 @@ app.post('/api/reviews', async (req, res) => {
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
-// مسار تصدير الـ PDF المحسن (مع الشعار وتوضيح الدفع عند الوصول ونظافة الحروف)
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
     try {
         const booking = await Booking.findOne({ bookingReference: req.params.reference });
