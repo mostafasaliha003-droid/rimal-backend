@@ -818,7 +818,6 @@
         const currencySymbols = { AED: "AED", USD: "$", SAR: "SAR", EUR: "€", GBP: "£", KWD: "KWD", BHD: "BHD", QAR: "QAR" };
         let currentCurrency = "AED";
 
-        // إدارة جلسة المستخدم محلياً
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
 
         let selectedHotel = '';
@@ -872,24 +871,30 @@
         }
 
         async function socialLogin(platform) {
-            const fakeEmail = prompt(`أدخل إيميلك المسجل في ${platform}:`, `user_${Math.floor(Math.random()*1000)}@remaltourismllc.com`);
-            if(!fakeEmail) return;
+            const userEmail = prompt(`أهلاً بك! أدخل البريد الإلكتروني المرتبط بحسابك على ${platform}:`, `user_${Math.floor(Math.random()*1000)}@remaltourismllc.com`);
+            if(!userEmail || !userEmail.includes('@')) {
+                if(userEmail !== null) alert('الرجاء إدخال بريد إلكتروني صحيح.');
+                return;
+            }
 
             try {
                 const res = await fetch('/api/auth/login-register', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: fakeEmail, name: `${platform} User`, provider: platform.toLowerCase() })
+                    body: JSON.stringify({ email: userEmail, name: `${platform} User`, provider: platform.toLowerCase() })
                 });
                 const data = await res.json();
                 if(data.success) {
                     currentUser = data.user;
                     localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
                     checkUserSession();
-                    alert(`أهلاً بك عبر ${platform}! تم تسجيل دخولك بنجاح 🌟`);
+                    alert(`✅ تم ربط وتسجيل الدخول بنجاح عبر ${platform}! أهلاً بك في شركة الرمال الدولية.`);
+                } else {
+                    alert('❌ حدث خطأ أثناء المصادقة: ' + (data.error || 'يرجى المحاولة لاحقاً'));
                 }
             } catch (err) {
-                alert('حدث خطأ أثناء الاتصال');
+                console.error(err);
+                alert('❌ تعذر الاتصال بخادم المصادقة.');
             }
         }
 
@@ -1038,7 +1043,6 @@
             document.getElementById('hotelNameTitle').innerText = (currentLang === 'ar' ? 'رحلة البهدلة في: ' : 'Booking Trap: ') + hotelName;
             document.getElementById('rewardPoints').innerText = pointsToAdd;
 
-            // تعبئة البريد تلقائياً إذا كان المستخدم مسجلاً دخول
             if(currentUser && currentUser.email) {
                 document.getElementById('custEmail').value = currentUser.email;
             }
