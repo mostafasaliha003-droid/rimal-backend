@@ -11,7 +11,7 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-// نظام التخزين السحابي الدائم عبر ملف JSON
+// نظام التخزين السحابي الدائم لضمان عدم ضياع حسابات وحجوزات العملاء أبداً
 const DB_FILE = path.join(__dirname, 'database.json');
 
 function loadDB() {
@@ -44,11 +44,11 @@ const transporter = nodemailer.createTransport({
 // 1. طلب تسجيل حساب جديد مع إرسال كود التحقق (OTP)
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
-        const { email, name, password, nationality, birthYear } = req.body;
+        const { email, name, password, phone, nationality, birthYear } = req.body;
         const db = loadDB();
 
         if (db.users.find(u => u.email === email)) {
-            return res.status(400).json({ success: false, error: 'البريد الإلكتروني مسجل مسبقاً! يرجى تسجيل الدخول مباشرة.' });
+            return res.status(400).json({ success: false, error: 'البريد الإلكتروني مسجل مسبقاً! يرجى استخدام قسم (تسجيل دخول حساب سابق).' });
         }
 
         const hashedPassword = bcrypt.hashSync(password || '123456', 8);
@@ -58,6 +58,7 @@ app.post('/api/auth/register-send-code', async (req, res) => {
             code, 
             name, 
             password: hashedPassword, 
+            phone: phone || '',
             nationality: nationality || 'إماراتي', 
             birthYear: birthYear || '1990', 
             expires: Date.now() + 10 * 60 * 1000 
@@ -70,7 +71,7 @@ app.post('/api/auth/register-send-code', async (req, res) => {
             html: `
                 <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f7fff7; border: 2px solid #00b4d8; border-radius: 12px; text-align: center;">
                     <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية</h2>
-                    <p>أهلاً بك يا <strong>${name}</strong> في سحابتك الخاصة،</p>
+                    <p>أهلاً بك يا <strong>${name}</strong> في حسابك السحابي الآمن،</p>
                     <p>كود التحقق الخاص بإنشاء حسابك وتفعيل حصالة الـ 500 نقطة هو:</p>
                     <div style="font-size: 32px; font-weight: 900; color: #d90429; background: #fff; padding: 15px; border-radius: 10px; display: inline-block; margin: 15px 0; border: 2px dashed #ffca3a;">
                         ${code}
@@ -105,9 +106,10 @@ app.post('/api/auth/verify-and-register', (req, res) => {
                 name: record.name,
                 email,
                 password: record.password,
+                phone: record.phone,
                 nationality: record.nationality,
                 birthYear: record.birthYear,
-                points: 500, // عيدية ترحيبية للسحابة
+                points: 500, // عيدية ترحيبية للحساب
                 cards: []
             };
             db.users.push(user);
@@ -115,13 +117,13 @@ app.post('/api/auth/verify-and-register', (req, res) => {
         }
 
         delete verificationCodes[email];
-        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, nationality: user.nationality, birthYear: user.birthYear } });
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone, nationality: user.nationality, birthYear: user.birthYear } });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 3. تسجيل الدخول المباشر للعملاء المسجلين مسبقاً (لحماية حجوزاتهم ونقاطهم)
+// 3. تسجيل الدخول الآمن للعملاء المسجلين مسبقاً (لحماية حجوزاتهم ونقاطهم وعدم خسارتها)
 app.post('/api/auth/login', (req, res) => {
     try {
         const { email, password } = req.body;
@@ -132,13 +134,13 @@ app.post('/api/auth/login', (req, res) => {
             return res.status(400).json({ success: false, error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة، أو أن الحساب غير مسجل!' });
         }
 
-        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, nationality: user.nationality, birthYear: user.birthYear } });
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone, nationality: user.nationality, birthYear: user.birthYear } });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 4. جلب ملف العميل وحجوزاته السحابية
+// 4. جلب ملف العميل وحجوزاته من السحابة الدائمة
 app.get('/api/user/profile', (req, res) => {
     try {
         const { email } = req.query;
@@ -152,7 +154,7 @@ app.get('/api/user/profile', (req, res) => {
 
         res.json({
             success: true,
-            profile: { name: user.name, email: user.email, points: user.points, pointsValueAED, nationality: user.nationality, birthYear: user.birthYear },
+            profile: { name: user.name, email: user.email, points: user.points, pointsValueAED, phone: user.phone, nationality: user.nationality, birthYear: user.birthYear },
             bookings
         });
     } catch (error) {
@@ -177,11 +179,11 @@ app.post('/api/bookings', async (req, res) => {
         if (user) { 
             user.points += earnedPoints; 
         } else {
-            // لو حجز كضيف يتم إنشاء سحابة تلقائية له
             db.users.push({
                 name: customerName,
                 email,
                 password: bcrypt.hashSync('123456', 8),
+                phone: phone || '',
                 nationality: 'إماراتي',
                 birthYear: '1990',
                 points: earnedPoints + 500,
@@ -191,7 +193,7 @@ app.post('/api/bookings', async (req, res) => {
 
         saveDB(db);
 
-        res.status(201).json({ success: true, message: 'تم تثبيت الحجز وحفظه في سحابتك بنجاح', bookingReference });
+        res.status(201).json({ success: true, message: 'تم تثبيت الحجز وحفظه في حسابك بنجاح', bookingReference });
 
         setImmediate(async () => {
             try {
@@ -201,14 +203,15 @@ app.post('/api/bookings', async (req, res) => {
                     subject: `فاتورة وتأكيد حجز شركة الرمال الدولية - مرجع: ${bookingReference}`,
                     html: `
                         <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f7fff7; border: 2px solid #00b4d8; border-radius: 10px;">
-                            <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية - سحابتك الرقمية</h2>
+                            <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية - فاتورة الحجز والتأكيد</h2>
                             <p>أهلاً بك <strong>${customerName}</strong>،</p>
-                            <p>تم حفظ حجزك في سحابتك الخاصة وإصدار الفاتورة الرسمية بنجاح!</p>
+                            <p>تم حفظ حجزك في حسابك السحابي وإصدار الفاتورة الرسمية بنجاح!</p>
                             <hr style="border: 1px dashed #ccc;">
                             <ul style="list-style: none; padding: 0; line-height: 1.8; color: #333;">
                                 <li><strong>رقم المرجع (الفاتورة):</strong> <span style="color: #d90429; font-size: 18px;">${bookingReference}</span></li>
                                 <li><strong>الفندق المحجوز:</strong> ${hotelName}</li>
                                 <li><strong>المبلغ الإجمالي:</strong> ${price} AED</li>
+                                <li><strong>رقم الهاتف:</strong> ${phone}</li>
                                 <li><strong>طريقة الدفع:</strong> ${paymentMethod}</li>
                             </ul>
                         </div>
@@ -254,5 +257,5 @@ app.get('/', (req, res) => {
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, () => {
-    console.log(`🚀 الخادم السحابي جاهز على المنفذ ${PORT}`);
+    console.log(`🚀 الخادم السحابي الآمن جاهز على المنفذ ${PORT}`);
 });
