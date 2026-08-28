@@ -12,7 +12,8 @@ app.use(express.json());
 app.use(cors());
 app.use(express.static(__dirname));
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:Rimal2026@@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
+// رابط الاتصال بقاعدة البيانات مع تصحيح الرمز في كلمة المرور
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:Rimal2026%40@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
 
 mongoose.connect(MONGO_URI)
   .then(() => console.log('✅ تم الاتصال بنجاح بقاعدة بيانات MongoDB Atlas الدائمة'))
