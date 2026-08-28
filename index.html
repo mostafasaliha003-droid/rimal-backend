@@ -169,7 +169,7 @@
         .modal-content {
             background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 450px;
             box-shadow: 0 20px 40px rgba(0,0,0,0.2); border: 4px solid var(--accent-yellow);
-            text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+            text-align: center; animation: popIn 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275); max-height: 90vh; overflow-y: auto;
         }
         @keyframes popIn { from { transform: scale(0.8); opacity: 0; } to { transform: scale(1); opacity: 1; } }
         
@@ -352,11 +352,11 @@
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول الذكية مع رمز التحقق OTP المنبثقة -->
+    <!-- نافذة تسجيل الدخول الذكية مع الحقول الإضافية وكود التحقق OTP المنبثقة -->
     <div id="socialModal" class="modal-overlay">
         <div class="modal-content">
-            <h3 id="modalTitle" style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid fa-shield-halved"></i> التحقق من الهوية</h3>
-            <p id="modalSub" style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; font-weight: 700;">أدخل اسمك وبريدك الإلكتروني لتلقي كود التأكيد</p>
+            <h3 id="modalTitle" style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid></i> تسجيل الحساب وتأكيد الهوية</h3>
+            <p id="modalSub" style="color: var(--text-muted); font-size: 13px; margin-bottom: 20px; font-weight: 700;">أدخل بياناتك، جنسيتك، وكلمة المرور للمتابعة</p>
             
             <form id="step1Form" onsubmit="requestVerificationCode(event)">
                 <div class="form-group" style="text-align: right;">
@@ -366,6 +366,28 @@
                 <div class="form-group" style="text-align: right;">
                     <label>البريد الإلكتروني (لاستلام الفواتير والتحديثات):</label>
                     <input type="email" id="modalEmail" required placeholder="name@remaltourismllc.com">
+                </div>
+                <div class="form-group" style="text-align: right;">
+                    <label>كلمة المرور (للدخول لاحقاً):</label>
+                    <input type="password" id="modalPassword" required placeholder="••••••••">
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+                    <div class="form-group" style="text-align: right;">
+                        <label>الجنسية:</label>
+                        <select id="modalNationality" required style="width:100%; padding:14px; border-radius:14px; border:2px solid #cbd5e1; font-family:'Cairo'; font-weight:700;">
+                            <option value="إماراتي">إماراتي 🇦🇪</option>
+                            <option value="سعودي">سعودي 🇸🇦</option>
+                            <option value="سوري">سوري 🇸🇾</option>
+                            <option value="مصري">مصري 🇪🇬</option>
+                            <option value="أردني">أردني 🇯🇴</option>
+                            <option value="لبناني">لبناني 🇱🇧</option>
+                            <option value="أخرى">جنسية أخرى 🌍</option>
+                        </select>
+                    </div>
+                    <div class="form-group" style="text-align: right;">
+                        <label>سنة الميلاد:</label>
+                        <input type="number" id="modalBirthYear" min="1940" max="2010" required placeholder="1990">
+                    </div>
                 </div>
                 <div style="display: flex; gap: 10px; margin-top: 20px;">
                     <button type="submit" class="btn-book" style="flex: 2;">إرسال كود التحقق 📨</button>
@@ -657,8 +679,12 @@
         let currentLang = "ar";
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
         let activePlatform = 'Email';
+        
         let tempEmail = '';
         let tempName = '';
+        let tempPassword = '';
+        let tempNationality = '';
+        let tempBirthYear = '';
 
         let selectedHotel = '';
         let pointsToAdd = 0;
@@ -703,12 +729,21 @@
             e.preventDefault();
             tempName = document.getElementById('modalName').value;
             tempEmail = document.getElementById('modalEmail').value;
+            tempPassword = document.getElementById('modalPassword').value;
+            tempNationality = document.getElementById('modalNationality').value;
+            tempBirthYear = document.getElementById('modalBirthYear').value;
 
             try {
                 const res = await fetch('/api/auth/send-code', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ email: tempEmail, name: tempName })
+                    body: JSON.stringify({ 
+                        email: tempEmail, 
+                        name: tempName, 
+                        password: tempPassword, 
+                        nationality: tempNationality, 
+                        birthYear: tempBirthYear 
+                    })
                 });
                 const data = await res.json();
                 if(data.success) {
