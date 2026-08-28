@@ -69,6 +69,10 @@ const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
 
+// بيانات اعتماد المدير الافتراضية
+const ADMIN_EMAIL = 'management@remaltourismllc.com';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
+
 async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
     const mailOptions = {
         from: '"شركة الرمال الدولية ✈️" <management@remaltourismllc.com>',
@@ -291,8 +295,23 @@ app.get('/api/currency/convert', async (req, res) => {
 });
 
 // ==========================================
-// 🔌 لوحة تحكم الإدارة (Admin Dashboard APIs)
+// 🔐 مسارات مصادقة وإدارة لوحة التحكم (Admin Auth & Stats)
 // ==========================================
+app.post('/api/v1/admin/login', async (req, res) => {
+    try {
+        const { email, password } = req.body;
+        if (!email || email.toLowerCase().trim() !== ADMIN_EMAIL) {
+            return res.status(401).json({ success: false, error: 'بريد الإدارة غير صحيح!' });
+        }
+        if (!password || !bcrypt.compareSync(password, ADMIN_PASSWORD_HASH)) {
+            return res.status(401).json({ success: false, error: 'كلمة مرور الإدارة غير صحيحة!' });
+        }
+        res.json({ success: true, message: 'تم تسجيل دخول المدير بنجاح!' });
+    } catch (e) {
+        res.status(500).json({ success: false, error: e.message });
+    }
+});
+
 app.get('/api/v1/admin/stats', async (req, res) => {
     try {
         const totalBookings = await Booking.countDocuments();
