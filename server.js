@@ -12,7 +12,7 @@ app.use(express.static(__dirname));
 
 let usersMemory = [];
 let bookingsMemory = [];
-let verificationCodes = {}; // تخزين مؤقت لأكواد التحقق (OTP)
+let verificationCodes = {};
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -22,16 +22,25 @@ const transporter = nodemailer.createTransport({
     }
 });
 
-// 1. طلب إرسال كود التحقق (OTP)
+// 1. طلب إرسال كود التحقق وتخزين البيانات المؤقتة
 app.post('/api/auth/send-code', async (req, res) => {
     try {
-        const { email, name } = req.body;
+        const { email, name, password, nationality, birthYear } = req.body;
         if (!email || !email.includes('@')) {
             return res.status(400).json({ success: false, error: 'البريد الإلكتروني غير صالح' });
         }
 
+        const hashedPassword = bcrypt.hashSync(password, 8);
         const code = Math.floor(100000 + Math.random() * 900000).toString();
-        verificationCodes[email] = { code, name, expires: Date.now() + 10 * 60 * 1000 };
+        
+        verificationCodes[email] = { 
+            code, 
+            name, 
+            password: hashedPassword, 
+            nationality, 
+            birthYear, 
+            expires: Date.now() + 10 * 60 * 1000 
+        };
 
         const mailOptions = {
             from: 'management@remaltourismllc.com',
@@ -40,7 +49,7 @@ app.post('/api/auth/send-code', async (req, res) => {
             html: `
                 <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f7fff7; border: 2px solid #00b4d8; border-radius: 12px; text-align: center;">
                     <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية</h2>
-                    <p>أهلاً بك يا <strong>${name || 'صديقنا'}</strong>،</p>
+                    <p>أهلاً بك يا <strong>${name}</strong>،</p>
                     <p>كود التحقق الخاص بتفعيل حسابك واستلام التحديثات والحجوزات هو:</p>
                     <div style="font-size: 32px; font-weight: 900; color: #d90429; background: #fff; padding: 15px; border-radius: 10px; display: inline-block; margin: 15px 0; border: 2px dashed #ffca3a;">
                         ${code}
@@ -51,13 +60,13 @@ app.post('/api/auth/send-code', async (req, res) => {
         };
 
         await transporter.sendMail(mailOptions);
-        res.json({ success: true, message: 'تم إرسال كود التحقق إلى بريدك الإلكتروني بنجاح!' });
+        res.json({ success: true, message: 'تم إرسال كود التحقق بنجاح!' });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
 });
 
-// 2. التحقق من الكود وتفعيل الحساب
+// 2. التحقق من الكود وتفعيل الحساب بشكل دائم
 app.post('/api/auth/verify-code', (req, res) => {
     try {
         const { email, code } = req.body;
@@ -72,7 +81,10 @@ app.post('/api/auth/verify-code', (req, res) => {
             user = {
                 name: record.name,
                 email,
-                points: 500, // عيدية ترحيبية 500 نقطة
+                password: record.password,
+                nationality: record.nationality,
+                birthYear: record.birthYear,
+                points: 500, // عيدية ترحيبية
                 cards: []
             };
             usersMemory.push(user);
@@ -80,7 +92,23 @@ app.post('/api/auth/verify-code', (req, res) => {
 
         delete verificationCodes[email];
 
-        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, cards: user.cards } });
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, nationality: user.nationality, birthYear: user.birthYear } });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// 3. تسجيل الدخول المباشر بكلمة المرور (للمرات القادمة)
+app.post('/api/auth/login-password', (req, res) => {
+    try {
+        const { email, password } = req.body;
+        const user = usersMemory.find(u => u.email === email);
+
+        if (!user || !bcrypt.compareSync(password, user.password)) {
+            return res.status(400).json({ success: false, error: 'البريد الإلكتروني أو كلمة المرور غير صحيحة' });
+        }
+
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, nationality: user.nationality, birthYear: user.birthYear } });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
@@ -98,7 +126,7 @@ app.get('/api/user/profile', (req, res) => {
 
         res.json({
             success: true,
-            profile: { name: user.name, email: user.email, points: user.points, pointsValueAED, cards: user.cards || [] },
+            profile: { name: user.name, email: user.email, points: user.points, pointsValueAED, nationality: user.nationality, birthYear: user.birthYear },
             bookings
         });
     } catch (error) {
@@ -132,18 +160,14 @@ app.post('/api/bookings', async (req, res) => {
                         <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; background-color: #f7fff7; border: 2px solid #00b4d8; border-radius: 10px;">
                             <h2 style="color: #1f3a40;">🌴 شركة الرمال الدولية - فاتورة الحجز والتأكيد</h2>
                             <p>أهلاً بك <strong>${customerName}</strong>،</p>
-                            <p>يسعدنا إبلاغك بأنه تم تأكيد حجزك وإصدار الفاتورة الرسمية بنجاح!</p>
+                            <p>تم تأكيد حجزك وإصدار الفاتورة الرسمية بنجاح!</p>
                             <hr style="border: 1px dashed #ccc;">
                             <ul style="list-style: none; padding: 0; line-height: 1.8; color: #333;">
                                 <li><strong>رقم المرجع (الفاتورة):</strong> <span style="color: #d90429; font-size: 18px;">${bookingReference}</span></li>
                                 <li><strong>الفندق المحجوز:</strong> ${hotelName}</li>
                                 <li><strong>المبلغ الإجمالي:</strong> ${price} AED</li>
-                                <li><strong>رقم الجوال:</strong> ${phone}</li>
-                                <li><strong>المرافقون:</strong> ${companions || 'لا يوجد'}</li>
                                 <li><strong>طريقة الدفع:</strong> ${paymentMethod}</li>
                             </ul>
-                            <hr style="border: 1px dashed #ccc;">
-                            <p style="font-size: 12px; color: #6c757d;">جميع التحديثات، الإلغاءات، وفواتير رحلاتك القادمة ستصلك دائماً على هذا البريد الإلكتروني.</p>
                         </div>
                     `
                 };
@@ -160,16 +184,12 @@ app.post('/api/bookings', async (req, res) => {
 app.post('/api/create-checkout-session', async (req, res) => {
     try {
         const { hotelName, customerName, email, price } = req.body;
-
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: [{
                 price_data: {
                     currency: 'aed',
-                    product_data: {
-                        name: `حجز فندق: ${hotelName}`,
-                        description: `حجز لصالح العميل: ${customerName}`,
-                    },
+                    product_data: { name: `حجز فندق: ${hotelName}`, description: `حجز لصالح: ${customerName}` },
                     unit_amount: (price || 100) * 100,
                 },
                 quantity: 1,
@@ -179,7 +199,6 @@ app.post('/api/create-checkout-session', async (req, res) => {
             cancel_url: `https://rimal-api.onrender.com/?payment=cancelled`,
             customer_email: email,
         });
-
         res.json({ id: session.id });
     } catch (error) {
         res.status(500).json({ error: error.message });
