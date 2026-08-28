@@ -103,13 +103,13 @@
     <div id="mainView" class="view-section active">
         <section class="hero">
             <h1 id="heroTitle">عروض فنادق تخلّيك تفكّر تسحب على الدوام! 🏝️💸</h1>
-            <p id="heroSubtitle">ابحث عن فندق الدرهم الواحد وجرب الدفع الوهمي!</p>
+            <p id="heroSubtitle">احجز "فندق الواحة درهمين" وجرب الاسترداد الكامل 100%!</p>
         </section>
 
         <div class="search-container">
             <div class="search-field">
                 <i class="fa-solid fa-magnifying-glass" style="color: var(--accent-coral);"></i>
-                <div class="field-content"><label>وين ناوي تخيم؟</label><input type="text" id="searchInput" placeholder="مثل: اختبار، دبي..." onkeyup="filterHotels()"></div>
+                <div class="field-content"><label>وين ناوي تخيم؟</label><input type="text" id="searchInput" placeholder="مثل: الواحة، دبي..." onkeyup="filterHotels()"></div>
             </div>
             <div class="search-field">
                 <i class="fa-regular fa-calendar-check" style="color: var(--accent-coral);"></i>
@@ -269,8 +269,9 @@
         let activePolicyType = 'full', activePolicyText = '';
         let hotelAddr = '', hotelPh = '', hotelMap = '';
 
+        // فندق الواحة بقيمة 2 درهم واسترداد كامل 100%
         const allHotels = [
-            { name: "فندق اختبار الدرهم الواحد (Test 1 AED Hotel)", city: "دبي", address: "شارع الشيخ زايد، دبي", phone: "+971 4 000 0000", priceAED: 1, basePoints: 10, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل 100% في حال الإلغاء المبكر.", funnyPolicy: "هذا الفندق مخصص للاختبار بدرهم واحد فقط!" },
+            { name: "فندق الواحة درهمين (Oasis 2 AED Hotel)", city: "دبي", address: "شارع الشيخ زايد، دبي", phone: "+971 4 222 0002", priceAED: 2, basePoints: 20, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "full", policyText: "استرداد كامل للأموال 100% في حال الإلغاء.", funnyPolicy: "احجز بـ 2 درهم واضمن استردادك الكامل بكل سهولة!" },
             { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", address: "شارع بني ياس، ديرة، دبي", phone: "+971 4 212 2222", priceAED: 890, basePoints: 350, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", policyType: "penalty", policyText: "سياسة جزائية: خصم 20% عند الإلغاء.", funnyPolicy: "ممنوع إدخال بطاطس حارة!" },
             { name: "فندق أتلانتس النخلة، دبي", city: "دبي", address: "نخلة جميرا، دبي", phone: "+971 4 426 2000", priceAED: 2202, basePoints: 600, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", policyType: "none", policyText: "غير قابل للاسترداد نهائياً.", funnyPolicy: "سمكة الشيمو ممنوعة!" }
         ];
@@ -287,7 +288,7 @@
 
                 const urlParams = new URLSearchParams(window.location.search);
                 if(urlParams.get('payment') === 'success') {
-                    alert('✅ تم الدفع بنجاح! تم تأكيد حجزك وإرسال الفاوتشر لبريدك.');
+                    alert('✅ تم الدفع بنجاح (2 درهم)! تم تأكيد حجزك وإرسال الفاوتشر لبريدك.');
                     window.history.replaceState({}, document.title, "/"); 
                     if(currentUser) {
                         switchView('registerView');
@@ -542,7 +543,7 @@
         }
 
         async function cancelBookingByClient(bookingReference) {
-            if (!confirm(`هل أنت متأكد من إلغاء الحجز؟ سيتم استرداد المبلغ آلياً إلى بطاقتك الائتمانية حسب السياسة.`)) return;
+            if (!confirm(`هل أنت متأكد من إلغاء الحجز؟ سيتم استرداد المبلغ بالكامل آلياً إلى بطاقتك الائتمانية.`)) return;
             try {
                 const res = await fetch('/api/bookings/cancel', { 
                     method: 'POST', 
@@ -620,7 +621,7 @@
 
         function goToBooking(hotelName, calculatedPoints, priceAED, policyType, policyText, address, phone, mapLink) {
             if (!currentUser || !currentUser.email) {
-                alert('⚠️ يرجى تسجيل الدخول أو إنشاء حساب أولاً لتتمكن من إتمام الحجز باسمك!');
+                alert('⚠️ يرجى تسجيل الدخول أو إنشاء حساب أولاً لتتمكن من إتمام الحجز!');
                 openAuthModal('register');
                 return;
             }
