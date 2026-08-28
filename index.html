@@ -180,7 +180,7 @@
             background: white; color: var(--primary); box-shadow: 0 4px 10px rgba(0,0,0,0.05);
         }
 
-        /* شاشة التحميل الذكية */
+        /* شاشة التحميل الفورية */
         .loading-overlay {
             position: absolute; top: 0; left: 0; width: 100%; height: 100%;
             background: rgba(255,255,255,0.95); backdrop-filter: blur(3px);
@@ -239,7 +239,7 @@
                 </select>
             </div>
 
-            <!-- زر الحساب المتغير (يتحول لاسم العميل بعد تسجيل الدخول) -->
+            <!-- زر الحساب المتغير (يتحول تلقائياً لاسم العميل بعد تسجيل الدخول) -->
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
 
             <div class="wallet-card">
@@ -321,7 +321,7 @@
         </div>
     </div>
 
-    <!-- لوحة تحكم العميل وسحابته الخاصة -->
+    <!-- لوحة تحكم العميل وحسابه الدائم -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>بوابة حسابك الذكي وحجوزاتك المحفوظة 🚀</h1>
@@ -405,7 +405,6 @@
                         <label>كلمة المرور (لحماية حسابك):</label>
                         <input type="password" id="modalPassword" required placeholder="••••••••">
                     </div>
-                    <!-- حقل رقم العميل المطلوب -->
                     <div class="form-group" style="text-align: right;">
                         <label>رقم العميل (رقم الهاتف):</label>
                         <input type="tel" id="modalPhone" required placeholder="+971 50 123 4567">
