@@ -296,6 +296,107 @@ app.get('/api/currency/convert', async (req, res) => {
 });
 
 // ==========================================
+// 🔌 Hotel Content API (معلومات وصفية ومحتوى الفنادق)
+// ==========================================
+app.get('/api/v1/hotels/content', (req, res) => {
+    try {
+        const hotelNameQuery = (req.query.hotelName || '').toLowerCase().trim();
+
+        const hotelsContent = [
+            {
+                hotelId: "RIMAL-DXB-001",
+                name: "فندق ريا كريك (Reya Creek Hotel)",
+                brand: "Reya Collection",
+                city: "دبي",
+                address: "دائرة السياحة والاقتصاد، Block B، Office 610، ميناء سعيد، دبي، الإمارات العربية المتحدة",
+                coordinates: { lat: 25.2654, lng: 55.3272 },
+                starRating: 4,
+                descriptions: {
+                    ar: "يقع فندق ريا كريك في قلب دبي بميناء سعيد، ويتميز بإطلالات ساحرة وخدمات فندقية راقية تلبي تطلعات رجال الأعمال والسياح.",
+                    en: "Located in the heart of Dubai's Port Saeed, Reya Creek Hotel offers luxury accommodations and modern amenities."
+                },
+                images: [
+                    "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
+                    "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80"
+                ],
+                amenities: ["واي فاي مجاني", "مواقف سيارات", "مسبح خارجي", "خدمة الغرف 24 ساعة", "نادي صحي"],
+                policies: {
+                    checkIn: "14:00",
+                    checkOut: "12:00",
+                    cancellation: "استرداد كامل مجاني حتى قبل الموعد بـ 48 ساعة ✨",
+                    funnyRule: "ممنوع إدخال بطاطس حارة للغرفة! 😂"
+                },
+                basePriceAED: 890
+            },
+            {
+                hotelId: "RIMAL-DXB-002",
+                name: "فندق أتلانتس النخلة، دبي",
+                brand: "Atlantis Resorts",
+                city: "دبي",
+                address: "نخلة جميرا، دبي، الإمارات العربية المتحدة",
+                coordinates: { lat: 25.1304, lng: 55.1172 },
+                starRating: 5,
+                descriptions: {
+                    ar: "منتجع أتلانتس النخلة الشهير عالمياً يقع في جزيرة النخلة ويقدم تجارب ترفيهية ومائية لا تُنسى.",
+                    en: "Atlantis, The Palm is a majestic 5-star destination resort set on the iconic Palm Jumeirah in Dubai."
+                },
+                images: [
+                    "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80",
+                    "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80"
+                ],
+                amenities: ["دخول مجاني لأكواريوم اللبرنت", "شاطئ خاص", "مطاعم حائزة على نجوم ميشلان", "سبا فاخر"],
+                policies: {
+                    checkIn: "15:00",
+                    checkOut: "12:00",
+                    cancellation: "استرداد كامل مجاني حتى قبل الموعد بـ 48 ساعة ✨",
+                    funnyRule: "سمكة الشيمو ممنوعة من المسابح! 🐠"
+                },
+                basePriceAED: 2202
+            },
+            {
+                hotelId: "RIMAL-AUH-001",
+                name: "قصر الإمارات ماندَرين أورينتال، أبوظبي",
+                brand: "Mandarin Oriental",
+                city: "أبوظبي",
+                address: "كورنيش أبوظبي، أبوظبي، الإمارات العربية المتحدة",
+                coordinates: { lat: 24.4624, lng: 54.3211 },
+                starRating: 5,
+                descriptions: {
+                    ar: "معلم معماري فاخر يعكس الفخامة العربية الأصيلة على شواطئ العاصمة أبوظبي.",
+                    en: "Emirates Palace Mandarin Oriental offers an authentic Arabian experience combined with luxury."
+                },
+                images: [
+                    "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80"
+                ],
+                amenities: ["شاطئ رملي خاص", "خدمة الخادم الشخصي", "قاعات احتفالات ملكية", "مهبط طائرات عمودية"],
+                policies: {
+                    checkIn: "15:00",
+                    checkOut: "12:00",
+                    cancellation: "استرداد كامل مجاني حتى قبل الموعد بـ 48 ساعة ✨",
+                    funnyRule: "ندفع بالذهب الخالص فقط! ✨"
+                },
+                basePriceAED: 1651
+            }
+        ];
+
+        if (hotelNameQuery) {
+            const filtered = hotelsContent.filter(h => h.name.toLowerCase().includes(hotelNameQuery) || h.city.toLowerCase().includes(hotelNameQuery));
+            return res.json({ success: true, count: filtered.length, hotels: filtered });
+        }
+
+        res.json({
+            success: true,
+            provider: "شركة الرمال الدولية - Content Feed",
+            count: hotelsContent.length,
+            hotels: hotelsContent
+        });
+
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==========================================
 // 🔌 Availability & Rates API (التحقق من التوافر والأسعار)
 // ==========================================
 app.post('/api/v1/hotels/availability-rates', async (req, res) => {
