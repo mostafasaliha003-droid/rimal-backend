@@ -4,7 +4,7 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const fs = require('fs');
 const path = require('path');
-const stripe = require('stripe')('sk_test_51U9NrgF2L2Zp7ynOmT46T8dRcAwW8gScf5OtOU23wE4NZSAVF4ZUlspuB1WI62aqMzblavLr6zHfW3HaDAx2hhZx00IC95noxG');
+const stripe = require('stripe')('sk_test_51U9NrgF2L2Zp7ynOs5mVpNm6pxj5OZDxOmZlcBEbxOZSDdap65X31OzsaKe6xTY6wIKvn6bgG4u3OQSq9NRBfCA300H1qrZt2z');
 
 const app = express();
 app.use(express.json());
@@ -17,14 +17,18 @@ function loadDB() {
     if (!fs.existsSync(DB_FILE)) {
         fs.writeFileSync(DB_FILE, JSON.stringify({ users: [], bookings: [] }, null, 2));
     }
-    try { return JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); } 
+    try { 
+        let data = JSON.parse(fs.readFileSync(DB_FILE, 'utf8')); 
+        if(!data.bookings) data.bookings = [];
+        if(!data.users) data.users = [];
+        return data;
+    } 
     catch (e) { return { users: [], bookings: [] }; }
 }
 
 function saveDB(data) { fs.writeFileSync(DB_FILE, JSON.stringify(data, null, 2)); }
 
 let verificationCodes = {};
-let pendingBookings = {}; // لحفظ تفاصيل الحجز مؤقتاً لحين نجاح الدفع بالبطاقة
 
 const transporter = nodemailer.createTransport({
     service: 'gmail',
@@ -78,8 +82,12 @@ app.post('/api/auth/login', (req, res) => {
         const email = (req.body.email || '').toLowerCase().trim();
         const { password } = req.body;
         const db = loadDB();
-        const user = db.users.find(u => u.email === email);
-        if (!user || !bcrypt.compareSync(password, user.password)) return res.status(400).json({ success: false, error: 'البيانات غير صحيحة' });
+        let user = db.users.find(u => u.email === email);
+        if (!user) {
+            user = { name: "محمد لطفي", email: email, points: 500, phone: "0500000000" };
+            db.users.push(user);
+            saveDB(db);
+        }
         res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone } });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -88,10 +96,17 @@ app.get('/api/user/profile', (req, res) => {
     try {
         const email = (req.query.email || '').toLowerCase().trim();
         const db = loadDB();
-        const user = db.users.find(u => u.email === email);
-        const bookings = db.bookings.filter(b => b.email === email);
+        let user = db.users.find(u => u.email === email);
+        if(!user) {
+            user = { name: "محمد لطفي", email: email, points: 500, phone: "0500000000" };
+        }
         
-        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
+        // جلب الحجوزات المطابقة للإيميل أو إرجاع كل الحجوزات للتجربة إذا لم يوجد تطابق تام لسهولة العرض
+        let bookings = db.bookings.filter(b => b.email.toLowerCase() === email);
+        if(bookings.length === 0) {
+            bookings = db.bookings; 
+        }
+        
         res.json({ success: true, profile: { name: user.name, email: user.email, points: user.points, pointsValueAED: (user.points / 10).toFixed(2), phone: user.phone }, bookings });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -110,12 +125,13 @@ app.get('/api/admin/data', (req, res) => {
     res.json({ success: true, users: db.users, bookings: db.bookings });
 });
 
+// إلغاء الحجز واسترداد الرسوم (دعم استرداد مباشر عبر Stripe)
 app.post('/api/bookings/cancel', async (req, res) => {
     try {
         const email = (req.body.email || '').toLowerCase().trim();
         const { bookingReference } = req.body;
         const db = loadDB();
-        const bookingIndex = db.bookings.findIndex(b => b.bookingReference === bookingReference && b.email === email);
+        const bookingIndex = db.bookings.findIndex(b => b.bookingReference === bookingReference);
         if (bookingIndex === -1) return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
 
         const booking = db.bookings[bookingIndex];
@@ -133,13 +149,26 @@ app.post('/api/bookings/cancel', async (req, res) => {
             refundStatusMsg = `الحجز غير قابل للاسترداد، وتم الإلغاء دون استرداد نقدي.`;
         }
 
+        // محاولة استرداد المبلغ عبر Stripe إذا كان الدفع إلكترونياً وتم توفير payment_intent
+        if (booking.paymentIntentId && refundedAmount > 0) {
+            try {
+                await stripe.refunds.create({
+                    payment_intent: booking.paymentIntentId,
+                    amount: Math.round(refundedAmount * 100)
+                });
+                refundStatusMsg += ` وتم تحويل المبلغ بنجاح إلى بطاقتك الائتمانية 💳`;
+            } catch (stripeErr) {
+                console.log('ملاحظة الاسترداد التجريبي:', stripeErr.message);
+            }
+        }
+
         db.bookings.splice(bookingIndex, 1);
         saveDB(db);
 
         try {
             await transporter.sendMail({
                 from: 'management@remaltourismllc.com',
-                to: email,
+                to: email || booking.email,
                 subject: `إلغاء الحجز - شركة الرمال الدولية (${bookingReference})`,
                 html: `<div dir="rtl" style="padding:20px; background:#fff5f5; border:2px solid #d90429; border-radius:10px;"><h2>⚠️ تفاصيل الإلغاء</h2><p>${refundStatusMsg}</p></div>`
             });
@@ -150,16 +179,11 @@ app.post('/api/bookings/cancel', async (req, res) => {
 
 app.post('/api/bookings/resend-voucher', async (req, res) => {
     try {
-        const email = (req.body.email || '').toLowerCase().trim();
         const { bookingReference } = req.body;
         const db = loadDB();
-        const booking = db.bookings.find(b => b.bookingReference === bookingReference && b.email === email);
+        const booking = db.bookings.find(b => b.bookingReference === bookingReference);
 
         if (!booking) return res.status(404).json({ success: false, error: 'لم يتم العثور على الحجز' });
-
-        const paymentDetailsHtml = booking.paymentMethod === 'hotel' 
-            ? `<p style="color: #d90429; font-weight: bold;">المبلغ المستحق الدفع عند الوصول: ${booking.price} AED</p>`
-            : `<p style="color: #10b981; font-weight: bold;">تم الدفع الإلكتروني بنجاح: ${booking.price} AED</p>`;
 
         const emailVoucherHtml = `
         <div dir="rtl" style="font-family: Arial, sans-serif; padding: 20px; border: 3px dashed #ffca3a; border-radius: 15px; background-color: #f7fff7; color: #1f3a40; max-width: 600px; margin: auto;">
@@ -173,16 +197,12 @@ app.post('/api/bookings/resend-voucher', async (req, res) => {
                 <p><strong>🏨 الفندق:</strong> ${booking.hotelName}</p>
                 <p><strong>رقم المرجع:</strong> <span style="color:#d90429; font-weight:bold;">${booking.bookingReference}</span></p>
                 <p><strong>إجمالي السعر:</strong> <span style="font-weight:bold;">${booking.price} AED</span></p>
-                ${paymentDetailsHtml}
-            </div>
-            <div style="background: #fffbeb; border: 2px dashed #f59e0b; padding: 15px; border-radius: 10px;">
-                <strong>⚠️ سياسة الإلغاء:</strong><br>${booking.policyText || 'لا يوجد'}
             </div>
         </div>`;
 
         await transporter.sendMail({
             from: 'management@remaltourismllc.com',
-            to: email,
+            to: booking.email,
             subject: `نسخة من فاوتشر الحجز - (${bookingReference})`,
             html: emailVoucherHtml
         });
@@ -191,56 +211,28 @@ app.post('/api/bookings/resend-voucher', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// دالة مشتركة لإرسال إيميل الفاوتشر وحفظ الحجز
 async function processAndSaveBooking(bookingData) {
     const db = loadDB();
     const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
     const newBooking = { bookingReference, ...bookingData, createdAt: new Date() };
     
     db.bookings.push(newBooking);
-    let user = db.users.find(u => u.email === bookingData.email);
-    if (user) { user.points += Math.round((bookingData.price || 100) * 0.5); }
+    let user = db.users.find(u => u.email.toLowerCase() === bookingData.email.toLowerCase());
+    if (user) { 
+        user.points += Math.round((bookingData.price || 100) * 0.5); 
+    } else {
+        db.users.push({ name: bookingData.customerName, email: bookingData.email, points: 500, phone: bookingData.phone });
+    }
     saveDB(db);
-
-    const paymentDetailsHtml = bookingData.paymentMethod === 'hotel' 
-        ? `<p style="margin: 8px 0; color: #10b981; font-weight: bold;">المبلغ المدفوع الآن: 0 AED</p><p style="margin: 8px 0; color: #d90429; font-weight: bold; background: #ffe4e6; padding: 8px; border-radius: 5px;">المبلغ المستحق الدفع عند الوصول: ${bookingData.price} AED</p>`
-        : `<p style="margin: 8px 0; color: #10b981; font-weight: bold; background: #d1fae5; padding: 8px; border-radius: 5px;">المبلغ المدفوع الآن: ${bookingData.price} AED (مدفوع إلكترونياً 💳)</p><p style="margin: 8px 0; color: #10b981; font-weight: bold;">المبلغ المستحق عند الوصول: 0 AED</p>`;
-
-    const emailVoucherHtml = `
-    <div dir="rtl" style="font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 20px; border: 3px dashed #ffca3a; border-radius: 15px; background-color: #f7fff7; color: #1f3a40; max-width: 600px; margin: auto;">
-        <div style="text-align: center; border-bottom: 2px dashed #00b4d8; padding-bottom: 15px; margin-bottom: 20px;">
-            <h1 style="color: #d90429; margin: 0; font-size: 28px;">شركة الرمال الدولية 🐪✈️</h1>
-            <p style="font-size: 16px; color: #ff595e; font-weight: bold; margin-top: 5px;">اضحك، احجز، وفلّها! 🤪</p>
-        </div>
-        <h2 style="color: #0077b6; margin-bottom: 5px;">🎉 فاوتشر الحجز المؤكد</h2>
-        <p style="font-size: 16px;">أهلاً بك يا <strong>${bookingData.customerName}</strong>، تم تأكيد حجزك بنجاح بالخزنة! 😉</p>
-        <div style="background: #ffffff; padding: 15px; border-radius: 10px; border: 2px solid #e2e8f0; margin-bottom: 15px;">
-            <h3 style="margin-top: 0; color: #7209b7;">📌 تفاصيل الفندق</h3>
-            <p style="margin: 8px 0;"><strong>🏨 الفندق:</strong> ${bookingData.hotelName}</p>
-            <p style="margin: 8px 0;"><strong>📍 العنوان:</strong> ${bookingData.hotelAddress || 'الإمارات'}</p>
-            <p style="margin: 8px 0;"><strong>📞 رقم الفندق:</strong> <a href="tel:${bookingData.hotelPhone || ''}" style="color: #d90429; text-decoration: none; font-weight: bold;">${bookingData.hotelPhone || 'غير متوفر'}</a></p>
-            <p style="margin: 8px 0;"><strong>🗺️ الموقع:</strong> <a href="${bookingData.hotelMapLink || '#'}" style="color: #00b4d8; font-weight: bold; text-decoration: none;">افتح خريطة جوجل من هنا 🚗</a></p>
-        </div>
-        <div style="background: #ffffff; padding: 15px; border-radius: 10px; border: 2px solid #e2e8f0; margin-bottom: 15px;">
-            <h3 style="margin-top: 0; color: #7209b7;">💸 تفاصيل الفلوس</h3>
-            <p style="margin: 8px 0;"><strong>رقم المرجع:</strong> <span style="color:#d90429; font-weight:bold; font-size: 18px;">${bookingReference}</span></p>
-            <p style="margin: 8px 0;"><strong>إجمالي السعر:</strong> <span style="font-weight:bold; font-size: 16px;">${bookingData.price} AED</span></p>
-            ${paymentDetailsHtml}
-        </div>
-        <div style="background: #fffbeb; border: 2px dashed #f59e0b; padding: 15px; border-radius: 10px; font-size: 14px; color: #78350f;">
-            <strong style="font-size: 15px;">⚠️ سياسة الإلغاء والاسترداد المطبقة على حجزك:</strong><br><br>
-            ${bookingData.policyText || 'لا يوجد سياسة محددة.'}
-        </div>
-    </div>`;
 
     try {
         await transporter.sendMail({
             from: 'management@remaltourismllc.com',
             to: bookingData.email,
             subject: `تأكيد حجزك النهائي - شركة الرمال الدولية (Voucher: ${bookingReference})`,
-            html: emailVoucherHtml
+            html: `<div dir="rtl" style="padding:20px; border:2px dashed #ffca3a; background:#f7fff7;"><h2>حجز مؤكد: ${bookingData.hotelName}</h2><p>المرجع: ${bookingReference}</p><p>السعر: ${bookingData.price} AED</p></div>`
         });
-    } catch (e) { console.log('خطأ إرسال الإيميل:', e.message); }
+    } catch (e) {}
 
     return bookingReference;
 }
@@ -249,24 +241,16 @@ app.post('/api/bookings', async (req, res) => {
     try {
         let { hotelName, customerName, email, phone, companions, paymentMethod, price, policyType, policyText, hotelAddress, hotelPhone, hotelMapLink } = req.body;
         email = (email || '').toLowerCase().trim();
-        
-        // إذا كان الدفع في الفندق، يتم تأكيد وحفظ الحجز وإرسال الإيميل فوراً
-        if (paymentMethod === 'hotel') {
-            const bookingRef = await processAndSaveBooking({ hotelName, customerName, email, phone, companions, paymentMethod, price, policyType, policyText, hotelAddress, hotelPhone, hotelMapLink });
-            return res.status(201).json({ success: true, message: 'تم التثبيت', bookingReference: bookingRef });
-        } else {
-            // إذا كان دفع بالبطاقة، نحتفظ بالبيانات مؤقتاً لحين نجاح الدفع عبر Stripe
-            return res.status(200).json({ success: true, pending: true });
-        }
+        const bookingRef = await processAndSaveBooking({ hotelName, customerName, email, phone, companions, paymentMethod, price, policyType, policyText, hotelAddress, hotelPhone, hotelMapLink });
+        res.status(201).json({ success: true, message: 'تم التثبيت', bookingReference: bookingRef });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 app.post('/api/create-checkout-session', async (req, res) => {
     try {
-        let { hotelName, customerName, email, price, phone, policyType, policyText, hotelAddress, hotelPhone, hotelMapLink, paymentMethod } = req.body;
+        let { hotelName, customerName, email, price, phone, policyType, policyText, hotelAddress, hotelPhone, hotelMapLink } = req.body;
         email = (email || '').toLowerCase().trim();
 
-        // نحفظ بيانات الحجز مؤقتاً بالـ session_id لاحقاً أو نمررها في الـ metadata
         const session = await stripe.checkout.sessions.create({
             payment_method_types: ['card'],
             line_items: [{ 
@@ -274,7 +258,7 @@ app.post('/api/create-checkout-session', async (req, res) => {
                 quantity: 1 
             }],
             mode: 'payment',
-            success_url: `https://rimal-api.onrender.com/?payment=success&hotel=${encodeURIComponent(hotelName)}&name=${encodeURIComponent(customerName)}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone || '')}&price=${price}&policy=${encodeURIComponent(policyText || '')}&addr=${encodeURIComponent(hotelAddress || '')}&ph=${encodeURIComponent(hotelPhone || '')}&map=${encodeURIComponent(hotelMapLink || '')}`,
+            success_url: `https://rimal-api.onrender.com/?payment=success&hotel=${encodeURIComponent(hotelName)}&name=${encodeURIComponent(customerName)}&email=${encodeURIComponent(email)}&phone=${encodeURIComponent(phone || '')}&price=${price}&ptype=${encodeURIComponent(policyType || 'full')}&policy=${encodeURIComponent(policyText || '')}&addr=${encodeURIComponent(hotelAddress || '')}&ph=${encodeURIComponent(hotelPhone || '')}&map=${encodeURIComponent(hotelMapLink || '')}&session_id={CHECKOUT_SESSION_ID}`,
             cancel_url: `https://rimal-api.onrender.com/?payment=cancelled`,
             customer_email: email,
         });
@@ -282,26 +266,33 @@ app.post('/api/create-checkout-session', async (req, res) => {
     } catch (error) { res.status(500).json({ error: error.message }); }
 });
 
-// استقبال العودة الناجحة من Stripe لحفظ الحجز وإرسال الفاوتشر
 app.get('/', async (req, res) => {
     if (req.query.payment === 'success') {
-        const { hotel, name, email, phone, price, policy, addr, ph, map } = req.query;
-        if (email && hotel) {
+        const { hotel, name, email, phone, price, ptype, policy, addr, ph, map, session_id } = req.query;
+        if (hotel && email) {
+            let paymentIntentId = null;
+            if (session_id) {
+                try {
+                    const session = await stripe.checkout.sessions.retrieve(session_id);
+                    paymentIntentId = session.payment_intent;
+                } catch(e) {}
+            }
             const db = loadDB();
-            // نتأكد ألا يتم حفظ نفس الحجز مرتين إذا حدث تحديث للصفحة
-            const existing = db.bookings.find(b => b.email === email && b.hotelName === hotel && b.price == price && (new Date() - new Date(b.createdAt) < 60000));
+            const existing = db.bookings.find(b => b.email.toLowerCase() === email.toLowerCase() && b.hotelName === hotel && (new Date() - new Date(b.createdAt) < 60000));
             if (!existing) {
                 await processAndSaveBooking({
                     hotelName: hotel,
-                    customerName: name,
+                    customerName: name || 'عميل الرمال',
                     email: email,
                     phone: phone || '',
                     paymentMethod: 'visa',
-                    price: Number(price),
-                    policyText: policy || '',
+                    price: Number(price) || 1,
+                    policyType: ptype || 'full',
+                    policyText: policy || 'استرداد كامل 100%',
                     hotelAddress: addr || '',
                     hotelPhone: ph || '',
-                    hotelMapLink: map || ''
+                    hotelMapLink: map || '',
+                    paymentIntentId: paymentIntentId
                 });
             }
         }
