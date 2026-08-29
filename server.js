@@ -10,7 +10,9 @@ const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(bodyParser.json());
-app.use(express.static(path.join(__dirname, 'public')));
+
+// قراءة الملفات الثابتة (مثل index.html و logo.jpg) من المجلد الحالي مباشرة
+app.use(express.static(__dirname));
 
 // قواعد بيانات مؤقتة (سيتم ربطها بـ MongoDB السحابية لاحقاً)
 let bookingsDatabase = [];
