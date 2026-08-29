@@ -152,6 +152,61 @@
         
         .goog-te-banner-frame { display: none !important; }
         body { top: 0px !important; }
+
+        /* إعدادات الفوتر (Footer) الجديدة */
+        footer {
+            background-color: var(--primary);
+            color: var(--white);
+            padding: 50px 5% 20px;
+            margin-top: 60px;
+            border-top: 5px solid var(--accent-yellow);
+        }
+        .footer-container {
+            max-width: 1200px;
+            margin: 0 auto;
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+        .footer-col h4 {
+            color: var(--accent-cyan);
+            font-size: 18px;
+            font-weight: 900;
+            margin-bottom: 20px;
+            position: relative;
+        }
+        .footer-col p, .footer-col a {
+            color: #caf0f8;
+            font-size: 14px;
+            line-height: 1.8;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            margin-bottom: 12px;
+            font-weight: 600;
+        }
+        .footer-col a:hover {
+            color: var(--accent-yellow);
+        }
+        .footer-col i {
+            color: var(--accent-coral);
+            font-size: 16px;
+            width: 20px;
+            text-align: center;
+        }
+        .footer-bottom {
+            text-align: center;
+            padding-top: 20px;
+            border-top: 1px dashed rgba(255, 255, 255, 0.2);
+            color: #8d99ae;
+            font-size: 14px;
+            font-weight: 700;
+        }
+        .footer-bottom strong {
+            color: var(--accent-yellow);
+        }
     </style>
 </head>
 <body>
@@ -377,7 +432,7 @@
                 <form id="bookingForm" onsubmit="confirmReservation(event)">
                     <div class="form-group"><label>الاسم الكريم:</label><input type="text" id="custName" required></div>
                     <div class="form-group"><label>الإيميل:</label><input type="email" id="custEmail" required></div>
-                    <div class="form-group"><label>التليفون (لإرسال رسالة WhatsApp):</label><input type="tel" id="custPhone" required placeholder="+971501234567"></div>
+                    <div class="form-group"><label>التليفون (لإرسال رسالة WhatsApp):</label><input type="tel" id="custPhone" required placeholder="+971544757578"></div>
                     <div class="form-group"><label>أسماء المرافقين:</label><textarea id="custCompanions" rows="2"></textarea></div>
                     
                     <div class="form-group" style="background: rgba(255, 202, 58, 0.15); padding: 15px; border-radius: 14px; border: 2px dashed var(--accent-yellow);">
@@ -402,6 +457,36 @@
             </div>
         </div>
     </div>
+
+    <!-- بداية الفوتر المضاف حديثاً (الأسفل) -->
+    <footer>
+        <div class="footer-container">
+            <div class="footer-col">
+                <a class="brand-logo" style="background: transparent; border: none; padding: 0; margin-bottom: 15px; cursor: default;">
+                    <img src="6eacaf6a-cbc4-4406-aef8-708797c931cb-removebg-preview.png" alt="شركة الرمال الدولية" style="height: 60px; background: white; padding: 5px; border-radius: 12px;">
+                </a>
+                <p>نقدم لك أفضل العروض والأسعار لرحلاتك وحجوزاتك الفندقية. اضحك، احجز، وفلّها! 🤪✈️</p>
+            </div>
+            
+            <div class="footer-col">
+                <h4>تواصل معنا 📞</h4>
+                <a href="https://wa.me/971544757578" target="_blank"><i class="fa-brands fa-whatsapp" style="color: #25D366; font-size: 20px;"></i> +971 54 475 7578</a>
+                <a href="mailto:managment@remaltourismllc.com"><i class="fa-regular fa-envelope"></i> managment@remaltourismllc.com</a>
+            </div>
+            
+            <div class="footer-col">
+                <h4>مقر الشركة 🏢</h4>
+                <p><i class="fa-solid fa-location-dot"></i> شركة الرمال الدولية</p>
+                <p><i class="fa-solid fa-building"></i> دائرة السياحة والاقتصاد، Block B, Office 610</p>
+                <p><i class="fa-solid fa-map-pin"></i> ميناء سعيد، دبي، الإمارات العربية المتحدة</p>
+            </div>
+        </div>
+        
+        <div class="footer-bottom">
+            &copy; 2026 <strong>شركة الرمال الدولية</strong>. جميع الحقوق محفوظة.
+        </div>
+    </footer>
+    <!-- نهاية الفوتر -->
 
     <!-- عنصر ترجمة جوجل المخفي -->
     <div id="google_translate_element" style="display:none;"></div>
