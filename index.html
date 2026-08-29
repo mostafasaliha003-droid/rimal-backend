@@ -313,7 +313,7 @@
                     </div>
                     <div style="background: rgba(0, 180, 216, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-cyan);">
                         <h4>☁️ حالة الاتصال (remalbookings.com)</h4>
-                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل وآمن 🔒 (MongoDB Atlas)</div>
+                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل بالسحابة 🔒 (MongoDB Atlas)</div>
                     </div>
                 </div>
 
@@ -445,7 +445,6 @@
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCkqVnoRsRtoETOTqR68CUtyk0o0E3XaEQ&callback=initGoogleMap"></script>
 
     <script>
-        // 🌐 الرابط الأساسي لسيرفر Render السحابي والمربوط مع remalbookings.com
         const API_URL = 'https://rimal-api.onrender.com';
 
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
@@ -467,7 +466,6 @@
             checkAtlasConnection();
         };
 
-        // 🔗 التحقق من ربط قاعدة بيانات Atlas وموقع remalbookings.com
         async function checkAtlasConnection() {
             try {
                 const res = await fetch(`${API_URL}/api/v1/health-check`);
@@ -547,7 +545,6 @@
             document.getElementById('registerContainer').style.display = tab === 'register' ? 'block' : 'none';
         }
 
-        // 🔑 تسجيل الدخول السحابي عبر API
         async function handleDirectLogin(e) {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
@@ -573,7 +570,6 @@
             }
         }
 
-        // ☁️ تفعيل التسجيل عبر التحقق الثنائي (OTP) وإرسال الكود للإيميل
         async function requestVerificationCode(e) {
             e.preventDefault();
             const name = document.getElementById('modalName').value;
@@ -614,7 +610,6 @@
             }
         }
 
-        // 🔍 تتبع الحجز السريع عبر الـ API
         async function quickLookupBooking(e) {
             e.preventDefault();
             const bookingReference = document.getElementById('lookupRef').value.trim();
@@ -649,7 +644,6 @@
             }
         }
 
-        // 🔄 جلب بيانات المستخدم والحجوزات من MongoDB Atlas مع خيار إعادة إرسال القسيمة أو الإلغاء
         async function fetchUserData() {
             if(currentUser) {
                 try {
@@ -694,7 +688,6 @@
             }
         }
 
-        // 🔄 وظيفة إعادة إرسال القسيمة إلى الإيميل عبر الـ API
         async function resendVoucherEmail(bookingReference, email) {
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/resend-email`, {
@@ -713,7 +706,6 @@
             }
         }
 
-        // ❌ وظيفة إلغاء الحجز والاسترداد عبر الـ API
         async function cancelBookingAPI(bookingReference) {
             if(!confirm('هل أنت متأكد من رغبتك في إلغاء الحجز وتفعيل سياسة الاسترداد؟')) return;
             try {
@@ -789,6 +781,7 @@
             selectedHotel = hotelName; currentBasePrice = price;
             document.getElementById('hotelNameTitle').innerText = 'حجز: ' + hotelName;
             document.getElementById('custName').value = currentUser.name;
+            document.getElementById('custName').value = currentUser.name;
             document.getElementById('custEmail').value = currentUser.email;
             document.getElementById('custPhone').value = currentUser.phone || '';
             
@@ -826,7 +819,6 @@
             element.classList.add('selected');
         }
 
-        // 🚀 إرسال الحجز السحابي وإرسال قسيمة PDF الرسمية عبر الإيميل حصرياً (بدون واتساب)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
