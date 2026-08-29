@@ -436,6 +436,24 @@ app.get('/api/v1/admin/stats', async (req, res) => {
     }
 });
 
+app.post('/api/v1/admin/update-booking-status', async (req, res) => {
+    try {
+        const { bookingReference, status } = req.body;
+        const booking = await Booking.findOne({ bookingReference });
+        
+        if (!booking) {
+            return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
+        }
+
+        booking.status = status;
+        await booking.save();
+
+        res.json({ success: true, message: `تم تحديث حالة الحجز ${bookingReference} إلى (${status}) بنجاح.` });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
     try {
         const booking = await Booking.findOne({ bookingReference: req.params.reference });
@@ -471,8 +489,14 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
     }
 });
 
-app.get('/admin', (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
-app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
+// توجيه مسارات ملفات HTML بشكل صحيح
+app.get('/admin', (req, res) => {
+    res.sendFile(path.join(__dirname, 'admin.html'));
+});
+
+app.get('/', (req, res) => {
+    res.sendFile(path.join(__dirname, 'index.html'));
+});
 
 const PORT = process.env.PORT || 10000;
 app.listen(PORT, '0.0.0.0', () => { console.log(`🚀 السيرفر يعمل على المنفذ ${PORT} ومربوط مع remalbookings.com`); });
