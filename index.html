@@ -226,7 +226,6 @@
 
     <header>
         <a class="brand-logo" onclick="switchView('mainView')">
-            <!-- مسار اللوغو المحدث في الأعلى -->
             <img src="logo.jpg" alt="شركة الرمال الدولية">
             <div class="brand-text">
                 <span id="brandName">الرمال الدولية</span>
@@ -307,12 +306,12 @@
             </div>
         </div>
 
-        <!-- مساحة مخصصة لصندوق Stay22 المضاف حديثاً (يمكنك لصق كود iframe الخريطة هنا لاحقاً) -->
+        <!-- خريطة Stay22 التفاعلية -->
         <div class="container stay22-map-container" style="margin-top: -10px; margin-bottom: 25px;">
             <div style="background: #fdfdfe; padding: 20px; border-radius: 22px; box-shadow: var(--shadow); border: 4px dashed var(--accent-yellow); text-align: center;">
-                <h3 style="color: var(--primary); margin-bottom: 10px; font-weight: 900;"><i class="fa-solid fa-earth-americas" style="color: var(--accent-coral);"></i> عروض شركائنا المباشرة (Stay22)</h3>
-                <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">الآن بفضل السكريبت الجديد، أي رابط خارجي تضيفه هنا لـ Booking أو Agoda سيتحول تلقائياً لرابط عمولة!</p>
-                <!-- يمكنك استبدال هذا النص بكود iframe الخاص بـ Stay22 Maps في المستقبل -->
+                <h3 style="color: var(--primary); margin-bottom: 15px; font-weight: 900;"><i class="fa-solid fa-earth-americas" style="color: var(--accent-coral);"></i> خريطة العروض المباشرة للفنادق والشقق 🗺️</h3>
+                <!-- كود Stay22 Iframe الفعلي -->
+                <iframe id="stay22-widget" width="100%" height="428" src="https://www.stay22.com/embed/6a92b1ba280bff0d705cd44c" frameborder="0" style="border-radius: 12px; border: 2px solid var(--accent-cyan);"></iframe>
             </div>
         </div>
 
@@ -474,12 +473,11 @@
         </div>
     </div>
 
-    <!-- بداية الفوتر المضاف حديثاً (الأسفل) -->
+    <!-- الفوتر (الأسفل) -->
     <footer>
         <div class="footer-container">
             <div class="footer-col">
                 <a class="brand-logo" style="background: transparent; border: none; padding: 0; margin-bottom: 15px; cursor: default;">
-                    <!-- مسار اللوغو المحدث في الأسفل -->
                     <img src="logo.jpg" alt="شركة الرمال الدولية" style="height: 60px; background: white; padding: 5px; border-radius: 12px;">
                 </a>
                 <p>نقدم لك أفضل العروض والأسعار لرحلاتك وحجوزاتك الفندقية. اضحك، احجز، وفلّها! 🤪✈️</p>
@@ -503,7 +501,6 @@
             &copy; 2026 <strong>شركة الرمال الدولية</strong>. جميع الحقوق محفوظة.
         </div>
     </footer>
-    <!-- نهاية الفوتر -->
 
     <!-- عنصر ترجمة جوجل المخفي -->
     <div id="google_translate_element" style="display:none;"></div>
