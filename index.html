@@ -15,6 +15,19 @@
           document.head.appendChild(script);
       })();
     </script>
+
+    <!-- كود Stay22 (LetMeAllez) لتحويل الروابط تلقائياً إلى روابط عمولة -->
+    <script>
+      (function (s, t, a, y, twenty, two) {
+          s.Stay22 = s.Stay22 || {};
+          s.Stay22.params = { lmaID: '6a92ae01280bff0d705cbdcd' };
+          twenty = t.createElement(a);
+          two = t.getElementsByTagName(a)[0];
+          twenty.async = 1;
+          twenty.src = y;
+          two.parentNode.insertBefore(twenty, two);
+      })(window, document, 'script', 'https://scripts.stay22.com/letmeallez.js');
+    </script>
     
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
@@ -291,6 +304,15 @@
             </div>
             <div class="search-field" style="background: transparent; border: none; padding: 0;">
                 <button onclick="filterHotels()" id="searchBtnText" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary)); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; height: 60px; width: 100%;">ابحث وانحاش 🚀</button>
+            </div>
+        </div>
+
+        <!-- مساحة مخصصة لصندوق Stay22 المضاف حديثاً (يمكنك لصق كود iframe الخريطة هنا لاحقاً) -->
+        <div class="container stay22-map-container" style="margin-top: -10px; margin-bottom: 25px;">
+            <div style="background: #fdfdfe; padding: 20px; border-radius: 22px; box-shadow: var(--shadow); border: 4px dashed var(--accent-yellow); text-align: center;">
+                <h3 style="color: var(--primary); margin-bottom: 10px; font-weight: 900;"><i class="fa-solid fa-earth-americas" style="color: var(--accent-coral);"></i> عروض شركائنا المباشرة (Stay22)</h3>
+                <p style="color: var(--text-muted); font-size: 14px; margin-bottom: 15px;">الآن بفضل السكريبت الجديد، أي رابط خارجي تضيفه هنا لـ Booking أو Agoda سيتحول تلقائياً لرابط عمولة!</p>
+                <!-- يمكنك استبدال هذا النص بكود iframe الخاص بـ Stay22 Maps في المستقبل -->
             </div>
         </div>
 
