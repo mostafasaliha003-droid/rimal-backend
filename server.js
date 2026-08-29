@@ -489,9 +489,19 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
     }
 });
 
-// توجيه مسارات ملفات HTML بشكل صحيح
+// مسار لوحة تحكم الإدارة مع معالجة آمنة لخطأ عدم وجود الملف
 app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'));
+    const adminHtmlPath = path.join(__dirname, 'admin.html');
+    res.sendFile(adminHtmlPath, (err) => {
+        if (err) {
+            res.status(404).send(`
+                <div dir="rtl" style="font-family:Cairo; text-align:center; padding:50px; background:#f7fff7;">
+                    <h1 style="color:#ff595e;">خطأ: ملف admin.html غير موجود في مسار السيرفر!</h1>
+                    <p style="color:#1f3a40; margin-top:10px;">الرجاء التأكد من رفع ملف admin.html إلى مجلد المشروع بجانب server.js.</p>
+                </div>
+            `);
+        }
+    });
 });
 
 app.get('/', (req, res) => {
