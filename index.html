@@ -5,6 +5,17 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title id="pageTitle">شركة الرمال الدولية | احجز، فلّها، واكسب! ✈️</title>
     
+    <!-- كود تتبع الأرباح المربوط بـ Travelpayouts Drive -->
+    <script nowprocket data-noptimize="1" data-cfasync="false" data-wpfc-render="false" seraph-accel-crit="1" data-no-defer="1" data-cmp-ab="2">
+      (function () {
+          var script = document.createElement("script");
+          script.async = 1;
+          script.setAttribute("data-cmp-ab","2");
+          script.src = 'https://emrldtp.cc/NTY3OTA0.js?t=567904';
+          document.head.appendChild(script);
+      })();
+    </script>
+    
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -420,7 +431,6 @@
             checkUserSession();
         };
 
-        // دالة تغيير وتحويل العملة فوراً وقراءة القيم الحية من عناصر الواجهة
         async function changeCurrency() {
             const selectedCurrency = document.getElementById('currencySelector').value;
             const priceElements = document.querySelectorAll('.hotel-price-display');
@@ -798,6 +808,11 @@
                 const data = await response.json();
                 if (response.ok && data.success) {
                     alert(`✅ تم تثبيت الحجز بنجاح وإرسال الـ WhatsApp وفاتورة الـ PDF!\nرقم المرجع: ${data.bookingReference}`);
+                    
+                    if (data.whatsappLink) {
+                        window.open(data.whatsappLink, '_blank');
+                    }
+
                     currentUser.points = data.updatedPoints;
                     localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
                     switchView('registerView');
