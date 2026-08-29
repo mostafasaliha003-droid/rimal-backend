@@ -50,7 +50,7 @@ const bookingSchema = new mongoose.Schema({
     status: { type: String, default: 'active' },
     cancellationPolicy: { type: String, default: 'استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة ✨' },
     freeCancelDeadline: { type: Date },
-    refundType: { type: String, default: 'full_100' }, // full_100, partial_50, non_refundable
+    refundType: { type: String, default: 'full_100' },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -69,7 +69,6 @@ const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
 
-// بيانات اعتماد المدير الافتراضية
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
 
@@ -99,7 +98,6 @@ async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBu
     }
 }
 
-// 🔌 مسار فحص الاتصال السحابي (Health Check)
 app.get('/api/v1/health-check', async (req, res) => {
     const dbState = mongoose.connection.readyState;
     const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
@@ -112,7 +110,6 @@ app.get('/api/v1/health-check', async (req, res) => {
     });
 });
 
-// 🔑 مسار طلب كود التحقق الثنائي (OTP) للتسجيل
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
         const email = (req.body.email || '').toLowerCase().trim();
@@ -198,7 +195,6 @@ app.post('/api/bookings/lookup', async (req, res) => {
     }
 });
 
-// 🏨 إنشاء وحفظ الحجز وإرسال الـ PDF عبر الإيميل حصرياً مع سياسات الاسترداد المربوطة
 app.post('/api/v1/bookings/create', async (req, res) => {
     try {
         let { hotelName, customerName, email, phone, companions, paymentMethod, price, pointsUsed, refundType } = req.body;
@@ -219,7 +215,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             }
         }
 
-        // شروط الاسترداد حسب الـ API وسياسة الفندق
         let selectedRefundType = refundType || 'full_100';
         let policyText = 'استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة ✨';
         if (selectedRefundType === 'partial_50') policyText = 'استرداد جزئي (50%) في حال إلغاء الحجز قبل 24 ساعة ⚠️';
@@ -239,7 +234,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             await user.save();
         }
 
-        // إرسال قسيمة الـ PDF الرسمية للعميل عبر الإيميل
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
         let buffers = [];
         doc.on('data', chunk => buffers.push(chunk));
@@ -256,8 +250,8 @@ app.post('/api/v1/bookings/create', async (req, res) => {
                         <p><b>رقم المرجع:</b> ${bookingReference}</p>
                         <p><b>الفندق / الشريك:</b> ${hotelName}</p>
                         <p><b>الإجمالي المدفوع:</b> ${finalPrice} AED</p>
-                        <p><b>سياسة الاسترداد (API Policy):</b> ${policyText}</p>
-                        <p style="color:#0077b6; margin-top:20px;">تجد تفاصيل قسيمة الحجز الرسمية (PDF) مرفقة مع هذه الرسالة. نتمنى لك إقامة ممتعة!</p>
+                        <p><b>سياسة الاسترداد:</b> ${policyText}</p>
+                        <p style="color:#0077b6; margin-top:20px;">تجد تفاصيل قسيمة الحجز الرسمية (PDF) مرفقة مع هذه الرسالة.</p>
                     </div>`,
                     pdfBuffer,
                     `Rimal-Voucher-${bookingReference}.pdf`
@@ -285,14 +279,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         doc.text(`Total Amount: ${finalPrice} AED`);
         doc.text(`Cancellation Policy: ${policyText}`);
 
-        doc.moveDown(1.5);
-        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
-        doc.moveDown(1);
-
-        doc.fontSize(10).fillColor('#ff595e').font('Helvetica-Bold').text('API & Supplier Terms:');
-        doc.fontSize(9).fillColor('#555555').font('Helvetica').text('• Confirmed via Rimal International Secure Cloud API.');
-        doc.text(`• Refund Type Rule: ${selectedRefundType}`);
-
         doc.end();
 
         res.status(201).json({
@@ -314,7 +300,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
     }
 });
 
-// 🔄 مسار إعادة إرسال القسيمة إلى الإيميل عند الطلب
 app.post('/api/v1/bookings/resend-email', async (req, res) => {
     try {
         const { bookingReference, email } = req.body;
@@ -356,6 +341,34 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
     }
 });
 
+app.post('/api/v1/bookings/cancel', async (req, res) => {
+    try {
+        const { bookingReference } = req.body;
+        const booking = await Booking.findOne({ bookingReference });
+        
+        if (!booking) {
+            return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
+        }
+
+        if (booking.status === 'refunded' || booking.status === 'cancelled') {
+            return res.status(400).json({ success: false, error: 'الحجز ملغي مسبقاً' });
+        }
+
+        booking.status = 'cancelled';
+        await booking.save();
+
+        res.json({
+            success: true,
+            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وتفعيل سياسة الاسترداد (${booking.cancellationPolicy}).`,
+            bookingReference,
+            status: 'cancelled',
+            refundType: booking.refundType
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.get('/api/currency/convert', async (req, res) => {
     try {
         const { targetCurrency, amount } = req.query;
@@ -383,9 +396,6 @@ app.get('/api/currency/convert', async (req, res) => {
     }
 });
 
-// ==========================================
-// 🔐 مسارات مصادقة وإدارة لوحة التحكم (Admin Auth & Stats)
-// ==========================================
 app.post('/api/v1/admin/login', async (req, res) => {
     try {
         const { email, password } = req.body;
@@ -418,374 +428,12 @@ app.get('/api/v1/admin/stats', async (req, res) => {
 
         res.json({
             success: true,
-            stats: {
-                totalBookings,
-                activeBookings,
-                cancelledBookings,
-                totalRevenueAED
-            },
+            stats: { totalBookings, activeBookings, cancelledBookings, totalRevenueAED },
             bookings: allBookings
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
     }
-});
-
-app.post('/api/v1/admin/update-booking-status', async (req, res) => {
-    try {
-        const { bookingReference, status } = req.body;
-        const booking = await Booking.findOne({ bookingReference });
-        
-        if (!booking) {
-            return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
-        }
-
-        booking.status = status;
-        await booking.save();
-
-        res.json({ success: true, message: `تم تحديث حالة الحجز ${bookingReference} إلى (${status}) بنجاح.` });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ==========================================
-// 🔌 Hotel Search API (البحث المتقدم وتصفية الفنادق)
-// ==========================================
-app.get('/api/v1/hotels/search', (req, res) => {
-    try {
-        const { query, city, maxPrice, starRating } = req.query;
-        
-        const searchableHotels = [
-            {
-                hotelId: "RIMAL-DXB-001",
-                name: "فندق ريا كريك (Reya Creek Hotel)",
-                city: "دبي",
-                address: "دائرة السياحة والاقتصاد، Block B، Office 610، ميناء سعيد، دبي",
-                starRating: 4,
-                priceAED: 890,
-                basePoints: 350,
-                image: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
-                funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!"
-            },
-            {
-                hotelId: "RIMAL-DXB-002",
-                name: "فندق أتلانتس النخلة، دبي",
-                city: "دبي",
-                address: "نخلة جميرا، دبي",
-                starRating: 5,
-                priceAED: 2202,
-                basePoints: 600,
-                image: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80",
-                funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!"
-            },
-            {
-                hotelId: "RIMAL-AUH-001",
-                name: "قصر الإمارات ماندَرين أورينتال، أبوظبي",
-                city: "أبوظبي",
-                address: "كورنيش أبوظبي، أبوظبي",
-                starRating: 5,
-                priceAED: 1651,
-                basePoints: 450,
-                image: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80",
-                funnyPolicy: "ندفع بالذهب الخالص فقط!"
-            }
-        ];
-
-        let results = searchableHotels;
-
-        if (query) {
-            const q = query.toLowerCase().trim();
-            results = results.filter(h => h.name.toLowerCase().includes(q) || h.city.toLowerCase().includes(q));
-        }
-
-        if (city && city !== 'all') {
-            results = results.filter(h => h.city === city);
-        }
-
-        if (maxPrice) {
-            const max = parseFloat(maxPrice);
-            results = results.filter(h => h.priceAED <= max);
-        }
-
-        if (starRating) {
-            const stars = parseInt(starRating);
-            results = results.filter(h => h.starRating === stars);
-        }
-
-        res.json({
-            success: true,
-            searchCriteria: { query: query || 'None', city: city || 'all', maxPrice: maxPrice || 'None' },
-            count: results.length,
-            results
-        });
-
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ==========================================
-// 🔌 Hotel Content API (معلومات وصفية ومحتوى الفنادق)
-// ==========================================
-app.get('/api/v1/hotels/content', (req, res) => {
-    try {
-        const hotelNameQuery = (req.query.hotelName || '').toLowerCase().trim();
-
-        const hotelsContent = [
-            {
-                hotelId: "RIMAL-DXB-001",
-                name: "فندق ريا كريك (Reya Creek Hotel)",
-                brand: "Reya Collection",
-                city: "دبي",
-                address: "دائرة السياحة والاقتصاد، Block B، Office 610، ميناء سعيد، دبي، الإمارات العربية المتحدة",
-                coordinates: { lat: 25.2654, lng: 55.3272 },
-                starRating: 4,
-                descriptions: {
-                    ar: "يقع فندق ريا كريك في قلب دبي بميناء سعيد، ويتميز بإطلالات ساحرة وخدمات فندقية راقية تلبي تطلعات رجال الأعمال والسياح.",
-                    en: "Located in the heart of Dubai's Port Saeed, Reya Creek Hotel offers luxury accommodations and modern amenities."
-                },
-                images: [
-                    "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
-                    "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80"
-                ],
-                amenities: ["واي فاي مجاني", "مواقف سيارات", "مسبح خارجي", "خدمة الغرف 24 ساعة", "نادي صحي"],
-                policies: {
-                    checkIn: "14:00",
-                    checkOut: "12:00",
-                    cancellation: "استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة ✨",
-                    funnyRule: "ممنوع إدخال بطاطس حارة للغرفة! 😂"
-                },
-                basePriceAED: 890
-            },
-            {
-                hotelId: "RIMAL-DXB-002",
-                name: "فندق أتلانتس النخلة، دبي",
-                brand: "Atlantis Resorts",
-                city: "دبي",
-                address: "نخلة جميرا، دبي، الإمارات العربية المتحدة",
-                coordinates: { lat: 25.1304, lng: 55.1172 },
-                starRating: 5,
-                descriptions: {
-                    ar: "منتجع أتلانتس النخلة الشهير عالمياً يقع في جزيرة النخلة ويقدم تجارب ترفيهية ومائية لا تُنسى.",
-                    en: "Atlantis, The Palm is a majestic 5-star destination resort set on the iconic Palm Jumeirah in Dubai."
-                },
-                images: [
-                    "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80",
-                    "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80"
-                ],
-                amenities: ["دخول مجاني لأكواريوم اللبرنت", "شاطئ خاص", "مطاعم حائزة على نجوم ميشلان", "سبا فاخر"],
-                policies: {
-                    checkIn: "15:00",
-                    checkOut: "12:00",
-                    cancellation: "استرداد جزئي (50%) حتى قبل الموعد بـ 24 ساعة ⚠️",
-                    funnyRule: "سمكة الشيمو ممنوعة من المسابح! 🐠"
-                },
-                basePriceAED: 2202
-            },
-            {
-                hotelId: "RIMAL-AUH-001",
-                name: "قصر الإمارات ماندَرين أورينتال، أبوظبي",
-                brand: "Mandarin Oriental",
-                city: "أبوظبي",
-                address: "كورنيش أبوظبي، أبوظبي، الإمارات العربية المتحدة",
-                coordinates: { lat: 24.4624, lng: 54.3211 },
-                starRating: 5,
-                descriptions: {
-                    ar: "معلم معماري فاخر يعكس الفخامة العربية الأصيلة على شواطئ العاصمة أبوظبي.",
-                    en: "Emirates Palace Mandarin Oriental offers an authentic Arabian experience combined with luxury."
-                },
-                images: [
-                    "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80"
-                ],
-                amenities: ["شاطئ رملي خاص", "خدمة الخادم الشخصي", "قاعات احتفالات ملكية", "مهبط طائرات عمودية"],
-                policies: {
-                    checkIn: "15:00",
-                    checkOut: "12:00",
-                    cancellation: "حجز غير قابل للاسترداد (Non-refundable) 🔒",
-                    funnyRule: "ندفع بالذهب الخالص فقط! ✨"
-                },
-                basePriceAED: 1651
-            }
-        ];
-
-        if (hotelNameQuery) {
-            const filtered = hotelsContent.filter(h => h.name.toLowerCase().includes(hotelNameQuery) || h.city.toLowerCase().includes(hotelNameQuery));
-            return res.json({ success: true, count: filtered.length, hotels: filtered });
-        }
-
-        res.json({
-            success: true,
-            provider: "شركة الرمال الدولية - Content Feed",
-            count: hotelsContent.length,
-            hotels: hotelsContent
-        });
-
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ==========================================
-// 🔌 Availability & Rates API (التحقق من التوافر والأسعار)
-// ==========================================
-app.post('/api/v1/hotels/availability-rates', async (req, res) => {
-    try {
-        let { hotelName, checkInDate, checkOutDate, guests, currency } = req.body;
-
-        if (!hotelName || !checkInDate || !checkOutDate) {
-            return res.status(400).json({ 
-                success: false, 
-                error: 'الرجاء تحديد اسم الفندق وتواريخ الدخول والخروج للتحقق من التوافر.' 
-            });
-        }
-
-        const start = new Date(checkInDate);
-        const end = new Date(checkOutDate);
-        const diffTime = Math.abs(end - start);
-        const nights = Math.ceil(diffTime / (1000 * 60 * 60 * 24)) || 1;
-
-        let basePricePerNightAED = 450;
-        let refundPolicyText = 'استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة ✨';
-        let refundTypeCode = 'full_100';
-
-        if (hotelName.includes('أتلانتس')) {
-            basePricePerNightAED = 2202;
-            refundPolicyText = 'استرداد جزئي (50%) حتى قبل الموعد بـ 24 ساعة ⚠️';
-            refundTypeCode = 'partial_50';
-        }
-        if (hotelName.includes('قصر الإمارات')) {
-            basePricePerNightAED = 1651;
-            refundPolicyText = 'حجز غير قابل للاسترداد (Non-refundable) 🔒';
-            refundTypeCode = 'non_refundable';
-        }
-
-        let totalBaseAED = basePricePerNightAED * nights;
-        let finalPrice = totalBaseAED;
-        let targetCurrency = (currency || 'AED').toUpperCase();
-
-        if (targetCurrency !== 'AED') {
-            try {
-                const currencyRes = await fetch(`https://api.frankfurter.app/latest?from=AED&to=${targetCurrency}`);
-                const currencyData = await currencyRes.json();
-                if (currencyData.rates && currencyData.rates[targetCurrency]) {
-                    const rate = currencyData.rates[targetCurrency];
-                    finalPrice = (totalBaseAED * rate).toFixed(2);
-                }
-            } catch (err) {
-                console.error('خطأ في جلب سعر العملة الحية:', err);
-            }
-        }
-
-        res.json({
-            success: true,
-            availability: {
-                status: 'AVAILABLE',
-                hotelName,
-                checkIn: checkInDate,
-                checkOut: checkOutDate,
-                nightsCount: nights,
-                guestsCount: guests || 2,
-                priceBreakdown: {
-                    baseCurrency: 'AED',
-                    pricePerNightAED: basePricePerNightAED,
-                    totalPriceAED: totalBaseAED
-                },
-                convertedPricing: {
-                    currency: targetCurrency,
-                    finalTotal: finalPrice
-                },
-                cancellationPolicy: refundPolicyText,
-                refundType: refundTypeCode,
-                funnyNote: 'احجز الآن ولا تفكر كثيرًا، العرض ساري حتى نفاد البطاطس الحارة! 😂'
-            }
-        });
-
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ==========================================
-// 🔌 نظام Booking & Reservation API المتكامل
-// ==========================================
-app.put('/api/v1/bookings/update/:reference', async (req, res) => {
-    try {
-        const reference = req.params.reference;
-        const { companions, paymentMethod, status } = req.body;
-
-        const booking = await Booking.findOne({ bookingReference: reference });
-        if (!booking) {
-            return res.status(404).json({ success: false, error: 'الحجز غير موجود برقم المرجع المحدد' });
-        }
-
-        if (companions) booking.companions = companions;
-        if (paymentMethod) booking.paymentMethod = paymentMethod;
-        if (status) booking.status = status;
-
-        await booking.save();
-
-        res.json({
-            success: true,
-            message: 'تم تحديث بيانات الحجز بنجاح',
-            booking
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-// ❌ إلغاء الحجز والاسترداد حسب شروط الـ API وسياسة الفندق
-app.post('/api/v1/bookings/cancel', async (req, res) => {
-    try {
-        const { bookingReference } = req.body;
-        const booking = await Booking.findOne({ bookingReference });
-        
-        if (!booking) {
-            return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
-        }
-
-        if (booking.status === 'refunded' || booking.status === 'cancelled') {
-            return res.status(400).json({ success: false, error: 'الحجز ملغي مسبقاً' });
-        }
-
-        booking.status = 'cancelled';
-        await booking.save();
-
-        res.json({
-            success: true,
-            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وتفعيل مسار الاسترداد (${booking.cancellationPolicy}).`,
-            bookingReference,
-            status: 'cancelled',
-            refundType: booking.refundType
-        });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
-});
-
-app.get('/api/admin/bookings', async (req, res) => {
-    try {
-        const bookings = await Booking.find().sort({ createdAt: -1 });
-        res.json({ success: true, bookings });
-    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-});
-
-app.get('/api/reviews', async (req, res) => {
-    try {
-        const hotelName = req.query.hotelName;
-        const reviews = await Review.find(hotelName ? { hotelName } : {}).sort({ createdAt: -1 });
-        res.json({ success: true, reviews });
-    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
-});
-
-app.post('/api/reviews', async (req, res) => {
-    try {
-        const { hotelName, customerName, email, rating, comment } = req.body;
-        const newReview = new Review({ hotelName, customerName, email, rating, comment });
-        await newReview.save();
-        res.json({ success: true, message: 'تم إضافة تقييمك بنجاح!' });
-    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
@@ -800,7 +448,6 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
 
         doc.fontSize(22).fillColor('#1f3a40').font('Helvetica-Bold').text('RIMAL INTERNATIONAL', { align: 'center' });
         doc.fontSize(10).fillColor('#ff595e').font('Helvetica').text('Official Booking Voucher ✈️', { align: 'center' });
-        
         doc.moveDown(1.5);
         doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
         doc.moveDown(1.5);
@@ -824,10 +471,7 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
     }
 });
 
-app.get('/admin', (req, res) => {
-    res.sendFile(path.join(__dirname, 'admin.html'));
-});
-
+app.get('/admin', (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
 
 const PORT = process.env.PORT || 10000;
