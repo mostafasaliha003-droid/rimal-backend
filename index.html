@@ -202,7 +202,7 @@
     <div id="mainView" class="view-section active">
         <section class="hero">
             <h1 id="heroTitle">عروض فنادق تخلّيك تفكّر تسحب على الدوام! 🏝️💸</h1>
-            <p id="heroSubtitle">حدد تاريخ روحتك ورجعتك، وخل الباقي علينا!</p>
+            <p id="heroSubtitle">حدد تاريخ روحتك ورجعتك، وخل الباقي علينا عبر سحابة remalbookings.com!</p>
         </section>
 
         <div class="search-container">
@@ -269,7 +269,7 @@
     <div id="lookupView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>تتبع حجزك السريع برقم المرجع 🔍</h1>
-            <p>استعلم عن حالة حجزك وحمل قسيمة الـ PDF فوراً!</p>
+            <p>استعلم عن حالة حجزك وحمل قسيمة الـ PDF الرسمية فوراً عبر السحابة!</p>
         </section>
 
         <div class="container" style="max-width: 600px;">
@@ -296,7 +296,7 @@
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>بوابة حسابك الذكي وحجوزاتك 🚀</h1>
-            <p>إدارة الحجوزات ومتابعة نقاطك بضغطة زر!</p>
+            <p>إدارة الحجوزات، سياسات الاسترداد، ومتابعة النقاط من سحابة MongoDB Atlas!</p>
         </section>
 
         <div class="container">
@@ -312,13 +312,13 @@
                         <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة</p>
                     </div>
                     <div style="background: rgba(0, 180, 216, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-cyan);">
-                        <h4>☁️ حالة الاتصال (Render Backend)</h4>
-                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل بالسحابة 🔒 (MongoDB Atlas)</div>
+                        <h4>☁️ حالة الاتصال (remalbookings.com)</h4>
+                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل وآمن 🔒 (MongoDB Atlas)</div>
                     </div>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة</h3>
+                    <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة وقسائم الـ PDF</h3>
                     <button onclick="fetchUserData()" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
                 </div>
                 <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
@@ -326,7 +326,7 @@
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول والإنشاء -->
+    <!-- نافذة تسجيل الدخول والإنشاء مع كود التحقق الثنائي OTP -->
     <div id="socialModal" class="modal-overlay">
         <div class="modal-content">
             <div class="tab-switcher">
@@ -335,30 +335,30 @@
             </div>
 
             <form id="loginForm" onsubmit="handleDirectLogin(event)" style="display: none;">
-                <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل 🔑</h3>
+                <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل للسحابة 🔑</h3>
                 <div class="form-group" style="text-align: right;"><label>البريد:</label><input type="email" id="loginEmail" required></div>
                 <div class="form-group" style="text-align: right;"><label>كلمة المرور:</label><input type="password" id="loginPassword" required></div>
-                <button type="submit" class="btn-book">دخول للسحابة 🚀</button>
+                <button type="submit" class="btn-book">دخول 🚀</button>
             </form>
 
             <div id="registerContainer">
                 <form id="step1Form" onsubmit="requestVerificationCode(event)">
-                    <h3 style="color: var(--primary); margin-bottom: 15px;">فتح حساب جديد ☁️</h3>
+                    <h3 style="color: var(--primary); margin-bottom: 15px;">فتح حساب جديد مع كود التحقق OTP ☁️</h3>
                     <div class="form-group" style="text-align: right;"><label>الاسم:</label><input type="text" id="modalName" required></div>
-                    <div class="form-group" style="text-align: right;"><label>البريد:</label><input type="email" id="modalEmail" required></div>
+                    <div class="form-group" style="text-align: right;"><label>البريد الإلكتروني:</label><input type="email" id="modalEmail" required></div>
                     <div class="form-group" style="text-align: right;"><label>كلمة المرور:</label><input type="password" id="modalPassword" required></div>
                     <div class="form-group" style="text-align: right;"><label>الهاتف:</label><input type="tel" id="modalPhone" required></div>
-                    <button type="submit" class="btn-book">إنشاء حساب وإرسال الكود 🚀</button>
+                    <button type="submit" class="btn-book">إرسال كود التحقق OTP إلى البريد 🚀</button>
                 </form>
             </div>
             <button type="button" onclick="closeAuthModal()" style="margin-top:15px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
         </div>
     </div>
 
-    <!-- نافذة الدفع وإتمام الحجز -->
+    <!-- نافذة إتمام الحجز مع شروط الاسترداد -->
     <div id="bookingView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
-            <h1>ساعة الحقيقة ودفع الغرامة (الحجز) 📝</h1>
+            <h1>تأكيد الحجز وسياسة الاسترداد 📝</h1>
         </section>
 
         <div class="container" style="max-width: 800px;">
@@ -366,16 +366,25 @@
                 <h2 id="hotelNameTitle" style="color: var(--primary); margin-bottom: 20px;"></h2>
                 <form id="bookingForm" onsubmit="confirmReservation(event)">
                     <div class="form-group"><label>الاسم الكريم:</label><input type="text" id="custName" required></div>
-                    <div class="form-group"><label>الإيميل:</label><input type="email" id="custEmail" required></div>
-                    <div class="form-group"><label>التليفون (للتواصل عبر WhatsApp):</label><input type="tel" id="custPhone" required placeholder="+971544757578"></div>
+                    <div class="form-group"><label>الإيميل (لإرسال قسيمة PDF المؤكدة):</label><input type="email" id="custEmail" required></div>
+                    <div class="form-group"><label>التليفون:</label><input type="tel" id="custPhone" required placeholder="+971544757578"></div>
                     <div class="form-group"><label>أسماء المرافقين:</label><textarea id="custCompanions" rows="2"></textarea></div>
                     
+                    <div class="form-group">
+                        <label>اختر سياسة الاسترداد (حسب شروط الفندق والـ API):</label>
+                        <select id="refundTypeSelect" required style="border-color: var(--accent-cyan); background: rgba(0,180,216,0.05);">
+                            <option value="full_100">✨ استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة</option>
+                            <option value="partial_50">⚠️ استرداد جزئي (50%) في حال الإلغاء قبل 24 ساعة</option>
+                            <option value="non_refundable">🔒 حجز غير قابل للاسترداد (Non-refundable)</option>
+                        </select>
+                    </div>
+
                     <div class="form-group" style="background: rgba(255, 202, 58, 0.15); padding: 15px; border-radius: 14px; border: 2px dashed var(--accent-yellow);">
                         <label style="color: var(--primary);">💰 خصم فوري من حصالة النقاط:</label>
                         <select id="pointsDiscountSelect" onchange="updateFinalPriceCalculation()" style="margin-top: 5px;">
                             <option value="0">بدون استخدام نقاط</option>
                         </select>
-                        <small style="color: var(--accent-coral); font-weight: bold;" id="pointsDiscountHint">كل 10 نقاط = 1 درهم خصم</small>
+                        <small style="color: var(--accent-coral); font-weight: bold;">كل 10 نقاط = 1 درهم خصم</small>
                     </div>
 
                     <div class="form-group">
@@ -387,7 +396,7 @@
                     </div>
 
                     <h3 style="margin-bottom: 15px; color: var(--primary);">المبلغ الإجمالي بعد الخصم: <span id="finalPriceDisplay" style="color: var(--accent-coral);">0</span> <span id="finalPriceCurrencyLabel">AED</span></h3>
-                    <button type="submit" class="btn-book"><i class="fa-brands fa-whatsapp fa-lg"></i> إرسال وتأكيد الحجز عبر الـ API والواتساب</button>
+                    <button type="submit" class="btn-book"><i class="fa-regular fa-envelope fa-lg"></i> تثبيت الحجز وإرسال القسيمة إلى الإيميل فوراً 🚀</button>
                 </form>
             </div>
         </div>
@@ -403,7 +412,7 @@
             <div class="footer-col">
                 <h4>تواصل معنا 📞</h4>
                 <a href="https://wa.me/971544757578" target="_blank"><i class="fa-brands fa-whatsapp" style="color: #25D366; font-size: 20px;"></i> +971 54 475 7578</a>
-                <a href="mailto:managment@remaltourismllc.com"><i class="fa-regular fa-envelope"></i> managment@remaltourismllc.com</a>
+                <a href="mailto:management@remaltourismllc.com"><i class="fa-regular fa-envelope"></i> management@remaltourismllc.com</a>
             </div>
             
             <div class="footer-col">
@@ -415,7 +424,7 @@
         </div>
         
         <div class="footer-bottom">
-            &copy; 2026 <strong>شركة الرمال الدولية</strong>. جميع الحقوق محفوظة.
+            &copy; 2026 <strong>شركة الرمال الدولية (remalbookings.com)</strong>. جميع الحقوق محفوظة.
         </div>
     </footer>
 
@@ -436,7 +445,7 @@
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCkqVnoRsRtoETOTqR68CUtyk0o0E3XaEQ&callback=initGoogleMap"></script>
 
     <script>
-        // 🌐 الرابط الأساسي لسيرفر Render السحابي
+        // 🌐 الرابط الأساسي لسيرفر Render السحابي والمربوط مع remalbookings.com
         const API_URL = 'https://rimal-api.onrender.com';
 
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
@@ -455,7 +464,17 @@
             document.getElementById('checkOutDate').valueAsDate = tomorrow;
             displayHotels(allHotels);
             checkUserSession();
+            checkAtlasConnection();
         };
+
+        // 🔗 التحقق من ربط قاعدة بيانات Atlas وموقع remalbookings.com
+        async function checkAtlasConnection() {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/health-check`);
+                const data = await res.json();
+                console.log('✅ اتصال السحابة بـ remalbookings.com:', data);
+            } catch(e) { console.error('خطأ في اتصال السحابة'); }
+        }
 
         function changeCurrency() {
             const selectedCurrency = document.getElementById('currencySelector').value;
@@ -554,7 +573,7 @@
             }
         }
 
-        // ☁️ إنشاء حساب جديد وإرسال كود التحقق عبر الـ API
+        // ☁️ تفعيل التسجيل عبر التحقق الثنائي (OTP) وإرسال الكود للإيميل
         async function requestVerificationCode(e) {
             e.preventDefault();
             const name = document.getElementById('modalName').value;
@@ -570,7 +589,7 @@
                 });
                 const data = await res.json();
                 if(data.success) {
-                    let code = prompt('تم إرسال كود التحقق إلى بريدك الإلكتروني. أدخل الكود المكون من 6 أرقام هنا:');
+                    let code = prompt('📩 تم إرسال كود التحقق الثنائي (OTP) إلى بريدك الإلكتروني. أدخل الـ 6 أرقام هنا:');
                     if(code) {
                         const verifyRes = await fetch(`${API_URL}/api/auth/verify-and-register`, {
                             method: 'POST',
@@ -582,9 +601,9 @@
                             currentUser = verifyData.user;
                             localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
                             closeAuthModal(); checkUserSession(); switchView('registerView');
-                            alert('🎉 تم تفعيل الحساب بنجاح عبر السحابة! تمت إضافة 500 نقطة هدية.');
+                            alert('🎉 تم تفعيل الحساب بنجاح عبر سحابة MongoDB Atlas! تمت إضافة 500 نقطة هدية.');
                         } else {
-                            alert('❌ الكود غير صحيح.');
+                            alert('❌ كود التحقق غير صحيح أو انتهت صلاحيته.');
                         }
                     }
                 } else {
@@ -617,7 +636,8 @@
                             <p><strong>اسم العميل:</strong> ${b.customerName}</p>
                             <p><strong>المرجع:</strong> <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span></p>
                             <p><strong>المبلغ المدفوع:</strong> ${b.price} AED</p>
-                            <p><strong>الحالة:</strong> <span style="color:green; font-weight:bold;">مؤكد في السحابة ✅</span></p>
+                            <p><strong>سياسة الاسترداد:</strong> ${b.cancellationPolicy}</p>
+                            <p><strong>الحالة:</strong> <span style="color:green; font-weight:bold;">مؤكد سحابياً ✅</span></p>
                             <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" style="display:inline-block; margin-top:10px; background:#1f3a40; color:white; padding:8px 15px; border-radius:8px; text-decoration:none; font-weight:bold;">📄 تحميل قسيمة الحجز PDF</a>
                         </div>
                     `;
@@ -629,7 +649,7 @@
             }
         }
 
-        // 🔄 جلب بيانات المستخدم والحجوزات من قاعدة بيانات MongoDB Atlas
+        // 🔄 جلب بيانات المستخدم والحجوزات من MongoDB Atlas مع خيار إعادة إرسال القسيمة أو الإلغاء
         async function fetchUserData() {
             if(currentUser) {
                 try {
@@ -650,15 +670,18 @@
                             bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">لا توجد حجوزات مسجلة في السحابة حالياً.</div>`;
                         } else {
                             data.bookings.forEach(b => {
+                                let isCancelled = b.status === 'cancelled';
                                 bookingsContainer.innerHTML += `
                                     <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 18px; border-radius: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
                                         <div>
                                             <strong style="font-size: 16px; color: var(--primary);">${b.hotelName}</strong><br>
                                             <small style="color:var(--text-muted);">رقم المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | الإجمالي: ${b.price} AED</small><br>
+                                            <small style="color:#0077b6;">${b.cancellationPolicy}</small>
                                         </div>
-                                        <div style="display: flex; gap: 8px; align-items: center;">
-                                            <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" style="background: var(--accent-cyan); color: white; padding:5px 12px; border-radius:8px; text-decoration:none; font-weight:bold;">📄 PDF</a>
-                                            <span style="background: rgba(0,180,216,0.1); color: var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold;">مؤكد ☁️</span>
+                                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap:wrap;">
+                                            <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" style="background: var(--accent-cyan); color: white; padding:5px 12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px;">📄 PDF</a>
+                                            <button onclick="resendVoucherEmail('${b.bookingReference}', '${b.email}')" style="background: #7209b7; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;"><i class="fa-solid fa-paper-plane"></i> إعادة إرسال</button>
+                                            ${!isCancelled ? `<button onclick="cancelBookingAPI('${b.bookingReference}')" style="background: #ff595e; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">إلغاء واسترداد ❌</button>` : `<span style="color:#ff595e; font-weight:bold; font-size:12px;">ملغي ومسترد ⚠️</span>`}
                                         </div>
                                     </div>
                                 `;
@@ -668,6 +691,46 @@
                 } catch(e) {
                     console.error('خطأ في جلب بيانات الملف الشخصي');
                 }
+            }
+        }
+
+        // 🔄 وظيفة إعادة إرسال القسيمة إلى الإيميل عبر الـ API
+        async function resendVoucherEmail(bookingReference, email) {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/bookings/resend-email`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookingReference, email })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert('✅ ' + data.message);
+                } else {
+                    alert('❌ ' + data.error);
+                }
+            } catch(e) {
+                alert('❌ خطأ في الاتصال بالخادم.');
+            }
+        }
+
+        // ❌ وظيفة إلغاء الحجز والاسترداد عبر الـ API
+        async function cancelBookingAPI(bookingReference) {
+            if(!confirm('هل أنت متأكد من رغبتك في إلغاء الحجز وتفعيل سياسة الاسترداد؟')) return;
+            try {
+                const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookingReference })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert('✅ ' + data.message);
+                    fetchUserData();
+                } else {
+                    alert('❌ ' + data.error);
+                }
+            } catch(e) {
+                alert('❌ خطأ في الاتصال بالخادم.');
             }
         }
 
@@ -763,7 +826,7 @@
             element.classList.add('selected');
         }
 
-        // 🚀 إرسال الحجز وإنشاء قسيمة PDF في السحابة عبر API
+        // 🚀 إرسال الحجز السحابي وإرسال قسيمة PDF الرسمية عبر الإيميل حصرياً (بدون واتساب)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -772,10 +835,9 @@
             const companions = document.getElementById('custCompanions').value;
             const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
             const pointsUsed = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
+            const refundType = document.getElementById('refundTypeSelect').value;
             
             const finalPrice = parseFloat(document.getElementById('finalPriceDisplay').innerText);
-            const currencyLabel = document.getElementById('finalPriceCurrencyLabel').innerText;
-            const paymentText = paymentMethod === 'visa' ? 'دفع إلكتروني (Ziina)' : 'الدفع عند الوصول للفندق';
 
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/create`, {
@@ -789,30 +851,13 @@
                         companions,
                         paymentMethod,
                         price: currentBasePrice,
-                        pointsUsed
+                        pointsUsed,
+                        refundType
                     })
                 });
                 const data = await res.json();
                 if(data.success) {
-                    const bookingRef = data.data.bookingReference;
-                    
-                    const whatsappNumber = "971544757578";
-                    const message = `مرحباً شركة الرمال الدولية، أود تأكيد حجز فندقي جديد:\n\n` +
-                                    `*الفندق:* ${selectedHotel}\n` +
-                                    `*رقم المرجع:* ${bookingRef}\n` +
-                                    `*اسم العميل:* ${customerName}\n` +
-                                    `*الهاتف:* ${phone}\n` +
-                                    `*المرافقين:* ${companions || 'لا يوجد'}\n` +
-                                    `*طريقة الدفع:* ${paymentText}\n` +
-                                    `*المبلغ الإجمالي:* ${finalPrice} ${currencyLabel}\n\n` +
-                                    `تم حفظ الحجز وإرسال قسيمة الـ PDF إلى بريدك الإلكتروني بنجاح!`;
-
-                    const encodedMessage = encodeURIComponent(message);
-                    const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
-                    
-                    alert(`✅ تم حفظ الحجز في السحابة بنجاح! تم إرسال قسيمة الـ PDF إلى بريدك الإلكتروني وسيتم تحويلك للواتساب.`);
-                    window.open(whatsappUrl, '_blank');
-                    
+                    alert(`✅ تم تأكيد وحفظ الحجز في سحابة remalbookings.com بنجاح!\n\nتم إرسال قسيمة الحجز الرسمية (PDF) وتفاصيل سياسة الاسترداد فوراً إلى بريدك الإلكتروني: ${email}`);
                     switchView('registerView');
                     fetchUserData();
                 } else {
