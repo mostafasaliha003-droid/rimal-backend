@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>لوحة تحكم الإدارة الآمنة | شركة الرمال الدولية 🚀</title>
+    <title>لوحة تحكم الإدارة | شركة الرمال الدولية ✈️</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     <style>
@@ -17,214 +17,218 @@
             --shadow: 0 10px 30px rgba(31, 58, 64, 0.12);
         }
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; }
-        body { background-color: var(--bg-light); color: var(--primary); padding: 20px; }
-        
-        #loginOverlay {
-            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
-            background: rgba(31, 58, 64, 0.85); backdrop-filter: blur(8px);
-            display: flex; justify-content: center; align-items: center; z-index: 5000;
+        body { background-color: var(--bg-light); color: var(--primary); }
+
+        header {
+            background-color: var(--white); padding: 15px 5%; display: flex; justify-content: space-between;
+            align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-bottom: 4px dashed var(--accent-cyan);
         }
-        .login-card {
-            background: white; padding: 35px; border-radius: 24px; width: 90%; max-width: 420px;
-            border: 4px solid var(--accent-yellow); text-align: center; box-shadow: var(--shadow);
+        .brand { font-size: 20px; font-weight: 900; color: var(--primary); display: flex; align-items: center; gap: 10px; }
+        
+        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+
+        /* نموذج تسجيل دخول الأدمن */
+        #adminLoginBox {
+            max-width: 450px; background: white; padding: 35px; border-radius: 24px;
+            box-shadow: var(--shadow); border: 4px solid var(--accent-yellow); margin: 60px auto; text-align: center;
         }
         .form-group { margin-bottom: 18px; text-align: right; }
         .form-group label { display: block; font-weight: 900; margin-bottom: 6px; color: var(--primary); }
         .form-group input { width: 100%; padding: 14px; border-radius: 14px; border: 2px solid #cbd5e1; outline: none; font-size: 14px; font-weight: 700; }
-        .btn-login { background: linear-gradient(135deg, var(--accent-coral), #d90429); color: white; border: none; padding: 14px; width: 100%; border-radius: 14px; font-weight: 900; font-size: 16px; cursor: pointer; box-shadow: 0 4px 0 #b7094c; }
+        .btn-admin { background: linear-gradient(135deg, var(--accent-coral), #d90429); color: white; border: none; padding: 14px; width: 100%; font-weight: 900; border-radius: 14px; cursor: pointer; font-size: 16px; }
 
-        #adminMainContent { display: none; }
-        .header { background: var(--white); padding: 20px 30px; border-radius: 20px; box-shadow: var(--shadow); display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--accent-yellow); margin-bottom: 30px; }
+        /* لوحة التحكم الرئيسية */
+        #adminDashboard { display: none; }
         .stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(220px, 1fr)); gap: 20px; margin-bottom: 30px; }
-        .stat-card { background: var(--white); padding: 20px; border-radius: 18px; box-shadow: var(--shadow); border: 2px solid var(--accent-cyan); text-align: center; }
-        .stat-card h3 { font-size: 14px; color: #6c757d; margin-bottom: 8px; }
-        .stat-card p { font-size: 26px; font-weight: 900; color: var(--accent-coral); }
-        .table-container { background: var(--white); padding: 25px; border-radius: 20px; box-shadow: var(--shadow); border: 3px solid var(--accent-yellow); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; text-align: right; }
+        .stat-card { background: white; padding: 22px; border-radius: 20px; box-shadow: var(--shadow); border: 3px solid var(--accent-cyan); text-align: center; }
+        .stat-card h4 { font-size: 14px; color: var(--text-muted); margin-bottom: 8px; font-weight: 800; }
+        .stat-card span { font-size: 26px; font-weight: 900; color: var(--accent-coral); }
+
+        .table-card { background: white; padding: 25px; border-radius: 24px; box-shadow: var(--shadow); border: 3px solid var(--accent-yellow); overflow-x: auto; }
+        table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: right; }
         th, td { padding: 14px; border-bottom: 2px solid #e9ecef; font-size: 14px; }
-        th { background: #f8f9fa; color: var(--primary); font-weight: 900; }
-        .badge { padding: 5px 12px; border-radius: 8px; font-weight: bold; font-size: 12px; }
-        .badge.active { background: rgba(0, 180, 216, 0.15); color: var(--accent-cyan); }
-        .badge.cancelled { background: rgba(255, 89, 94, 0.15); color: var(--accent-coral); }
-        .action-btn { background: var(--accent-coral); color: white; border: none; padding: 6px 12px; border-radius: 8px; cursor: pointer; font-weight: bold; }
-        .action-btn.green { background: #2a9d8f; }
+        th { background: #f8f9fa; font-weight: 900; color: var(--primary); }
+        .badge { padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 12px; display: inline-block; }
+        .badge-active { background: rgba(0, 180, 216, 0.15); color: var(--accent-cyan); }
+        .badge-cancelled { background: rgba(255, 89, 94, 0.15); color: var(--accent-coral); }
+        
+        .action-btn { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; margin-left: 5px; }
+        .action-btn.danger { background: var(--accent-coral); }
     </style>
 </head>
 <body>
 
-    <div id="loginOverlay">
-        <div class="login-card">
-            <h2 style="color: var(--primary); margin-bottom: 8px;">🔐 دخول إدارة الشركة</h2>
-            <p style="font-size: 12px; color: #6c757d; margin-bottom: 20px;">شركة الرمال الدولية - لوحة التحكم الآمنة</p>
+    <header>
+        <div class="brand"><i class="fa-solid fa-shield-halved" style="color: var(--accent-coral);"></i> لوحة تحكم الإدارة - شركة الرمال الدولية ✈️</div>
+        <button id="logoutBtn" onclick="adminLogout()" style="display:none; background:var(--accent-coral); color:white; border:none; padding:8px 16px; border-radius:10px; font-weight:bold; cursor:pointer;">تسجيل خروج</button>
+    </header>
+
+    <div class="container">
+        <!-- نموذج تسجيل دخول المدير -->
+        <div id="adminLoginBox">
+            <h2 style="color: var(--primary); margin-bottom: 20px;">تسجيل دخول الإدارة 🔐</h2>
             <form onsubmit="handleAdminLogin(event)">
                 <div class="form-group">
-                    <label>بريد المدير:</label>
-                    <input type="email" id="adminEmail" required placeholder="management@remaltourismllc.com" value="management@remaltourismllc.com">
+                    <label>البريد الإداري:</label>
+                    <input type="email" id="adminEmail" required placeholder="management@remaltourismllc.com">
                 </div>
                 <div class="form-group">
                     <label>كلمة المرور:</label>
                     <input type="password" id="adminPassword" required placeholder="********">
                 </div>
-                <button type="submit" class="btn-login">دخول للوحة التحكم 🚀</button>
+                <button type="submit" class="btn-admin">دخول لوحة التحكم 🚀</button>
             </form>
-            <div id="loginError" style="color: var(--accent-coral); font-weight: bold; margin-top: 12px; font-size: 13px;"></div>
-        </div>
-    </div>
-
-    <div id="adminMainContent">
-        <div class="header">
-            <div>
-                <h2>🏢 لوحة تحكم شركة الرمال الدولية</h2>
-                <p style="font-size: 13px; color: #6c757d; margin-top: 4px;">متابعة الحجوزات، الإيرادات، وإدارة العمليات بالسحابة</p>
-            </div>
-            <div style="display: flex; gap: 10px;">
-                <a href="/" style="background: var(--primary); color: white; padding: 10px 15px; border-radius: 12px; text-decoration: none; font-weight: bold;"><i class="fa-solid fa-house"></i> الموقع</a>
-                <button onclick="adminLogout()" style="background: var(--accent-coral); color: white; border: none; padding: 10px 15px; border-radius: 12px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-right-from-bracket"></i> خروج</button>
-            </div>
         </div>
 
-        <div class="stats-grid">
-            <div class="stat-card">
-                <h3>إجمالي الحجوزات</h3>
-                <p id="statTotal">0</p>
+        <!-- لوحة التحكم الرئيسية للأدمن -->
+        <div id="adminDashboard">
+            <div class="stats-grid">
+                <div class="stat-card">
+                    <h4>إجمالي أرباح الشركة (نشط) 💰</h4>
+                    <span id="totalRevenue">0</span> <small style="font-weight:bold;">AED</small>
+                </div>
+                <div class="stat-card">
+                    <h4>إجمالي عدد الحجوزات 📊</h4>
+                    <span id="totalBookingsCount">0</span>
+                </div>
+                <div class="stat-card">
+                    <h4>الحجوزات النشطة ✅</h4>
+                    <span id="activeBookingsCount" style="color: var(--accent-cyan);">0</span>
+                </div>
+                <div class="stat-card">
+                    <h4>الحجوزات الملغية ❌</h4>
+                    <span id="cancelledBookingsCount" style="color: var(--accent-coral);">0</span>
+                </div>
             </div>
-            <div class="stat-card">
-                <h3>الحجوزات النشطة</h3>
-                <p id="statActive">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>الحجوزات الملغية</h3>
-                <p id="statCancelled">0</p>
-            </div>
-            <div class="stat-card">
-                <h3>إجمالي الإيرادات (AED)</h3>
-                <p id="statRevenue">0 AED</p>
-            </div>
-        </div>
 
-        <div class="table-container">
-            <h3 style="margin-bottom: 20px;"><i class="fa-solid fa-list-check"></i> سجل الحجوزات الواردة</h3>
-            <table>
-                <thead>
-                    <tr>
-                        <th>رقم المرجع</th>
-                        <th>اسم العميل</th>
-                        <th>الفندق</th>
-                        <th>الإيميل والهاتف</th>
-                        <th>المبلغ المدفوع</th>
-                        <th>الحالة</th>
-                        <th>الإجراءات</th>
-                    </tr>
-                </thead>
-                <tbody id="adminBookingsTable">
-                    <tr><td colspan="7" style="text-align: center;">جاري تحميل البيانات من السحابة... ⏳</td></tr>
-                </tbody>
-            </table>
+            <div class="table-card">
+                <div style="display: flex; justify-content: space-between; align-items: center;">
+                    <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> سجل الحجوزات السحابية المباشر</h3>
+                    <button onclick="loadAdminData()" style="background: var(--accent-cyan); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث السجلات</button>
+                </div>
+                <table>
+                    <thead>
+                        <tr>
+                            <th>رقم المرجع</th>
+                            <th>اسم العميل</th>
+                            <th>الإيميل</th>
+                            <th>الفندق</th>
+                            <th>المبلغ (AED)</th>
+                            <th>الحالة</th>
+                            <th>الإجراءات</th>
+                        </tr>
+                    </thead>
+                    <tbody id="adminBookingsTable">
+                        <!-- سيتم تعبئتها برمجياً -->
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 
     <script>
+        const API_URL = 'https://rimal-api.onrender.com';
+        let isAdminLoggedIn = localStorage.getItem('rimal_admin_auth') === 'true';
+
         window.onload = function() {
-            if (sessionStorage.getItem('rimal_admin_logged') === 'true') {
-                document.getElementById('loginOverlay').style.display = 'none';
-                document.getElementById('adminMainContent').style.display = 'block';
-                fetchAdminData();
+            if(isAdminLoggedIn) {
+                document.getElementById('adminLoginBox').style.display = 'none';
+                document.getElementById('adminDashboard').style.display = 'block';
+                document.getElementById('logoutBtn').style.display = 'block';
+                loadAdminData();
             }
         };
 
         async function handleAdminLogin(e) {
             e.preventDefault();
-            const email = document.getElementById('adminEmail').value;
-            const password = document.getElementById('adminPassword').value;
-            const errorDiv = document.getElementById('loginError');
-
-            errorDiv.innerText = 'جاري التحقق... ⏳';
+            const email = document.getElementById('adminEmail').value.trim();
+            const password = document.getElementById('adminPassword').value.trim();
 
             try {
-                const res = await fetch('/api/v1/admin/login', {
+                const res = await fetch(`${API_URL}/api/v1/admin/login`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ email, password })
                 });
                 const data = await res.json();
-
-                if (data.success) {
-                    sessionStorage.setItem('rimal_admin_logged', 'true');
-                    document.getElementById('loginOverlay').style.display = 'none';
-                    document.getElementById('adminMainContent').style.display = 'block';
-                    fetchAdminData();
+                if(data.success) {
+                    localStorage.setItem('rimal_admin_auth', 'true');
+                    document.getElementById('adminLoginBox').style.display = 'none';
+                    document.getElementById('adminDashboard').style.display = 'block';
+                    document.getElementById('logoutBtn').style.display = 'block';
+                    loadAdminData();
+                    alert('✅ تم تسجيل دخول الإدارة بنجاح!');
                 } else {
-                    errorDiv.innerText = '❌ ' + data.error;
+                    alert('❌ خطأ: ' + data.error);
                 }
-            } catch (err) {
-                errorDiv.innerText = '❌ حدث خطأ في الاتصال بالسيرفر.';
+            } catch(err) {
+                alert('❌ خطأ في الاتصال بالخادم.');
+            }
+        }
+
+        async function loadAdminData() {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/admin/stats`);
+                const data = await res.json();
+                if(data.success) {
+                    document.getElementById('totalRevenue').innerText = data.stats.totalRevenueAED.toLocaleString();
+                    document.getElementById('totalBookingsCount').innerText = data.stats.totalBookings;
+                    document.getElementById('activeBookingsCount').innerText = data.stats.activeBookings;
+                    document.getElementById('cancelledBookingsCount').innerText = data.stats.cancelledBookings;
+
+                    const tbody = document.getElementById('adminBookingsTable');
+                    tbody.innerHTML = '';
+                    
+                    if(data.bookings.length === 0) {
+                        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">لا توجد حجوزات مسجلة في السحابة حالياً.</td></tr>`;
+                    } else {
+                        data.bookings.forEach(b => {
+                            let isCancelled = b.status === 'cancelled';
+                            tbody.innerHTML += `
+                                <tr>
+                                    <td><b style="color:var(--accent-coral);">${b.bookingReference}</b></td>
+                                    <td>${b.customerName}</td>
+                                    <td>${b.email}</td>
+                                    <td>${b.hotelName}</td>
+                                    <td><b>${b.price}</b> AED</td>
+                                    <td><span class="badge ${isCancelled ? 'badge-cancelled' : 'badge-active'}">${isCancelled ? 'ملغي ❌' : 'نشط ✅'}</span></td>
+                                    <td>
+                                        <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" class="action-btn" style="text-decoration:none;">📄 PDF</a>
+                                        ${!isCancelled ? `<button onclick="updateBookingStatus('${b.bookingReference}', 'cancelled')" class="action-btn danger">إلغاء ❌</button>` : `<button onclick="updateBookingStatus('${b.bookingReference}', 'active')" class="action-btn">تفعيل ✅</button>`}
+                                    </td>
+                                </tr>
+                            `;
+                        });
+                    }
+                }
+            } catch(err) {
+                console.error('خطأ في جلب إحصائيات الإدارة');
+            }
+        }
+
+        async function updateBookingStatus(bookingReference, status) {
+            if(!confirm(`هل أنت متأكد من تغيير حالة الحجز ${bookingReference} إلى (${status})؟`)) return;
+            try {
+                const res = await fetch(`${API_URL}/api/v1/admin/update-booking-status`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookingReference, status })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert('✅ ' + data.message);
+                    loadAdminData();
+                } else {
+                    alert('❌ ' + data.error);
+                }
+            } catch(e) {
+                alert('❌ خطأ في الاتصال بالخادم.');
             }
         }
 
         function adminLogout() {
-            sessionStorage.removeItem('rimal_admin_logged');
+            localStorage.removeItem('rimal_admin_auth');
             location.reload();
-        }
-
-        async function fetchAdminData() {
-            try {
-                const res = await fetch('/api/v1/admin/stats');
-                const data = await res.json();
-                if (data.success) {
-                    document.getElementById('statTotal').innerText = data.stats.totalBookings;
-                    document.getElementById('statActive').innerText = data.stats.activeBookings;
-                    document.getElementById('statCancelled').innerText = data.stats.cancelledBookings;
-                    document.getElementById('statRevenue').innerText = data.stats.totalRevenueAED + ' AED';
-
-                    const tbody = document.getElementById('adminBookingsTable');
-                    tbody.innerHTML = '';
-
-                    if (data.bookings.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="7" style="text-align: center;">لا توجد حجوزات مسجلة بعد.</td></tr>`;
-                        return;
-                    }
-
-                    data.bookings.forEach(b => {
-                        const isActive = b.status === 'active';
-                        tbody.innerHTML += `
-                            <tr>
-                                <td><b style="color:var(--accent-coral);">${b.bookingReference}</b></td>
-                                <td>${b.customerName || 'غير متوفر'}</td>
-                                <td>${b.hotelName}</td>
-                                <td>${b.email}<br><small style="color:#6c757d;">${b.phone || 'بدون هاتف'}</small></td>
-                                <td><b>${b.price} AED</b></td>
-                                <td><span class="badge ${isActive ? 'active' : 'cancelled'}">${isActive ? 'نشط ✅' : 'ملغي ❌'}</span></td>
-                                <td>
-                                    <a href="/api/bookings/pdf/${b.bookingReference}" target="_blank" class="action-btn green" style="text-decoration:none; display:inline-block; margin-left:5px;"><i class="fa-solid fa-file-pdf"></i> PDF</a>
-                                    ${isActive ? `<button onclick="changeStatus('${b.bookingReference}', 'cancelled')" class="action-btn">إلغاء ⚠️</button>` : `<button onclick="changeStatus('${b.bookingReference}', 'active')" class="action-btn green" style="background:#00b4d8;">تفعيل 🔄</button>`}
-                                </td>
-                            </tr>
-                        `;
-                    });
-                }
-            } catch (err) {
-                console.error(err);
-            }
-        }
-
-        async function changeStatus(ref, newStatus) {
-            if (!confirm(`هل أنت متأكد من تغيير حالة الحجز ${ref} إلى (${newStatus})؟`)) return;
-            try {
-                const res = await fetch('/api/v1/admin/update-booking-status', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bookingReference: ref, status: newStatus })
-                });
-                const data = await res.json();
-                if (data.success) {
-                    alert('✅ ' + data.message);
-                    fetchAdminData();
-                } else {
-                    alert('❌ ' + data.error);
-                }
-            } catch (e) {
-                alert('❌ خطأ في الاتصال بالسيرفر');
-            }
         }
     </script>
 </body>
