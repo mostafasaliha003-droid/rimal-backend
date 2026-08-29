@@ -29,30 +29,49 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
+        /* الهيدر المحسن مع الشعار البارز والمرح والاحترافي */
         header {
-            background-color: var(--white); padding: 12px 5%; display: flex; justify-content: space-between;
-            align-items: center; color: var(--primary); box-shadow: 0 6px 20px rgba(0,0,0,0.06); position: sticky; top: 0; z-index: 1000;
-            border-bottom: 4px dashed var(--accent-cyan);
+            background: linear-gradient(135deg, #1f3a40, #2a4d53); padding: 12px 5%; display: flex; justify-content: space-between;
+            align-items: center; color: var(--white); box-shadow: 0 6px 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
+            border-bottom: 4px solid var(--accent-cyan);
         }
         .brand-logo { 
-            display: flex; align-items: center; gap: 12px; cursor: pointer; text-decoration: none; 
-            background: linear-gradient(135deg, rgba(0, 180, 216, 0.15), rgba(255, 89, 94, 0.15));
-            padding: 8px 20px; border-radius: 50px; border: 3px solid var(--accent-yellow);
-            transition: all 0.3s cubic-bezier(0.68, -0.55, 0.265, 1.55);
+            display: flex; align-items: center; gap: 14px; cursor: pointer; text-decoration: none; 
+            transition: all 0.3s ease;
         }
-        .brand-logo img { height: 48px; object-fit: contain; }
-        .brand-text { font-weight: 900; font-size: 18px; color: var(--primary); display: flex; flex-direction: column; line-height: 1.1; }
-        .brand-text span { font-size: 11px; color: var(--accent-coral); font-weight: 800; }
+        .fun-logo {
+            height: 60px; width: auto; border-radius: 14px; padding: 4px; background: white;
+            box-shadow: 0 6px 20px rgba(0, 180, 216, 0.4);
+            animation: pulseLogo 3s ease-in-out infinite;
+            transition: transform 0.3s ease;
+        }
+        .fun-logo:hover { transform: scale(1.1) rotate(3deg); }
+
+        @keyframes pulseLogo {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.05); }
+            100% { transform: scale(1); }
+        }
+        @keyframes wave {
+            0% { transform: rotate(0deg); }
+            25% { transform: rotate(14deg); }
+            75% { transform: rotate(-14deg); }
+            100% { transform: rotate(0deg); }
+        }
+        .wave-emoji { display: inline-block; animation: wave 1.5s infinite; }
+
+        .brand-text { font-weight: 900; font-size: 19px; color: var(--white); display: flex; flex-direction: column; line-height: 1.2; }
+        .brand-text span { font-size: 11px; color: var(--accent-yellow); font-weight: 800; letter-spacing: 0.5px; }
 
         .header-actions { display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
         
         .wallet-card {
-            background: linear-gradient(135deg, rgba(255, 202, 58, 0.2), rgba(0, 180, 216, 0.2)); border: 2px dashed var(--accent-yellow);
+            background: rgba(255, 202, 58, 0.15); border: 2px dashed var(--accent-yellow);
             border-radius: 16px; display: flex; align-items: center; padding: 8px 16px; gap: 10px; cursor: pointer;
         }
         .wallet-info { display: flex; flex-direction: column; line-height: 1.2; }
-        .wallet-info span { font-size: 10px; color: var(--primary); font-weight: 800; }
-        .wallet-info strong { font-size: 16px; color: var(--accent-coral); font-weight: 900; }
+        .wallet-info span { font-size: 10px; color: #caf0f8; font-weight: 800; }
+        .wallet-info strong { font-size: 16px; color: var(--accent-yellow); font-weight: 900; }
 
         .nav-btn {
             background: var(--white); border: 3px solid var(--primary); color: var(--primary);
@@ -62,10 +81,11 @@
         .nav-btn.account-btn { background: var(--accent-coral); color: white; border-color: #d90429; box-shadow: 0 4px 0 #d90429; }
 
         .settings-dropdown {
-            background: #e9ecef; padding: 6px 12px; border-radius: 14px; font-size: 13px; font-weight: 800; color: var(--primary);
+            background: rgba(255, 255, 255, 0.1); padding: 6px 12px; border-radius: 14px; font-size: 13px; font-weight: 800; color: white;
             border: 2px solid var(--accent-cyan); display: flex; align-items: center; gap: 6px; cursor: pointer;
         }
-        .settings-dropdown select { background: transparent; border: none; font-weight: 900; font-family: 'Cairo'; color: var(--primary); outline: none; cursor: pointer; }
+        .settings-dropdown select { background: transparent; border: none; font-weight: 900; font-family: 'Cairo'; color: white; outline: none; cursor: pointer; }
+        .settings-dropdown select option { background: var(--primary); color: white; }
 
         .hero {
             background: linear-gradient(135deg, rgba(31, 58, 64, 0.92), rgba(114, 9, 183, 0.88)), url('https://images.unsplash.com/photo-1512453979798-5ea266f8880c?auto=format&fit=crop&w=1920&q=80') center/cover;
@@ -158,11 +178,13 @@
 </head>
 <body>
 
+    <!-- الهيدر المحدث مع الشعار الأكبر والأكثر احترافية ومرحاً -->
     <header>
         <a class="brand-logo" onclick="switchView('mainView')">
+            <img src="logo.jpg.jpeg" alt="شركة الرمال الدولية" class="fun-logo">
             <div class="brand-text">
-                <span id="brandName">شركة الرمال الدولية</span>
-                <span id="brandSub">اضحك، احجز، وفلّها! 🤪✈️</span>
+                <span id="brandName">شركة الرمال الدولية <span class="wave-emoji">✈️</span></span>
+                <span id="brandSub">اضحك، احجز، وفلّها! 🤪</span>
             </div>
         </a>
 
@@ -190,7 +212,7 @@
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
 
             <div class="wallet-card">
-                <i class="fa-solid fa-piggy-bank" style="color: var(--accent-coral); font-size: 24px;"></i>
+                <i class="fa-solid fa-piggy-bank" style="color: var(--accent-yellow); font-size: 24px;"></i>
                 <div class="wallet-info">
                     <span id="walletLabel">حصالة حسابك الدائمة</span>
                     <strong><span id="displayPoints">500</span> <span id="pointsLabel">نقطة</span></strong>
@@ -402,7 +424,7 @@
         </div>
     </div>
 
-    <!-- الفوتر (الأسفل) -->
+    <!-- الفوتر -->
     <footer>
         <div class="footer-container">
             <div class="footer-col">
@@ -441,7 +463,6 @@
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
-    <!-- ربط مكتبة خرائط جوجل الرسمية -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCkqVnoRsRtoETOTqR68CUtyk0o0E3XaEQ&callback=initGoogleMap"></script>
 
     <script>
@@ -780,7 +801,6 @@
             if (!currentUser) { alert('الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز!'); openAuthModal('login'); return; }
             selectedHotel = hotelName; currentBasePrice = price;
             document.getElementById('hotelNameTitle').innerText = 'حجز: ' + hotelName;
-            document.getElementById('custName').value = currentUser.name;
             document.getElementById('custName').value = currentUser.name;
             document.getElementById('custEmail').value = currentUser.email;
             document.getElementById('custPhone').value = currentUser.phone || '';
