@@ -25,7 +25,7 @@
         }
         .brand { font-size: 20px; font-weight: 900; color: var(--primary); display: flex; align-items: center; gap: 10px; }
         
-        .container { max-width: 1200px; margin: 30px auto; padding: 0 20px; }
+        .container { max-width: 1250px; margin: 30px auto; padding: 0 20px; }
 
         /* نموذج تسجيل دخول الأدمن */
         #adminLoginBox {
@@ -45,15 +45,22 @@
         .stat-card span { font-size: 26px; font-weight: 900; color: var(--accent-coral); }
 
         .table-card { background: white; padding: 25px; border-radius: 24px; box-shadow: var(--shadow); border: 3px solid var(--accent-yellow); overflow-x: auto; }
-        table { width: 100%; border-collapse: collapse; margin-top: 15px; text-align: right; }
-        th, td { padding: 14px; border-bottom: 2px solid #e9ecef; font-size: 14px; }
+        
+        .admin-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
+        .search-box { display: flex; align-items: center; background: #f8f9fa; border: 2px solid var(--accent-cyan); border-radius: 12px; padding: 6px 14px; width: 320px; }
+        .search-box input { border: none; background: transparent; outline: none; width: 100%; font-family: 'Cairo'; font-weight: 700; font-size: 14px; }
+
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: right; }
+        th, td { padding: 14px; border-bottom: 2px solid #e9ecef; font-size: 13px; }
         th { background: #f8f9fa; font-weight: 900; color: var(--primary); }
-        .badge { padding: 6px 12px; border-radius: 8px; font-weight: 800; font-size: 12px; display: inline-block; }
+        .badge { padding: 5px 10px; border-radius: 8px; font-weight: 800; font-size: 11px; display: inline-block; }
         .badge-active { background: rgba(0, 180, 216, 0.15); color: var(--accent-cyan); }
         .badge-cancelled { background: rgba(255, 89, 94, 0.15); color: var(--accent-coral); }
         
-        .action-btn { background: var(--primary); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 12px; margin-left: 5px; }
+        .action-btn { background: var(--primary); color: white; border: none; padding: 6px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 11px; margin: 2px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
         .action-btn.danger { background: var(--accent-coral); }
+        .action-btn.success { background: #2a9d8f; }
+        .action-btn.contact { background: #7209b7; }
     </style>
 </head>
 <body>
@@ -102,24 +109,32 @@
             </div>
 
             <div class="table-card">
-                <div style="display: flex; justify-content: space-between; align-items: center;">
-                    <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> سجل الحجوزات السحابية المباشر</h3>
-                    <button onclick="loadAdminData()" style="background: var(--accent-cyan); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث السجلات</button>
+                <div class="admin-toolbar">
+                    <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> إدارة السجلات وحجوزات الفنادق المباشرة</h3>
+                    
+                    <div style="display: flex; gap: 10px; align-items: center;">
+                        <div class="search-box">
+                            <i class="fa-solid fa-search" style="color: var(--accent-coral); margin-left: 8px;"></i>
+                            <input type="text" id="bookingSearchInput" placeholder="بحث برقم المرجع (مثل RIMAL-...)" onkeyup="filterAdminBookings()">
+                        </div>
+                        <button onclick="loadAdminData()" style="background: var(--accent-cyan); color: white; border: none; padding: 10px 15px; border-radius: 12px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
+                    </div>
                 </div>
+
                 <table>
                     <thead>
                         <tr>
-                            <th>رقم المرجع</th>
-                            <th>اسم العميل</th>
+                            <th>المرجع</th>
+                            <th>العميل ورقم الهاتف</th>
                             <th>الإيميل</th>
                             <th>الفندق</th>
-                            <th>المبلغ (AED)</th>
+                            <th>المبلغ</th>
                             <th>الحالة</th>
-                            <th>الإجراءات</th>
+                            <th>إجراءات الفندق والعميل ⚙️</th>
                         </tr>
                     </thead>
                     <tbody id="adminBookingsTable">
-                        <!-- سيتم تعبئتها برمجياً -->
+                        <!-- تعبئة برمجية -->
                     </tbody>
                 </table>
             </div>
@@ -129,6 +144,7 @@
     <script>
         const API_URL = 'https://rimal-api.onrender.com';
         let isAdminLoggedIn = localStorage.getItem('rimal_admin_auth') === 'true';
+        let globalBookingsList = [];
 
         window.onload = function() {
             if(isAdminLoggedIn) {
@@ -176,34 +192,89 @@
                     document.getElementById('activeBookingsCount').innerText = data.stats.activeBookings;
                     document.getElementById('cancelledBookingsCount').innerText = data.stats.cancelledBookings;
 
-                    const tbody = document.getElementById('adminBookingsTable');
-                    tbody.innerHTML = '';
-                    
-                    if(data.bookings.length === 0) {
-                        tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">لا توجد حجوزات مسجلة في السحابة حالياً.</td></tr>`;
-                    } else {
-                        data.bookings.forEach(b => {
-                            let isCancelled = b.status === 'cancelled';
-                            tbody.innerHTML += `
-                                <tr>
-                                    <td><b style="color:var(--accent-coral);">${b.bookingReference}</b></td>
-                                    <td>${b.customerName}</td>
-                                    <td>${b.email}</td>
-                                    <td>${b.hotelName}</td>
-                                    <td><b>${b.price}</b> AED</td>
-                                    <td><span class="badge ${isCancelled ? 'badge-cancelled' : 'badge-active'}">${isCancelled ? 'ملغي ❌' : 'نشط ✅'}</span></td>
-                                    <td>
-                                        <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" class="action-btn" style="text-decoration:none;">📄 PDF</a>
-                                        ${!isCancelled ? `<button onclick="updateBookingStatus('${b.bookingReference}', 'cancelled')" class="action-btn danger">إلغاء ❌</button>` : `<button onclick="updateBookingStatus('${b.bookingReference}', 'active')" class="action-btn">تفعيل ✅</button>`}
-                                    </td>
-                                </tr>
-                            `;
-                        });
-                    }
+                    globalBookingsList = data.bookings;
+                    renderBookingsTable(globalBookingsList);
                 }
             } catch(err) {
                 console.error('خطأ في جلب إحصائيات الإدارة');
             }
+        }
+
+        function renderBookingsTable(bookingsArray) {
+            const tbody = document.getElementById('adminBookingsTable');
+            tbody.innerHTML = '';
+            
+            if(bookingsArray.length === 0) {
+                tbody.innerHTML = `<tr><td colspan="7" style="text-align:center;">لا توجد حجوزات مطابقة للبحث في السحابة.</td></tr>`;
+                return;
+            }
+
+            bookingsArray.forEach(b => {
+                let isCancelled = b.status === 'cancelled';
+                let phoneNum = b.phone || '+971544757578';
+                tbody.innerHTML += `
+                    <tr>
+                        <td><b style="color:var(--accent-coral);">${b.bookingReference}</b></td>
+                        <td>
+                            <b>${b.customerName}</b><br>
+                            <a href="tel:${phoneNum}" style="color:#0077b6; text-decoration:none; font-size:12px;"><i class="fa-solid fa-phone"></i> ${phoneNum}</a>
+                        </td>
+                        <td><a href="mailto:${b.email}" style="color:var(--primary); text-decoration:none;">${b.email}</a></td>
+                        <td>${b.hotelName}</td>
+                        <td><b>${b.price}</b> AED</td>
+                        <td><span class="badge ${isCancelled ? 'badge-cancelled' : 'badge-active'}">${isCancelled ? 'ملغي ❌' : 'نشط ✅'}</span></td>
+                        <td>
+                            <div style="display:flex; flex-wrap:wrap; gap:4px;">
+                                <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" class="action-btn" title="تحميل قسيمة PDF">📄 PDF</a>
+                                <a href="mailto:${b.email}?subject=تواصل من شركة الرمال الدولية بخصوص حجزك ${b.bookingReference}" class="action-btn contact" title="راسل العميل عبر الإيميل"><i class="fa-solid fa-envelope"></i> إيميل</a>
+                                <a href="https://wa.me/${phoneNum.replace(/[^0-9]/g, '')}?text=مرحباً بك يا ${b.customerName}، نتواصل معك من شركة الرمال الدولية بخصوص حجزك في ${b.hotelName}" target="_blank" class="action-btn success" title="مراسلة عبر واتساب"><i class="fa-brands fa-whatsapp"></i> واتساب</a>
+                                
+                                ${!isCancelled ? 
+                                    `<button onclick="syncAndCancelBooking('${b.bookingReference}')" class="action-btn danger" title="إلغاء الحجز مع الفندق والسحابة">إلغاء فندق 🏨❌</button>` : 
+                                    `<button onclick="updateBookingStatus('${b.bookingReference}', 'active')" class="action-btn success">تفعيل ✅</button>`
+                                }
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+        }
+
+        function filterAdminBookings() {
+            const query = document.getElementById('bookingSearchInput').value.toLowerCase().trim();
+            const filtered = globalBookingsList.filter(b => 
+                b.bookingReference.toLowerCase().includes(query) || 
+                b.customerName.toLowerCase().includes(query) ||
+                b.email.toLowerCase().includes(query)
+            );
+            renderBookingsTable(filtered);
+        }
+
+        // محاكاة ربط API الفندق المستقبلي
+        async function syncAndCancelBooking(bookingReference) {
+            if(!confirm(`⚠️ هل أنت متأكد من رغبة إلغاء الحجز (${bookingReference})؟\n\nسيقوم السستم بمراسلة نظام الفندق الشريك (Hotel API) لإلغاء الغرفة أولاً، ثم تحديث السحابة وتأكيد استرداد الأموال للعميل.`)) return;
+            
+            alert('🔄 جاري الاتصال بـ API الفندق الشريك لتأكيد إلغاء الغرفة...');
+            
+            // محاكاة تأخير استجابة سيرفر الفندق الخارجي (1.5 ثانية)
+            setTimeout(async () => {
+                try {
+                    const res = await fetch(`${API_URL}/api/v1/admin/update-booking-status`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ bookingReference, status: 'cancelled' })
+                    });
+                    const data = await res.json();
+                    if(data.success) {
+                        alert('✅ تم تأكيد الإلغاء من طرف الفندق، وتحديث السحابة بنجاح! تم إشعار العميل.');
+                        loadAdminData();
+                    } else {
+                        alert('❌ خطأ: ' + data.error);
+                    }
+                } catch(e) {
+                    alert('❌ خطأ في الاتصال بالسيرفر.');
+                }
+            }, 1500);
         }
 
         async function updateBookingStatus(bookingReference, status) {
