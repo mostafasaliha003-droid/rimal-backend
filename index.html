@@ -160,9 +160,8 @@
 
     <header>
         <a class="brand-logo" onclick="switchView('mainView')">
-            <img src="logo.jpg" alt="شركة الرمال الدولية">
             <div class="brand-text">
-                <span id="brandName">الرمال الدولية</span>
+                <span id="brandName">شركة الرمال الدولية</span>
                 <span id="brandSub">اضحك، احجز، وفلّها! 🤪✈️</span>
             </div>
         </a>
@@ -285,7 +284,7 @@
                         <label>البريد الإلكتروني المسجل:</label>
                         <input type="email" id="lookupEmail" required placeholder="name@example.com">
                     </div>
-                    <button type="submit" class="btn-book" style="margin-top: 15px;">بحث عن الحجز وتحميل PDF 🚀</button>
+                    <button type="submit" class="btn-book" style="margin-top: 15px;">بحث عن الحجز 🚀</button>
                     <button type="button" onclick="switchView('mainView')" style="margin-top: 10px; width: 100%; padding: 12px; border: none; background: #e2e8f0; border-radius: 12px; font-weight: bold; cursor: pointer;">رجوع للرئيسية 🔙</button>
                 </form>
                 <div id="lookupResult" style="margin-top: 20px;"></div>
@@ -296,8 +295,8 @@
     <!-- لوحة تحكم العميل -->
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
-            <h1>بوابة حسابك الذكي وحجوزاتك المحفوظة بالسحابة 🚀</h1>
-            <p>إدارة الحجوزات، سياسات الإلغاء، والـ PDF الدائم!</p>
+            <h1>بوابة حسابك الذكي وحجوزاتك 🚀</h1>
+            <p>إدارة الحجوزات ومتابعة نقاطك بضغطة زر!</p>
         </section>
 
         <div class="container">
@@ -313,14 +312,14 @@
                         <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة</p>
                     </div>
                     <div style="background: rgba(0, 180, 216, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-cyan);">
-                        <h4>☁️ حالة السحابة الخاصة</h4>
-                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل وآمن 🔒 (MongoDB Atlas)</div>
+                        <h4>☁️ حالة الاتصال</h4>
+                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل وآمن 🔒 (Local System)</div>
                     </div>
                 </div>
 
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
                     <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة</h3>
-                    <button onclick="fetchUserData(currentUser.email)" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
+                    <button onclick="fetchUserData()" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
                 </div>
                 <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
             </div>
@@ -349,15 +348,7 @@
                     <div class="form-group" style="text-align: right;"><label>البريد:</label><input type="email" id="modalEmail" required></div>
                     <div class="form-group" style="text-align: right;"><label>كلمة المرور:</label><input type="password" id="modalPassword" required></div>
                     <div class="form-group" style="text-align: right;"><label>الهاتف:</label><input type="tel" id="modalPhone" required></div>
-                    <button type="submit" class="btn-book">إرسال كود التحقق 📨</button>
-                </form>
-
-                <form id="step2Form" onsubmit="verifyCodeAndRegister(event)" style="display: none;">
-                    <div class="form-group" style="text-align: center;">
-                        <label style="color: var(--accent-coral);">أدخل الرمز:</label>
-                        <input type="text" id="verificationCodeInput" maxlength="6" required style="text-align: center; font-size: 24px; letter-spacing: 5px;">
-                    </div>
-                    <button type="submit" class="btn-book">تأكيد وتفعيل 🚀</button>
+                    <button type="submit" class="btn-book">إنشاء حساب وتفعيل 🚀</button>
                 </form>
             </div>
             <button type="button" onclick="closeAuthModal()" style="margin-top:15px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
@@ -376,7 +367,7 @@
                 <form id="bookingForm" onsubmit="confirmReservation(event)">
                     <div class="form-group"><label>الاسم الكريم:</label><input type="text" id="custName" required></div>
                     <div class="form-group"><label>الإيميل:</label><input type="email" id="custEmail" required></div>
-                    <div class="form-group"><label>التليفون (لإرسال رسالة WhatsApp):</label><input type="tel" id="custPhone" required placeholder="+971544757578"></div>
+                    <div class="form-group"><label>التليفون (للتواصل عبر WhatsApp):</label><input type="tel" id="custPhone" required placeholder="+971544757578"></div>
                     <div class="form-group"><label>أسماء المرافقين:</label><textarea id="custCompanions" rows="2"></textarea></div>
                     
                     <div class="form-group" style="background: rgba(255, 202, 58, 0.15); padding: 15px; border-radius: 14px; border: 2px dashed var(--accent-yellow);">
@@ -396,7 +387,7 @@
                     </div>
 
                     <h3 style="margin-bottom: 15px; color: var(--primary);">المبلغ الإجمالي بعد الخصم: <span id="finalPriceDisplay" style="color: var(--accent-coral);">0</span> <span id="finalPriceCurrencyLabel">AED</span></h3>
-                    <button type="submit" class="btn-book">اضغط وثبت الحجز بالسحابة وإرسال WhatsApp 🔒</button>
+                    <button type="submit" class="btn-book"><i class="fa-brands fa-whatsapp fa-lg"></i> إرسال وتأكيد الحجز عبر الواتساب مباشرة</button>
                 </form>
             </div>
         </div>
@@ -406,9 +397,6 @@
     <footer>
         <div class="footer-container">
             <div class="footer-col">
-                <a class="brand-logo" style="background: transparent; border: none; padding: 0; margin-bottom: 15px; cursor: default;">
-                    <img src="logo.jpg" alt="شركة الرمال الدولية" style="height: 60px; background: white; padding: 5px; border-radius: 12px;">
-                </a>
                 <p>نقدم لك أفضل العروض والأسعار لرحلاتك وحجوزاتك الفندقية. اضحك، احجز، وفلّها! 🤪✈️</p>
             </div>
             
@@ -431,7 +419,6 @@
         </div>
     </footer>
 
-    <!-- عنصر ترجمة جوجل المخفي -->
     <div id="google_translate_element" style="display:none;"></div>
 
     <script type="text/javascript">
@@ -445,16 +432,14 @@
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
 
-    <!-- ربط مكتبة خرائط جوجل الرسمية -->
+    <!-- ربط مكتبة خرائط جوجل الرسمية (اترك مفتاحك كما هو) -->
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCkqVnoRsRtoETOTqR68CUtyk0o0E3XaEQ&callback=initGoogleMap"></script>
 
     <script>
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
-        let tempEmail = '', tempName = '', tempPassword = '', tempPhone = '', selectedHotel = '', currentBasePrice = 0;
-        let gMap;
-        let gMarkers = [];
+        let selectedHotel = '', currentBasePrice = 0;
+        let gMap, gMarkers = [];
 
-        // هذه المصفوفة ستكون مؤقتة حتى نقوم بربط الـ B2B API الخاص بالفنادق (مثل RateHawk)
         const allHotels = [
             { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, lat: 25.2654, lng: 55.3272, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!" },
             { name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, lat: 25.1304, lng: 55.1172, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!" },
@@ -469,39 +454,24 @@
             checkUserSession();
         };
 
-        async function changeCurrency() {
+        function changeCurrency() {
             const selectedCurrency = document.getElementById('currencySelector').value;
             const priceElements = document.querySelectorAll('.hotel-price-display');
+            const rates = { 'USD': 0.27, 'EUR': 0.25, 'SAR': 1.02, 'AED': 1 };
             
             for (let el of priceElements) {
                 let basePriceAED = parseFloat(el.getAttribute('data-price-aed'));
                 if (!basePriceAED) continue;
-
-                if (selectedCurrency === 'AED') {
-                    el.innerText = `${basePriceAED} AED`;
-                    continue;
-                }
-
-                try {
-                    let response = await fetch(`/api/currency/convert?targetCurrency=${selectedCurrency}&amount=${basePriceAED}`);
-                    let data = await response.json();
-
-                    if (data.success) {
-                        el.innerText = `${data.convertedAmount} ${data.targetCurrency}`;
-                    }
-                } catch (error) {
-                    console.error('خطأ في تحويل العملة:', error);
-                }
+                let converted = (basePriceAED * rates[selectedCurrency]).toFixed(2);
+                el.innerText = `${converted} ${selectedCurrency}`;
             }
-
             updateFinalPriceCalculation();
         }
 
         function initGoogleMap() {
             const uaeCenter = { lat: 25.2048, lng: 55.2708 };
             gMap = new google.maps.Map(document.getElementById("map"), {
-                zoom: 10,
-                center: uaeCenter,
+                zoom: 10, center: uaeCenter,
                 styles: [
                     { elementType: "geometry", stylers: [{ color: "#f5f5f5" }] },
                     { elementType: "labels.icon", stylers: [{ visibility: "off" }] },
@@ -516,42 +486,20 @@
             if (!gMap) return;
             gMarkers.forEach(m => m.setMap(null));
             gMarkers = [];
-
             hotelsArray.forEach(hotel => {
-                const marker = new google.maps.Marker({
-                    position: { lat: hotel.lat, lng: hotel.lng },
-                    map: gMap,
-                    title: hotel.name,
-                    animation: google.maps.Animation.DROP
-                });
-
-                const infowindow = new google.maps.InfoWindow({
-                    content: `<div style="font-family:Cairo; text-align:right; direction:rtl; padding:5px;"><strong>${hotel.name}</strong><br>السعر: <b style="color:#ff595e;">${hotel.priceAED} AED</b></div>`
-                });
-
-                marker.addListener("click", () => {
-                    infowindow.open(gMap, marker);
-                });
-
+                const marker = new google.maps.Marker({ position: { lat: hotel.lat, lng: hotel.lng }, map: gMap, title: hotel.name, animation: google.maps.Animation.DROP });
+                const infowindow = new google.maps.InfoWindow({ content: `<div style="font-family:Cairo; text-align:right; direction:rtl; padding:5px;"><strong>${hotel.name}</strong><br>السعر: <b style="color:#ff595e;">${hotel.priceAED} AED</b></div>` });
+                marker.addListener("click", () => { infowindow.open(gMap, marker); });
                 gMarkers.push(marker);
             });
         }
 
         function changeLanguage(lang) {
             const htmlRoot = document.getElementById('htmlRoot');
-            if (lang === 'ar') {
-                htmlRoot.setAttribute('dir', 'rtl');
-                htmlRoot.setAttribute('lang', 'ar');
-            } else {
-                htmlRoot.setAttribute('dir', 'ltr');
-                htmlRoot.setAttribute('lang', lang);
-            }
-
+            htmlRoot.setAttribute('dir', lang === 'ar' ? 'rtl' : 'ltr');
+            htmlRoot.setAttribute('lang', lang);
             const selectField = document.querySelector('.goog-te-combo');
-            if (selectField) {
-                selectField.value = lang;
-                selectField.dispatchEvent(new Event('change'));
-            }
+            if (selectField) { selectField.value = lang; selectField.dispatchEvent(new Event('change')); }
         }
 
         function checkUserSession() {
@@ -559,17 +507,14 @@
             if (currentUser) {
                 btn.innerHTML = `<i class="fa-solid fa-user-check"></i> ${currentUser.name}`;
                 document.getElementById('userDashboard').style.display = 'block';
-                fetchUserData(currentUser.email);
+                fetchUserData();
             } else {
                 btn.innerHTML = `<i class="fa-solid fa-user-plus"></i> افتح حساب / دخول`;
                 document.getElementById('userDashboard').style.display = 'none';
             }
         }
 
-        function handleAccountBtnClick() {
-            if (currentUser) { switchView('registerView'); } else { openAuthModal('register'); }
-        }
-
+        function handleAccountBtnClick() { currentUser ? switchView('registerView') : openAuthModal('register'); }
         function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
         function closeAuthModal() { document.getElementById('socialModal').style.display = 'none'; }
 
@@ -580,143 +525,76 @@
             document.getElementById('registerContainer').style.display = tab === 'register' ? 'block' : 'none';
         }
 
-        async function handleDirectLogin(e) {
+        function handleDirectLogin(e) {
             e.preventDefault();
             const email = document.getElementById('loginEmail').value;
-            const password = document.getElementById('loginPassword').value;
-            try {
-                const res = await fetch('/api/auth/login', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
-                const data = await res.json();
-                if (data.success) {
-                    currentUser = data.user;
-                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
-                    closeAuthModal(); checkUserSession(); switchView('registerView');
-                } else { alert('❌ ' + data.error); }
-            } catch (err) { alert('❌ خطأ بالاتصال'); }
+            currentUser = { name: email.split('@')[0], email: email, points: 500 };
+            localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+            closeAuthModal(); checkUserSession(); switchView('registerView');
         }
 
-        async function requestVerificationCode(e) {
+        function requestVerificationCode(e) {
             e.preventDefault();
-            tempName = document.getElementById('modalName').value;
-            tempEmail = document.getElementById('modalEmail').value;
-            tempPassword = document.getElementById('modalPassword').value;
-            tempPhone = document.getElementById('modalPhone').value;
-            try {
-                const res = await fetch('/api/auth/register-send-code', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: tempEmail, name: tempName, password: tempPassword, phone: tempPhone }) });
-                const data = await res.json();
-                if(data.success) {
-                    document.getElementById('step1Form').style.display = 'none';
-                    document.getElementById('step2Form').style.display = 'block';
-                } else { alert('❌ ' + data.error); }
-            } catch (err) { alert('❌ خطأ'); }
+            currentUser = { 
+                name: document.getElementById('modalName').value, 
+                email: document.getElementById('modalEmail').value, 
+                phone: document.getElementById('modalPhone').value, 
+                points: 500 
+            };
+            localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+            closeAuthModal(); checkUserSession(); switchView('registerView');
+            alert('تم إنشاء الحساب وتسجيل الدخول بنجاح! تم إضافة 500 نقطة كهدية ترحيبية.');
         }
 
-        async function verifyCodeAndRegister(e) {
+        function quickLookupBooking(e) {
             e.preventDefault();
-            const code = document.getElementById('verificationCodeInput').value;
-            try {
-                const res = await fetch('/api/auth/verify-and-register', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email: tempEmail, code }) });
-                const data = await res.json();
-                if(data.success) {
-                    currentUser = data.user;
-                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
-                    closeAuthModal(); checkUserSession(); switchView('registerView');
-                } else { alert('❌ كود غير صحيح'); }
-            } catch (err) { alert('❌ خطأ'); }
-        }
-
-        async function quickLookupBooking(e) {
-            e.preventDefault();
-            const bookingReference = document.getElementById('lookupRef').value.trim();
-            const email = document.getElementById('lookupEmail').value.trim();
+            const ref = document.getElementById('lookupRef').value.trim();
             const resultDiv = document.getElementById('lookupResult');
+            let savedBookings = JSON.parse(localStorage.getItem('rimal_bookings')) || [];
+            let b = savedBookings.find(x => x.ref === ref);
             
-            resultDiv.innerHTML = '<p style="text-align:center; color:var(--accent-cyan);">جاري البحث في السحابة... ⏳</p>';
-
-            try {
-                const res = await fetch('/api/bookings/lookup', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ bookingReference, email })
-                });
-                const data = await res.json();
-
-                if (data.success) {
-                    const b = data.booking;
-                    const isActive = b.status === 'active';
-                    resultDiv.innerHTML = `
-                        <div style="background: #fdfdfe; border: 2px solid ${isActive ? '#00b4d8' : '#ff595e'}; padding: 20px; border-radius: 16px; margin-top: 15px;">
-                            <h3 style="color: var(--primary); margin-bottom: 8px;">${b.hotelName}</h3>
-                            <p><strong>اسم العميل:</strong> ${b.customerName}</p>
-                            <p><strong>المرجع:</strong> <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span></p>
-                            <p><strong>المبلغ الإجمالي:</strong> ${b.price} AED</p>
-                            <p><strong>الحالة:</strong> <span style="color:${isActive ? 'green' : 'red'}; font-weight:bold;">${isActive ? 'مؤكد بالسحابة ✅' : 'ملغي ❌'}</span></p>
-                            <div style="margin-top: 15px;">
-                                <a href="/api/bookings/pdf/${b.bookingReference}" target="_blank" style="background: var(--primary); color: white; padding: 10px 15px; border-radius: 10px; font-weight: bold; text-decoration: none; display: inline-block;">
-                                    <i class="fa-solid fa-file-pdf"></i> تحميل قسيمة الـ PDF 📄
-                                </a>
-                            </div>
-                        </div>
-                    `;
-                } else {
-                    resultDiv.innerHTML = `<div style="background: rgba(255,89,94,0.1); color: var(--accent-coral); padding: 15px; border-radius: 12px; text-align: center; font-weight: bold;">❌ ${data.error}</div>`;
-                }
-            } catch (err) {
-                resultDiv.innerHTML = `<div style="background: rgba(255,89,94,0.1); color: var(--accent-coral); padding: 15px; border-radius: 12px; text-align: center; font-weight: bold;">❌ حدث خطأ أثناء الاتصال بالسحابة.</div>`;
+            if (b) {
+                resultDiv.innerHTML = `
+                    <div style="background: #fdfdfe; border: 2px solid #00b4d8; padding: 20px; border-radius: 16px; margin-top: 15px;">
+                        <h3 style="color: var(--primary); margin-bottom: 8px;">${b.hotel}</h3>
+                        <p><strong>اسم العميل:</strong> ${b.customerName}</p>
+                        <p><strong>المرجع:</strong> <span style="color:var(--accent-coral); font-weight:bold;">${b.ref}</span></p>
+                        <p><strong>الحالة:</strong> <span style="color:green; font-weight:bold;">مؤكد محلياً ✅</span></p>
+                    </div>
+                `;
+            } else {
+                resultDiv.innerHTML = `<div style="background: rgba(255,89,94,0.1); color: var(--accent-coral); padding: 15px; border-radius: 12px; text-align: center; font-weight: bold;">❌ لا يوجد حجز بهذا المرجع.</div>`;
             }
         }
 
-        async function fetchUserData(email) {
-            try {
-                const res = await fetch(`/api/user/profile?email=${email}`);
-                const data = await res.json();
-                if(data.success) {
-                    document.getElementById('userNameDisplay').innerText = data.profile.name;
-                    document.getElementById('dashPoints').innerText = data.profile.points;
-                    document.getElementById('displayPoints').innerText = data.profile.points;
-                    currentUser.points = data.profile.points;
-
-                    const bookingsContainer = document.getElementById('dashBookingsList');
-                    bookingsContainer.innerHTML = '';
-                    if(data.bookings.length === 0) {
-                        bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">لا توجد حجوزات نشطة حالياً.</div>`;
-                    } else {
-                        data.bookings.forEach(b => {
-                            const isActive = b.status === 'active';
-                            const deadlineStr = b.freeCancelDeadline ? new Date(b.freeCancelDeadline).toLocaleString('ar-AE') : 'غير متوفر';
-                            bookingsContainer.innerHTML += `
-                                <div style="background: #fdfdfe; border: 2px solid ${isActive ? '#e2e8f0' : '#ff595e'}; padding: 18px; border-radius: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                                    <div>
-                                        <strong style="font-size: 16px; color: var(--primary);">${b.hotelName}</strong><br>
-                                        <small style="color:var(--text-muted);">رقم المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | المبلغ: ${b.price} AED</small><br>
-                                        <small style="color: var(--accent-purple); font-weight: bold;">📌 سياسة الإلغاء: ${b.cancellationPolicy}</small><br>
-                                        <small style="color: #495057;">⏳ آخر وقت للإلغاء المجاني: ${deadlineStr}</small>
-                                    </div>
-                                    <div style="display: flex; gap: 8px; align-items: center;">
-                                        <span style="background: ${isActive ? 'rgba(0,180,216,0.1)' : 'rgba(255,89,94,0.1)'}; color: ${isActive ? 'var(--accent-cyan)' : 'var(--accent-coral)'}; padding:5px 12px; border-radius:8px; font-weight:bold;">
-                                            ${isActive ? 'مؤكد بالسحابة ✅' : 'تم الإلغاء ❌'}
-                                        </span>
-                                        <a href="/api/bookings/pdf/${b.bookingReference}" target="_blank" style="background: var(--primary); color: white; padding: 6px 12px; border-radius: 8px; font-weight: bold; text-decoration: none; font-size: 13px;">
-                                            <i class="fa-solid fa-file-pdf"></i> PDF
-                                        </a>
-                                        ${isActive ? `<button onclick="cancelUserBooking('${b.bookingReference}')" style="background: var(--accent-coral); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 13px;">إلغاء ⚠️</button>` : ''}
-                                    </div>
+        function fetchUserData() {
+            if(currentUser) {
+                document.getElementById('userNameDisplay').innerText = currentUser.name;
+                document.getElementById('dashPoints').innerText = currentUser.points;
+                document.getElementById('displayPoints').innerText = currentUser.points;
+                
+                const bookingsContainer = document.getElementById('dashBookingsList');
+                bookingsContainer.innerHTML = '';
+                let savedBookings = JSON.parse(localStorage.getItem('rimal_bookings')) || [];
+                
+                if(savedBookings.length === 0) {
+                    bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">لا توجد حجوزات نشطة حالياً.</div>`;
+                } else {
+                    savedBookings.forEach(b => {
+                        bookingsContainer.innerHTML += `
+                            <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 18px; border-radius: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
+                                <div>
+                                    <strong style="font-size: 16px; color: var(--primary);">${b.hotel}</strong><br>
+                                    <small style="color:var(--text-muted);">رقم المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.ref}</span></small><br>
                                 </div>
-                            `;
-                        });
-                    }
+                                <div style="display: flex; gap: 8px; align-items: center;">
+                                    <span style="background: rgba(0,180,216,0.1); color: var(--accent-cyan); padding:5px 12px; border-radius:8px; font-weight:bold;">مؤكد محلياً ✅</span>
+                                </div>
+                            </div>
+                        `;
+                    });
                 }
-            } catch (e) { console.error(e); }
-        }
-
-        async function cancelUserBooking(ref) {
-            if (!confirm('هل أنت متأكد من رغبتك في إلغاء هذا الحجز؟')) return;
-            try {
-                const res = await fetch('/api/bookings/cancel', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference: ref }) });
-                const data = await res.json();
-                if (data.success) { alert('✅ ' + data.message); if(currentUser) fetchUserData(currentUser.email); }
-                else { alert('❌ ' + data.error); }
-            } catch (err) { alert('❌ حدث خطأ'); }
+            }
         }
 
         function logoutUser() {
@@ -729,13 +607,11 @@
         function filterHotels() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
             const cityRadio = document.querySelector('input[name="cityFilter"]:checked').value;
-            
             const filtered = allHotels.filter(h => {
                 const matchesQuery = h.name.toLowerCase().includes(query) || h.city.toLowerCase().includes(query);
                 const matchesCity = (cityRadio === 'all' || h.city === cityRadio);
                 return matchesQuery && matchesCity;
             });
-
             displayHotels(filtered);
             updateGoogleMarkers(filtered);
             changeCurrency();
@@ -768,14 +644,12 @@
             document.querySelectorAll('.view-section').forEach(el => el.classList.remove('active'));
             document.getElementById(viewId).classList.add('active');
             window.scrollTo(0, 0);
-            if(viewId === 'mainView' && gMap) {
-                google.maps.event.trigger(gMap, 'resize');
-            }
+            if(viewId === 'mainView' && gMap) { google.maps.event.trigger(gMap, 'resize'); }
         }
 
         function goToBooking(hotelName, points, price) {
             if (!currentUser) { alert('الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز!'); openAuthModal('login'); return; }
-            selectedHotel = hotelName; pointsToAdd = points; currentBasePrice = price;
+            selectedHotel = hotelName; currentBasePrice = price;
             document.getElementById('hotelNameTitle').innerText = 'حجز: ' + hotelName;
             document.getElementById('custName').value = currentUser.name;
             document.getElementById('custEmail').value = currentUser.email;
@@ -797,29 +671,17 @@
             updateFinalPriceCalculation();
         }
 
-        async function updateFinalPriceCalculation() {
+        function updateFinalPriceCalculation() {
             const usedPts = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
             let finalAED = Math.max(0, currentBasePrice - (usedPts / 10));
             
             const selectedCurrency = document.getElementById('currencySelector').value;
             const currencyLabel = document.getElementById('finalPriceCurrencyLabel');
-
-            if (selectedCurrency === 'AED') {
-                document.getElementById('finalPriceDisplay').innerText = finalAED.toFixed(2);
-                currencyLabel.innerText = 'AED';
-            } else {
-                try {
-                    let response = await fetch(`/api/currency/convert?targetCurrency=${selectedCurrency}&amount=${finalAED}`);
-                    let data = await response.json();
-                    if (data.success) {
-                        document.getElementById('finalPriceDisplay').innerText = data.convertedAmount;
-                        currencyLabel.innerText = data.targetCurrency;
-                    }
-                } catch (e) {
-                    document.getElementById('finalPriceDisplay').innerText = finalAED.toFixed(2);
-                    currencyLabel.innerText = 'AED';
-                }
-            }
+            const rates = { 'USD': 0.27, 'EUR': 0.25, 'SAR': 1.02, 'AED': 1 };
+            
+            let converted = (finalAED * rates[selectedCurrency]).toFixed(2);
+            document.getElementById('finalPriceDisplay').innerText = converted;
+            currencyLabel.innerText = selectedCurrency;
         }
 
         function selectPayment(method, element) {
@@ -828,30 +690,46 @@
             element.querySelector('input[name="payMethod"]:checked').value;
         }
 
-        async function confirmReservation(e) {
+        function confirmReservation(e) {
             e.preventDefault();
             const name = document.getElementById('custName').value;
-            const email = document.getElementById('custEmail').value;
             const phone = document.getElementById('custPhone').value;
             const companions = document.getElementById('custCompanions').value;
             const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
+            const finalPrice = document.getElementById('finalPriceDisplay').innerText;
+            const currencyLabel = document.getElementById('finalPriceCurrencyLabel').innerText;
+            const paymentText = paymentMethod === 'visa' ? 'دفع إلكتروني (Ziina)' : 'الدفع عند الوصول للفندق';
+            
+            const bookingRef = 'RIMAL-' + Math.floor(Math.random() * 1000000);
+            
+            let savedBookings = JSON.parse(localStorage.getItem('rimal_bookings')) || [];
+            savedBookings.push({ ref: bookingRef, hotel: selectedHotel, customerName: name });
+            localStorage.setItem('rimal_bookings', JSON.stringify(savedBookings));
+            
+            // خصم النقاط المستخدمة
             const pointsUsed = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
+            currentUser.points -= pointsUsed;
+            localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
 
-            try {
-                const response = await fetch('/api/bookings', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ hotelName: selectedHotel, customerName: name, email, phone, companions, paymentMethod, price: currentBasePrice, pointsUsed })
-                });
-                const data = await response.json();
-                if (response.ok && data.success) {
-                    alert(`✅ تم تثبيت الحجز بنجاح وإرسال الـ WhatsApp وفاتورة الـ PDF!\nرقم المرجع: ${data.bookingReference}`);
-                    currentUser.points = data.updatedPoints;
-                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
-                    switchView('registerView');
-                    fetchUserData(currentUser.email);
-                } else { throw new Error(data.error); }
-            } catch (error) { alert(`❌ عذراً لم يتم إتمام الحجز: ${error.message}`); }
+            const whatsappNumber = "971544757578";
+            const message = `مرحباً شركة الرمال الدولية، أود تأكيد حجز فندقي جديد:\n\n` +
+                            `*الفندق:* ${selectedHotel}\n` +
+                            `*رقم المرجع:* ${bookingRef}\n` +
+                            `*اسم العميل:* ${name}\n` +
+                            `*الهاتف:* ${phone}\n` +
+                            `*المرافقين:* ${companions || 'لا يوجد'}\n` +
+                            `*طريقة الدفع:* ${paymentText}\n` +
+                            `*المبلغ الإجمالي:* ${finalPrice} ${currencyLabel}\n\n` +
+                            `الرجاء تأكيد الحجز وإرسال الفاتورة.`;
+
+            const encodedMessage = encodeURIComponent(message);
+            const whatsappUrl = `https://wa.me/${whatsappNumber}?text=${encodedMessage}`;
+            
+            alert(`✅ تم تجهيز طلبك محلياً! سيتم تحويلك الآن لتأكيد الحجز عبر الواتساب. \nرقم المرجع الخاص بك: ${bookingRef}`);
+            window.open(whatsappUrl, '_blank');
+            
+            switchView('registerView');
+            fetchUserData();
         }
     </script>
 </body>
