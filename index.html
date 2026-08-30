@@ -775,6 +775,7 @@
                                         <div style="display: flex; gap: 8px; align-items: center; flex-wrap:wrap;">
                                             <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" style="background: var(--accent-cyan); color: white; padding:5px 12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px;">📄 PDF</a>
                                             <button onclick="resendVoucherEmail('${b.bookingReference}', '${b.email}')" style="background: #7209b7; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;"><i class="fa-solid fa-paper-plane"></i> إعادة إرسال</button>
+                                            ${!isCancelled ? `<button onclick="modifyBookingPrompt('${b.bookingReference}', '${b.customerName}', '${b.phone || ''}')" style="background: #e09f3e; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">تعديل ✏️</button>` : ''}
                                             ${!isCancelled ? `<button onclick="cancelBookingAPI('${b.bookingReference}')" style="background: #ff595e; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">إلغاء واسترداد ❌</button>` : `<span style="color:#ff595e; font-weight:bold; font-size:12px;">ملغي ومسترد ⚠️</span>`}
                                         </div>
                                     </div>
@@ -783,6 +784,31 @@
                         }
                     }
                 } catch(e) { console.error('خطأ في جلب بيانات الملف الشخصي'); }
+            }
+        }
+
+        // 🚀 دالة تعديل الحجز المتوافقة مع سحابة المورد العالمي Hotelbeds
+        async function modifyBookingPrompt(bookingReference, currentName, currentPhone) {
+            let newName = prompt('تعديل اسم الضيف الكريم:', currentName);
+            if (newName === null) return;
+            let newPhone = prompt('تعديل رقم التليفون:', currentPhone);
+            if (newPhone === null) return;
+
+            try {
+                const res = await fetch(`${API_URL}/api/v1/bookings/modify/${bookingReference}`, {
+                    method: 'PUT',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ customerName: newName, phone: newPhone })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    fetchUserData();
+                } else {
+                    alert('❌ ' + data.error);
+                }
+            } catch(e) {
+                alert('❌ خطأ في الاتصال بالخادم.');
             }
         }
 
@@ -889,7 +915,6 @@
                         ];
                         let mockFacilities = ["<i class='fa-solid fa-wifi'></i> واي فاي", "<i class='fa-solid fa-person-swimming'></i> مسبح", "<i class='fa-solid fa-mug-hot'></i> إفطار"];
                         
-                        // تمرير تفاصيل الغرف والأسعار وسياسات الإلغاء الدقيقة القادمة من الـ API
                         return {
                             code: h.code || "12345",
                             name: h.name || "فندق شريك للرمال الدولية",
@@ -973,7 +998,6 @@
             const container = document.getElementById('roomsContainer');
             container.innerHTML = '';
 
-            // إذا توفرت غرف حقيقية قادمة من الـ API يتم عرضها، وإلا يتم عرض الخيارات الاحتياطية
             let roomsList = [];
             if (apiRooms && apiRooms.length > 0) {
                 apiRooms.forEach(room => {
@@ -995,7 +1019,6 @@
                 });
             }
 
-            // إذا لم تتوفر غرف في مصفوفة الـ API المعروضة، ندرج غرف افتراضية مدعومة
             if (roomsList.length === 0) {
                 roomsList = [
                     { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO - بدون وجبات", price: basePrice, points: Math.floor(basePrice*0.5), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT" },
