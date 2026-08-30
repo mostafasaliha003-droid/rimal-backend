@@ -1100,6 +1100,7 @@
             element.classList.add('selected');
         }
 
+        // 🚀 دالة الحجز المحدثة مع خطوة فحص السعر والتوفر (Rate Recheck API)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1114,10 +1115,28 @@
 
             const btn = e.target.querySelector('button[type="submit"]');
             const origText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز لدى المورد العالمي...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق من السعر والتوافر لدى المورد (Rate Check)...';
             btn.disabled = true;
 
             try {
+                // 1. خطوة الأمان المتقدمة: فحص السعر والتوفر عبر الـ API قبل الدفع
+                const recheckRes = await fetch(`${API_URL}/api/v1/hotels/recheck`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ rateKey: currentRateKey })
+                });
+                const recheckData = await recheckRes.json();
+
+                if (!recheckData.success) {
+                    alert('❌ ' + recheckData.error);
+                    btn.innerHTML = origText;
+                    btn.disabled = false;
+                    return;
+                }
+
+                // 2. إذا نجح الفحص، نقوم بإنشاء الحجز الفعلي وإرسال القسيمة
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز وإرسال القسيمة عبر الإيميل...';
+
                 const res = await fetch(`${API_URL}/api/v1/bookings/create`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1136,7 +1155,7 @@
                 });
                 const data = await res.json();
                 if(data.success) {
-                    alert(`✅ تم تأكيد وحجز الغرفة عالمياً وسحابياً بنجاح!\n\nتم إرسال قسيمة الحجز الرسمية (PDF) وتفاصيل رقم المورد العالمي فوراً إلى بريدك الإلكتروني: ${email}`);
+                    alert(`✅ تم تأكيد وحجز الغرفة عالمياً وسحابياً بنجاح بعد اجتياز الفحص المالي!\n\nتم إرسال قسيمة الحجز الرسمية (PDF) وتفاصيل رقم المورد العالمي فوراً إلى بريدك الإلكتروني: ${email}`);
                     switchView('registerView');
                     fetchUserData();
                 } else {
