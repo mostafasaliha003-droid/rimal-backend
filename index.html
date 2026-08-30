@@ -367,6 +367,18 @@
         
         <div class="container" style="max-width: 1000px; margin-top: 30px;">
             <button onclick="switchView('mainView')" style="margin-bottom: 20px; background: white; border: 3px solid #e2e8f0; color: var(--primary); padding: 10px 20px; border-radius: 12px; font-weight: 900; cursor: pointer; transition: 0.3s;"><i class="fa-solid fa-arrow-right"></i> رجوع لقائمة الفنادق</button>
+            
+            <!-- 🌟 قسم تقييمات الفندق والتعليقات -->
+            <div style="background: white; padding: 25px; border-radius: 20px; margin-bottom: 25px; box-shadow: var(--shadow); border: 2px solid var(--accent-yellow);">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
+                    <h3 style="color: var(--primary); font-weight: 900;"><i class="fa-solid fa-star" style="color: var(--accent-yellow);"></i> تقييمات وآراء العملاء الحقيقية</h3>
+                    <button onclick="openReviewModal()" style="background: var(--accent-cyan); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">أضف تقييمك ⭐</button>
+                </div>
+                <div id="hotelReviewsContainer" style="display: flex; flex-direction: column; gap: 12px;">
+                    <p style="color: var(--text-muted);">جاري تحميل التقييمات...</p>
+                </div>
+            </div>
+
             <div id="roomsContainer"></div>
         </div>
     </div>
@@ -499,6 +511,39 @@
                 </form>
             </div>
             <button type="button" onclick="closeAuthModal()" style="margin-top:15px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
+        </div>
+    </div>
+
+    <!-- 🌟 نافذة إضافة تقييم جديد للعميل (Review Modal) -->
+    <div id="reviewModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 450px;">
+            <h3 style="color: var(--primary); margin-bottom: 15px;">أضف تقييمك للفندق ⭐</h3>
+            <form onsubmit="submitHotelReview(event)">
+                <div class="form-group">
+                    <label>البريد الإلكتروني المسجل بالحجز:</label>
+                    <input type="email" id="reviewEmail" required placeholder="name@example.com">
+                </div>
+                <div class="form-group">
+                    <label>الاسم الكريم:</label>
+                    <input type="text" id="reviewName" required placeholder="اسمك الكريم">
+                </div>
+                <div class="form-group">
+                    <label>التقييم (من 1 إلى 5 نجوم):</label>
+                    <select id="reviewRating" style="width:100%; padding:14px; border-radius:14px; border:2px solid #cbd5e1; font-family:'Cairo'; font-weight:bold;">
+                        <option value="5">⭐⭐⭐⭐⭐ ممتاز (5 نجوم)</option>
+                        <option value="4">⭐⭐⭐⭐ جيد جداً (4 نجوم)</option>
+                        <option value="3">⭐⭐⭐ مقبول (3 نجوم)</option>
+                        <option value="2">⭐⭐ سيء (نجمتان)</option>
+                        <option value="1">⭐ سيء جداً (نجمة واحدة)</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>تعليقك وتجربتك:</label>
+                    <textarea id="reviewComment" rows="3" required placeholder="كيف كانت إقامتك؟" style="width:100%; padding:14px; border-radius:14px; border:2px solid #cbd5e1; font-family:'Cairo';"></textarea>
+                </div>
+                <button type="submit" class="btn-book">إرسال التقييم 🚀</button>
+            </form>
+            <button type="button" onclick="closeReviewModal()" style="margin-top:10px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
         </div>
     </div>
 
@@ -690,6 +735,8 @@
         function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
         function closeAuthModal() { document.getElementById('socialModal').style.display = 'none'; }
         function closeAlternativesModal() { document.getElementById('alternativesModal').style.display = 'none'; }
+        function openReviewModal() { document.getElementById('reviewModal').style.display = 'flex'; if(currentUser) { document.getElementById('reviewEmail').value = currentUser.email; document.getElementById('reviewName').value = currentUser.name; } }
+        function closeReviewModal() { document.getElementById('reviewModal').style.display = 'none'; }
 
         function switchTab(tab) {
             document.getElementById('tabLoginBtn').classList.toggle('active', tab === 'login');
@@ -826,7 +873,6 @@
             }
         }
 
-        // 🚀 دالة تعديل الحجز المتوافقة مع سحابة المورد العالمي Hotelbeds
         async function modifyBookingPrompt(bookingReference, currentName, currentPhone) {
             let newName = prompt('تعديل اسم الضيف الكريم:', currentName);
             if (newName === null) return;
@@ -896,7 +942,6 @@
             changeCurrency();
         }
 
-        // توليد خانات أعمار الأطفال ديناميكياً
         function renderChildAges() {
             const count = parseInt(document.getElementById('childrenInput').value) || 0;
             const container = document.getElementById('childAgesContainer');
@@ -1032,11 +1077,14 @@
             changeCurrency();
         }
 
-        // 🚀 دالة عرض تفاصيل الغرف وسياسات الإلغاء الدقيقة القادمة من الـ API
-        function viewHotelDetails(hotelName, basePrice, apiRooms) {
+        // 🚀 دالة عرض تفاصيل الغرف وجلب التقييمات الحقيقية للفندق
+        async function viewHotelDetails(hotelName, basePrice, apiRooms) {
             document.getElementById('detailsHotelName').innerText = hotelName;
             const container = document.getElementById('roomsContainer');
             container.innerHTML = '';
+
+            // جلب وعرض تقييمات الفندق من الـ API
+            await fetchAndDisplayHotelReviews(hotelName);
 
             let roomsList = [];
             if (apiRooms && apiRooms.length > 0) {
@@ -1094,6 +1142,73 @@
 
             changeCurrency();
             switchView('roomSelectionView');
+        }
+
+        // ⭐ جلب وعرض تقييمات الفندق الحقيقية
+        async function fetchAndDisplayHotelReviews(hotelName) {
+            const container = document.getElementById('hotelReviewsContainer');
+            container.innerHTML = '<p style="color: var(--text-muted);">جاري جلب تقييمات المورد والعملاء...</p>';
+            
+            try {
+                const res = await fetch(`${API_URL}/api/v1/reviews/hotel/${encodeURIComponent(hotelName)}`);
+                const data = await res.json();
+                
+                if (data.success) {
+                    let html = `<div style="font-weight:900; color:var(--primary); margin-bottom:10px;">متوسط التقييم العام: <span style="color:var(--accent-yellow); font-size:18px;">⭐ ${data.averageRating} / 5</span> (${data.totalReviews} تقييم معتمد)</div>`;
+                    
+                    let allCombinedReviews = [...data.reviews.local, ...data.reviews.globalSupplier];
+                    
+                    if (allCombinedReviews.length === 0) {
+                        html += `<p style="font-size:13px; color:var(--text-muted);">لا توجد تقييمات محلية بعد، كن أول من يقيّم هذا الفندق!</p>`;
+                    } else {
+                        allCombinedReviews.forEach(rev => {
+                            let stars = '⭐'.repeat(Math.round(rev.rating));
+                            html += `
+                                <div style="background:#f8f9fa; padding:12px; border-radius:12px; border:1px solid #e2e8f0; font-size:13px;">
+                                    <div style="display:flex; justify-content:space-between; margin-bottom:4px;">
+                                        <strong>${rev.customerName}</strong>
+                                        <span style="color:var(--accent-yellow);">${stars}</span>
+                                    </div>
+                                    <p style="color:var(--text-main); font-weight:600;">"${rev.comment}"</p>
+                                </div>
+                            `;
+                        });
+                    }
+                    container.innerHTML = html;
+                } else {
+                    container.innerHTML = '<p style="color:var(--text-muted);">تعذر تحميل التقييمات حالياً.</p>';
+                }
+            } catch (e) {
+                container.innerHTML = '<p style="color:var(--text-muted);">خطأ في الاتصال بسيرفر التقييمات.</p>';
+            }
+        }
+
+        // ⭐ إرسال تقييم العميل الجديد للسحابة
+        async function submitHotelReview(e) {
+            e.preventDefault();
+            const email = document.getElementById('reviewEmail').value.trim();
+            const customerName = document.getElementById('reviewName').value.trim();
+            const hotelName = document.getElementById('detailsHotelName').innerText;
+            const rating = document.getElementById('reviewRating').value;
+            const comment = document.getElementById('reviewComment').value.trim();
+
+            try {
+                const res = await fetch(`${API_URL}/api/v1/reviews/create`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email, customerName, hotelName, rating, comment })
+                });
+                const data = await res.json();
+                if (data.success) {
+                    alert('✅ ' + data.message);
+                    closeReviewModal();
+                    fetchAndDisplayHotelReviews(hotelName);
+                } else {
+                    alert('❌ ' + data.error);
+                }
+            } catch (err) {
+                alert('❌ خطأ في الاتصال بالخادم.');
+            }
         }
 
         function goToBooking(hotelName, price, roomName, boardType, policyText, rateKey, paymentType) {
