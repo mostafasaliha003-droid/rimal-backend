@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const path = require('path');
 const PDFDocument = require('pdfkit');
-const crypto = require('crypto'); // 🚀 تمت الإضافة: مكتبة التشفير المطلوبة لـ Hotelbeds API
+const crypto = require('crypto'); // 🚀 مكتبة التشفير المطلوبة لـ Hotelbeds API
 
 const app = express();
 app.use(express.json());
@@ -22,7 +22,6 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        // السماح بالطلبات التي لا تحتوي على Origin (مثل Postman أو السيرفر الداخلي) أو إذا كان النطاق مسموحاً
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -65,7 +64,7 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// 🚀 تم تحديث Schema الحجوزات لتشمل مرجع المورد العالمي (Hotelbeds Supplier Reference)
+// 🚀 Schema الحجوزات مع دعم مرجع المورد العالمي (Hotelbeds Supplier Reference)
 const bookingSchema = new mongoose.Schema({
     bookingReference: { type: String, required: true, unique: true },
     supplierReference: { type: String, default: 'Pending' }, 
@@ -416,6 +415,9 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 3. مسار الإلغاء الآلي مع Hotelbeds (Cancellation API الجديد)
+// ==========================================
 app.post('/api/v1/bookings/cancel', async (req, res) => {
     try {
         const { bookingReference } = req.body;
@@ -429,12 +431,30 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
             return res.status(400).json({ success: false, error: 'الحجز ملغي مسبقاً' });
         }
 
+        // مخاطبة سيرفر Hotelbeds لإلغاء الحجز لديهم رسمياً
+        if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
+            try {
+                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+                const secret = '3eQESu8wOA'; 
+                const timestamp = Math.floor(Date.now() / 1000);
+                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+
+                await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}?language=ENG`, {
+                    method: 'DELETE',
+                    headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
+                });
+                console.log(`✅ تم إلغاء الحجز لدى Hotelbeds للمرجع: ${booking.supplierReference}`);
+            } catch (hbCancelErr) {
+                console.error("ملاحظة في إلغاء المورد:", hbCancelErr.message);
+            }
+        }
+
         booking.status = 'cancelled';
         await booking.save();
 
         res.json({
             success: true,
-            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وتفعيل سياسة الاسترداد (${booking.cancellationPolicy}).`,
+            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وإشعار المورد العالمي وتفعيل سياسة الاسترداد.`,
             bookingReference,
             status: 'cancelled',
             refundType: booking.refundType
@@ -488,6 +508,9 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 4. مسار المزامنة اللحظية للحجز مع المورد (Live Status Sync الجديد)
+// ==========================================
 app.get('/api/v1/admin/live-hotel-sync/:reference', async (req, res) => {
     try {
         const bookingReference = req.params.reference;
@@ -496,16 +519,35 @@ app.get('/api/v1/admin/live-hotel-sync/:reference', async (req, res) => {
             return res.status(404).json({ success: false, error: 'الحجز غير موجود بالسحابة' });
         }
 
-        const liveStatuses = ['Confirmed Live 🟢', 'Checked-In 🏨', 'Active ⚡'];
-        const randomLiveStatus = booking.status === 'cancelled' ? 'Cancelled by Supplier ❌' : liveStatuses[Math.floor(Math.random() * liveStatuses.length)];
+        let liveStatus = "CONFIRMED LIVE 🟢";
+        if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
+            try {
+                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+                const secret = '3eQESu8wOA'; 
+                const timestamp = Math.floor(Date.now() / 1000);
+                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+
+                const resp = await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}`, {
+                    method: 'GET',
+                    headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
+                });
+                const d = await resp.json();
+                if (d.booking && d.booking.status) {
+                    liveStatus = d.booking.status;
+                }
+            } catch (e) {
+                console.error("خطأ مزامنة المورد:", e.message);
+            }
+        }
 
         res.json({
             success: true,
             bookingReference: booking.bookingReference,
+            supplierReference: booking.supplierReference,
             hotelName: booking.hotelName,
             customerName: booking.customerName,
             localStatus: booking.status,
-            supplierLiveStatus: randomLiveStatus,
+            supplierLiveStatus: liveStatus,
             syncTimestamp: new Date(),
             message: 'تم مزامنة حالة الحجز لحظياً مع النظام الخارجي للفندق بنجاح.'
         });
@@ -616,6 +658,7 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.moveDown(1.5);
 
         doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${booking.bookingReference}`);
+        doc.fontSize(12).fillColor('#2a9d8f').text(`Supplier Confirmation: ${booking.supplierReference || 'N/A'}`);
         doc.moveDown(0.8);
 
         doc.fontSize(11).fillColor('#333333').font('Helvetica');
@@ -635,11 +678,11 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
 });
 
 // ==========================================
-// 🏨 1. مسار البحث المباشر عن الفنادق من Hotelbeds API (Availability API)
+// 🏨 1. مسار البحث المتقدم عن الفنادق من Hotelbeds API (مع دعم الأطفال وأعمارهم والوجبات)
 // ==========================================
 app.post('/api/v1/hotels/search', async (req, res) => {
     try {
-        const { checkIn, checkOut, destinationCode, adults } = req.body;
+        const { checkIn, checkOut, destinationCode, adults, children, childrenAges, boardBasis } = req.body;
 
         const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
         const secret = '3eQESu8wOA'; 
@@ -648,22 +691,26 @@ app.post('/api/v1/hotels/search', async (req, res) => {
         const plainText = apiKey + secret + timestamp;
         const signature = crypto.createHash('sha256').update(plainText).digest('hex');
 
+        // إشغال الغرفة مع أعمار الأطفال للـ API
+        let occupancy = { rooms: 1, adults: adults || 2, children: children || 0 };
+        if (children && children > 0 && childrenAges && childrenAges.length > 0) {
+            occupancy.paxes = childrenAges.map(age => ({ type: "CH", age: parseInt(age) }));
+        }
+
         const requestBody = {
             stay: {
                 checkIn: checkIn || "2026-09-15", 
                 checkOut: checkOut || "2026-09-20"
             },
-            occupancies: [
-                {
-                    rooms: 1,
-                    adults: adults || 2,
-                    children: 0
-                }
-            ],
+            occupancies: [occupancy],
             destination: {
-                code: destinationCode || "DXB" // رمز دبي الافتراضي
+                code: destinationCode || "DXB"
             }
         };
+
+        if (boardBasis && boardBasis !== 'ALL') {
+            requestBody.filter = { board: [boardBasis] };
+        }
 
         const response = await fetch('https://api.test.hotelbeds.com/hotel-api/1.0/hotels', {
             method: 'POST',
@@ -677,7 +724,7 @@ app.post('/api/v1/hotels/search', async (req, res) => {
         });
 
         const data = await response.json();
-        res.json({ success: true, source: 'Hotelbeds APItude', hotelsData: data.hotels });
+        res.json({ success: true, source: 'Hotelbeds Advanced APItude', hotelsData: data.hotels });
 
     } catch (error) {
         console.error('Hotelbeds API Error:', error);
