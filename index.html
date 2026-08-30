@@ -29,7 +29,7 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-        /* الهيدر المحسن مع الشعار البارز والمرح والاحترافي */
+        /* الهيدر المحسن مع خلفية بيضاء تضمن ظهور الشعار بوضوح تام على الكمبيوتر */
         header {
             background: linear-gradient(135deg, #1f3a40, #2a4d53); padding: 12px 5%; display: flex; justify-content: space-between;
             align-items: center; color: var(--white); box-shadow: 0 6px 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
@@ -39,9 +39,12 @@
             display: flex; align-items: center; gap: 14px; cursor: pointer; text-decoration: none; 
             transition: all 0.3s ease;
         }
+        .logo-wrapper {
+            background: white; padding: 6px; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,180,216,0.5);
+            display: flex; align-items: center; justify-content: center;
+        }
         .fun-logo {
-            height: 60px; width: auto; border-radius: 14px; padding: 4px; background: white;
-            box-shadow: 0 6px 20px rgba(0, 180, 216, 0.4);
+            height: 55px; width: auto; border-radius: 10px; display: block;
             animation: pulseLogo 3s ease-in-out infinite;
             transition: transform 0.3s ease;
         }
@@ -178,10 +181,12 @@
 </head>
 <body>
 
-    <!-- الهيدر المحدث مع رابط الشعار المباشر من GitHub -->
+    <!-- الهيدر المحدث مع الإطار الأبيض الناصع للشعار -->
     <header>
         <a class="brand-logo" onclick="switchView('mainView')">
-            <img src="https://raw.githubusercontent.com/mostafasaliha003-droid/rimal-backend/main/logo.jpg" alt="شركة الرمال الدولية" class="fun-logo">
+            <div class="logo-wrapper">
+                <img src="https://raw.githubusercontent.com/mostafasaliha003-droid/rimal-backend/main/logo.jpg" alt="شركة الرمال الدولية" class="fun-logo">
+            </div>
             <div class="brand-text">
                 <span id="brandName">شركة الرمال الدولية <span class="wave-emoji">✈️</span></span>
                 <span id="brandSub">اضحك، احجز، وفلّها! 🤪</span>
@@ -842,12 +847,12 @@
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
-            The email = document.getElementById('custEmail').value;
+            const email = document.getElementById('custEmail').value;
             const phone = document.getElementById('custPhone').value;
             const companions = document.getElementById('custCompanions').value;
             const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
             const pointsUsed = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
-            const refundType = document.getElementById('refundTypeSelect.value');
+            const refundType = document.getElementById('refundTypeSelect').value;
             
             const finalPrice = parseFloat(document.getElementById('finalPriceDisplay').innerText);
 
