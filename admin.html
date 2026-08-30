@@ -61,6 +61,7 @@
         .action-btn.success { background: #2a9d8f; }
         .action-btn.contact { background: #7209b7; }
         .action-btn.cash { background: #e09f3e; }
+        .action-btn.sync { background: #3a86ff; }
     </style>
 </head>
 <body>
@@ -110,7 +111,7 @@
 
             <div class="table-card">
                 <div class="admin-toolbar">
-                    <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> إدارة السجلات وحجوزات الفنادق المباشرة</h3>
+                    <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> إدارة السجلات وحجوزات الفنادق المباشرة (مع المورد Hotelbeds)</h3>
                     
                     <div style="display: flex; gap: 10px; align-items: center;">
                         <div class="search-box">
@@ -124,7 +125,7 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>المرجع</th>
+                            <th>المرجع (الرمال / المورد)</th>
                             <th>العميل ورقم الهاتف</th>
                             <th>الإيميل</th>
                             <th>الفندق</th>
@@ -223,7 +224,10 @@
 
                 tbody.innerHTML += `
                     <tr>
-                        <td><b style="color:var(--accent-coral);">${b.bookingReference}</b></td>
+                        <td>
+                            <b style="color:var(--accent-coral);">${b.bookingReference}</b><br>
+                            <small style="color:#2a9d8f;">المورد: ${b.supplierReference || 'Pending'}</small>
+                        </td>
                         <td>
                             <b>${b.customerName}</b><br>
                             <a href="tel:${phoneNum}" style="color:#0077b6; text-decoration:none; font-size:12px;"><i class="fa-solid fa-phone"></i> ${phoneNum}</a>
@@ -235,15 +239,16 @@
                         <td>
                             <div style="display:flex; flex-wrap:wrap; gap:4px;">
                                 <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" class="action-btn" title="تحميل قسيمة PDF">📄 PDF</a>
-                                <a href="mailto:${b.email}?subject=تواصل من شركة الرمال الدولية بخصوص حجزك ${b.bookingReference}" class="action-btn contact" title="راسل العميل عبر الإيميل"><i class="fa-solid fa-envelope"></i> إيميل</a>
-                                <a href="https://wa.me/${phoneNum.replace(/[^0-9]/g, '')}?text=مرحباً بك يا ${b.customerName}، نتواصل معك من شركة الرمال الدولية بخصوص حجزك في ${b.hotelName}" target="_blank" class="action-btn success" title="مراسلة عبر واتساب"><i class="fa-brands fa-whatsapp"></i> واتساب</a>
+                                <button onclick="checkLiveSync('${b.bookingReference}')" class="action-btn sync" title="مزامنة حية مع المورد"><i class="fa-solid fa-rotate-right"></i> مزامنة</button>
+                                <a href="mailto:${b.email}?subject=تواصل من شركة الرمال الدولية بخصوص حجزك ${b.bookingReference}" class="action-btn contact" title="راسل العميل"><i class="fa-solid fa-envelope"></i> إيميل</a>
+                                <a href="https://wa.me/${phoneNum.replace(/[^0-9]/g, '')}?text=مرحباً بك يا ${b.customerName}، نتواصل معك من شركة الرمال الدولية بخصوص حجزك في ${b.hotelName}" target="_blank" class="action-btn success" title="واتساب"><i class="fa-brands fa-whatsapp"></i> واتساب</a>
                                 
                                 ${!isCancelled && !isPaidCash && b.paymentMethod === 'hotel' ? 
-                                    `<button onclick="confirmCashPaymentAPI('${b.bookingReference}')" class="action-btn cash" title="تأكيد استلام الدفع النقدي من الفندق">تأكيد الدفع 💵</button>` : ''
+                                    `<button onclick="confirmCashPaymentAPI('${b.bookingReference}')" class="action-btn cash" title="تأكيد الدفع النقدي بالفندق">تأكيد الدفع 💵</button>` : ''
                                 }
 
                                 ${!isCancelled ? 
-                                    `<button onclick="syncAndCancelBooking('${b.bookingReference}')" class="action-btn danger" title="إلغاء الحجز مع الفندق والسحابة">إلغاء فندق 🏨❌</button>` : 
+                                    `<button onclick="syncAndCancelBooking('${b.bookingReference}')" class="action-btn danger" title="إلغاء الحجز مع الفندق والمورد">إلغاء فندق 🏨❌</button>` : 
                                     `<button onclick="updateBookingStatus('${b.bookingReference}', 'active')" class="action-btn success">تفعيل ✅</button>`
                                 }
                             </div>
@@ -251,6 +256,20 @@
                     </tr>
                 `;
             });
+        }
+
+        async function checkLiveSync(bookingReference) {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/admin/live-hotel-sync/${bookingReference}`);
+                const data = await res.json();
+                if(data.success) {
+                    alert(`🟢 حالة المزامنة اللحظية مع Hotelbeds:\n- مرجع الرمال: ${data.bookingReference}\n- مرجع المورد: ${data.supplierReference}\n- الحالة الحية: ${data.liveStatus}`);
+                } else {
+                    alert('❌ خطأ في المزامنة: ' + data.error);
+                }
+            } catch(e) {
+                alert('❌ خطأ في الاتصال بسيرفر المزامنة.');
+            }
         }
 
         function filterAdminBookings() {
@@ -263,9 +282,8 @@
             renderBookingsTable(filtered);
         }
 
-        // API تأكيد الدفع النقدي عند الوصول من الفندق
         async function confirmCashPaymentAPI(bookingReference) {
-            if(!confirm(`هل تأكيد أن العميل قد قام بدفع قيمة الحجز (${bookingReference}) كاش في الفندق وتم استلام المبلغ؟`)) return;
+            if(!confirm(`هل تؤكد أن العميل قد قام بدفع قيمة الحجز (${bookingReference}) كاش في الفندق وتم استلام المبلغ؟`)) return;
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/confirm-cash-payment`, {
                     method: 'POST',
@@ -285,28 +303,24 @@
         }
 
         async function syncAndCancelBooking(bookingReference) {
-            if(!confirm(`⚠️ هل أنت متأكد من رغبة إلغاء الحجز (${bookingReference})؟\n\nسيقوم السستم بمراسلة نظام الفندق الشريك (Hotel API) لإلغاء الغرفة أولاً، ثم تطبيق سياسة الاسترداد المالية وتحديث حساب العميل سحابياً.`)) return;
+            if(!confirm(`⚠️ هل أنت متأكد من رغبة إلغاء الحجز (${bookingReference})؟\n\nسيقوم السستم بمراسلة نظام المورد العالمي (Hotelbeds API) لإلغاء الغرفة لديهم، ثم تحديث حالة الحجز واسترداد النقاط.`)) return;
             
-            alert('🔄 جاري الاتصال بـ API الفندق الشريك لإلغاء الغرفة وفحص شروط الاسترداد...');
-            
-            setTimeout(async () => {
-                try {
-                    const res = await fetch(`${API_URL}/api/v1/admin/update-booking-status`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ bookingReference, status: 'cancelled' })
-                    });
-                    const data = await res.json();
-                    if(data.success) {
-                        alert('✅ تم نجاح الربط مع الفندق الشريك!\n- تم إلغاء الحجز نهائياً.\n- تم تطبيق سياسة الاسترداد المالية وإرجاع المستحقات إلى حساب العميل بدقة.');
-                        loadAdminData();
-                    } else {
-                        alert('❌ خطأ: ' + data.error);
-                    }
-                } catch(e) {
-                    alert('❌ خطأ في الاتصال بالسيرفر.');
+            try {
+                const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ bookingReference })
+                });
+                const data = await res.json();
+                if(data.success) {
+                    alert('✅ ' + data.message);
+                    loadAdminData();
+                } else {
+                    alert('❌ خطأ: ' + data.error);
                 }
-            }, 1500);
+            } catch(e) {
+                alert('❌ خطأ في الاتصال بالسيرفر.');
+            }
         }
 
         async function updateBookingStatus(bookingReference, status) {
@@ -325,7 +339,7 @@
                     alert('❌ ' + data.error);
                 }
             } catch(e) {
-                alert('❌ خطأ في الاتصال بالسيرفر.');
+                alert('❌ خطأ في الاتصال بالخادم.');
             }
         }
 
