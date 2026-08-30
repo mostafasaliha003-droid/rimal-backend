@@ -104,7 +104,7 @@
         
         .search-container {
             margin: -45px auto 35px; max-width: 1250px; background-color: var(--white); padding: 22px; border-radius: 24px;
-            display: grid; grid-template-columns: 1.5fr 1fr 1fr 0.8fr 0.8fr 1fr; gap: 10px; position: relative; z-index: 10; 
+            display: grid; grid-template-columns: 1.2fr 1fr 1fr 0.8fr 0.8fr 0.8fr 1fr; gap: 10px; position: relative; z-index: 10; 
             box-shadow: 0 15px 40px rgba(0, 180, 216, 0.25); border: 4px solid var(--accent-yellow); width: 95%;
         }
         .search-field { background-color: #f8f9fa; display: flex; align-items: center; padding: 0 12px; gap: 8px; border-radius: 16px; height: 60px; border: 2px solid #e2e8f0; }
@@ -264,26 +264,35 @@
             <p id="heroSubtitle">حدد تاريخ روحتك ورجعتك، وخل الباقي علينا عبر سحابة remalbookings.com!</p>
         </section>
 
-        <!-- محرك البحث المتقدم (يشمل البالغين والأطفال وأعمارهم) -->
+        <!-- محرك البحث المتقدم (مع دعم المناطق الجغرافية والوجهات) -->
         <div class="search-container">
+            <div class="search-field">
+                <i class="fa-solid fa-map-location-dot" style="color: var(--accent-coral);"></i>
+                <div class="field-content">
+                    <label>الوجهة أو المنطقة الجغرافية</label>
+                    <select id="destinationSelect">
+                        <option value="DXB">دبي (المدينة بالكامل) 🏙️</option>
+                    </select>
+                </div>
+            </div>
             <div class="search-field">
                 <i class="fa-solid fa-magnifying-glass" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
-                    <label id="lblSearchHotel">وين ناوي تخيم؟ (الفندق أو الإمارة)</label>
-                    <input type="text" id="searchInput" placeholder="مثل: دبي، شيراتون..." onkeyup="filterHotels()">
+                    <label id="lblSearchHotel">اسم الفندق</label>
+                    <input type="text" id="searchInput" placeholder="مثل: شيراتون..." onkeyup="filterHotels()">
                 </div>
             </div>
             <div class="search-field">
                 <i class="fa-regular fa-calendar-check" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
-                    <label id="lblCheckIn">تاريخ الروحة (الدخول)</label>
+                    <label id="lblCheckIn">تاريخ الدخول</label>
                     <input type="date" id="checkInDate" onchange="filterHotels()">
                 </div>
             </div>
             <div class="search-field">
                 <i class="fa-regular fa-calendar-xmark" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
-                    <label id="lblCheckOut">تاريخ العودة (الخروج)</label>
+                    <label id="lblCheckOut">تاريخ الخروج</label>
                     <input type="date" id="checkOutDate" onchange="filterHotels()">
                 </div>
             </div>
@@ -325,7 +334,7 @@
 
         <div class="container" style="margin-top: 15px;">
             <div style="background: white; padding: 15px; border-radius: 22px; box-shadow: var(--shadow); border: 3px solid var(--accent-cyan);">
-                <h3 style="color: var(--primary); margin-bottom: 12px; font-weight: 900;"><i class="fa-solid fa-map-location-dot" style="color: var(--accent-coral);"></i> خريطة الفنادق الحية في الإمارات 🗺️</h3>
+                <h3 style="color: var(--primary); margin-bottom: 12px; font-weight: 900;"><i class="fa-solid fa-map-location-dot" style="color: var(--accent-coral);"></i> خريطة الفنادق الحية في الإمارات (إحداثيات جغرافية دقيقة) 🗺️</h3>
                 <div id="map" style="width: 100%; height: 380px; border-radius: 16px;"></div>
             </div>
         </div>
@@ -333,9 +342,9 @@
         <div class="container">
             <div class="layout-wrapper">
                 <aside class="filters-sidebar">
-                    <h3 style="font-size: 16px; color: var(--primary); margin-bottom: 15px; font-weight: 900;">نقّط على الإمارة 📍</h3>
+                    <h3 style="font-size: 16px; color: var(--primary); margin-bottom: 15px; font-weight: 900;">فلترة جغرافية 📍</h3>
                     <div style="display: flex; flex-direction: column; gap: 8px; font-weight: 800;">
-                        <label><input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()"> كل الإمارات</label>
+                        <label><input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()"> كل المناطق</label>
                         <label><input type="radio" name="cityFilter" value="دبي" onchange="filterHotels()"> دبي 🏙️</label>
                         <label><input type="radio" name="cityFilter" value="أبوظبي" onchange="filterHotels()"> أبوظبي 👑</label>
                         <label><input type="radio" name="cityFilter" value="الشارقة" onchange="filterHotels()"> الشارقة 📚</label>
@@ -572,7 +581,26 @@
             displayHotels(allHotels);
             checkUserSession();
             checkAtlasConnection();
+            fetchLiveDestinations();
         };
+
+        // 🚀 جلب الوجهات الجغرافية الحية والمناطق من Hotelbeds Destination API
+        async function fetchLiveDestinations() {
+            try {
+                const res = await fetch(`${API_URL}/api/v1/hotels/destinations`);
+                const data = await res.json();
+                if (data.success && data.destinations && data.destinations.length > 0) {
+                    const select = document.getElementById('destinationSelect');
+                    select.innerHTML = '';
+                    data.destinations.forEach(dest => {
+                        let name = dest.name && dest.name.content ? dest.name.content : dest.code;
+                        select.innerHTML += `<option value="${dest.code}">${name} (${dest.code}) 📍</option>`;
+                    });
+                }
+            } catch (e) {
+                console.error("خطأ في جلب الوجهات الجغرافية:", e);
+            }
+        }
 
         async function checkAtlasConnection() {
             try {
@@ -622,7 +650,7 @@
             gMarkers = [];
             hotelsArray.forEach(hotel => {
                 const marker = new google.maps.Marker({ position: { lat: hotel.lat, lng: hotel.lng }, map: gMap, title: hotel.name, animation: google.maps.Animation.DROP });
-                const infowindow = new google.maps.InfoWindow({ content: `<div style="font-family:Cairo; text-align:right; direction:rtl; padding:5px;"><strong>${hotel.name}</strong><br>السعر: <b style="color:#ff595e;">${hotel.priceAED} AED</b></div>` });
+                const infowindow = new google.maps.InfoWindow({ content: `<div style="font-family:Cairo; text-align:right; direction:rtl; padding:5px;"><strong>${hotel.name}</strong><br>الإحداثيات الفعلية: ${hotel.lat.toFixed(3)}, ${hotel.lng.toFixed(3)}<br>السعر: <b style="color:#ff595e;">${hotel.priceAED} AED</b></div>` });
                 marker.addListener("click", () => { infowindow.open(gMap, marker); });
                 gMarkers.push(marker);
             });
@@ -883,6 +911,7 @@
 
         async function searchLiveHotels() {
             const query = document.getElementById('searchInput').value;
+            const destinationCode = document.getElementById('destinationSelect').value;
             const checkIn = document.getElementById('checkInDate').value;
             const checkOut = document.getElementById('checkOutDate').value;
             const adults = document.getElementById('adultsInput').value;
@@ -901,7 +930,7 @@
                 const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ checkIn, checkOut, adults: parseInt(adults), children: parseInt(children), childrenAges, boardBasis, destinationCode: "DXB" })
+                    body: JSON.stringify({ checkIn, checkOut, adults: parseInt(adults), children: parseInt(children), childrenAges, boardBasis, destinationCode })
                 });
 
                 const data = await res.json();
