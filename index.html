@@ -889,6 +889,7 @@
                         ];
                         let mockFacilities = ["<i class='fa-solid fa-wifi'></i> واي فاي", "<i class='fa-solid fa-person-swimming'></i> مسبح", "<i class='fa-solid fa-mug-hot'></i> إفطار"];
                         
+                        // تمرير تفاصيل الغرف والأسعار وسياسات الإلغاء الدقيقة القادمة من الـ API
                         return {
                             code: h.code || "12345",
                             name: h.name || "فندق شريك للرمال الدولية",
@@ -958,7 +959,7 @@
                         </div>
                         <div class="hotel-pricing">
                             <div class="hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED} AED</div>
-                            <button class="btn-book" data-hotel="${hotel.name}" data-price="${hotel.priceAED}" onclick="viewHotelDetails(this.getAttribute('data-hotel'), ${hotel.priceAED})">اختر الغرفة 🛏️</button>
+                            <button class="btn-book" data-hotel="${hotel.name}" data-price="${hotel.priceAED}" onclick="viewHotelDetails('${hotel.name}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms).replace(/"/g, '&quot;')})">اختر الغرفة 🛏️</button>
                         </div>
                     </div>
                 `;
@@ -966,40 +967,44 @@
             changeCurrency();
         }
 
-        function viewHotelDetails(hotelName, basePrice) {
+        // 🚀 دالة عرض تفاصيل الغرف وسياسات الإلغاء الدقيقة القادمة من الـ API
+        function viewHotelDetails(hotelName, basePrice, apiRooms) {
             document.getElementById('detailsHotelName').innerText = hotelName;
             const container = document.getElementById('roomsContainer');
             container.innerHTML = '';
 
-            const roomsData = [
-                { 
-                    name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج (Twin Beds)", board: "RO - بدون وجبات", modifier: 1.0, 
-                    roomFacilities: ["مساحة 25م²", "إطلالة على المدينة", "تكييف مركزي"],
-                    cancellationInfo: { type: "non_refundable", text: "غير قابل للاسترداد 🔒", desc: "سيتم خصم كامل المبلغ فور تأكيد الحجز." },
-                    rateKey: "MOCK-RATE-KEY-STD-001",
-                    paymentType: "AT"
-                },
-                { 
-                    name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج (King Bed)", board: "BB - شامل الإفطار", modifier: 1.2, 
-                    roomFacilities: ["مساحة 35م²", "بانيو استحمام", "ماكينة قهوة"],
-                    cancellationInfo: { type: "free_cancel", text: "إلغاء مجاني ✨", desc: "إلغاء مجاني بالكامل حتى قبل الموعد بـ 48 ساعة." },
-                    rateKey: "MOCK-RATE-KEY-DLX-002",
-                    paymentType: "HOTEL"
-                },
-                { 
-                    name: "جناح تنفيذي (Executive Suite)", bed: "سرير كينج + أريكة", board: "HB - فطور + عشاء", modifier: 1.5, 
-                    roomFacilities: ["مساحة 55م²", "إطلالة بحرية", "شرفة خاصة"],
-                    cancellationInfo: { type: "free_cancel", text: "إلغاء مجاني ✨", desc: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة." },
-                    rateKey: "MOCK-RATE-KEY-STE-003",
-                    paymentType: "AT"
-                }
-            ];
+            // إذا توفرت غرف حقيقية قادمة من الـ API يتم عرضها، وإلا يتم عرض الخيارات الاحتياطية
+            let roomsList = [];
+            if (apiRooms && apiRooms.length > 0) {
+                apiRooms.forEach(room => {
+                    if (room.rates && room.rates.length > 0) {
+                        room.rates.forEach(rate => {
+                            roomsList.push({
+                                name: room.name || "غرفة فندقية فاخرة",
+                                bed: "سرير مزدوج / كينج",
+                                board: rate.boardName || rate.board || "شامل الوجبات",
+                                price: rate.net ? parseFloat(rate.net) : basePrice,
+                                points: Math.floor((rate.net ? parseFloat(rate.net) : basePrice) * 0.5),
+                                policyText: rate.formattedPolicy || "شروط الإلغاء مطبقة حسب سياسة المورد العالمي ✨",
+                                isFreeCancel: rate.freeCancellation || false,
+                                rateKey: rate.rateKey,
+                                paymentType: rate.paymentType || 'AT'
+                            });
+                        });
+                    }
+                });
+            }
 
-            roomsData.forEach(room => {
-                let roomPrice = Math.floor(basePrice * room.modifier);
-                let roomPoints = Math.floor(roomPrice * 0.5);
-                let roomFacHTML = room.roomFacilities.map(f => `<span class="feature-badge"><i class="fa-solid fa-check"></i> ${f}</span>`).join('');
-                let cancelClass = room.cancellationInfo.type === 'free_cancel' ? 'free' : '';
+            // إذا لم تتوفر غرف في مصفوفة الـ API المعروضة، ندرج غرف افتراضية مدعومة
+            if (roomsList.length === 0) {
+                roomsList = [
+                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO - بدون وجبات", price: basePrice, points: Math.floor(basePrice*0.5), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT" },
+                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج", board: "BB - شامل الإفطار", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*0.6), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة ✨", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL" }
+                ];
+            }
+
+            roomsList.forEach(room => {
+                let cancelClass = room.isFreeCancel ? 'free' : '';
                 
                 container.innerHTML += `
                     <div class="room-card">
@@ -1007,23 +1012,16 @@
                             <h4>${room.name}</h4>
                             <p><i class="fa-solid fa-bed"></i> <strong>الأسرة:</strong> ${room.bed}</p>
                             <p><i class="fa-solid fa-utensils"></i> <strong>الوجبات:</strong> <span style="color:var(--accent-coral); font-weight:900;">${room.board}</span></p>
-                            <div class="room-features">${roomFacHTML}</div>
                             <div class="cancellation-box ${cancelClass}">
-                                <strong>${room.cancellationInfo.text}</strong><br>
-                                <span style="font-weight:600; font-size:12px; color:var(--text-muted);">${room.cancellationInfo.desc}</span>
+                                <strong><i class="fa-solid fa-file-contract"></i> سياسة إلغاء الـ API الدقيقة:</strong><br>
+                                <span style="font-weight:700; color:var(--text-main); display:block; margin-top:4px; white-space: pre-line;">${room.policyText}</span>
                             </div>
                         </div>
                         <div class="room-price-section">
-                            <h3><span class="hotel-price-display" data-price-aed="${roomPrice}">${roomPrice} AED</span></h3>
-                            <p style="font-size:11px; color:var(--accent-purple); font-weight:bold; margin-bottom:12px;">كاش +${roomPoints} نقطة</p>
+                            <h3><span class="hotel-price-display" data-price-aed="${room.price}">${room.price} AED</span></h3>
+                            <p style="font-size:11px; color:var(--accent-purple); font-weight:bold; margin-bottom:12px;">كاش +${room.points} نقطة</p>
                             <button class="btn-book" style="padding: 12px; font-size: 14px;" 
-                                data-hotel="${hotelName}" 
-                                data-room="${room.name}" 
-                                data-board="${room.board}" 
-                                data-policy="${room.cancellationInfo.desc}"
-                                data-ratekey="${room.rateKey}"
-                                data-paymenttype="${room.paymentType}"
-                                onclick="goToBooking(this.getAttribute('data-hotel'), ${roomPrice}, this.getAttribute('data-room'), this.getAttribute('data-board'), this.getAttribute('data-policy'), this.getAttribute('data-ratekey'), this.getAttribute('data-paymenttype'))">
+                                onclick="goToBooking('${hotelName}', ${room.price}, '${room.name}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}')">
                                 احجز هالغرفة 🚀
                             </button>
                         </div>
@@ -1100,7 +1098,7 @@
             element.classList.add('selected');
         }
 
-        // 🚀 دالة الحجز المحدثة مع خطوة فحص السعر والتوفر (Rate Recheck API)
+        // 🚀 دالة الحجز الآمنة مع التحقق من السعر والتوافر (Rate Recheck API)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1119,7 +1117,7 @@
             btn.disabled = true;
 
             try {
-                // 1. خطوة الأمان المتقدمة: فحص السعر والتوفر عبر الـ API قبل الدفع
+                // 1. فحص الأمان المالي عبر Rate Recheck API
                 const recheckRes = await fetch(`${API_URL}/api/v1/hotels/recheck`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1134,7 +1132,7 @@
                     return;
                 }
 
-                // 2. إذا نجح الفحص، نقوم بإنشاء الحجز الفعلي وإرسال القسيمة
+                // 2. إتمام الحجز الفعلي وإرسال القسيمة إلى الإيميل
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز وإرسال القسيمة عبر الإيميل...';
 
                 const res = await fetch(`${API_URL}/api/v1/bookings/create`, {
