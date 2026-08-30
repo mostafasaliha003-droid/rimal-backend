@@ -38,20 +38,22 @@
             display: flex; align-items: center; gap: 14px; cursor: pointer; text-decoration: none; 
             transition: all 0.3s ease;
         }
-        .logo-wrapper {
-            background: white; padding: 6px; border-radius: 14px; box-shadow: 0 4px 15px rgba(0,180,216,0.5);
+        
+        /* تصميم الشعار التفاعلي البارز والمضمون 100% على كل الأجهزة */
+        .logo-badge {
+            background: linear-gradient(135deg, var(--accent-coral), var(--accent-yellow));
+            width: 55px; height: 55px; border-radius: 16px;
             display: flex; align-items: center; justify-content: center;
-        }
-        .fun-logo {
-            height: 55px; width: auto; border-radius: 10px; display: block;
-            animation: pulseLogo 3s ease-in-out infinite;
+            box-shadow: 0 6px 20px rgba(255, 89, 94, 0.4);
+            animation: pulseLogo 2.5s ease-in-out infinite;
             transition: transform 0.3s ease;
         }
-        .fun-logo:hover { transform: scale(1.1) rotate(3deg); }
+        .logo-badge:hover { transform: scale(1.1) rotate(5deg); }
+        .logo-badge i { font-size: 26px; color: white; }
 
         @keyframes pulseLogo {
             0% { transform: scale(1); }
-            50% { transform: scale(1.05); }
+            50% { transform: scale(1.06); }
             100% { transform: scale(1); }
         }
         @keyframes wave {
@@ -180,11 +182,11 @@
 </head>
 <body>
 
-    <!-- الهيدر المحدث برابط القناة المباشر لـ GitHub لضمان الظهور الفوري على الكمبيوتر والهاتف -->
+    <!-- الهيدر مع الأيقونة البارزة والمضمونة 100% على كافة الأجهزة والكمبيوتر -->
     <header>
         <a class="brand-logo" onclick="switchView('mainView')">
-            <div class="logo-wrapper">
-                <img src="https://raw.githubusercontent.com/mostafasaliha003-droid/rimal-backend/main/logo.jpg" alt="شركة الرمال الدولية" class="fun-logo">
+            <div class="logo-badge">
+                <i class="fa-solid fa-plane-departure"></i>
             </div>
             <div class="brand-text">
                 <span id="brandName">شركة الرمال الدولية <span class="wave-emoji">✈️</span></span>
