@@ -586,7 +586,7 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
 });
 
 // ==========================================
-// 🏨 مسار البحث المباشر عن الفنادق من Hotelbeds API
+// 🏨 1. مسار البحث المباشر عن الفنادق من Hotelbeds API (Availability API)
 // ==========================================
 app.post('/api/v1/hotels/search', async (req, res) => {
     try {
@@ -639,6 +639,45 @@ app.post('/api/v1/hotels/search', async (req, res) => {
     } catch (error) {
         console.error('Hotelbeds API Error:', error);
         res.status(500).json({ success: false, error: 'فشل الاتصال بمزود الفنادق العالمي' });
+    }
+});
+
+// ==========================================
+// 🏨 2. المسار الجديد: جلب البيانات الثابتة (الصور والمرافق) للفندق المختار (Content API)
+// ==========================================
+app.get('/api/v1/hotels/content/:hotelCode', async (req, res) => {
+    try {
+        const hotelCode = req.params.hotelCode;
+        
+        // مفاتيح الاتصال الخاصة بشركة الرمال
+        const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+        const secret = '3eQESu8wOA'; 
+        
+        // توليد التوقيع الرقمي كما يشترط نظام Hotelbeds
+        const timestamp = Math.floor(Date.now() / 1000);
+        const plainText = apiKey + secret + timestamp;
+        const signature = crypto.createHash('sha256').update(plainText).digest('hex');
+
+        // رابط استدعاء المحتوى الثابت لفندق واحد باللغة الإنجليزية
+        const url = `https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels/${hotelCode}?language=ENG`;
+
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: {
+                'Api-key': apiKey,
+                'X-Signature': signature,
+                'Accept': 'application/json'
+            }
+        });
+
+        const data = await response.json();
+        
+        // إرجاع المحتوى للواجهة (الصور، المرافق، الوصف)
+        res.json({ success: true, hotelContent: data.hotel || data });
+        
+    } catch (error) {
+        console.error('Hotel Content API Error:', error);
+        res.status(500).json({ success: false, error: 'فشل جلب تفاصيل ومرافق الفندق من السيرفر العالمي' });
     }
 });
 
