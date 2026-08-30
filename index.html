@@ -502,6 +502,16 @@
         </div>
     </div>
 
+    <!-- 🚀 نافذة عرض الفنادق والبدائل عند نفاد الغرفة (Alternative Rates & Hotels Modal) -->
+    <div id="alternativesModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 550px;">
+            <h3 style="color: var(--accent-coral); margin-bottom: 10px;"><i class="fa-solid fa-triangle-exclamation"></i> عذراً، نفدت الغرفة أو تغير سعرها!</h3>
+            <p style="font-size: 13px; color: var(--text-muted); margin-bottom: 20px;">قمنا بجلب أفضل البدائل الفندقية المتاحة فوراً من السيرفر العالمي خصيصاً لك:</p>
+            <div id="alternativesListContainer" style="display: flex; flex-direction: column; gap: 10px; text-align: right; margin-bottom: 20px;"></div>
+            <button type="button" onclick="closeAlternativesModal()" style="width: 100%; padding: 12px; border: none; background: #cbd5e1; border-radius: 12px; font-weight: bold; cursor: pointer;">إغلاق والعودة</button>
+        </div>
+    </div>
+
     <!-- الفوتر -->
     <footer>
         <div class="footer-container">
@@ -584,7 +594,7 @@
             fetchLiveDestinations();
         };
 
-        // 🚀 جلب الوجهات الجغرافية الحية والمناطق من Hotelbeds Destination API
+        // 🚀 جلب الوجهات الجغرافية الحية من الـ API
         async function fetchLiveDestinations() {
             try {
                 const res = await fetch(`${API_URL}/api/v1/hotels/destinations`);
@@ -679,6 +689,7 @@
         function handleAccountBtnClick() { currentUser ? switchView('registerView') : openAuthModal('register'); }
         function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
         function closeAuthModal() { document.getElementById('socialModal').style.display = 'none'; }
+        function closeAlternativesModal() { document.getElementById('alternativesModal').style.display = 'none'; }
 
         function switchTab(tab) {
             document.getElementById('tabLoginBtn').classList.toggle('active', tab === 'login');
@@ -1150,7 +1161,7 @@
             element.classList.add('selected');
         }
 
-        // 🚀 دالة الحجز الآمنة مع التحقق من السعر والتوافر (Rate Recheck API)
+        // 🚀 دالة الحجز الآمنة مع التحقق من السعر والتوافر وجلب البدائل الذكية عند النفاد (Alternative Rates API)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1178,7 +1189,36 @@
                 const recheckData = await recheckRes.json();
 
                 if (!recheckData.success) {
-                    alert('❌ ' + recheckData.error);
+                    // إذا نفدت الغرفة، جلب البدائل وعرضها في نافذة منبثقة احترافية
+                    try {
+                        const altRes = await fetch(`${API_URL}/api/v1/hotels/alternatives`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ destinationCode: 'DXB' })
+                        });
+                        const altData = await altRes.json();
+                        
+                        const altContainer = document.getElementById('alternativesListContainer');
+                        altContainer.innerHTML = '';
+
+                        if (altData.success && altData.alternatives) {
+                            altData.alternatives.forEach(alt => {
+                                altContainer.innerHTML += `
+                                    <div style="background: #f8f9fa; border: 2px solid #00b4d8; padding: 12px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
+                                        <div>
+                                            <strong>${alt.name}</strong><br>
+                                            <small style="color:var(--accent-coral); font-weight:bold;">السعر: ${alt.price} AED | ${alt.category}</small>
+                                        </div>
+                                        <button onclick="closeAlternativesModal(); switchView('mainView');" style="background:var(--primary); color:white; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; cursor:pointer;">اختر هذا الفندق 🚀</button>
+                                    </div>
+                                `;
+                            });
+                        }
+                        document.getElementById('alternativesModal').style.display = 'flex';
+                    } catch(altErr) {
+                        alert('❌ ' + recheckData.error);
+                    }
+
                     btn.innerHTML = origText;
                     btn.disabled = false;
                     return;
