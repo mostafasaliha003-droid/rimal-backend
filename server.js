@@ -5,6 +5,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const path = require('path');
 const PDFDocument = require('pdfkit');
+const crypto = require('crypto'); // 🚀 تمت الإضافة: مكتبة التشفير المطلوبة لـ Hotelbeds API
 
 const app = express();
 app.use(express.json());
@@ -581,6 +582,63 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.end();
     } catch (e) { 
         res.status(500).send('Error generating PDF'); 
+    }
+});
+
+// ==========================================
+// 🏨 مسار البحث المباشر عن الفنادق من Hotelbeds API
+// ==========================================
+app.post('/api/v1/hotels/search', async (req, res) => {
+    try {
+        const { checkIn, checkOut, destinationCode, adults } = req.body;
+
+        // مفاتيح شركة الرمال الدولية (بيئة الاختبار)
+        const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+        const secret = '3eQESu8wOA'; 
+
+        // 1. توليد التوقيع الرقمي المشفر (Signature)
+        const timestamp = Math.floor(Date.now() / 1000);
+        const plainText = apiKey + secret + timestamp;
+        const signature = crypto.createHash('sha256').update(plainText).digest('hex');
+
+        // 2. تجهيز هيكل البحث
+        const requestBody = {
+            stay: {
+                checkIn: checkIn || "2026-09-15", 
+                checkOut: checkOut || "2026-09-20"
+            },
+            occupancies: [
+                {
+                    rooms: 1,
+                    adults: adults || 2,
+                    children: 0
+                }
+            ],
+            destination: {
+                code: destinationCode || "DXB" // رمز دبي الافتراضي
+            }
+        };
+
+        // 3. إرسال الطلب إلى سيرفر الاختبار الخاص بـ Hotelbeds
+        const response = await fetch('https://api.test.hotelbeds.com/hotel-api/1.0/hotels', {
+            method: 'POST',
+            headers: {
+                'Api-key': apiKey,
+                'X-Signature': signature,
+                'Accept': 'application/json',
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify(requestBody)
+        });
+
+        const data = await response.json();
+        
+        // 4. إرجاع النتائج لواجهة موقعك
+        res.json({ success: true, source: 'Hotelbeds APItude', hotelsData: data.hotels });
+
+    } catch (error) {
+        console.error('Hotelbeds API Error:', error);
+        res.status(500).json({ success: false, error: 'فشل الاتصال بمزود الفنادق العالمي' });
     }
 });
 
