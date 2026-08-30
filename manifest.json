@@ -1,0 +1,22 @@
+{
+  "name": "شركة الرمال الدولية للخدمات والحجوزات",
+  "short_name": "الرمال الدولية",
+  "description": "منصتك الأولى لحجوزات الفنادق، الشحن البري، والخدمات التجارية في الإمارات.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f7fff7",
+  "theme_color": "#1f3a40",
+  "orientation": "portrait",
+  "icons": [
+    {
+      "src": "logo.jpg",
+      "sizes": "192x192",
+      "type": "image/jpeg"
+    },
+    {
+      "src": "logo.jpg",
+      "sizes": "512x512",
+      "type": "image/jpeg"
+    }
+  ]
+}
