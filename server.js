@@ -126,6 +126,30 @@ async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBu
     }
 }
 
+// 🚀 دالة إرسال الإشعارات عبر واتساب (WhatsApp Notifications API)
+async function sendWhatsAppNotification(toPhone, messageText) {
+    try {
+        // يمكنك لاحقاً ربطها بـ Twilio أو UltraMsg باستخدام متغيرات البيئة
+        // مثال توثيق اتصال عبر UltraMsg / Twilio:
+        /*
+        const response = await fetch('https://api.ultramsg.com/instanceXXX/messages/chat', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                token: 'YOUR_INSTANCE_TOKEN',
+                to: toPhone,
+                body: messageText
+            })
+        });
+        */
+        console.log(`📱 [WhatsApp API Mock]: تم إرسال الرسالة بنجاح إلى الرقم ${toPhone}: \n${messageText}`);
+        return true;
+    } catch (error) {
+        console.error('❌ خطأ في إرسال إشعار الواتساب:', error);
+        return false;
+    }
+}
+
 app.get('/api/v1/health-check', async (req, res) => {
     const dbState = mongoose.connection.readyState;
     const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
@@ -307,6 +331,14 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             await user.save();
         }
 
+        // 📱 إرسال إشعار فوري عبر واتساب للعميل
+        if (phone) {
+            await sendWhatsAppNotification(
+                phone,
+                `✈️ مرحباً بك يا ${customerName}!\nتم تأكيد حجزك في ${hotelName} بنجاح.\nرقم المرجع: ${bookingReference}\nالمبلغ: ${finalPrice} AED\nشكراً لاختيارك شركة الرمال الدولية!`
+            );
+        }
+
         const doc = new PDFDocument({ margin: 50, size: 'A4' });
         let buffers = [];
         doc.on('data', chunk => buffers.push(chunk));
@@ -426,6 +458,14 @@ app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
 
         await booking.save();
 
+        // 📱 إشعار واتساب بتعديل الحجز
+        if (booking.phone) {
+            await sendWhatsAppNotification(
+                booking.phone,
+                `📝 إشعار من شركة الرمال الدولية:\nتم تحديث وتعديل تفاصيل حجزك (${bookingReference}) بنجاح.`
+            );
+        }
+
         res.json({
             success: true,
             message: `تم تعديل وتحديث بيانات الحجز (${bookingReference}) بنجاح في السحابة ومع المورد العالمي.`,
@@ -508,6 +548,14 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
 
         booking.status = 'cancelled';
         await booking.save();
+
+        // 📱 إشعار واتساب بإلغاء الحجز واسترداد الأموال
+        if (booking.phone) {
+            await sendWhatsAppNotification(
+                booking.phone,
+                `❌ إشعار من شركة الرمال الدولية:\nتم إلغاء الحجز (${bookingReference}) بنجاح وتفعيل سياسة استرداد الأموال.`
+            );
+        }
 
         res.json({
             success: true,
@@ -742,8 +790,6 @@ app.get('/api/v1/admin/export-financial-report', async (req, res) => {
 // ==========================================
 // ⭐ مسار نظام تقييمات وتعليقات العملاء (Hotel Reviews & Ratings API)
 // ==========================================
-
-// 1. إضافة تقييم جديد من العميل (يجب أن يكون لديه حجز سابق في الفندق لضمان المصداقية)
 app.post('/api/v1/reviews/create', async (req, res) => {
     try {
         const { email, customerName, hotelName, rating, comment } = req.body;
@@ -752,7 +798,6 @@ app.post('/api/v1/reviews/create', async (req, res) => {
             return res.status(400).json({ success: false, error: 'الرجاء إدخال كافة بيانات التقييم.' });
         }
 
-        // التأكد من أن العميل لديه حجز في هذا الفندق (للمصداقية والأمان)
         const hasBooked = await Booking.findOne({ email: email.toLowerCase().trim(), hotelName: new RegExp(hotelName, 'i') });
         if (!hasBooked) {
             return res.status(403).json({ success: false, error: 'عذراً، يمكنك تقييم الفنادق التي قمت بحجزها مسبقاً فقط لضمان مصداقية التقييمات 🔒' });
@@ -774,18 +819,15 @@ app.post('/api/v1/reviews/create', async (req, res) => {
     }
 });
 
-// 2. جلب تقييمات فندق معين (مع دمج تقييمات عالمية)
 app.get('/api/v1/reviews/hotel/:hotelName', async (req, res) => {
     try {
         const hotelName = req.params.hotelName;
         const localReviews = await Review.find({ hotelName: new RegExp(hotelName, 'i') }).sort({ createdAt: -1 });
 
-        // حساب متوسط التقييم المحلي
         let totalRating = 0;
         localReviews.forEach(r => totalRating += r.rating);
         let averageRating = localReviews.length > 0 ? (totalRating / localReviews.length).toFixed(1) : 0;
 
-        // إضافة تقييمات عالمية افتراضية مستمدة من الـ API إذا كان الفندق جديداً (لسد الفراغ)
         let globalReviews = [];
         if (localReviews.length < 3) {
             globalReviews = [
