@@ -322,8 +322,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
                         <h2 style="color:#1f3a40;">مرحباً بك يا بطل، ${customerName}! ✈️</h2>
                         <p>تم تثبيت وتأكيد حجزك الفندقي بنجاح عبر منصة <b>شركة الرمال الدولية (remalbookings.com)</b>.</p>
                         <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
-                        <p><b>رقم المرجع (الرمال):</b> ${bookingReference}</p>
-                        <p><b>مرجع المورد العالمي (Hotelbeds):</b> <span style="color:#2a9d8f;">${supplierRef}</span></p>
+                        <p><b>رقم المرجع:</b> ${bookingReference}</p>
                         <p><b>الفندق / الشريك:</b> ${hotelName}</p>
                         <p><b>الإجمالي المدفوع:</b> ${finalPrice} AED</p>
                         <p><b>سياسة الاسترداد:</b> ${policyText}</p>
@@ -342,8 +341,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
         doc.moveDown(1.5);
 
-        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Remal Reference: ${bookingReference}`);
-        doc.fontSize(12).fillColor('#2a9d8f').text(`Supplier Confirmation: ${supplierRef}`);
+        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${bookingReference}`);
         doc.moveDown(0.8);
 
         doc.fontSize(11).fillColor('#333333').font('Helvetica');
@@ -363,7 +361,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             message: 'تم تثبيت الحجز وإرسال القسيمة عبر الإيميل بنجاح!',
             data: {
                 bookingReference,
-                supplierReference: supplierRef,
                 hotelName,
                 customerName,
                 email,
@@ -619,7 +616,6 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.moveDown(1.5);
 
         doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${booking.bookingReference}`);
-        doc.fontSize(12).fillColor('#2a9d8f').text(`Supplier Confirmation: ${booking.supplierReference || 'N/A'}`);
         doc.moveDown(0.8);
 
         doc.fontSize(11).fillColor('#333333').font('Helvetica');
@@ -665,7 +661,7 @@ app.post('/api/v1/hotels/search', async (req, res) => {
                 }
             ],
             destination: {
-                code: destinationCode || "DXB"
+                code: destinationCode || "DXB" // رمز دبي الافتراضي
             }
         };
 
