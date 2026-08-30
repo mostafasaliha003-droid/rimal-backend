@@ -712,6 +712,33 @@ app.post('/api/v1/hotels/alternatives', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 مسار تصدير التقارير المالية المتقدمة للإدارة بصيغة CSV (Advanced Financial Reporting API)
+// ==========================================
+app.get('/api/v1/admin/export-financial-report', async (req, res) => {
+    try {
+        const bookings = await Booking.find().sort({ createdAt: -1 });
+
+        let csvContent = "\uFEFFرقم المرجع (Ref),اسم الضيف (Guest),الفندق (Hotel),المبلغ الإجمالي (AED),طريقة الدفع (Payment),حالة الحجز (Status),تاريخ الحجز (Date)\n";
+
+        bookings.forEach(b => {
+            const dateStr = b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : 'N/A';
+            const cleanHotelName = (b.hotelName || '').replace(/,/g, ' ');
+            const cleanCustomerName = (b.customerName || '').replace(/,/g, ' ');
+            
+            csvContent += `"${b.bookingReference}","${cleanCustomerName}","${cleanHotelName}",${b.price || 0},"${b.paymentMethod}","${b.status}","${dateStr}"\n`;
+        });
+
+        res.setHeader('Content-Type', 'text/csv; charset=utf-8');
+        res.setHeader('Content-Disposition', 'attachment; filename=Rimal-Financial-Report-2026.csv');
+        res.status(200).send(csvContent);
+
+    } catch (error) {
+        console.error('Financial Report API Error:', error);
+        res.status(500).json({ success: false, error: 'فشل تصدير التقرير المالي من السحابة' });
+    }
+});
+
 app.post('/api/v1/admin/login', async (req, res) => {
     try {
         const { email, password } = req.body;
