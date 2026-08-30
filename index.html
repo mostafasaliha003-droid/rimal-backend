@@ -5,6 +5,11 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>شركة الرمال الدولية | احجز، فلّها، واكسب! ✈️</title>
     
+    <!-- 🚀 أكواد تطبيق الجوال PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1f3a40">
+    <link rel="apple-touch-icon" href="logo.jpg">
+    
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
@@ -457,6 +462,21 @@
     </footer>
 
     <div id="google_translate_element" style="display:none;"></div>
+
+    <!-- 🚀 سكربت تشغيل الـ PWA -->
+    <script>
+        if ('serviceWorker' in navigator) {
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('sw.js')
+                    .then(registration => {
+                        console.log('✅ تم تشغيل تطبيق الرمال PWA بنجاح!', registration.scope);
+                    })
+                    .catch(error => {
+                        console.log('❌ خطأ في تشغيل PWA:', error);
+                    });
+            });
+        }
+    </script>
 
     <script type="text/javascript">
         function googleTranslateElementInit() {
