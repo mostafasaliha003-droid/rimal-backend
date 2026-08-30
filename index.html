@@ -178,10 +178,10 @@
 </head>
 <body>
 
-    <!-- الهيدر مع ربط الشعار الصحيح logo.jpg -->
+    <!-- الهيدر المحدث مع رابط الشعار المباشر من GitHub -->
     <header>
         <a class="brand-logo" onclick="switchView('mainView')">
-            <img src="logo.jpg" alt="شركة الرمال الدولية" class="fun-logo">
+            <img src="https://raw.githubusercontent.com/mostafasaliha003-droid/rimal-backend/main/logo.jpg" alt="شركة الرمال الدولية" class="fun-logo">
             <div class="brand-text">
                 <span id="brandName">شركة الرمال الدولية <span class="wave-emoji">✈️</span></span>
                 <span id="brandSub">اضحك، احجز، وفلّها! 🤪</span>
@@ -842,12 +842,12 @@
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
-            const email = document.getElementById('custEmail').value;
+            The email = document.getElementById('custEmail').value;
             const phone = document.getElementById('custPhone').value;
             const companions = document.getElementById('custCompanions').value;
             const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
             const pointsUsed = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
-            const refundType = document.getElementById('refundTypeSelect').value;
+            const refundType = document.getElementById('refundTypeSelect.value');
             
             const finalPrice = parseFloat(document.getElementById('finalPriceDisplay').innerText);
 
