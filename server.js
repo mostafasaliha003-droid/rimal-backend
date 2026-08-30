@@ -8,7 +8,32 @@ const PDFDocument = require('pdfkit');
 
 const app = express();
 app.use(express.json());
-app.use(cors());
+
+// ==========================================
+// 🛡️ إعدادات الحماية المتقدمة (CORS Policy)
+// ==========================================
+const allowedOrigins = [
+    'https://remalbookings.com',
+    'https://www.remalbookings.com',
+    'http://localhost:10000', // للسماح بالتطوير والاختبار المحلي
+    'http://127.0.0.1:10000'
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        // السماح بالطلبات التي لا تحتوي على Origin (مثل Postman أو السيرفر الداخلي) أو إذا كان النطاق مسموحاً
+        if (!origin || allowedOrigins.includes(origin)) {
+            callback(null, true);
+        } else {
+            console.warn(`محاولة اتصال مرفوضة من النطاق: ${origin}`);
+            callback(new Error('CORS Policy: Access Denied. هذا السيرفر مخصص حصرياً لمنصة شركة الرمال الدولية.'));
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true // للسماح بنقل ملفات الارتباط (Cookies)
+}));
+// ==========================================
+
 app.use(express.static(__dirname));
 
 const transporter = nodemailer.createTransport({
@@ -413,7 +438,6 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
     }
 });
 
-// NEW: API التحقق الحي من حالة الحجز مع الفندق المورد (Live Hotel Supplier API Sync)
 app.get('/api/v1/admin/live-hotel-sync/:reference', async (req, res) => {
     try {
         const bookingReference = req.params.reference;
@@ -422,8 +446,6 @@ app.get('/api/v1/admin/live-hotel-sync/:reference', async (req, res) => {
             return res.status(404).json({ success: false, error: 'الحجز غير موجود بالسحابة' });
         }
 
-        // محاكاة الاتصال بنظام الفندق الشريك (Supplier API) لجلب الحالة اللحظية
-        // في المستقبل، يتم استبدال هذا برابط الـ API الفعلي الخاص بالمورد (مثل Hotelbeds, Sabre, Amadeus)
         const liveStatuses = ['Confirmed Live 🟢', 'Checked-In 🏨', 'Active ⚡'];
         const randomLiveStatus = booking.status === 'cancelled' ? 'Cancelled by Supplier ❌' : liveStatuses[Math.floor(Math.random() * liveStatuses.length)];
 
