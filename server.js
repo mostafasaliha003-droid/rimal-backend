@@ -616,6 +616,7 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.moveDown(1.5);
 
         doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${booking.bookingReference}`);
+        doc.fontSize(12).fillColor('#2a9d8f').text(`Supplier Confirmation: ${booking.supplierReference || 'N/A'}`);
         doc.moveDown(0.8);
 
         doc.fontSize(11).fillColor('#333333').font('Helvetica');
@@ -635,7 +636,7 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 مسار التحقق من السعر وتوفر الغرفة قبل الدفع (Rate Recheck API - الميزة الجديدة الآمنة)
+// 🚀 مسار التحقق من السعر وتوفر الغرفة قبل الدفع (Rate Recheck API)
 // ==========================================
 app.post('/api/v1/hotels/recheck', async (req, res) => {
     try {
@@ -685,7 +686,7 @@ app.post('/api/v1/hotels/recheck', async (req, res) => {
 });
 
 // ==========================================
-// 🏨 1. مسار البحث المباشر عن الفنادق من Hotelbeds API (Availability API)
+// 🏨 1. مسار البحث المباشر وتحليل سياسات الإلغاء الدقيقة من Hotelbeds API
 // ==========================================
 app.post('/api/v1/hotels/search', async (req, res) => {
     try {
@@ -711,7 +712,7 @@ app.post('/api/v1/hotels/search', async (req, res) => {
                 }
             ],
             destination: {
-                code: destinationCode || "DXB" // رمز دبي الافتراضي
+                code: destinationCode || "DXB"
             }
         };
 
@@ -727,7 +728,50 @@ app.post('/api/v1/hotels/search', async (req, res) => {
         });
 
         const data = await response.json();
-        res.json({ success: true, source: 'Hotelbeds APItude', hotelsData: data.hotels });
+
+        // تحليل واستخراج سياسات الإلغاء الدقيقة لكل سعر وغرفة
+        let processedHotels = [];
+        if (data.hotels && data.hotels.hotels) {
+            processedHotels = data.hotels.hotels.map(hotel => {
+                let rooms = hotel.rooms ? hotel.rooms.map(room => {
+                    let rates = room.rates ? room.rates.map(rate => {
+                        let policySummary = "سياسة إلغاء مطبقة حسب شروط الفندق 🔒";
+                        
+                        if (rate.cancellationPolicies && rate.cancellationPolicies.length > 0) {
+                            let policies = rate.cancellationPolicies.map(p => {
+                                let amount = p.amount ? `${p.amount} AED` : '';
+                                let date = p.from ? `ابتداءً من تاريخ ${p.from}` : '';
+                                return `غرامة ${amount} ${date}`.trim();
+                            });
+                            policySummary = `شروط الإلغاء من المورد: ${policies.join(' | ')}`;
+                        } else if (rate.freeCancellation) {
+                            policySummary = "إلغاء مجاني بالكامل ✨";
+                        }
+
+                        return {
+                            ...rate,
+                            formattedPolicy: policySummary
+                        };
+                    }) : [];
+
+                    return {
+                        ...room,
+                        rates: rates
+                    };
+                }) : [];
+
+                return {
+                    ...hotel,
+                    rooms: rooms
+                };
+            });
+        }
+
+        res.json({ 
+            success: true, 
+            source: 'Hotelbeds APItude with Live Cancellation Policies', 
+            hotelsData: { hotels: processedHotels.length > 0 ? processedHotels : (data.hotels.hotels || []) } 
+        });
 
     } catch (error) {
         console.error('Hotelbeds API Error:', error);
