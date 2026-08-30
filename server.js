@@ -390,7 +390,6 @@ app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
             return res.status(400).json({ success: false, error: 'لا يمكن تعديل حجز ملغي مسبقاً' });
         }
 
-        // مخاطبة سيرفر Hotelbeds لتحديث بيانات الحجز لديهم رسمياً إذا توفر مرجع المورد
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
             try {
                 const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
@@ -421,7 +420,6 @@ app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
             }
         }
 
-        // تحديث البيانات محلياً وفي السحابة
         if (customerName) booking.customerName = customerName;
         if (phone) booking.phone = phone;
         if (companions) booking.companions = companions;
@@ -636,6 +634,29 @@ app.get('/api/currency/convert', async (req, res) => {
         }
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.get('/api/v1/hotels/destinations', async (req, res) => {
+    try {
+        const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+        const secret = '3eQESu8wOA'; 
+        const timestamp = Math.floor(Date.now() / 1000);
+        const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+
+        const response = await fetch('https://api.test.hotelbeds.com/hotel-content-api/1.0/locations/destinations?countryCode=AE&language=ENG', {
+            method: 'GET',
+            headers: {
+                'Api-key': apiKey,
+                'X-Signature': signature,
+                'Accept': 'application/json'
+            }
+        });
+        const data = await response.json();
+        res.json({ success: true, destinations: data.destinations || [] });
+    } catch (error) {
+        console.error('Destination API Error:', error);
+        res.status(500).json({ success: false, error: 'فشل جلب الوجهات الجغرافية' });
     }
 });
 
