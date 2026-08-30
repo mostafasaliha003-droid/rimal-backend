@@ -283,7 +283,8 @@
                 </div>
             </div>
             <div class="search-field" style="background: transparent; border: none; padding: 0;">
-                <button onclick="filterHotels()" id="searchBtnText" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary)); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; height: 60px; width: 100%;">ابحث وانحاش 🚀</button>
+                <!-- 🚀 تعديل: تم ربط الزر بدالة الاتصال بالـ API الحقيقي -->
+                <button onclick="searchLiveHotels()" id="searchBtnText" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary)); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; height: 60px; width: 100%;">ابحث وانحاش 🚀</button>
             </div>
         </div>
 
@@ -513,7 +514,8 @@
         let selectedHotel = '', currentBasePrice = 0;
         let gMap, gMarkers = [];
 
-        const allHotels = [
+        // تم تحويلها إلى let لاستقبال البيانات الحية من السيرفر
+        let allHotels = [
             { name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, lat: 25.2654, lng: 55.3272, img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!" },
             { name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, lat: 25.1304, lng: 55.1172, img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!" },
             { name: "قصر الإمارات ماندَرين أورينتال، أبوظبي", city: "أبوظبي", priceAED: 1651, basePoints: 450, lat: 24.4624, lng: 54.3211, img: "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80", funnyPolicy: "ندفع بالذهب الخالص فقط!" }
@@ -809,13 +811,89 @@
         }
 
         // ==========================================
-        // 🚀 دالة عرض الفنادق مع العبارات المحفزة المضحكة
+        // 🚀 دالة الاتصال الحية بالـ API الخاص بـ Hotelbeds
+        // ==========================================
+        async function searchLiveHotels() {
+            const query = document.getElementById('searchInput').value;
+            const checkIn = document.getElementById('checkInDate').value;
+            const checkOut = document.getElementById('checkOutDate').value;
+            const adults = document.getElementById('manualGuestsInput').value;
+
+            const btn = document.getElementById('searchBtnText');
+            const originalText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الاتصال بالسحابة العالمية...';
+            btn.disabled = true;
+
+            try {
+                // الاتصال بمسار السيرفر الخاص بك الذي يتصل بدوره بـ Hotelbeds
+                const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        checkIn, 
+                        checkOut, 
+                        adults: parseInt(adults),
+                        destinationCode: "DXB" // مدينة دبي كمثال افتراضي للتجربة
+                    })
+                });
+
+                const data = await res.json();
+
+                if (data.success && data.hotelsData && data.hotelsData.hotels) {
+                    // سحب الفنادق الحقيقية وتجهيزها للواجهة
+                    let liveHotels = data.hotelsData.hotels.map((h, index) => {
+                        let minRate = h.minRate ? parseFloat(h.minRate) : Math.floor(Math.random() * 1500 + 400);
+                        
+                        // صور احترافية مؤقتة لأن بيئة الاختبار في HBX قد لا ترسل صوراً دقيقة دائماً
+                        let imgs = [
+                            "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
+                            "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80",
+                            "https://images.unsplash.com/photo-1542314831-068cd1dbfeeb?auto=format&fit=crop&w=600&q=80",
+                            "https://images.unsplash.com/photo-1578683010236-d716f9a3f461?auto=format&fit=crop&w=600&q=80"
+                        ];
+                        
+                        const funnyPolicies = [
+                            "ممنوع إدخال السناجب للغرفة!", "الدفع كاش أو غسيل صحون!", "الابتسامة إجبارية عند الدخول!", "يمنع الشخير بصوت عالي!"
+                        ];
+
+                        return {
+                            name: h.name || "فندق شريك للرمال الدولية",
+                            city: h.destinationName || "دبي",
+                            priceAED: minRate,
+                            basePoints: Math.floor(minRate * 0.5),
+                            lat: h.latitude || 25.2048 + (Math.random() * 0.1),
+                            lng: h.longitude || 55.2708 + (Math.random() * 0.1),
+                            img: imgs[index % imgs.length],
+                            funnyPolicy: funnyPolicies[index % funnyPolicies.length]
+                        };
+                    });
+                    
+                    if(query) {
+                        liveHotels = liveHotels.filter(h => h.name.toLowerCase().includes(query.toLowerCase()));
+                    }
+
+                    allHotels = liveHotels;
+                    displayHotels(allHotels);
+                    updateGoogleMarkers(allHotels);
+                } else {
+                    alert('❌ لم نتمكن من العثور على فنادق من السيرفر العالمي في هذا التاريخ.');
+                }
+            } catch (e) {
+                console.error(e);
+                alert('❌ خطأ في الاتصال بسيرفر Hotelbeds. تأكد من عمل السيرفر.');
+            } finally {
+                btn.innerHTML = originalText;
+                btn.disabled = false;
+            }
+        }
+
+        // ==========================================
+        // 🚀 دالة عرض الفنادق مع العبارات المحفزة وتقييمات أجودا
         // ==========================================
         function displayHotels(hotelsArray) {
             const container = document.getElementById('hotelsContainer');
             container.innerHTML = '';
             
-            // قائمة العبارات المضحكة والمحفزة (Urgency Messages)
             const funnyMsgs = [
                 "🔥 باقي غرفة والمدير بيطردنا لو ما انحجزت!",
                 "🏃‍♂️ طق عصي على هالغرفة.. الحق!",
@@ -826,8 +904,8 @@
             ];
 
             hotelsArray.forEach(hotel => {
-                // اختيار عبارة عشوائية لكل فندق
                 let randomMsg = funnyMsgs[Math.floor(Math.random() * funnyMsgs.length)];
+                let randomRating = (Math.random() * (9.9 - 8.0) + 8.0).toFixed(1); // توليد تقييم عشوائي ممتاز
                 
                 container.innerHTML += `
                     <div class="hotel-card">
@@ -835,6 +913,13 @@
                         <img src="${hotel.img}" class="hotel-img" alt="${hotel.name}">
                         <div class="hotel-info">
                             <div class="hotel-name">${hotel.name}</div>
+                            
+                            <!-- ⭐ لمسة أجودا: نظام النجوم والتقييم -->
+                            <div style="color: #ffca3a; font-size: 13px; margin-bottom: 8px;">
+                                <i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i>
+                                <span style="color: var(--primary); font-weight: 900; margin-right: 6px; background: #e2e8f0; padding: 2px 8px; border-radius: 8px;">${randomRating} ممتاز</span>
+                            </div>
+
                             <div style="color: var(--text-muted); font-size: 13px; margin-bottom: 5px;">
                                 <i class="fa-solid fa-location-dot"></i> الإمارات - <strong>${hotel.city}</strong>
                             </div>
