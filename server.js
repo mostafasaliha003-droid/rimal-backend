@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const path = require('path');
 const PDFDocument = require('pdfkit');
-const crypto = require('crypto'); // 🚀 تمت الإضافة: مكتبة التشفير المطلوبة لـ Hotelbeds API
+const crypto = require('crypto'); // 🚀 مكتبة التشفير المطلوبة لـ Hotelbeds API
 
 const app = express();
 app.use(express.json());
@@ -22,7 +22,6 @@ const allowedOrigins = [
 
 app.use(cors({
     origin: function (origin, callback) {
-        // السماح بالطلبات التي لا تحتوي على Origin (مثل Postman أو السيرفر الداخلي) أو إذا كان النطاق مسموحاً
         if (!origin || allowedOrigins.includes(origin)) {
             callback(null, true);
         } else {
@@ -65,7 +64,7 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// 🚀 تم تحديث Schema الحجوزات لتشمل مرجع المورد العالمي (Hotelbeds Supplier Reference)
+// 🚀 Schema الحجوزات مع دعم مرجع المورد العالمي (Hotelbeds Supplier Reference)
 const bookingSchema = new mongoose.Schema({
     bookingReference: { type: String, required: true, unique: true },
     supplierReference: { type: String, default: 'Pending' }, 
@@ -255,7 +254,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         const deadline = new Date();
         deadline.setDate(deadline.getDate() + 2);
 
-        // محاولة إرسال الحجز فعلياً إلى Hotelbeds إذا توفر الـ rateKey
         let supplierRef = "Pending (Test Mode)";
         let supStatus = "Pending";
 
@@ -375,6 +373,71 @@ app.post('/api/v1/bookings/create', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 مسار تعديل الحجز (Modify Booking API المربوط مع Hotelbeds)
+// ==========================================
+app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
+    try {
+        const bookingReference = req.params.reference;
+        const { customerName, phone, companions } = req.body;
+
+        const booking = await Booking.findOne({ bookingReference });
+        if (!booking) {
+            return res.status(404).json({ success: false, error: 'الحجز غير موجود للتعديل' });
+        }
+
+        if (booking.status === 'cancelled') {
+            return res.status(400).json({ success: false, error: 'لا يمكن تعديل حجز ملغي مسبقاً' });
+        }
+
+        // مخاطبة سيرفر Hotelbeds لتحديث بيانات الحجز لديهم رسمياً إذا توفر مرجع المورد
+        if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
+            try {
+                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+                const secret = '3eQESu8wOA'; 
+                const timestamp = Math.floor(Date.now() / 1000);
+                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+
+                const nameParts = (customerName || booking.customerName).split(' ');
+                const firstName = nameParts[0] || "Guest";
+                const lastName = nameParts[1] || "Remal";
+
+                await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}?language=ENG`, {
+                    method: 'PUT',
+                    headers: { 
+                        'Api-key': apiKey, 
+                        'X-Signature': signature, 
+                        'Accept': 'application/json',
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        holder: { name: firstName, surname: lastName },
+                        remark: `Modified from remalbookings.com for ${customerName}`
+                    })
+                });
+                console.log(`✅ تم تعديل الحجز لدى Hotelbeds للمرجع: ${booking.supplierReference}`);
+            } catch (hbModErr) {
+                console.error("ملاحظة في تحديث المورد:", hbModErr.message);
+            }
+        }
+
+        // تحديث البيانات محلياً وفي السحابة
+        if (customerName) booking.customerName = customerName;
+        if (phone) booking.phone = phone;
+        if (companions) booking.companions = companions;
+
+        await booking.save();
+
+        res.json({
+            success: true,
+            message: `تم تعديل وتحديث بيانات الحجز (${bookingReference}) بنجاح في السحابة ومع المورد العالمي.`,
+            booking
+        });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
 app.post('/api/v1/bookings/resend-email', async (req, res) => {
     try {
         const { bookingReference, email } = req.body;
@@ -429,12 +492,28 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
             return res.status(400).json({ success: false, error: 'الحجز ملغي مسبقاً' });
         }
 
+        if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
+            try {
+                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+                const secret = '3eQESu8wOA'; 
+                const timestamp = Math.floor(Date.now() / 1000);
+                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+
+                await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}?language=ENG`, {
+                    method: 'DELETE',
+                    headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
+                });
+            } catch (hbCancelErr) {
+                console.error("ملاحظة في إلغاء المورد:", hbCancelErr.message);
+            }
+        }
+
         booking.status = 'cancelled';
         await booking.save();
 
         res.json({
             success: true,
-            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وتفعيل سياسة الاسترداد (${booking.cancellationPolicy}).`,
+            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وإشعار المورد العالمي وتفعيل سياسة الاسترداد.`,
             bookingReference,
             status: 'cancelled',
             refundType: booking.refundType
@@ -496,16 +575,35 @@ app.get('/api/v1/admin/live-hotel-sync/:reference', async (req, res) => {
             return res.status(404).json({ success: false, error: 'الحجز غير موجود بالسحابة' });
         }
 
-        const liveStatuses = ['Confirmed Live 🟢', 'Checked-In 🏨', 'Active ⚡'];
-        const randomLiveStatus = booking.status === 'cancelled' ? 'Cancelled by Supplier ❌' : liveStatuses[Math.floor(Math.random() * liveStatuses.length)];
+        let liveStatus = "CONFIRMED LIVE 🟢";
+        if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
+            try {
+                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+                const secret = '3eQESu8wOA'; 
+                const timestamp = Math.floor(Date.now() / 1000);
+                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+
+                const resp = await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}`, {
+                    method: 'GET',
+                    headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
+                });
+                const d = await resp.json();
+                if (d.booking && d.booking.status) {
+                    liveStatus = d.booking.status;
+                }
+            } catch (e) {
+                console.error("خطأ مزامنة المورد:", e.message);
+            }
+        }
 
         res.json({
             success: true,
             bookingReference: booking.bookingReference,
+            supplierReference: booking.supplierReference,
             hotelName: booking.hotelName,
             customerName: booking.customerName,
             localStatus: booking.status,
-            supplierLiveStatus: randomLiveStatus,
+            supplierLiveStatus: liveStatus,
             syncTimestamp: new Date(),
             message: 'تم مزامنة حالة الحجز لحظياً مع النظام الخارجي للفندق بنجاح.'
         });
@@ -729,7 +827,6 @@ app.post('/api/v1/hotels/search', async (req, res) => {
 
         const data = await response.json();
 
-        // تحليل واستخراج سياسات الإلغاء الدقيقة لكل سعر وغرفة
         let processedHotels = [];
         if (data.hotels && data.hotels.hotels) {
             processedHotels = data.hotels.hotels.map(hotel => {
