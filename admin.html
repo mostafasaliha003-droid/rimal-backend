@@ -62,6 +62,7 @@
         .action-btn.contact { background: #7209b7; }
         .action-btn.cash { background: #e09f3e; }
         .action-btn.sync { background: #3a86ff; }
+        .action-btn.report { background: #2a9d8f; font-size: 13px; padding: 10px 15px; }
     </style>
 </head>
 <body>
@@ -113,7 +114,11 @@
                 <div class="admin-toolbar">
                     <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> إدارة السجلات وحجوزات الفنادق المباشرة (مع المورد Hotelbeds)</h3>
                     
-                    <div style="display: flex; gap: 10px; align-items: center;">
+                    <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
+                        <!-- 🚀 زر تصدير التقرير المالي المتقدم المرتبط بـ Advanced Financial Reporting API -->
+                        <button onclick="downloadFinancialReport()" class="action-btn report" title="تصدير تقرير محاسبي شامل">
+                            <i class="fa-solid fa-file-excel"></i> تحميل التقرير المالي (CSV) 📊
+                        </button>
                         <div class="search-box">
                             <i class="fa-solid fa-search" style="color: var(--accent-coral); margin-left: 8px;"></i>
                             <input type="text" id="bookingSearchInput" placeholder="بحث برقم المرجع (مثل RIMAL-...)" onkeyup="filterAdminBookings()">
@@ -155,6 +160,11 @@
                 loadAdminData();
             }
         };
+
+        // 🚀 دالة تحميل التقرير المالي المتقدم
+        function downloadFinancialReport() {
+            window.location.href = `${API_URL}/api/v1/admin/export-financial-report`;
+        }
 
         async function handleAdminLogin(e) {
             e.preventDefault();
@@ -263,7 +273,7 @@
                 const res = await fetch(`${API_URL}/api/v1/admin/live-hotel-sync/${bookingReference}`);
                 const data = await res.json();
                 if(data.success) {
-                    alert(`🟢 حالة المزامنة اللحظية مع Hotelbeds:\n- مرجع الرمال: ${data.bookingReference}\n- مرجع المورد: ${data.supplierReference}\n- الحالة الحية: ${data.liveStatus}`);
+                    alert(`🟢 حالة المزامنة اللحظية مع Hotelbeds:\n- مرجع الرمال: ${data.bookingReference}\n- مرجع المورد: ${data.supplierReference}\n- الحالة الحية: ${data.supplierLiveStatus}`);
                 } else {
                     alert('❌ خطأ في المزامنة: ' + data.error);
                 }
