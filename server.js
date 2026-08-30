@@ -65,8 +65,11 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
+// 🚀 تم تحديث Schema الحجوزات لتشمل مرجع المورد العالمي (Hotelbeds Supplier Reference)
 const bookingSchema = new mongoose.Schema({
     bookingReference: { type: String, required: true, unique: true },
+    supplierReference: { type: String, default: 'Pending' }, 
+    supplierStatus: { type: String, default: 'Pending' }, 
     email: { type: String, required: true, index: true },
     customerName: String,
     hotelName: String,
@@ -221,9 +224,12 @@ app.post('/api/bookings/lookup', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 مسار الحجز والدفع الفعلي مع Hotelbeds (Booking API)
+// ==========================================
 app.post('/api/v1/bookings/create', async (req, res) => {
     try {
-        let { hotelName, customerName, email, phone, companions, paymentMethod, price, pointsUsed, refundType } = req.body;
+        let { hotelName, customerName, email, phone, companions, paymentMethod, price, pointsUsed, refundType, rateKey } = req.body;
         if (!hotelName || !email || !customerName) {
             return res.status(400).json({ success: false, error: 'الرجاء إدخال البيانات الأساسية للحجز' });
         }
@@ -249,8 +255,51 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         const deadline = new Date();
         deadline.setDate(deadline.getDate() + 2);
 
+        // محاولة إرسال الحجز فعلياً إلى Hotelbeds إذا توفر الـ rateKey
+        let supplierRef = "Pending (Test Mode)";
+        let supStatus = "Pending";
+
+        if (rateKey) {
+            try {
+                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+                const secret = '3eQESu8wOA'; 
+                const timestamp = Math.floor(Date.now() / 1000);
+                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+
+                const nameParts = customerName.split(' ');
+                const firstName = nameParts[0] || "Guest";
+                const lastName = nameParts[1] || "Remal";
+
+                const hbResponse = await fetch('https://api.test.hotelbeds.com/hotel-api/1.0/bookings', {
+                    method: 'POST',
+                    headers: { 
+                        'Api-key': apiKey, 
+                        'X-Signature': signature, 
+                        'Accept': 'application/json', 
+                        'Content-Type': 'application/json' 
+                    },
+                    body: JSON.stringify({
+                        holder: { name: firstName, surname: lastName },
+                        rooms: [{ rateKey: rateKey, paxes: [{ roomId: 1, type: "AD", name: firstName, surname: lastName }] }],
+                        clientReference: bookingReference,
+                        remark: "Booking from remalbookings.com B2B"
+                    })
+                });
+
+                const hbData = await hbResponse.json();
+                if (hbData.booking && hbData.booking.reference) {
+                    supplierRef = hbData.booking.reference;
+                    supStatus = hbData.booking.status;
+                    console.log(`✅ تم تأكيد الحجز لدى Hotelbeds بنجاح. مرجع المورد: ${supplierRef}`);
+                }
+            } catch (hbErr) {
+                console.error("❌ خطأ في الاتصال بسيرفر Hotelbeds للحجز:", hbErr);
+            }
+        }
+
         const newBooking = new Booking({ 
-            bookingReference, hotelName, customerName, email, phone, companions, paymentMethod, price: finalPrice,
+            bookingReference, supplierReference: supplierRef, supplierStatus: supStatus,
+            hotelName, customerName, email, phone, companions, paymentMethod, price: finalPrice,
             status: 'active', freeCancelDeadline: deadline, cancellationPolicy: policyText, refundType: selectedRefundType
         });
         await newBooking.save();
@@ -273,7 +322,8 @@ app.post('/api/v1/bookings/create', async (req, res) => {
                         <h2 style="color:#1f3a40;">مرحباً بك يا بطل، ${customerName}! ✈️</h2>
                         <p>تم تثبيت وتأكيد حجزك الفندقي بنجاح عبر منصة <b>شركة الرمال الدولية (remalbookings.com)</b>.</p>
                         <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
-                        <p><b>رقم المرجع:</b> ${bookingReference}</p>
+                        <p><b>رقم المرجع (الرمال):</b> ${bookingReference}</p>
+                        <p><b>مرجع المورد العالمي (Hotelbeds):</b> <span style="color:#2a9d8f;">${supplierRef}</span></p>
                         <p><b>الفندق / الشريك:</b> ${hotelName}</p>
                         <p><b>الإجمالي المدفوع:</b> ${finalPrice} AED</p>
                         <p><b>سياسة الاسترداد:</b> ${policyText}</p>
@@ -292,7 +342,8 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
         doc.moveDown(1.5);
 
-        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${bookingReference}`);
+        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Remal Reference: ${bookingReference}`);
+        doc.fontSize(12).fillColor('#2a9d8f').text(`Supplier Confirmation: ${supplierRef}`);
         doc.moveDown(0.8);
 
         doc.fontSize(11).fillColor('#333333').font('Helvetica');
@@ -312,6 +363,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             message: 'تم تثبيت الحجز وإرسال القسيمة عبر الإيميل بنجاح!',
             data: {
                 bookingReference,
+                supplierReference: supplierRef,
                 hotelName,
                 customerName,
                 email,
@@ -567,6 +619,7 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         doc.moveDown(1.5);
 
         doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${booking.bookingReference}`);
+        doc.fontSize(12).fillColor('#2a9d8f').text(`Supplier Confirmation: ${booking.supplierReference || 'N/A'}`);
         doc.moveDown(0.8);
 
         doc.fontSize(11).fillColor('#333333').font('Helvetica');
@@ -592,16 +645,13 @@ app.post('/api/v1/hotels/search', async (req, res) => {
     try {
         const { checkIn, checkOut, destinationCode, adults } = req.body;
 
-        // مفاتيح شركة الرمال الدولية (بيئة الاختبار)
         const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
         const secret = '3eQESu8wOA'; 
 
-        // 1. توليد التوقيع الرقمي المشفر (Signature)
         const timestamp = Math.floor(Date.now() / 1000);
         const plainText = apiKey + secret + timestamp;
         const signature = crypto.createHash('sha256').update(plainText).digest('hex');
 
-        // 2. تجهيز هيكل البحث
         const requestBody = {
             stay: {
                 checkIn: checkIn || "2026-09-15", 
@@ -615,11 +665,10 @@ app.post('/api/v1/hotels/search', async (req, res) => {
                 }
             ],
             destination: {
-                code: destinationCode || "DXB" // رمز دبي الافتراضي
+                code: destinationCode || "DXB"
             }
         };
 
-        // 3. إرسال الطلب إلى سيرفر الاختبار الخاص بـ Hotelbeds
         const response = await fetch('https://api.test.hotelbeds.com/hotel-api/1.0/hotels', {
             method: 'POST',
             headers: {
@@ -632,8 +681,6 @@ app.post('/api/v1/hotels/search', async (req, res) => {
         });
 
         const data = await response.json();
-        
-        // 4. إرجاع النتائج لواجهة موقعك
         res.json({ success: true, source: 'Hotelbeds APItude', hotelsData: data.hotels });
 
     } catch (error) {
@@ -643,22 +690,18 @@ app.post('/api/v1/hotels/search', async (req, res) => {
 });
 
 // ==========================================
-// 🏨 2. المسار الجديد: جلب البيانات الثابتة (الصور والمرافق) للفندق المختار (Content API)
+// 🏨 2. مسار جلب البيانات الثابتة (الصور والمرافق) للفندق المختار (Content API)
 // ==========================================
 app.get('/api/v1/hotels/content/:hotelCode', async (req, res) => {
     try {
         const hotelCode = req.params.hotelCode;
-        
-        // مفاتيح الاتصال الخاصة بشركة الرمال
         const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
         const secret = '3eQESu8wOA'; 
         
-        // توليد التوقيع الرقمي كما يشترط نظام Hotelbeds
         const timestamp = Math.floor(Date.now() / 1000);
         const plainText = apiKey + secret + timestamp;
         const signature = crypto.createHash('sha256').update(plainText).digest('hex');
 
-        // رابط استدعاء المحتوى الثابت لفندق واحد باللغة الإنجليزية
         const url = `https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels/${hotelCode}?language=ENG`;
 
         const response = await fetch(url, {
@@ -671,8 +714,6 @@ app.get('/api/v1/hotels/content/:hotelCode', async (req, res) => {
         });
 
         const data = await response.json();
-        
-        // إرجاع المحتوى للواجهة (الصور، المرافق، الوصف)
         res.json({ success: true, hotelContent: data.hotel || data });
         
     } catch (error) {
