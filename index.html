@@ -397,7 +397,7 @@
                 <form id="bookingForm" onsubmit="confirmReservation(event)">
                     <div class="form-group"><label>الاسم الكريم:</label><input type="text" id="custName" required></div>
                     <div class="form-group"><label>الإيميل (لإرسال قسيمة PDF المؤكدة):</label><input type="email" id="custEmail" required></div>
-                    <div class="form-group"><label>التليفون:</label><input type="tel" id="custPhone" required placeholder="+971544757578"></div>
+                    <div class="form-group"><label>التليفون (رقم الواتساب لتلقي الإشعارات الفورية 📱):</label><input type="tel" id="custPhone" required placeholder="+971544757578"></div>
                     <div class="form-group"><label>أسماء المرافقين:</label><textarea id="custCompanions" rows="2"></textarea></div>
                     
                     <div class="form-group" style="display:none;"><input type="hidden" id="refundTypeSelect" value="api_policy"></div>
@@ -418,7 +418,7 @@
                     </div>
 
                     <h3 style="margin-bottom: 15px; color: var(--primary);">المبلغ الإجمالي بعد الخصم: <span id="finalPriceDisplay" style="color: var(--accent-coral);">0</span> <span id="finalPriceCurrencyLabel">AED</span></h3>
-                    <button type="submit" class="btn-book"><i class="fa-regular fa-envelope fa-lg"></i> تثبيت الحجز وإرسال القسيمة إلى الإيميل فوراً 🚀</button>
+                    <button type="submit" class="btn-book"><i class="fa-regular fa-envelope fa-lg"></i> تثبيت الحجز وإرسال القسيمة إلى الإيميل والواتساب فوراً 🚀</button>
                 </form>
             </div>
         </div>
@@ -506,7 +506,7 @@
                     <div class="form-group" style="text-align: right;"><label>الاسم:</label><input type="text" id="modalName" required></div>
                     <div class="form-group" style="text-align: right;"><label>البريد الإلكتروني:</label><input type="email" id="modalEmail" required></div>
                     <div class="form-group" style="text-align: right;"><label>كلمة المرور:</label><input type="password" id="modalPassword" required></div>
-                    <div class="form-group" style="text-align: right;"><label>الهاتف:</label><input type="tel" id="modalPhone" required></div>
+                    <div class="form-group" style="text-align: right;"><label>الهاتف (مع رمز الدولة):</label><input type="tel" id="modalPhone" required placeholder="+971544757578"></div>
                     <button type="submit" class="btn-book">إرسال كود التحقق OTP إلى البريد 🚀</button>
                 </form>
             </div>
@@ -876,7 +876,7 @@
         async function modifyBookingPrompt(bookingReference, currentName, currentPhone) {
             let newName = prompt('تعديل اسم الضيف الكريم:', currentName);
             if (newName === null) return;
-            let newPhone = prompt('تعديل رقم التليفون:', currentPhone);
+            let newPhone = prompt('تعديل رقم التليفون (مع رمز الدولة):', currentPhone);
             if (newPhone === null) return;
 
             try {
@@ -1340,7 +1340,7 @@
                 }
 
                 // 2. إتمام الحجز الفعلي وإرسال القسيمة إلى الإيميل
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز وإرسال القسيمة عبر الإيميل...';
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز وإرسال القسيمة عبر الإيميل والواتساب...';
 
                 const res = await fetch(`${API_URL}/api/v1/bookings/create`, {
                     method: 'POST',
@@ -1360,7 +1360,7 @@
                 });
                 const data = await res.json();
                 if(data.success) {
-                    alert(`✅ تم تأكيد وحجز الغرفة عالمياً وسحابياً بنجاح بعد اجتياز الفحص المالي!\n\nتم إرسال قسيمة الحجز الرسمية (PDF) وتفاصيل رقم المورد العالمي فوراً إلى بريدك الإلكتروني: ${email}`);
+                    alert(`✅ تم تأكيد وحجز الغرفة عالمياً وسحابياً بنجاح بعد اجتياز الفحص المالي!\n\nتم إرسال قسيمة الحجز الرسمية (PDF) وتفاصيل رقم المورد ورسالة الواتساب الفورية فوراً إلى رقمك وبريدك الإلكتروني: ${email}`);
                     switchView('registerView');
                     fetchUserData();
                 } else {
