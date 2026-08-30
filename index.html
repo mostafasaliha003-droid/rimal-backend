@@ -39,17 +39,17 @@
             transition: all 0.3s ease;
         }
         
-        /* تصميم الشعار التفاعلي البارز والمضمون 100% على كل الأجهزة */
-        .logo-badge {
+        /* تصميم هندسي نصي فاخر ومضمون الظهور على كافة المتصفحات والكمبيوتر دون حظر */
+        .logo-box {
             background: linear-gradient(135deg, var(--accent-coral), var(--accent-yellow));
             width: 55px; height: 55px; border-radius: 16px;
             display: flex; align-items: center; justify-content: center;
             box-shadow: 0 6px 20px rgba(255, 89, 94, 0.4);
+            font-size: 24px; font-weight: 900; color: white;
             animation: pulseLogo 2.5s ease-in-out infinite;
             transition: transform 0.3s ease;
         }
-        .logo-badge:hover { transform: scale(1.1) rotate(5deg); }
-        .logo-badge i { font-size: 26px; color: white; }
+        .logo-box:hover { transform: scale(1.1) rotate(5deg); }
 
         @keyframes pulseLogo {
             0% { transform: scale(1); }
@@ -182,11 +182,11 @@
 </head>
 <body>
 
-    <!-- الهيدر مع الأيقونة البارزة والمضمونة 100% على كافة الأجهزة والكمبيوتر -->
+    <!-- الهيدر مع تصميم الشعار الهندسي النصي المضمون 100% على كافة الأجهزة والكمبيوتر -->
     <header>
         <a class="brand-logo" onclick="switchView('mainView')">
-            <div class="logo-badge">
-                <i class="fa-solid fa-plane-departure"></i>
+            <div class="logo-box">
+                ر
             </div>
             <div class="brand-text">
                 <span id="brandName">شركة الرمال الدولية <span class="wave-emoji">✈️</span></span>
