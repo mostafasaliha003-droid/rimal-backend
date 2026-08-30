@@ -29,7 +29,6 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-        /* الهيدر المحسن مع خلفية بيضاء تضمن ظهور الشعار بوضوح تام على الكمبيوتر */
         header {
             background: linear-gradient(135deg, #1f3a40, #2a4d53); padding: 12px 5%; display: flex; justify-content: space-between;
             align-items: center; color: var(--white); box-shadow: 0 6px 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
@@ -181,11 +180,11 @@
 </head>
 <body>
 
-    <!-- الهيدر المحدث مع الإطار الأبيض الناصع للشعار -->
+    <!-- الهيدر مع مسار الشعار المحلي المضمون -->
     <header>
         <a class="brand-logo" onclick="switchView('mainView')">
             <div class="logo-wrapper">
-                <img src="https://raw.githubusercontent.com/mostafasaliha003-droid/rimal-backend/main/logo.jpg" alt="شركة الرمال الدولية" class="fun-logo">
+                <img src="./logo.jpg" alt="شركة الرمال الدولية" class="fun-logo">
             </div>
             <div class="brand-text">
                 <span id="brandName">شركة الرمال الدولية <span class="wave-emoji">✈️</span></span>
