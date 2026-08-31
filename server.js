@@ -5,7 +5,7 @@ const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const path = require('path');
 const PDFDocument = require('pdfkit');
-const crypto = require('crypto'); // 🚀 مكتبة التشفير المطلوبة لـ Hotelbeds API
+const crypto = require('crypto'); // 🚀 لإنشاء التوقيع الأمني الخاص بـ Hotelbeds
 
 const app = express();
 app.use(express.json());
@@ -16,7 +16,7 @@ app.use(express.json());
 const allowedOrigins = [
     'https://remalbookings.com',
     'https://www.remalbookings.com',
-    'http://localhost:10000', // للسماح بالتطوير والاختبار المحلي
+    'http://localhost:10000',
     'http://127.0.0.1:10000'
 ];
 
@@ -32,10 +32,12 @@ app.use(cors({
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
     credentials: true // للسماح بنقل ملفات الارتباط (Cookies)
 }));
-// ==========================================
 
 app.use(express.static(__dirname));
 
+// ==========================================
+// 🚀 إعدادات البريد وقاعدة البيانات
+// ==========================================
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
@@ -50,9 +52,12 @@ mongoose.connect(MONGO_URI, {
     serverSelectionTimeoutMS: 5000,
     socketTimeoutMS: 45000,
 })
-  .then(() => console.log('✅ تم الاتصال بنجاح بقاعدة بيانات MongoDB Atlas الدائمة وموقع remalbookings.com'))
+  .then(() => console.log('✅ تم الاتصال بنجاح بقاعدة بيانات MongoDB Atlas.'))
   .catch(err => console.error('❌ خطأ في الاتصال بـ MongoDB:', err));
 
+// ==========================================
+// 🚀 Schemas (قواعد البيانات)
+// ==========================================
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
@@ -64,7 +69,6 @@ const userSchema = new mongoose.Schema({
     createdAt: { type: Date, default: Date.now }
 });
 
-// 🚀 Schema الحجوزات مع دعم مرجع المورد العالمي (Hotelbeds Supplier Reference)
 const bookingSchema = new mongoose.Schema({
     bookingReference: { type: String, required: true, unique: true },
     supplierReference: { type: String, default: 'Pending' }, 
@@ -76,7 +80,7 @@ const bookingSchema = new mongoose.Schema({
     paymentMethod: String,
     companions: String,
     status: { type: String, default: 'active' },
-    cancellationPolicy: { type: String, default: 'استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة ✨' },
+    cancellationPolicy: { type: String, default: 'شروط المورد مطبقة ✨' },
     freeCancelDeadline: { type: Date },
     refundType: { type: String, default: 'full_100' },
     createdAt: { type: Date, default: Date.now }
@@ -158,6 +162,9 @@ const fetchWithTimeout = async (url, options, timeout = 65000) => {
     return response;
 };
 
+// ==========================================
+// 🚀 مسارات التوثيق (Auth) والمستخدم
+// ==========================================
 app.get('/api/v1/health-check', async (req, res) => {
     const dbState = mongoose.connection.readyState;
     const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting' };
@@ -310,7 +317,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
                         clientReference: bookingReference,
                         remark: "Booking from remalbookings.com B2B"
                     })
-                }, 65000); // إعطاء مهلة 65 ثانية لضمان اعتماد الحجز
+                }, 65000); // إعطاء مهلة 65 ثانية لضمان اعتماد الحجز كما اشترطوا
 
                 const hbData = await hbResponse.json();
                 if (hbData.booking && hbData.booking.reference) {
@@ -429,6 +436,7 @@ app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
             try {
                 const { apiKey, signature } = generateHotelbedsSignature();
+
                 const nameParts = (customerName || booking.customerName).split(' ');
                 const firstName = nameParts[0] || "Guest";
                 const lastName = nameParts[1] || "Remal";
@@ -533,6 +541,7 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
             try {
                 const { apiKey, signature } = generateHotelbedsSignature();
+
                 await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}?language=ENG`, {
                     method: 'DELETE',
                     headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
@@ -621,6 +630,7 @@ app.get('/api/v1/admin/live-hotel-sync/:reference', async (req, res) => {
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
             try {
                 const { apiKey, signature } = generateHotelbedsSignature();
+
                 const resp = await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}`, {
                     method: 'GET',
                     headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
@@ -680,6 +690,7 @@ app.get('/api/currency/convert', async (req, res) => {
 app.get('/api/v1/hotels/destinations', async (req, res) => {
     try {
         const { apiKey, signature } = generateHotelbedsSignature();
+
         const response = await fetch('https://api.test.hotelbeds.com/hotel-content-api/1.0/locations/destinations?countryCode=AE&language=ENG', {
             method: 'GET',
             headers: {
@@ -941,6 +952,7 @@ app.post('/api/v1/hotels/recheck', async (req, res) => {
         }
 
         const { apiKey, signature } = generateHotelbedsSignature();
+
         const response = await fetchWithTimeout('https://api.test.hotelbeds.com/hotel-api/1.0/checkrates', {
             method: 'POST',
             headers: {
@@ -982,6 +994,7 @@ app.post('/api/v1/hotels/recheck', async (req, res) => {
 app.post('/api/v1/hotels/search', async (req, res) => {
     try {
         const { checkIn, checkOut, destinationCode, adults } = req.body;
+
         const { apiKey, signature } = generateHotelbedsSignature();
 
         const requestBody = {
@@ -1070,6 +1083,7 @@ app.get('/api/v1/hotels/content/:hotelCode', async (req, res) => {
     try {
         const hotelCode = req.params.hotelCode;
         const { apiKey, signature } = generateHotelbedsSignature();
+
         const url = `https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels/${hotelCode}?language=ENG`;
 
         const response = await fetch(url, {
