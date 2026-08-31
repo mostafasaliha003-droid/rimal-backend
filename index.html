@@ -1276,7 +1276,7 @@
             element.classList.add('selected');
         }
 
-        // 🚀 دالة الحجز الآمنة مع التحقق من السعر والتوافر وجلب البدائل الذكية عند النفاد (Alternative Rates API)
+        // 🚀 دالة الحجز المتوافقة حصراً مع سير عمل Hotelbeds (Availability -> CheckRate -> Booking)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1287,15 +1287,13 @@
             const pointsUsed = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
             const refundType = 'api_policy';
             
-            const finalPrice = parseFloat(document.getElementById('finalPriceDisplay').innerText);
-
             const btn = e.target.querySelector('button[type="submit"]');
             const origText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق من السعر والتوافر لدى المورد (Rate Check)...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق النهائي من السعر والتوافر (CheckRate)...';
             btn.disabled = true;
 
             try {
-                // 1. فحص الأمان المالي عبر Rate Recheck API
+                // الخطوة 1: فحص السعر والتوافر عبر CheckRates API حصراً دون طلب Availability جديد (تجنباً لمخالفة Workflow)
                 const recheckRes = await fetch(`${API_URL}/api/v1/hotels/recheck`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1304,7 +1302,7 @@
                 const recheckData = await recheckRes.json();
 
                 if (!recheckData.success) {
-                    // إذا نفدت الغرفة، جلب البدائل وعرضها في نافذة منبثقة احترافية
+                    // إذا نفدت الغرفة، جلب البدائل الذكية
                     try {
                         const altRes = await fetch(`${API_URL}/api/v1/hotels/alternatives`, {
                             method: 'POST',
@@ -1339,8 +1337,8 @@
                     return;
                 }
 
-                // 2. إتمام الحجز الفعلي وإرسال القسيمة إلى الإيميل
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز وإرسال القسيمة عبر الإيميل والواتساب...';
+                // الخطوة 2: الانتقال المباشر لتأكيد الحجز (Booking Confirmation API) بناءً على الشروط الصارمة
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز وإرسال القسيمة...';
 
                 const res = await fetch(`${API_URL}/api/v1/bookings/create`, {
                     method: 'POST',
@@ -1359,8 +1357,9 @@
                     })
                 });
                 const data = await res.json();
+                
                 if(data.success) {
-                    alert(`✅ تم تأكيد وحجز الغرفة عالمياً وسحابياً بنجاح بعد اجتياز الفحص المالي!\n\nتم إرسال قسيمة الحجز الرسمية (PDF) وتفاصيل رقم المورد ورسالة الواتساب الفورية فوراً إلى رقمك وبريدك الإلكتروني: ${email}`);
+                    alert(`✅ تم تأكيد وحجز الغرفة عالمياً وسحابياً بنجاح!\n\nتم إرسال قسيمة الحجز الرسمية (PDF) ورسالة الواتساب الفورية إلى بريدك ورقمك: ${email}`);
                     switchView('registerView');
                     fetchUserData();
                 } else {
