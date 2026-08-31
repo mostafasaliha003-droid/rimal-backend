@@ -100,6 +100,9 @@ let verificationCodes = {};
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
 
+// ==========================================
+// 🚀 دوال مساعدة (Email, WhatsApp, Hotelbeds Signature, Timeout)
+// ==========================================
 async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
     const mailOptions = {
         from: '"شركة الرمال الدولية ✈️" <management@remaltourismllc.com>',
@@ -129,19 +132,6 @@ async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBu
 // 🚀 دالة إرسال الإشعارات عبر واتساب (WhatsApp Notifications API)
 async function sendWhatsAppNotification(toPhone, messageText) {
     try {
-        // يمكنك لاحقاً ربطها بـ Twilio أو UltraMsg باستخدام متغيرات البيئة
-        // مثال توثيق اتصال عبر UltraMsg / Twilio:
-        /*
-        const response = await fetch('https://api.ultramsg.com/instanceXXX/messages/chat', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
-                token: 'YOUR_INSTANCE_TOKEN',
-                to: toPhone,
-                body: messageText
-            })
-        });
-        */
         console.log(`📱 [WhatsApp API Mock]: تم إرسال الرسالة بنجاح إلى الرقم ${toPhone}: \n${messageText}`);
         return true;
     } catch (error) {
@@ -149,6 +139,24 @@ async function sendWhatsAppNotification(toPhone, messageText) {
         return false;
     }
 }
+
+// 🚀 دالة توليد التوقيع الأمني الخاص بـ Hotelbeds
+function generateHotelbedsSignature() {
+    const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+    const secret = '3eQESu8wOA'; 
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+    return { apiKey, signature };
+}
+
+// 🚀 دالة Fetch مع Timeout لحل مشكلة الاعتماد (60 ثانية)
+const fetchWithTimeout = async (url, options, timeout = 65000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+};
 
 app.get('/api/v1/health-check', async (req, res) => {
     const dbState = mongoose.connection.readyState;
@@ -283,16 +291,12 @@ app.post('/api/v1/bookings/create', async (req, res) => {
 
         if (rateKey) {
             try {
-                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-                const secret = '3eQESu8wOA'; 
-                const timestamp = Math.floor(Date.now() / 1000);
-                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
-
+                const { apiKey, signature } = generateHotelbedsSignature();
                 const nameParts = customerName.split(' ');
                 const firstName = nameParts[0] || "Guest";
                 const lastName = nameParts[1] || "Remal";
 
-                const hbResponse = await fetch('https://api.test.hotelbeds.com/hotel-api/1.0/bookings', {
+                const hbResponse = await fetchWithTimeout('https://api.test.hotelbeds.com/hotel-api/1.0/bookings', {
                     method: 'POST',
                     headers: { 
                         'Api-key': apiKey, 
@@ -306,7 +310,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
                         clientReference: bookingReference,
                         remark: "Booking from remalbookings.com B2B"
                     })
-                });
+                }, 65000); // إعطاء مهلة 65 ثانية لضمان اعتماد الحجز
 
                 const hbData = await hbResponse.json();
                 if (hbData.booking && hbData.booking.reference) {
@@ -424,11 +428,7 @@ app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
 
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
             try {
-                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-                const secret = '3eQESu8wOA'; 
-                const timestamp = Math.floor(Date.now() / 1000);
-                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
-
+                const { apiKey, signature } = generateHotelbedsSignature();
                 const nameParts = (customerName || booking.customerName).split(' ');
                 const firstName = nameParts[0] || "Guest";
                 const lastName = nameParts[1] || "Remal";
@@ -532,11 +532,7 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
 
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
             try {
-                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-                const secret = '3eQESu8wOA'; 
-                const timestamp = Math.floor(Date.now() / 1000);
-                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
-
+                const { apiKey, signature } = generateHotelbedsSignature();
                 await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}?language=ENG`, {
                     method: 'DELETE',
                     headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
@@ -624,11 +620,7 @@ app.get('/api/v1/admin/live-hotel-sync/:reference', async (req, res) => {
         let liveStatus = "CONFIRMED LIVE 🟢";
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
             try {
-                const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-                const secret = '3eQESu8wOA'; 
-                const timestamp = Math.floor(Date.now() / 1000);
-                const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
-
+                const { apiKey, signature } = generateHotelbedsSignature();
                 const resp = await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}`, {
                     method: 'GET',
                     headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
@@ -687,11 +679,7 @@ app.get('/api/currency/convert', async (req, res) => {
 
 app.get('/api/v1/hotels/destinations', async (req, res) => {
     try {
-        const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-        const secret = '3eQESu8wOA'; 
-        const timestamp = Math.floor(Date.now() / 1000);
-        const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
-
+        const { apiKey, signature } = generateHotelbedsSignature();
         const response = await fetch('https://api.test.hotelbeds.com/hotel-content-api/1.0/locations/destinations?countryCode=AE&language=ENG', {
             method: 'GET',
             headers: {
@@ -714,10 +702,7 @@ app.get('/api/v1/hotels/destinations', async (req, res) => {
 app.post('/api/v1/hotels/alternatives', async (req, res) => {
     try {
         const { destinationCode, checkIn, checkOut, adults } = req.body;
-        const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-        const secret = '3eQESu8wOA'; 
-        const timestamp = Math.floor(Date.now() / 1000);
-        const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+        const { apiKey, signature } = generateHotelbedsSignature();
 
         const response = await fetch('https://api.test.hotelbeds.com/hotel-api/1.0/hotels', {
             method: 'POST',
@@ -955,12 +940,8 @@ app.post('/api/v1/hotels/recheck', async (req, res) => {
             return res.status(400).json({ success: false, error: 'مفتاح الغرفة (rateKey) مفقود!' });
         }
 
-        const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-        const secret = '3eQESu8wOA'; 
-        const timestamp = Math.floor(Date.now() / 1000);
-        const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
-
-        const response = await fetch('https://api.test.hotelbeds.com/hotel-api/1.0/checkrates', {
+        const { apiKey, signature } = generateHotelbedsSignature();
+        const response = await fetchWithTimeout('https://api.test.hotelbeds.com/hotel-api/1.0/checkrates', {
             method: 'POST',
             headers: {
                 'Api-key': apiKey,
@@ -1001,13 +982,7 @@ app.post('/api/v1/hotels/recheck', async (req, res) => {
 app.post('/api/v1/hotels/search', async (req, res) => {
     try {
         const { checkIn, checkOut, destinationCode, adults } = req.body;
-
-        const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-        const secret = '3eQESu8wOA'; 
-
-        const timestamp = Math.floor(Date.now() / 1000);
-        const plainText = apiKey + secret + timestamp;
-        const signature = crypto.createHash('sha256').update(plainText).digest('hex');
+        const { apiKey, signature } = generateHotelbedsSignature();
 
         const requestBody = {
             stay: {
@@ -1094,13 +1069,7 @@ app.post('/api/v1/hotels/search', async (req, res) => {
 app.get('/api/v1/hotels/content/:hotelCode', async (req, res) => {
     try {
         const hotelCode = req.params.hotelCode;
-        const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-        const secret = '3eQESu8wOA'; 
-        
-        const timestamp = Math.floor(Date.now() / 1000);
-        const plainText = apiKey + secret + timestamp;
-        const signature = crypto.createHash('sha256').update(plainText).digest('hex');
-
+        const { apiKey, signature } = generateHotelbedsSignature();
         const url = `https://api.test.hotelbeds.com/hotel-content-api/1.0/hotels/${hotelCode}?language=ENG`;
 
         const response = await fetch(url, {
