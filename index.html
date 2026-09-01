@@ -279,7 +279,7 @@
                 <i class="fa-solid fa-magnifying-glass" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
                     <label id="lblSearchHotel">اسم الفندق</label>
-                    <input type="text" id="searchInput" placeholder="مثل: شيراتون..." onkeyup="filterHotels()">
+                    <input type="text" id="searchInput" placeholder="مثل: فندق تجريبي..." onkeyup="filterHotels()">
                 </div>
             </div>
             <div class="search-field">
@@ -416,7 +416,7 @@
                     </div>
 
                     <h3 style="margin-bottom: 15px; color: var(--primary);">المبلغ الإجمالي بعد الخصم: <span id="finalPriceDisplay" style="color: var(--accent-coral);">0</span> <span id="finalPriceCurrencyLabel">AED</span></h3>
-                    <button type="submit" class="btn-book"><i class="fa-regular fa-envelope fa-lg"></i> تثبيت الحجز وإرسال القسيمة إلى الإيميل والواتساب فوراً 🚀</button>
+                    <button type="submit" class="btn-book"><i class="fa-solid fa-credit-card fa-lg"></i> الانتقال لبوابة الدفع الآمنة (Ziina API) 💳🚀</button>
                 </form>
             </div>
         </div>
@@ -512,7 +512,7 @@
         </div>
     </div>
 
-    <!-- 🌟 نافذة إضافة تقييم جديد للعميل (Review Modal) -->
+    <!-- نافذة التقييم -->
     <div id="reviewModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 450px;">
             <h3 style="color: var(--primary); margin-bottom: 15px;">أضف تقييمك للفندق ⭐</h3>
@@ -545,7 +545,7 @@
         </div>
     </div>
 
-    <!-- 🚀 نافذة عرض الفنادق والبدائل عند نفاد الغرفة (Alternative Rates & Hotels Modal) -->
+    <!-- نافذة البدائل -->
     <div id="alternativesModal" class="modal-overlay">
         <div class="modal-content" style="max-width: 550px;">
             <h3 style="color: var(--accent-coral); margin-bottom: 10px;"><i class="fa-solid fa-triangle-exclamation"></i> عذراً، نفدت الغرفة أو تغير سعرها!</h3>
@@ -612,7 +612,14 @@
         let selectedHotel = '', currentBasePrice = 0, currentPolicyText = '', currentRateKey = '', currentPaymentType = 'AT', currentRefundType = 'full_100';
         let gMap, gMarkers = [];
 
+        // 🌟 دمج الفندق التجريبي (10 درهم مع سياسة الاسترداد 100%) بجانب الفنادق الأصلية
         let allHotels = [
+            { 
+                name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 5, lat: 25.2048, lng: 55.2708, 
+                img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
+                funnyPolicy: "إلغاء مجاني 100% - استرداد كامل المبلغ على الكرت في أي وقت! ✨",
+                hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-credit-card'></i> دفع آمن عبر Ziina"]
+            },
             { 
                 name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, lat: 25.2654, lng: 55.3272, 
                 img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
@@ -1013,7 +1020,9 @@
                     });
                     
                     if(query) liveHotels = liveHotels.filter(h => h.name.toLowerCase().includes(query.toLowerCase()));
-                    allHotels = liveHotels;
+                    
+                    // الحفاظ على الفندق التجريبي في المقدمة دائمًا
+                    allHotels = [allHotels[0], ...liveHotels];
                     displayHotels(allHotels);
                     updateGoogleMarkers(allHotels);
                 } else { alert('❌ لم نتمكن من العثور على فنادق من السيرفر العالمي في هذا التاريخ.'); }
@@ -1066,7 +1075,7 @@
                         </div>
                         <div class="hotel-pricing">
                             <div class="hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED} AED</div>
-                            <button class="btn-book" data-hotel="${hotel.name}" data-price="${hotel.priceAED}" onclick="viewHotelDetails('${hotel.name}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms).replace(/"/g, '&quot;')})">اختر الغرفة 🛏️</button>
+                            <button class="btn-book" data-hotel="${hotel.name}" data-price="${hotel.priceAED}" onclick="viewHotelDetails('${hotel.name}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">اختر الغرفة 🛏️</button>
                         </div>
                     </div>
                 `;
@@ -1082,7 +1091,20 @@
             await fetchAndDisplayHotelReviews(hotelName);
 
             let roomsList = [];
-            if (apiRooms && apiRooms.length > 0) {
+            if (hotelName.includes('الفندق التجريبي')) {
+                roomsList.push({
+                    name: "غرفة تجريبية فاخرة (Test Standard Room)",
+                    bed: "سرير كينج مزدوج",
+                    board: "شامل الإفطار التجريبي",
+                    price: 10,
+                    points: 5,
+                    policyText: "استرداد كامل 100% رسوم مستردة في حال الإلغاء في أي وقت ✨",
+                    isFreeCancel: true,
+                    rateKey: "TEST-RATE-KEY-10AED",
+                    paymentType: "AT",
+                    refundType: "full_100"
+                });
+            } else if (apiRooms && apiRooms.length > 0) {
                 apiRooms.forEach(room => {
                     if (room.rates && room.rates.length > 0) {
                         room.rates.forEach(rate => {
@@ -1298,7 +1320,7 @@
                 });
                 const recheckData = await recheckRes.json();
 
-                if (!recheckData.success) {
+                if (!recheckData.success && !selectedHotel.includes('الفندق التجريبي')) {
                     try {
                         const altRes = await fetch(`${API_URL}/api/v1/hotels/alternatives`, {
                             method: 'POST',
@@ -1349,7 +1371,7 @@
                         pointsUsed,
                         cancellationPolicy: currentPolicyText,
                         rateKey: currentRateKey,
-                        refundType: currentRefundType // 👈 إرسال نوع الاسترداد المدمج مع سياسة الـ API
+                        refundType: currentRefundType
                     })
                 });
                 const data = await res.json();
