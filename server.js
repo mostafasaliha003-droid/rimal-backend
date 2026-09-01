@@ -194,7 +194,7 @@ app.post('/api/auth/register-send-code', async (req, res) => {
             'رمز التحقق الثنائي (OTP) - شركة الرمال الدولية ✈️',
             `<div dir="rtl" style="font-family:Cairo; padding:25px; text-align:center; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
                 <h2 style="color:#1f3a40;">أهلاً بك في شركة الرمال الدولية! ✈️</h2>
-                <p>رمز التحقق (OTP) الخاصيف حسابك على remalbookings.com هو:</p>
+                <p>رمز التحقق (OTP) الخاص بك لتأكيد حسابك على remalbookings.com هو:</p>
                 <h1 style="color:#ff595e; font-size:38px; letter-spacing:6px; background:#fff; padding:10px; border-radius:8px; display:inline-block;">${code}</h1>
                 <p style="color:#6c757d; font-size:12px; margin-top:15px;">هذا الكود صالح لمدة 10 دقائق فقط.</p>
             </div>`
@@ -641,7 +641,8 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
             return res.status(500).json({ success: false, error: 'مفتاح بوابة الدفع غير معد مسبقاً في السيرفر.' });
         }
 
-        const response = await fetch('https://api.ziina.com/v1/payment_intent', {
+        // 🚀 التعديل هنا: استخدام الرابط الجديد الخاص بالإصدار الثاني لـ Ziina
+        const response = await fetch('https://api-v2.ziina.com/api/payment_intent', {
             method: 'POST',
             headers: {
                 'Authorization': `Bearer ${ZIINA_API_KEY}`,
