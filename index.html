@@ -612,7 +612,6 @@
         let selectedHotel = '', currentBasePrice = 0, currentPolicyText = '', currentRateKey = '', currentPaymentType = 'AT', currentRefundType = 'full_100';
         let gMap, gMarkers = [];
 
-        // 🌟 الفندق التجريبي للاختبار (10 درهم) والفنادق الأصلية
         let allHotels = [
             { 
                 name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 5, lat: 25.2048, lng: 55.2708, 
@@ -639,11 +638,15 @@
             let tomorrow = new Date(); tomorrow.setDate(new Date().getDate() + 1);
             document.getElementById('checkOutDate').valueAsDate = tomorrow;
 
-            // التحقق من عودة العميل من صفحة نجاح الدفع (Ziina Success)
+            // 🚀 معالجة العودة من صفحة نجاح الدفع (Ziina Success)
             const urlParams = new URLSearchParams(window.location.search);
-            if (window.location.pathname.includes('payment-success') || urlParams.has('ref')) {
+            if (window.location.search.includes('payment=success') || urlParams.has('ref')) {
+                let refFromUrl = urlParams.get('ref');
                 let pending = JSON.parse(localStorage.getItem('pending_reservation'));
+                
                 if (pending) {
+                    if (refFromUrl) pending.bookingReference = refFromUrl;
+                    
                     fetch(`${API_URL}/api/v1/bookings/create`, {
                         method: 'POST',
                         headers: { 'Content-Type': 'application/json' },
@@ -651,11 +654,17 @@
                     }).then(res => res.json()).then(data => {
                         if (data.success) {
                             localStorage.removeItem('pending_reservation');
-                            alert(`🎉 تم الدفع بنجاح عبر Ziina وتأكيد حجزك عالمياً!\nتم إرسال قسيمة الـ PDF والواتساب إلى: ${pending.email}`);
+                            alert(`🎉 تمت عملية الدفع عبر Ziina بنجاح وتأكيد حجزك رسمياً!\n\nتم إرسال قسيمة الحجز PDF إلى بريدك ورسالة الواتساب إلى رقمك: ${pending.phone}`);
+                            window.history.replaceState({}, document.title, window.location.pathname);
                             switchView('registerView');
                             fetchUserData();
+                        } else {
+                            alert('❌ خطأ في تثبيت الحجز بعد الدفع: ' + data.error);
                         }
-                    }).catch(err => console.error("خطأ في تثبيت الحجز بعد الدفع:", err));
+                    }).catch(err => {
+                        console.error("خطأ الاتصال:", err);
+                        alert('❌ حدث خطأ أثناء تثبيت الحجز بعد الدفع.');
+                    });
                 }
             }
 
@@ -1318,7 +1327,7 @@
             element.classList.add('selected');
         }
 
-        // 🚀 تعديل جوهري: التوجه المباشر لبوابة Ziina أولاً، ولا يتم الحجز إلا بعد نجاح الدفع
+        // 🚀 التدفق الآمن: الانتقال لدفع Ziina أولاً، ولا يتم إنشاء الحجز إلا بعد نجاح الدفع
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1334,13 +1343,9 @@
             btn.disabled = true;
 
             try {
-                // 1. توليد رقم مرجع مؤقت للحجز
                 const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
-                
-                // 2. حساب المبلغ النهائي بعد الخصم
                 let finalPrice = Math.max(0, currentBasePrice - (pointsUsed / 10));
 
-                // 3. تخزين بيانات الحجز مؤقتة لحين إتمام الدفع والعودة بنجاح
                 const pendingData = {
                     bookingReference,
                     hotelName: selectedHotel,
@@ -1357,7 +1362,6 @@
                 };
                 localStorage.setItem('pending_reservation', JSON.stringify(pendingData));
 
-                // 4. طلب رابط الدفع من السيرفر (Ziina API)
                 const ziinaRes = await fetch(`${API_URL}/api/v1/payments/ziina-intent`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1369,7 +1373,6 @@
                 const ziinaData = await ziinaRes.json();
 
                 if (ziinaData.success && ziinaData.redirect_url) {
-                    // 🚀 توجيه العميل لصفحة الدفع في Ziina
                     window.location.href = ziinaData.redirect_url;
                 } else {
                     alert('❌ خطأ في بوابة الدفع: ' + (ziinaData.error || 'تعذر إنشاء رابط الدفع'));
