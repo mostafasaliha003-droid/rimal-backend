@@ -152,7 +152,7 @@ function generateHotelbedsSignature() {
     const timestamp = Math.floor(Date.now() / 1000);
     const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
     return { apiKey, signature };
-}
+};
 
 // 🚀 دالة Fetch مع Timeout لحل مشكلة الاعتماد (60 ثانية)
 const fetchWithTimeout = async (url, options, timeout = 65000) => {
@@ -274,7 +274,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         }
         
         email = email.toLowerCase().trim();
-        const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
+        const bookingReference = req.body.bookingReference || ('RIMAL-' + Math.floor(100000 + Math.random() * 900000));
         let finalPrice = parseFloat(price) || 100;
         let user = await User.findOne({ email });
 
@@ -365,7 +365,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
                     `تأكيد حجزك الفندقي المؤكد في ${hotelName} - شركة الرمال الدولية ✈️`,
                     `<div dir="rtl" style="font-family:Arial, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
                         <h2 style="color:#1f3a40;">مرحباً بك يا بطل، ${customerName}! ✈️</h2>
-                        <p>تم تثبيت وتأكيد حجزك الفندقي بنجاح عبر منصة <b>شركة الرمال الدولية (remalbookings.com)</b>.</p>
+                        <p>تم تثبيت وتأكيد حجزك الفندقي بنجاح بعد إتمام الدفع عبر منصة <b>شركة الرمال الدولية (remalbookings.com)</b>.</p>
                         <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
                         <p><b>رقم المرجع:</b> ${bookingReference}</p>
                         <p><b>الفندق / الشريك:</b> ${hotelName}</p>
@@ -621,7 +621,7 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
 });
 
 // ==========================================
-// 💳 مسار بوابة الدفع (Ziina Integration) الجديد
+// 💳 مسار بوابة الدفع (Ziina Integration)
 // ==========================================
 app.post('/api/v1/payments/ziina-intent', async (req, res) => {
     try {
@@ -651,7 +651,7 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
             body: JSON.stringify({
                 amount: amountInFils,
                 currency_code: 'AED', 
-                success_url: `https://remalbookings.com/payment-success?ref=${bookingReference}`,
+                success_url: `https://rimal-api.onrender.com/payment-success?ref=${bookingReference}`,
                 cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`,
                 test: true 
             })
@@ -673,7 +673,7 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
 });
 
 // ==========================================
-// 💳 مسار استقبال العميل بعد نجاح الدفع عبر Ziina
+// 💳 مسار استقبال العميل بعد نجاح الدفع عبر Ziina وتثبيت الحجز
 // ==========================================
 app.get('/payment-success', async (req, res) => {
     try {
@@ -681,10 +681,10 @@ app.get('/payment-success', async (req, res) => {
         res.send(`
             <html lang="ar" dir="rtl">
             <head><meta charset="UTF-8"><title>تم الدفع بنجاح - شركة الرمال الدولية</title></head>
-            <body style="font-family:Cairo,sans-serif; text-align:center; padding:60px; background:#f7fff7;">
-                <h1 style="color:#2a9d8f;">🎉 تم الدفع بنجاح عبر Ziina!</h1>
-                <p>رقم المرجع التجريبي: <strong>${reference}</strong></p>
-                <p>جاري تفعيل وتثبيت الحجز وإرسال القسيمة إلى بريدك...</p>
+            <body style="font-family:Cairo,sans-serif; text-align:center; padding:80px; background:#f7fff7;">
+                <h1 style="color:#2a9d8f;">🎉 تمت عملية الدفع بنجاح عبر Ziina!</h1>
+                <p>رقم المرجع: <strong>${reference}</strong></p>
+                <p>جاري تثبيت حجزك في السحابة وإرسال قسيمة الـ PDF والواتساب...</p>
                 <script>
                     setTimeout(() => {
                         window.location.href = 'https://remalbookings.com?payment=success&ref=${reference}';
