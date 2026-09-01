@@ -297,7 +297,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         let supplierRef = "Pending (Test Mode)";
         let supStatus = "Pending";
 
-        if (rateKey) {
+        if (rateKey && !rateKey.includes('TEST-RATE-KEY')) {
             try {
                 const { apiKey, signature } = generateHotelbedsSignature();
                 const nameParts = customerName.split(' ');
@@ -318,7 +318,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
                         clientReference: bookingReference,
                         remark: "Booking from remalbookings.com B2B"
                     })
-                }, 65000); // إعطاء مهلة 65 ثانية لضمان اعتماد الحجز كما اشترطوا
+                }, 65000); 
 
                 const hbData = await hbResponse.json();
                 if (hbData.booking && hbData.booking.reference) {
@@ -329,6 +329,9 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             } catch (hbErr) {
                 console.error("❌ خطأ في الاتصال بسيرفر Hotelbeds للحجز:", hbErr);
             }
+        } else {
+            supplierRef = "TEST-SUPPLIER-REF-" + Math.floor(1000 + Math.random() * 9000);
+            supStatus = "CONFIRMED";
         }
 
         const newBooking = new Booking({ 
@@ -557,13 +560,13 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         if (booking.phone) {
             await sendWhatsAppNotification(
                 booking.phone,
-                `❌ إشعار من شركة الرمال الدولية:\nتم إلغاء الحجز (${bookingReference}) بنجاح وتفعيل سياسة استرداد الأموال.`
+                `❌ إشعار من شركة الرمال الدولية:\nتم إلغاء الحجز (${bookingReference}) بنجاح وتفعيل سياسة استرداد الأموال للكرت.`
             );
         }
 
         res.json({
             success: true,
-            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وإشعار المورد العالمي وتفعيل سياسة الاسترداد.`,
+            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وإشعار المورد واسترداد المبلغ على الكرت.`,
             bookingReference,
             status: 'cancelled',
             refundType: booking.refundType
@@ -647,7 +650,7 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
             },
             body: JSON.stringify({
                 amount: amountInFils,
-                currency_code: 'AED', // 🚀 تمت إضافة رمز العملة ليتوافق مع متطلبات Ziina V2
+                currency_code: 'AED', 
                 success_url: `https://remalbookings.com/payment-success?ref=${bookingReference}`,
                 cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`,
                 test: true 
@@ -666,6 +669,32 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
     } catch (error) {
         console.error('Ziina API Error:', error);
         res.status(500).json({ success: false, error: 'حدث خطأ داخلي أثناء محاولة الاتصال ببوابة الدفع.' });
+    }
+});
+
+// ==========================================
+// 💳 مسار استقبال العميل بعد نجاح الدفع عبر Ziina
+// ==========================================
+app.get('/payment-success', async (req, res) => {
+    try {
+        const reference = req.query.ref;
+        res.send(`
+            <html lang="ar" dir="rtl">
+            <head><meta charset="UTF-8"><title>تم الدفع بنجاح - شركة الرمال الدولية</title></head>
+            <body style="font-family:Cairo,sans-serif; text-align:center; padding:60px; background:#f7fff7;">
+                <h1 style="color:#2a9d8f;">🎉 تم الدفع بنجاح عبر Ziina!</h1>
+                <p>رقم المرجع التجريبي: <strong>${reference}</strong></p>
+                <p>جاري تفعيل وتثبيت الحجز وإرسال القسيمة إلى بريدك...</p>
+                <script>
+                    setTimeout(() => {
+                        window.location.href = 'https://remalbookings.com?payment=success&ref=${reference}';
+                    }, 2000);
+                </script>
+            </body>
+            </html>
+        `);
+    } catch (error) {
+        res.status(500).send('خطأ في معالجة صفحة النجاح');
     }
 });
 
