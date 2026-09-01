@@ -1,3 +1,4 @@
+require('dotenv').config(); // 🚀 قراءة المتغيرات البيئية (مثل مفتاح Ziina) بأمان
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
@@ -615,6 +616,57 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+// ==========================================
+// 💳 مسار بوابة الدفع (Ziina Integration) الجديد
+// ==========================================
+app.post('/api/v1/payments/ziina-intent', async (req, res) => {
+    try {
+        const { amountAED, bookingReference } = req.body;
+        
+        if (!amountAED || !bookingReference) {
+            return res.status(400).json({ success: false, error: 'الرجاء توفير مبلغ الحجز ورقم المرجع.' });
+        }
+
+        const amountInFils = Math.round(amountAED * 100);
+
+        if (amountInFils < 200) {
+            return res.status(400).json({ success: false, error: 'الحد الأدنى للمعاملة هو 2 درهم.' });
+        }
+
+        const ZIINA_API_KEY = process.env.ZIINA_API_KEY;
+        if (!ZIINA_API_KEY) {
+            return res.status(500).json({ success: false, error: 'مفتاح بوابة الدفع غير معد مسبقاً في السيرفر.' });
+        }
+
+        const response = await fetch('https://api.ziina.com/v1/payment_intent', {
+            method: 'POST',
+            headers: {
+                'Authorization': `Bearer ${ZIINA_API_KEY}`,
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                amount: amountInFils,
+                success_url: `https://remalbookings.com/payment-success?ref=${bookingReference}`,
+                cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`,
+                test: true // ⚠️ تنبيه: قم بتغيير هذه القيمة إلى false عندما تريد استقبال مدفوعات حقيقية
+            })
+        });
+
+        const data = await response.json();
+
+        if (data.redirect_url) {
+            res.json({ success: true, redirect_url: data.redirect_url });
+        } else {
+            console.error('Ziina Error Details:', data);
+            res.status(400).json({ success: false, error: 'فشل في توليد رابط الدفع من Ziina.' });
+        }
+
+    } catch (error) {
+        console.error('Ziina API Error:', error);
+        res.status(500).json({ success: false, error: 'حدث خطأ داخلي أثناء محاولة الاتصال ببوابة الدفع.' });
     }
 });
 
