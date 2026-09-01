@@ -1,4 +1,3 @@
-require('dotenv').config(); // 🚀 قراءة المتغيرات البيئية (مثل مفتاح Ziina) بأمان
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
