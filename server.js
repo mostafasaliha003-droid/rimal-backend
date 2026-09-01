@@ -343,7 +343,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             await user.save();
         }
 
-        // 📱 إرسال إشعار فوري عبر واتساب للعميل
+        // 📱 إشعار واتساب فوري للعميل
         if (phone) {
             await sendWhatsAppNotification(
                 phone,
@@ -467,7 +467,6 @@ app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
 
         await booking.save();
 
-        // 📱 إشعار واتساب بتعديل الحجز
         if (booking.phone) {
             await sendWhatsAppNotification(
                 booking.phone,
@@ -555,7 +554,6 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         booking.status = 'cancelled';
         await booking.save();
 
-        // 📱 إشعار واتساب بإلغاء الحجز واسترداد الأموال
         if (booking.phone) {
             await sendWhatsAppNotification(
                 booking.phone,
@@ -641,7 +639,6 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
             return res.status(500).json({ success: false, error: 'مفتاح بوابة الدفع غير معد مسبقاً في السيرفر.' });
         }
 
-        // 🚀 التعديل هنا: استخدام الرابط الجديد الخاص بالإصدار الثاني لـ Ziina
         const response = await fetch('https://api-v2.ziina.com/api/payment_intent', {
             method: 'POST',
             headers: {
@@ -650,9 +647,10 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
             },
             body: JSON.stringify({
                 amount: amountInFils,
+                currency_code: 'AED', // 🚀 تمت إضافة رمز العملة ليتوافق مع متطلبات Ziina V2
                 success_url: `https://remalbookings.com/payment-success?ref=${bookingReference}`,
                 cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`,
-                test: true // ⚠️ تنبيه: قم بتغيير هذه القيمة إلى false عندما تريد استقبال مدفوعات حقيقية
+                test: true 
             })
         });
 
