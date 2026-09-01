@@ -399,8 +399,6 @@
                     <div class="form-group"><label>الإيميل (لإرسال قسيمة PDF المؤكدة):</label><input type="email" id="custEmail" required></div>
                     <div class="form-group"><label>التليفون (رقم الواتساب لتلقي الإشعارات الفورية 📱):</label><input type="tel" id="custPhone" required placeholder="+971544757578"></div>
                     <div class="form-group"><label>أسماء المرافقين:</label><textarea id="custCompanions" rows="2"></textarea></div>
-                    
-                    <!-- تم إزالة القائمة المنسدلة لسياسة الاسترداد الخاطئة -->
 
                     <div class="form-group" style="background: rgba(255, 202, 58, 0.15); padding: 15px; border-radius: 14px; border: 2px dashed var(--accent-yellow);">
                         <label style="color: var(--primary);">💰 خصم فوري من حصالة النقاط:</label>
@@ -411,7 +409,7 @@
                     </div>
 
                     <div class="form-group">
-                        <label>طريقة الدفع (مستمدة من شروط الفندق):</label>
+                        <label>طريقة الدفع:</label>
                         <div class="payment-methods" id="paymentMethodsContainer">
                             <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 دفع إلكتروني (Ziina)</label>
                         </div>
@@ -455,7 +453,7 @@
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>بوابة حسابك الذكي وحجوزاتك 🚀</h1>
-            <p>إدارة الحجوزات، سياسات الاسترداد، ومتابعة النقاط من سحابة MongoDB Atlas!</p>
+            <p>إدارة الحجوزات، سياسات الاسترداد الآلية، ومتابعة النقاط من سحابة MongoDB Atlas!</p>
         </section>
 
         <div class="container">
@@ -611,7 +609,7 @@
         const API_URL = 'https://rimal-api.onrender.com';
 
         let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
-        let selectedHotel = '', currentBasePrice = 0, currentPolicyText = '', currentRateKey = '', currentPaymentType = 'AT';
+        let selectedHotel = '', currentBasePrice = 0, currentPolicyText = '', currentRateKey = '', currentPaymentType = 'AT', currentRefundType = 'full_100';
         let gMap, gMarkers = [];
 
         let allHotels = [
@@ -639,7 +637,6 @@
             fetchLiveDestinations();
         };
 
-        // 🚀 جلب الوجهات الجغرافية الحية من الـ API
         async function fetchLiveDestinations() {
             try {
                 const res = await fetch(`${API_URL}/api/v1/hotels/destinations`);
@@ -862,7 +859,7 @@
                                             <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" style="background: var(--accent-cyan); color: white; padding:5px 12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px;">📄 PDF</a>
                                             <button onclick="resendVoucherEmail('${b.bookingReference}', '${b.email}')" style="background: #7209b7; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;"><i class="fa-solid fa-paper-plane"></i> إعادة إرسال</button>
                                             ${!isCancelled ? `<button onclick="modifyBookingPrompt('${b.bookingReference}', '${b.customerName}', '${b.phone || ''}')" style="background: #e09f3e; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">تعديل ✏️</button>` : ''}
-                                            ${!isCancelled ? `<button onclick="cancelBookingAPI('${b.bookingReference}')" style="background: #ff595e; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">إلغاء واسترداد ❌</button>` : `<span style="color:#ff595e; font-weight:bold; font-size:12px;">ملغي ومسترد ⚠️</span>`}
+                                            ${!isCancelled ? `<button onclick="cancelBookingAPI('${b.bookingReference}')" style="background: #ff595e; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">إلغاء واسترداد تلقائي ❌</button>` : `<span style="color:#ff595e; font-weight:bold; font-size:12px;">ملغي ومسترد عبر الكرت ⚠️</span>`}
                                         </div>
                                     </div>
                                 `;
@@ -910,7 +907,7 @@
         }
 
         async function cancelBookingAPI(bookingReference) {
-            if(!confirm('هل أنت متأكد من رغبتك في إلغاء الحجز وتفعيل سياسة الاسترداد؟')) return;
+            if(!confirm('هل أنت متأكد من رغبتك في إلغاء الحجز وتفعيل سياسة استرداد المبلغ آلياً على نفس بطاقة الدفع (حسب شروط المورد)؟')) return;
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, {
                     method: 'POST',
@@ -1077,13 +1074,11 @@
             changeCurrency();
         }
 
-        // 🚀 دالة عرض تفاصيل الغرف وجلب التقييمات الحقيقية للفندق
         async function viewHotelDetails(hotelName, basePrice, apiRooms) {
             document.getElementById('detailsHotelName').innerText = hotelName;
             const container = document.getElementById('roomsContainer');
             container.innerHTML = '';
 
-            // جلب وعرض تقييمات الفندق من الـ API
             await fetchAndDisplayHotelReviews(hotelName);
 
             let roomsList = [];
@@ -1091,6 +1086,11 @@
                 apiRooms.forEach(room => {
                     if (room.rates && room.rates.length > 0) {
                         room.rates.forEach(rate => {
+                            let rType = 'full_100';
+                            if(rate.freeCancellation) rType = 'full_100';
+                            else if(rate.cancellationPolicies && rate.cancellationPolicies.length > 0) rType = 'api_policy';
+                            else rType = 'non_refundable';
+
                             roomsList.push({
                                 name: room.name || "غرفة فندقية فاخرة",
                                 bed: "سرير مزدوج / كينج",
@@ -1100,7 +1100,8 @@
                                 policyText: rate.formattedPolicy || "شروط الإلغاء مطبقة حسب سياسة المورد العالمي ✨",
                                 isFreeCancel: rate.freeCancellation || false,
                                 rateKey: rate.rateKey,
-                                paymentType: rate.paymentType || 'AT'
+                                paymentType: rate.paymentType || 'AT',
+                                refundType: rType
                             });
                         });
                     }
@@ -1109,8 +1110,8 @@
 
             if (roomsList.length === 0) {
                 roomsList = [
-                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO - بدون وجبات", price: basePrice, points: Math.floor(basePrice*0.5), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT" },
-                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج", board: "BB - شامل الإفطار", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*0.6), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة ✨", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL" }
+                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO - بدون وجبات", price: basePrice, points: Math.floor(basePrice*0.5), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT", refundType: "non_refundable" },
+                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج", board: "BB - شامل الإفطار", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*0.6), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة ✨", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL", refundType: "full_100" }
                 ];
             }
 
@@ -1124,7 +1125,7 @@
                             <p><i class="fa-solid fa-bed"></i> <strong>الأسرة:</strong> ${room.bed}</p>
                             <p><i class="fa-solid fa-utensils"></i> <strong>الوجبات:</strong> <span style="color:var(--accent-coral); font-weight:900;">${room.board}</span></p>
                             <div class="cancellation-box ${cancelClass}">
-                                <strong><i class="fa-solid fa-file-contract"></i> سياسة إلغاء الـ API الدقيقة:</strong><br>
+                                <strong><i class="fa-solid fa-file-contract"></i> سياسة إلغاء الـ API الدقيقة (مدمجة آلياً مع الكرت):</strong><br>
                                 <span style="font-weight:700; color:var(--text-main); display:block; margin-top:4px; white-space: pre-line;">${room.policyText}</span>
                             </div>
                         </div>
@@ -1132,7 +1133,7 @@
                             <h3><span class="hotel-price-display" data-price-aed="${room.price}">${room.price} AED</span></h3>
                             <p style="font-size:11px; color:var(--accent-purple); font-weight:bold; margin-bottom:12px;">كاش +${room.points} نقطة</p>
                             <button class="btn-book" style="padding: 12px; font-size: 14px;" 
-                                onclick="goToBooking('${hotelName}', ${room.price}, '${room.name}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}')">
+                                onclick="goToBooking('${hotelName}', ${room.price}, '${room.name}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
                                 احجز هالغرفة 🚀
                             </button>
                         </div>
@@ -1144,7 +1145,6 @@
             switchView('roomSelectionView');
         }
 
-        // ⭐ جلب وعرض تقييمات الفندق الحقيقية
         async function fetchAndDisplayHotelReviews(hotelName) {
             const container = document.getElementById('hotelReviewsContainer');
             container.innerHTML = '<p style="color: var(--text-muted);">جاري جلب تقييمات المورد والعملاء...</p>';
@@ -1183,7 +1183,6 @@
             }
         }
 
-        // ⭐ إرسال تقييم العميل الجديد للسحابة
         async function submitHotelReview(e) {
             e.preventDefault();
             const email = document.getElementById('reviewEmail').value.trim();
@@ -1211,7 +1210,7 @@
             }
         }
 
-        function goToBooking(hotelName, price, roomName, boardType, policyText, rateKey, paymentType) {
+        function goToBooking(hotelName, price, roomName, boardType, policyText, rateKey, paymentType, refundType) {
             if (!currentUser) { alert('الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز!'); openAuthModal('login'); return; }
             
             selectedHotel = `${hotelName} - ${roomName} (${boardType})`;
@@ -1219,11 +1218,12 @@
             currentPolicyText = policyText;
             currentRateKey = rateKey;
             currentPaymentType = paymentType || 'AT';
+            currentRefundType = refundType || 'full_100';
             
             document.getElementById('hotelNameTitle').innerText = 'تأكيد حجز: ' + hotelName;
             document.getElementById('selectedRoomDetails').innerHTML = `
                 <i class="fa-solid fa-check-circle"></i> اختيارك: ${roomName} | ${boardType}<br>
-                <small style="color:var(--text-muted); display:block; margin-top:5px;">📌 سياسة الإلغاء: ${policyText}</small>
+                <small style="color:var(--text-muted); display:block; margin-top:5px;">📌 سياسة الإلغاء والاسترداد الآلية: ${policyText}</small>
             `;
 
             const payMethodsContainer = document.getElementById('paymentMethodsContainer');
@@ -1234,7 +1234,7 @@
                 `;
             } else {
                 payMethodsContainer.innerHTML = `
-                    <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 دفع إلكتروني (مطلوب مسبقاً حسب الـ API)</label>
+                    <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 دفع إلكتروني (مطلوب مسبقاً عبر الـ API)</label>
                 `;
             }
             
@@ -1276,7 +1276,6 @@
             element.classList.add('selected');
         }
 
-        // 🚀 دالة الحجز المتوافقة حصراً مع سير عمل Hotelbeds (Availability -> CheckRate -> Booking)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1285,7 +1284,6 @@
             const companions = document.getElementById('custCompanions').value;
             const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value;
             const pointsUsed = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
-            const refundType = 'api_policy';
             
             const btn = e.target.querySelector('button[type="submit"]');
             const origText = btn.innerHTML;
@@ -1293,7 +1291,6 @@
             btn.disabled = true;
 
             try {
-                // الخطوة 1: فحص السعر والتوافر عبر CheckRates API حصراً دون طلب Availability جديد (تجنباً لمخالفة Workflow)
                 const recheckRes = await fetch(`${API_URL}/api/v1/hotels/recheck`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1302,7 +1299,6 @@
                 const recheckData = await recheckRes.json();
 
                 if (!recheckData.success) {
-                    // إذا نفدت الغرفة، جلب البدائل الذكية
                     try {
                         const altRes = await fetch(`${API_URL}/api/v1/hotels/alternatives`, {
                             method: 'POST',
@@ -1337,7 +1333,6 @@
                     return;
                 }
 
-                // الخطوة 2: الانتقال المباشر لتأكيد الحجز (Booking Confirmation API) بناءً على الشروط الصارمة
                 btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز وإرسال القسيمة...';
 
                 const res = await fetch(`${API_URL}/api/v1/bookings/create`, {
@@ -1352,8 +1347,9 @@
                         paymentMethod,
                         price: currentBasePrice,
                         pointsUsed,
-                        cancellationPolicy: currentPolicyText, // 👈 تم التعديل: إرسال سياسة الفندق الحقيقية
-                        rateKey: currentRateKey
+                        cancellationPolicy: currentPolicyText,
+                        rateKey: currentRateKey,
+                        refundType: currentRefundType // 👈 إرسال نوع الاسترداد المدمج مع سياسة الـ API
                     })
                 });
                 const data = await res.json();
