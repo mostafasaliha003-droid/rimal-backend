@@ -17,7 +17,8 @@ const allowedOrigins = [
     'https://remalbookings.com',
     'https://www.remalbookings.com',
     'http://localhost:10000',
-    'http://127.0.0.1:10000'
+    'http://127.0.0.1:10000',
+    'https://rimal-api.onrender.com' // 🚀 تم إضافة هذا النطاق للسماح باختبار الدفع
 ];
 
 app.use(cors({
@@ -193,7 +194,7 @@ app.post('/api/auth/register-send-code', async (req, res) => {
             'رمز التحقق الثنائي (OTP) - شركة الرمال الدولية ✈️',
             `<div dir="rtl" style="font-family:Cairo; padding:25px; text-align:center; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
                 <h2 style="color:#1f3a40;">أهلاً بك في شركة الرمال الدولية! ✈️</h2>
-                <p>رمز التحقق (OTP) الخاص بك لتأكيد حسابك على remalbookings.com هو:</p>
+                <p>رمز التحقق (OTP) الخاصيف حسابك على remalbookings.com هو:</p>
                 <h1 style="color:#ff595e; font-size:38px; letter-spacing:6px; background:#fff; padding:10px; border-radius:8px; display:inline-block;">${code}</h1>
                 <p style="color:#6c757d; font-size:12px; margin-top:15px;">هذا الكود صالح لمدة 10 دقائق فقط.</p>
             </div>`
