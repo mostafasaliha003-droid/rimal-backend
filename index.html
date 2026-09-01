@@ -612,7 +612,7 @@
         let selectedHotel = '', currentBasePrice = 0, currentPolicyText = '', currentRateKey = '', currentPaymentType = 'AT', currentRefundType = 'full_100';
         let gMap, gMarkers = [];
 
-        // 🌟 دمج الفندق التجريبي (10 درهم مع سياسة الاسترداد 100%) بجانب الفنادق الأصلية
+        // 🌟 الفندق التجريبي للاختبار (10 درهم) والفنادق الأصلية
         let allHotels = [
             { 
                 name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 5, lat: 25.2048, lng: 55.2708, 
@@ -638,6 +638,27 @@
             document.getElementById('checkInDate').valueAsDate = new Date();
             let tomorrow = new Date(); tomorrow.setDate(new Date().getDate() + 1);
             document.getElementById('checkOutDate').valueAsDate = tomorrow;
+
+            // التحقق من عودة العميل من صفحة نجاح الدفع (Ziina Success)
+            const urlParams = new URLSearchParams(window.location.search);
+            if (window.location.pathname.includes('payment-success') || urlParams.has('ref')) {
+                let pending = JSON.parse(localStorage.getItem('pending_reservation'));
+                if (pending) {
+                    fetch(`${API_URL}/api/v1/bookings/create`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(pending)
+                    }).then(res => res.json()).then(data => {
+                        if (data.success) {
+                            localStorage.removeItem('pending_reservation');
+                            alert(`🎉 تم الدفع بنجاح عبر Ziina وتأكيد حجزك عالمياً!\nتم إرسال قسيمة الـ PDF والواتساب إلى: ${pending.email}`);
+                            switchView('registerView');
+                            fetchUserData();
+                        }
+                    }).catch(err => console.error("خطأ في تثبيت الحجز بعد الدفع:", err));
+                }
+            }
+
             displayHotels(allHotels);
             checkUserSession();
             checkAtlasConnection();
@@ -1021,7 +1042,6 @@
                     
                     if(query) liveHotels = liveHotels.filter(h => h.name.toLowerCase().includes(query.toLowerCase()));
                     
-                    // الحفاظ على الفندق التجريبي في المقدمة دائمًا
                     allHotels = [allHotels[0], ...liveHotels];
                     displayHotels(allHotels);
                     updateGoogleMarkers(allHotels);
@@ -1298,6 +1318,7 @@
             element.classList.add('selected');
         }
 
+        // 🚀 تعديل جوهري: التوجه المباشر لبوابة Ziina أولاً، ولا يتم الحجز إلا بعد نجاح الدفع
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1309,83 +1330,55 @@
             
             const btn = e.target.querySelector('button[type="submit"]');
             const origText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري التحقق النهائي من السعر والتوافر (CheckRate)...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز بوابة الدفع الآمنة (Ziina)...';
             btn.disabled = true;
 
             try {
-                const recheckRes = await fetch(`${API_URL}/api/v1/hotels/recheck`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ rateKey: currentRateKey })
-                });
-                const recheckData = await recheckRes.json();
+                // 1. توليد رقم مرجع مؤقت للحجز
+                const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
+                
+                // 2. حساب المبلغ النهائي بعد الخصم
+                let finalPrice = Math.max(0, currentBasePrice - (pointsUsed / 10));
 
-                if (!recheckData.success && !selectedHotel.includes('الفندق التجريبي')) {
-                    try {
-                        const altRes = await fetch(`${API_URL}/api/v1/hotels/alternatives`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ destinationCode: 'DXB' })
-                        });
-                        const altData = await altRes.json();
-                        
-                        const altContainer = document.getElementById('alternativesListContainer');
-                        altContainer.innerHTML = '';
+                // 3. تخزين بيانات الحجز مؤقتة لحين إتمام الدفع والعودة بنجاح
+                const pendingData = {
+                    bookingReference,
+                    hotelName: selectedHotel,
+                    customerName,
+                    email,
+                    phone,
+                    companions,
+                    paymentMethod,
+                    price: finalPrice,
+                    pointsUsed,
+                    cancellationPolicy: currentPolicyText,
+                    rateKey: currentRateKey,
+                    refundType: currentRefundType
+                };
+                localStorage.setItem('pending_reservation', JSON.stringify(pendingData));
 
-                        if (altData.success && altData.alternatives) {
-                            altData.alternatives.forEach(alt => {
-                                altContainer.innerHTML += `
-                                    <div style="background: #f8f9fa; border: 2px solid #00b4d8; padding: 12px; border-radius: 12px; display: flex; justify-content: space-between; align-items: center;">
-                                        <div>
-                                            <strong>${alt.name}</strong><br>
-                                            <small style="color:var(--accent-coral); font-weight:bold;">السعر: ${alt.price} AED | ${alt.category}</small>
-                                        </div>
-                                        <button onclick="closeAlternativesModal(); switchView('mainView');" style="background:var(--primary); color:white; border:none; padding:6px 12px; border-radius:8px; font-weight:bold; cursor:pointer;">اختر هذا الفندق 🚀</button>
-                                    </div>
-                                `;
-                            });
-                        }
-                        document.getElementById('alternativesModal').style.display = 'flex';
-                    } catch(altErr) {
-                        alert('❌ ' + recheckData.error);
-                    }
-
-                    btn.innerHTML = origText;
-                    btn.disabled = false;
-                    return;
-                }
-
-                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأكيد الحجز وإرسال القسيمة...';
-
-                const res = await fetch(`${API_URL}/api/v1/bookings/create`, {
+                // 4. طلب رابط الدفع من السيرفر (Ziina API)
+                const ziinaRes = await fetch(`${API_URL}/api/v1/payments/ziina-intent`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({
-                        hotelName: selectedHotel,
-                        customerName,
-                        email,
-                        phone,
-                        companions,
-                        paymentMethod,
-                        price: currentBasePrice,
-                        pointsUsed,
-                        cancellationPolicy: currentPolicyText,
-                        rateKey: currentRateKey,
-                        refundType: currentRefundType
+                        amountAED: finalPrice,
+                        bookingReference: bookingReference
                     })
                 });
-                const data = await res.json();
-                
-                if(data.success) {
-                    alert(`✅ تم تأكيد وحجز الغرفة عالمياً وسحابياً بنجاح!\n\nتم إرسال قسيمة الحجز الرسمية (PDF) ورسالة الواتساب الفورية إلى بريدك ورقمك: ${email}`);
-                    switchView('registerView');
-                    fetchUserData();
+                const ziinaData = await ziinaRes.json();
+
+                if (ziinaData.success && ziinaData.redirect_url) {
+                    // 🚀 توجيه العميل لصفحة الدفع في Ziina
+                    window.location.href = ziinaData.redirect_url;
                 } else {
-                    alert('❌ خطأ في الحجز: ' + data.error);
+                    alert('❌ خطأ في بوابة الدفع: ' + (ziinaData.error || 'تعذر إنشاء رابط الدفع'));
+                    btn.innerHTML = origText;
+                    btn.disabled = false;
                 }
             } catch(err) {
-                alert('❌ خطأ في الاتصال بالخادم.');
-            } finally {
+                console.error(err);
+                alert('❌ خطأ في الاتصال بالخادم أثناء تجهيز الدفع.');
                 btn.innerHTML = origText;
                 btn.disabled = false;
             }
