@@ -105,7 +105,7 @@
                 console.error('Payment Error:', error);
                 
                 // إظهار رسالة الخطأ للعميل وإعادة الزر لحالته الطبيعية
-                errorMessage.innerText = "عذراً، فشل الاتصال ببوابة الدفع. " + error.message;
+                errorMessage.innerText = "عذراً، فشل الاتصال ببوابة الدفع. تأكد من اتصال السيرفر بالإنترنت.";
                 errorMessage.classList.remove('hidden');
                 
                 payButton.disabled = false;
