@@ -1,14 +1,27 @@
+/* 🌟 متغيرات الهوية البصرية والألوان الرسمية لشركة الرمال الدولية */
+:root {
+    --primary: #1f3a40;        /* اللون البترولي الغامق للنص والهيدر */
+    --accent-cyan: #00b4d8;    /* لون التركواز الديناميكي للأيقونة */
+    --accent-coral: #ff595e;   /* اللون المرجاني الجذاب للحركات والعروض */
+    --accent-yellow: #ffca3a;  /* الأصفر الترويجي للنجوم والحصالة */
+    --bg-light: #f7fff7;       /* خلفية الموقع النقية */
+    --white: #ffffff;
+    --shadow: 0 10px 30px rgba(31, 58, 64, 0.12);
+}
+
 /* 🌟 تنسيق الهوية والبراند للوغو */
 .brand-logo-container {
     display: flex;
     align-items: center;
     gap: 12px;
     cursor: pointer;
+    text-decoration: none;
 }
 
 .brand-logo-container img {
     height: 40px; /* حجم متناسق ومثالي للهيدر */
     object-fit: contain;
+    border-radius: 8px;
 }
 
 .brand-text-sub {
