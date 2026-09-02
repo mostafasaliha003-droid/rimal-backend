@@ -72,7 +72,7 @@ const userSchema = new mongoose.Schema({
 
 const bookingSchema = new mongoose.Schema({
     bookingReference: { type: String, required: true, unique: true },
-    ziinaPaymentId: { type: String, default: '' }, // 🚀 حفظ معرف الدفع الحقيقي من Ziina للاسترداد
+    ziinaPaymentId: { type: String, default: '' }, // 🚀 حفظ معرف الدفع الحقيقي من Ziina
     supplierReference: { type: String, default: 'Pending' }, 
     supplierStatus: { type: String, default: 'Pending' }, 
     email: { type: String, required: true, index: true },
@@ -530,7 +530,7 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 مسار إلغاء الحجز والاسترداد الآلي (مع فحص صيغة الـ UUID لتجنب أخطاء 400)
+// 🚀 مسار إلغاء الحجز والإشعارات الإدارية للمتابعة اليدوية (الآمن والمضمون)
 // ==========================================
 app.post('/api/v1/bookings/cancel', async (req, res) => {
     try {
@@ -542,7 +542,7 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         }
 
         if (booking.status === 'refunded' || booking.status === 'cancelled') {
-            return res.status(400).json({ success: false, error: 'الحجز ملغي ومسترد مسبقاً' });
+            return res.status(400).json({ success: false, error: 'الحجز ملغي مسبقاً' });
         }
 
         // 🧮 حساب المبلغ المستحق للاسترداد بناءً على سياسة الحجز
@@ -560,40 +560,8 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         }
 
         let refundAmountAED = booking.price * refundPercentage;
-        const ZIINA_API_KEY = process.env.ZIINA_API_KEY;
 
-        // التحقق من أن معرف Ziina يتطابق مع صيغة UUID المقبولة لدى Ziina V2
-        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-
-        if (booking.paymentMethod === 'visa' && ZIINA_API_KEY && refundAmountAED > 0 && booking.ziinaPaymentId) {
-            try {
-                if (!uuidRegex.test(booking.ziinaPaymentId)) {
-                    console.warn(`⚠️ تنبيه: معرف الدفع (${booking.ziinaPaymentId}) ليس بصيغة UUID رسمية مقبولة من Ziina. سيتم إلغاء الحجز محلياً.`);
-                } else {
-                    const amountInFils = Math.round(refundAmountAED * 100);
-                    
-                    const refundRes = await fetch('https://api-v2.ziina.com/api/refund', {
-                        method: 'POST',
-                        headers: {
-                            'Authorization': `Bearer ${ZIINA_API_KEY}`,
-                            'Content-Type': 'application/json'
-                        },
-                        body: JSON.stringify({
-                            payment_intent_id: booking.ziinaPaymentId,
-                            amount: amountInFils,
-                            currency_code: 'AED'
-                        })
-                    });
-                    
-                    const refundData = await refundRes.json();
-                    console.log(`🔄 استجابة استرداد Ziina:`, refundData);
-                }
-            } catch (ziinaRefundErr) {
-                console.error("خطأ في استرداد Ziina الآلي:", ziinaRefundErr.message);
-            }
-        }
-
-        // إلغاء الحجز لدى المورد العالمي (Hotelbeds)
+        // 1️⃣ إرسال طلب الإلغاء للمورد العالمي (Hotelbeds) إن وجد
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && !booking.supplierReference.includes('TEST-SUPPLIER-REF')) {
             try {
                 const { apiKey, signature } = generateHotelbedsSignature();
@@ -601,27 +569,57 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
                     method: 'DELETE',
                     headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
                 });
+                console.log(`✅ تم إرسال طلب إلغاء الحجز للمورد العالمي للمرجع: ${booking.supplierReference}`);
             } catch (hbCancelErr) {
                 console.error("ملاحظة في إلغاء المورد:", hbCancelErr.message);
             }
         }
 
+        // تحديث حالة الحجز في السحابة
         booking.status = 'cancelled';
         await booking.save();
 
+        // 2️⃣ إرسال إيميل تفصيلي للإدارة (يتضمن تفاصيل الكرت والعميل للمتابعة الفورية)
+        const adminEmailHtml = `
+            <div dir="rtl" style="font-family:Cairo, sans-serif; padding:20px; background:#fff3f3; border-radius:10px; border:2px solid #ff595e;">
+                <h2 style="color:#d90429;">🚨 طلب إلغاء حجز واسترداد مالي جديد!</h2>
+                <p><b>رقم المرجع:</b> ${booking.bookingReference}</p>
+                <p><b>اسم الضيف:</b> ${booking.customerName}</p>
+                <p><b>الإيميل:</b> ${booking.email}</p>
+                <p><b>الهاتف / واتساب:</b> ${booking.phone || 'N/A'}</p>
+                <p><b>الفندق:</b> ${booking.hotelName}</p>
+                <p><b>المبلغ الإجمالي المدفوع:</b> ${booking.price} AED</p>
+                <p><b>المبلغ المستحق للاسترداد (حسب السياسة):</b> <span style="color:#d90429; font-weight:bold;">${refundAmountAED} AED</span></p>
+                <p><b>طريقة الدفع:</b> ${booking.paymentMethod}</p>
+                <p><b>معرّف الدفع (Ziina ID):</b> ${booking.ziinaPaymentId || 'N/A'}</p>
+                <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
+                <p style="color:#6c757d; font-size:12px;">يرجى مراجعة تفاصيل الكرت واسترداد المبلغ للعميل يدوياً من لوحة تحكم Ziina.</p>
+            </div>
+        `;
+        await sendProfessionalEmail(ADMIN_EMAIL, `طلب إلغاء حجز واسترداد - مرجع: ${booking.bookingReference}`, adminEmailHtml);
+
+        // 3️⃣ إرسال إيميل تطميني للعميل بأن طلبه قيد المعالجة
+        const clientEmailHtml = `
+            <div dir="rtl" style="font-family:Cairo, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
+                <h2 style="color:#1f3a40;">مرحباً بك يا ${booking.customerName} ✈️</h2>
+                <p>تلقينا طلبك بإلغاء حجزك في <b>${booking.hotelName}</b> برقم المرجع: <b>${booking.bookingReference}</b>.</p>
+                <p>تم إرسال طلب الإلغاء إلى إدارة الحجوزات والمورد، وسيتم معالجة استرداد المبلغ (${refundAmountAED} AED) إلى بطاقتك خلال أيام عمل قليلة وفقاً لسياسة شروط الإلغاء الخاصة بالغرفة.</p>
+                <p style="color:#0077b6; margin-top:20px; font-weight:bold;">شكراً لتفهمك، ونتمنى خدمتك في رحلات قادمة أفضل!</p>
+            </div>
+        `;
+        await sendProfessionalEmail(booking.email, `تأكيد استلام طلب الإلغاء - شركة الرمال الدولية ✈️`, clientEmailHtml);
+
+        // إشعار فوري عبر الواتساب للعميل
         if (booking.phone) {
-            let msg = `❌ إشعار من شركة الرمال الدولية:\nتم إلغاء الحجز (${bookingReference}) بنجاح.`;
-            if (refundAmountAED > 0) {
-                msg += `\nتمت الموافقة على استرداد مبلغ (${refundAmountAED} AED) بناءً على سياسة الحجز.`;
-            } else {
-                msg += `\nعذراً، نظراً لأن الحجز غير قابل للاسترداد حسب الشروط، فلا يوجد مبلغ مسترد.`;
-            }
-            await sendWhatsAppNotification(booking.phone, msg);
+            await sendWhatsAppNotification(
+                booking.phone,
+                `❌ مرحباً ${booking.customerName}،\nتلقينا طلب إلغاء حجزك (${bookingReference}). سيتم استرداد مبلغ (${refundAmountAED} AED) خلال أيام عمل قليلة حسب الشروط.\nشكراً لتواصلك مع شركة الرمال الدولية.`
+            );
         }
 
         res.json({
             success: true,
-            message: `تم إلغاء الحجز (${bookingReference}) وتطبيق سياسة الاسترداد بدقة (${refundAmountAED} AED مستردة).`,
+            message: `تم استلام طلب الإلغاء بنجاح، وإرسال تفاصيل المتابعة للإدارة، وإشعار العميل عبر الإيميل والواتساب.`,
             bookingReference,
             status: 'cancelled',
             refundedAmountAED: refundAmountAED
@@ -676,7 +674,7 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
 });
 
 // ==========================================
-// 💳 مسار بوابة الدفع (Ziina Integration) - إرجاع الـ ID عند الإنشاء
+// 💳 مسار بوابة الدفع (Ziina Integration)
 // ==========================================
 app.post('/api/v1/payments/ziina-intent', async (req, res) => {
     try {
@@ -731,7 +729,7 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
 });
 
 // ==========================================
-// 💳 مسار استقبال العميل بعد نجاح الدفع وتثبيت الحجز مع معرّف Ziina
+// 💳 مسار استقبال العميل بعد نجاح الدفع
 // ==========================================
 app.get('/payment-success', async (req, res) => {
     try {
