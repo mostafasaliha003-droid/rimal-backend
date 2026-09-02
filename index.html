@@ -1327,7 +1327,7 @@
             element.classList.add('selected');
         }
 
-        // 🚀 التدفق الآمن: الانتقال لدفع Ziina أولاً، ولا يتم إنشاء الحجز إلا بعد نجاح الدفع
+        // 🚀 التدفق الآمن وتخزين معرف دفع Ziina
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1346,22 +1346,6 @@
                 const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
                 let finalPrice = Math.max(0, currentBasePrice - (pointsUsed / 10));
 
-                const pendingData = {
-                    bookingReference,
-                    hotelName: selectedHotel,
-                    customerName,
-                    email,
-                    phone,
-                    companions,
-                    paymentMethod,
-                    price: finalPrice,
-                    pointsUsed,
-                    cancellationPolicy: currentPolicyText,
-                    rateKey: currentRateKey,
-                    refundType: currentRefundType
-                };
-                localStorage.setItem('pending_reservation', JSON.stringify(pendingData));
-
                 const ziinaRes = await fetch(`${API_URL}/api/v1/payments/ziina-intent`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
@@ -1373,6 +1357,23 @@
                 const ziinaData = await ziinaRes.json();
 
                 if (ziinaData.success && ziinaData.redirect_url) {
+                    const pendingData = {
+                        bookingReference,
+                        ziinaPaymentId: ziinaData.ziinaPaymentId || '', // 🚀 حفظ معرّف Ziina الفعلي
+                        hotelName: selectedHotel,
+                        customerName,
+                        email,
+                        phone,
+                        companions,
+                        paymentMethod,
+                        price: finalPrice,
+                        pointsUsed,
+                        cancellationPolicy: currentPolicyText,
+                        rateKey: currentRateKey,
+                        refundType: currentRefundType
+                    };
+                    localStorage.setItem('pending_reservation', JSON.stringify(pendingData));
+
                     window.location.href = ziinaData.redirect_url;
                 } else {
                     alert('❌ خطأ في بوابة الدفع: ' + (ziinaData.error || 'تعذر إنشاء رابط الدفع'));
