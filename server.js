@@ -102,6 +102,7 @@ const Booking = mongoose.model('Booking', bookingSchema);
 const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
+let passwordResetCodes = {}; // 🚀 تخزين أكواد استعادة كلمة المرور
 
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
@@ -232,6 +233,58 @@ app.post('/api/auth/login', async (req, res) => {
         if (!bcrypt.compareSync(password, user.password)) return res.status(400).json({ success: false, error: 'كلمة المرور غير صحيحة' });
         res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone } });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// ==========================================
+// 🔑 مسارات استعادة كلمة المرور الجديدة (Forgot Password)
+// ==========================================
+app.post('/api/auth/forgot-password-send', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ success: false, error: 'البريد الإلكتروني غير مسجل في النظام!' });
+
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        passwordResetCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 };
+
+        await sendProfessionalEmail(
+            email,
+            'رمز استعادة كلمة المرور - شركة الرمال الدولية ✈️',
+            `<div dir="rtl" style="font-family:Cairo; padding:25px; text-align:center; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
+                <h2 style="color:#1f3a40;">استعادة كلمة المرور</h2>
+                <p>تلقينا طلباً لإعادة تعيين كلمة المرور لحسابك في remalbookings.com. كود التحقق الخاص بك هو:</p>
+                <h1 style="color:#ff595e; font-size:38px; letter-spacing:6px; background:#fff; padding:10px; border-radius:8px; display:inline-block;">${code}</h1>
+                <p style="color:#6c757d; font-size:12px; margin-top:15px;">هذا الكود صالح لمدة 10 دقائق فقط.</p>
+            </div>`
+        );
+
+        res.json({ success: true, message: 'تم إرسال كود التحقق إلى بريدك الإلكتروني بنجاح!' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
+});
+
+app.post('/api/auth/reset-password-verify', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { code, newPassword } = req.body;
+
+        const record = passwordResetCodes[email];
+        if (!record || record.code !== code || Date.now() > record.expires) {
+            return res.status(400).json({ success: false, error: 'كود التحقق غير صحيح أو انتهت صلاحيته.' });
+        }
+
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود.' });
+
+        user.password = bcrypt.hashSync(newPassword, 8);
+        await user.save();
+
+        delete passwordResetCodes[email];
+        res.json({ success: true, message: 'تم تحديث كلمة المرور بنجاح! يمكنك تسجيل الدخول الآن.' });
+    } catch (error) {
+        res.status(500).json({ success: false, error: error.message });
+    }
 });
 
 app.get('/api/user/profile', async (req, res) => {
