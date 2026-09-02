@@ -43,7 +43,7 @@
         .stat-card h4 { font-size: 14px; color: var(--text-muted); margin-bottom: 8px; font-weight: 800; }
         .stat-card span { font-size: 26px; font-weight: 900; color: var(--accent-coral); }
 
-        .table-card { background: white; padding: 25px; border-radius: 24px; box-shadow: var(--shadow); border: 3px solid var(--accent-yellow); overflow-x: auto; }
+        .table-card { background: white; padding: 25px; border-radius: 24px; box-shadow: var(--shadow); border: 3px solid var(--accent-yellow); overflow-x: auto; margin-bottom: 30px; }
         
         .admin-toolbar { display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 15px; }
         .search-box { display: flex; align-items: center; background: #f8f9fa; border: 2px solid var(--accent-cyan); border-radius: 12px; padding: 6px 14px; width: 320px; }
@@ -125,6 +125,31 @@
                 </div>
             </div>
 
+            <!-- 💬 قسم إدارة المحادثات الحية (Admin Live Chat Dashboard) -->
+            <div class="table-card" style="border-color: #3b1c58;">
+                <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid fa-comments" style="color: #3b1c58;"></i> لوحة تحكم الدردشة الحية مع العملاء المؤكدين 💬</h3>
+                <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; min-height: 350px;">
+                    <!-- قائمة الغرف/العملاء النشطين -->
+                    <div style="background: #f8f9fa; border-radius: 14px; padding: 12px; border: 2px solid #e2e8f0; display: flex; flex-direction: column;">
+                        <h4 style="font-size: 13px; color: var(--primary); margin-bottom: 10px; font-weight: 900;">الغرف النشطة (برقم الحجز):</h4>
+                        <div id="adminRoomsList" style="flex: 1; overflow-y: auto; display: flex; flex-direction: column; gap: 8px;">
+                            <p style="font-size: 12px; color: var(--text-muted); text-align: center; margin-top: 20px;">لا توجد محادثات نشطة حالياً</p>
+                        </div>
+                    </div>
+                    <!-- صندوق المحادثة الفعلي للرد -->
+                    <div style="background: #fff; border-radius: 14px; border: 2px solid #e2e8f0; display: flex; flex-direction: column; overflow: hidden;">
+                        <div id="adminChatHeader" style="background: #3b1c58; color: white; padding: 12px; font-size: 13px; font-weight: bold;">
+                            اختر محادثة من القائمة للبدء بالرد على العميل...
+                        </div>
+                        <div id="adminChatMessages" style="flex: 1; padding: 15px; overflow-y: auto; background: #fdfdfe; font-size: 13px; display: flex; flex-direction: column; gap: 8px; min-height: 220px;"></div>
+                        <div style="padding: 10px; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; background: #f8f9fa;">
+                            <input type="text" id="adminMsgInput" placeholder="اكتب رد الإدارة للعميل..." style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Cairo'; outline: none;">
+                            <button onclick="sendAdminMessage()" style="background: #3b1c58; color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: bold; cursor: pointer;">إرسال</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
             <div class="table-card">
                 <div class="admin-toolbar">
                     <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> السجلات والبيانات الإدارية الحصرية (Admin Only)</h3>
@@ -161,10 +186,15 @@
         </div>
     </div>
 
+    <!-- تضمين مكتبة Socket.io Client للدردشة المباشرة -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
+
     <script>
         const API_URL = 'https://rimal-api.onrender.com';
         let isAdminLoggedIn = localStorage.getItem('rimal_admin_auth') === 'true';
         let globalBookingsList = [];
+        let socket;
+        let activeChatRef = null;
 
         window.onload = function() {
             if(isAdminLoggedIn) {
@@ -172,8 +202,72 @@
                 document.getElementById('adminDashboard').style.display = 'block';
                 document.getElementById('logoutBtn').style.display = 'block';
                 loadAdminData();
+                initAdminLiveChat();
             }
         };
+
+        // ==========================================
+        // 💬 إعدادات الشات المباشر للإدارة عبر Socket.io
+        // ==========================================
+        function initAdminLiveChat() {
+            socket = io(API_URL);
+
+            // افتراضياً سنستمع لأي عميل يقوم بفتح محادثة جديدة عبر تجميع الغرف النشطة
+            // (تحديث قائمة الغرف تلقائياً أو عبر محاكاة الغرفة النشطة الحالية)
+            
+            socket.on('receive_message', (data) => {
+                const { referenceCode, sender, message } = data;
+                
+                // إذا لم تكن الغرفة موجودة في القائمة الجانبية، أضفها
+                let roomBtn = document.getElementById(`room_btn_${referenceCode}`);
+                if(!roomBtn) {
+                    const roomsList = document.getElementById('adminRoomsList');
+                    if(roomsList.innerHTML.includes('لا توجد محادثات')) roomsList.innerHTML = '';
+                    
+                    roomsList.innerHTML += `
+                        <button id="room_btn_${referenceCode}" onclick="selectAdminChatRoom('${referenceCode}')" style="background:#fff; border:1px solid #cbd5e1; padding:8px; border-radius:8px; text-align:right; font-weight:bold; cursor:pointer; font-size:12px;">
+                            حجز: <span style="color:var(--accent-coral);">${referenceCode}</span>
+                        </button>
+                    `;
+                }
+
+                // إذا كانت هذه هي الغرفة المفتوحة حالياً، اعرض الرسالة
+                if(activeChatRef === referenceCode) {
+                    const chatMsgs = document.getElementById('adminChatMessages');
+                    chatMsgs.innerHTML += `<div style="margin-bottom: 6px;"><b>${sender}:</b> ${message}</div>`;
+                    chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                }
+            });
+        }
+
+        function selectAdminChatRoom(referenceCode) {
+            activeChatRef = referenceCode;
+            document.querySelectorAll('#adminRoomsList button').forEach(b => b.style.background = '#fff');
+            let btn = document.getElementById(`room_btn_${referenceCode}`);
+            if(btn) btn.style.background = '#e2e8f0';
+
+            document.getElementById('adminChatHeader').innerText = `المحادثة النشطة للحجز رقم: ${referenceCode}`;
+            socket.emit('join_chat', { referenceCode: referenceCode, clientName: 'Admin' });
+            
+            const chatMsgs = document.getElementById('adminChatMessages');
+            chatMsgs.innerHTML = `<div style="text-align:center; color:green; font-size:11px; margin-bottom:5px;">تم الانضمام لغرفة الحجز ${referenceCode}</div>`;
+        }
+
+        function sendAdminMessage() {
+            const input = document.getElementById('adminMsgInput');
+            const text = input.value.trim();
+            if(!text || !activeChatRef) {
+                if(!activeChatRef) alert('الرجاء اختيار غرفة محادثة من القائمة أولاً.');
+                return;
+            }
+
+            socket.emit('send_message', { referenceCode: activeChatRef, sender: 'الإدارة (Remal)', message: text });
+            
+            const chatMsgs = document.getElementById('adminChatMessages');
+            chatMsgs.innerHTML += `<div style="margin-bottom: 6px; color:#3b1c58;"><b>الإدارة:</b> ${text}</div>`;
+            chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            input.value = '';
+        }
 
         function downloadFinancialReport() {
             window.location.href = `${API_URL}/api/v1/admin/export-financial-report`;
@@ -197,6 +291,7 @@
                     document.getElementById('adminDashboard').style.display = 'block';
                     document.getElementById('logoutBtn').style.display = 'block';
                     loadAdminData();
+                    initAdminLiveChat();
                     alert('✅ تم تسجيل دخول الإدارة بنجاح!');
                 } else {
                     alert('❌ خطأ: ' + data.error);
@@ -245,7 +340,6 @@
 
                 let statusBadge = isCancelled ? '<span class="badge badge-cancelled">ملغي ❌</span>' : (isPaidCash ? '<span class="badge badge-paid-cash">مدفوع كاش ✅</span>' : '<span class="badge badge-active">نشط ✅</span>');
 
-                // صورة افتراضية للفندق أو صورة تجريبية
                 let hotelImgUrl = "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=150&q=80";
 
                 tbody.innerHTML += `
