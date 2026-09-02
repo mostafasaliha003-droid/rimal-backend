@@ -530,7 +530,7 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 مسار إلغاء الحجز والاسترداد الآلي المشروط باستخدام Ziina Payment ID
+// 🚀 مسار إلغاء الحجز والاسترداد الآلي (مع فحص صيغة الـ UUID لتجنب أخطاء 400)
 // ==========================================
 app.post('/api/v1/bookings/cancel', async (req, res) => {
     try {
@@ -562,26 +562,32 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         let refundAmountAED = booking.price * refundPercentage;
         const ZIINA_API_KEY = process.env.ZIINA_API_KEY;
 
-        // تنفيذ الاسترداد عبر Ziina باستخدام معرف الدفع المخزن (ziinaPaymentId)
+        // التحقق من أن معرف Ziina يتطابق مع صيغة UUID المقبولة لدى Ziina V2
+        const uuidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
         if (booking.paymentMethod === 'visa' && ZIINA_API_KEY && refundAmountAED > 0 && booking.ziinaPaymentId) {
             try {
-                const amountInFils = Math.round(refundAmountAED * 100);
-                
-                const refundRes = await fetch('https://api-v2.ziina.com/api/refund', {
-                    method: 'POST',
-                    headers: {
-                        'Authorization': `Bearer ${ZIINA_API_KEY}`,
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({
-                        payment_intent_id: booking.ziinaPaymentId, // 🚀 استخدام معرف Ziina الحقيقي
-                        amount: amountInFils,
-                        currency_code: 'AED'
-                    })
-                });
-                
-                const refundData = await refundRes.json();
-                console.log(`🔄 تم استرداد مبلغ ${refundAmountAED} AED بنجاح عبر Ziina:`, refundData);
+                if (!uuidRegex.test(booking.ziinaPaymentId)) {
+                    console.warn(`⚠️ تنبيه: معرف الدفع (${booking.ziinaPaymentId}) ليس بصيغة UUID رسمية مقبولة من Ziina. سيتم إلغاء الحجز محلياً.`);
+                } else {
+                    const amountInFils = Math.round(refundAmountAED * 100);
+                    
+                    const refundRes = await fetch('https://api-v2.ziina.com/api/refund', {
+                        method: 'POST',
+                        headers: {
+                            'Authorization': `Bearer ${ZIINA_API_KEY}`,
+                            'Content-Type': 'application/json'
+                        },
+                        body: JSON.stringify({
+                            payment_intent_id: booking.ziinaPaymentId,
+                            amount: amountInFils,
+                            currency_code: 'AED'
+                        })
+                    });
+                    
+                    const refundData = await refundRes.json();
+                    console.log(`🔄 استجابة استرداد Ziina:`, refundData);
+                }
             } catch (ziinaRefundErr) {
                 console.error("خطأ في استرداد Ziina الآلي:", ziinaRefundErr.message);
             }
@@ -606,7 +612,7 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         if (booking.phone) {
             let msg = `❌ إشعار من شركة الرمال الدولية:\nتم إلغاء الحجز (${bookingReference}) بنجاح.`;
             if (refundAmountAED > 0) {
-                msg += `\nتمت الموافقة على استرداد مبلغ (${refundAmountAED} AED) آلياً إلى بطاقتك بناءً على سياسة الحجز.`;
+                msg += `\nتمت الموافقة على استرداد مبلغ (${refundAmountAED} AED) بناءً على سياسة الحجز.`;
             } else {
                 msg += `\nعذراً، نظراً لأن الحجز غير قابل للاسترداد حسب الشروط، فلا يوجد مبلغ مسترد.`;
             }
@@ -708,7 +714,6 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
         const data = await response.json();
 
         if (data.redirect_url) {
-            // 🚀 نرسل رابط التحويل ومعرف الدفع (id) لكي يتم حفظه في العميل/السيرفر
             res.json({ 
                 success: true, 
                 redirect_url: data.redirect_url, 
