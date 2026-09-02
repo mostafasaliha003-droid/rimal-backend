@@ -528,6 +528,9 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 مسار إلغاء الحجز والاسترداد الآلي المشروط بسياسة الحجز عبر Ziina API
+// ==========================================
 app.post('/api/v1/bookings/cancel', async (req, res) => {
     try {
         const { bookingReference } = req.body;
@@ -538,13 +541,55 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         }
 
         if (booking.status === 'refunded' || booking.status === 'cancelled') {
-            return res.status(400).json({ success: false, error: 'الحجز ملغي مسبقاً' });
+            return res.status(400).json({ success: false, error: 'الحجز ملغي ومسترد مسبقاً' });
         }
 
-        if (booking.supplierReference && booking.supplierReference !== 'Pending' && booking.supplierReference !== 'Pending (Test Mode)') {
+        // 🧮 حساب المبلغ المستحق للاسترداد بناءً على سياسة الحجز (Refund Policy Logic)
+        let refundPercentage = 0;
+        let policyDescription = booking.cancellationPolicy || '';
+
+        if (booking.refundType === 'full_100' || policyDescription.includes('100%')) {
+            refundPercentage = 1.0; // استرداد كامل
+        } else if (booking.refundType === 'partial_50' || policyDescription.includes('50%') || policyDescription.includes('جزء')) {
+            refundPercentage = 0.5; // استرداد جزئي (50%)
+        } else if (booking.refundType === 'non_refundable' || policyDescription.includes('غير قابل للاسترداد') || policyDescription.includes('لا يوجد')) {
+            refundPercentage = 0.0; // لا يوجد استرداد
+        } else {
+            refundPercentage = 0.0; // الافتراضي
+        }
+
+        let refundAmountAED = booking.price * refundPercentage;
+        const ZIINA_API_KEY = process.env.ZIINA_API_KEY;
+
+        // تنفيذ الاسترداد عبر Ziina فقط إذا كان المبلغ المستحق أكبر من الصفر
+        if (booking.paymentMethod === 'visa' && ZIINA_API_KEY && refundAmountAED > 0) {
+            try {
+                const amountInFils = Math.round(refundAmountAED * 100);
+                
+                const refundRes = await fetch('https://api-v2.ziina.com/api/refund', {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${ZIINA_API_KEY}`,
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        payment_intent_id: booking.bookingReference,
+                        amount: amountInFils,
+                        currency_code: 'AED'
+                    })
+                });
+                
+                const refundData = await refundRes.json();
+                console.log(`🔄 تم استرداد مبلغ ${refundAmountAED} AED بنجاح عبر Ziina:`, refundData);
+            } catch (ziinaRefundErr) {
+                console.error("خطأ في استرداد Ziina الآلي:", ziinaRefundErr.message);
+            }
+        }
+
+        // إلغاء الحجز لدى المورد العالمي (Hotelbeds)
+        if (booking.supplierReference && booking.supplierReference !== 'Pending' && !booking.supplierReference.includes('TEST-SUPPLIER-REF')) {
             try {
                 const { apiKey, signature } = generateHotelbedsSignature();
-
                 await fetch(`https://api.test.hotelbeds.com/hotel-api/1.0/bookings/${booking.supplierReference}?language=ENG`, {
                     method: 'DELETE',
                     headers: { 'Api-key': apiKey, 'X-Signature': signature, 'Accept': 'application/json' }
@@ -558,18 +603,21 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         await booking.save();
 
         if (booking.phone) {
-            await sendWhatsAppNotification(
-                booking.phone,
-                `❌ إشعار من شركة الرمال الدولية:\nتم إلغاء الحجز (${bookingReference}) بنجاح وتفعيل سياسة استرداد الأموال للكرت.`
-            );
+            let msg = `❌ إشعار من شركة الرمال الدولية:\nتم إلغاء الحجز (${bookingReference}) بنجاح.`;
+            if (refundAmountAED > 0) {
+                msg += `\nتمت الموافقة على استرداد مبلغ (${refundAmountAED} AED) آلياً إلى بطاقتك بناءً على سياسة الحجز.`;
+            } else {
+                msg += `\nعذراً، نظراً لأن الحجز غير قابل للاسترداد حسب الشروط، فلا يوجد مبلغ مسترد.`;
+            }
+            await sendWhatsAppNotification(booking.phone, msg);
         }
 
         res.json({
             success: true,
-            message: `تم إلغاء الحجز رقم (${bookingReference}) بنجاح وإشعار المورد واسترداد المبلغ على الكرت.`,
+            message: `تم إلغاء الحجز (${bookingReference}) وتطبيق سياسة الاسترداد بدقة (${refundAmountAED} AED مستردة).`,
             bookingReference,
             status: 'cancelled',
-            refundType: booking.refundType
+            refundedAmountAED: refundAmountAED
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
@@ -621,7 +669,7 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
 });
 
 // ==========================================
-// 💳 مسار بوابة الدفع (Ziina Integration) - تم إزالة وضع الاختبار (test: true)
+// 💳 مسار بوابة الدفع (Ziina Integration)
 // ==========================================
 app.post('/api/v1/payments/ziina-intent', async (req, res) => {
     try {
