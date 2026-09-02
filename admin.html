@@ -6,6 +6,8 @@
     <title>لوحة تحكم الإدارة | شركة الرمال الدولية ✈️</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- 🚀 ربط ملف التنسيقات الخارجي للبراند -->
+    <link rel="stylesheet" href="style.css">
     <style>
         :root {
             --primary: #1f3a40;
@@ -23,7 +25,6 @@
             background-color: var(--white); padding: 15px 5%; display: flex; justify-content: space-between;
             align-items: center; box-shadow: 0 4px 15px rgba(0,0,0,0.05); border-bottom: 4px dashed var(--accent-cyan);
         }
-        .brand { font-size: 20px; font-weight: 900; color: var(--primary); display: flex; align-items: center; gap: 10px; }
         
         .container { max-width: 1350px; margin: 30px auto; padding: 0 20px; }
 
@@ -75,7 +76,14 @@
 <body>
 
     <header>
-        <div class="brand"><i class="fa-solid fa-shield-halved" style="color: var(--accent-coral);"></i> لوحة تحكم الإدارة - شركة الرمال الدولية (Admin Panel) ✈️</div>
+        <!-- 🚀 الهوية الجديدة واللوغو الاحترافي -->
+        <div class="brand-logo-container">
+            <img src="logo.jpg" alt="Remal International Logo">
+            <div>
+                <div style="font-size: 18px; font-weight: 900; color: var(--primary);">شركة الرمال الدولية ✈️</div>
+                <div class="brand-text-sub">Remal International</div>
+            </div>
+        </div>
         <button id="logoutBtn" onclick="adminLogout()" style="display:none; background:var(--accent-coral); color:white; border:none; padding:8px 16px; border-radius:10px; font-weight:bold; cursor:pointer;">تسجيل خروج</button>
     </header>
 
