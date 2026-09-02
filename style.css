@@ -19,11 +19,12 @@
 }
 
 .brand-logo-container img {
-    height: 45px; /* حجم متناسق ومثالي للهيدر */
+    height: 48px; /* حجم متناسق وواضح للهيدر */
     object-fit: contain;
-    border-radius: 10px;
-    mix-blend-mode: multiply; /* 🚀 يدمج الخلفية البيضاء للوغو مع الهيدر الداكن لتختفي تماماً */
-    background: transparent;
+    border-radius: 12px;
+    background: #ffffff; /* خلفية بيضاء نقية تبرز اللوغو بوضوح تام */
+    padding: 4px; /* مساحة داخلية خفيفة حول اللوغو */
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25); /* ظل بارز يمنح اللوغو مظهراً ثلاثي الأبعاد فاخراً */
 }
 
 .brand-text-sub {
