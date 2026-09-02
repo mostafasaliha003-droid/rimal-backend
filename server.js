@@ -6,8 +6,15 @@ const mongoose = require('mongoose');
 const path = require('path');
 const PDFDocument = require('pdfkit');
 const crypto = require('crypto'); // 🚀 لإنشاء التوقيع الأمني الخاص بـ Hotelbeds
+const http = require('http'); // 🚀 لدعم نظام الدردشة الفورية WebSocket
+const { Server } = require('socket.io'); // 🚀 لإدارة الاتصالات اللحظية
 
 const app = express();
+const server = http.createServer(app);
+const io = new Server(server, {
+    cors: { origin: "*" }
+});
+
 app.use(express.json());
 
 // ==========================================
@@ -166,6 +173,59 @@ const fetchWithTimeout = async (url, options, timeout = 65000) => {
 };
 
 // ==========================================
+// 💬 نظام الدردشة الفورية (Live Chat Socket.io) للحجوزات المؤكدة
+// ==========================================
+io.on('connection', (socket) => {
+    console.log('💬 A user connected to chat socket:', socket.id);
+
+    // العميل يسجل دخول بالرقم المرجعي والاسم للتحقق من أن حجزه مؤكد
+    socket.on('join_chat', async (data) => {
+        const { referenceCode, clientName } = data;
+        
+        try {
+            const booking = await Booking.findOne({ 
+                bookingReference: (referenceCode || '').trim(), 
+                customerName: new RegExp((clientName || '').trim(), 'i') 
+            });
+            
+            if (booking) {
+                socket.join(referenceCode);
+                socket.emit('chat_joined', { success: true, message: 'تم التحقق من الحجز بنجاح. أهلاً بك في دعم رمال.' });
+                
+                // إرسال تنبيه للإدارة عبر الإيميل بأن عميلاً مؤكداً بدأ محادثة دعم
+                const adminChatEmailHtml = `
+                    <div dir="rtl" style="font-family:Cairo, sans-serif; padding:20px; background:#f0f8ff; border-radius:10px; border:2px solid #0077b6;">
+                        <h2 style="color:#0077b6;">💬 استفسار جديد عبر اللايف شات لحجز مؤكد!</h2>
+                        <p><b>رقم المرجع:</b> ${booking.bookingReference}</p>
+                        <p><b>اسم الضيف:</b> ${booking.customerName}</p>
+                        <p><b>الفندق:</b> ${booking.hotelName}</p>
+                        <p><b>الإيميل:</b> ${booking.email}</p>
+                        <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
+                        <p style="color:#333;">قام العميل بفتح نافذة المحادثة ويرغب بالتواصل معك الآن. يرجى الدخول لمتابعة الرد.</p>
+                    </div>
+                `;
+                await sendProfessionalEmail(ADMIN_EMAIL, `استفسار شات جديد للحجز المؤكد: ${booking.bookingReference}`, adminChatEmailHtml);
+
+            } else {
+                socket.emit('chat_joined', { success: false, message: 'عذراً، بيانات الحجز أو الاسم غير مطابقة لحجز مؤكد.' });
+            }
+        } catch (e) {
+            socket.emit('chat_joined', { success: false, message: 'حدث خطأ أثناء التحقق من الحجز.' });
+        }
+    });
+
+    // استقبال وإعادة توجيه الرسائل بين العميل والإدارة
+    socket.on('send_message', (data) => {
+        const { referenceCode, sender, message } = data;
+        io.to(referenceCode).emit('receive_message', { sender, message, time: new Date() });
+    });
+
+    socket.on('disconnect', () => {
+        console.log('💬 User disconnected from chat');
+    });
+});
+
+// ==========================================
 // 🚀 مسارات التوثيق (Auth) والمستخدم
 // ==========================================
 app.get('/api/v1/health-check', async (req, res) => {
@@ -175,7 +235,7 @@ app.get('/api/v1/health-check', async (req, res) => {
         success: true,
         domain: 'remalbookings.com',
         databaseStatus: states[dbState] || 'unknown',
-        cloudServer: 'Render Backend Active 🚀',
+        cloudServer: 'Render Backend Active with Live Chat 🚀',
         timestamp: new Date()
     });
 });
@@ -236,7 +296,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ==========================================
-// 🔑 مسارات استعادة كلمة المرور الجديدة (Forgot Password)
+// 🔑 مسارات استعادة كلمة المرور (Forgot Password)
 // ==========================================
 app.post('/api/auth/forgot-password-send', async (req, res) => {
     try {
@@ -705,7 +765,7 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
                 `تأكيد استلام الدفع النقدي لحجزك ${booking.bookingReference} - شركة الرمال الدولية ✈️`,
                 `<div dir="rtl" style="font-family:Arial, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #2a9d8f;">
                     <h2 style="color:#1f3a40;">مرحباً بك يا بطل، ${booking.customerName}! ✈️</h2>
-                    <p>نحيطك علماً بأنه تم تأكيد استلام الدفع النقدي (كاش) بنجاح من الفندق الشريك لحجزك في <b>${booking.hotelName}</b>.</p>
+                    <p>نحيطك علماً بأنه تم تأكيد استلاستلم الدفع النقدي (كاش) بنجاح من الفندق الشريك لحجزك في <b>${booking.hotelName}</b>.</p>
                     <p><b>رقم المرجع:</b> ${booking.bookingReference}</p>
                     <p><b>المبلغ المسدد:</b> ${booking.price} AED</p>
                     <p style="color:#2a9d8f; font-weight:bold; margin-top:15px;">شكراً لاختيارك شركة الرمال الدولية! نتمنى لك إقامة سعيدة.</p>
@@ -1311,5 +1371,6 @@ app.get('/', (req, res) => {
     res.sendFile(path.join(__dirname, 'index.html'));
 });
 
+// 🚀 تشغيل السيرفر باستخدام server.js الشامل مع دعم Socket.io للدردشة المباشرة
 const PORT = process.env.PORT || 10000;
-app.listen(PORT, '0.0.0.0', () => { console.log(`🚀 السيرفر يعمل على المنفذ ${PORT} ومربوط مع remalbookings.com`); });
+server.listen(PORT, '0.0.0.0', () => { console.log(`🚀 السيرفر يعمل على المنفذ ${PORT} مع دعم Live Chat ومربوط بـ remalbookings.com`); });
