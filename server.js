@@ -621,7 +621,7 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
 });
 
 // ==========================================
-// 💳 مسار بوابة الدفع (Ziina Integration)
+// 💳 مسار بوابة الدفع (Ziina Integration) - تم إزالة وضع الاختبار (test: true)
 // ==========================================
 app.post('/api/v1/payments/ziina-intent', async (req, res) => {
     try {
@@ -652,8 +652,7 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
                 amount: amountInFils,
                 currency_code: 'AED', 
                 success_url: `https://rimal-api.onrender.com/payment-success?ref=${bookingReference}`,
-                cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`,
-                test: true 
+                cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`
             })
         });
 
