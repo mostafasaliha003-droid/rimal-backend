@@ -25,7 +25,7 @@
         }
         .brand { font-size: 20px; font-weight: 900; color: var(--primary); display: flex; align-items: center; gap: 10px; }
         
-        .container { max-width: 1250px; margin: 30px auto; padding: 0 20px; }
+        .container { max-width: 1350px; margin: 30px auto; padding: 0 20px; }
 
         #adminLoginBox {
             max-width: 450px; background: white; padding: 35px; border-radius: 24px;
@@ -49,13 +49,20 @@
         .search-box input { border: none; background: transparent; outline: none; width: 100%; font-family: 'Cairo'; font-weight: 700; font-size: 14px; }
 
         table { width: 100%; border-collapse: collapse; margin-top: 10px; text-align: right; }
-        th, td { padding: 14px; border-bottom: 2px solid #e9ecef; font-size: 13px; }
+        th, td { padding: 14px; border-bottom: 2px solid #e9ecef; font-size: 13px; vertical-align: middle; }
         th { background: #f8f9fa; font-weight: 900; color: var(--primary); }
         .badge { padding: 5px 10px; border-radius: 8px; font-weight: 800; font-size: 11px; display: inline-block; }
         .badge-active { background: rgba(0, 180, 216, 0.15); color: var(--accent-cyan); }
         .badge-cancelled { background: rgba(255, 89, 94, 0.15); color: var(--accent-coral); }
         .badge-paid-cash { background: rgba(42, 157, 143, 0.15); color: #2a9d8f; }
         
+        .admin-secret-info {
+            background: rgba(255, 202, 58, 0.12); border: 1px dashed var(--accent-yellow);
+            padding: 8px; border-radius: 8px; margin-top: 6px; font-size: 11px; font-weight: 700; color: #495057;
+        }
+
+        .hotel-admin-thumb { width: 50px; height: 50px; object-fit: cover; border-radius: 8px; border: 2px solid var(--accent-cyan); margin-left: 8px; vertical-align: middle; }
+
         .action-btn { background: var(--primary); color: white; border: none; padding: 6px 10px; border-radius: 8px; font-weight: bold; cursor: pointer; font-size: 11px; margin: 2px; display: inline-flex; align-items: center; gap: 4px; text-decoration: none; }
         .action-btn.danger { background: var(--accent-coral); }
         .action-btn.success { background: #2a9d8f; }
@@ -68,7 +75,7 @@
 <body>
 
     <header>
-        <div class="brand"><i class="fa-solid fa-shield-halved" style="color: var(--accent-coral);"></i> لوحة تحكم الإدارة - شركة الرمال الدولية ✈️</div>
+        <div class="brand"><i class="fa-solid fa-shield-halved" style="color: var(--accent-coral);"></i> لوحة تحكم الإدارة - شركة الرمال الدولية (Admin Panel) ✈️</div>
         <button id="logoutBtn" onclick="adminLogout()" style="display:none; background:var(--accent-coral); color:white; border:none; padding:8px 16px; border-radius:10px; font-weight:bold; cursor:pointer;">تسجيل خروج</button>
     </header>
 
@@ -112,16 +119,15 @@
 
             <div class="table-card">
                 <div class="admin-toolbar">
-                    <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> إدارة السجلات وحجوزات الفنادق المباشرة (مع المورد Hotelbeds)</h3>
+                    <h3 style="color: var(--primary);"><i class="fa-solid fa-list-check"></i> السجلات والبيانات الإدارية الحصرية (Admin Only)</h3>
                     
                     <div style="display: flex; gap: 10px; align-items: center; flex-wrap: wrap;">
-                        <!-- 🚀 زر تصدير التقرير المالي المتقدم المرتبط بـ Advanced Financial Reporting API -->
                         <button onclick="downloadFinancialReport()" class="action-btn report" title="تصدير تقرير محاسبي شامل">
                             <i class="fa-solid fa-file-excel"></i> تحميل التقرير المالي (CSV) 📊
                         </button>
                         <div class="search-box">
                             <i class="fa-solid fa-search" style="color: var(--accent-coral); margin-left: 8px;"></i>
-                            <input type="text" id="bookingSearchInput" placeholder="بحث برقم المرجع (مثل RIMAL-...)" onkeyup="filterAdminBookings()">
+                            <input type="text" id="bookingSearchInput" placeholder="بحث برقم المرجع أو اسم العميل..." onkeyup="filterAdminBookings()">
                         </div>
                         <button onclick="loadAdminData()" style="background: var(--accent-cyan); color: white; border: none; padding: 10px 15px; border-radius: 12px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
                     </div>
@@ -130,13 +136,13 @@
                 <table>
                     <thead>
                         <tr>
-                            <th>المرجع (الرمال / المورد)</th>
-                            <th>العميل ورقم الهاتف</th>
-                            <th>الإيميل</th>
-                            <th>الفندق</th>
+                            <th>تفاصيل المراجع (الرمال / المورد)</th>
+                            <th>حساب الضيف والاتصال</th>
+                            <th>الفندق والصورة</th>
                             <th>المبلغ وطريقة الدفع</th>
+                            <th>بيانات الكرت والمورد الحصرية (Admin) 🔒</th>
                             <th>الحالة</th>
-                            <th>إجراءات الفندق والعميل ⚙️</th>
+                            <th>الإجراءات ⚙️</th>
                         </tr>
                     </thead>
                     <tbody id="adminBookingsTable">
@@ -161,7 +167,6 @@
             }
         };
 
-        // 🚀 دالة تحميل التقرير المالي المتقدم
         function downloadFinancialReport() {
             window.location.href = `${API_URL}/api/v1/admin/export-financial-report`;
         }
@@ -226,39 +231,55 @@
                 let phoneNum = b.phone || '+971544757578';
                 
                 let paymentBadge = '';
-                if(b.paymentMethod === 'visa') paymentBadge = '<br><small style="color:#0077b6;">💳 دفع إلكتروني (مدفوع)</small>';
+                if(b.paymentMethod === 'visa') paymentBadge = '<br><small style="color:#0077b6;">💳 دفع إلكتروني (Ziina)</small>';
                 else if(isPaidCash) paymentBadge = '<br><small style="color:#2a9d8f; font-weight:bold;">💵 تم الدفع كاش بالفندق ✅</small>';
                 else paymentBadge = '<br><small style="color:#e09f3e;">🏨 دفع عند الوصول (معلق)</small>';
 
                 let statusBadge = isCancelled ? '<span class="badge badge-cancelled">ملغي ❌</span>' : (isPaidCash ? '<span class="badge badge-paid-cash">مدفوع كاش ✅</span>' : '<span class="badge badge-active">نشط ✅</span>');
 
+                // صورة افتراضية للفندق أو صورة تجريبية
+                let hotelImgUrl = "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=150&q=80";
+
                 tbody.innerHTML += `
                     <tr>
                         <td>
-                            <b style="color:var(--accent-coral);">${b.bookingReference}</b><br>
-                            <small style="color:#2a9d8f;">المورد: ${b.supplierReference || 'Pending'}</small>
+                            <b>المرجع:</b> <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span><br>
+                            <small style="color:#2a9d8f;">مرجع المورد: ${b.supplierReference || 'Pending'}</small>
                         </td>
                         <td>
                             <b>${b.customerName}</b><br>
-                            <a href="tel:${phoneNum}" style="color:#0077b6; text-decoration:none; font-size:12px;"><i class="fa-solid fa-phone"></i> ${phoneNum}</a>
+                            <a href="tel:${phoneNum}" style="color:#0077b6; text-decoration:none; font-size:12px;"><i class="fa-solid fa-phone"></i> ${phoneNum}</a><br>
+                            <a href="mailto:${b.email}" style="color:var(--primary); text-decoration:none; font-size:11px;">${b.email}</a>
                         </td>
-                        <td><a href="mailto:${b.email}" style="color:var(--primary); text-decoration:none;">${b.email}</a></td>
-                        <td>${b.hotelName}</td>
-                        <td><b>${b.price}</b> AED ${paymentBadge}</td>
+                        <td>
+                            <div style="display:flex; align-items:center;">
+                                <img src="${hotelImgUrl}" class="hotel-admin-thumb" alt="Hotel">
+                                <span>${b.hotelName}</span>
+                            </div>
+                        </td>
+                        <td>
+                            <b>${b.price}</b> AED ${paymentBadge}
+                        </td>
+                        <td>
+                            <div class="admin-secret-info">
+                                <b>Order ID (Ziina):</b> ${b.ziinaPaymentId || 'N/A'}<br>
+                                <b>طريقة الدفع:</b> ${b.paymentMethod}<br>
+                                <b>سياسة الإلغاء:</b> ${b.cancellationPolicy}
+                            </div>
+                        </td>
                         <td>${statusBadge}</td>
                         <td>
                             <div style="display:flex; flex-wrap:wrap; gap:4px;">
                                 <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" class="action-btn" title="تحميل قسيمة PDF">📄 PDF</a>
                                 <button onclick="checkLiveSync('${b.bookingReference}')" class="action-btn sync" title="مزامنة حية مع المورد"><i class="fa-solid fa-rotate-right"></i> مزامنة</button>
-                                <a href="mailto:${b.email}?subject=تواصل من شركة الرمال الدولية بخصوص حجزك ${b.bookingReference}" class="action-btn contact" title="راسل العميل"><i class="fa-solid fa-envelope"></i> إيميل</a>
                                 <a href="https://wa.me/${phoneNum.replace(/[^0-9]/g, '')}?text=مرحباً بك يا ${b.customerName}، نتواصل معك من شركة الرمال الدولية بخصوص حجزك في ${b.hotelName}" target="_blank" class="action-btn success" title="واتساب"><i class="fa-brands fa-whatsapp"></i> واتساب</a>
                                 
                                 ${!isCancelled && !isPaidCash && b.paymentMethod === 'hotel' ? 
-                                    `<button onclick="confirmCashPaymentAPI('${b.bookingReference}')" class="action-btn cash" title="تأكيد الدفع النقدي بالفندق">تأكيد الدفع 💵</button>` : ''
+                                    `<button onclick="confirmCashPaymentAPI('${b.bookingReference}')" class="action-btn cash" title="تأكيد الدفع النقدي بالفندق">تأكيد الكاش 💵</button>` : ''
                                 }
 
                                 ${!isCancelled ? 
-                                    `<button onclick="syncAndCancelBooking('${b.bookingReference}')" class="action-btn danger" title="إلغاء الحجز مع الفندق والمورد">إلغاء فندق 🏨❌</button>` : 
+                                    `<button onclick="syncAndCancelBooking('${b.bookingReference}')" class="action-btn danger" title="إلغاء الحجز وإشعار الإدارة">إلغاء واسترداد ❌</button>` : 
                                     `<button onclick="updateBookingStatus('${b.bookingReference}', 'active')" class="action-btn success">تفعيل ✅</button>`
                                 }
                             </div>
@@ -313,7 +334,7 @@
         }
 
         async function syncAndCancelBooking(bookingReference) {
-            if(!confirm(`⚠️ هل أنت متأكد من رغبة إلغاء الحجز (${bookingReference})؟\n\nسيقوم السستم بمراسلة نظام المورد العالمي (Hotelbeds API) لإلغاء الغرفة لديهم، ثم تحديث حالة الحجز واسترداد النقاط.`)) return;
+            if(!confirm(`⚠️ هل أنت متأكد من رغبة إلغاء الحجز (${bookingReference})؟\n\nسيقوم السستم بإرسال طلب الإلغاء للمورد، وتنبيه الإدارة عبر الإيميل لمعالجة الاسترداد المالي.`)) return;
             
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, {
