@@ -1,0 +1,20 @@
+/* 🌟 تنسيق الهوية والبراند للوغو */
+.brand-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+}
+
+.brand-logo-container img {
+    height: 40px; /* حجم متناسق ومثالي للهيدر */
+    object-fit: contain;
+}
+
+.brand-text-sub {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    font-weight: 800;
+}
