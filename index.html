@@ -561,6 +561,38 @@
         </div>
     </div>
 
+    <!-- ========================================== -->
+    <!-- 💬 ودجت نافذة الدردشة الفورية (Live Chat Widget) -->
+    <!-- ========================================== -->
+    <button id="openChatBtn" style="position: fixed; bottom: 20px; right: 20px; background: #800020; color: #fff; padding: 12px 20px; border: none; border-radius: 30px; cursor: pointer; font-weight: bold; box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 2000;">
+      💬 خدمة العملاء (للحجوزات المؤكدة)
+    </button>
+
+    <div id="chatBoxModal" style="display: none; position: fixed; bottom: 80px; right: 20px; width: 320px; background: #fff; border-radius: 12px; box-shadow: 0 5px 20px rgba(0,0,0,0.3); overflow: hidden; z-index: 2000; font-family: Arial, sans-serif;">
+      <div style="background: #3b1c58; color: #fff; padding: 12px; display: flex; justify-content: space-between; align-items: center;">
+        <span>دردشة دعم Remal & Chill</span>
+        <button id="closeChatBtn" style="background: none; border: none; color: #fff; font-size: 16px; cursor: pointer;">✕</button>
+      </div>
+      
+      <!-- نموذج التحقق قبل بدء الشات -->
+      <div id="authView" style="padding: 15px;">
+        <p style="font-size: 13px; color: #555; margin-bottom: 10px;">أدخل بيانات حجزك المؤكد للبدء:</p>
+        <input type="text" id="refCodeInput" placeholder="الرقم المرجعي للحجز (Reference Code)" style="width: 100%; padding: 8px; margin-bottom: 8px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+        <input type="text" id="clientNameInput" placeholder="الاسم الكامل" style="width: 100%; padding: 8px; margin-bottom: 10px; border: 1px solid #ccc; border-radius: 6px; box-sizing: border-box;">
+        <button id="startChatBtn" style="width: 100%; background: #3b1c58; color: #fff; padding: 8px; border: none; border-radius: 6px; cursor: pointer;">بدء المحادثة</button>
+        <p id="chatErrorMsg" style="color: red; font-size: 12px; margin-top: 5px; text-align: center;"></p>
+      </div>
+
+      <!-- واجهة الدردشة الفعلية (مخفية حتى يتم التحقق) -->
+      <div id="messagesView" style="display: none; flex-direction: column; height: 300px;">
+        <div id="chatMessages" style="flex: 1; padding: 10px; overflow-y: auto; background: #f9f9f9; font-size: 13px;"></div>
+        <div style="padding: 8px; border-top: 1px solid #ddd; display: flex;">
+          <input type="text" id="messageInput" placeholder="اكتب رسالتك..." style="flex: 1; padding: 6px; border: 1px solid #ccc; border-radius: 4px;">
+          <button id="sendMsgBtn" style="background: #800020; color: #fff; border: none; padding: 6px 12px; margin-right: 5px; border-radius: 4px; cursor: pointer;">إرسال</button>
+        </div>
+      </div>
+    </div>
+
     <!-- الفوتر -->
     <footer>
         <div class="footer-container">
@@ -610,6 +642,9 @@
     </script>
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCkqVnoRsRtoETOTqR68CUtyk0o0E3XaEQ&callback=initGoogleMap"></script>
+
+    <!-- تضمين مكتبة Socket.io للدردشة الحية -->
+    <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
 
     <script>
         const API_URL = 'https://rimal-api.onrender.com';
@@ -697,7 +732,67 @@
             displayHotels(allHotels);
             checkUserSession();
             fetchLiveDestinations();
+            initLiveChatSocket();
         };
+
+        // ==========================================
+        // 💬 تفعيل سكربت العميل للدردشة المباشرة (Socket.io)
+        // ==========================================
+        function initLiveChatSocket() {
+            const socket = io(API_URL);
+
+            const openBtn = document.getElementById('openChatBtn');
+            const closeBtn = document.getElementById('closeChatBtn');
+            const chatModal = document.getElementById('chatBoxModal');
+            const startBtn = document.getElementById('startChatBtn');
+            const authView = document.getElementById('authView');
+            const messagesView = document.getElementById('messagesView');
+            const errorMsg = document.getElementById('chatErrorMsg');
+            const sendBtn = document.getElementById('sendMsgBtn');
+            const msgInput = document.getElementById('messageInput');
+            const chatMsgs = document.getElementById('chatMessages');
+
+            let currentRef = '';
+            let currentName = '';
+
+            openBtn.onclick = () => chatModal.style.display = 'block';
+            closeBtn.onclick = () => chatModal.style.display = 'none';
+
+            startBtn.onclick = () => {
+                currentRef = document.getElementById('refCodeInput').value.trim();
+                currentName = document.getElementById('clientNameInput').value.trim();
+                if(!currentRef || !currentName) {
+                    errorMsg.innerText = 'يرجى إدخال رقم الحجز والاسم.';
+                    return;
+                }
+                socket.emit('join_chat', { referenceCode: currentRef, clientName: currentName });
+            };
+
+            socket.on('chat_joined', (res) => {
+                if(res.success) {
+                    authView.style.display = 'none';
+                    messagesView.style.display = 'flex';
+                    chatMsgs.innerHTML += `<div style="text-align: center; color: green; margin-bottom: 5px; font-size:12px;">${res.message}</div>`;
+                } else {
+                    errorMsg.innerText = res.message;
+                }
+            });
+
+            sendBtn.onclick = sendMessage;
+            msgInput.onkeypress = (e) => { if(e.key === 'Enter') sendMessage(); };
+
+            function sendMessage() {
+                const text = msgInput.value.trim();
+                if(!text) return;
+                socket.emit('send_message', { referenceCode: currentRef, sender: currentName, message: text });
+                msgInput.value = '';
+            }
+
+            socket.on('receive_message', (data) => {
+                chatMsgs.innerHTML += `<div style="margin-bottom: 8px;"><b>${data.sender}:</b> ${data.message}</div>`;
+                chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            });
+        }
 
         async function fetchLiveDestinations() {
             try {
@@ -1410,7 +1505,7 @@
                 console.error(err);
                 alert('❌ خطأ في الاتصال بالخادم أثناء تجهيز الدفع.');
                 btn.innerHTML = origText;
-                btn.disabled, false;
+                btn.disabled = false;
             }
         }
     </script>
