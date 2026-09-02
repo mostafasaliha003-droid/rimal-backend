@@ -19,9 +19,11 @@
 }
 
 .brand-logo-container img {
-    height: 40px; /* حجم متناسق ومثالي للهيدر */
+    height: 45px; /* حجم متناسق ومثالي للهيدر */
     object-fit: contain;
-    border-radius: 8px;
+    border-radius: 10px;
+    mix-blend-mode: multiply; /* 🚀 يدمج الخلفية البيضاء للوغو مع الهيدر الداكن لتختفي تماماً */
+    background: transparent;
 }
 
 .brand-text-sub {
