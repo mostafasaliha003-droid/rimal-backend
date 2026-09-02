@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rimal-pwa-cache-v1';
+const CACHE_NAME = 'rimal-pwa-cache-v2'; // 🚀 تم رفع الإصدار لتحديث الكاش فوراً
 const urlsToCache = [
     '/',
     '/index.html',
@@ -14,6 +14,24 @@ self.addEventListener('install', event => {
                 return cache.addAll(urlsToCache);
             })
     );
+    self.skipWaiting(); // 🚀 تفعيل التحديث الجديد فوراً دون انتظار إغلاق المتصفح
+});
+
+// تنظيف الكاش القديم عند التحديث
+self.addEventListener('activate', event => {
+    event.waitUntil(
+        caches.keys().then(cacheNames => {
+            return Promise.all(
+                cacheNames.map(cache => {
+                    if (cache !== CACHE_NAME) {
+                        console.log('🗑️ تم حذف الكاش القديم:', cache);
+                        return caches.delete(cache);
+                    }
+                })
+            );
+        })
+    );
+    self.clients.claim();
 });
 
 // جلب البيانات بسرعة من الكاش أو من الإنترنت
