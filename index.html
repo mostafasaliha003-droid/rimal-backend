@@ -1327,7 +1327,7 @@
             element.classList.add('selected');
         }
 
-        // 🚀 التدفق الآمن وتخزين معرف دفع Ziina
+        // 🚀 التدفق الآمن وتخزين معرف دفع Ziina (UUID)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1359,7 +1359,7 @@
                 if (ziinaData.success && ziinaData.redirect_url) {
                     const pendingData = {
                         bookingReference,
-                        ziinaPaymentId: ziinaData.ziinaPaymentId || '', // 🚀 حفظ معرّف Ziina الفعلي
+                        ziinaPaymentId: ziinaData.ziinaPaymentId || '', // 🚀 حفظ معرّف Ziina (UUID)
                         hotelName: selectedHotel,
                         customerName,
                         email,
