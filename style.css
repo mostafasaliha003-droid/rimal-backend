@@ -21,10 +21,7 @@
 .brand-logo-container img {
     height: 48px; /* حجم متناسق وواضح للهيدر */
     object-fit: contain;
-    border-radius: 12px;
-    background: #ffffff; /* خلفية بيضاء نقية تبرز اللوغو بوضوح تام */
-    padding: 4px; /* مساحة داخلية خفيفة حول اللوغو */
-    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.25); /* ظل بارز يمنح اللوغو مظهراً ثلاثي الأبعاد فاخراً */
+    background: transparent; /* خلفية شفافة تماماً ليتناسق الشعار المفرغ مع الهيدر الداكن */
 }
 
 .brand-text-sub {
