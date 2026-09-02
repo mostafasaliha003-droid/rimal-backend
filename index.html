@@ -438,7 +438,7 @@
     <div id="registerView" class="view-section">
         <section class="hero" style="padding: 40px 5%;">
             <h1>بوابة حسابك الذكي وحجوزاتك 🚀</h1>
-            <p>إدارة الحجوزات، سياسات الاسترداد الآلية، ومتابعة النقاط من سحابة MongoDB Atlas!</p>
+            <p>إدارة الحجوزات، سياسات الاسترداد الآلية، ومتابعة النقاط بكل أمان!</p>
         </section>
 
         <div class="container">
@@ -453,9 +453,9 @@
                         <h4>💰 حصالة حسابك الدائمة</h4>
                         <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة</p>
                     </div>
-                    <div style="background: rgba(0, 180, 216, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-cyan);">
-                        <h4>☁️ حالة الاتصال (remalbookings.com)</h4>
-                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-cyan);">متصل بالسحابة 🔒 (MongoDB Atlas)</div>
+                    <div style="background: rgba(114, 9, 183, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-purple);">
+                        <h4 style="color: var(--accent-purple);">😎 جاهز تسحب على الدوام؟</h4>
+                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-purple);">اختر وجهتك، اجمع نقاطك، وخلي الباقي علينا! 🌴</div>
                     </div>
                 </div>
 
@@ -477,7 +477,7 @@
             </div>
 
             <form id="loginForm" onsubmit="handleDirectLogin(event)" style="display: none;">
-                <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل للسحابة 🔑</h3>
+                <h3 style="color: var(--primary); margin-bottom: 15px;">دخول العميل 🔑</h3>
                 <div class="form-group" style="text-align: right;"><label>البريد:</label><input type="email" id="loginEmail" required></div>
                 <div class="form-group" style="text-align: right;"><label>كلمة المرور:</label><input type="password" id="loginPassword" required></div>
                 <button type="submit" class="btn-book">دخول 🚀</button>
@@ -485,7 +485,7 @@
 
             <div id="registerContainer">
                 <form id="step1Form" onsubmit="requestVerificationCode(event)">
-                    <h3 style="color: var(--primary); margin-bottom: 15px;">فتح حساب جديد مع كود التحقق OTP ☁️</h3>
+                    <h3 style="color: var(--primary); margin-bottom: 15px;">فتح حساب جديد مع كود التحقق OTP 🌴</h3>
                     <div class="form-group" style="text-align: right;"><label>الاسم:</label><input type="text" id="modalName" required></div>
                     <div class="form-group" style="text-align: right;"><label>البريد الإلكتروني:</label><input type="email" id="modalEmail" required></div>
                     <div class="form-group" style="text-align: right;"><label>كلمة المرور:</label><input type="password" id="modalPassword" required></div>
@@ -655,7 +655,6 @@
 
             displayHotels(allHotels);
             checkUserSession();
-            checkAtlasConnection();
             fetchLiveDestinations();
         };
 
@@ -674,14 +673,6 @@
             } catch (e) {
                 console.error("خطأ في جلب الوجهات الجغرافية:", e);
             }
-        }
-
-        async function checkAtlasConnection() {
-            try {
-                const res = await fetch(`${API_URL}/api/v1/health-check`);
-                const data = await res.json();
-                console.log('✅ اتصال السحابة بـ remalbookings.com:', data);
-            } catch(e) { console.error('خطأ في اتصال السحابة'); }
         }
 
         function switchView(viewId) {
@@ -780,7 +771,7 @@
                     currentUser = data.user;
                     localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
                     closeAuthModal(); checkUserSession(); switchView('registerView');
-                    alert('✅ تم تسجيل الدخول بنجاح من السحابة!');
+                    alert('✅ تم تسجيل الدخول بنجاح!');
                 } else { alert('❌ خطأ: ' + (data.error || 'فشل تسجيل الدخول')); }
             } catch(err) { alert('❌ خطأ في الاتصال بالخادم.'); }
         }
@@ -812,7 +803,7 @@
                             currentUser = verifyData.user;
                             localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
                             closeAuthModal(); checkUserSession(); switchView('registerView');
-                            alert('🎉 تم تفعيل الحساب بنجاح عبر سحابة MongoDB Atlas! تمت إضافة 500 نقطة هدية.');
+                            alert('🎉 تم تفعيل الحساب بنجاح! تمت إضافة 500 نقطة هدية لحصالتك.');
                         } else { alert('❌ كود التحقق غير صحيح أو انتهت صلاحيته.'); }
                     }
                 } else { alert('❌ ' + data.error); }
@@ -842,7 +833,7 @@
                             <p><strong>مرجع المورد:</strong> <span style="color:#2a9d8f; font-weight:bold;">${b.supplierReference || 'N/A'}</span></p>
                             <p><strong>المبلغ المدفوع:</strong> ${b.price} AED</p>
                             <p><strong>سياسة الاسترداد:</strong> ${b.cancellationPolicy}</p>
-                            <p><strong>الحالة:</strong> <span style="color:green; font-weight:bold;">مؤكد سحابياً ✅</span></p>
+                            <p><strong>الحالة:</strong> <span style="color:green; font-weight:bold;">مؤكد رسمياً ✅</span></p>
                             <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" style="display:inline-block; margin-top:10px; background:#1f3a40; color:white; padding:8px 15px; border-radius:8px; text-decoration:none; font-weight:bold;">📄 تحميل قسيمة الحجز PDF</a>
                         </div>
                     `;
@@ -866,7 +857,7 @@
                         bookingsContainer.innerHTML = '';
                         
                         if(data.bookings.length === 0) {
-                            bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">لا توجد حجوزات مسجلة في السحابة حالياً.</div>`;
+                            bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">لا توجد حجوزات مسجلة حالياً.</div>`;
                         } else {
                             data.bookings.forEach(b => {
                                 let isCancelled = b.status === 'cancelled';
@@ -998,7 +989,7 @@
 
             const btn = document.getElementById('searchBtnText');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الاتصال بالسحابة العالمية...';
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري البحث عن أفضل العروض...';
             btn.disabled = true;
 
             try {
@@ -1021,7 +1012,7 @@
                         
                         return {
                             code: h.code || "12345",
-                            name: h.name || "فندق شريك للرمال الدولية",
+                            name: h.name || "فندق شريك لرمال وفلّها",
                             city: h.destinationName || "دبي",
                             priceAED: minRate,
                             basePoints: Math.floor(minRate * 0.5),
@@ -1039,10 +1030,10 @@
                     allHotels = [allHotels[0], ...liveHotels];
                     displayHotels(allHotels);
                     updateGoogleMarkers(allHotels);
-                } else { alert('❌ لم نتمكن من العثور على فنادق من السيرفر العالمي في هذا التاريخ.'); }
+                } else { alert('❌ لم نتمكن من العثور على فنادق في هذا التاريخ.'); }
             } catch (e) {
                 console.error(e);
-                alert('❌ خطأ في الاتصال بسيرفر Hotelbeds. تأكد من عمل السيرفر.');
+                alert('❌ خطأ في الاتصال بسيرفر الفنادق.');
             } finally {
                 btn.innerHTML = originalText;
                 btn.disabled = false;
@@ -1161,7 +1152,7 @@
                             <p><i class="fa-solid fa-bed"></i> <strong>الأسرة:</strong> ${room.bed}</p>
                             <p><i class="fa-solid fa-utensils"></i> <strong>الوجبات:</strong> <span style="color:var(--accent-coral); font-weight:900;">${room.board}</span></p>
                             <div class="cancellation-box ${cancelClass}">
-                                <strong><i class="fa-solid fa-file-contract"></i> سياسة إلغاء الـ API الدقيقة (مدمجة آلياً مع الكرت):</strong><br>
+                                <strong><i class="fa-solid fa-file-contract"></i> سياسة الإلغاء الدقيقة (مدمجة آلياً):</strong><br>
                                 <span style="font-weight:700; color:var(--text-main); display:block; margin-top:4px; white-space: pre-line;">${room.policyText}</span>
                             </div>
                         </div>
@@ -1183,7 +1174,7 @@
 
         async function fetchAndDisplayHotelReviews(hotelName) {
             const container = document.getElementById('hotelReviewsContainer');
-            container.innerHTML = '<p style="color: var(--text-muted);">جاري جلب تقييمات المورد والعملاء...</p>';
+            container.innerHTML = '<p style="color: var(--text-muted);">جاري جلب التقييمات...</p>';
             
             try {
                 const res = await fetch(`${API_URL}/api/v1/reviews/hotel/${encodeURIComponent(hotelName)}`);
@@ -1270,7 +1261,7 @@
                 `;
             } else {
                 payMethodsContainer.innerHTML = `
-                    <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 دفع إلكتروني (مطلوب مسبقاً عبر الـ API)</label>
+                    <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 دفع إلكتروني (مطلوب مسبقاً)</label>
                 `;
             }
             
@@ -1312,7 +1303,6 @@
             element.classList.add('selected');
         }
 
-        // 🚀 التدفق الآمن وتخزين معرف دفع Ziina (UUID)
         async function confirmReservation(e) {
             e.preventDefault();
             const customerName = document.getElementById('custName').value;
@@ -1344,7 +1334,7 @@
                 if (ziinaData.success && ziinaData.redirect_url) {
                     const pendingData = {
                         bookingReference,
-                        ziinaPaymentId: ziinaData.ziinaPaymentId || '', // 🚀 حفظ معرّف Ziina (UUID)
+                        ziinaPaymentId: ziinaData.ziinaPaymentId || '',
                         hotelName: selectedHotel,
                         customerName,
                         email,
