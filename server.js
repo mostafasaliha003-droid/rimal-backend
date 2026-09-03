@@ -250,6 +250,14 @@ io.on('connection', (socket) => {
 });
 
 // ==========================================
+// 🍏 مسار التحقق الأمني من Apple Pay و Ziina (Domain Whitelisting)
+// ==========================================
+app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res) => {
+    res.type('text/plain');
+    res.send('7b2276657273696f6e223a312c227073704964223a2230363037433038433936323146303343413343384645434133434536373733323032343633453942384639453632433843453634413741433834423943344341222c22637265617465644f6e223a313735383739313636383133377d');
+});
+
+// ==========================================
 // 🚀 مسارات التوثيق (Auth) والمستخدم
 // ==========================================
 app.get('/api/v1/health-check', async (req, res) => {
@@ -953,9 +961,11 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
         const data = await response.json();
 
         if (data.redirect_url) {
+            // إضافة رابط الـ Embedded checkout الخاص بـ Ziina
             res.json({ 
                 success: true, 
                 redirect_url: data.redirect_url, 
+                embedded_url: data.redirect_url.replace('/payment_intent/', '/embedded/payment_intent/'),
                 ziinaPaymentId: data.id || data.payment_intent_id || '' 
             });
         } else {
@@ -984,7 +994,7 @@ app.get('/payment-success', async (req, res) => {
                 <p>جاري تثبيت حجزك في السحابة وإرسال قسيمة الـ PDF والواتساب...</p>
                 <script>
                     setTimeout(() => {
-                        // 🚀 الحل: توجيه النافذة الرئيسية بدلاً من إطار الـ iFrame
+                        // 🚀 إرجاع التوجيه الرئيسي لموقع الرمال بعد النجاح
                         window.top.location.href = 'https://remalbookings.com?payment=success&ref=${reference}';
                     }, 2000);
                 </script>
