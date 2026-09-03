@@ -191,21 +191,6 @@ io.on('connection', (socket) => {
             if (booking) {
                 socket.join(referenceCode);
                 socket.emit('chat_joined', { success: true, message: 'تم التحقق من الحجز بنجاح. أهلاً بك في دعم رمال.' });
-                
-                // إرسال تنبيه للإدارة عبر الإيميل بأن عميلاً مؤكداً بدأ محادثة دعم
-                const adminChatEmailHtml = `
-                    <div dir="rtl" style="font-family:Cairo, sans-serif; padding:20px; background:#f0f8ff; border-radius:10px; border:2px solid #0077b6;">
-                        <h2 style="color:#0077b6;">💬 استفسار جديد عبر اللايف شات لحجز مؤكد!</h2>
-                        <p><b>رقم المرجع:</b> ${booking.bookingReference}</p>
-                        <p><b>اسم الضيف:</b> ${booking.customerName}</p>
-                        <p><b>الفندق:</b> ${booking.hotelName}</p>
-                        <p><b>الإيميل:</b> ${booking.email}</p>
-                        <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
-                        <p style="color:#333;">قام العميل بفتح نافذة المحادثة ويرغب بالتواصل معك الآن. يرجى الدخول لمتابعة الرد.</p>
-                    </div>
-                `;
-                await sendProfessionalEmail(ADMIN_EMAIL, `استفسار شات جديد للحجز المؤكد: ${booking.bookingReference}`, adminChatEmailHtml);
-
             } else {
                 socket.emit('chat_joined', { success: false, message: 'عذراً، بيانات الحجز أو الاسم غير مطابقة لحجز مؤكد.' });
             }
@@ -214,10 +199,35 @@ io.on('connection', (socket) => {
         }
     });
 
-    // استقبال وإعادة توجيه الرسائل بين العميل والإدارة
-    socket.on('send_message', (data) => {
+    // استقبال وإعادة توجيه الرسائل بين العميل والإدارة، وإرسال إيميل للإدارة عند أول رسالة
+    socket.on('send_message', async (data) => {
         const { referenceCode, sender, message } = data;
+        
+        // توجيه الرسالة فوراً للغرفة
         io.to(referenceCode).emit('receive_message', { sender, message, time: new Date() });
+
+        try {
+            // جلب تفاصيل الحجز لإرسالها في الإيميل للإدارة
+            const booking = await Booking.findOne({ bookingReference: referenceCode });
+            if (booking && sender !== 'الإدارة (Remal)') {
+                const adminChatEmailHtml = `
+                    <div dir="rtl" style="font-family:Cairo, sans-serif; padding:20px; background:#f0f8ff; border-radius:10px; border:2px solid #0077b6;">
+                        <h2 style="color:#0077b6;">💬 استفسار جديد عبر اللايف شات لحجز مؤكد!</h2>
+                        <p><b>رقم المرجع:</b> ${booking.bookingReference}</p>
+                        <p><b>اسم الضيف:</b> ${booking.customerName}</p>
+                        <p><b>الفندق:</b> ${booking.hotelName}</p>
+                        <p><b>الإيميل:</b> ${booking.email}</p>
+                        <p><b>رسالة العميل:</b> <span style="color:#d90429; font-weight:bold;">${message}</span></p>
+                        <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
+                        <p style="color:#333;">قام العميل بإرسال استفسار في الشات. يرجى الدخول لوحة التحكم (Admin Panel) لمتابعة الرد عليه فوراً.</p>
+                    </div>
+                `;
+                await sendProfessionalEmail(ADMIN_EMAIL, `استفسار شات جديد من ${booking.customerName} - مرجع: ${booking.bookingReference}`, adminChatEmailHtml);
+                console.log(`✅ تم إرسال إشعار البريد للإدارة بنجاح عن رسالة العميل في الحجز: ${referenceCode}`);
+            }
+        } catch (mailErr) {
+            console.error('❌ خطأ في إرسال إيميل تنبيه الشات للإدارة:', mailErr);
+        }
     });
 
     socket.on('disconnect', () => {
@@ -762,10 +772,10 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
         try {
             await sendProfessionalEmail(
                 booking.email,
-                `تأكيد استلام الدفع النقدي لحجزك ${booking.bookingReference} - شركة الرمال الدولية ✈️`,
+                `تأكيد استلاستلم الدفع النقدي لحجزك ${booking.bookingReference} - شركة الرمال الدولية ✈️`,
                 `<div dir="rtl" style="font-family:Arial, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #2a9d8f;">
                     <h2 style="color:#1f3a40;">مرحباً بك يا بطل، ${booking.customerName}! ✈️</h2>
-                    <p>نحيطك علماً بأنه تم تأكيد استلاستلم الدفع النقدي (كاش) بنجاح من الفندق الشريك لحجزك في <b>${booking.hotelName}</b>.</p>
+                    <p>نحيطك علماً بأنه تم تأكيد استلام الدفع النقدي (كاش) بنجاح من الفندق الشريك لحجزك في <b>${booking.hotelName}</b>.</p>
                     <p><b>رقم المرجع:</b> ${booking.bookingReference}</p>
                     <p><b>المبلغ المسدد:</b> ${booking.price} AED</p>
                     <p style="color:#2a9d8f; font-weight:bold; margin-top:15px;">شكراً لاختيارك شركة الرمال الدولية! نتمنى لك إقامة سعيدة.</p>
