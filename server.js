@@ -565,7 +565,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             );
         }
 
-        // --- التوليد الجديد للـ PDF باستخدام Puppeteer ---
+        // --- التوليد الجديد للـ PDF باستخدام Puppeteer مع تحسينات Render ---
         let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
         let emailHtml = fs.readFileSync(path.join(__dirname, 'email-template.html'), 'utf8');
 
@@ -589,7 +589,15 @@ app.post('/api/v1/bookings/create', async (req, res) => {
 
         browser = await puppeteer.launch({
             headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
+            ]
         });
         
         const page = await browser.newPage();
@@ -624,6 +632,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             }
         });
     } catch (error) {
+        console.error("❌ Error in Bookings Create:", error);
         res.status(500).json({ success: false, error: error.message });
     } finally {
         if (browser) await browser.close();
@@ -698,7 +707,7 @@ app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 إعادة إرسال القسيمة (باستخدام Puppeteer)
+// 🚀 إعادة إرسال القسيمة (باستخدام Puppeteer مع تحسينات Render)
 // ==========================================
 app.post('/api/v1/bookings/resend-email', async (req, res) => {
     let browser;
@@ -730,7 +739,15 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 
         browser = await puppeteer.launch({
             headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
+            ]
         });
         
         const page = await browser.newPage();
@@ -752,6 +769,7 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 
         res.json({ success: true, message: 'تم إعادة إرسال قسيمة الحجز إلى بريدك الإلكتروني بنجاح!' });
     } catch(e) {
+        console.error("❌ Error in Resend Voucher:", e);
         res.status(500).json({ success: false, error: e.message });
     } finally {
         if (browser) await browser.close();
@@ -1256,7 +1274,7 @@ app.post('/api/v1/admin/update-booking-status', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 مسار تحميل الـ PDF مباشرة باستخدام Puppeteer
+// 🚀 مسار تحميل الـ PDF مباشرة باستخدام Puppeteer مع تحسينات Render
 // ==========================================
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
     let browser;
@@ -1279,7 +1297,15 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
 
         browser = await puppeteer.launch({
             headless: "new",
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
+            ]
         });
         
         const page = await browser.newPage();
@@ -1296,6 +1322,7 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         res.send(pdfBuffer);
 
     } catch (e) { 
+        console.error("❌ Error generating direct PDF:", e);
         res.status(500).send('Error generating PDF'); 
     } finally {
         if (browser) await browser.close();
