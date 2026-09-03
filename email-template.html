@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>تأكيد الحجز - رمال وفلّها</title>
+</head>
+<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: Tahoma, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
+    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f3f4f6; padding: 40px 15px;">
+        <tr>
+            <td align="center">
+                <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); text-align: right; direction: rtl;">
+                    
+                    <!-- الترويسة -->
+                    <tr>
+                        <td style="background: linear-gradient(135deg, #1f3a40, #2a4d53); padding: 40px; text-align: center; border-bottom: 5px solid #00b4d8;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">رمال وفلّها! 🌴</h1>
+                            <p style="color: #00b4d8; font-size: 13px; letter-spacing: 3px; font-weight: bold; margin: 8px 0 0 0;">REMAL & CHILL</p>
+                        </td>
+                    </tr>
+
+                    <!-- المحتوى الرئيسي -->
+                    <tr>
+                        <td style="padding: 40px;">
+                            <h2 style="color: #1f3a40; font-size: 24px; margin-top: 0; margin-bottom: 15px;">أهلاً بك في عالمك الخاص، {{customerName}}!</h2>
+                            <p style="color: #6c757d; font-size: 16px; line-height: 1.8; margin-bottom: 25px;">
+                                لقد تم تأكيد حجزك رسمياً في <strong style="color: #00b4d8;">{{hotelName}}</strong>. نحن متحمسون جداً لتجربتك القادمة، وقد أرفقنا قسيمة الحجز (PDF) المعتمدة مع هذا البريد.
+                            </p>
+                            
+                            <!-- تفاصيل سريعة -->
+                            <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 16px; padding: 20px; margin-bottom: 30px;">
+                                <p style="margin: 0 0 10px 0; color: #1f3a40; font-size: 15px;"><strong>رقم المرجع:</strong> <span style="color: #ff595e;" dir="ltr">{{bookingReference}}</span></p>
+                                <p style="margin: 0 0 10px 0; color: #1f3a40; font-size: 15px;"><strong>تاريخ الدخول:</strong> {{checkInDate}}</p>
+                                <p style="margin: 0; color: #1f3a40; font-size: 15px;"><strong>المبلغ المدفوع:</strong> <span dir="ltr">{{price}} AED</span></p>
+                            </div>
+
+                            <!-- الملاحظة -->
+                            <p style="color: #800000; font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 0;">
+                                📄 يرجى تحميل المرفق (PDF) وإبرازه عند الوصول للفندق.
+                            </p>
+                        </td>
+                    </tr>
+
+                    <!-- الفوتر -->
+                    <tr>
+                        <td style="background-color: #111827; padding: 30px 40px; text-align: center;">
+                            <p style="color: #ffffff; font-size: 15px; font-weight: bold; margin: 0 0 10px 0;">شركة الرمال الدولية لخدمات السفر</p>
+                            <p style="color: #94a3b8; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
+                                فرع قرية الأعمال، ميناء سعيد | فرع فندق الميدان، دبي<br>
+                                remalbookings.com
+                            </p>
+                            <a href="https://wa.me/971544757578" style="background-color: #25D366; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 12px 25px; border-radius: 50px; display: inline-block;">
+                                دعم الواتساب المباشر
+                            </a>
+                        </td>
+                    </tr>
+                </table>
+            </td>
+        </tr>
+    </table>
+</body>
+</html>
