@@ -26,7 +26,7 @@
             --accent-coral: #ff595e;  
             --accent-yellow: #ffca3a;
             --accent-purple: #7209b7;
-            --bg-light: #f3f4f6; /* تم التوحيد لتطابق ثقوب التذاكر */     
+            --bg-light: #f3f4f6;     
             --text-main: #1f3a40;
             --text-muted: #6c757d;
             --white: #ffffff;
@@ -51,16 +51,8 @@
         .modal-animate { animation: scaleIn 0.3s ease-out forwards; }
         .form-animate { opacity: 0; transform: translateY(10px); animation: fadeInUp 0.4s ease-out forwards; }
 
-        /* إخفاء سهم القائمة المنسدلة */
+        /* إخفاء سهم القائمة المنسدلة للوجبات */
         .hide-select-arrow { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
-        
-        /* مظهر مخصص للقائمة المنسدلة في قسم النقاط */
-        .custom-select-icon {
-            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: left 1rem center;
-            background-size: 1em;
-        }
         
         /* 🚀 الخدعة الاحترافية لحقول التاريخ */
         input[type="date"]::-webkit-calendar-picker-indicator {
@@ -134,7 +126,12 @@
         body { top: 0px !important; }
     </style>
 </head>
-<body class="antialiased text-slate-800 flex flex-col min-h-screen">
+<body class="antialiased text-slate-800 flex flex-col min-h-screen relative">
+
+    <!-- ============================================== -->
+    <!-- حاوية الإشعارات العائمة (Toast Container) -->
+    <!-- ============================================== -->
+    <div id="toast-container" class="fixed top-6 left-0 right-0 z-[9999] flex flex-col items-center gap-3 px-4 pointer-events-none"></div>
 
     <!-- 🌟 شريط الحجوزات الحية -->
     <div class="live-ticker">
@@ -413,7 +410,7 @@
         </div>
     </div>
 
-    <!-- 🌟 واجهة الدفع وإتمام الحجز -->
+    <!-- واجهة الدفع وإتمام الحجز -->
     <div id="bookingView" class="view-section">
         <div class="w-full bg-slate-800 pt-8 pb-32 px-4 text-center border-b-[6px] border-yellow-400">
             <h1 class="text-white text-3xl font-black flex items-center justify-center gap-3">
@@ -482,9 +479,11 @@
                         
                         <div id="savedCardsPaymentSection" style="display:none;" class="mt-4 pt-4 border-t border-slate-200">
                             <label class="text-xs font-bold text-purple-700 mb-2 block">أو استخدم بطاقة محفوظة:</label>
-                            <select id="savedCardsSelect" class="w-full bg-white border border-[#00b4d8] rounded-xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none shadow-sm cursor-pointer custom-select-icon" onchange="fillSavedCard(this)" dir="ltr">
-                                <option value="" dir="rtl">-- اختر بطاقة محفوظة --</option>
-                            </select>
+                            <div class="relative">
+                                <select id="savedCardsSelect" class="w-full bg-white border border-[#00b4d8] rounded-xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none shadow-sm cursor-pointer custom-select-icon" onchange="fillSavedCard(this)" dir="ltr">
+                                    <option value="" dir="rtl">-- اختر بطاقة محفوظة --</option>
+                                </select>
+                            </div>
                         </div>
                         <div class="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-400 bg-white py-2 rounded-lg border border-slate-100 shadow-sm">
                             <i class="fa-solid fa-lock text-green-600"></i> مدفوعات آمنة ومشفّرة 100%
@@ -919,6 +918,53 @@
             }
         ];
 
+        // 🌟 دالة الإشعارات الفاخرة (Toast Notifications)
+        function showToast(type, title, message) {
+            const container = document.getElementById('toast-container');
+            if (!container) return;
+
+            const toast = document.createElement('div');
+            let baseClasses = "flex items-start gap-3.5 bg-white p-4 rounded-xl shadow-[0_15px_40px_rgba(0,0,0,0.12)] w-full max-w-sm pointer-events-auto transform transition-all duration-500 -translate-y-10 opacity-0 scale-95 border border-slate-50";
+            let iconHtml = ""; let borderClass = "";
+            
+            if (type === 'success') {
+                borderClass = "border-r-4 border-r-green-500";
+                iconHtml = `<div class="mt-0.5 bg-green-50 w-8 h-8 rounded-full flex items-center justify-center shrink-0"><i class="fa-solid fa-circle-check text-green-500 text-lg"></i></div>`;
+            } else if (type === 'error') {
+                borderClass = "border-r-4 border-r-[#ff595e]";
+                iconHtml = `<div class="mt-0.5 bg-red-50 w-8 h-8 rounded-full flex items-center justify-center shrink-0"><i class="fa-solid fa-circle-xmark text-[#ff595e] text-lg animate-pulse"></i></div>`;
+            } else if (type === 'info') {
+                borderClass = "border-r-4 border-r-[#00b4d8]";
+                iconHtml = `<div class="mt-0.5 bg-[#00b4d8]/10 w-8 h-8 rounded-full flex items-center justify-center shrink-0"><i class="fa-solid fa-circle-info text-[#00b4d8] text-lg"></i></div>`;
+            }
+
+            toast.className = `${baseClasses} ${borderClass}`;
+            toast.innerHTML = `
+                ${iconHtml}
+                <div class="flex-1 pt-0.5">
+                    <h4 class="text-sm font-black text-slate-800 leading-tight">${title}</h4>
+                    <p class="text-xs font-bold text-slate-500 mt-1.5 leading-relaxed">${message}</p>
+                </div>
+                <button onclick="closeToast(this.parentElement)" class="text-slate-300 hover:text-slate-500 transition-colors shrink-0 mt-0.5 p-1 cursor-pointer bg-transparent border-none">
+                    <i class="fa-solid fa-xmark text-sm"></i>
+                </button>
+            `;
+
+            container.appendChild(toast);
+            setTimeout(() => {
+                toast.classList.remove('-translate-y-10', 'opacity-0', 'scale-95');
+                toast.classList.add('translate-y-0', 'opacity-100', 'scale-100');
+            }, 10);
+            setTimeout(() => { closeToast(toast); }, 4000);
+        }
+
+        function closeToast(toastElement) {
+            if (!toastElement) return;
+            toastElement.classList.remove('translate-y-0', 'opacity-100', 'scale-100');
+            toastElement.classList.add('-translate-y-4', 'opacity-0', 'scale-95');
+            setTimeout(() => { toastElement.remove(); }, 500);
+        }
+
         window.onload = function() {
             const checkInInput = document.getElementById('checkInDate');
             if (checkInInput) checkInInput.valueAsDate = new Date();
@@ -945,12 +991,12 @@
                     }).then(res => res.json()).then(data => {
                         if (data.success) {
                             localStorage.removeItem('pending_reservation');
-                            alert(`🎉 تمت عملية الدفع عبر Ziina بنجاح وتأكيد حجزك رسمياً!\n\nتم إرسال قسيمة الحجز PDF إلى بريدك ورسالة الواتساب إلى رقمك: ${pending.phone}`);
+                            showToast('success', 'تم تأكيد الحجز!', 'تمت عملية الدفع بنجاح عبر Ziina، وتم إرسال قسيمة PDF إلى بريدك.');
                             window.history.replaceState({}, document.title, window.location.pathname);
                             switchView('registerView');
                             fetchUserData();
-                        } else { alert('❌ خطأ في تثبيت الحجز بعد الدفع: ' + data.error); }
-                    }).catch(err => { console.error("خطأ الاتصال:", err); alert('❌ حدث خطأ أثناء تثبيت الحجز بعد الدفع.'); });
+                        } else { showToast('error', 'خطأ في الحجز', 'خطأ في تثبيت الحجز بعد الدفع: ' + data.error); }
+                    }).catch(err => { console.error("خطأ الاتصال:", err); showToast('error', 'خطأ اتصال', 'حدث خطأ أثناء تثبيت الحجز بعد الدفع.'); });
                 }
             }
 
@@ -1211,35 +1257,43 @@
 
         async function requestEmailChangeOTP() {
             const newEmail = document.getElementById('newEmailInput').value.trim();
-            if(!newEmail) return alert('الرجاء إدخال البريد الجديد');
-            const res = await fetch(`${API_URL}/api/user/request-email-change`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ currentEmail: currentUser.email, newEmail }) });
-            const data = await res.json();
-            if(data.success) { alert('✅ ' + data.message); document.getElementById('emailStep1').style.display = 'none'; document.getElementById('emailStep2').style.display = 'block'; } else { alert('❌ ' + data.error); }
+            if(!newEmail) return showToast('error', 'تنبيه', 'الرجاء إدخال البريد الجديد');
+            try {
+                const res = await fetch(`${API_URL}/api/user/request-email-change`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ currentEmail: currentUser.email, newEmail }) });
+                const data = await res.json();
+                if(data.success) { showToast('success', 'تم الإرسال', data.message); document.getElementById('emailStep1').style.display = 'none'; document.getElementById('emailStep2').style.display = 'block'; } else { showToast('error', 'فشل الإرسال', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         async function verifyAndChangeEmail() {
             const code = document.getElementById('emailOtpInput').value.trim();
-            const res = await fetch(`${API_URL}/api/user/confirm-email-change`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ currentEmail: currentUser.email, code }) });
-            const data = await res.json();
-            if(data.success) { alert('✅ ' + data.message); currentUser = data.user; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); closeEditEmailModal(); checkUserSession(); } else { alert('❌ ' + data.error); }
+            try {
+                const res = await fetch(`${API_URL}/api/user/confirm-email-change`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ currentEmail: currentUser.email, code }) });
+                const data = await res.json();
+                if(data.success) { showToast('success', 'تم التحديث', data.message); currentUser = data.user; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); closeEditEmailModal(); checkUserSession(); } else { showToast('error', 'فشل التحديث', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         function openEditPasswordModal() { document.getElementById('editPasswordModal').classList.remove('hidden'); document.getElementById('editPasswordModal').classList.add('flex'); document.getElementById('passStep1').style.display = 'block'; document.getElementById('passStep2').style.display = 'none'; }
         function closeEditPasswordModal() { document.getElementById('editPasswordModal').classList.add('hidden'); document.getElementById('editPasswordModal').classList.remove('flex'); }
 
         async function requestPasswordChangeOTP() {
-            const res = await fetch(`${API_URL}/api/user/request-password-change`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentUser.email }) });
-            const data = await res.json();
-            if(data.success) { alert('✅ ' + data.message); document.getElementById('passStep1').style.display = 'none'; document.getElementById('passStep2').style.display = 'block'; } else { alert('❌ ' + data.error); }
+            try {
+                const res = await fetch(`${API_URL}/api/user/request-password-change`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentUser.email }) });
+                const data = await res.json();
+                if(data.success) { showToast('success', 'تم الإرسال', data.message); document.getElementById('passStep1').style.display = 'none'; document.getElementById('passStep2').style.display = 'block'; } else { showToast('error', 'فشل الإرسال', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         async function verifyAndChangePassword() {
             const code = document.getElementById('passOtpInput').value.trim();
             const newPassword = document.getElementById('newPasswordInput').value.trim();
-            if(!newPassword) return alert('أدخل كلمة المرور الجديدة');
-            const res = await fetch(`${API_URL}/api/user/confirm-password-change`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentUser.email, code, newPassword }) });
-            const data = await res.json();
-            if(data.success) { alert('✅ ' + data.message); closeEditPasswordModal(); } else { alert('❌ ' + data.error); }
+            if(!newPassword) return showToast('error', 'تنبيه', 'أدخل كلمة المرور الجديدة');
+            try {
+                const res = await fetch(`${API_URL}/api/user/confirm-password-change`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentUser.email, code, newPassword }) });
+                const data = await res.json();
+                if(data.success) { showToast('success', 'تم التحديث', data.message); closeEditPasswordModal(); } else { showToast('error', 'فشل التحديث', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         function openSavedCardsModal() { document.getElementById('savedCardsModal').classList.remove('hidden'); document.getElementById('savedCardsModal').classList.add('flex'); renderSavedCardsList(); }
@@ -1248,17 +1302,21 @@
         async function saveNewCreditCard() {
             const cardHolder = document.getElementById('cardHolderName').value.trim();
             const cardNumber = document.getElementById('cardNumberInput').value.trim();
-            if(!cardHolder || cardNumber.length < 16) return alert('الرجاء إدخال اسم حامل البطاقة ورقم بطاقة صحيح (16 رقم)');
-            const res = await fetch(`${API_URL}/api/user/save-card`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentUser.email, cardHolder, cardNumber }) });
-            const data = await res.json();
-            if(data.success) { alert('✅ ' + data.message); currentUser.savedCards = data.savedCards; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); document.getElementById('cardHolderName').value = ''; document.getElementById('cardNumberInput').value = ''; renderSavedCardsList(); renderSavedCardsDropdown(); } else { alert('❌ ' + data.error); }
+            if(!cardHolder || cardNumber.length < 16) return showToast('error', 'تنبيه', 'الرجاء إدخال اسم حامل البطاقة ورقم بطاقة صحيح (16 رقم)');
+            try {
+                const res = await fetch(`${API_URL}/api/user/save-card`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentUser.email, cardHolder, cardNumber }) });
+                const data = await res.json();
+                if(data.success) { showToast('success', 'تم الحفظ', data.message); currentUser.savedCards = data.savedCards; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); document.getElementById('cardHolderName').value = ''; document.getElementById('cardNumberInput').value = ''; renderSavedCardsList(); renderSavedCardsDropdown(); } else { showToast('error', 'فشل الحفظ', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         async function deleteSavedCard(cardId) {
             if(!confirm('هل أنت متأكد من حذف هذه البطاقة؟')) return;
-            const res = await fetch(`${API_URL}/api/user/delete-card`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentUser.email, cardId }) });
-            const data = await res.json();
-            if(data.success) { currentUser.savedCards = data.savedCards; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); renderSavedCardsList(); renderSavedCardsDropdown(); } else { alert('❌ ' + data.error); }
+            try {
+                const res = await fetch(`${API_URL}/api/user/delete-card`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email: currentUser.email, cardId }) });
+                const data = await res.json();
+                if(data.success) { showToast('success', 'تم الحذف', 'تم حذف البطاقة بنجاح'); currentUser.savedCards = data.savedCards; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); renderSavedCardsList(); renderSavedCardsDropdown(); } else { showToast('error', 'فشل الحذف', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         function renderSavedCardsList() {
@@ -1288,7 +1346,7 @@
             } else { section.style.display = 'none'; }
         }
 
-        function fillSavedCard(selectObj) { if(selectObj.value) { alert('✅ تم اختيار البطاقة المحفوظة بنجاح للدفع السريع!'); } }
+        function fillSavedCard(selectObj) { if(selectObj.value) { showToast('success', 'تم اختيار البطاقة', 'تم تجهيز البطاقة المحفوظة للدفع السريع.'); } }
 
         async function handleDirectLogin(e) {
             e.preventDefault();
@@ -1297,8 +1355,8 @@
             try {
                 const res = await fetch(`${API_URL}/api/auth/login`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
                 const data = await res.json();
-                if(data.success) { currentUser = data.user; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); closeAuthModal(); checkUserSession(); switchView('registerView'); alert('✅ تم تسجيل الدخول بنجاح!'); } else { alert('❌ خطأ: ' + (data.error || 'فشل تسجيل الدخول')); }
-            } catch(err) { alert('❌ خطأ في الاتصال بالخادم.'); }
+                if(data.success) { currentUser = data.user; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); closeAuthModal(); checkUserSession(); switchView('registerView'); showToast('success', 'مرحباً بعودتك!', 'تم تسجيل الدخول بنجاح.'); } else { showToast('error', 'فشل الدخول', data.error || 'تأكد من صحة البيانات'); }
+            } catch(err) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         async function requestVerificationCode(e) {
@@ -1315,10 +1373,10 @@
                     if(code) {
                         const verifyRes = await fetch(`${API_URL}/api/auth/verify-and-register`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, code }) });
                         const verifyData = await verifyRes.json();
-                        if(verifyData.success) { currentUser = verifyData.user; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); closeAuthModal(); checkUserSession(); switchView('registerView'); alert('🎉 تم تفعيل الحساب بنجاح! تمت إضافة 500 نقطة هدية لحصالتك.'); } else { alert('❌ كود التحقق غير صحيح أو انتهت صلاحيته.'); }
+                        if(verifyData.success) { currentUser = verifyData.user; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); closeAuthModal(); checkUserSession(); switchView('registerView'); showToast('success', 'حساب جديد', 'تم تفعيل الحساب وإضافة 500 نقطة لحصالتك!'); } else { showToast('error', 'خطأ بالتحقق', 'كود التحقق غير صحيح أو انتهت صلاحيته.'); }
                     }
-                } else { alert('❌ ' + data.error); }
-            } catch(err) { alert('❌ خطأ في الاتصال بالسيرفر.'); }
+                } else { showToast('error', 'حدث خطأ', data.error); }
+            } catch(err) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         async function quickLookupBooking(e) {
@@ -1406,16 +1464,16 @@
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/modify/${bookingReference}`, { method: 'PUT', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ customerName: newName, phone: newPhone }) });
                 const data = await res.json();
-                if (data.success) { alert('✅ ' + data.message); fetchUserData(); } else { alert('❌ ' + data.error); }
-            } catch(e) { alert('❌ خطأ في الاتصال بالخادم.'); }
+                if (data.success) { showToast('success', 'تم التعديل', data.message); fetchUserData(); } else { showToast('error', 'حدث خطأ', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         async function resendVoucherEmail(bookingReference, email) {
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/resend-email`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference, email }) });
                 const data = await res.json();
-                if(data.success) { alert('✅ ' + data.message); } else { alert('❌ ' + data.error); }
-            } catch(e) { alert('❌ خطأ في الاتصال بالخادم.'); }
+                if(data.success) { showToast('success', 'تم الإرسال', data.message); } else { showToast('error', 'حدث خطأ', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         async function cancelBookingAPI(bookingReference) {
@@ -1423,11 +1481,11 @@
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference }) });
                 const data = await res.json();
-                if(data.success) { alert('✅ ' + data.message); fetchUserData(); } else { alert('❌ ' + data.error); }
-            } catch(e) { alert('❌ خطأ في الاتصال بالخادم.'); }
+                if(data.success) { showToast('success', 'تم الإلغاء', data.message); fetchUserData(); } else { showToast('error', 'حدث خطأ', data.error); }
+            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
-        function logoutUser() { localStorage.removeItem('rimal_current_user'); currentUser = null; checkUserSession(); switchView('mainView'); }
+        function logoutUser() { localStorage.removeItem('rimal_current_user'); currentUser = null; checkUserSession(); switchView('mainView'); showToast('info', 'وداعاً', 'تم تسجيل الخروج من حسابك بنجاح.'); }
 
         function filterHotels() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
@@ -1489,7 +1547,7 @@
                     let liveHotels = data.hotelsData.hotels.map((h, index) => {
                         let minRate = h.minRate ? parseFloat(h.minRate) : Math.floor(Math.random() * 1500 + 400);
                         let imgs = [ "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80" ];
-                        let mockFacilities = ["<i class='fa-solid fa-wifi'></i> واي فاي", "<i class='fa-solid fa-person-swimming'></i> مسبح", "<i class='fa-solid fa-mug-hot'></i> إفطار"];
+                        let mockFacilities = ["<i class='fa-solid fa-wifi'></i> واي فاي", "<i class='fa-solid fa-person-swimming'></i> مسبح", "<i class='fa-solid fa-spa'></i> سبا"];
                         return {
                             code: h.code || "12345", name: h.name || "فندق شريك لرمال وفلّها", city: h.destinationName || "دبي",
                             priceAED: minRate, basePoints: Math.floor(minRate * 0.5), lat: h.latitude || 25.2048 + (Math.random() * 0.1),
@@ -1499,8 +1557,8 @@
                     });
                     if(query) liveHotels = liveHotels.filter(h => h.name.toLowerCase().includes(query.toLowerCase()));
                     allHotels = [allHotels[0], ...liveHotels]; displayHotels(allHotels); updateGoogleMarkers(allHotels);
-                } else { alert('❌ لم نتمكن من العثور على فنادق في هذا التاريخ.'); }
-            } catch (e) { console.error(e); alert('❌ خطأ في الاتصال بسيرفر الفنادق.'); } 
+                } else { showToast('info', 'لا توجد نتائج', 'لم نتمكن من العثور على فنادق تطابق بحثك.'); }
+            } catch (e) { console.error(e); showToast('error', 'خطأ اتصال', 'خطأ في الاتصال بسيرفر الفنادق.'); } 
             finally { btn.innerHTML = originalText; btn.disabled = false; }
         }
 
@@ -1681,12 +1739,12 @@
             try {
                 const res = await fetch(`${API_URL}/api/v1/reviews/create`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ email, customerName, hotelName, rating, comment }) });
                 const data = await res.json();
-                if (data.success) { alert('✅ ' + data.message); closeReviewModal(); fetchAndDisplayHotelReviews(hotelName); } else { alert('❌ ' + data.error); }
-            } catch (err) { alert('❌ خطأ في الاتصال بالخادم.'); }
+                if (data.success) { showToast('success', 'تم الإرسال', data.message); closeReviewModal(); fetchAndDisplayHotelReviews(hotelName); } else { showToast('error', 'فشل الإرسال', data.error); }
+            } catch (err) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
         function goToBooking(hotelName, price, roomName, boardType, policyText, rateKey, paymentType, refundType) {
-            if (!currentUser) { alert('الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز!'); openAuthModal(); return; }
+            if (!currentUser) { showToast('info', 'تنبيه', 'الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز!'); openAuthModal(); return; }
             selectedHotel = `${hotelName} - ${roomName} (${boardType})`; currentBasePrice = price; currentPolicyText = policyText; currentRateKey = rateKey; currentPaymentType = paymentType || 'AT'; currentRefundType = refundType || 'full_100';
             
             document.getElementById('hotelNameTitle').innerHTML = `تأكيد حجز: <i class="fa-solid fa-hotel text-slate-400 mx-1 text-lg"></i> <br class="md:hidden" /><bdi dir="auto" class="text-[#1f3a40]">${hotelName}</bdi>`;
@@ -1773,8 +1831,8 @@
                 if (ziinaData.success && ziinaData.redirect_url) {
                     const pendingData = { bookingReference, ziinaPaymentId: ziinaData.ziinaPaymentId || '', hotelName: selectedHotel, customerName, email, phone, companions, paymentMethod, price: finalPrice, pointsUsed, cancellationPolicy: currentPolicyText, rateKey: currentRateKey, refundType: currentRefundType };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); window.location.href = ziinaData.redirect_url;
-                } else { alert('❌ خطأ في بوابة الدفع: ' + (ziinaData.error || 'تعذر إنشاء رابط الدفع')); btn.innerHTML = origText; btn.disabled = false; }
-            } catch(err) { console.error(err); alert('❌ خطأ في الاتصال بالخادم أثناء تجهيز الدفع.'); btn.innerHTML = origText; btn.disabled = false; }
+                } else { showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); btn.innerHTML = origText; btn.disabled = false; }
+            } catch(err) { console.error(err); showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم أثناء تجهيز الدفع.'); btn.innerHTML = origText; btn.disabled = false; }
         }
     </script>
 </body>
