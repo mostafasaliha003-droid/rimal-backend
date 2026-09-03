@@ -51,8 +51,16 @@
         .modal-animate { animation: scaleIn 0.3s ease-out forwards; }
         .form-animate { opacity: 0; transform: translateY(10px); animation: fadeInUp 0.4s ease-out forwards; }
 
-        /* إخفاء سهم القائمة المنسدلة للوجبات */
+        /* إخفاء سهم القائمة المنسدلة */
         .hide-select-arrow { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        
+        /* مظهر مخصص للقائمة المنسدلة في قسم النقاط */
+        .custom-select-icon {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: left 1rem center;
+            background-size: 1em;
+        }
         
         /* 🚀 الخدعة الاحترافية لحقول التاريخ */
         input[type="date"]::-webkit-calendar-picker-indicator {
@@ -206,7 +214,6 @@
 
     <!-- Main View Section -->
     <div id="mainView" class="view-section active">
-        <!-- Hero Section -->
         <section class="relative bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-800 pt-20 pb-32 px-4 overflow-hidden">
             <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
             <div class="relative z-10 max-w-4xl mx-auto text-center text-white">
@@ -406,55 +413,98 @@
         </div>
     </div>
 
-    <!-- واجهة الدفع وإتمام الحجز -->
+    <!-- 🌟 واجهة الدفع وإتمام الحجز -->
     <div id="bookingView" class="view-section">
-        <section class="hero bg-[#1f3a40] text-white pt-20 pb-20 text-center border-b-[6px] border-yellow-400">
-            <h1 class="text-3xl font-black">تأكيد الحجز والدفع 📝</h1>
-        </section>
+        <div class="w-full bg-slate-800 pt-8 pb-32 px-4 text-center border-b-[6px] border-yellow-400">
+            <h1 class="text-white text-3xl font-black flex items-center justify-center gap-3">
+                تأكيد الحجز والدفع <i class="fa-solid fa-file-invoice-dollar text-[#00b4d8]"></i>
+            </h1>
+        </div>
 
-        <div class="container -mt-10 relative z-10" style="max-width: 800px;">
-            <div class="bg-white p-8 rounded-3xl shadow-2xl border border-gray-100">
-                <h2 id="hotelNameTitle" class="text-2xl font-black text-[#1f3a40] mb-4"></h2>
-                <div id="selectedRoomDetails" class="font-bold text-[#00b4d8] mb-6 p-4 bg-[#00b4d8]/10 rounded-xl border border-dashed border-[#00b4d8]/40"></div>
+        <div class="max-w-2xl w-full mx-auto px-4 -mt-24 relative z-10 mb-20">
+            <div class="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.1)] border border-slate-100 p-6 md:p-8 space-y-8">
                 
-                <form id="bookingForm" onsubmit="confirmReservation(event)">
-                    <div class="form-group"><label>الاسم الكريم:</label><input type="text" id="custName" required class="w-full p-3.5 rounded-xl border border-gray-200 font-bold bg-gray-50 focus:bg-white focus:border-[#00b4d8] transition outline-none"></div>
-                    <div class="form-group"><label>الإيميل (لإرسال قسيمة PDF المؤكدة):</label><input type="email" id="custEmail" required class="w-full p-3.5 rounded-xl border border-gray-200 font-bold bg-gray-50 focus:bg-white focus:border-[#00b4d8] transition outline-none text-left" dir="ltr"></div>
-                    <div class="form-group"><label>التليفون (رقم الواتساب 📱):</label><input type="tel" inputmode="tel" id="custPhone" required placeholder="+971544757578" class="w-full p-3.5 rounded-xl border border-gray-200 font-bold bg-gray-50 focus:bg-white focus:border-[#00b4d8] transition outline-none text-left" dir="ltr"></div>
-                    <div class="form-group"><label>أسماء المرافقين:</label><textarea id="custCompanions" rows="2" class="w-full p-3.5 rounded-xl border border-gray-200 font-bold bg-gray-50 focus:bg-white focus:border-[#00b4d8] transition outline-none"></textarea></div>
+                <div class="text-center border-b border-slate-100 pb-5">
+                    <h2 id="hotelNameTitle" class="text-xl md:text-2xl font-extrabold text-slate-800 leading-snug"></h2>
+                </div>
 
-                    <div class="bg-yellow-50/50 p-5 rounded-2xl border border-dashed border-yellow-400 mb-6">
-                        <label class="text-[#1f3a40] font-black block mb-2">💰 خصم فوري من حصالة النقاط:</label>
-                        <select id="pointsDiscountSelect" onchange="updateFinalPriceCalculation()" class="w-full p-3 rounded-xl border border-yellow-300 font-bold bg-white text-gray-800 outline-none mb-2">
-                            <option value="0">بدون استخدام نقاط</option>
-                        </select>
-                        <small class="text-red-500 font-bold">كل 10 نقاط = 1 درهم خصم</small>
+                <div id="selectedRoomDetails" class="bg-[#00b4d8]/5 border border-dashed border-[#00b4d8]/30 rounded-2xl p-4 md:p-5 relative overflow-hidden"></div>
+
+                <form id="bookingForm" onsubmit="confirmReservation(event)" class="space-y-5">
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-600">الاسم الكريم <span class="text-red-500">*</span></label>
+                        <div class="relative group">
+                            <i class="fa-solid fa-user absolute right-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#00b4d8] transition-colors pointer-events-none"></i>
+                            <input type="text" id="custName" required class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pr-11 pl-4 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/20 transition-all" />
+                        </div>
                     </div>
 
-                    <div class="form-group mb-8">
-                        <label class="mb-3 block">طريقة الدفع:</label>
-                        <div class="grid grid-cols-1 sm:grid-cols-2 gap-3" id="paymentMethodsContainer">
-                            <label class="border-2 border-gray-200 rounded-xl p-4 text-center cursor-pointer font-bold text-gray-700 hover:border-red-500 transition selected-pay-option" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked class="hidden"> 💳 دفع إلكتروني (Ziina)</label>
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-600">الإيميل (لإرسال قسيمة PDF المؤكدة) <span class="text-red-500">*</span></label>
+                        <div class="relative group">
+                            <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#00b4d8] transition-colors pointer-events-none"></i>
+                            <input type="email" id="custEmail" required dir="ltr" class="w-full text-left bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/20 transition-all" />
                         </div>
-                        <div id="savedCardsPaymentSection" style="margin-top: 15px; display:none;">
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-600">التليفون (رقم الواتساب <i class="fa-brands fa-whatsapp text-green-500"></i>) <span class="text-red-500">*</span></label>
+                        <div class="relative group">
+                            <i class="fa-solid fa-phone absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#00b4d8] transition-colors pointer-events-none"></i>
+                            <input type="tel" id="custPhone" inputmode="tel" required dir="ltr" placeholder="+971544757578" class="w-full text-left bg-slate-50 border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/20 transition-all tracking-wide" />
+                        </div>
+                    </div>
+
+                    <div class="space-y-1.5">
+                        <label class="block text-sm font-bold text-slate-600">أسماء المرافقين:</label>
+                        <div class="relative group">
+                            <i class="fa-solid fa-users absolute right-4 top-4 text-slate-400 group-focus-within:text-[#00b4d8] transition-colors pointer-events-none"></i>
+                            <textarea id="custCompanions" rows="2" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3 pr-11 pl-4 text-sm font-bold text-slate-800 focus:bg-white focus:outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/20 transition-all placeholder:text-slate-300 resize-none" placeholder="اكتب أسماء المرافقين هنا (اختياري)..."></textarea>
+                        </div>
+                    </div>
+
+                    <div class="bg-yellow-50/40 border border-dashed border-yellow-300 rounded-2xl p-5 mt-6">
+                        <label class="block text-sm font-black text-slate-700 mb-3 flex items-center gap-2">
+                            <i class="fa-solid fa-coins text-yellow-500 text-lg"></i> خصم فوري من حصالة النقاط:
+                        </label>
+                        <div class="relative">
+                            <select id="pointsDiscountSelect" onchange="updateFinalPriceCalculation()" class="w-full bg-white border border-yellow-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all shadow-sm cursor-pointer hide-select-arrow">
+                                <option value="0">بدون استخدام نقاط</option>
+                            </select>
+                            <i class="fa-solid fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+                        </div>
+                        <p class="text-[11px] font-extrabold text-red-500 mt-2 text-right">كل 10 نقاط = 1 درهم خصم</p>
+                    </div>
+
+                    <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5">
+                        <h3 class="text-sm font-bold text-slate-600 mb-4">طريقة الدفع:</h3>
+                        <div id="paymentMethodsContainer" class="flex flex-col gap-3"></div>
+                        
+                        <div id="savedCardsPaymentSection" style="display:none;" class="mt-4 pt-4 border-t border-slate-200">
                             <label class="text-xs font-bold text-purple-700 mb-2 block">أو استخدم بطاقة محفوظة:</label>
-                            <select id="savedCardsSelect" class="w-full p-3.5 rounded-xl border-2 border-[#00b4d8] font-bold bg-white outline-none cursor-pointer" onchange="fillSavedCard(this)">
-                                <option value="">-- اختر بطاقة محفوظة --</option>
+                            <select id="savedCardsSelect" class="w-full bg-white border border-[#00b4d8] rounded-xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none shadow-sm cursor-pointer custom-select-icon" onchange="fillSavedCard(this)" dir="ltr">
+                                <option value="" dir="rtl">-- اختر بطاقة محفوظة --</option>
                             </select>
                         </div>
-                    </div>
-
-                    <div class="flex items-center justify-between mb-6 bg-gray-50 p-4 rounded-2xl">
-                        <h3 class="text-lg font-black text-[#1f3a40]">المبلغ الإجمالي:</h3>
-                        <div class="text-left" dir="ltr">
-                            <span class="text-sm font-bold text-gray-500" id="finalPriceCurrencyLabel">AED</span>
-                            <span id="finalPriceDisplay" class="text-3xl font-black text-[#800000]">0</span> 
+                        <div class="mt-4 flex items-center justify-center gap-1.5 text-xs font-bold text-slate-400 bg-white py-2 rounded-lg border border-slate-100 shadow-sm">
+                            <i class="fa-solid fa-lock text-green-600"></i> مدفوعات آمنة ومشفّرة 100%
                         </div>
                     </div>
-                    
-                    <button type="submit" class="w-full bg-[#800000] hover:bg-red-900 text-white font-black py-4 rounded-xl shadow-lg shadow-red-900/30 transition-all active:scale-95 flex justify-center items-center gap-2 text-lg cursor-pointer border-none">
-                        <i class="fa-solid fa-credit-card"></i> الانتقال لبوابة الدفع الآمنة (Ziina)
-                    </button>
+
+                    <div class="border-t border-slate-100 pt-6 mt-4">
+                        <div class="flex items-center justify-between mb-6">
+                            <span class="text-base font-black text-slate-700">المبلغ الإجمالي:</span>
+                            <div class="flex items-baseline gap-1.5" dir="ltr">
+                                <span id="finalPriceCurrencyLabel" class="text-sm font-bold text-gray-400">AED</span>
+                                <span id="finalPriceDisplay" class="text-4xl font-black text-[#800000] tracking-tight">0.00</span>
+                            </div>
+                        </div>
+
+                        <button type="submit" class="w-full bg-gradient-to-r from-[#800000] to-[#600000] hover:from-[#990000] hover:to-[#800000] text-white font-black py-4 rounded-xl flex items-center justify-center gap-2.5 shadow-[0_8px_20px_rgba(128,0,0,0.25)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.35)] transition-all animate-[pulse_2.5s_ease-in-out_infinite] hover:animate-none border-none cursor-pointer active:scale-95">
+                            <i class="fa-solid fa-shield-halved pointer-events-none text-lg"></i> 
+                            الانتقال لبوابة الدفع الآمنة
+                        </button>
+                    </div>
                 </form>
             </div>
         </div>
@@ -1231,7 +1281,7 @@
             const section = document.getElementById('savedCardsPaymentSection');
             const select = document.getElementById('savedCardsSelect');
             if (!section || !select) return;
-            select.innerHTML = '<option value="">-- اختر بطاقة محفوظة --</option>';
+            select.innerHTML = '<option value="" dir="rtl">-- اختر بطاقة محفوظة --</option>';
             if(currentUser.savedCards && currentUser.savedCards.length > 0) {
                 section.style.display = 'block';
                 currentUser.savedCards.forEach(card => { select.innerHTML += `<option value="${card.cardToken}">${card.cardHolder} (${card.maskedNumber})</option>`; });
@@ -1454,7 +1504,6 @@
             finally { btn.innerHTML = originalText; btn.disabled = false; }
         }
 
-        // 🌟 دالة رسم بطاقات الفنادق بشكل تذاكر الطيران الفخمة
         function displayHotels(hotelsArray) {
             const container = document.getElementById('hotelsContainer');
             if (!container) return; container.innerHTML = '';
@@ -1556,32 +1605,23 @@
                 
                 container.innerHTML += `
                     <div class="relative flex flex-col md:flex-row items-stretch bg-white rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_10px_40px_rgba(0,180,216,0.1)] overflow-hidden mb-6 animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
-                        
-                        <!-- القسم الأيمن (تفاصيل الغرفة والمرافق) -->
                         <div class="flex-2 p-5 md:p-6 w-full md:w-auto relative z-10 flex flex-col justify-between">
                             <div>
                                 <h3 class="text-lg md:text-xl font-black text-slate-800"><bdi dir="auto">${room.name}</bdi></h3>
-                                
                                 <div class="flex flex-col gap-2.5 mt-4">
-                                    <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit">
-                                        <i class="fa-solid fa-bed opacity-80 pointer-events-none text-base"></i> الأسرة: ${room.bed}
-                                    </span>
-                                    <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit">
-                                        <i class="fa-solid fa-utensils opacity-80 pointer-events-none text-base"></i> الوجبات: ${room.board}
-                                    </span>
+                                    <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit"><i class="fa-solid fa-bed opacity-80 pointer-events-none text-base"></i> الأسرة: ${room.bed}</span>
+                                    <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit"><i class="fa-solid fa-utensils opacity-80 pointer-events-none text-base"></i> الوجبات: ${room.board}</span>
                                 </div>
                             </div>
-
                             <div class="mt-5 border ${cancelClass} p-3 text-sm rounded-xl font-bold flex items-start gap-2 relative overflow-hidden">
                                 <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10"></i>
                                 <div class="relative z-10">
-                                    <span class="block ${policyTitleColor}">سياسة الإلغاء الدقيقة (مدمجة آلياً):</span>
+                                    <span class="block ${policyTitleColor}">سياسة الإلغاء الدقيقة:</span>
                                     <span class="font-semibold mt-1 block whitespace-pre-line text-slate-600">${room.policyText}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- الفاصل البصري (Ticket Cutouts) -->
                         <div class="md:hidden relative border-b-2 border-dashed border-gray-200 mx-6 flex flex-row justify-between">
                             <div class="absolute -left-9 -bottom-3 w-6 h-6 bg-[#f3f4f6] border-r border-gray-100 rounded-full shadow-inner z-10"></div>
                             <div class="absolute -right-9 -bottom-3 w-6 h-6 bg-[#f3f4f6] border-l border-gray-100 rounded-full shadow-inner z-10"></div>
@@ -1592,17 +1632,12 @@
                             <div class="absolute -bottom-9 -right-3 w-6 h-6 bg-[#f3f4f6] border-t border-gray-100 rounded-full shadow-[inset_0_-3px_5px_rgba(0,0,0,0.03)] z-10"></div>
                         </div>
 
-                        <!-- القسم الأيسر (السعر وزر الحجز) -->
                         <div class="w-full md:w-[30%] p-5 md:p-6 flex flex-col justify-center items-center bg-white z-10 relative border-t md:border-t-0 border-slate-50">
-                            <div class="bg-yellow-100 text-yellow-800 text-[10px] font-black px-3 py-1 rounded-full mb-3 flex items-center gap-1 border border-yellow-200">
-                                كاش +${room.points} نقطة ✨
-                            </div>
-
+                            <div class="bg-yellow-100 text-yellow-800 text-[10px] font-black px-3 py-1 rounded-full mb-3 flex items-center gap-1 border border-yellow-200">كاش +${room.points} نقطة ✨</div>
                             <div class="text-center mb-5 flex items-baseline justify-center gap-1.5" dir="ltr">
                                 <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
                                 <span class="text-4xl md:text-5xl font-black text-[#800000] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
                             </div>
-                            
                             <button class="w-full bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(0,180,216,0.3)] hover:shadow-[0_10px_25px_rgba(0,180,216,0.4)] transition-all animate-[pulse_2.5s_ease-in-out_infinite] hover:animate-none border-none cursor-pointer active:scale-95" 
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
                                 <i class="fa-solid fa-check-circle pointer-events-none text-lg"></i> احجز هالغرفة
@@ -1611,6 +1646,7 @@
                         </div>
                     </div>`;
             });
+
             changeCurrency(); switchView('roomSelectionView');
         }
 
@@ -1653,15 +1689,34 @@
             if (!currentUser) { alert('الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز!'); openAuthModal(); return; }
             selectedHotel = `${hotelName} - ${roomName} (${boardType})`; currentBasePrice = price; currentPolicyText = policyText; currentRateKey = rateKey; currentPaymentType = paymentType || 'AT'; currentRefundType = refundType || 'full_100';
             
-            document.getElementById('hotelNameTitle').innerText = 'تأكيد حجز: ' + hotelName;
-            document.getElementById('selectedRoomDetails').innerHTML = `<i class="fa-solid fa-check-circle"></i> اختيارك: ${roomName} | ${boardType}<br><small style="color:var(--text-muted); display:block; margin-top:5px;">📌 سياسة الإلغاء والاسترداد الآلية: ${policyText}</small>`;
+            document.getElementById('hotelNameTitle').innerHTML = `تأكيد حجز: <i class="fa-solid fa-hotel text-slate-400 mx-1 text-lg"></i> <br class="md:hidden" /><bdi dir="auto" class="text-[#1f3a40]">${hotelName}</bdi>`;
+            document.getElementById('selectedRoomDetails').innerHTML = `
+                <div class="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-r border-[#00b4d8]/30"></div>
+                <div class="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-l border-[#00b4d8]/30"></div>
+                <ul class="space-y-3.5 text-sm md:text-base font-bold text-slate-700">
+                    <li class="flex items-start gap-3"><i class="fa-solid fa-bed text-teal-600 mt-1 shrink-0"></i><span>اختيارك: <bdi dir="auto" class="text-teal-800">${roomName}</bdi></span></li>
+                    <li class="flex items-start gap-3"><i class="fa-solid fa-utensils text-yellow-600 mt-1 shrink-0"></i><span>الوجبات: <span class="text-yellow-800">${boardType}</span></span></li>
+                    <li class="flex items-start gap-3"><i class="fa-solid fa-shield-halved text-green-600 mt-1 shrink-0"></i><span>سياسة الإلغاء: <span class="text-green-800 whitespace-pre-line block mt-1">${policyText}</span></span></li>
+                </ul>`;
 
             const payMethodsContainer = document.getElementById('paymentMethodsContainer');
-            if (currentPaymentType === 'HOTEL') {
-                payMethodsContainer.innerHTML = `<label class="border-2 border-gray-200 rounded-xl p-4 text-center cursor-pointer font-bold text-gray-700 hover:border-red-500 transition selected-pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked class="hidden"> 💳 دفع إلكتروني (Ziina)</label><label class="border-2 border-gray-200 rounded-xl p-4 text-center cursor-pointer font-bold text-gray-700 hover:border-red-500 transition selected-pay-option" onclick="selectPayment('hotel', this)"><input type="radio" name="payMethod" value="hotel" class="hidden"> 🏨 بالاستقبال (حسب شروط الفندق)</label>`;
-            } else {
-                payMethodsContainer.innerHTML = `<label class="border-2 border-gray-200 rounded-xl p-4 text-center cursor-pointer font-bold text-gray-700 hover:border-red-500 transition selected-pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked class="hidden"> 💳 دفع إلكتروني (مطلوب مسبقاً)</label>`;
-            }
+            const electronicPaymentHTML = `
+                <label class="bg-white border-2 border-[#00b4d8] rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 relative cursor-pointer selected-pay-option" onclick="selectPayment('visa', this)">
+                    <input type="radio" name="payMethod" value="visa" checked class="hidden">
+                    <div class="absolute -top-2.5 -right-2.5 w-6 h-6 bg-[#00b4d8] rounded-full text-white flex items-center justify-center shadow-md check-icon"><i class="fa-solid fa-check text-xs"></i></div>
+                    <div class="flex items-center gap-3"><i class="fa-regular fa-credit-card text-[#00b4d8] text-xl"></i><div><span class="block font-black text-slate-800 text-sm">دفع إلكتروني آمن</span><span class="block text-xs font-bold text-slate-400 mt-0.5">مطلوب مسبقاً لتأكيد الحجز</span></div></div>
+                    <div class="flex items-center gap-2.5 text-2xl text-slate-300"><i class="fa-brands fa-cc-visa"></i><i class="fa-brands fa-cc-mastercard"></i><i class="fa-brands fa-cc-apple-pay"></i></div>
+                </label>`;
+            
+            const hotelPaymentHTML = `
+                <label class="bg-white border-2 border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 relative cursor-pointer selected-pay-option" onclick="selectPayment('hotel', this)">
+                    <input type="radio" name="payMethod" value="hotel" class="hidden">
+                    <div class="absolute -top-2.5 -right-2.5 w-6 h-6 bg-[#00b4d8] rounded-full text-white items-center justify-center shadow-md check-icon hidden"><i class="fa-solid fa-check text-xs"></i></div>
+                    <div class="flex items-center gap-3"><i class="fa-solid fa-bell-concierge text-slate-400 text-xl"></i><div><span class="block font-black text-slate-800 text-sm">الدفع في الفندق</span><span class="block text-xs font-bold text-slate-400 mt-0.5">يتم الدفع عند الاستقبال</span></div></div>
+                </label>`;
+
+            if (currentPaymentType === 'HOTEL') { payMethodsContainer.innerHTML = electronicPaymentHTML + hotelPaymentHTML; } 
+            else { payMethodsContainer.innerHTML = electronicPaymentHTML; }
             
             document.getElementById('custName').value = currentUser.name; document.getElementById('custEmail').value = currentUser.email; document.getElementById('custPhone').value = currentUser.phone || '';
             setupPointsDropdown(); switchView('bookingView');
@@ -1690,8 +1745,15 @@
         }
 
         function selectPayment(method, element) {
-            document.querySelectorAll('.selected-pay-option').forEach(el => { el.classList.remove('selected', 'border-red-500', 'bg-red-50/50', 'text-red-600'); el.classList.add('border-gray-200', 'text-gray-700'); });
-            element.classList.remove('border-gray-200', 'text-gray-700'); element.classList.add('selected', 'border-red-500', 'bg-red-50/50', 'text-red-600'); element.querySelector('input').checked = true;
+            document.querySelectorAll('.selected-pay-option').forEach(el => {
+                el.classList.remove('border-[#00b4d8]'); el.classList.add('border-slate-200');
+                const checkIcon = el.querySelector('.check-icon'); if(checkIcon) { checkIcon.classList.remove('flex'); checkIcon.classList.add('hidden'); }
+                const mainIcon = el.querySelector('.text-xl'); if(mainIcon) { mainIcon.classList.remove('text-[#00b4d8]'); mainIcon.classList.add('text-slate-400'); }
+            });
+            element.classList.remove('border-slate-200'); element.classList.add('border-[#00b4d8]');
+            const activeCheck = element.querySelector('.check-icon'); if(activeCheck) { activeCheck.classList.remove('hidden'); activeCheck.classList.add('flex'); }
+            const activeMain = element.querySelector('.text-xl'); if(activeMain) { activeMain.classList.remove('text-slate-400'); activeMain.classList.add('text-[#00b4d8]'); }
+            element.querySelector('input').checked = true;
         }
 
         async function confirmReservation(e) {
