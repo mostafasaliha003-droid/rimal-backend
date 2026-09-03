@@ -51,8 +51,16 @@
         .modal-animate { animation: scaleIn 0.3s ease-out forwards; }
         .form-animate { opacity: 0; transform: translateY(10px); animation: fadeInUp 0.4s ease-out forwards; }
 
-        /* إخفاء سهم القائمة المنسدلة للوجبات */
+        /* إخفاء سهم القائمة المنسدلة */
         .hide-select-arrow { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
+        
+        /* مظهر مخصص للقائمة المنسدلة في قسم النقاط */
+        .custom-select-icon {
+            background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
+            background-repeat: no-repeat;
+            background-position: left 1rem center;
+            background-size: 1em;
+        }
         
         /* 🚀 الخدعة الاحترافية لحقول التاريخ */
         input[type="date"]::-webkit-calendar-picker-indicator {
@@ -896,7 +904,6 @@
         let selectedHotel = '', currentBasePrice = 0, currentPolicyText = '', currentRateKey = '', currentPaymentType = 'AT', currentRefundType = 'full_100';
         let gMap, gMarkers = [];
 
-        // 🌟 بيانات الفنادق الوهمية مع أيقونات المرافق المحدثة والفاخرة
         let allHotels = [
             { 
                 name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 5, lat: 25.2048, lng: 55.2708, 
@@ -1201,7 +1208,6 @@
             });
         }
 
-        // 🌟 دوال النافذة المنبثقة الذكية 
         function openAuthModal() { 
             const modal = document.getElementById('socialModal');
             modal.classList.remove('hidden'); modal.classList.add('flex');
@@ -1251,7 +1257,6 @@
         function openReviewModal() { document.getElementById('reviewModal').style.display = 'flex'; if(currentUser) { document.getElementById('reviewEmail').value = currentUser.email; document.getElementById('reviewName').value = currentUser.name; } }
         function closeReviewModal() { document.getElementById('reviewModal').style.display = 'none'; }
 
-        // الوظائف الأمنية
         function openEditEmailModal() { document.getElementById('editEmailModal').classList.remove('hidden'); document.getElementById('editEmailModal').classList.add('flex'); document.getElementById('emailStep1').style.display = 'block'; document.getElementById('emailStep2').style.display = 'none'; }
         function closeEditEmailModal() { document.getElementById('editEmailModal').classList.add('hidden'); document.getElementById('editEmailModal').classList.remove('flex'); }
 
@@ -1376,7 +1381,7 @@
                         if(verifyData.success) { currentUser = verifyData.user; localStorage.setItem('rimal_current_user', JSON.stringify(currentUser)); closeAuthModal(); checkUserSession(); switchView('registerView'); showToast('success', 'حساب جديد', 'تم تفعيل الحساب وإضافة 500 نقطة لحصالتك!'); } else { showToast('error', 'خطأ بالتحقق', 'كود التحقق غير صحيح أو انتهت صلاحيته.'); }
                     }
                 } else { showToast('error', 'حدث خطأ', data.error); }
-            } catch(err) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
+            } catch(err) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالسيرفر.'); }
         }
 
         async function quickLookupBooking(e) {
