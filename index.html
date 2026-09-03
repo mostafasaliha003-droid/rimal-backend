@@ -8,6 +8,8 @@
     <meta http-equiv="Expires" content="0">
     <title>رمال وفلّها! | Remal & Chill - احجز، فلّها، واكسب! ✈️</title>
     
+    <!-- 🚀 أكواد تطبيق الجوال PWA -->
+    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f3a40">
     <link rel="apple-touch-icon" href="logo.jpg">
     
@@ -16,6 +18,8 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 🚀 ربط ملف التنسيقات الخارجي للبراند -->
     <link rel="stylesheet" href="style.css">
     
     <style>
@@ -39,17 +43,21 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
+        /* حركات الظهور للوحة التحكم والبطاقات */
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in-up {
             opacity: 0; transform: translateY(20px); animation: fadeInUp 0.5s ease-out forwards;
         }
 
+        /* حركات النافذة المنبثقة */
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .modal-animate { animation: scaleIn 0.3s ease-out forwards; }
         .form-animate { opacity: 0; transform: translateY(10px); animation: fadeInUp 0.4s ease-out forwards; }
 
+        /* إخفاء سهم القائمة المنسدلة */
         .hide-select-arrow { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
         
+        /* مظهر مخصص للقائمة المنسدلة في قسم النقاط */
         .custom-select-icon {
             background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat;
@@ -57,11 +65,13 @@
             background-size: 1em;
         }
         
+        /* 🚀 الخدعة الاحترافية لحقول التاريخ */
         input[type="date"]::-webkit-calendar-picker-indicator {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             width: 100%; height: 100%; color: transparent; background: transparent; cursor: pointer; z-index: 10;
         }
 
+        /* شريط الحجوزات الحية الفيروسي */
         .live-ticker {
             background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
             color: white; padding: 8px 5%; font-size: 13px; font-weight: 800; text-align: center;
@@ -79,6 +89,7 @@
         }
         .wave-emoji { display: inline-block; animation: wave 1.5s infinite; }
 
+        /* 🌟 القائمة المنسدلة لحساب المستخدم الاحترافية */
         .user-dropdown-container { position: relative; display: inline-block; }
         .user-menu-btn {
             background: var(--accent-coral); color: white; border: 2px solid #d90429;
@@ -128,13 +139,18 @@
 </head>
 <body class="antialiased text-slate-800 flex flex-col min-h-screen relative">
 
+    <!-- ============================================== -->
+    <!-- حاوية الإشعارات العائمة (Toast Container) -->
+    <!-- ============================================== -->
     <div id="toast-container" class="fixed top-6 left-0 right-0 z-[9999] flex flex-col items-center gap-3 px-4 pointer-events-none"></div>
 
+    <!-- 🌟 شريط الحجوزات الحية -->
     <div class="live-ticker">
         <i class="fa-solid fa-bolt" style="color: var(--accent-yellow);"></i>
         <span id="tickerText">🔥 أحمد من عجمان حجز ليلتين واستعد للسحب على الدوام! 🌴</span>
     </div>
 
+    <!-- Header Section -->
     <header class="bg-[#111827] text-white px-4 lg:px-8 py-3 flex items-center justify-between sticky top-0 z-50 shadow-md">
         <a class="flex items-center gap-3 cursor-pointer text-decoration-none" onclick="switchView('mainView')">
             <div class="bg-white p-1.5 rounded-lg"><img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded-md object-cover bg-white p-0.5" onerror="this.src='https://via.placeholder.com/32?text=Logo'"></div>
@@ -204,6 +220,7 @@
         </div>
     </header>
 
+    <!-- Main View Section -->
     <div id="mainView" class="view-section active">
         <section class="relative bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-800 pt-20 pb-32 px-4 overflow-hidden">
             <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
@@ -219,6 +236,7 @@
             </div>
         </section>
 
+        <!-- 🌟 شريط البحث المطور (Search Bar) -->
         <section class="relative z-30 px-4 max-w-6xl mx-auto -mt-16">
             <div class="bg-white rounded-3xl shadow-[0_10px_35px_rgba(0,0,0,0.06)] border border-slate-100 p-2 md:p-3 relative z-30">
                 <div class="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100 gap-2 lg:gap-0">
@@ -295,6 +313,7 @@
             
             <div class="container mt-4" id="childAgesContainer" style="display:none; background:white; padding:15px; border-radius:16px; border:2px dashed var(--accent-cyan);"></div>
 
+            <!-- زر تصفية الوجبات (Select Dropdown) -->
             <div class="flex justify-center mt-6 relative z-20">
                 <div class="relative inline-block group">
                   <select id="boardBasisFilter" onchange="updateBoardText(this); filterHotels();" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" dir="rtl">
@@ -315,8 +334,11 @@
             </div>
         </section>
 
+        <!-- Hotels List & Map Layout -->
         <div class="container mt-8 relative z-10">
             <div class="flex flex-col lg:flex-row gap-8 items-start relative z-0">
+                
+                <!-- Filters & Map (Sticky Side) -->
                 <aside class="w-full lg:w-2/5 flex flex-col gap-6 sticky top-28">
                     <div class="bg-white rounded-3xl border border-slate-100 shadow-2xl p-4 md:p-6 transition-all">
                         <div class="flex items-center justify-between mb-5 px-2">
@@ -330,6 +352,7 @@
                                 <i class="fa-solid fa-satellite text-[#1f3a40]"></i> خريطة تفاعلية
                             </div>
                         </div>
+                        
                         <div id="map" class="relative w-full h-[350px] md:h-[450px] rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-100 shadow-inner"></div>
                     </div>
 
@@ -350,6 +373,7 @@
                     </div>
                 </aside>
 
+                <!-- Hotel List -->
                 <div class="w-full lg:w-3/5 space-y-6">
                     <div id="hotelsContainer"></div>
                 </div>
@@ -357,6 +381,7 @@
         </div>
     </div>
 
+    <!-- 🌟 واجهة اختيار الغرف (Room Details) -->
     <div id="roomSelectionView" class="view-section pb-20">
         <div class="bg-gradient-to-r from-[#4a2b75] to-[#3a1d5a] pt-16 pb-24 text-center px-4 relative z-0 border-b-[6px] border-[#ff595e]">
             <div class="max-w-4xl mx-auto flex flex-col items-center justify-center">
@@ -396,6 +421,7 @@
         </div>
     </div>
 
+    <!-- واجهة الدفع وإتمام الحجز -->
     <div id="bookingView" class="view-section">
         <div class="w-full bg-slate-800 pt-8 pb-32 px-4 text-center border-b-[6px] border-yellow-400">
             <h1 class="text-white text-3xl font-black flex items-center justify-center gap-3">
@@ -405,6 +431,7 @@
 
         <div class="max-w-2xl w-full mx-auto px-4 -mt-24 relative z-10 mb-20">
             <div class="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.1)] border border-slate-100 p-6 md:p-8 space-y-8">
+                
                 <div class="text-center border-b border-slate-100 pb-5">
                     <h2 id="hotelNameTitle" class="text-xl md:text-2xl font-extrabold text-slate-800 leading-snug"></h2>
                 </div>
@@ -493,6 +520,7 @@
         </div>
     </div>
 
+    <!-- واجهة تتبع الحجز السريع -->
     <div id="lookupView" class="view-section">
         <section class="hero bg-gradient-to-r from-teal-700 to-teal-900 text-white pt-20 pb-24 text-center border-b-[6px] border-yellow-400">
             <h1 class="text-3xl md:text-4xl font-black mb-3">تتبع حجزك السريع 🔍</h1>
@@ -523,6 +551,7 @@
         </div>
     </div>
 
+    <!-- 🌟 لوحة تحكم العميل والحجوزات -->
     <div id="registerView" class="view-section min-h-screen bg-[#f8fafc] pb-12">
         <div class="bg-gradient-to-r from-purple-900 to-teal-500 pt-16 pb-28 px-4 text-center shadow-inner border-b-[6px] border-yellow-400 relative">
             <h1 class="text-3xl md:text-4xl font-black text-white mb-3 tracking-wide drop-shadow-md">مرحباً بك في عالمك الخاص 🌴</h1>
@@ -1797,7 +1826,7 @@
             
             const btn = e.target.querySelector('button[type="submit"]'); 
             const origText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز بوابة الدفع الآمنة (Ziina)...'; 
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز بوابة الدفع (Ziina)...'; 
             btn.disabled = true;
 
             try {
@@ -1811,7 +1840,7 @@
                 });
                 const ziinaData = await ziinaRes.json();
 
-                if (ziinaData.success && ziinaData.redirect_url) {
+                if (ziinaData.success && (ziinaData.embedded_url || ziinaData.redirect_url)) {
                     const pendingData = { 
                         bookingReference, 
                         ziinaPaymentId: ziinaData.ziinaPaymentId || '', 
@@ -1829,8 +1858,70 @@
                     };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
 
-                    // 🚀 الحل الجذري: التوجيه المباشر بدون iFrame
-                    window.location.assign(ziinaData.redirect_url);
+                    // 🚀 الحل الجذري: توليد واجهة الدفع المتكاملة (Embedded Checkout)
+                    let baseEmbedUrl = ziinaData.embedded_url;
+                    if (!baseEmbedUrl && ziinaData.redirect_url) {
+                        baseEmbedUrl = ziinaData.redirect_url.replace('/payment_intent/', '/embedded/payment_intent/');
+                    }
+                    
+                    const finalIframeUrl = baseEmbedUrl + (baseEmbedUrl.includes('?') ? '&' : '?') + 'version=latest&locale=ar';
+
+                    const iframeContainer = document.createElement('div');
+                    iframeContainer.id = 'ziina-payment-modal';
+                    iframeContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter: blur(8px);';
+                    
+                    const iframeWrapper = document.createElement('div');
+                    iframeWrapper.style.cssText = 'position:relative; width:100%; max-width:450px; height:85%; max-height:820px; display:flex; justify-content:center; align-items:center; animation: scaleIn 0.3s ease-out forwards;';
+
+                    const iframe = document.createElement('iframe');
+                    iframe.id = 'ziina-checkout';
+                    iframe.src = finalIframeUrl;
+                    iframe.style.cssText = 'width:100%; height:100%; border:none; border-radius:16px; background:transparent; box-shadow:0 20px 50px rgba(0,0,0,0.5);';
+                    
+                    const closeBtn = document.createElement('button');
+                    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> إغلاق الدفع';
+                    closeBtn.style.cssText = 'position:absolute; top:-40px; right:0; background:rgba(255,255,255,0.2); border:none; border-radius:8px; padding:6px 15px; cursor:pointer; font-weight:bold; color:white; font-size:14px; transition:all 0.2s;';
+                    closeBtn.onmouseover = () => { closeBtn.style.background = '#ff595e'; };
+                    closeBtn.onmouseout = () => { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+                    closeBtn.onclick = () => {
+                        document.body.removeChild(iframeContainer);
+                        btn.innerHTML = origText; 
+                        btn.disabled = false;
+                        showToast('info', 'تم الإلغاء', 'تم إغلاق بوابة الدفع قبل إتمام العملية.');
+                    };
+
+                    iframeWrapper.appendChild(closeBtn);
+                    iframeWrapper.appendChild(iframe);
+                    iframeContainer.appendChild(iframeWrapper);
+                    document.body.appendChild(iframeContainer);
+
+                    // 📡 الاستماع لرد البوابة بشكل حي دون إعادة توجيه الصفحة
+                    window.addEventListener('message', function paymentListener(event) {
+                        const checkoutIframe = document.getElementById('ziina-checkout');
+                        if (!checkoutIframe || event.source !== checkoutIframe.contentWindow) return;
+                        
+                        const { type, data } = event.data || {};
+                        if (event.origin !== 'https://pay.ziina.com' || type !== 'ZIINA_PAYMENT_STATUS_CHANGE') return;
+
+                        if (data.status === "COMPLETED") {
+                            window.removeEventListener('message', paymentListener);
+                            iframeContainer.innerHTML = '<div style="text-align:center; color:white; font-family:Cairo;"><div style="font-size:60px; margin-bottom:15px;">✅</div><h2 style="font-size:24px; font-weight:900;">تم الدفع بنجاح!</h2><p style="color:#a5b4fc; font-weight:bold;">جاري تثبيت الحجز وإصدار التذكرة...</p></div>';
+                            
+                            setTimeout(() => {
+                                document.body.removeChild(iframeContainer);
+                                window.location.href = `https://remalbookings.com?payment=success&ref=${bookingReference}`;
+                            }, 1500);
+
+                        } else if (data.status === "FAILED") {
+                            showToast('error', 'فشلت العملية', 'تم رفض البطاقة أو فشل الدفع، يرجى المحاولة ببطاقة أخرى.');
+                        } else if (data.status === "CANCELED") {
+                            document.body.removeChild(iframeContainer);
+                            btn.innerHTML = origText; 
+                            btn.disabled = false;
+                            showToast('info', 'إلغاء الدفع', 'تم التراجع عن عملية الدفع.');
+                            window.removeEventListener('message', paymentListener);
+                        }
+                    });
 
                 } else { 
                     showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); 
