@@ -134,6 +134,24 @@
             transform: scale(1.05);
         }
 
+        /* Ribbon adjustment for RTL - Expanded for longer text */
+        .ribbon-container {
+            overflow: hidden;
+            position: absolute;
+            top: 0;
+            right: 0;
+            width: 150px;
+            height: 150px;
+            z-index: 10;
+        }
+        .ribbon {
+            position: absolute;
+            top: 32px;
+            right: -42px;
+            transform: rotate(45deg);
+            width: 200px;
+        }
+
         .container { padding: 0 5%; margin-bottom: 60px; max-width: 1200px; margin-left: auto; margin-right: auto; }
         .layout-wrapper { display: flex; gap: 30px; align-items: flex-start; margin-top: 20px; }
 
@@ -146,10 +164,6 @@
         }
         .hotel-card:hover { border-color: var(--accent-yellow); transform: translateY(-4px); }
         
-        .earn-ribbon { 
-            position: absolute; top: 15px; right: -28px; background: linear-gradient(135deg, var(--accent-coral), #d90429); color: white; 
-            padding: 6px 32px; font-size: 12px; font-weight: 900; transform: rotate(45deg); z-index: 5; 
-        }
         .hotel-img { width: 230px; height: 190px; object-fit: cover; border-radius: 18px; border: 3px solid var(--accent-cyan); }
         .hotel-info { flex: 2; display: flex; flex-direction: column; }
         .hotel-name { font-size: 22px; font-weight: 900; color: var(--primary); margin-bottom: 6px; }
@@ -264,7 +278,7 @@
         <!-- Right: Logo & Brand Name -->
         <a class="flex items-center gap-3 cursor-pointer text-decoration-none" onclick="switchView('mainView')">
             <div class="bg-white p-1.5 rounded-lg">
-                <img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded-md object-contain">
+                <img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded-md object-cover bg-white p-0.5">
             </div>
             <div class="flex flex-col">
                 <span class="font-extrabold text-xl leading-none tracking-tight text-white">رمال وفلّها! <span class="wave-emoji">🌴</span></span>
@@ -317,17 +331,21 @@
                 </select>
             </div>
 
-            <button id="regBtnText" onclick="handleAccountBtnClick()" class="px-5 py-2 bg-gradient-to-r from-remal-darkred to-red-700 hover:from-red-700 hover:to-red-600 rounded-full text-sm font-bold transition flex items-center gap-2 shadow-lg cursor-pointer border-none text-white">
+            <!-- زر تسجيل الدخول (مع منع الوميض وحالة المتجاوب) -->
+            <button id="regBtnText" onclick="handleAccountBtnClick()" class="hidden bg-gradient-to-r from-remal-darkred to-red-700 hover:from-red-700 hover:to-red-600 text-white px-4 md:px-5 py-2.5 rounded-full text-sm font-bold transition flex items-center gap-2 shadow-lg cursor-pointer border-none max-w-[140px] md:max-w-[200px]">
                 <i class="fa-regular fa-user"></i>
                 تسجيل الدخول / فتح حساب
             </button>
 
             <!-- 🌟 قائمة اسم المستخدم المنسدلة والاحترافية -->
             <div class="user-dropdown-container relative inline-block" id="userDropdownContainer" style="display:none;">
-                <button class="user-menu-btn bg-gradient-to-r from-remal-darkred to-red-700 text-white px-4 py-2 rounded-full font-bold text-sm flex items-center gap-2 cursor-pointer border-none">
-                    <i class="fa-solid fa-user-circle"></i> <span id="headerUserName">أهلاً</span> <i class="fa-solid fa-chevron-down text-xs"></i>
+                <button id="user-menu-btn" class="bg-gradient-to-r from-remal-darkred to-red-700 text-white px-4 md:px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 cursor-pointer border-none shadow-md max-w-[140px] md:max-w-[200px]">
+                    <i class="fa-regular fa-user shrink-0"></i>
+                    <span class="truncate block sm:hidden" id="headerFirstName">أهلاً</span>
+                    <span class="truncate hidden sm:block" id="headerFullName">أهلاً بك</span>
+                    <i class="fa-solid fa-chevron-down text-xs ml-1 opacity-80 shrink-0"></i>
                 </button>
-                <div class="user-dropdown-content absolute right-0 bg-white min-w-[250px] rounded-2xl shadow-2xl z-50 overflow-hidden border-2 border-yellow-400 text-right">
+                <div id="user-dropdown" class="user-dropdown-content absolute right-0 bg-white min-w-[250px] rounded-2xl shadow-2xl z-50 overflow-hidden border-2 border-yellow-400 text-right opacity-0 invisible transform translate-y-2 transition-all duration-200 origin-top">
                     <div class="dropdown-header bg-slate-50 p-3 border-b border-slate-200 text-purple-800 text-xs font-bold">
                         💰 رصيد حصالتك:<br>
                         <strong><span id="dropdownPoints">500</span> نقطة</strong> (<span id="dropdownPointsAED">50.00</span> AED)
@@ -908,6 +926,7 @@
             checkUserSession();
             fetchLiveDestinations();
             initLiveChatSocket();
+            setupDropdownToggle();
         };
 
         // ==========================================
@@ -1040,21 +1059,26 @@
             if (selectField) { selectField.value = lang; selectField.dispatchEvent(new Event('change')); }
         }
 
-        // 🌟 إدارة الجلسة وعرض الاسم الأول فقط والقائمة المنسدلة الاحترافية
+        // 🌟 إدارة الجلسة وعرض الاسم المتجاوب والقائمة المنسدلة الاحترافية
         function checkUserSession() {
             const btnReg = document.getElementById('regBtnText');
-            const userDropdown = document.getElementById('userDropdownContainer');
+            const userDropdownContainer = document.getElementById('userDropdownContainer');
+            const menuBtn = document.getElementById('user-menu-btn');
 
             if (currentUser) {
                 if (btnReg) btnReg.style.display = 'none';
-                if (userDropdown) userDropdown.style.display = 'inline-block';
+                if (userDropdownContainer) userDropdownContainer.style.display = 'inline-block';
 
                 let firstName = currentUser.name ? currentUser.name.split(' ')[0] : 'أهلاً';
-                const headerUserNameEl = document.getElementById('headerUserName');
-                if (headerUserNameEl) headerUserNameEl.innerText = firstName;
+                let fullName = currentUser.name || 'مستخدم رمال';
+
+                const headerFirstNameEl = document.getElementById('headerFirstName');
+                const headerFullNameEl = document.getElementById('headerFullName');
+                if (headerFirstNameEl) headerFirstNameEl.innerText = firstName;
+                if (headerFullNameEl) headerFullNameEl.innerText = fullName;
                 
                 const userNameDisplayEl = document.getElementById('userNameDisplay');
-                if (userNameDisplayEl) userNameDisplayEl.innerText = currentUser.name;
+                if (userNameDisplayEl) userNameDisplayEl.innerText = fullName;
                 
                 let pts = currentUser.points || 500;
                 let ptsAED = (pts / 10).toFixed(2);
@@ -1068,12 +1092,38 @@
                 const dashPointsEl = document.getElementById('dashPoints');
                 if (dashPointsEl) dashPointsEl.innerText = pts;
 
+                if (menuBtn) {
+                    menuBtn.classList.remove('hidden');
+                    menuBtn.classList.add('flex');
+                }
+
                 renderSavedCardsDropdown();
                 fetchUserData();
             } else {
                 if (btnReg) btnReg.style.display = 'inline-block';
-                if (userDropdown) userDropdown.style.display = 'none';
+                if (userDropdownContainer) userDropdownContainer.style.display = 'none';
             }
+        }
+
+        // إعداد تفعيل القائمة المنسدلة بالنقر
+        function setupDropdownToggle() {
+            const menuBtn = document.getElementById('user-menu-btn');
+            const dropdown = document.getElementById('user-dropdown');
+
+            if (!menuBtn || !dropdown) return;
+
+            menuBtn.addEventListener('click', (e) => {
+                e.stopPropagation(); 
+                dropdown.classList.toggle('opacity-0');
+                dropdown.classList.toggle('invisible');
+                dropdown.classList.toggle('translate-y-2');
+            });
+
+            document.addEventListener('click', (e) => {
+                if (!menuBtn.contains(e.target) && !dropdown.contains(e.target)) {
+                    dropdown.classList.add('opacity-0', 'invisible', 'translate-y-2');
+                }
+            });
         }
 
         function handleAccountBtnClick() { openAuthModal('register'); }
@@ -1547,7 +1597,11 @@
                 
                 container.innerHTML += `
                     <div class="hotel-card">
-                        <div class="earn-ribbon">كاش +${hotel.basePoints} نقطة</div>
+                        <div class="ribbon-container">
+                            <div class="ribbon bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 text-center text-[0.65rem] md:text-xs font-black py-1.5 shadow-md whitespace-nowrap">
+                                كاش +${hotel.basePoints} نقطة ✨
+                            </div>
+                        </div>
                         <img src="${hotel.img}" class="hotel-img" alt="${hotel.name}">
                         <div class="hotel-info">
                             <div class="hotel-name">${hotel.name}</div>
