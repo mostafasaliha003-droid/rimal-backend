@@ -114,6 +114,9 @@ let passwordResetCodes = {}; // 🚀 تخزين أكواد استعادة كلم
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
 
+// 🌟 تخزين مؤقت للغرف النشطة التي فتحها العملاء
+let activeChatRooms = new Set();
+
 // ==========================================
 // 🚀 دوال مساعدة (Email, WhatsApp, Hotelbeds Signature, Timeout)
 // ==========================================
@@ -190,7 +193,11 @@ io.on('connection', (socket) => {
             
             if (booking) {
                 socket.join(referenceCode);
+                activeChatRooms.add(referenceCode);
                 socket.emit('chat_joined', { success: true, message: 'تم التحقق من الحجز بنجاح. أهلاً بك في دعم رمال.' });
+                
+                // إخطار الأدمن فوراً بفتح غرفة جديدة
+                io.to('admin_chat_room').emit('new_chat_room', { referenceCode, customerName: booking.customerName });
             } else {
                 socket.emit('chat_joined', { success: false, message: 'عذراً، بيانات الحجز أو الاسم غير مطابقة لحجز مؤكد.' });
             }
@@ -199,24 +206,28 @@ io.on('connection', (socket) => {
         }
     });
 
-    // انضمام لوحة تحكم الأدمن للبث العام لكي تصله كل الرسائل وتظهر أمامه فوراً
+    // انضمام لوحة تحكم الأدمن للبث العام ومزامنة الغرف النشطة
     socket.on('admin_join', () => {
         socket.join('admin_chat_room');
         console.log('🔐 Admin joined live chat monitoring room');
+        // إرسال قائمة الغرف النشطة فوراً للأدمن
+        socket.emit('active_rooms_list', Array.from(activeChatRooms));
     });
 
     // استقبال وإعادة توجيه الرسائل بين العميل والإدارة
     socket.on('send_message', async (data) => {
         const { referenceCode, sender, message } = data;
+        if(!referenceCode) return;
         
-        // توجيه الرسالة فوراً للغرفة الخاصة بالحجز
+        activeChatRooms.add(referenceCode);
+
+        // توجيه الرسالة للغرفة الخاصة بالحجز
         io.to(referenceCode).emit('receive_message', { sender, message, time: new Date() });
         
         // بث الرسالة فوراً لجميع مشرفي لوحة التحكم المتصلين
         io.to('admin_chat_room').emit('receive_message', { referenceCode, sender, message, time: new Date() });
 
         try {
-            // جلب تفاصيل الحجز لإرسالها في الإيميل للإدارة في حال كانت الرسالة قادمة من العميل
             const booking = await Booking.findOne({ bookingReference: referenceCode });
             if (booking && sender !== 'الإدارة (Remal)') {
                 const adminChatEmailHtml = `
