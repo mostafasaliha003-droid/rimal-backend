@@ -1830,42 +1830,19 @@
                 const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
                 let finalPrice = Math.max(0, currentBasePrice - (pointsUsed / 10));
 
-                const ziinaRes = await fetch(`${API_URL}/api/v1/payments/ziina-intent`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ amountAED: finalPrice, bookingReference: bookingReference }) });
+                const ziinaRes = await fetch(`${API_URL}/api/v1/payments/ziina-intent`, { 
+                    method: 'POST', 
+                    headers: { 'Content-Type': 'application/json' }, 
+                    body: JSON.stringify({ amountAED: finalPrice, bookingReference: bookingReference }) 
+                });
                 const ziinaData = await ziinaRes.json();
 
                 if (ziinaData.success && ziinaData.redirect_url) {
                     const pendingData = { bookingReference, ziinaPaymentId: ziinaData.ziinaPaymentId || '', hotelName: selectedHotel, customerName, email, phone, companions, paymentMethod, price: finalPrice, pointsUsed, cancellationPolicy: currentPolicyText, rateKey: currentRateKey, refundType: currentRefundType };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
 
-                    // 🚀 الحل: فتح رابط Ziina في نافذة iFrame بدلاً من توجيه الصفحة
-                    const iframeContainer = document.createElement('div');
-                    iframeContainer.id = 'ziina-payment-modal';
-                    iframeContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(0,0,0,0.8); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter: blur(4px);';
-                    
-                    const iframeWrapper = document.createElement('div');
-                    iframeWrapper.style.cssText = 'position:relative; width:90%; max-width:450px; height:85%; background:white; border-radius:24px; box-shadow:0 20px 50px rgba(0,0,0,0.5); overflow:hidden; animation: scaleIn 0.3s ease-out forwards;';
-
-                    const iframe = document.createElement('iframe');
-                    iframe.src = ziinaData.redirect_url;
-                    iframe.style.cssText = 'width:100%; height:100%; border:none; border-radius:24px;';
-                    
-                    // زر الإغلاق المخصص للـ iFrame
-                    const closeBtn = document.createElement('button');
-                    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i>';
-                    closeBtn.style.cssText = 'position:absolute; top:12px; right:12px; width:35px; height:35px; background:rgba(255,255,255,0.9); border:none; border-radius:50%; cursor:pointer; font-weight:bold; color:#ff595e; font-size:18px; display:flex; justify-content:center; align-items:center; box-shadow:0 2px 10px rgba(0,0,0,0.1); z-index:10; transition:all 0.2s;';
-                    closeBtn.onmouseover = () => { closeBtn.style.background = '#ff595e'; closeBtn.style.color = 'white'; };
-                    closeBtn.onmouseout = () => { closeBtn.style.background = 'rgba(255,255,255,0.9)'; closeBtn.style.color = '#ff595e'; };
-                    closeBtn.onclick = () => {
-                        document.body.removeChild(iframeContainer);
-                        btn.innerHTML = origText; 
-                        btn.disabled = false;
-                        showToast('info', 'تم الإلغاء', 'تم إغلاق بوابة الدفع قبل إتمام العملية.');
-                    };
-
-                    iframeWrapper.appendChild(closeBtn);
-                    iframeWrapper.appendChild(iframe);
-                    iframeContainer.appendChild(iframeWrapper);
-                    document.body.appendChild(iframeContainer);
+                    // 🚀 الحل: التوجيه المباشر والآمن لصفحة البنك (كما تتطلب معايير PCI الأمنية)
+                    window.location.href = ziinaData.redirect_url;
 
                 } else { showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); btn.innerHTML = origText; btn.disabled = false; }
             } catch(err) { console.error(err); showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم أثناء تجهيز الدفع.'); btn.innerHTML = origText; btn.disabled = false; }
