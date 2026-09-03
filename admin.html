@@ -6,7 +6,6 @@
     <title>لوحة تحكم الإدارة | شركة الرمال الدولية ✈️</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    <!-- 🚀 ربط ملف التنسيقات الخارجي للبراند -->
     <link rel="stylesheet" href="style.css">
     <style>
         :root {
@@ -194,7 +193,7 @@
         let globalBookingsList = [];
         let socket;
         let activeChatRef = null;
-        let chatHistories = {}; // لتخزين الرسائل لكل غرفة حجز
+        let chatHistories = {};
 
         window.onload = function() {
             if(isAdminLoggedIn) {
@@ -206,22 +205,21 @@
             }
         };
 
-        // ==========================================
-        // 💬 إعدادات الشات المباشر للإدارة عبر Socket.io
-        // ==========================================
         function initAdminLiveChat() {
             socket = io(API_URL);
 
+            // الانضمام لقناة مراقبة الأدمن بمجرد فتح لوحة التحكم
+            socket.emit('admin_join');
+
             socket.on('receive_message', (data) => {
                 const { referenceCode, sender, message } = data;
+                if(!referenceCode) return;
                 
-                // تخزين الرسالة في سجل الغرفة
                 if(!chatHistories[referenceCode]) {
                     chatHistories[referenceCode] = [];
                 }
                 chatHistories[referenceCode].push({ sender, message });
 
-                // إضافة الغرفة للقائمة الجانبية إذا لم تكن موجودة
                 let roomBtn = document.getElementById(`room_btn_${referenceCode}`);
                 if(!roomBtn) {
                     const roomsList = document.getElementById('adminRoomsList');
@@ -235,7 +233,6 @@
                     `;
                 }
 
-                // إذا كانت هذه هي الغرفة المفتوحة حالياً، اعرض الرسالة فورا
                 if(activeChatRef === referenceCode) {
                     renderActiveChatMessages();
                 }
@@ -245,7 +242,6 @@
         function selectAdminChatRoom(referenceCode) {
             activeChatRef = referenceCode;
             
-            // إزالة تنبيه "جديد" عند فتح الغرفة
             let btn = document.getElementById(`room_btn_${referenceCode}`);
             if(btn) {
                 btn.style.background = '#e2e8f0';
