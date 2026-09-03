@@ -984,7 +984,8 @@ app.get('/payment-success', async (req, res) => {
                 <p>جاري تثبيت حجزك في السحابة وإرسال قسيمة الـ PDF والواتساب...</p>
                 <script>
                     setTimeout(() => {
-                        window.location.href = 'https://remalbookings.com?payment=success&ref=${reference}';
+                        // 🚀 الحل: توجيه النافذة الرئيسية بدلاً من إطار الـ iFrame
+                        window.top.location.href = 'https://remalbookings.com?payment=success&ref=${reference}';
                     }, 2000);
                 </script>
             </body>
