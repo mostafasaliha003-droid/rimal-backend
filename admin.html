@@ -76,7 +76,6 @@
 <body>
 
     <header>
-        <!-- 🚀 الهوية الجديدة واللوغو الاحترافي -->
         <div class="brand-logo-container" style="display: flex; align-items: center; gap: 12px; cursor: pointer;">
             <img src="logo.jpg" alt="Remal International Logo" style="height: 45px; object-fit: contain; border-radius: 10px;">
             <div>
@@ -143,7 +142,7 @@
                         </div>
                         <div id="adminChatMessages" style="flex: 1; padding: 15px; overflow-y: auto; background: #fdfdfe; font-size: 13px; display: flex; flex-direction: column; gap: 8px; min-height: 220px;"></div>
                         <div style="padding: 10px; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; background: #f8f9fa;">
-                            <input type="text" id="adminMsgInput" placeholder="اكتب رد الإدارة للعميل..." style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Cairo'; outline: none;">
+                            <input type="text" id="adminMsgInput" placeholder="اكتب رد الإدارة للعميل..." onkeypress="handleAdminKeyPress(event)" style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Cairo'; outline: none;">
                             <button onclick="sendAdminMessage()" style="background: #3b1c58; color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: bold; cursor: pointer;">إرسال</button>
                         </div>
                     </div>
@@ -195,6 +194,7 @@
         let globalBookingsList = [];
         let socket;
         let activeChatRef = null;
+        let chatHistories = {}; // لتخزين الرسائل لكل غرفة حجز
 
         window.onload = function() {
             if(isAdminLoggedIn) {
@@ -212,45 +212,80 @@
         function initAdminLiveChat() {
             socket = io(API_URL);
 
-            // افتراضياً سنستمع لأي عميل يقوم بفتح محادثة جديدة عبر تجميع الغرف النشطة
-            // (تحديث قائمة الغرف تلقائياً أو عبر محاكاة الغرفة النشطة الحالية)
-            
             socket.on('receive_message', (data) => {
                 const { referenceCode, sender, message } = data;
                 
-                // إذا لم تكن الغرفة موجودة في القائمة الجانبية، أضفها
+                // تخزين الرسالة في سجل الغرفة
+                if(!chatHistories[referenceCode]) {
+                    chatHistories[referenceCode] = [];
+                }
+                chatHistories[referenceCode].push({ sender, message });
+
+                // إضافة الغرفة للقائمة الجانبية إذا لم تكن موجودة
                 let roomBtn = document.getElementById(`room_btn_${referenceCode}`);
                 if(!roomBtn) {
                     const roomsList = document.getElementById('adminRoomsList');
                     if(roomsList.innerHTML.includes('لا توجد محادثات')) roomsList.innerHTML = '';
                     
                     roomsList.innerHTML += `
-                        <button id="room_btn_${referenceCode}" onclick="selectAdminChatRoom('${referenceCode}')" style="background:#fff; border:1px solid #cbd5e1; padding:8px; border-radius:8px; text-align:right; font-weight:bold; cursor:pointer; font-size:12px;">
-                            حجز: <span style="color:var(--accent-coral);">${referenceCode}</span>
+                        <button id="room_btn_${referenceCode}" onclick="selectAdminChatRoom('${referenceCode}')" style="background:#fff; border:1px solid #cbd5e1; padding:10px; border-radius:8px; text-align:right; font-weight:bold; cursor:pointer; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>حجز: ${referenceCode}</span>
+                            <span style="background:var(--accent-coral); color:white; padding:2px 6px; border-radius:50px; font-size:10px;">جديد</span>
                         </button>
                     `;
                 }
 
-                // إذا كانت هذه هي الغرفة المفتوحة حالياً، اعرض الرسالة
+                // إذا كانت هذه هي الغرفة المفتوحة حالياً، اعرض الرسالة فورا
                 if(activeChatRef === referenceCode) {
-                    const chatMsgs = document.getElementById('adminChatMessages');
-                    chatMsgs.innerHTML += `<div style="margin-bottom: 6px;"><b>${sender}:</b> ${message}</div>`;
-                    chatMsgs.scrollTop = chatMsgs.scrollHeight;
+                    renderActiveChatMessages();
                 }
             });
         }
 
         function selectAdminChatRoom(referenceCode) {
             activeChatRef = referenceCode;
-            document.querySelectorAll('#adminRoomsList button').forEach(b => b.style.background = '#fff');
+            
+            // إزالة تنبيه "جديد" عند فتح الغرفة
             let btn = document.getElementById(`room_btn_${referenceCode}`);
-            if(btn) btn.style.background = '#e2e8f0';
+            if(btn) {
+                btn.style.background = '#e2e8f0';
+                let badge = btn.querySelector('span:nth-child(2)');
+                if(badge) badge.remove();
+            }
+
+            document.querySelectorAll('#adminRoomsList button').forEach(b => {
+                if(b.id !== `room_btn_${referenceCode}`) b.style.background = '#fff';
+            });
 
             document.getElementById('adminChatHeader').innerText = `المحادثة النشطة للحجز رقم: ${referenceCode}`;
             socket.emit('join_chat', { referenceCode: referenceCode, clientName: 'Admin' });
             
+            renderActiveChatMessages();
+        }
+
+        function renderActiveChatMessages() {
             const chatMsgs = document.getElementById('adminChatMessages');
-            chatMsgs.innerHTML = `<div style="text-align:center; color:green; font-size:11px; margin-bottom:5px;">تم الانضمام لغرفة الحجز ${referenceCode}</div>`;
+            chatMsgs.innerHTML = '';
+            
+            if(activeChatRef && chatHistories[activeChatRef]) {
+                chatHistories[activeChatRef].forEach(msg => {
+                    let isManager = msg.sender.includes('الإدارة') || msg.sender === 'Admin';
+                    let alignColor = isManager ? 'color:#3b1c58; text-align:left;' : 'color:#1f3a40; text-align:right;';
+                    let bgBubble = isManager ? 'background:#f0f8ff; padding:8px; border-radius:8px; margin-bottom:6px;' : 'background:#f8f9fa; padding:8px; border-radius:8px; margin-bottom:6px;';
+                    
+                    chatMsgs.innerHTML += `
+                        <div style="${bgBubble} ${alignColor}">
+                            <b style="font-size:11px; color:#6c757d;">${msg.sender}:</b><br>
+                            <span style="font-size:13px; font-weight:700;">${msg.message}</span>
+                        </div>
+                    `;
+                });
+                chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            }
+        }
+
+        function handleAdminKeyPress(e) {
+            if(e.key === 'Enter') sendAdminMessage();
         }
 
         function sendAdminMessage() {
@@ -263,9 +298,10 @@
 
             socket.emit('send_message', { referenceCode: activeChatRef, sender: 'الإدارة (Remal)', message: text });
             
-            const chatMsgs = document.getElementById('adminChatMessages');
-            chatMsgs.innerHTML += `<div style="margin-bottom: 6px; color:#3b1c58;"><b>الإدارة:</b> ${text}</div>`;
-            chatMsgs.scrollTop = chatMsgs.scrollHeight;
+            if(!chatHistories[activeChatRef]) chatHistories[activeChatRef] = [];
+            chatHistories[activeChatRef].push({ sender: 'الإدارة (Remal)', message: text });
+            
+            renderActiveChatMessages();
             input.value = '';
         }
 
