@@ -6,17 +6,18 @@ const app = express();
 
 app.use(express.json());
 
-// إعداد خدمة الإرسال (مثال: استخدام SendGrid أو أي SMTP مخصص)
+// إعداد خدمة الإرسال (تأكد من وضع بياناتك الحقيقية لاحقاً)
 const transporter = nodemailer.createTransport({
-    host: 'smtp.sendgrid.net', // استبدل بمزودك
+    host: 'smtp.sendgrid.net', // استبدل بمزودك (SendGrid أو غيره)
     port: 587,
     auth: {
         user: 'apikey', 
-        pass: process.env.SMTP_PASSWORD 
+        pass: process.env.SMTP_PASSWORD // كلمة المرور من بيئة الخادم
     }
 });
 
-app.post('/api/v1/bookings/finalize', async (req, res) => {
+// هذا الـ Endpoint سيتم استدعاؤه من الواجهة الأمامية بعد تأكيد الدفع
+app.post('/api/v1/bookings/create', async (req, res) => {
     let browser;
     try {
         const bookingData = req.body; 
@@ -25,7 +26,7 @@ app.post('/api/v1/bookings/finalize', async (req, res) => {
         let voucherHtml = fs.readFileSync('./voucher-template.html', 'utf8');
         let emailHtml = fs.readFileSync('./email-template.html', 'utf8');
 
-        // 2. استبدال المتغيرات في قالب الـ PDF
+        // 2. استبدال المتغيرات الشامل في قالب الـ PDF باستخدام Regex
         voucherHtml = voucherHtml
             .replace(/{{bookingReference}}/g, bookingData.bookingReference)
             .replace('{{customerName}}', bookingData.customerName)
@@ -45,7 +46,7 @@ app.post('/api/v1/bookings/finalize', async (req, res) => {
             .replace('{{checkInDate}}', bookingData.checkInDate || 'حسب الطلب')
             .replace('{{price}}', bookingData.price);
 
-        // 4. تشغيل Puppeteer مع تحسينات الأداء
+        // 4. تشغيل Puppeteer مع تحسينات الأداء والذاكرة
         browser = await puppeteer.launch({
             headless: 'new',
             args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
@@ -61,7 +62,7 @@ app.post('/api/v1/bookings/finalize', async (req, res) => {
             margin: { top: '20px', bottom: '20px' }
         });
 
-        // 5. إعداد وإرسال البريد الإلكتروني مع المرفق في الذاكرة
+        // 5. إعداد وإرسال البريد الإلكتروني مع المرفق من الذاكرة (In-Memory)
         const mailOptions = {
             from: '"رمال وفلّها" <reservations@remalbookings.com>',
             to: bookingData.email,
@@ -76,19 +77,23 @@ app.post('/api/v1/bookings/finalize', async (req, res) => {
             ]
         };
 
+        // إرسال الإيميل
         await transporter.sendMail(mailOptions);
         console.log(`✅ تم تأكيد الحجز وإرسال الإيميل والقسيمة إلى ${bookingData.email}`);
 
-        // إرجاع استجابة نجاح للواجهة الأمامية
-        res.status(200).json({ success: true, message: 'تم إرسال القسيمة بنجاح!' });
+        // إرجاع الاستجابة بنجاح
+        res.status(200).json({ success: true, message: 'تم إنشاء الحجز وإرسال القسيمة بنجاح!' });
 
     } catch (error) {
-        console.error('❌ خطأ في معالجة الحجز:', error);
-        res.status(500).json({ success: false, error: 'حدث خطأ أثناء معالجة القسيمة.' });
+        console.error('❌ خطأ في معالجة الحجز وتوليد القسيمة:', error);
+        res.status(500).json({ success: false, error: 'حدث خطأ أثناء معالجة القسيمة وإرسال الإيميل.' });
     } finally {
-        // حماية الذاكرة: إغلاق المتصفح دائماً
-        if (browser) await browser.close();
+        // حماية الذاكرة (Memory Leak Prevention)
+        if (browser) {
+            await browser.close();
+        }
     }
 });
 
-app.listen(3000, () => console.log('✅ خادم الحجوزات يعمل ومستعد لإرسال الإيميلات!'));
+// لمنع التعارض إذا كنت تستخدم ملف آخر كخادم، يمكنك تفعيل هذا السطر لاختبار الملف بشكل منفصل:
+// app.listen(3000, () => console.log('✅ خادم Mailer & PDF يعمل!'));
