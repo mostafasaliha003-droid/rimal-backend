@@ -249,18 +249,8 @@
         .goog-te-banner-frame { display: none !important; }
         body { top: 0px !important; }
 
-        footer {
-            background-color: var(--primary); color: var(--white); padding: 50px 5% 20px; margin-top: 60px; border-top: 5px solid var(--accent-yellow);
-        }
-        .footer-container {
-            max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 30px; margin-bottom: 30px;
-        }
-        .footer-col h4 { color: var(--accent-cyan); font-size: 18px; font-weight: 900; margin-bottom: 20px; position: relative; }
-        .footer-col p, .footer-col a { color: #caf0f8; font-size: 14px; line-height: 1.8; text-decoration: none; display: flex; align-items: center; gap: 10px; margin-bottom: 12px; font-weight: 600; }
-        .footer-col a:hover { color: var(--accent-yellow); }
-        .footer-col i { color: var(--accent-coral); font-size: 16px; width: 20px; text-align: center; }
-        .footer-bottom { text-align: center; padding-top: 20px; border-top: 1px dashed rgba(255, 255, 255, 0.2); color: #8d99ae; font-size: 14px; font-weight: 700; }
-        .footer-bottom strong { color: var(--accent-yellow); }
+        .goog-te-banner-frame { display: none !important; }
+        body { top: 0px !important; }
     </style>
     <script>
         tailwind.config = {
@@ -629,7 +619,7 @@
                 <!-- الترحيب وتسجيل الخروج -->
                 <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 border-b border-gray-100 pb-5">
                     <h2 class="text-xl font-bold text-gray-800">أهلاً بك يا بطل، <span id="dashUserName" class="text-teal-600"></span> 🙋‍♂️</h2>
-                    <button onclick="logoutUser()" class="text-red-500 bg-red-50 hover:bg-red-100 px-5 py-2 rounded-xl font-bold text-sm transition-colors duration-300 shadow-sm">تسجيل خروج</button>
+                    <button onclick="logoutUser()" class="text-red-500 bg-red-50 hover:bg-red-100 px-5 py-2 rounded-xl font-bold text-sm transition-colors duration-300 shadow-sm cursor-pointer">تسجيل خروج</button>
                 </div>
 
                 <!-- 3. صناديق الإحصائيات -->
@@ -660,7 +650,7 @@
                     <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
                         <span>💼</span> إدارة حجوزاتي السابقة والنشطة
                     </h3>
-                    <button onclick="fetchUserData()" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95">
+                    <button onclick="fetchUserData()" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95 cursor-pointer">
                         <span>🔄</span> تحديث
                     </button>
                 </div>
@@ -826,29 +816,111 @@
       </div>
     </div>
 
-    <!-- الفوتر -->
-    <footer>
-        <div class="footer-container">
-            <div class="footer-col">
-                <p>رمال وفلّها! | Remal & Chill - احجز، فلّها، واكسب! 🤪✈️</p>
-            </div>
-            
-            <div class="footer-col">
-                <h4>تواصل معنا 📞</h4>
-                <a href="https://wa.me/971544757578" target="_blank"><i class="fa-brands fa-whatsapp" style="color: #25D366; font-size: 20px;"></i> +971 54 475 7578</a>
-                <a href="mailto:management@remaltourismllc.com"><i class="fa-regular fa-envelope"></i> management@remaltourismllc.com</a>
-            </div>
-            
-            <div class="footer-col">
-                <h4>مقر الشركة 🏢</h4>
-                <p><i class="fa-solid fa-location-dot"></i> رمال وفلّها (شركة الرمال الدولية)</p>
-                <p><i class="fa-solid fa-building"></i> دائرة السياحة والاقتصاد، Block B, Office 610</p>
-                <p><i class="fa-solid fa-map-pin"></i> ميناء سعيد، دبي، الإمارات العربية المتحدة</p>
-            </div>
-        </div>
+    <!-- 🌟 الفوتر الأسطوري المحسن والفاخر -->
+    <footer class="relative bg-slate-900 text-gray-300 pt-16 pb-8 border-t-[6px] border-yellow-500 overflow-hidden" dir="rtl">
         
-        <div class="footer-bottom">
-            &copy; 2026 <strong>رمال وفلّها (remalbookings.com)</strong>. جميع الحقوق محفوظة.
+        <!-- Watermark Overlay (نمط مائي خفيف) -->
+        <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83L54.627 0zM30 0l.83.83-30 30L0 30 30 0zm24.627 60l-.83-.83L60 45.373V46.2l-5.373 5.373z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E');"></div>
+
+        <div class="max-w-7xl mx-auto px-6 relative z-10">
+            
+            <!-- Main Footer Content (Grid) -->
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
+                
+                <!-- 1. Brand Column (الهوية البصرية) -->
+                <div class="flex flex-col items-start">
+                    <div class="bg-white p-2 rounded-2xl mb-4 inline-block shadow-lg">
+                        <img src="logo.jpg" alt="Remal & Chill Logo" class="w-16 h-16 object-contain rounded-xl" onerror="this.src='https://via.placeholder.com/64?text=Logo'">
+                    </div>
+                    <h3 class="text-2xl font-extrabold text-white mb-2">رمال وفلّها! <span class="text-teal-400">Remal & Chill</span></h3>
+                    <p class="text-sm text-gray-400 leading-relaxed mb-6">
+                        بوابتك الذكية لإدارة حجوزاتك بكل سهولة وأمان من شركة الرمال الدولية. احجز، فلّها، واكسب النقاط مع كل رحلة! 🌴✈️
+                    </p>
+                    
+                    <!-- Social Media Icons (السوشيال ميديا) -->
+                    <div class="flex gap-3">
+                        <a href="https://instagram.com/remaltourism" target="_blank" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 hover:bg-teal-500 hover:text-white transition-all shadow-md">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12 2.163c3.204 0 3.584.012 4.85.07 3.252.148 4.771 1.691 4.919 4.919.058 1.265.069 1.645.069 4.849 0 3.205-.012 3.584-.069 4.849-.149 3.225-1.664 4.771-4.919 4.919-1.266.058-1.644.07-4.85.07-3.204 0-3.584-.012-4.849-.07-3.26-.149-4.771-1.699-4.919-4.92-.058-1.265-.07-1.644-.07-4.849 0-3.204.013-3.583.07-4.849.149-3.227 1.664-4.771 4.919-4.919 1.266-.057 1.645-.069 4.849-.069zM12 0C8.741 0 8.333.014 7.053.072 2.695.272.273 2.69.073 7.052.014 8.333 0 8.741 0 12c0 3.259.014 3.668.072 4.948.2 4.358 2.618 6.78 6.98 6.98C8.333 23.986 8.741 24 12 24c3.259 0 3.668-.014 4.948-.072 4.354-.2 6.782-2.618 6.979-6.98.059-1.28.073-1.689.073-4.948 0-3.259-.014-3.667-.072-4.947-.196-4.354-2.617-6.78-6.979-6.98C15.668.014 15.259 0 12 0zm0 5.838a6.162 6.162 0 100 12.324 6.162 6.162 0 000-12.324zM12 16a4 4 0 110-8 4 4 0 010 8zm6.406-11.845a1.44 1.44 0 100 2.881 1.44 1.44 0 000-2.881z"/></svg>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 hover:bg-black hover:text-white transition-all shadow-md">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M12.525.02c1.31-.02 2.61-.01 3.91-.02.08 1.53.63 3.09 1.75 4.17 1.12 1.11 2.7 1.62 4.24 1.79v4.03c-1.44-.05-2.89-.35-4.2-.97-.57-.26-1.1-.59-1.62-.93v7.2c0 1.96-.5 3.94-1.66 5.51-1.16 1.56-2.9 2.65-4.82 2.92-1.93.28-3.95.03-5.69-.94-1.74-.97-2.96-2.58-3.48-4.47-.52-1.89-.3-3.95.53-5.69.83-1.74 2.37-3.04 4.2-3.62 1.83-.58 3.84-.45 5.58.28v4.06c-1.12-.52-2.47-.45-3.52.12-1.04.57-1.68 1.65-1.76 2.85-.08 1.19.4 2.38 1.29 3.19.89.8 2.14 1.1 3.33.8 1.19-.3 2.15-1.2 2.51-2.37.35-1.17.15-2.46-.5-3.44V.02z"/></svg>
+                        </a>
+                        <a href="#" class="w-10 h-10 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 hover:bg-yellow-400 hover:text-black transition-all shadow-md">
+                            <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 24 24"><path d="M11.83 0C7.227 0 5.485 2.514 5.378 5.766c-.021.722.146 1.488.358 2.227.327 1.126.91 2.214 1.258 3.327.362 1.156.401 2.456-.254 3.513-.377.625-.97 1.077-1.583 1.464-1.028.653-2.158 1.163-3.328 1.503-1.13.332-1.487 1.25-1.18 2.348.14.494.402.943.834 1.233.51.343 1.155.452 1.76.388 1.76-.176 3.493-.665 5.228-1.082 1.206-.293 2.443-.191 3.633.155 1.41.408 2.766 1.034 4.093 1.68.795.385 1.637.7 2.527.756 1.03.064 2.006-.445 2.39-1.411.36-.897.101-1.928-.79-2.42-1.16-.628-2.355-1.176-3.568-1.688-.86-.36-1.74-.69-2.58-1.09-.94-.447-1.55-1.397-1.52-2.44.02-1.096.53-2.115 1.13-3.037.79-1.22 1.67-2.37 2.36-3.66.45-.85.62-1.8.63-2.76C18.25 3.32 16.34 0 11.83 0z"/></svg>
+                        </a>
+                    </div>
+                </div>
+
+                <!-- 2. Contact Column (التواصل) -->
+                <div>
+                    <h4 class="text-lg font-bold text-white mb-6 border-b border-slate-700 pb-2 inline-block">تواصل معنا 📞</h4>
+                    <ul class="space-y-4 text-sm">
+                        <li>
+                            <a href="https://wa.me/971544757578" target="_blank" class="flex items-center gap-3 hover:text-teal-400 transition group">
+                                <span class="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-green-500 group-hover:bg-green-500 group-hover:text-white transition">
+                                    <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"><path d="M12.012 2c-5.506 0-9.989 4.478-9.99 9.984a9.964 9.964 0 001.333 4.993L2 22l5.233-1.237a9.994 9.994 0 004.779 1.216h.004c5.502 0 9.985-4.48 9.985-9.985S17.518 2 12.012 2zm0 16.172h-.003a8.337 8.337 0 01-4.25-1.156l-.304-.18-3.161.747.842-3.023-.198-.313a8.312 8.312 0 01-1.272-4.42c.002-4.595 3.743-8.333 8.344-8.333 2.227 0 4.321.868 5.892 2.441 1.572 1.574 2.438 3.667 2.438 5.894-.001 4.594-3.742 8.343-8.327 8.343zm4.582-6.26c-.251-.125-1.488-.735-1.718-.819-.23-.084-.397-.125-.565.125-.168.251-.649.819-.796.986-.146.168-.293.189-.544.063-2.115-1.026-3.32-2.158-4.46-4.14-.146-.251-.014-.388.111-.513.113-.113.251-.293.376-.439.126-.146.168-.251.251-.418.084-.168.042-.314-.021-.439-.063-.125-.565-1.36-.774-1.862-.204-.492-.411-.425-.565-.433-.146-.007-.313-.007-.481-.007-.168 0-.439.063-.669.314-.23.251-.879.858-.879 2.093s.9 2.428 1.026 2.595c.125.167 1.77 2.699 4.285 3.785.599.259 1.066.414 1.431.53.602.19 1.15.163 1.583.1.487-.07 1.488-.607 1.698-1.193.21-.586.21-1.088.146-1.193-.062-.105-.229-.168-.48-.294z"/></svg>
+                                </span>
+                                <span class="font-medium" dir="ltr">+971 54 475 7578</span>
+                            </a>
+                        </li>
+                        <li class="flex items-center gap-3 text-gray-400">
+                            <span class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-slate-400">
+                                ✉️
+                            </span>
+                            management@remaltourismllc.com
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 3. Locations Column (مقار الشركة) -->
+                <div>
+                    <h4 class="text-lg font-bold text-white mb-6 border-b border-slate-700 pb-2 inline-block">مقار الشركة 🏢</h4>
+                    <ul class="space-y-4 text-sm">
+                        <!-- فرع قرية الأعمال -->
+                        <li class="flex items-start gap-3 hover:text-teal-400 transition">
+                            <span class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 shrink-0 mt-0.5">
+                                🏢
+                            </span>
+                            <div>
+                                <p class="font-bold text-gray-200">فرع قرية الأعمال</p>
+                                <p class="text-gray-400 mt-1">دائرة السياحة والاقتصاد، Block B, Office 610<br>ميناء سعيد، دبي</p>
+                            </div>
+                        </li>
+                        <!-- فرع الميدان -->
+                        <li class="flex items-start gap-3 hover:text-teal-400 transition">
+                            <span class="w-8 h-8 rounded-full bg-slate-800 flex items-center justify-center text-teal-400 shrink-0 mt-0.5">
+                                🏨
+                            </span>
+                            <div>
+                                <p class="font-bold text-gray-200">فرع فندق الميدان</p>
+                                <p class="text-gray-400 mt-1">فندق الميدان<br>دبي، الإمارات العربية المتحدة</p>
+                            </div>
+                        </li>
+                    </ul>
+                </div>
+                
+            </div>
+
+            <!-- Bottom Footer (الحقوق، شارات الثقة) -->
+            <div class="border-t border-slate-800 pt-8 pb-6 flex flex-col md:flex-row justify-between items-center gap-6">
+                
+                <!-- Copyright -->
+                <div class="text-sm text-gray-500 text-center md:text-right font-medium">
+                    © 2026 رمال وفلّها (<span class="text-teal-500">remalbookings.com</span>). جميع الحقوق محفوظة لشركة الرمال الدولية.
+                </div>
+
+                <!-- Trust Badges & Payment (شارات الدفع) -->
+                <div class="flex items-center gap-4 opacity-70 hover:opacity-100 transition-opacity">
+                    <div class="bg-white/10 px-3 py-1.5 rounded-lg border border-white/5 flex items-center gap-1">
+                        <span class="text-xs font-bold tracking-widest text-white">ZIINA</span>
+                    </div>
+                    <div class="bg-white/10 px-2 py-1.5 rounded-lg border border-white/5 flex gap-2">
+                         <img src="https://upload.wikimedia.org/wikipedia/commons/5/5e/Visa_Inc._logo.svg" alt="Visa" class="h-4 w-auto brightness-200 grayscale">
+                         <img src="https://upload.wikimedia.org/wikipedia/commons/2/2a/Mastercard-logo.svg" alt="Mastercard" class="h-4 w-auto brightness-200 grayscale">
+                    </div>
+                </div>
+
+            </div>
         </div>
     </footer>
 
@@ -1491,18 +1563,18 @@
                                     </a>
                                     
                                     <!-- Secondary: إعادة الإرسال -->
-                                    <button onclick="resendVoucherEmail('${booking.bookingReference}', '${booking.email || currentUser.email}')" class="border border-red-900 text-red-900 hover:bg-red-50 px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors active:scale-95">
+                                    <button onclick="resendVoucherEmail('${booking.bookingReference}', '${booking.email || currentUser.email}')" class="border border-red-900 text-red-900 hover:bg-red-50 px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors active:scale-95 cursor-pointer">
                                         📤 إعادة إرسال
                                     </button>
                                     
                                     ${isConfirmed ? `
                                     <!-- Secondary: التعديل -->
-                                    <button onclick="modifyBookingPrompt('${booking.bookingReference}', '${booking.customerName}', '${booking.phone || ''}')" class="border border-gray-300 text-gray-700 hover:bg-gray-100 px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors active:scale-95">
+                                    <button onclick="modifyBookingPrompt('${booking.bookingReference}', '${booking.customerName}', '${booking.phone || ''}')" class="border border-gray-300 text-gray-700 hover:bg-gray-100 px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors active:scale-95 cursor-pointer">
                                         ✏️ تعديل
                                     </button>
                                     
                                     <!-- Tertiary: الإلغاء -->
-                                    <button onclick="cancelBookingAPI('${booking.bookingReference}')" class="text-red-500 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 mr-auto transition-colors active:scale-95">
+                                    <button onclick="cancelBookingAPI('${booking.bookingReference}')" class="text-red-500 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 mr-auto transition-colors active:scale-95 cursor-pointer">
                                         ❌ إلغاء واسترداد تلقائي
                                     </button>
                                     ` : ''}
