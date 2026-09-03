@@ -5,15 +5,12 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>رمال وفلّها! | Remal & Chill - احجز، فلّها، واكسب! ✈️</title>
     
-    <!-- 🚀 أكواد تطبيق الجوال PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f3a40">
     <link rel="apple-touch-icon" href="logo.jpg">
     
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
-    
-    <!-- 🚀 ربط ملف التنسيقات الخارجي للبراند -->
     <link rel="stylesheet" href="style.css">
     
     <style>
@@ -37,7 +34,6 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-        /* شريط الحجوزات الحية الفيروسي */
         .live-ticker {
             background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
             color: white; padding: 8px 5%; font-size: 13px; font-weight: 800; text-align: center;
@@ -75,7 +71,7 @@
         }
         .nav-btn.account-btn { background: var(--accent-coral); color: white; border-color: #d90429; box-shadow: 0 4px 0 #d90429; }
 
-        /* 🌟 القائمة المنسدلة لحساب المستخدم الاحترافية */
+        /* 🌟 القائمة المنسدلة لحساب المستخدم */
         .user-dropdown-container { position: relative; display: inline-block; }
         .user-menu-btn {
             background: var(--accent-coral); color: white; border: 2px solid #d90429;
@@ -491,7 +487,7 @@
         </section>
 
         <div class="container">
-            <div id="userDashboard" class="auth-box" style="display: none; max-width: 900px;">
+            <div id="userDashboard" class="auth-box" style="display: block; max-width: 900px;">
                 <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed var(--accent-yellow); padding-bottom: 15px; margin-bottom: 20px;">
                     <h2>أهلاً بك يا بطل، <span id="userNameDisplay" style="color: var(--accent-coral);"></span> 👋</h2>
                     <button onclick="logoutUser()" style="background: var(--accent-coral); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">تسجيل خروج</button>
@@ -941,7 +937,7 @@
             if (selectField) { selectField.value = lang; selectField.dispatchEvent(new Event('change')); }
         }
 
-        // 🌟 إدارة الجلسة واسم المستخدم الأول فقط + القائمة المنسدلة الاحترافية
+        // 🌟 إدارة الجلسة وعرض الاسم الأول فقط والقائمة المنسدلة الاحترافية
         function checkUserSession() {
             const btnReg = document.getElementById('regBtnText');
             const btnBookings = document.getElementById('bookingsNavBtn');
