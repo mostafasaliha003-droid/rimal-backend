@@ -40,6 +40,19 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
+        /* حركات الظهور للوحة التحكم */
+        @keyframes fadeInUp {
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .animate-fade-in-up {
+            opacity: 0;
+            transform: translateY(20px);
+            animation: fadeInUp 0.5s ease-out forwards;
+        }
+
         /* شريط الحجوزات الحية الفيروسي */
         .live-ticker {
             background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
@@ -350,11 +363,11 @@
                         💰 رصيد حصالتك:<br>
                         <strong><span id="dropdownPoints">500</span> نقطة</strong> (<span id="dropdownPointsAED">50.00</span> AED)
                     </div>
-                    <a onclick="openEditEmailModal()" class="block p-3 text-slate-800 font-bold text-xs hover:bg-slate-100"><i class="fa-solid fa-envelope"></i> تعديل البريد الإلكتروني</a>
-                    <a onclick="openEditPasswordModal()" class="block p-3 text-slate-800 font-bold text-xs hover:bg-slate-100"><i class="fa-solid fa-key"></i> تغيير كلمة المرور</a>
-                    <a onclick="openSavedCardsModal()" class="block p-3 text-slate-800 font-bold text-xs hover:bg-slate-100"><i class="fa-solid fa-credit-card"></i> البطاقات البنكية المحفوظة</a>
-                    <a onclick="switchView('registerView')" class="block p-3 text-slate-800 font-bold text-xs hover:bg-slate-100" id="bookingsNavBtn"><i class="fa-solid fa-suitcase-rolling"></i> حجوزاتي</a>
-                    <a onclick="logoutUser()" class="block p-3 text-red-600 font-bold text-xs hover:bg-slate-100 border-t border-slate-200"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</a>
+                    <a onclick="openEditEmailModal()" class="block p-3 text-slate-800 font-bold text-xs hover:bg-slate-100 cursor-pointer"><i class="fa-solid fa-envelope"></i> تعديل البريد الإلكتروني</a>
+                    <a onclick="openEditPasswordModal()" class="block p-3 text-slate-800 font-bold text-xs hover:bg-slate-100 cursor-pointer"><i class="fa-solid fa-key"></i> تغيير كلمة المرور</a>
+                    <a onclick="openSavedCardsModal()" class="block p-3 text-slate-800 font-bold text-xs hover:bg-slate-100 cursor-pointer"><i class="fa-solid fa-credit-card"></i> البطاقات البنكية المحفوظة</a>
+                    <a onclick="switchView('registerView')" class="block p-3 text-slate-800 font-bold text-xs hover:bg-slate-100 cursor-pointer" id="bookingsNavBtn"><i class="fa-solid fa-suitcase-rolling"></i> حجوزاتي</a>
+                    <a onclick="logoutUser()" class="block p-3 text-red-600 font-bold text-xs hover:bg-slate-100 border-t border-slate-200 cursor-pointer"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</a>
                 </div>
             </div>
         </div>
@@ -378,7 +391,7 @@
                 </p>
             </div>
 
-            <!-- Tropical Wave Divider (White transitioning to content below) -->
+            <!-- Tropical Wave Divider -->
             <div class="custom-shape-divider-bottom z-0">
                 <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
                     <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" class="shape-fill"></path>
@@ -428,7 +441,7 @@
                     </div>
                 </div>
 
-                <!-- Adults & Children -->
+                <!-- Adults -->
                 <div class="w-full md:w-32 border border-slate-200 rounded-2xl px-3 py-3 flex items-center gap-2 hover:border-remal-turquoise transition">
                     <i class="fa-solid fa-user-group text-slate-400 text-base"></i>
                     <div class="flex flex-col w-full">
@@ -437,6 +450,7 @@
                     </div>
                 </div>
 
+                <!-- Children -->
                 <div class="w-full md:w-28 border border-slate-200 rounded-2xl px-3 py-3 flex items-center gap-2 hover:border-remal-turquoise transition">
                     <i class="fa-solid fa-child text-slate-400 text-base"></i>
                     <div class="flex flex-col w-full">
@@ -600,36 +614,62 @@
         </div>
     </div>
 
-    <!-- لوحة تحكم العميل والحجوزات -->
-    <div id="registerView" class="view-section">
-        <section class="hero" style="padding: 40px 5%;">
-            <h1>بوابة حسابك الذكي وحجوزاتك 🚀</h1>
-            <p>إدارة الحجوزات، سياسات الاسترداد الآلية، ومتابعة النقاط بكل أمان!</p>
-        </section>
+    <!-- 🌟 لوحة تحكم العميل والحجوزات (المحدثة بالفخامة والأزرار الديناميكية) 🌟 -->
+    <div id="registerView" class="view-section min-h-screen bg-slate-50 pb-12">
+        <!-- 1. المساحة العلوية (Mini-Hero Section) -->
+        <div class="bg-gradient-to-r from-purple-900 to-teal-500 pt-16 pb-28 px-4 text-center shadow-inner border-b-[6px] border-yellow-400">
+            <h1 class="text-3xl font-bold text-white mb-3 tracking-wide">مرحباً بك في عالمك الخاص 🌴</h1>
+            <p class="text-teal-100 text-sm md:text-base max-w-2xl mx-auto">إدارة حجوزاتك، سياسات الاسترداد الآلية، ومتابعة النقاط بكل أمان!</p>
+        </div>
 
-        <div class="container">
-            <div id="userDashboard" class="auth-box" style="display: block; max-width: 900px;">
-                <div style="display: flex; justify-content: space-between; align-items: center; border-bottom: 3px dashed var(--accent-yellow); padding-bottom: 15px; margin-bottom: 20px;">
-                    <h2>أهلاً بك يا بطل، <span id="userNameDisplay" style="color: var(--accent-coral);"></span> 👋</h2>
-                    <button onclick="logoutUser()" style="background: var(--accent-coral); color: white; border: none; padding: 8px 15px; border-radius: 10px; font-weight: bold; cursor: pointer;">تسجيل خروج</button>
+        <!-- 2. إطار اللوحة الرئيسية (Floating Dashboard Container) -->
+        <div class="max-w-5xl mx-auto -mt-16 px-4 relative z-10">
+            <div class="bg-white rounded-3xl shadow-2xl p-6 md:p-8 border border-gray-100">
+                
+                <!-- الترحيب وتسجيل الخروج -->
+                <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-8 border-b border-gray-100 pb-5">
+                    <h2 class="text-xl font-bold text-gray-800">أهلاً بك يا بطل، <span id="dashUserName" class="text-teal-600"></span> 🙋‍♂️</h2>
+                    <button onclick="logoutUser()" class="text-red-500 bg-red-50 hover:bg-red-100 px-5 py-2 rounded-xl font-bold text-sm transition-colors duration-300 shadow-sm">تسجيل خروج</button>
                 </div>
 
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
-                    <div style="background: rgba(255, 202, 58, 0.2); padding: 20px; border-radius: 16px; border: 2px dashed var(--accent-yellow);">
-                        <h4>💰 حصالة حسابك الدائمة</h4>
-                        <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة (<span id="dashPointsAED">50.00</span> AED)</p>
+                <!-- 3. صناديق الإحصائيات -->
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-5 mb-10">
+                    <!-- حصالة النقاط -->
+                    <div class="bg-gradient-to-br from-yellow-50 to-yellow-100 border border-yellow-200/60 rounded-2xl p-6 text-center shadow-sm relative overflow-hidden group">
+                        <div class="absolute -right-4 -top-4 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
+                            <span class="text-9xl">👑</span>
+                        </div>
+                        <p class="text-yellow-800 font-medium mb-2 relative z-10">💰 حصالة حسابك الدائمة</p>
+                        <div class="text-4xl font-extrabold text-gray-900 mb-1 relative z-10">
+                            <span id="dashPointsDisplay">0</span> <span class="text-base text-gray-600 font-normal">نقطة (AED <span id="dashPointsAEDDisplay">0.00</span>)</span>
+                        </div>
                     </div>
-                    <div style="background: rgba(114, 9, 183, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-purple);">
-                        <h4 style="color: var(--accent-purple);">😎 جاهز تسحب على الدوام؟</h4>
-                        <div style="margin-top: 8px; font-weight: bold; color: var(--accent-purple);">اختر وجهتك، اجمع نقاطك، وخلي الباقي علينا! 🌴</div>
+                    
+                    <!-- الرسالة التشويقية -->
+                    <div onclick="switchView('mainView')" class="bg-teal-50 border border-teal-100/60 rounded-2xl p-6 text-center flex flex-col justify-center shadow-sm relative overflow-hidden group cursor-pointer hover:bg-teal-100 transition-colors">
+                        <div class="absolute -left-2 -bottom-4 opacity-10 transform group-hover:translate-x-2 group-hover:-translate-y-2 transition-transform duration-500">
+                            <span class="text-8xl">✈️</span>
+                        </div>
+                        <p class="text-teal-800 font-bold mb-1 text-lg relative z-10">😎 جاهز تسحب على الدوام؟</p>
+                        <p class="text-teal-600 text-sm relative z-10">اختر وجهتك، اجمع نقاطك، وخلي الباقي علينا!</p>
                     </div>
                 </div>
 
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px;">
-                    <h3 style="color: var(--primary);"><i class="fa-solid fa-suitcase-rolling"></i> إدارة حجوزاتي السابقة والنشطة وقسائم الـ PDF</h3>
-                    <button onclick="fetchUserData()" style="background: var(--accent-cyan); color: white; border: none; padding: 6px 12px; border-radius: 8px; font-weight: bold; cursor: pointer;"><i class="fa-solid fa-rotate"></i> تحديث</button>
+                <!-- عنوان قسم الحجوزات وزر التحديث -->
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-lg font-bold text-gray-800 flex items-center gap-2">
+                        <span>💼</span> إدارة حجوزاتي السابقة والنشطة
+                    </h3>
+                    <button onclick="fetchUserData()" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-xl text-sm font-bold transition-all shadow-md hover:shadow-lg flex items-center gap-2 active:scale-95">
+                        <span>🔄</span> تحديث
+                    </button>
                 </div>
-                <div id="dashBookingsList" style="display: flex; flex-direction: column; gap: 12px;"></div>
+
+                <!-- ⚠️ الحاوية الديناميكية للحجوزات -->
+                <div id="bookingsContainer" class="min-h-[200px]">
+                    <!-- سيتم حقن البطاقات الفخمة هنا من دالة fetchUserData -->
+                </div>
+
             </div>
         </div>
     </div>
@@ -1059,7 +1099,7 @@
             if (selectField) { selectField.value = lang; selectField.dispatchEvent(new Event('change')); }
         }
 
-        // 🌟 إدارة الجلسة وعرض الاسم المتجاوب والقائمة المنسدلة الاحترافية
+        // 🌟 إدارة الجلسة وعرض الاسم المتجاوب والبيانات في لوحة التحكم
         function checkUserSession() {
             const btnReg = document.getElementById('regBtnText');
             const userDropdownContainer = document.getElementById('userDropdownContainer');
@@ -1072,13 +1112,15 @@
                 let firstName = currentUser.name ? currentUser.name.split(' ')[0] : 'أهلاً';
                 let fullName = currentUser.name || 'مستخدم رمال';
 
+                // Header Dropdown info
                 const headerFirstNameEl = document.getElementById('headerFirstName');
                 const headerFullNameEl = document.getElementById('headerFullName');
                 if (headerFirstNameEl) headerFirstNameEl.innerText = firstName;
                 if (headerFullNameEl) headerFullNameEl.innerText = fullName;
                 
-                const userNameDisplayEl = document.getElementById('userNameDisplay');
-                if (userNameDisplayEl) userNameDisplayEl.innerText = fullName;
+                // Dashboard Info
+                const dashUserNameEl = document.getElementById('dashUserName');
+                if (dashUserNameEl) dashUserNameEl.innerText = fullName;
                 
                 let pts = currentUser.points || 500;
                 let ptsAED = (pts / 10).toFixed(2);
@@ -1089,8 +1131,11 @@
                 const dropdownPointsAEDEl = document.getElementById('dropdownPointsAED');
                 if (dropdownPointsAEDEl) dropdownPointsAEDEl.innerText = ptsAED;
                 
-                const dashPointsEl = document.getElementById('dashPoints');
-                if (dashPointsEl) dashPointsEl.innerText = pts;
+                const dashPointsDisplayEl = document.getElementById('dashPointsDisplay');
+                if (dashPointsDisplayEl) dashPointsDisplayEl.innerText = pts;
+
+                const dashPointsAEDDisplayEl = document.getElementById('dashPointsAEDDisplay');
+                if (dashPointsAEDDisplayEl) dashPointsAEDDisplayEl.innerText = ptsAED;
 
                 if (menuBtn) {
                     menuBtn.classList.remove('hidden');
@@ -1098,7 +1143,7 @@
                 }
 
                 renderSavedCardsDropdown();
-                fetchUserData();
+                fetchUserData(); // جلب ورسم البطاقات من الـ API الفعلي
             } else {
                 if (btnReg) btnReg.style.display = 'inline-block';
                 if (userDropdownContainer) userDropdownContainer.style.display = 'none';
@@ -1368,45 +1413,117 @@
             } catch(err) { resultDiv.innerHTML = `<div style="background: rgba(255,89,94,0.1); color: var(--accent-coral); padding: 15px; border-radius: 12px; text-align: center; font-weight: bold;">❌ خطأ في الاتصال بالخادم.</div>`; }
         }
 
+        // 🌟 دالة جلب بيانات المستخدم المحدثة ببطاقات الحجز الحركية المتجاوبة (API)
         async function fetchUserData() {
-            if(currentUser) {
-                try {
-                    const res = await fetch(`${API_URL}/api/user/profile?email=${encodeURIComponent(currentUser.email)}`);
-                    const data = await res.json();
-                    if(data.success) {
-                        currentUser.points = data.profile.points;
-                        currentUser.savedCards = data.profile.savedCards;
-                        localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
-                        checkUserSession();
+            if(!currentUser) return;
+            
+            const bookingsContainer = document.getElementById('bookingsContainer');
+            if (!bookingsContainer) return;
+            
+            // حالة التحميل (Loading Spinner)
+            bookingsContainer.innerHTML = `
+                <div class="flex justify-center items-center py-12">
+                    <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-teal-500"></div>
+                    <span class="mr-3 text-gray-500 font-medium">جاري تحديث سجل الحجوزات...</span>
+                </div>`;
 
-                        const bookingsContainer = document.getElementById('dashBookingsList');
-                        if (!bookingsContainer) return;
-                        bookingsContainer.innerHTML = '';
-                        
-                        if(data.bookings.length === 0) {
-                            bookingsContainer.innerHTML = `<div style="background:#f8f9fa; padding:15px; border-radius:10px; text-align:center;">لا توجد حجوزات مسجلة حالياً.</div>`;
-                        } else {
-                            data.bookings.forEach(b => {
-                                let isCancelled = b.status === 'cancelled';
-                                bookingsContainer.innerHTML += `
-                                    <div style="background: #fdfdfe; border: 2px solid #e2e8f0; padding: 18px; border-radius: 14px; margin-bottom: 12px; display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 10px;">
-                                        <div>
-                                            <strong style="font-size: 16px; color: var(--primary);">${b.hotelName}</strong><br>
-                                            <small style="color:var(--text-muted);">رقم المرجع: <span style="color:var(--accent-coral); font-weight:bold;">${b.bookingReference}</span> | الإجمالي: ${b.price} AED</small><br>
-                                            <small style="color:#0077b6;">${b.cancellationPolicy}</small>
-                                        </div>
-                                        <div style="display: flex; gap: 8px; align-items: center; flex-wrap:wrap;">
-                                            <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" style="background: var(--accent-cyan); color: white; padding:5px 12px; border-radius:8px; text-decoration:none; font-weight:bold; font-size:12px;">📄 PDF</a>
-                                            <button onclick="resendVoucherEmail('${b.bookingReference}', '${b.email}')" style="background: #7209b7; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;"><i class="fa-solid fa-paper-plane"></i> إعادة إرسال</button>
-                                            ${!isCancelled ? `<button onclick="modifyBookingPrompt('${b.bookingReference}', '${b.customerName}', '${b.phone || ''}')" style="background: #e09f3e; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">تعديل ✏️</button>` : ''}
-                                            ${!isCancelled ? `<button onclick="cancelBookingAPI('${b.bookingReference}')" style="background: #ff595e; color: white; border:none; padding:5px 12px; border-radius:8px; font-weight:bold; cursor:pointer; font-size:12px;">إلغاء واسترداد تلقائي ❌</button>` : `<span style="color:#ff595e; font-weight:bold; font-size:12px;">ملغي ومسترد عبر الكرت ⚠️</span>`}
-                                        </div>
-                                    </div>
-                                `;
-                            });
-                        }
+            try {
+                // الاتصال الحقيقي بالسيرفر (API)
+                const res = await fetch(`${API_URL}/api/user/profile?email=${encodeURIComponent(currentUser.email)}`);
+                const data = await res.json();
+                
+                if(data.success) {
+                    // تحديث بيانات المستخدم في النظام
+                    currentUser.points = data.profile.points;
+                    currentUser.savedCards = data.profile.savedCards;
+                    localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+                    
+                    // تحديث الإحصائيات الفوقية ديناميكياً
+                    let pts = currentUser.points || 500;
+                    let ptsAED = (pts / 10).toFixed(2);
+                    
+                    const dashPointsDisplayEl = document.getElementById('dashPointsDisplay');
+                    if (dashPointsDisplayEl) dashPointsDisplayEl.innerText = pts;
+
+                    const dashPointsAEDDisplayEl = document.getElementById('dashPointsAEDDisplay');
+                    if (dashPointsAEDDisplayEl) dashPointsAEDDisplayEl.innerText = ptsAED;
+                    
+                    // التأكد من وجود حجوزات
+                    if(!data.bookings || data.bookings.length === 0) {
+                        bookingsContainer.innerHTML = `
+                            <div class="text-center py-12 text-gray-500 bg-gray-50 rounded-2xl border border-dashed border-gray-300">
+                                <span class="text-4xl block mb-3">🧳</span>
+                                لا توجد حجوزات حالياً. ابدأ مغامرتك القادمة الآن!
+                            </div>`;
+                        return;
                     }
-                } catch(e) { console.error('خطأ في جلب بيانات الملف الشخصي'); }
+
+                    let cardsHTML = '';
+
+                    // رسم البطاقات التفاعلية الجديدة
+                    data.bookings.forEach((booking, index) => {
+                        let isConfirmed = booking.status !== 'cancelled';
+                        
+                        // شارة الحالة العلوية
+                        const badgeHTML = isConfirmed 
+                            ? `<div class="absolute top-4 left-4 bg-green-100/80 backdrop-blur-sm border border-green-200 text-green-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm z-10"><span>✅</span> مؤكد</div>`
+                            : `<div class="absolute top-4 left-4 bg-red-100/80 backdrop-blur-sm border border-red-200 text-red-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm z-10"><span>❌</span> ملغي ومسترد</div>`;
+
+                        // حركة تتابعية بناءً على الـ index
+                        const animationDelay = index * 100;
+
+                        cardsHTML += `
+                            <div class="bg-white border border-gray-100 rounded-2xl p-5 mb-5 relative hover:shadow-lg hover:border-teal-100 transition-all duration-300 animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                                ${badgeHTML}
+                                
+                                <div class="pr-2 mb-5 mt-6 sm:mt-0">
+                                    <h4 class="font-bold text-gray-800 text-lg mb-1 sm:ml-24 leading-tight">🏨 ${booking.hotelName}</h4>
+                                    <p class="text-gray-500 text-sm mb-1">${booking.roomType || 'غرفة فندقية'}</p>
+                                    <p class="text-gray-400 text-xs mt-2 font-medium tracking-wide">رقم المرجع: <span class="text-gray-600">${booking.bookingReference}</span> <span class="mx-1 text-gray-300">|</span> الإجمالي: <span class="text-gray-600">${booking.price} AED</span></p>
+                                    <p class="${isConfirmed ? 'text-teal-600' : 'text-red-500'} text-xs mt-1.5 font-medium">${booking.cancellationPolicy || ''}</p>
+                                </div>
+
+                                <!-- هندسة الأزرار والتسلسل البصري -->
+                                <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t border-gray-50/80 bg-gray-50/30 -mx-5 -mb-5 p-4 rounded-b-2xl">
+                                    <!-- Primary: تحميل القسيمة -->
+                                    <a href="${API_URL}/api/bookings/pdf/${booking.bookingReference}" target="_blank" class="bg-teal-500 hover:bg-teal-600 text-white px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors shadow-sm hover:shadow active:scale-95 text-decoration-none">
+                                        📄 تحميل PDF
+                                    </a>
+                                    
+                                    <!-- Secondary: إعادة الإرسال -->
+                                    <button onclick="resendVoucherEmail('${booking.bookingReference}', '${booking.email || currentUser.email}')" class="border border-red-900 text-red-900 hover:bg-red-50 px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors active:scale-95">
+                                        📤 إعادة إرسال
+                                    </button>
+                                    
+                                    ${isConfirmed ? `
+                                    <!-- Secondary: التعديل -->
+                                    <button onclick="modifyBookingPrompt('${booking.bookingReference}', '${booking.customerName}', '${booking.phone || ''}')" class="border border-gray-300 text-gray-700 hover:bg-gray-100 px-5 py-2 rounded-xl text-sm font-bold flex items-center gap-2 transition-colors active:scale-95">
+                                        ✏️ تعديل
+                                    </button>
+                                    
+                                    <!-- Tertiary: الإلغاء -->
+                                    <button onclick="cancelBookingAPI('${booking.bookingReference}')" class="text-red-500 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-xl text-sm font-bold flex items-center gap-2 mr-auto transition-colors active:scale-95">
+                                        ❌ إلغاء واسترداد تلقائي
+                                    </button>
+                                    ` : ''}
+                                </div>
+                            </div>
+                        `;
+                    });
+
+                    bookingsContainer.innerHTML = cardsHTML;
+                } else {
+                     bookingsContainer.innerHTML = `
+                        <div class="text-center py-6 text-red-500 bg-red-50 rounded-xl font-medium border border-red-100">
+                            حدث خطأ أثناء جلب البيانات: ${data.error || 'يرجى المحاولة لاحقاً.'}
+                        </div>`;
+                }
+            } catch(e) { 
+                console.error('خطأ في جلب بيانات الحجوزات', e);
+                bookingsContainer.innerHTML = `
+                    <div class="text-center py-6 text-red-500 bg-red-50 rounded-xl font-medium border border-red-100">
+                        حدث خطأ غير متوقع في الاتصال بالسيرفر. يرجى المحاولة لاحقاً.
+                    </div>`;
             }
         }
 
