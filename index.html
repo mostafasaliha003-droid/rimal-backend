@@ -75,6 +75,25 @@
         }
         .nav-btn.account-btn { background: var(--accent-coral); color: white; border-color: #d90429; box-shadow: 0 4px 0 #d90429; }
 
+        /* 🌟 القائمة المنسدلة لحساب المستخدم الاحترافية */
+        .user-dropdown-container { position: relative; display: inline-block; }
+        .user-menu-btn {
+            background: var(--accent-coral); color: white; border: 2px solid #d90429;
+            padding: 8px 16px; border-radius: 14px; font-size: 13px; font-weight: 900; cursor: pointer;
+            display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 0 #d90429;
+        }
+        .user-dropdown-content {
+            display: none; position: absolute; right: 0; background-color: #ffffff; min-width: 250px;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2); border-radius: 16px; z-index: 2000; overflow: hidden;
+            border: 3px solid var(--accent-yellow); text-align: right;
+        }
+        .user-dropdown-content a, .user-dropdown-content div.dropdown-header {
+            color: var(--primary); padding: 12px 16px; text-decoration: none; display: block; font-size: 13px; font-weight: 800; cursor: pointer;
+        }
+        .user-dropdown-content div.dropdown-header { background: #f8f9fa; border-bottom: 2px solid #e9ecef; color: var(--accent-purple); line-height: 1.5; }
+        .user-dropdown-content a:hover { background-color: #f1f5f9; color: var(--accent-coral); }
+        .user-dropdown-container:hover .user-dropdown-content { display: block; }
+
         .settings-dropdown {
             background: rgba(255, 255, 255, 0.1); padding: 6px 12px; border-radius: 14px; font-size: 13px; font-weight: 800; color: white;
             border: 2px solid var(--accent-cyan); display: flex; align-items: center; gap: 6px; cursor: pointer;
@@ -210,9 +229,7 @@
     </div>
 
     <header>
-        <!-- 🌴 الهوية المرحة والشبابية: رمال وفلّها! | Remal & Chill -->
         <a class="brand-logo-container" onclick="switchView('mainView')" style="text-decoration: none; display: flex; align-items: center; gap: 12px; cursor: pointer;">
-            <!-- 🚀 استخدام ملف logo.jpg مع تنسيق خلفية بيضاء نقية وبارزة -->
             <img src="logo.jpg" alt="Remal & Chill Logo" style="height: 48px; object-fit: contain; border-radius: 10px; background: #ffffff; padding: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.25);">
             <div>
                 <div style="font-size: 18px; font-weight: 900; color: var(--white);">رمال وفلّها! <span class="wave-emoji">🌴</span></div>
@@ -241,7 +258,25 @@
             </div>
 
             <button class="nav-btn" onclick="switchView('lookupView')"><i class="fa-solid fa-search"></i> تتبع حجز سريع</button>
+            <button class="nav-btn" id="bookingsNavBtn" onclick="switchView('registerView')" style="display:none;"><i class="fa-solid fa-suitcase-rolling"></i> حجوزاتي</button>
             <button class="nav-btn account-btn" id="regBtnText" onclick="handleAccountBtnClick()"><i class="fa-solid fa-user-plus"></i> افتح حساب / دخول</button>
+
+            <!-- 🌟 قائمة اسم المستخدم المنسدلة والاحترافية -->
+            <div class="user-dropdown-container" id="userDropdownContainer" style="display:none;">
+                <button class="user-menu-btn">
+                    <i class="fa-solid fa-user-circle"></i> <span id="headerUserName">أهلاً</span> <i class="fa-solid fa-chevron-down" style="font-size: 10px;"></i>
+                </button>
+                <div class="user-dropdown-content">
+                    <div class="dropdown-header">
+                        💰 رصيد حصالتك:<br>
+                        <strong><span id="dropdownPoints">500</span> نقطة</strong> (<span id="dropdownPointsAED">50.00</span> AED)
+                    </div>
+                    <a onclick="openEditEmailModal()"><i class="fa-solid fa-envelope"></i> تعديل البريد الإلكتروني</a>
+                    <a onclick="openEditPasswordModal()"><i class="fa-solid fa-key"></i> تغيير كلمة المرور</a>
+                    <a onclick="openSavedCardsModal()"><i class="fa-solid fa-credit-card"></i> البطاقات البنكية المحفوظة</a>
+                    <a onclick="logoutUser()" style="color: var(--accent-coral); border-top: 1px solid #e9ecef;"><i class="fa-solid fa-right-from-bracket"></i> تسجيل خروج</a>
+                </div>
+            </div>
 
             <div class="wallet-card">
                 <i class="fa-solid fa-piggy-bank" style="color: var(--accent-yellow); font-size: 24px;"></i>
@@ -256,21 +291,17 @@
     <div id="mainView" class="view-section active">
         <section class="hero">
             <h1 id="heroTitle">عروض فنادق تخلّيك تفكّر تسحب على الدوام! 🏝️💸</h1>
-            <p id="heroSubtitle" style="font-size: 20px; font-weight: 900; color: var(--accent-yellow); margin-top: 8px;">
-                ✨ احجز، فلّها، واكسب! ✈️
-            </p>
+            <p id="heroSubtitle" style="font-size: 20px; font-weight: 900; color: var(--accent-yellow); margin-top: 8px;">✨ احجز، فلّها، واكسب! ✈️</p>
             <p style="font-size: 14px; color: #caf0f8; margin-top: 5px;">منصة ذكية تضبطك بأقوى خصومات الفنادق وتعبي حسابك نقاط كاش باك.. لأن سفرك معنا لازم يكون مكسب ومتعة! 🏝️💰✨</p>
         </section>
 
-        <!-- محرك البحث المتقدم (مع دعم المناطق الجغرافية والوجهات) -->
+        <!-- محرك البحث المتقدم -->
         <div class="search-container">
             <div class="search-field">
                 <i class="fa-solid fa-map-location-dot" style="color: var(--accent-coral);"></i>
                 <div class="field-content">
                     <label>الوجهة أو المنطقة الجغرافية</label>
-                    <select id="destinationSelect">
-                        <option value="DXB">دبي (المدينة بالكامل) 🏙️</option>
-                    </select>
+                    <select id="destinationSelect"><option value="DXB">دبي (المدينة بالكامل) 🏙️</option></select>
                 </div>
             </div>
             <div class="search-field">
@@ -296,27 +327,19 @@
             </div>
             <div class="search-field">
                 <i class="fa-solid fa-user-group" style="color: var(--accent-coral);"></i>
-                <div class="field-content">
-                    <label>البالغين</label>
-                    <input type="number" id="adultsInput" min="1" max="10" value="2">
-                </div>
+                <div class="field-content"><label>البالغين</label><input type="number" id="adultsInput" min="1" max="10" value="2"></div>
             </div>
             <div class="search-field">
                 <i class="fa-solid fa-child" style="color: var(--accent-coral);"></i>
-                <div class="field-content">
-                    <label>الأطفال</label>
-                    <input type="number" id="childrenInput" min="0" max="5" value="0" onchange="renderChildAges()">
-                </div>
+                <div class="field-content"><label>الأطفال</label><input type="number" id="childrenInput" min="0" max="5" value="0" onchange="renderChildAges()"></div>
             </div>
             <div class="search-field" style="background: transparent; border: none; padding: 0;">
                 <button onclick="searchLiveHotels()" id="searchBtnText" style="background: linear-gradient(135deg, var(--accent-purple), var(--primary)); color: white; border: none; border-radius: 14px; font-weight: 900; cursor: pointer; height: 60px; width: 100%;">ابحث ذكي 🚀</button>
             </div>
         </div>
 
-        <!-- خانة لتوليد حقول أعمار الأطفال ديناميكياً -->
         <div class="container" id="childAgesContainer" style="display:none; margin-top:-15px; background:white; padding:15px; border-radius:16px; border:2px dashed var(--accent-cyan);"></div>
 
-        <!-- فلترة الوجبات (Board Basis) -->
         <div class="container" style="text-align: center; margin-top: -10px;">
             <div style="display:inline-flex; gap:10px; background:white; padding:10px 20px; border-radius:16px; border:2px solid var(--accent-cyan); flex-wrap: wrap; justify-content: center;">
                 <div>
@@ -374,7 +397,6 @@
         <div class="container" style="max-width: 1000px; margin-top: 30px;">
             <button onclick="switchView('mainView')" style="margin-bottom: 20px; background: white; border: 3px solid #e2e8f0; color: var(--primary); padding: 10px 20px; border-radius: 12px; font-weight: 900; cursor: pointer; transition: 0.3s;"><i class="fa-solid fa-arrow-right"></i> رجوع لقائمة الفنادق</button>
             
-            <!-- 🌟 قسم تقييمات الفندق والتعليقات -->
             <div style="background: white; padding: 25px; border-radius: 20px; margin-bottom: 25px; box-shadow: var(--shadow); border: 2px solid var(--accent-yellow);">
                 <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; flex-wrap: wrap; gap: 10px;">
                     <h3 style="color: var(--primary); font-weight: 900;"><i class="fa-solid fa-star" style="color: var(--accent-yellow);"></i> تقييمات وآراء العملاء الحقيقية</h3>
@@ -418,6 +440,12 @@
                         <label>طريقة الدفع:</label>
                         <div class="payment-methods" id="paymentMethodsContainer">
                             <label class="pay-option selected" onclick="selectPayment('visa', this)"><input type="radio" name="payMethod" value="visa" checked> 💳 دفع إلكتروني (Ziina)</label>
+                        </div>
+                        <div id="savedCardsPaymentSection" style="margin-top: 12px; display:none;">
+                            <label style="font-size: 12px; font-weight: bold; color: var(--accent-purple);">أو استخدم بطاقة محفوظة:</label>
+                            <select id="savedCardsSelect" class="form-control" onchange="fillSavedCard(this)" style="padding: 10px; border-radius: 10px; border: 2px solid var(--accent-cyan); width:100%; font-family:'Cairo'; font-weight:bold;">
+                                <option value="">-- اختر بطاقة محفوظة --</option>
+                            </select>
                         </div>
                     </div>
 
@@ -472,7 +500,7 @@
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 25px;">
                     <div style="background: rgba(255, 202, 58, 0.2); padding: 20px; border-radius: 16px; border: 2px dashed var(--accent-yellow);">
                         <h4>💰 حصالة حسابك الدائمة</h4>
-                        <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة</p>
+                        <p style="font-size: 24px; font-weight: 900; color: var(--primary); margin-top: 5px;"><span id="dashPoints">500</span> نقطة (<span id="dashPointsAED">50.00</span> AED)</p>
                     </div>
                     <div style="background: rgba(114, 9, 183, 0.1); padding: 20px; border-radius: 16px; border: 2px solid var(--accent-purple);">
                         <h4 style="color: var(--accent-purple);">😎 جاهز تسحب على الدوام؟</h4>
@@ -515,6 +543,54 @@
                 </form>
             </div>
             <button type="button" onclick="closeAuthModal()" style="margin-top:15px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
+        </div>
+    </div>
+
+    <!-- 🌟 نافذة تعديل البريد الإلكتروني (مع OTP) -->
+    <div id="editEmailModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 420px;">
+            <h3 style="color: var(--primary); margin-bottom: 15px;">تعديل البريد الإلكتروني ✉️</h3>
+            <div id="emailStep1">
+                <div class="form-group" style="text-align:right;"><label>البريد الجديد:</label><input type="email" id="newEmailInput" required placeholder="new@example.com"></div>
+                <button type="button" class="btn-book" onclick="requestEmailChangeOTP()">إرسال كود التحقق للبريد الجديد 🚀</button>
+            </div>
+            <div id="emailStep2" style="display:none;">
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">أدخل كود التحقق (OTP) المرسل لبريدك الجديد:</p>
+                <div class="form-group" style="text-align:right;"><label>كود التحقق:</label><input type="text" id="emailOtpInput" required placeholder="123456"></div>
+                <button type="button" class="btn-book" onclick="verifyAndChangeEmail()">تأكيد وتغيير البريد ✅</button>
+            </div>
+            <button type="button" onclick="closeEditEmailModal()" style="margin-top:12px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
+        </div>
+    </div>
+
+    <!-- 🌟 نافذة تغيير كلمة المرور (مع OTP) -->
+    <div id="editPasswordModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 420px;">
+            <h3 style="color: var(--primary); margin-bottom: 15px;">تغيير كلمة المرور 🔑</h3>
+            <div id="passStep1">
+                <p style="font-size:12px; color:var(--text-muted); margin-bottom:10px;">سنرسل كود تحقق (OTP) إلى بريدك المسجل لإثبات هويتك:</p>
+                <button type="button" class="btn-book" onclick="requestPasswordChangeOTP()">إرسال كود التحقق للأمان 🚀</button>
+            </div>
+            <div id="passStep2" style="display:none;">
+                <div class="form-group" style="text-align:right;"><label>كود التحقق (OTP):</label><input type="text" id="passOtpInput" required placeholder="123456"></div>
+                <div class="form-group" style="text-align:right;"><label>كلمة المرور الجديدة:</label><input type="password" id="newPasswordInput" required placeholder="********"></div>
+                <button type="button" class="btn-book" onclick="verifyAndChangePassword()">تحديث كلمة المرور ✅</button>
+            </div>
+            <button type="button" onclick="closeEditPasswordModal()" style="margin-top:12px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
+        </div>
+    </div>
+
+    <!-- 🌟 نافذة البطاقات البنكية المحفوظة -->
+    <div id="savedCardsModal" class="modal-overlay">
+        <div class="modal-content" style="max-width: 480px;">
+            <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid fa-credit-card"></i> البطاقات البنكية المحفوظة 💳</h3>
+            <div id="savedCardsListContainer" style="margin-bottom: 20px; text-align: right; max-height: 180px; overflow-y: auto;"></div>
+            <hr style="margin: 15px 0; border: 0; border-top: 1px dashed #cbd5e1;">
+            <h4 style="font-size: 14px; color: var(--primary); margin-bottom: 10px; text-align: right;">إضافة بطاقة جديدة:</h4>
+            <div class="form-group" style="text-align:right;"><label>اسم حامل البطاقة:</label><input type="text" id="cardHolderName" placeholder="Mohamed Lutfi"></div>
+            <div class="form-group" style="text-align:right;"><label>رقم البطاقة (16 رقم):</label><input type="text" id="cardNumberInput" maxlength="16" placeholder="4532••••••••1234"></div>
+            <button type="button" class="btn-book" onclick="saveNewCreditCard()">حفظ البطاقة بأمان 🔒</button>
+            <button type="button" onclick="closeSavedCardsModal()" style="margin-top:12px; width:100%; padding:10px; border:none; background:#cbd5e1; border-radius:10px; font-weight:bold; cursor:pointer;">إغلاق</button>
         </div>
     </div>
 
@@ -865,24 +941,183 @@
             if (selectField) { selectField.value = lang; selectField.dispatchEvent(new Event('change')); }
         }
 
+        // 🌟 إدارة الجلسة واسم المستخدم الأول فقط + القائمة المنسدلة الاحترافية
         function checkUserSession() {
-            const btn = document.getElementById('regBtnText');
+            const btnReg = document.getElementById('regBtnText');
+            const btnBookings = document.getElementById('bookingsNavBtn');
+            const userDropdown = document.getElementById('userDropdownContainer');
+
             if (currentUser) {
-                btn.innerHTML = `<i class="fa-solid fa-user-check"></i> ${currentUser.name}`;
-                document.getElementById('userDashboard').style.display = 'block';
+                btnReg.style.display = 'none';
+                btnBookings.style.display = 'inline-block';
+                userDropdown.style.display = 'inline-block';
+
+                let firstName = currentUser.name ? currentUser.name.split(' ')[0] : 'أهلاً';
+                document.getElementById('headerUserName').innerText = firstName;
+                document.getElementById('userNameDisplay').innerText = currentUser.name;
+                
+                let pts = currentUser.points || 500;
+                let ptsAED = (pts / 10).toFixed(2);
+                document.getElementById('displayPoints').innerText = pts;
+                document.getElementById('dropdownPoints').innerText = pts;
+                document.getElementById('dropdownPointsAED').innerText = ptsAED;
+                document.getElementById('dashPoints').innerText = pts;
+
+                renderSavedCardsDropdown();
                 fetchUserData();
             } else {
-                btn.innerHTML = `<i class="fa-solid fa-user-plus"></i> افتح حساب / دخول`;
-                document.getElementById('userDashboard').style.display = 'none';
+                btnReg.style.display = 'inline-block';
+                btnBookings.style.display = 'none';
+                userDropdown.style.display = 'none';
             }
         }
 
-        function handleAccountBtnClick() { currentUser ? switchView('registerView') : openAuthModal('register'); }
+        function handleAccountBtnClick() { openAuthModal('register'); }
         function openAuthModal(mode) { document.getElementById('socialModal').style.display = 'flex'; switchTab(mode); }
         function closeAuthModal() { document.getElementById('socialModal').style.display = 'none'; }
         function closeAlternativesModal() { document.getElementById('alternativesModal').style.display = 'none'; }
         function openReviewModal() { document.getElementById('reviewModal').style.display = 'flex'; if(currentUser) { document.getElementById('reviewEmail').value = currentUser.email; document.getElementById('reviewName').value = currentUser.name; } }
         function closeReviewModal() { document.getElementById('reviewModal').style.display = 'none'; }
+
+        // الوظائف الأمنية الجديدة (تعديل الإيميل، الباسورد، وحفظ البطاقات)
+        function openEditEmailModal() { document.getElementById('editEmailModal').style.display = 'flex'; document.getElementById('emailStep1').style.display = 'block'; document.getElementById('emailStep2').style.display = 'none'; }
+        function closeEditEmailModal() { document.getElementById('editEmailModal').style.display = 'none'; }
+
+        async function requestEmailChangeOTP() {
+            const newEmail = document.getElementById('newEmailInput').value.trim();
+            if(!newEmail) return alert('الرجاء إدخال البريد الجديد');
+            const res = await fetch(`${API_URL}/api/user/request-email-change`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ currentEmail: currentUser.email, newEmail })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert('✅ ' + data.message);
+                document.getElementById('emailStep1').style.display = 'none';
+                document.getElementById('emailStep2').style.display = 'block';
+            } else { alert('❌ ' + data.error); }
+        }
+
+        async function verifyAndChangeEmail() {
+            const code = document.getElementById('emailOtpInput').value.trim();
+            const res = await fetch(`${API_URL}/api/user/confirm-email-change`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ currentEmail: currentUser.email, code })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert('✅ ' + data.message);
+                currentUser = data.user;
+                localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+                closeEditEmailModal();
+                checkUserSession();
+            } else { alert('❌ ' + data.error); }
+        }
+
+        function openEditPasswordModal() { document.getElementById('editPasswordModal').style.display = 'flex'; document.getElementById('passStep1').style.display = 'block'; document.getElementById('passStep2').style.display = 'none'; }
+        function closeEditPasswordModal() { document.getElementById('editPasswordModal').style.display = 'none'; }
+
+        async function requestPasswordChangeOTP() {
+            const res = await fetch(`${API_URL}/api/user/request-password-change`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email: currentUser.email })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert('✅ ' + data.message);
+                document.getElementById('passStep1').style.display = 'none';
+                document.getElementById('passStep2').style.display = 'block';
+            } else { alert('❌ ' + data.error); }
+        }
+
+        async function verifyAndChangePassword() {
+            const code = document.getElementById('passOtpInput').value.trim();
+            const newPassword = document.getElementById('newPasswordInput').value.trim();
+            if(!newPassword) return alert('أدخل كلمة المرور الجديدة');
+            const res = await fetch(`${API_URL}/api/user/confirm-password-change`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email: currentUser.email, code, newPassword })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert('✅ ' + data.message);
+                closeEditPasswordModal();
+            } else { alert('❌ ' + data.error); }
+        }
+
+        function openSavedCardsModal() { document.getElementById('savedCardsModal').style.display = 'flex'; renderSavedCardsList(); }
+        function closeSavedCardsModal() { document.getElementById('savedCardsModal').style.display = 'none'; }
+
+        async function saveNewCreditCard() {
+            const cardHolder = document.getElementById('cardHolderName').value.trim();
+            const cardNumber = document.getElementById('cardNumberInput').value.trim();
+            if(!cardHolder || cardNumber.length < 16) return alert('الرجاء إدخال اسم حامل البطاقة ورقم بطاقة صحيح (16 رقم)');
+            const res = await fetch(`${API_URL}/api/user/save-card`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email: currentUser.email, cardHolder, cardNumber })
+            });
+            const data = await res.json();
+            if(data.success) {
+                alert('✅ ' + data.message);
+                currentUser.savedCards = data.savedCards;
+                localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+                document.getElementById('cardHolderName').value = '';
+                document.getElementById('cardNumberInput').value = '';
+                renderSavedCardsList();
+                renderSavedCardsDropdown();
+            } else { alert('❌ ' + data.error); }
+        }
+
+        async function deleteSavedCard(cardId) {
+            if(!confirm('هل أنت متأكد من حذف هذه البطاقة؟')) return;
+            const res = await fetch(`${API_URL}/api/user/delete-card`, {
+                method: 'POST', headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ email: currentUser.email, cardId })
+            });
+            const data = await res.json();
+            if(data.success) {
+                currentUser.savedCards = data.savedCards;
+                localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
+                renderSavedCardsList();
+                renderSavedCardsDropdown();
+            } else { alert('❌ ' + data.error); }
+        }
+
+        function renderSavedCardsList() {
+            const container = document.getElementById('savedCardsListContainer');
+            container.innerHTML = '';
+            if(!currentUser.savedCards || currentUser.savedCards.length === 0) {
+                container.innerHTML = '<p style="font-size:13px; color:var(--text-muted); text-align:center;">لا توجد بطاقات محفوظة حالياً.</p>';
+                return;
+            }
+            currentUser.savedCards.forEach(card => {
+                container.innerHTML += `
+                    <div style="background:#f8f9fa; padding:10px 14px; border-radius:10px; border:1px solid #cbd5e1; margin-bottom:8px; display:flex; justify-content:space-between; align-items:center;">
+                        <div>
+                            <strong>${card.cardHolder}</strong><br>
+                            <span style="font-size:12px; color:var(--text-muted);">${card.maskedNumber}</span>
+                        </div>
+                        <button onclick="deleteSavedCard('${card._id}')" style="background:var(--accent-coral); color:white; border:none; padding:5px 10px; border-radius:6px; font-weight:bold; cursor:pointer; font-size:11px;">حذف 🗑️</button>
+                    </div>
+                `;
+            });
+        }
+
+        function renderSavedCardsDropdown() {
+            const section = document.getElementById('savedCardsPaymentSection');
+            const select = document.getElementById('savedCardsSelect');
+            select.innerHTML = '<option value="">-- اختر بطاقة محفوظة --</option>';
+            if(currentUser.savedCards && currentUser.savedCards.length > 0) {
+                section.style.display = 'block';
+                currentUser.savedCards.forEach(card => {
+                    select.innerHTML += `<option value="${card.cardToken}">${card.cardHolder} (${card.maskedNumber})</option>`;
+                });
+            } else { section.style.display = 'none'; }
+        }
+
+        function fillSavedCard(selectObj) {
+            if(selectObj.value) { alert('✅ تم اختيار البطاقة المحفوظة بنجاح للدفع السريع!'); }
+        }
 
         function switchTab(tab) {
             document.getElementById('tabLoginBtn').classList.toggle('active', tab === 'login');
@@ -984,10 +1219,9 @@
                     const data = await res.json();
                     if(data.success) {
                         currentUser.points = data.profile.points;
+                        currentUser.savedCards = data.profile.savedCards;
                         localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
-                        document.getElementById('userNameDisplay').innerText = data.profile.name;
-                        document.getElementById('dashPoints').innerText = data.profile.points;
-                        document.getElementById('displayPoints').innerText = data.profile.points;
+                        checkUserSession();
 
                         const bookingsContainer = document.getElementById('dashBookingsList');
                         bookingsContainer.innerHTML = '';
@@ -1086,7 +1320,6 @@
                 return matchesQuery && matchesCity;
             });
 
-            // 🌟 تطبيق خيارات الترتيب الاحترافي (مقارنة بأجودا)
             if (sortRadio === 'price_low') {
                 filtered.sort((a, b) => a.priceAED - b.priceAED);
             } else if (sortRadio === 'points_high') {
