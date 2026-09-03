@@ -71,7 +71,7 @@
         .action-btn.sync { background: #3a86ff; }
         .action-btn.report { background: #2a9d8f; font-size: 13px; padding: 10px 15px; }
 
-        /* تنسيق أزرار الردود الجاهزة السريعة */
+        /* تنسيق أزرار الردود السريعة */
         .quick-replies { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 10px; background: #f1f5f9; border-top: 1px solid #e2e8f0; }
         .quick-btn { background: #fff; border: 1px solid var(--accent-cyan); color: var(--primary); padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; transition: 0.2s; }
         .quick-btn:hover { background: var(--accent-cyan); color: white; }
@@ -226,6 +226,16 @@
             // الانضمام لقناة مراقبة الأدمن بمجرد فتح لوحة التحكم
             socket.emit('admin_join');
 
+            // استقبال قائمة الغرف النشطة عند الدخول
+            socket.on('active_rooms_list', (rooms) => {
+                rooms.forEach(ref => addRoomToList(ref));
+            });
+
+            // استقبال إشعار بفتح غرفة جديدة من العميل
+            socket.on('new_chat_room', (data) => {
+                addRoomToList(data.referenceCode);
+            });
+
             socket.on('receive_message', (data) => {
                 const { referenceCode, sender, message } = data;
                 if(!referenceCode) return;
@@ -235,23 +245,31 @@
                 }
                 chatHistories[referenceCode].push({ sender, message });
 
-                let roomBtn = document.getElementById(`room_btn_${referenceCode}`);
-                if(!roomBtn) {
-                    const roomsList = document.getElementById('adminRoomsList');
-                    if(roomsList.innerHTML.includes('لا توجد محادثات')) roomsList.innerHTML = '';
-                    
-                    roomsList.innerHTML += `
-                        <button id="room_btn_${referenceCode}" onclick="selectAdminChatRoom('${referenceCode}')" style="background:#fff; border:1px solid #cbd5e1; padding:10px; border-radius:8px; text-align:right; font-weight:bold; cursor:pointer; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
-                            <span>حجز: ${referenceCode}</span>
-                            <span style="background:var(--accent-coral); color:white; padding:2px 6px; border-radius:50px; font-size:10px;">جديد</span>
-                        </button>
-                    `;
-                }
+                addRoomToList(referenceCode, true);
 
                 if(activeChatRef === referenceCode) {
                     renderActiveChatMessages();
                 }
             });
+        }
+
+        function addRoomToList(referenceCode, isNewMessage = false) {
+            let roomBtn = document.getElementById(`room_btn_${referenceCode}`);
+            const roomsList = document.getElementById('adminRoomsList');
+            if(roomsList.innerHTML.includes('لا توجد محادثات')) roomsList.innerHTML = '';
+
+            if(!roomBtn) {
+                roomsList.innerHTML += `
+                    <button id="room_btn_${referenceCode}" onclick="selectAdminChatRoom('${referenceCode}')" style="background:#fff; border:1px solid #cbd5e1; padding:10px; border-radius:8px; text-align:right; font-weight:bold; cursor:pointer; font-size:12px; display:flex; justify-content:space-between; align-items:center;">
+                        <span>حجز: ${referenceCode}</span>
+                        ${isNewMessage && activeChatRef !== referenceCode ? '<span style="background:var(--accent-coral); color:white; padding:2px 6px; border-radius:50px; font-size:10px;">جديد</span>' : ''}
+                    </button>
+                `;
+            } else if(isNewMessage && activeChatRef !== referenceCode) {
+                if(!roomBtn.querySelector('span:nth-child(2)')) {
+                    roomBtn.innerHTML += `<span style="background:var(--accent-coral); color:white; padding:2px 6px; border-radius:50px; font-size:10px;">جديد</span>`;
+                }
+            }
         }
 
         function selectAdminChatRoom(referenceCode) {
