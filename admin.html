@@ -448,7 +448,7 @@
         }
 
         async function confirmCashPaymentAPI(bookingReference) {
-            if(!confirm(`هل تؤكد أن العميل قد قام بدفع قيمة الحجز (${bookingReference}) كاش في الفندق وتم استلام المبلغ؟`)) return;
+            if(!confirm(`هل تؤكد أن العميل قد قام بدفع قيمة الحجز (${bookingReference}) كاش في الفندق وتم استلاستلم المبلغ؟`)) return;
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/confirm-cash-payment`, {
                     method: 'POST',
