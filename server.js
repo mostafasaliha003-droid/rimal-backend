@@ -4,10 +4,11 @@ const nodemailer = require('nodemailer');
 const bcrypt = require('bcryptjs');
 const mongoose = require('mongoose');
 const path = require('path');
-const PDFDocument = require('pdfkit');
-const crypto = require('crypto'); // 🚀 لإنشاء التوقيع الأمني الخاص بـ Hotelbeds
-const http = require('http'); // 🚀 لدعم نظام الدردشة الفورية WebSocket
-const { Server } = require('socket.io'); // 🚀 لإدارة الاتصالات اللحظية
+const puppeteer = require('puppeteer'); // 🚀 تم استبدال PDFKit بـ Puppeteer
+const fs = require('fs'); // 🚀 لتمكين قراءة ملفات قوالب الـ HTML
+const crypto = require('crypto'); 
+const http = require('http'); 
+const { Server } = require('socket.io'); 
 
 const app = express();
 const server = http.createServer(app);
@@ -25,7 +26,7 @@ const allowedOrigins = [
     'https://www.remalbookings.com',
     'http://localhost:10000',
     'http://127.0.0.1:10000',
-    'https://rimal-api.onrender.com' // 🚀 تم إضافة هذا النطاق للسماح باختبار الدفع
+    'https://rimal-api.onrender.com' 
 ];
 
 app.use(cors({
@@ -38,7 +39,7 @@ app.use(cors({
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    credentials: true // للسماح بنقل ملفات الارتباط (Cookies)
+    credentials: true 
 }));
 
 app.use(express.static(__dirname));
@@ -84,7 +85,7 @@ const userSchema = new mongoose.Schema({
 
 const bookingSchema = new mongoose.Schema({
     bookingReference: { type: String, required: true, unique: true },
-    ziinaPaymentId: { type: String, default: '' }, // 🚀 حفظ معرف الدفع الحقيقي من Ziina
+    ziinaPaymentId: { type: String, default: '' }, 
     supplierReference: { type: String, default: 'Pending' }, 
     supplierStatus: { type: String, default: 'Pending' }, 
     email: { type: String, required: true, index: true },
@@ -114,9 +115,9 @@ const Booking = mongoose.model('Booking', bookingSchema);
 const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
-let passwordResetCodes = {}; // 🚀 تخزين أكواد استعادة كلمة المرور
-let updateEmailCodes = {};     // 🌟 تخزين أكواد تعديل الإيميل
-let updatePasswordCodes = {};  // 🌟 تخزين أكواد تغيير الباسورد
+let passwordResetCodes = {}; 
+let updateEmailCodes = {};     
+let updatePasswordCodes = {};  
 
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
@@ -125,7 +126,7 @@ const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
 let activeChatRooms = new Set();
 
 // ==========================================
-// 🚀 دوال مساعدة (Email, WhatsApp, Hotelbeds Signature, Timeout)
+// 🚀 دوال مساعدة
 // ==========================================
 async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
     const mailOptions = {
@@ -153,7 +154,6 @@ async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBu
     }
 }
 
-// 🚀 دالة إرسال الإشعارات عبر واتساب (WhatsApp Notifications API)
 async function sendWhatsAppNotification(toPhone, messageText) {
     try {
         console.log(`📱 [WhatsApp API Mock]: تم إرسال الرسالة بنجاح إلى الرقم ${toPhone}: \n${messageText}`);
@@ -164,7 +164,6 @@ async function sendWhatsAppNotification(toPhone, messageText) {
     }
 }
 
-// 🚀 دالة توليد التوقيع الأمني الخاص بـ Hotelbeds
 function generateHotelbedsSignature() {
     const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
     const secret = '3eQESu8wOA'; 
@@ -173,7 +172,6 @@ function generateHotelbedsSignature() {
     return { apiKey, signature };
 };
 
-// 🚀 دالة Fetch مع Timeout لحل مشكلة الاعتماد (60 ثانية)
 const fetchWithTimeout = async (url, options, timeout = 65000) => {
     const controller = new AbortController();
     const id = setTimeout(() => controller.abort(), timeout);
@@ -183,15 +181,13 @@ const fetchWithTimeout = async (url, options, timeout = 65000) => {
 };
 
 // ==========================================
-// 💬 نظام الدردشة الفورية (Live Chat Socket.io) للحجوزات المؤكدة
+// 💬 نظام الدردشة الفورية (Live Chat Socket.io)
 // ==========================================
 io.on('connection', (socket) => {
     console.log('💬 A user connected to chat socket:', socket.id);
 
-    // العميل يسجل دخول بالرقم المرجعي والاسم للتحقق من أن حجزه مؤكد
     socket.on('join_chat', async (data) => {
         const { referenceCode, clientName } = data;
-        
         try {
             const booking = await Booking.findOne({ 
                 bookingReference: (referenceCode || '').trim(), 
@@ -202,8 +198,6 @@ io.on('connection', (socket) => {
                 socket.join(referenceCode);
                 activeChatRooms.add(referenceCode);
                 socket.emit('chat_joined', { success: true, message: 'تم التحقق من الحجز بنجاح. أهلاً بك في دعم رمال.' });
-                
-                // إخطار الأدمن فوراً بفتح غرفة جديدة
                 io.to('admin_chat_room').emit('new_chat_room', { referenceCode, customerName: booking.customerName });
             } else {
                 socket.emit('chat_joined', { success: false, message: 'عذراً، بيانات الحجز أو الاسم غير مطابقة لحجز مؤكد.' });
@@ -213,25 +207,19 @@ io.on('connection', (socket) => {
         }
     });
 
-    // انضمام لوحة تحكم الأدمن للبث العام ومزامنة الغرف النشطة
     socket.on('admin_join', () => {
         socket.join('admin_chat_room');
         console.log('🔐 Admin joined live chat monitoring room');
-        // إرسال قائمة الغرف النشطة فوراً للأدمن
         socket.emit('active_rooms_list', Array.from(activeChatRooms));
     });
 
-    // استقبال وإعادة توجيه الرسائل بين العميل والإدارة
     socket.on('send_message', async (data) => {
         const { referenceCode, sender, message } = data;
         if(!referenceCode) return;
         
         activeChatRooms.add(referenceCode);
 
-        // توجيه الرسالة للغرفة الخاصة بالحجز
         io.to(referenceCode).emit('receive_message', { sender, message, time: new Date() });
-        
-        // بث الرسالة فوراً لجميع مشرفي لوحة التحكم المتصلين
         io.to('admin_chat_room').emit('receive_message', { referenceCode, sender, message, time: new Date() });
 
         try {
@@ -250,7 +238,6 @@ io.on('connection', (socket) => {
                     </div>
                 `;
                 await sendProfessionalEmail(ADMIN_EMAIL, `استفسار شات جديد من ${booking.customerName} - مرجع: ${booking.bookingReference}`, adminChatEmailHtml);
-                console.log(`✅ تم إرسال إشعار البريد للإدارة بنجاح عن رسالة العميل في الحجز: ${referenceCode}`);
             }
         } catch (mailErr) {
             console.error('❌ خطأ في إرسال إيميل تنبيه الشات للإدارة:', mailErr);
@@ -263,7 +250,7 @@ io.on('connection', (socket) => {
 });
 
 // ==========================================
-// 🚀 مسارات التوثيق (Auth) والمستخدم وإدارة الأمان والبطاقات
+// 🚀 مسارات التوثيق (Auth) والمستخدم
 // ==========================================
 app.get('/api/v1/health-check', async (req, res) => {
     const dbState = mongoose.connection.readyState;
@@ -333,7 +320,7 @@ app.post('/api/auth/login', async (req, res) => {
 });
 
 // ==========================================
-// 🔑 مسارات استعادة كلمة المرور (Forgot Password) وتعديل الملف والأمان
+// 🔑 مسارات استعادة كلمة المرور والأمان
 // ==========================================
 app.post('/api/auth/forgot-password-send', async (req, res) => {
     try {
@@ -374,7 +361,6 @@ app.post('/api/auth/reset-password-verify', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
-// 🌟 مسارات الأمان الإضافية (تعديل الإيميل، الباسورد، وحفظ البطاقات)
 app.post('/api/user/request-email-change', async (req, res) => {
     try {
         const { currentEmail, newEmail } = req.body;
@@ -489,9 +475,10 @@ app.post('/api/bookings/lookup', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 مسار الحجز والدفع الفعلي مع Hotelbeds (Booking API)
+// 🚀 مسار الحجز والدفع الفعلي مع (Puppeteer & HTML Templates)
 // ==========================================
 app.post('/api/v1/bookings/create', async (req, res) => {
+    let browser;
     try {
         let { hotelName, customerName, email, phone, companions, paymentMethod, price, pointsUsed, refundType, rateKey, ziinaPaymentId } = req.body;
         if (!hotelName || !email || !customerName) {
@@ -571,7 +558,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             await user.save();
         }
 
-        // 📱 إشعار واتساب فوري للعميل
         if (phone) {
             await sendWhatsAppNotification(
                 phone,
@@ -579,52 +565,49 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             );
         }
 
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
-        let buffers = [];
-        doc.on('data', chunk => buffers.push(chunk));
-        doc.on('end', async () => {
-            let pdfBuffer = Buffer.concat(buffers);
-            try {
-                await sendProfessionalEmail(
-                    email,
-                    `تأكيد حجزك الفندقي المؤكد في ${hotelName} - شركة الرمال الدولية ✈️`,
-                    `<div dir="rtl" style="font-family:Arial, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
-                        <h2 style="color:#1f3a40;">مرحباً بك يا بطل، ${customerName}! ✈️</h2>
-                        <p>تم تثبيت وتأكيد حجزك الفندقي بنجاح بعد إتمام الدفع عبر منصة <b>شركة الرمال الدولية (remalbookings.com)</b>.</p>
-                        <hr style="border:0; border-top:1px solid #ddd; margin:15px 0;">
-                        <p><b>رقم المرجع:</b> ${bookingReference}</p>
-                        <p><b>الفندق / الشريك:</b> ${hotelName}</p>
-                        <p><b>الإجمالي المدفوع:</b> ${finalPrice} AED</p>
-                        <p><b>سياسة الاسترداد:</b> ${policyText}</p>
-                        <p style="color:#0077b6; margin-top:20px;">تجد تفاصيل قسيمة الحجز الرسمية (PDF) مرفقة مع هذه الرسالة.</p>
-                    </div>`,
-                    pdfBuffer,
-                    `Rimal-Voucher-${bookingReference}.pdf`
-                );
-            } catch (mailErr) { console.error(mailErr); }
+        // --- التوليد الجديد للـ PDF باستخدام Puppeteer ---
+        let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
+        let emailHtml = fs.readFileSync(path.join(__dirname, 'email-template.html'), 'utf8');
+
+        voucherHtml = voucherHtml
+            .replace(/{{bookingReference}}/g, bookingReference)
+            .replace('{{customerName}}', customerName || 'N/A')
+            .replace('{{customerPhone}}', phone || 'N/A')
+            .replace('{{customerEmail}}', email || 'N/A')
+            .replace('{{hotelName}}', hotelName || 'N/A')
+            .replace('{{roomBed}}', 'سرير كينج / مزدوج')
+            .replace('{{boardType}}', 'شامل الوجبات')
+            .replace('{{price}}', finalPrice)
+            .replace('{{policyText}}', policyText);
+
+        emailHtml = emailHtml
+            .replace('{{customerName}}', (customerName || '').split(' ')[0] || 'ضيفنا الكريم')
+            .replace('{{hotelName}}', hotelName || 'N/A')
+            .replace(/{{bookingReference}}/g, bookingReference)
+            .replace('{{checkInDate}}', 'حسب الطلب')
+            .replace('{{price}}', finalPrice);
+
+        browser = await puppeteer.launch({
+            headless: "new",
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        
+        const page = await browser.newPage();
+        await page.setContent(voucherHtml, { waitUntil: 'networkidle0' });
+
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' }
         });
 
-        doc.fontSize(22).fillColor('#1f3a40').font('Helvetica-Bold').text('RIMAL INTERNATIONAL - REMALBOOKINGS.COM', { align: 'center' });
-        doc.fontSize(10).fillColor('#ff595e').font('Helvetica').text('Official Hotel Booking & Supplier Voucher ✈️', { align: 'center' });
-        
-        doc.moveDown(1.5);
-        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
-        doc.moveDown(1.5);
-
-        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${bookingReference}`);
-        doc.moveDown(0.8);
-
-        doc.fontSize(11).fillColor('#333333').font('Helvetica');
-        doc.text(`Guest Name: ${customerName || 'N/A'}`);
-        doc.text(`Hotel / Property: ${hotelName || 'N/A'}`);
-        doc.text(`Email Address: ${email || 'N/A'}`);
-        doc.text(`Phone Number: ${phone || 'N/A'}`);
-        doc.text(`Companions: ${companions || 'None'}`);
-        doc.text(`Payment Method: ${paymentMethod === 'visa' ? 'Credit Card (Paid)' : 'Pay at Hotel'}`);
-        doc.text(`Total Amount: ${finalPrice} AED`);
-        doc.text(`Cancellation Policy: ${policyText}`);
-
-        doc.end();
+        await sendProfessionalEmail(
+            email,
+            `تأكيد حجزك الفندقي المؤكد في ${hotelName} - شركة الرمال الدولية ✈️`,
+            emailHtml,
+            pdfBuffer,
+            `Rimal-Voucher-${bookingReference}.pdf`
+        );
 
         res.status(201).json({
             success: true,
@@ -642,6 +625,8 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         });
     } catch (error) {
         res.status(500).json({ success: false, error: error.message });
+    } finally {
+        if (browser) await browser.close();
     }
 });
 
@@ -712,44 +697,64 @@ app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 إعادة إرسال القسيمة (باستخدام Puppeteer)
+// ==========================================
 app.post('/api/v1/bookings/resend-email', async (req, res) => {
+    let browser;
     try {
         const { bookingReference, email } = req.body;
         const booking = await Booking.findOne({ bookingReference, email });
         if(!booking) return res.status(404).json({ success: false, error: 'الحجز غير موجود' });
 
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
-        let buffers = [];
-        doc.on('data', chunk => buffers.push(chunk));
-        doc.on('end', async () => {
-            let pdfBuffer = Buffer.concat(buffers);
-            await sendProfessionalEmail(
-                email,
-                `إعادة إرسال قسيمة الحجز المؤكد ${booking.hotelName} - شركة الرمال الدولية ✈️`,
-                `<div dir="rtl" style="font-family:Arial, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
-                    <h2 style="color:#1f3a40;">إعادة إرسال القسيمة الرسمية</h2>
-                    <p>بناءً على طلبك، تم إعادة إرسال تفاصيل حجزك في <b>${booking.hotelName}</b> برقم المرجع: <b>${booking.bookingReference}</b>.</p>
-                </div>`,
-                pdfBuffer,
-                `Rimal-Voucher-${booking.bookingReference}.pdf`
-            );
+        let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
+        let emailHtml = fs.readFileSync(path.join(__dirname, 'email-template.html'), 'utf8');
+
+        voucherHtml = voucherHtml
+            .replace(/{{bookingReference}}/g, booking.bookingReference)
+            .replace('{{customerName}}', booking.customerName || 'N/A')
+            .replace('{{customerPhone}}', booking.phone || 'N/A')
+            .replace('{{customerEmail}}', booking.email || 'N/A')
+            .replace('{{hotelName}}', booking.hotelName || 'N/A')
+            .replace('{{roomBed}}', 'سرير كينج / مزدوج')
+            .replace('{{boardType}}', 'شامل الوجبات')
+            .replace('{{price}}', booking.price)
+            .replace('{{policyText}}', booking.cancellationPolicy);
+
+        emailHtml = emailHtml
+            .replace('{{customerName}}', (booking.customerName || '').split(' ')[0] || 'ضيفنا الكريم')
+            .replace('{{hotelName}}', booking.hotelName || 'N/A')
+            .replace(/{{bookingReference}}/g, booking.bookingReference)
+            .replace('{{checkInDate}}', 'حسب الطلب')
+            .replace('{{price}}', booking.price);
+
+        browser = await puppeteer.launch({
+            headless: "new",
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        
+        const page = await browser.newPage();
+        await page.setContent(voucherHtml, { waitUntil: 'networkidle0' });
+
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' }
         });
 
-        doc.fontSize(22).fillColor('#1f3a40').font('Helvetica-Bold').text('RIMAL INTERNATIONAL', { align: 'center' });
-        doc.fontSize(10).fillColor('#ff595e').font('Helvetica').text('Resent Official Booking Voucher ✈️', { align: 'center' });
-        doc.moveDown(1.5);
-        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${booking.bookingReference}`);
-        doc.moveDown(0.8);
-        doc.fontSize(11).fillColor('#333333').font('Helvetica');
-        doc.text(`Guest Name: ${booking.customerName}`);
-        doc.text(`Hotel: ${booking.hotelName}`);
-        doc.text(`Total Amount: ${booking.price} AED`);
-        doc.text(`Policy: ${booking.cancellationPolicy}`);
-        doc.end();
+        await sendProfessionalEmail(
+            email,
+            `إعادة إرسال: قسيمة حجزك المؤكد في ${booking.hotelName} ✈️`,
+            emailHtml,
+            pdfBuffer,
+            `Rimal-Voucher-${booking.bookingReference}.pdf`
+        );
 
         res.json({ success: true, message: 'تم إعادة إرسال قسيمة الحجز إلى بريدك الإلكتروني بنجاح!' });
     } catch(e) {
         res.status(500).json({ success: false, error: e.message });
+    } finally {
+        if (browser) await browser.close();
     }
 });
 
@@ -769,7 +774,6 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
             return res.status(400).json({ success: false, error: 'الحجز ملغي مسبقاً' });
         }
 
-        // 🧮 حساب المبلغ المستحق للاسترداد بناءً على سياسة الحجز
         let refundPercentage = 0;
         let policyDescription = booking.cancellationPolicy || '';
 
@@ -785,7 +789,6 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
 
         let refundAmountAED = booking.price * refundPercentage;
 
-        // 1️⃣ إرسال طلب الإلغاء للمورد العالمي (Hotelbeds) إن وجد
         if (booking.supplierReference && booking.supplierReference !== 'Pending' && !booking.supplierReference.includes('TEST-SUPPLIER-REF')) {
             try {
                 const { apiKey, signature } = generateHotelbedsSignature();
@@ -799,11 +802,9 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
             }
         }
 
-        // تحديث حالة الحجز في السحابة
         booking.status = 'cancelled';
         await booking.save();
 
-        // 2️⃣ إرسال إيميل تفصيلي للإدارة (يتضمن تفاصيل الكرت والعميل للمتابعة الفورية)
         const adminEmailHtml = `
             <div dir="rtl" style="font-family:Cairo, sans-serif; padding:20px; background:#fff3f3; border-radius:10px; border:2px solid #ff595e;">
                 <h2 style="color:#d90429;">🚨 طلب إلغاء حجز واسترداد مالي جديد!</h2>
@@ -822,7 +823,6 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         `;
         await sendProfessionalEmail(ADMIN_EMAIL, `طلب إلغاء حجز واسترداد - مرجع: ${booking.bookingReference}`, adminEmailHtml);
 
-        // 3️⃣ إرسال إيميل تطميني للعميل بأن طلبه قيد المعالجة
         const clientEmailHtml = `
             <div dir="rtl" style="font-family:Cairo, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
                 <h2 style="color:#1f3a40;">مرحباً بك يا ${booking.customerName} ✈️</h2>
@@ -833,7 +833,6 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         `;
         await sendProfessionalEmail(booking.email, `تأكيد استلام طلب الإلغاء - شركة الرمال الدولية ✈️`, clientEmailHtml);
 
-        // إشعار فوري عبر الواتساب للعميل
         if (booking.phone) {
             await sendWhatsAppNotification(
                 booking.phone,
@@ -1067,9 +1066,6 @@ app.get('/api/v1/hotels/destinations', async (req, res) => {
     }
 });
 
-// ==========================================
-// 🚀 مسار البدائل الذكية (Alternative Rates & Hotels API)
-// ==========================================
 app.post('/api/v1/hotels/alternatives', async (req, res) => {
     try {
         const { destinationCode, checkIn, checkOut, adults } = req.body;
@@ -1116,9 +1112,6 @@ app.post('/api/v1/hotels/alternatives', async (req, res) => {
     }
 });
 
-// ==========================================
-// 🚀 مسار تصدير التقارير المالية المتقدمة للإدارة بصيغة CSV (Advanced Financial Reporting API)
-// ==========================================
 app.get('/api/v1/admin/export-financial-report', async (req, res) => {
     try {
         const bookings = await Booking.find().sort({ createdAt: -1 });
@@ -1143,9 +1136,6 @@ app.get('/api/v1/admin/export-financial-report', async (req, res) => {
     }
 });
 
-// ==========================================
-// ⭐ مسار نظام تقييمات وتعليقات العملاء (Hotel Reviews & Ratings API)
-// ==========================================
 app.post('/api/v1/reviews/create', async (req, res) => {
     try {
         const { email, customerName, hotelName, rating, comment } = req.body;
@@ -1265,39 +1255,50 @@ app.post('/api/v1/admin/update-booking-status', async (req, res) => {
     }
 });
 
+// ==========================================
+// 🚀 مسار تحميل الـ PDF مباشرة باستخدام Puppeteer
+// ==========================================
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
+    let browser;
     try {
         const booking = await Booking.findOne({ bookingReference: req.params.reference });
         if(!booking) return res.status(404).send('Booking not found');
 
-        const doc = new PDFDocument({ margin: 50, size: 'A4' });
+        let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
+
+        voucherHtml = voucherHtml
+            .replace(/{{bookingReference}}/g, booking.bookingReference)
+            .replace('{{customerName}}', booking.customerName || 'N/A')
+            .replace('{{customerPhone}}', booking.phone || 'N/A')
+            .replace('{{customerEmail}}', booking.email || 'N/A')
+            .replace('{{hotelName}}', booking.hotelName || 'N/A')
+            .replace('{{roomBed}}', booking.bed || 'سرير كينج / مزدوج')
+            .replace('{{boardType}}', booking.boardType || 'شامل الوجبات')
+            .replace('{{price}}', booking.price)
+            .replace('{{policyText}}', booking.cancellationPolicy);
+
+        browser = await puppeteer.launch({
+            headless: "new",
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+        });
+        
+        const page = await browser.newPage();
+        await page.setContent(voucherHtml, { waitUntil: 'networkidle0' });
+
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' }
+        });
+
         res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `attachment; filename=Rimal-Voucher-${booking.bookingReference}.pdf`);
-        doc.pipe(res);
+        res.setHeader('Content-Disposition', `inline; filename=Rimal-Voucher-${booking.bookingReference}.pdf`);
+        res.send(pdfBuffer);
 
-        doc.fontSize(22).fillColor('#1f3a40').font('Helvetica-Bold').text('RIMAL INTERNATIONAL', { align: 'center' });
-        doc.fontSize(10).fillColor('#ff595e').font('Helvetica').text('Official Booking Voucher ✈️', { align: 'center' });
-        doc.moveDown(1.5);
-        doc.strokeColor('#e2e8f0').lineWidth(1).moveTo(50, doc.y).lineTo(545, doc.y).stroke();
-        doc.moveDown(1.5);
-
-        doc.fontSize(14).fillColor('#0077b6').font('Helvetica-Bold').text(`Booking Reference: ${booking.bookingReference}`);
-        doc.fontSize(12).fillColor('#2a9d8f').text(`Supplier Confirmation: ${booking.supplierReference || 'N/A'}`);
-        doc.moveDown(0.8);
-
-        doc.fontSize(11).fillColor('#333333').font('Helvetica');
-        doc.text(`Guest Name: ${booking.customerName || 'N/A'}`);
-        doc.text(`Hotel / Property: ${booking.hotelName || 'N/A'}`);
-        doc.text(`Email Address: ${booking.email || 'N/A'}`);
-        doc.text(`Phone Number: ${booking.phone || 'N/A'}`);
-        doc.text(`Companions: ${booking.companions || 'None'}`);
-        doc.text(`Payment Method: ${booking.paymentMethod === 'visa' ? 'Credit Card (Paid)' : 'Pay at Hotel'}`);
-        doc.text(`Total Amount: ${booking.price} AED`);
-        doc.text(`Cancellation Policy: ${booking.cancellationPolicy}`);
-
-        doc.end();
     } catch (e) { 
         res.status(500).send('Error generating PDF'); 
+    } finally {
+        if (browser) await browser.close();
     }
 });
 
