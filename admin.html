@@ -70,6 +70,11 @@
         .action-btn.cash { background: #e09f3e; }
         .action-btn.sync { background: #3a86ff; }
         .action-btn.report { background: #2a9d8f; font-size: 13px; padding: 10px 15px; }
+
+        /* تنسيق أزرار الردود الجاهزة السريعة */
+        .quick-replies { display: flex; gap: 6px; flex-wrap: wrap; padding: 8px 10px; background: #f1f5f9; border-top: 1px solid #e2e8f0; }
+        .quick-btn { background: #fff; border: 1px solid var(--accent-cyan); color: var(--primary); padding: 5px 10px; border-radius: 8px; font-size: 11px; font-weight: 800; cursor: pointer; transition: 0.2s; }
+        .quick-btn:hover { background: var(--accent-cyan); color: white; }
     </style>
 </head>
 <body>
@@ -126,7 +131,7 @@
             <!-- 💬 قسم إدارة المحادثات الحية (Admin Live Chat Dashboard) -->
             <div class="table-card" style="border-color: #3b1c58;">
                 <h3 style="color: var(--primary); margin-bottom: 15px;"><i class="fa-solid fa-comments" style="color: #3b1c58;"></i> لوحة تحكم الدردشة الحية مع العملاء المؤكدين 💬</h3>
-                <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; min-height: 350px;">
+                <div style="display: grid; grid-template-columns: 280px 1fr; gap: 20px; min-height: 380px;">
                     <!-- قائمة الغرف/العملاء النشطين -->
                     <div style="background: #f8f9fa; border-radius: 14px; padding: 12px; border: 2px solid #e2e8f0; display: flex; flex-direction: column;">
                         <h4 style="font-size: 13px; color: var(--primary); margin-bottom: 10px; font-weight: 900;">الغرف النشطة (برقم الحجز):</h4>
@@ -139,7 +144,17 @@
                         <div id="adminChatHeader" style="background: #3b1c58; color: white; padding: 12px; font-size: 13px; font-weight: bold;">
                             اختر محادثة من القائمة للبدء بالرد على العميل...
                         </div>
-                        <div id="adminChatMessages" style="flex: 1; padding: 15px; overflow-y: auto; background: #fdfdfe; font-size: 13px; display: flex; flex-direction: column; gap: 8px; min-height: 220px;"></div>
+                        <div id="adminChatMessages" style="flex: 1; padding: 15px; overflow-y: auto; background: #fdfdfe; font-size: 13px; display: flex; flex-direction: column; gap: 8px; min-height: 200px;"></div>
+                        
+                        <!-- 🌟 شريط الردود السريعة الاحترافية والمرحة -->
+                        <div class="quick-replies">
+                            <span style="font-size: 10px; font-weight: 900; color: var(--primary); align-self: center;">ردود سريعة:</span>
+                            <button class="quick-btn" onclick="sendQuickReply('أهلًا بك يا بطل! 🌴 جاري إرسال فريق التحقيق السريع (وفريقنا الألماسـي) للضغط على إدارة الفندق وحل موضوعك فوراً.. دقائق ونكون عندك بالخبر اليقين! 🕵️‍♂️✨')">🏨 جاري مراجعة الفندق</button>
+                            <button class="quick-btn" onclick="sendQuickReply('صبرك علينا ذهب يا غالي! 💛 نشكر طول بالك ورواقك.. حنا شغالين على الموضوع بكل طاقاتنا عشان نضبطك بأحسن صورة وما نخلي خاطرك إلا طيب. ✈️🍹')">☕ شكراً لصبرك</button>
+                            <button class="quick-btn" onclick="sendQuickReply('وصلت الإفادة! 📋 تشيكنا على السستم العالمي وكل أمورك بالسليم.. قسيمة الحجز والـ PDF جاهزة وتنبسق لها العين، راجع إيميلك الحين بتلقاها منورة هناك! 📄🚀')">📄 تشيكنا (شيك إيميلك)</button>
+                            <button class="quick-btn" onclick="sendQuickReply('تدلل علينا! خدمتكم عهد ووناسة.. نتمنى لك إقامة تسحب فيها على الدوام بكل راحة وبدون كلافة! لو احتجت أي شي ثانِ حنا بالخدمة 24/7. 🏝️✨')">✨ رحلة سعيدة وفلّها</button>
+                        </div>
+
                         <div style="padding: 10px; border-top: 1px solid #e2e8f0; display: flex; gap: 8px; background: #f8f9fa;">
                             <input type="text" id="adminMsgInput" placeholder="اكتب رد الإدارة للعميل..." onkeypress="handleAdminKeyPress(event)" style="flex: 1; padding: 8px; border: 1px solid #cbd5e1; border-radius: 8px; font-family: 'Cairo'; outline: none;">
                             <button onclick="sendAdminMessage()" style="background: #3b1c58; color: white; border: none; padding: 8px 18px; border-radius: 8px; font-weight: bold; cursor: pointer;">إرسال</button>
@@ -282,6 +297,15 @@
 
         function handleAdminKeyPress(e) {
             if(e.key === 'Enter') sendAdminMessage();
+        }
+
+        function sendQuickReply(text) {
+            if(!activeChatRef) {
+                alert('الرجاء اختيار غرفة محادثة من القائمة أولاً.');
+                return;
+            }
+            document.getElementById('adminMsgInput').value = text;
+            sendAdminMessage();
         }
 
         function sendAdminMessage() {
@@ -448,7 +472,7 @@
         }
 
         async function confirmCashPaymentAPI(bookingReference) {
-            if(!confirm(`هل تؤكد أن العميل قد قام بدفع قيمة الحجز (${bookingReference}) كاش في الفندق وتم استلاستلم المبلغ؟`)) return;
+            if(!confirm(`هل تؤكد أن العميل قد قام بدفع قيمة الحجز (${bookingReference}) كاش في الفندق وتم استلام المبلغ؟`)) return;
             try {
                 const res = await fetch(`${API_URL}/api/v1/bookings/confirm-cash-payment`, {
                     method: 'POST',
