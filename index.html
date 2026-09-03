@@ -229,14 +229,14 @@
     </div>
 
     <header>
-        <!-- 🌴 الهوية والشعار -->
-        <div style="display: flex; align-items: center; gap: 12px;">
+        <!-- 🌴 الهوية والشعار المحدث مع الأيقونة المصغرة -->
+        <a class="brand-logo-container" onclick="switchView('mainView')" style="text-decoration: none; display: flex; align-items: center; gap: 12px; cursor: pointer;">
             <img src="logo.jpg" alt="Remal & Chill Logo" style="height: 48px; object-fit: contain; border-radius: 10px; background: #ffffff; padding: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.25);">
             <div>
                 <div style="font-size: 18px; font-weight: 900; color: var(--white);">رمال وفلّها! <span class="wave-emoji">🌴</span></div>
                 <div class="brand-text-sub" style="font-size: 9px; letter-spacing: 2px; color: var(--accent-cyan); text-transform: uppercase; font-weight: 800;">Remal & Chill</div>
             </div>
-        </div>
+        </a>
 
         <div class="header-actions">
             <div class="settings-dropdown">
@@ -258,7 +258,7 @@
                 </select>
             </div>
 
-            <!-- 🌟 الزر الجديد للانتقال للصفحة الرئيسية / استكشاف الفنادق -->
+            <!-- 🌟 زر استكشاف الفنادق الاحترافي -->
             <button class="nav-btn" onclick="switchView('mainView')" style="background: var(--accent-yellow); color: var(--primary); border-color: #e09f3e; box-shadow: 0 4px 0 #e09f3e;">
                 <i class="fa-solid fa-hotel"></i> استكشاف الفنادق 🏨
             </button>
