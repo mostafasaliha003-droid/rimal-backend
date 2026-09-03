@@ -74,6 +74,11 @@ const userSchema = new mongoose.Schema({
     nationality: String,
     birthYear: Number,
     points: { type: Number, default: 500 },
+    savedCards: [{
+        cardHolder: String,
+        maskedNumber: String,
+        cardToken: String
+    }],
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -110,6 +115,8 @@ const Review = mongoose.model('Review', reviewSchema);
 
 let verificationCodes = {};
 let passwordResetCodes = {}; // 🚀 تخزين أكواد استعادة كلمة المرور
+let updateEmailCodes = {};     // 🌟 تخزين أكواد تعديل الإيميل
+let updatePasswordCodes = {};  // 🌟 تخزين أكواد تغيير الباسورد
 
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
 const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
@@ -256,7 +263,7 @@ io.on('connection', (socket) => {
 });
 
 // ==========================================
-// 🚀 مسارات التوثيق (Auth) والمستخدم
+// 🚀 مسارات التوثيق (Auth) والمستخدم وإدارة الأمان والبطاقات
 // ==========================================
 app.get('/api/v1/health-check', async (req, res) => {
     const dbState = mongoose.connection.readyState;
@@ -306,11 +313,11 @@ app.post('/api/auth/verify-and-register', async (req, res) => {
         }
         let user = await User.findOne({ email });
         if (!user) {
-            user = new User({ name: record.name, email, password: record.password, phone: record.phone, nationality: record.nationality, birthYear: record.birthYear, points: 500 });
+            user = new User({ name: record.name, email, password: record.password, phone: record.phone, nationality: record.nationality, birthYear: record.birthYear, points: 500, savedCards: [] });
             await user.save();
         }
         delete verificationCodes[email];
-        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone } });
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone, savedCards: user.savedCards } });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
@@ -321,12 +328,12 @@ app.post('/api/auth/login', async (req, res) => {
         let user = await User.findOne({ email });
         if (!user) return res.status(400).json({ success: false, error: 'البريد غير مسجل بالسحابة!' });
         if (!bcrypt.compareSync(password, user.password)) return res.status(400).json({ success: false, error: 'كلمة المرور غير صحيحة' });
-        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone } });
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone, savedCards: user.savedCards } });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 // ==========================================
-// 🔑 مسارات استعادة كلمة المرور (Forgot Password)
+// 🔑 مسارات استعادة كلمة المرور (Forgot Password) وتعديل الملف والأمان
 // ==========================================
 app.post('/api/auth/forgot-password-send', async (req, res) => {
     try {
@@ -342,39 +349,113 @@ app.post('/api/auth/forgot-password-send', async (req, res) => {
             'رمز استعادة كلمة المرور - شركة الرمال الدولية ✈️',
             `<div dir="rtl" style="font-family:Cairo; padding:25px; text-align:center; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
                 <h2 style="color:#1f3a40;">استعادة كلمة المرور</h2>
-                <p>تلقينا طلباً لإعادة تعيين كلمة المرور لحسابك في remalbookings.com. كود التحقق الخاص بك هو:</p>
+                <p>كود التحقق الخاص بك هو:</p>
                 <h1 style="color:#ff595e; font-size:38px; letter-spacing:6px; background:#fff; padding:10px; border-radius:8px; display:inline-block;">${code}</h1>
-                <p style="color:#6c757d; font-size:12px; margin-top:15px;">هذا الكود صالح لمدة 10 دقائق فقط.</p>
             </div>`
         );
-
         res.json({ success: true, message: 'تم إرسال كود التحقق إلى بريدك الإلكتروني بنجاح!' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 app.post('/api/auth/reset-password-verify', async (req, res) => {
     try {
         const email = (req.body.email || '').toLowerCase().trim();
         const { code, newPassword } = req.body;
-
         const record = passwordResetCodes[email];
         if (!record || record.code !== code || Date.now() > record.expires) {
             return res.status(400).json({ success: false, error: 'كود التحقق غير صحيح أو انتهت صلاحيته.' });
         }
-
         const user = await User.findOne({ email });
         if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود.' });
-
         user.password = bcrypt.hashSync(newPassword, 8);
         await user.save();
-
         delete passwordResetCodes[email];
-        res.json({ success: true, message: 'تم تحديث كلمة المرور بنجاح! يمكنك تسجيل الدخول الآن.' });
-    } catch (error) {
-        res.status(500).json({ success: false, error: error.message });
-    }
+        res.json({ success: true, message: 'تم تحديث كلمة المرور بنجاح!' });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// 🌟 مسارات الأمان الإضافية (تعديل الإيميل، الباسورد، وحفظ البطاقات)
+app.post('/api/user/request-email-change', async (req, res) => {
+    try {
+        const { currentEmail, newEmail } = req.body;
+        const targetEmail = (newEmail || '').toLowerCase().trim();
+        if (await User.findOne({ email: targetEmail })) return res.status(400).json({ success: false, error: 'البريد الجديد مستخدم مسبقاً!' });
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        updateEmailCodes[currentEmail] = { code, newEmail: targetEmail, expires: Date.now() + 10 * 60 * 1000 };
+        await sendProfessionalEmail(targetEmail, 'كود تأكيد تغيير البريد الإلكتروني - شركة الرمال الدولية', `<h2>رمز التحقق لتغيير بريدك هو: ${code}</h2>`);
+        res.json({ success: true, message: 'تم إرسال كود التحقق إلى بريدك الجديد!' });
+    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/user/confirm-email-change', async (req, res) => {
+    try {
+        const currentEmail = (req.body.currentEmail || '').toLowerCase().trim();
+        const { code } = req.body;
+        const record = updateEmailCodes[currentEmail];
+        if (!record || record.code !== code || Date.now() > record.expires) {
+            return res.status(400).json({ success: false, error: 'الكود غير صحيح أو انتهت صلاحيته.' });
+        }
+        let user = await User.findOne({ email: currentEmail });
+        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود.' });
+        user.email = record.newEmail;
+        await user.save();
+        delete updateEmailCodes[currentEmail];
+        res.json({ success: true, message: 'تم تحديث البريد الإلكتروني بنجاح!', user: { name: user.name, email: user.email, points: user.points, phone: user.phone, savedCards: user.savedCards } });
+    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/user/request-password-change', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود.' });
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        updatePasswordCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 };
+        await sendProfessionalEmail(email, 'كود تأكيد تغيير كلمة المرور - شركة الرمال الدولية', `<h2>رمز التحقق لتغيير كلمة المرور هو: ${code}</h2>`);
+        res.json({ success: true, message: 'تم إرسال كود التحقق إلى بريدك!' });
+    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/user/confirm-password-change', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { code, newPassword } = req.body;
+        const record = updatePasswordCodes[email];
+        if (!record || record.code !== code || Date.now() > record.expires) {
+            return res.status(400).json({ success: false, error: 'الكود غير صحيح أو انتهت صلاحيته.' });
+        }
+        let user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود.' });
+        user.password = bcrypt.hashSync(newPassword, 8);
+        await user.save();
+        delete updatePasswordCodes[email];
+        res.json({ success: true, message: 'تم تحديث كلمة المرور بنجاح!' });
+    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/user/save-card', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { cardHolder, cardNumber } = req.body;
+        let user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود.' });
+        const masked = '•••• •••• •••• ' + (cardNumber || '0000').slice(-4);
+        user.savedCards.push({ cardHolder, maskedNumber: masked, cardToken: 'tok_' + Math.random().toString(36).substring(7) });
+        await user.save();
+        res.json({ success: true, message: 'تم حفظ البطاقة بنجاح!', savedCards: user.savedCards });
+    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
+});
+
+app.post('/api/user/delete-card', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const { cardId } = req.body;
+        let user = await User.findOne({ email });
+        if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود.' });
+        user.savedCards = user.savedCards.filter(c => c._id.toString() !== cardId);
+        await user.save();
+        res.json({ success: true, message: 'تم حذف البطاقة بنجاح!', savedCards: user.savedCards });
+    } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
 
 app.get('/api/user/profile', async (req, res) => {
@@ -385,7 +466,7 @@ app.get('/api/user/profile', async (req, res) => {
         let bookings = await Booking.find({ email: email }).sort({ createdAt: -1 });
         res.json({ 
             success: true, 
-            profile: { name: user.name, email: user.email, points: user.points, pointsValueAED: (user.points / 10).toFixed(2), phone: user.phone }, 
+            profile: { name: user.name, email: user.email, points: user.points, pointsValueAED: (user.points / 10).toFixed(2), phone: user.phone, savedCards: user.savedCards }, 
             bookings 
         });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
