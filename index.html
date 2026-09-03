@@ -26,7 +26,7 @@
             --accent-coral: #ff595e;  
             --accent-yellow: #ffca3a;
             --accent-purple: #7209b7;
-            --bg-light: #f3f4f6;      
+            --bg-light: #f3f4f6; /* تم التوحيد لتطابق ثقوب التذاكر */     
             --text-main: #1f3a40;
             --text-muted: #6c757d;
             --white: #ffffff;
@@ -43,37 +43,21 @@
         /* حركات الظهور للوحة التحكم والبطاقات */
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in-up {
-            opacity: 0;
-            transform: translateY(20px);
-            animation: fadeInUp 0.5s ease-out forwards;
+            opacity: 0; transform: translateY(20px); animation: fadeInUp 0.5s ease-out forwards;
         }
 
         /* حركات النافذة المنبثقة */
-        @keyframes scaleIn {
-            from { opacity: 0; transform: scale(0.95); }
-            to { opacity: 1; transform: scale(1); }
-        }
+        @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .modal-animate { animation: scaleIn 0.3s ease-out forwards; }
-        .form-animate {
-            opacity: 0;
-            transform: translateY(10px);
-            animation: fadeInUp 0.4s ease-out forwards;
-        }
+        .form-animate { opacity: 0; transform: translateY(10px); animation: fadeInUp 0.4s ease-out forwards; }
 
         /* إخفاء سهم القائمة المنسدلة للوجبات */
-        .hide-select-arrow {
-            -webkit-appearance: none;
-            -moz-appearance: none;
-            appearance: none;
-        }
+        .hide-select-arrow { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
         
         /* 🚀 الخدعة الاحترافية لحقول التاريخ */
         input[type="date"]::-webkit-calendar-picker-indicator {
-            position: absolute;
-            top: 0; left: 0; right: 0; bottom: 0;
-            width: 100%; height: 100%;
-            color: transparent; background: transparent;
-            cursor: pointer; z-index: 10;
+            position: absolute; top: 0; left: 0; right: 0; bottom: 0;
+            width: 100%; height: 100%; color: transparent; background: transparent; cursor: pointer; z-index: 10;
         }
 
         /* شريط الحجوزات الحية الفيروسي */
@@ -90,10 +74,7 @@
         }
 
         @keyframes wave {
-            0% { transform: rotate(0deg); }
-            25% { transform: rotate(14deg); }
-            75% { transform: rotate(-14deg); }
-            100% { transform: rotate(0deg); }
+            0% { transform: rotate(0deg); } 25% { transform: rotate(14deg); } 75% { transform: rotate(-14deg); } 100% { transform: rotate(0deg); }
         }
         .wave-emoji { display: inline-block; animation: wave 1.5s infinite; }
 
@@ -106,8 +87,7 @@
         }
         .user-dropdown-content {
             display: none; position: absolute; right: 0; background-color: #ffffff; min-width: 250px;
-            box-shadow: 0 15px 35px rgba(0,0,0,0.2); border-radius: 16px; z-index: 2000; overflow: hidden;
-            border: 3px solid var(--accent-yellow); text-align: right;
+            box-shadow: 0 15px 35px rgba(0,0,0,0.2); border-radius: 16px; z-index: 2000; overflow: hidden; border: 3px solid var(--accent-yellow); text-align: right;
         }
         .user-dropdown-content a, .user-dropdown-content div.dropdown-header {
             color: var(--primary); padding: 12px 16px; text-decoration: none; display: block; font-size: 13px; font-weight: 800; cursor: pointer;
@@ -123,12 +103,9 @@
         .settings-dropdown select { background: transparent; border: none; font-weight: 900; font-family: 'Cairo'; color: white; outline: none; cursor: pointer; }
         .settings-dropdown select option { background: var(--primary); color: white; }
 
-        /* Tropical Wave Divider */
-        .custom-shape-divider-bottom {
-            position: absolute; bottom: 0; left: 0; width: 100%; overflow: hidden; line-height: 0; transform: rotate(180deg);
-        }
+        .custom-shape-divider-bottom { position: absolute; bottom: 0; left: 0; width: 100%; overflow: hidden; line-height: 0; transform: rotate(180deg); }
         .custom-shape-divider-bottom svg { position: relative; display: block; width: calc(100% + 1.3px); height: 80px; }
-        .custom-shape-divider-bottom .shape-fill { fill: #f3f4f6; }
+        .custom-shape-divider-bottom .shape-fill { fill: var(--bg-light); }
         
         .golden-glow { filter: drop-shadow(0 0 10px rgba(255, 215, 0, 0.6)); transition: all 0.3s ease; }
         .golden-glow:hover { filter: drop-shadow(0 0 15px rgba(255, 215, 0, 0.9)); transform: scale(1.05); }
@@ -159,42 +136,28 @@
 
     <!-- Header Section -->
     <header class="bg-[#111827] text-white px-4 lg:px-8 py-3 flex items-center justify-between sticky top-0 z-50 shadow-md">
-        
-        <!-- Right: Logo & Brand Name -->
         <a class="flex items-center gap-3 cursor-pointer text-decoration-none" onclick="switchView('mainView')">
-            <div class="bg-white p-1.5 rounded-lg">
-                <img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded-md object-cover bg-white p-0.5" onerror="this.src='https://via.placeholder.com/32?text=Logo'">
-            </div>
+            <div class="bg-white p-1.5 rounded-lg"><img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded-md object-cover bg-white p-0.5" onerror="this.src='https://via.placeholder.com/32?text=Logo'"></div>
             <div class="flex flex-col">
                 <span class="font-extrabold text-xl leading-none tracking-tight text-white">رمال وفلّها! <span class="wave-emoji">🌴</span></span>
                 <span class="text-[0.6rem] text-remal-turquoise tracking-[0.2em] uppercase font-bold mt-1">Remal & Chill</span>
             </div>
         </a>
 
-        <!-- Center: Interactive Icons -->
         <div class="hidden lg:flex items-center gap-6">
             <button onclick="switchView('mainView')" class="flex flex-col items-center gap-1 group cursor-pointer bg-transparent border-none">
-                <div class="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-[#00b4d8] flex items-center justify-center transition border border-slate-700">
-                    <span class="text-xl">🌴</span>
-                </div>
+                <div class="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-[#00b4d8] flex items-center justify-center transition border border-slate-700"><span class="text-xl">🌴</span></div>
                 <span class="text-xs font-semibold text-slate-300 group-hover:text-white transition">استكشاف الفنادق</span>
             </button>
-            
             <button onclick="switchView('lookupView')" class="flex flex-col items-center gap-1 group cursor-pointer bg-transparent border-none">
-                <div class="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-[#00b4d8] flex items-center justify-center transition border border-slate-700">
-                    <span class="text-xl">🔍</span>
-                </div>
+                <div class="w-10 h-10 rounded-full bg-slate-800 group-hover:bg-[#00b4d8] flex items-center justify-center transition border border-slate-700"><span class="text-xl">🔍</span></div>
                 <span class="text-xs font-semibold text-slate-300 group-hover:text-white transition">تتبع حجز سريع</span>
             </button>
-            
             <div class="flex flex-col items-center gap-1 cursor-pointer" onclick="switchView('registerView')">
-                <div class="w-12 h-12 rounded-full flex items-center justify-center golden-glow">
-                    <span class="text-3xl">💰</span>
-                </div>
+                <div class="w-12 h-12 rounded-full flex items-center justify-center golden-glow"><span class="text-3xl">💰</span></div>
             </div>
         </div>
 
-        <!-- Left: Settings & Profile Rounded Buttons -->
         <div class="flex items-center gap-3">
             <div class="settings-dropdown px-3 py-1.5 bg-slate-800 hover:bg-slate-700 border border-slate-700 rounded-full text-sm font-semibold transition flex items-center gap-2">
                 <i class="fa-solid fa-globe text-[#00b4d8]"></i>
@@ -215,13 +178,10 @@
                 </select>
             </div>
 
-            <!-- زر الدخول المتجاوب لمنع الوميض -->
             <button id="regBtnText" onclick="openAuthModal()" class="hidden bg-gradient-to-r from-[#800000] to-red-700 hover:from-red-700 hover:to-red-600 text-white px-4 md:px-5 py-2.5 rounded-full text-sm font-bold transition flex items-center gap-2 shadow-lg cursor-pointer border-none max-w-[140px] md:max-w-[200px]">
-                <i class="fa-regular fa-user"></i>
-                تسجيل الدخول
+                <i class="fa-regular fa-user"></i> تسجيل الدخول
             </button>
 
-            <!-- القائمة المنسدلة الاحترافية -->
             <div class="user-dropdown-container relative inline-block" id="userDropdownContainer" style="display:none;">
                 <button id="user-menu-btn" class="bg-gradient-to-r from-[#800000] to-red-700 text-white px-4 md:px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 cursor-pointer border-none shadow-md max-w-[140px] md:max-w-[200px]">
                     <i class="fa-regular fa-user shrink-0"></i>
@@ -249,20 +209,11 @@
         <!-- Hero Section -->
         <section class="relative bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-800 pt-20 pb-32 px-4 overflow-hidden">
             <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
-            
             <div class="relative z-10 max-w-4xl mx-auto text-center text-white">
-                <h1 id="heroTitle" class="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight drop-shadow-lg">
-                    عروض فنادق تخلّيك تفكّر <span class="text-yellow-300">تسحب على الدوام!</span> 🌴
-                </h1>
-                <p id="heroSubtitle" class="text-lg md:text-xl font-medium text-purple-200 mb-2">
-                    ✈️ احجز، فلّها، واكسب!
-                </p>
-                <p class="text-sm md:text-base text-purple-300 mb-8 max-w-2xl mx-auto">
-                    منصة ذكية تضبطك بأقوى خصومات الفنادق وتعبي حسابك نقاط كاش باك.. لأن سفرك معنا لازم يكون مكسب ومتعة! 🥂✨
-                </p>
+                <h1 id="heroTitle" class="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight drop-shadow-lg">عروض فنادق تخلّيك تفكّر <span class="text-yellow-300">تسحب على الدوام!</span> 🌴</h1>
+                <p id="heroSubtitle" class="text-lg md:text-xl font-medium text-purple-200 mb-2">✈️ احجز، فلّها، واكسب!</p>
+                <p class="text-sm md:text-base text-purple-300 mb-8 max-w-2xl mx-auto">منصة ذكية تضبطك بأقوى خصومات الفنادق وتعبي حسابك نقاط كاش باك.. لأن سفرك معنا لازم يكون مكسب ومتعة! 🥂✨</p>
             </div>
-
-            <!-- Tropical Wave Divider -->
             <div class="custom-shape-divider-bottom z-0">
                 <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
                     <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" class="shape-fill"></path>
@@ -274,7 +225,6 @@
         <section class="relative z-30 px-4 max-w-6xl mx-auto -mt-16">
             <div class="bg-white rounded-3xl shadow-[0_10px_35px_rgba(0,0,0,0.06)] border border-slate-100 p-2 md:p-3 relative z-30">
                 <div class="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100 gap-2 lg:gap-0">
-                  
                   <div class="flex-1 px-4 py-2.5 group cursor-pointer transition-colors bg-slate-50 hover:bg-slate-100 rounded-xl relative">
                     <div class="flex items-center justify-between">
                       <div class="w-full">
@@ -416,26 +366,40 @@
         </div>
     </div>
 
-    <!-- واجهة اختيار الغرف -->
-    <div id="roomSelectionView" class="view-section">
-        <section class="hero relative bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-800 pt-20 pb-20 px-4 text-white text-center border-b-[6px] border-[#ff595e]">
-            <h1 id="detailsHotelName" class="text-3xl md:text-4xl font-black mb-2">تفاصيل الغرف 🛏️</h1>
-            <p>اختر الغرفة، السرير، وخطة الوجبات وشروط الإلغاء بدقة!</p>
-        </section>
+    <!-- 🌟 واجهة اختيار الغرف (Room Details) -->
+    <div id="roomSelectionView" class="view-section pb-20">
+        <div class="bg-gradient-to-r from-[#4a2b75] to-[#3a1d5a] pt-16 pb-24 text-center px-4 relative z-0 border-b-[6px] border-[#ff595e]">
+            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center">
+              <h1 id="detailsHotelName" class="text-3xl md:text-4xl font-extrabold text-white mb-2 leading-relaxed">
+                <i class="fa-solid fa-hotel text-yellow-400 mr-2"></i>
+              </h1>
+              <p class="text-slate-200 text-sm md:text-base font-semibold">
+                اختر الغرفة، السرير، وخطة الوجبات وشروط الإلغاء بدقة!
+              </p>
+            </div>
+        </div>
         
-        <div class="container" style="max-width: 1000px; margin-top: -30px; position:relative; z-index:10;">
-            <button onclick="switchView('mainView')" class="mb-6 bg-white border border-gray-200 text-gray-800 px-6 py-2.5 rounded-xl font-bold shadow-sm hover:shadow-md transition flex items-center gap-2 cursor-pointer">
-                <i class="fa-solid fa-arrow-right"></i> رجوع لقائمة الفنادق
-            </button>
+        <div class="container max-w-4xl mx-auto px-4 sm:px-6 -mt-12 relative z-10 space-y-6">
+            <div class="flex justify-start">
+              <button onclick="switchView('mainView')" class="bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold py-2.5 px-6 rounded-xl shadow-sm border border-slate-100 flex items-center gap-2 transition-colors cursor-pointer">
+                <i class="fa-solid fa-arrow-right pointer-events-none"></i> رجوع لقائمة الفنادق
+              </button>
+            </div>
             
-            <div class="bg-white p-6 rounded-3xl mb-8 shadow-xl border border-yellow-400">
-                <div class="flex justify-between items-center mb-4 flex-wrap gap-4">
-                    <h3 class="text-[#1f3a40] font-black text-xl"><i class="fa-solid fa-star text-yellow-400"></i> تقييمات العملاء الحقيقية</h3>
-                    <button onclick="openReviewModal()" class="bg-[#00b4d8] hover:bg-cyan-600 text-white border-none px-5 py-2 rounded-xl font-bold cursor-pointer transition shadow-md">أضف تقييمك ⭐</button>
-                </div>
-                <div id="hotelReviewsContainer" class="flex flex-col gap-3">
-                    <p class="text-gray-500">جاري تحميل التقييمات...</p>
-                </div>
+            <div class="bg-white border border-yellow-200 rounded-2xl p-5 md:p-7 shadow-lg relative overflow-hidden group">
+              <button onclick="openReviewModal()" class="absolute top-5 left-5 bg-[#00b4d8] hover:bg-[#0096b4] text-white text-xs font-bold py-2 px-5 rounded-full shadow-md transition-all active:scale-95 flex items-center gap-1.5 z-10 cursor-pointer border-none">
+                أضف تقييمك <i class="fa-solid fa-star pointer-events-none text-[10px]"></i>
+              </button>
+        
+              <div class="text-center mb-6">
+                <h3 class="text-lg font-black text-slate-800 flex items-center justify-center gap-2">
+                  تقييمات العملاء الحقيقية <i class="fa-solid fa-star text-yellow-400"></i>
+                </h3>
+              </div>
+        
+              <div id="hotelReviewsContainer" class="space-y-4">
+                  <p class="text-gray-500 text-center">جاري تحميل التقييمات...</p>
+              </div>
             </div>
 
             <div id="roomsContainer"></div>
@@ -527,7 +491,7 @@
         </div>
     </div>
 
-    <!-- 🌟 لوحة تحكم العميل والحجوزات (النسخة الفاخرة) 🌟 -->
+    <!-- 🌟 لوحة تحكم العميل والحجوزات -->
     <div id="registerView" class="view-section min-h-screen bg-[#f8fafc] pb-12">
         <div class="bg-gradient-to-r from-purple-900 to-teal-500 pt-16 pb-28 px-4 text-center shadow-inner border-b-[6px] border-yellow-400 relative">
             <h1 class="text-3xl md:text-4xl font-black text-white mb-3 tracking-wide drop-shadow-md">مرحباً بك في عالمك الخاص 🌴</h1>
@@ -906,7 +870,6 @@
         ];
 
         window.onload = function() {
-            // تحديث التاريخ التلقائي في شريط البحث لتاريخ اليوم
             const checkInInput = document.getElementById('checkInDate');
             if (checkInInput) checkInInput.valueAsDate = new Date();
             
@@ -914,7 +877,6 @@
             let tomorrow = new Date(); tomorrow.setDate(new Date().getDate() + 1);
             if (checkOutInput) checkOutInput.valueAsDate = tomorrow;
 
-            // تحديث نص Select الخاص بالوجبات للوضع الافتراضي
             const mealSelect = document.getElementById('boardBasisFilter');
             if (mealSelect) updateBoardText(mealSelect);
 
@@ -1554,7 +1516,7 @@
         }
 
         async function viewHotelDetails(hotelName, basePrice, apiRooms) {
-            document.getElementById('detailsHotelName').innerText = hotelName;
+            document.getElementById('detailsHotelName').innerHTML = `<bdi dir="auto">${hotelName}</bdi>`;
             const container = document.getElementById('roomsContainer');
             if (!container) return; container.innerHTML = '';
             await fetchAndDisplayHotelReviews(hotelName);
@@ -1587,31 +1549,65 @@
             }
 
             roomsList.forEach((room, index) => {
-                let cancelClass = room.isFreeCancel ? 'bg-green-50 border-green-200' : 'bg-red-50 border-red-200';
-                let cancelIcon = room.isFreeCancel ? 'text-green-500' : 'text-red-500';
+                let cancelClass = room.isFreeCancel ? 'border-green-200 bg-green-50/50 text-green-700' : 'border-red-200 bg-red-50/50 text-red-700';
+                let cancelIcon = room.isFreeCancel ? 'fa-shield-check text-green-600' : 'fa-shield-halved text-red-600';
+                let policyTitleColor = room.isFreeCancel ? 'text-green-800' : 'text-red-800';
                 const animationDelay = index * 100;
                 
                 container.innerHTML += `
-                    <div class="bg-white border border-gray-200 rounded-3xl p-6 mb-6 flex flex-col md:flex-row justify-between items-start gap-6 hover:shadow-lg transition-all animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
-                        <div class="flex-2 w-full md:w-auto">
-                            <h4 class="text-[#1f3a40] text-xl font-black mb-3"><bdi dir="auto">${room.name}</bdi></h4>
-                            <p class="text-gray-700 font-bold mb-2 flex items-center gap-2"><i class="fa-solid fa-bed text-gray-400"></i> الأسرة: ${room.bed}</p>
-                            <p class="text-gray-700 font-bold mb-4 flex items-center gap-2"><i class="fa-solid fa-utensils text-gray-400"></i> الوجبات: <span class="text-[#00b4d8] px-2 py-0.5 bg-[#00b4d8]/10 rounded font-black">${room.board}</span></p>
-                            <div class="border ${cancelClass} p-4 rounded-2xl">
-                                <strong class="flex items-center gap-2 text-sm text-gray-800 mb-2"><i class="fa-solid fa-shield-halved ${cancelIcon}"></i> سياسة الإلغاء الدقيقة (مدمجة آلياً):</strong>
-                                <span class="font-bold text-sm text-gray-600 block whitespace-pre-line leading-relaxed">${room.policyText}</span>
+                    <div class="relative flex flex-col md:flex-row items-stretch bg-white rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_10px_40px_rgba(0,180,216,0.1)] overflow-hidden mb-6 animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                        
+                        <!-- القسم الأيمن (تفاصيل الغرفة والمرافق) -->
+                        <div class="flex-2 p-5 md:p-6 w-full md:w-auto relative z-10 flex flex-col justify-between">
+                            <div>
+                                <h3 class="text-lg md:text-xl font-black text-slate-800"><bdi dir="auto">${room.name}</bdi></h3>
+                                
+                                <div class="flex flex-col gap-2.5 mt-4">
+                                    <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit">
+                                        <i class="fa-solid fa-bed opacity-80 pointer-events-none text-base"></i> الأسرة: ${room.bed}
+                                    </span>
+                                    <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit">
+                                        <i class="fa-solid fa-utensils opacity-80 pointer-events-none text-base"></i> الوجبات: ${room.board}
+                                    </span>
+                                </div>
+                            </div>
+
+                            <div class="mt-5 border ${cancelClass} p-3 text-sm rounded-xl font-bold flex items-start gap-2 relative overflow-hidden">
+                                <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10"></i>
+                                <div class="relative z-10">
+                                    <span class="block ${policyTitleColor}">سياسة الإلغاء الدقيقة (مدمجة آلياً):</span>
+                                    <span class="font-semibold mt-1 block whitespace-pre-line text-slate-600">${room.policyText}</span>
+                                </div>
                             </div>
                         </div>
-                        <div class="flex-1 w-full md:w-auto flex flex-col justify-center items-center md:items-end text-center md:text-left border-t md:border-t-0 md:border-r border-dashed border-gray-200 pt-6 md:pt-0 md:pr-6">
-                            <div class="mb-4" dir="ltr">
-                                <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
-                                <span class="text-3xl font-black text-[#800000] hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
+
+                        <!-- الفاصل البصري (Ticket Cutouts) -->
+                        <div class="md:hidden relative border-b-2 border-dashed border-gray-200 mx-6 flex flex-row justify-between">
+                            <div class="absolute -left-9 -bottom-3 w-6 h-6 bg-[#f3f4f6] border-r border-gray-100 rounded-full shadow-inner z-10"></div>
+                            <div class="absolute -right-9 -bottom-3 w-6 h-6 bg-[#f3f4f6] border-l border-gray-100 rounded-full shadow-inner z-10"></div>
+                        </div>
+                        
+                        <div class="hidden md:flex relative border-r-2 border-dashed border-gray-200 my-6 flex-col justify-between z-10">
+                            <div class="absolute -top-9 -right-3 w-6 h-6 bg-[#f3f4f6] border-b border-gray-100 rounded-full shadow-[inset_0_3px_5px_rgba(0,0,0,0.03)] z-10"></div>
+                            <div class="absolute -bottom-9 -right-3 w-6 h-6 bg-[#f3f4f6] border-t border-gray-100 rounded-full shadow-[inset_0_-3px_5px_rgba(0,0,0,0.03)] z-10"></div>
+                        </div>
+
+                        <!-- القسم الأيسر (السعر وزر الحجز) -->
+                        <div class="w-full md:w-[30%] p-5 md:p-6 flex flex-col justify-center items-center bg-white z-10 relative border-t md:border-t-0 border-slate-50">
+                            <div class="bg-yellow-100 text-yellow-800 text-[10px] font-black px-3 py-1 rounded-full mb-3 flex items-center gap-1 border border-yellow-200">
+                                كاش +${room.points} نقطة ✨
                             </div>
-                            <p class="text-xs text-yellow-600 font-black mb-4 bg-yellow-50 border border-yellow-200 px-3 py-1.5 rounded-lg">كاش +${room.points} نقطة ✨</p>
-                            <button class="w-full md:w-auto bg-gradient-to-r from-[#00b4d8] to-cyan-600 hover:to-cyan-700 text-white px-8 py-3.5 rounded-xl text-lg font-black shadow-lg transition-transform active:scale-95 cursor-pointer border-none flex justify-center items-center gap-2" 
+
+                            <div class="text-center mb-5 flex items-baseline justify-center gap-1.5" dir="ltr">
+                                <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
+                                <span class="text-4xl md:text-5xl font-black text-[#800000] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
+                            </div>
+                            
+                            <button class="w-full bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(0,180,216,0.3)] hover:shadow-[0_10px_25px_rgba(0,180,216,0.4)] transition-all animate-[pulse_2.5s_ease-in-out_infinite] hover:animate-none border-none cursor-pointer active:scale-95" 
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
-                                احجز هالغرفة 🚀
+                                <i class="fa-solid fa-check-circle pointer-events-none text-lg"></i> احجز هالغرفة
                             </button>
+                            <span class="text-[10px] text-gray-400 font-bold mt-3 text-center w-full block">السعر النهائي يشمل الضرائب</span>
                         </div>
                     </div>`;
             });
