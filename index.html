@@ -5,12 +5,15 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>رمال وفلّها! | Remal & Chill - احجز، فلّها، واكسب! ✈️</title>
     
+    <!-- 🚀 أكواد تطبيق الجوال PWA -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f3a40">
     <link rel="apple-touch-icon" href="logo.jpg">
     
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- 🚀 ربط ملف التنسيقات الخارجي للبراند -->
     <link rel="stylesheet" href="style.css">
     
     <style>
@@ -34,6 +37,7 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
+        /* شريط الحجوزات الحية الفيروسي */
         .live-ticker {
             background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
             color: white; padding: 8px 5%; font-size: 13px; font-weight: 800; text-align: center;
@@ -71,7 +75,7 @@
         }
         .nav-btn.account-btn { background: var(--accent-coral); color: white; border-color: #d90429; box-shadow: 0 4px 0 #d90429; }
 
-        /* 🌟 القائمة المنسدلة لحساب المستخدم */
+        /* 🌟 القائمة المنسدلة لحساب المستخدم الاحترافية */
         .user-dropdown-container { position: relative; display: inline-block; }
         .user-menu-btn {
             background: var(--accent-coral); color: white; border: 2px solid #d90429;
@@ -225,13 +229,14 @@
     </div>
 
     <header>
-        <a class="brand-logo-container" onclick="switchView('mainView')" style="text-decoration: none; display: flex; align-items: center; gap: 12px; cursor: pointer;">
+        <!-- 🌴 الهوية والشعار -->
+        <div style="display: flex; align-items: center; gap: 12px;">
             <img src="logo.jpg" alt="Remal & Chill Logo" style="height: 48px; object-fit: contain; border-radius: 10px; background: #ffffff; padding: 4px; box-shadow: 0 4px 15px rgba(0,0,0,0.25);">
             <div>
                 <div style="font-size: 18px; font-weight: 900; color: var(--white);">رمال وفلّها! <span class="wave-emoji">🌴</span></div>
                 <div class="brand-text-sub" style="font-size: 9px; letter-spacing: 2px; color: var(--accent-cyan); text-transform: uppercase; font-weight: 800;">Remal & Chill</div>
             </div>
-        </a>
+        </div>
 
         <div class="header-actions">
             <div class="settings-dropdown">
@@ -252,6 +257,11 @@
                     <option value="ru">Русский 🇷🇺</option>
                 </select>
             </div>
+
+            <!-- 🌟 الزر الجديد للانتقال للصفحة الرئيسية / استكشاف الفنادق -->
+            <button class="nav-btn" onclick="switchView('mainView')" style="background: var(--accent-yellow); color: var(--primary); border-color: #e09f3e; box-shadow: 0 4px 0 #e09f3e;">
+                <i class="fa-solid fa-hotel"></i> استكشاف الفنادق 🏨
+            </button>
 
             <button class="nav-btn" onclick="switchView('lookupView')"><i class="fa-solid fa-search"></i> تتبع حجز سريع</button>
             <button class="nav-btn" id="bookingsNavBtn" onclick="switchView('registerView')" style="display:none;"><i class="fa-solid fa-suitcase-rolling"></i> حجوزاتي</button>
