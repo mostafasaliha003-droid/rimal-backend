@@ -199,15 +199,24 @@ io.on('connection', (socket) => {
         }
     });
 
-    // استقبال وإعادة توجيه الرسائل بين العميل والإدارة، وإرسال إيميل للإدارة عند أول رسالة
+    // انضمام لوحة تحكم الأدمن للبث العام لكي تصله كل الرسائل وتظهر أمامه فوراً
+    socket.on('admin_join', () => {
+        socket.join('admin_chat_room');
+        console.log('🔐 Admin joined live chat monitoring room');
+    });
+
+    // استقبال وإعادة توجيه الرسائل بين العميل والإدارة
     socket.on('send_message', async (data) => {
         const { referenceCode, sender, message } = data;
         
-        // توجيه الرسالة فوراً للغرفة
+        // توجيه الرسالة فوراً للغرفة الخاصة بالحجز
         io.to(referenceCode).emit('receive_message', { sender, message, time: new Date() });
+        
+        // بث الرسالة فوراً لجميع مشرفي لوحة التحكم المتصلين
+        io.to('admin_chat_room').emit('receive_message', { referenceCode, sender, message, time: new Date() });
 
         try {
-            // جلب تفاصيل الحجز لإرسالها في الإيميل للإدارة
+            // جلب تفاصيل الحجز لإرسالها في الإيميل للإدارة في حال كانت الرسالة قادمة من العميل
             const booking = await Booking.findOne({ bookingReference: referenceCode });
             if (booking && sender !== 'الإدارة (Remal)') {
                 const adminChatEmailHtml = `
@@ -772,7 +781,7 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
         try {
             await sendProfessionalEmail(
                 booking.email,
-                `تأكيد استلاستلم الدفع النقدي لحجزك ${booking.bookingReference} - شركة الرمال الدولية ✈️`,
+                `تأكيد استلام الدفع النقدي لحجزك ${booking.bookingReference} - شركة الرمال الدولية ✈️`,
                 `<div dir="rtl" style="font-family:Arial, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #2a9d8f;">
                     <h2 style="color:#1f3a40;">مرحباً بك يا بطل، ${booking.customerName}! ✈️</h2>
                     <p>نحيطك علماً بأنه تم تأكيد استلام الدفع النقدي (كاش) بنجاح من الفندق الشريك لحجزك في <b>${booking.hotelName}</b>.</p>
