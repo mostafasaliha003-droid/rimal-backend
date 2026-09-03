@@ -3,10 +3,11 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
     <title>رمال وفلّها! | Remal & Chill - احجز، فلّها، واكسب! ✈️</title>
     
-    <!-- 🚀 أكواد تطبيق الجوال PWA -->
-    <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#1f3a40">
     <link rel="apple-touch-icon" href="logo.jpg">
     
@@ -15,8 +16,6 @@
     
     <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-
-    <!-- 🚀 ربط ملف التنسيقات الخارجي للبراند -->
     <link rel="stylesheet" href="style.css">
     
     <style>
@@ -40,21 +39,17 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-        /* حركات الظهور للوحة التحكم والبطاقات */
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
         .animate-fade-in-up {
             opacity: 0; transform: translateY(20px); animation: fadeInUp 0.5s ease-out forwards;
         }
 
-        /* حركات النافذة المنبثقة */
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .modal-animate { animation: scaleIn 0.3s ease-out forwards; }
         .form-animate { opacity: 0; transform: translateY(10px); animation: fadeInUp 0.4s ease-out forwards; }
 
-        /* إخفاء سهم القائمة المنسدلة */
         .hide-select-arrow { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
         
-        /* مظهر مخصص للقائمة المنسدلة في قسم النقاط */
         .custom-select-icon {
             background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
             background-repeat: no-repeat;
@@ -62,13 +57,11 @@
             background-size: 1em;
         }
         
-        /* 🚀 الخدعة الاحترافية لحقول التاريخ */
         input[type="date"]::-webkit-calendar-picker-indicator {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             width: 100%; height: 100%; color: transparent; background: transparent; cursor: pointer; z-index: 10;
         }
 
-        /* شريط الحجوزات الحية الفيروسي */
         .live-ticker {
             background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
             color: white; padding: 8px 5%; font-size: 13px; font-weight: 800; text-align: center;
@@ -86,7 +79,6 @@
         }
         .wave-emoji { display: inline-block; animation: wave 1.5s infinite; }
 
-        /* 🌟 القائمة المنسدلة لحساب المستخدم الاحترافية */
         .user-dropdown-container { position: relative; display: inline-block; }
         .user-menu-btn {
             background: var(--accent-coral); color: white; border: 2px solid #d90429;
@@ -136,18 +128,13 @@
 </head>
 <body class="antialiased text-slate-800 flex flex-col min-h-screen relative">
 
-    <!-- ============================================== -->
-    <!-- حاوية الإشعارات العائمة (Toast Container) -->
-    <!-- ============================================== -->
     <div id="toast-container" class="fixed top-6 left-0 right-0 z-[9999] flex flex-col items-center gap-3 px-4 pointer-events-none"></div>
 
-    <!-- 🌟 شريط الحجوزات الحية -->
     <div class="live-ticker">
         <i class="fa-solid fa-bolt" style="color: var(--accent-yellow);"></i>
         <span id="tickerText">🔥 أحمد من عجمان حجز ليلتين واستعد للسحب على الدوام! 🌴</span>
     </div>
 
-    <!-- Header Section -->
     <header class="bg-[#111827] text-white px-4 lg:px-8 py-3 flex items-center justify-between sticky top-0 z-50 shadow-md">
         <a class="flex items-center gap-3 cursor-pointer text-decoration-none" onclick="switchView('mainView')">
             <div class="bg-white p-1.5 rounded-lg"><img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded-md object-cover bg-white p-0.5" onerror="this.src='https://via.placeholder.com/32?text=Logo'"></div>
@@ -217,7 +204,6 @@
         </div>
     </header>
 
-    <!-- Main View Section -->
     <div id="mainView" class="view-section active">
         <section class="relative bg-gradient-to-r from-purple-900 via-indigo-900 to-purple-800 pt-20 pb-32 px-4 overflow-hidden">
             <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
@@ -233,7 +219,6 @@
             </div>
         </section>
 
-        <!-- 🌟 شريط البحث المطور (Search Bar) -->
         <section class="relative z-30 px-4 max-w-6xl mx-auto -mt-16">
             <div class="bg-white rounded-3xl shadow-[0_10px_35px_rgba(0,0,0,0.06)] border border-slate-100 p-2 md:p-3 relative z-30">
                 <div class="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100 gap-2 lg:gap-0">
@@ -310,7 +295,6 @@
             
             <div class="container mt-4" id="childAgesContainer" style="display:none; background:white; padding:15px; border-radius:16px; border:2px dashed var(--accent-cyan);"></div>
 
-            <!-- زر تصفية الوجبات (Select Dropdown) -->
             <div class="flex justify-center mt-6 relative z-20">
                 <div class="relative inline-block group">
                   <select id="boardBasisFilter" onchange="updateBoardText(this); filterHotels();" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" dir="rtl">
@@ -331,11 +315,8 @@
             </div>
         </section>
 
-        <!-- Hotels List & Map Layout -->
         <div class="container mt-8 relative z-10">
             <div class="flex flex-col lg:flex-row gap-8 items-start relative z-0">
-                
-                <!-- Filters & Map (Sticky Side) -->
                 <aside class="w-full lg:w-2/5 flex flex-col gap-6 sticky top-28">
                     <div class="bg-white rounded-3xl border border-slate-100 shadow-2xl p-4 md:p-6 transition-all">
                         <div class="flex items-center justify-between mb-5 px-2">
@@ -349,7 +330,6 @@
                                 <i class="fa-solid fa-satellite text-[#1f3a40]"></i> خريطة تفاعلية
                             </div>
                         </div>
-                        
                         <div id="map" class="relative w-full h-[350px] md:h-[450px] rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-100 shadow-inner"></div>
                     </div>
 
@@ -370,7 +350,6 @@
                     </div>
                 </aside>
 
-                <!-- Hotel List -->
                 <div class="w-full lg:w-3/5 space-y-6">
                     <div id="hotelsContainer"></div>
                 </div>
@@ -378,7 +357,6 @@
         </div>
     </div>
 
-    <!-- 🌟 واجهة اختيار الغرف (Room Details) -->
     <div id="roomSelectionView" class="view-section pb-20">
         <div class="bg-gradient-to-r from-[#4a2b75] to-[#3a1d5a] pt-16 pb-24 text-center px-4 relative z-0 border-b-[6px] border-[#ff595e]">
             <div class="max-w-4xl mx-auto flex flex-col items-center justify-center">
@@ -418,7 +396,6 @@
         </div>
     </div>
 
-    <!-- واجهة الدفع وإتمام الحجز -->
     <div id="bookingView" class="view-section">
         <div class="w-full bg-slate-800 pt-8 pb-32 px-4 text-center border-b-[6px] border-yellow-400">
             <h1 class="text-white text-3xl font-black flex items-center justify-center gap-3">
@@ -428,7 +405,6 @@
 
         <div class="max-w-2xl w-full mx-auto px-4 -mt-24 relative z-10 mb-20">
             <div class="bg-white rounded-3xl shadow-[0_15px_50px_rgba(0,0,0,0.1)] border border-slate-100 p-6 md:p-8 space-y-8">
-                
                 <div class="text-center border-b border-slate-100 pb-5">
                     <h2 id="hotelNameTitle" class="text-xl md:text-2xl font-extrabold text-slate-800 leading-snug"></h2>
                 </div>
@@ -507,7 +483,7 @@
                             </div>
                         </div>
 
-                        <button type="submit" class="w-full bg-gradient-to-r from-[#800000] to-[#600000] hover:from-[#990000] hover:to-[#800000] text-white font-black py-4 rounded-xl flex items-center justify-center gap-2.5 shadow-[0_8px_20px_rgba(128,0,0,0.25)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.35)] transition-all animate-[pulse_2.5s_ease-in-out_infinite] hover:animate-none border-none cursor-pointer active:scale-95">
+                        <button type="submit" class="w-full bg-gradient-to-r from-[#800000] to-[#600000] hover:from-[#990000] hover:to-[#800000] text-white font-black py-4 rounded-xl flex items-center justify-center gap-2.5 shadow-[0_8px_20px_rgba(128,0,0,0.25)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.35)] transition-all border-none cursor-pointer active:scale-95">
                             <i class="fa-solid fa-shield-halved pointer-events-none text-lg"></i> 
                             الانتقال لبوابة الدفع الآمنة
                         </button>
@@ -517,7 +493,6 @@
         </div>
     </div>
 
-    <!-- واجهة تتبع الحجز السريع -->
     <div id="lookupView" class="view-section">
         <section class="hero bg-gradient-to-r from-teal-700 to-teal-900 text-white pt-20 pb-24 text-center border-b-[6px] border-yellow-400">
             <h1 class="text-3xl md:text-4xl font-black mb-3">تتبع حجزك السريع 🔍</h1>
@@ -548,7 +523,6 @@
         </div>
     </div>
 
-    <!-- 🌟 لوحة تحكم العميل والحجوزات -->
     <div id="registerView" class="view-section min-h-screen bg-[#f8fafc] pb-12">
         <div class="bg-gradient-to-r from-purple-900 to-teal-500 pt-16 pb-28 px-4 text-center shadow-inner border-b-[6px] border-yellow-400 relative">
             <h1 class="text-3xl md:text-4xl font-black text-white mb-3 tracking-wide drop-shadow-md">مرحباً بك في عالمك الخاص 🌴</h1>
@@ -595,11 +569,10 @@
         </div>
     </div>
 
-    <!-- 🌟 نافذة تسجيل الدخول/الإنشاء (التصميم الفاخر الذكي) 🌟 -->
+    <!-- نافذة تسجيل الدخول/الإنشاء -->
     <div id="socialModal" class="modal-overlay fixed inset-0 z-[3000] hidden items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
         <div class="bg-white w-full max-w-md rounded-3xl shadow-2xl relative animate-[scaleIn_0.3s_ease-out_forwards] border border-white/20 overflow-hidden">
             <div class="bg-gradient-to-r from-teal-500 to-teal-700 pt-8 pb-6 px-6 relative border-b-4 border-yellow-400">
-                <div class="absolute inset-0 opacity-10 pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83L54.627 0zM30 0l.83.83-30 30L0 30 30 0zm24.627 60l-.83-.83L60 45.373V46.2l-5.373 5.373z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E');"></div>
                 <button onclick="closeAuthModal()" class="absolute top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/20 text-white hover:bg-white/40 transition-colors duration-200 z-10 backdrop-blur-sm cursor-pointer border-none">
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
@@ -619,7 +592,6 @@
                     </button>
                 </div>
 
-                <!-- 1. نموذج حساب جديد -->
                 <form id="registerForm" onsubmit="requestVerificationCode(event)" class="space-y-4 block animate-fade-in-up">
                     <div>
                         <label class="block text-gray-700 text-xs font-bold mb-1.5 text-right">الاسم:</label>
@@ -657,7 +629,6 @@
                     </button>
                 </form>
 
-                <!-- 2. نموذج تسجيل الدخول -->
                 <form id="loginForm" onsubmit="handleDirectLogin(event)" class="space-y-4 hidden">
                     <div>
                         <label class="block text-gray-700 text-xs font-bold mb-1.5 text-right">البريد الإلكتروني:</label>
@@ -686,7 +657,6 @@
     </div>
 
     <!-- نوافذ الأمان الأخرى -->
-    <!-- نافذة تعديل البريد الإلكتروني -->
     <div id="editEmailModal" class="modal-overlay hidden fixed inset-0 z-[3000] items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-7 w-full max-w-sm relative shadow-2xl">
             <h3 class="text-[#1f3a40] font-black text-xl mb-4 text-center">تعديل البريد ✉️</h3>
@@ -703,7 +673,6 @@
         </div>
     </div>
 
-    <!-- نافذة تغيير كلمة المرور -->
     <div id="editPasswordModal" class="modal-overlay hidden fixed inset-0 z-[3000] items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-7 w-full max-w-sm relative shadow-2xl">
             <h3 class="text-[#1f3a40] font-black text-xl mb-4 text-center">تغيير كلمة المرور 🔑</h3>
@@ -720,7 +689,6 @@
         </div>
     </div>
 
-    <!-- نافذة البطاقات البنكية -->
     <div id="savedCardsModal" class="modal-overlay hidden fixed inset-0 z-[3000] items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-7 w-full max-w-md relative shadow-2xl">
             <h3 class="text-[#1f3a40] font-black text-xl mb-4 text-center"><i class="fa-solid fa-credit-card text-teal-500"></i> البطاقات المحفوظة 💳</h3>
@@ -734,7 +702,6 @@
         </div>
     </div>
 
-    <!-- نافذة البدائل -->
     <div id="alternativesModal" class="modal-overlay hidden fixed inset-0 z-[3000] items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-7 w-full max-w-lg relative shadow-2xl text-center">
             <h3 class="text-red-500 font-black text-xl mb-2"><i class="fa-solid fa-triangle-exclamation"></i> عذراً، نفدت الغرفة!</h3>
@@ -744,7 +711,6 @@
         </div>
     </div>
 
-    <!-- نافذة التقييم -->
     <div id="reviewModal" class="modal-overlay hidden fixed inset-0 z-[3000] items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-7 w-full max-w-md relative shadow-2xl">
             <h3 class="text-[#1f3a40] font-black text-xl mb-4 text-center">أضف تقييمك ⭐</h3>
@@ -767,9 +733,7 @@
         </div>
     </div>
 
-    <!-- ========================================== -->
-    <!-- 💬 ودجت نافذة الدردشة الفورية (Live Chat) -->
-    <!-- ========================================== -->
+    <!-- زر خدمة العملاء والدردشة -->
     <button id="openChatBtn" class="fixed bottom-5 right-5 bg-[#800020] text-white px-5 py-3 rounded-full font-bold shadow-lg hover:bg-red-900 transition-all z-[2000] border-none cursor-pointer">
         💬 خدمة العملاء (للمؤكدة)
     </button>
@@ -797,13 +761,12 @@
         </div>
     </div>
 
-    <!-- 🌟 الفوتر الأسطوري الفاخر -->
+    <!-- الفوتر -->
     <footer class="relative bg-slate-900 text-gray-300 pt-16 pb-8 border-t-[6px] border-yellow-500 overflow-hidden mt-auto" dir="rtl">
         <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83L54.627 0zM30 0l.83.83-30 30L0 30 30 0zm24.627 60l-.83-.83L60 45.373V46.2l-5.373 5.373z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E');"></div>
 
         <div class="max-w-7xl mx-auto px-6 relative z-10">
             <div class="grid grid-cols-1 md:grid-cols-3 gap-12 mb-12">
-                
                 <div class="flex flex-col items-start">
                     <div class="bg-white p-2 rounded-2xl mb-4 inline-block shadow-lg">
                         <img src="logo.jpg" alt="Remal & Chill Logo" class="w-16 h-16 object-cover rounded-xl" onerror="this.src='https://via.placeholder.com/64?text=Logo'">
@@ -854,7 +817,6 @@
                         </li>
                     </ul>
                 </div>
-                
             </div>
 
             <div class="border-t border-slate-800 pt-8 pb-6 flex flex-col md:flex-row justify-between items-center gap-6">
@@ -874,13 +836,19 @@
 
     <div id="google_translate_element" style="display:none;"></div>
 
+    <!-- 🚀 كود إزالة الكاش والـ Service Worker لجميع العملاء تلقائياً وبشكل جذري -->
     <script>
         if ('serviceWorker' in navigator) {
-            window.addEventListener('load', () => {
-                navigator.serviceWorker.register('sw.js')
-                    .then(registration => console.log('✅ تم تشغيل تطبيق رمال وفلّها PWA بنجاح!', registration.scope))
-                    .catch(error => console.log('❌ خطأ في تشغيل PWA:', error));
+            navigator.serviceWorker.getRegistrations().then(function(registrations) {
+                for (let registration of registrations) {
+                    registration.unregister();
+                }
             });
+            if ('caches' in window) {
+                caches.keys().then(function(names) {
+                    for (let name of names) caches.delete(name);
+                });
+            }
         }
     </script>
 
@@ -925,7 +893,6 @@
             }
         ];
 
-        // 🌟 دالة الإشعارات الفاخرة (Toast Notifications)
         function showToast(type, title, message) {
             const container = document.getElementById('toast-container');
             if (!container) return;
@@ -1701,7 +1668,7 @@
                                 <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
                                 <span class="text-4xl md:text-5xl font-black text-[#800000] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
                             </div>
-                            <button class="w-full bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(0,180,216,0.3)] hover:shadow-[0_10px_25px_rgba(0,180,216,0.4)] transition-all animate-[pulse_2.5s_ease-in-out_infinite] hover:animate-none border-none cursor-pointer active:scale-95" 
+                            <button class="w-full bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(0,180,216,0.3)] hover:shadow-[0_10px_25px_rgba(0,180,216,0.4)] transition-all border-none cursor-pointer active:scale-95" 
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
                                 <i class="fa-solid fa-check-circle pointer-events-none text-lg"></i> احجز هالغرفة
                             </button>
@@ -1821,10 +1788,17 @@
 
         async function confirmReservation(e) {
             e.preventDefault();
-            const customerName = document.getElementById('custName').value; const email = document.getElementById('custEmail').value; const phone = document.getElementById('custPhone').value;
-            const companions = document.getElementById('custCompanions').value; const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value; const pointsUsed = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
-            const btn = e.target.querySelector('button[type="submit"]'); const origText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز بوابة الدفع الآمنة (Ziina)...'; btn.disabled = true;
+            const customerName = document.getElementById('custName').value; 
+            const email = document.getElementById('custEmail').value; 
+            const phone = document.getElementById('custPhone').value;
+            const companions = document.getElementById('custCompanions').value; 
+            const paymentMethod = document.querySelector('input[name="payMethod"]:checked').value; 
+            const pointsUsed = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
+            
+            const btn = e.target.querySelector('button[type="submit"]'); 
+            const origText = btn.innerHTML;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز بوابة الدفع الآمنة (Ziina)...'; 
+            btn.disabled = true;
 
             try {
                 const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
@@ -1838,14 +1812,37 @@
                 const ziinaData = await ziinaRes.json();
 
                 if (ziinaData.success && ziinaData.redirect_url) {
-                    const pendingData = { bookingReference, ziinaPaymentId: ziinaData.ziinaPaymentId || '', hotelName: selectedHotel, customerName, email, phone, companions, paymentMethod, price: finalPrice, pointsUsed, cancellationPolicy: currentPolicyText, rateKey: currentRateKey, refundType: currentRefundType };
+                    const pendingData = { 
+                        bookingReference, 
+                        ziinaPaymentId: ziinaData.ziinaPaymentId || '', 
+                        hotelName: selectedHotel, 
+                        customerName, 
+                        email, 
+                        phone, 
+                        companions, 
+                        paymentMethod, 
+                        price: finalPrice, 
+                        pointsUsed, 
+                        cancellationPolicy: currentPolicyText, 
+                        rateKey: currentRateKey, 
+                        refundType: currentRefundType 
+                    };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
 
-                    // 🚀 الحل: التوجيه المباشر والآمن لصفحة البنك (كما تتطلب معايير PCI الأمنية)
-                    window.location.href = ziinaData.redirect_url;
+                    // 🚀 الحل الجذري: التوجيه المباشر بدون iFrame
+                    window.location.assign(ziinaData.redirect_url);
 
-                } else { showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); btn.innerHTML = origText; btn.disabled = false; }
-            } catch(err) { console.error(err); showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم أثناء تجهيز الدفع.'); btn.innerHTML = origText; btn.disabled = false; }
+                } else { 
+                    showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); 
+                    btn.innerHTML = origText; 
+                    btn.disabled = false; 
+                }
+            } catch(err) { 
+                console.error(err); 
+                showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم أثناء تجهيز الدفع.'); 
+                btn.innerHTML = origText; 
+                btn.disabled = false; 
+            }
         }
     </script>
 </body>
