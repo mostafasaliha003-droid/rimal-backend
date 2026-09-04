@@ -174,7 +174,7 @@
 
     <header>
         <a class="group flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md pr-4 pl-6 py-2 rounded-2xl transition-all duration-300 cursor-pointer text-decoration-none shadow-[0_4px_15px_rgba(0,0,0,0.1)]" onclick="switchView('mainView')">
-            <div class="relative w-10 h-10 md:w-12 h-12 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
+            <div class="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
                 <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md">
                     <defs>
                         <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1063,6 +1063,9 @@
             } else if (refundType === 'partial_50' || policyText.includes('50%') || policyText.includes('جزء')) {
                 refundAmount = price * 0.5;
                 refundPercentageText = "50%";
+            } else if (refundType === 'non_refundable' || policyText.includes('غير قابل للاسترداد') || policyText.includes('لا يوجد')) {
+                refundAmount = 0;
+                refundPercentageText = "غير قابل للاسترداد";
             } else {
                 refundAmount = 0;
                 refundPercentageText = "غير قابل للاسترداد";
@@ -1080,7 +1083,7 @@
                         
                         <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 text-right" dir="rtl">
                             <p class="text-sm font-bold text-slate-600 mb-2 flex items-center gap-2"><i class="fa-solid fa-file-contract text-[#00b4d8]"></i> سياسة الفندق:</p>
-                            <p class="text-xs font-bold text-[#be123c] mb-4 bg-red-50 p-2 rounded-lg border border-red-100">${policyText}</p>
+                            <p class="text-xs font-bold text-[#be123c] mb-4 bg-red-50 p-2 rounded-lg border border-red-100"><bdi dir="auto"><span style="unicode-bidi: plaintext;">${policyText}</span></bdi></p>
                             
                             <div class="bg-white border border-slate-200 p-3 rounded-xl text-center">
                                 <span class="block text-xs font-bold text-slate-500 mb-1">المبلغ الخاضع للاسترداد (${refundPercentageText})</span>
@@ -1120,6 +1123,31 @@
                 btn.classList.add('opacity-70', 'cursor-not-allowed');
                 onConfirmCallback(overlay, innerBox); 
             };
+        }
+
+        async function cancelBookingAPI(bookingReference, price, refundType, policyText) {
+            showPremiumCancelModal(bookingReference, price, refundType, policyText, async (overlay, innerBox) => {
+                try {
+                    const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference }) });
+                    const data = await res.json();
+                    
+                    overlay.style.opacity = '0';
+                    innerBox.classList.remove('scale-100');
+                    innerBox.classList.add('scale-95');
+                    setTimeout(() => overlay.remove(), 300);
+
+                    if(data.success) { 
+                        showToast('success', 'تم الإلغاء بنجاح', data.message); 
+                        fetchUserData(); 
+                    } else { 
+                        showToast('error', 'حدث خطأ', data.error); 
+                    }
+                } catch(e) { 
+                    overlay.style.opacity = '0';
+                    setTimeout(() => overlay.remove(), 300);
+                    showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); 
+                }
+            });
         }
 
         window.onload = function() {
@@ -1562,16 +1590,20 @@
             if(!currentUser) return;
             const bookingsContainer = document.getElementById('bookingsContainer');
             if (!bookingsContainer) return;
+            
             bookingsContainer.innerHTML = `<div class="flex justify-center items-center py-12"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-[#00b4d8]"></div><span class="mr-3 text-slate-500 font-medium">جاري تحديث سجل الحجوزات...</span></div>`;
+            
             try {
                 const res = await fetch(`${API_URL}/api/user/profile?email=${encodeURIComponent(currentUser.email)}`);
                 const data = await res.json();
+                
                 if(data.success) {
                     currentUser.points = data.profile.points;
                     currentUser.savedCards = data.profile.savedCards;
                     localStorage.setItem('rimal_current_user', JSON.stringify(currentUser));
                     
-                    let pts = currentUser.points || 500; let ptsAED = (pts / 10).toFixed(2);
+                    let pts = currentUser.points || 500; 
+                    let ptsAED = (pts / 10).toFixed(2);
                     
                     const dashPointsDisplayEl = document.getElementById('dashPointsDisplay');
                     if (dashPointsDisplayEl) dashPointsDisplayEl.innerText = pts;
@@ -1579,37 +1611,114 @@
                     if (dashPointsAEDDisplayEl) dashPointsAEDDisplayEl.innerText = ptsAED;
                     
                     if(!data.bookings || data.bookings.length === 0) {
-                        bookingsContainer.innerHTML = `<div class="text-center py-12 text-slate-500 bg-white shadow-sm rounded-2xl border border-dashed border-slate-300"><span class="text-4xl block mb-3 opacity-50">🧳</span>لا توجد حجوزات حالياً. ابدأ مغامرتك القادمة الآن!</div>`; return;
+                        bookingsContainer.innerHTML = `
+                            <div class="text-center py-16 px-4 bg-white shadow-sm rounded-3xl border border-dashed border-slate-300">
+                                <svg class="w-20 h-20 mx-auto mb-4 fill-slate-200" viewBox="0 0 512 512"><path d="M144 112c-26.5 0-48 21.5-48 48v288c0 26.5 21.5 48 48 48h224c26.5 0 48-21.5 48-48V160c0-26.5-21.5-48-48-48h-16V64c0-35.3-28.7-64-64-64h-64c-35.3 0-64 28.7-64 64v48h-16zM192 64c0-17.7 14.3-32 32-32h64c17.7 0 32 14.3 32 32v48H192V64zM64 224h384v224c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V224z"/></svg>
+                                <h3 class="text-xl font-black text-slate-400 mb-2">لا توجد حجوزات حالياً</h3>
+                                <p class="text-sm text-slate-400 font-bold">ابدأ مغامرتك القادمة واجمع نقاط الكاش باك!</p>
+                            </div>`; 
+                        return;
                     }
+
                     let cardsHTML = '';
+                    
                     data.bookings.forEach((booking, index) => {
                         let isConfirmed = booking.status !== 'cancelled';
-                        const badgeHTML = isConfirmed ? `<div class="absolute top-4 left-4 bg-emerald-100/90 backdrop-blur-sm border border-emerald-200 text-emerald-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm z-10"><span>✅</span> مؤكد</div>` : `<div class="absolute top-4 left-4 bg-red-100/90 backdrop-blur-sm border border-red-200 text-red-700 px-3 py-1 rounded-full text-xs font-bold flex items-center gap-1.5 shadow-sm z-10"><span>❌</span> ملغي</div>`;
                         const animationDelay = index * 100;
+                        
+                        let cardBg = isConfirmed ? 'bg-white' : 'bg-slate-50 opacity-80 grayscale-[30%]';
+                        let cardBorder = isConfirmed ? 'border-slate-100 hover:border-[#00b4d8]/40 hover:shadow-xl' : 'border-slate-200 border-dashed';
+                        let statusBadge = isConfirmed 
+                            ? `<div class="bg-emerald-50 border border-emerald-200 text-emerald-700 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-sm shrink-0"><svg class="w-3.5 h-3.5 fill-emerald-600" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg> حجز مؤكد</div>` 
+                            : `<div class="bg-red-50 border border-red-200 text-red-700 px-3 py-1.5 rounded-xl text-xs font-black flex items-center gap-2 shadow-sm shrink-0"><svg class="w-3.5 h-3.5 fill-red-600" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg> حجز ملغي</div>`;
+
+                        let cancelledWatermark = !isConfirmed ? `<div class="absolute inset-0 flex items-center justify-center pointer-events-none z-0 overflow-hidden"><span class="text-8xl md:text-9xl font-black text-slate-200/60 transform -rotate-12 border-8 border-slate-200/60 p-6 rounded-3xl">ملغي</span></div>` : '';
+
+                        let cleanHotelName = (booking.hotelName || '').replace(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}]/gu, '').trim();
+
                         cardsHTML += `
-                            <div class="relative flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 hover:border-[#00b4d8]/40 transition-all duration-300 mb-6 overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
-                                ${badgeHTML}
-                                <div class="pr-2 mb-5 mt-6 sm:mt-0 p-6 flex-1">
-                                    <h4 class="font-black text-[#1f3a40] text-lg mb-2 ml-24 flex items-center gap-2"><span class="text-[#00b4d8] text-xl shrink-0">🏨</span><bdi dir="auto"><span style="unicode-bidi: plaintext;">${booking.hotelName}</span> - <span class="text-slate-500 font-normal">${booking.roomType || 'غرفة فندقية'}</span></bdi></h4>
-                                    <div class="mb-3"><span class="bg-slate-100 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 inline-block">✨ ${booking.mealPlan || 'شامل الوجبات'}</span></div>
-                                    <div class="flex flex-wrap items-center gap-2 mt-3 text-xs">
-                                        <div class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg font-medium text-slate-600 flex items-center gap-1.5"><span class="text-slate-400">المرجع:</span><bdi dir="ltr" class="font-bold text-slate-800">${booking.bookingReference}</bdi></div>
-                                        <div class="bg-cyan-50/60 border border-cyan-100 px-3 py-1.5 rounded-lg font-medium text-[#007790] flex items-center gap-1.5"><span class="text-[#00b4d8]">الإجمالي:</span><bdi dir="ltr" class="font-black">${booking.price} AED</bdi></div>
+                            <div class="relative flex flex-col md:flex-row ${cardBg} rounded-3xl shadow-sm border ${cardBorder} transition-all duration-300 mb-6 overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                                
+                                ${cancelledWatermark}
+
+                                <div class="p-6 md:p-8 flex-1 relative z-10">
+                                    <div class="flex flex-wrap items-center justify-between gap-4 mb-5 border-b border-slate-100 pb-5">
+                                        ${statusBadge}
+                                        <div class="bg-slate-50 px-3 py-1.5 rounded-xl border border-slate-200 font-bold text-slate-500 text-xs flex items-center gap-2">
+                                            المرجع: <bdi dir="ltr" class="text-[#1f3a40] tracking-wider">${booking.bookingReference}</bdi>
+                                        </div>
                                     </div>
-                                    <p class="${isConfirmed ? 'text-[#00b4d8]' : 'text-red-500'} text-xs mt-3 font-medium flex items-center gap-1.5"><span>💸</span> ${booking.cancellationPolicy || ''}</p>
+
+                                    <div class="flex items-start gap-4 mb-5">
+                                        <div class="w-12 h-12 bg-cyan-50 rounded-2xl flex items-center justify-center shrink-0 border border-cyan-100 shadow-sm">
+                                            <svg class="w-6 h-6 fill-[#00b4d8]" viewBox="0 0 512 512"><path d="M64 32C28.7 32 0 60.7 0 96v352c0 17.7 14.3 32 32 32h128v-96c0-17.7 14.3-32 32-32h128c17.7 0 32 14.3 32 32v96h128c17.7 0 32-14.3 32-32V96c0-35.3-28.7-64-64-64H64zM128 160h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zM128 288h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16z"/></svg>
+                                        </div>
+                                        <div class="min-w-0">
+                                            <h4 class="font-black text-[#1f3a40] text-xl md:text-2xl leading-tight mb-2 truncate" title="${cleanHotelName}">
+                                                <bdi dir="auto"><span style="unicode-bidi: plaintext;">${cleanHotelName}</span></bdi>
+                                            </h4>
+                                            <p class="text-sm font-bold text-slate-500 bg-slate-50 px-3 py-1 rounded-lg inline-block border border-slate-100">
+                                                <bdi dir="auto"><span style="unicode-bidi: plaintext;">الغرفة: ${booking.roomType || 'غرفة فندقية مطابقة'}</span></bdi>
+                                            </p>
+                                        </div>
+                                    </div>
+
+                                    <div class="flex flex-wrap gap-2 mt-4">
+                                        <span class="inline-flex items-center gap-1.5 bg-amber-50 text-amber-700 border border-amber-200 px-3 py-1.5 rounded-lg text-[11px] font-bold">
+                                            <svg class="w-3 h-3 fill-amber-600" viewBox="0 0 448 512"><path d="M416 0C400 0 288 32 288 176V288c0 35.3 28.7 64 64 64h32V480c0 17.7 14.3 32 32 32s32-14.3 32-32V352 24 0H416zM64 16C64 7.8 57.9 1 50 0C34 0 25.1 8 20.1 19.3L-7.4 85.3C-15.2 106.4 0 128 22.6 128H41.4c22.6 0 37.8-21.6 30.1-42.7L43.9 19.3C38.9 8 30 0 14 0c-7.9 1-14 7.8-14 16V480c0 17.7 14.3 32 32 32s32-14.3 32-32V16zM224 16c-17.7 0-32 14.3-32 32V256c0 17.7 14.3 32 32 32s32-14.3 32-32V48c0-17.7-14.3-32-32-32z"/></svg>
+                                            الوجبات: ${booking.mealPlan || 'شامل الوجبات'}
+                                        </span>
+                                        <span class="inline-flex items-center gap-1.5 bg-[#00b4d8]/10 text-[#007790] border border-[#00b4d8]/20 px-3 py-1.5 rounded-lg text-[11px] font-bold">
+                                            <svg class="w-3.5 h-3.5 fill-[#00b4d8]" viewBox="0 0 576 512"><path d="M64 64C28.7 64 0 92.7 0 128V384c0 35.3 28.7 64 64 64H512c35.3 0 64-28.7 64-64V128c0-35.3-28.7-64-64-64H64zm64 320H64V320c35.3 0 64 28.7 64 64zM64 192V128h64c0 35.3-28.7 64-64 64zM448 384c0-35.3 28.7-64 64-64v64H448zm64-192c-35.3 0-64-28.7-64-64h64v64zM288 160a96 96 0 1 1 0 192 96 96 0 1 1 0-192z"/></svg>
+                                            <bdi dir="ltr">${booking.price} AED</bdi>
+                                        </span>
+                                    </div>
+
+                                    <div class="mt-4 p-3 rounded-xl border border-dashed border-slate-300 bg-slate-50 flex items-start gap-2.5">
+                                        <svg class="w-4 h-4 fill-slate-400 mt-0.5 shrink-0" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg>
+                                        <p class="text-xs font-bold text-slate-500 m-0 leading-relaxed"><bdi dir="auto"><span style="unicode-bidi: plaintext;">السياسة: ${booking.cancellationPolicy || 'شروط المورد'}</span></bdi></p>
+                                    </div>
                                 </div>
-                                <div class="flex flex-col justify-center items-stretch gap-2 bg-slate-50/50 p-6 shrink-0 w-full md:w-48 border-t md:border-t-0 md:border-r border-slate-100">
-                                    <a href="${API_URL}/api/bookings/pdf/${booking.bookingReference}" target="_blank" class="w-full bg-[#00b4d8] hover:bg-[#0096b4] text-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors shadow-sm active:scale-95 text-decoration-none"><span>📄</span> تحميل PDF</a>
-                                    <button onclick="resendVoucherEmail('${booking.bookingReference}', '${booking.email || currentUser.email}')" class="w-full border border-[#1f3a40] text-[#1f3a40] hover:bg-slate-100 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 cursor-pointer bg-transparent"><span>📤</span> إعادة إرسال</button>
+
+                                <div class="hidden md:block w-px bg-gradient-to-b from-transparent via-slate-200 to-transparent my-8 relative z-10"></div>
+                                <div class="md:hidden h-px bg-gradient-to-r from-transparent via-slate-200 to-transparent mx-8 relative z-10"></div>
+
+                                <div class="flex flex-col justify-center gap-3 bg-slate-50/50 p-6 md:p-8 shrink-0 w-full md:w-[260px] relative z-10">
+                                    
+                                    <a href="${API_URL}/api/bookings/pdf/${booking.bookingReference}" target="_blank" class="w-full bg-[#1f3a40] hover:bg-slate-800 text-white px-4 py-3 rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all shadow-md hover:shadow-lg active:scale-95 text-decoration-none border-none cursor-pointer">
+                                        <svg class="w-4 h-4 fill-white" viewBox="0 0 384 512"><path d="M64 0C28.7 0 0 28.7 0 64V448c0 35.3 28.7 64 64 64H320c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zM256 0V128H384L256 0zM216 232V334.1l31-31c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-72 72c-9.4 9.4-24.6 9.4-33.9 0l-72-72c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l31 31V232c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg> 
+                                        تحميل قسيمة الحجز
+                                    </a>
+                                    
                                     ${isConfirmed ? `
-                                    <button onclick="modifyBookingPrompt('${booking.bookingReference}', '${booking.customerName}', '${booking.phone || ''}')" class="w-full border border-slate-300 text-slate-700 hover:bg-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 cursor-pointer bg-white shadow-sm"><span>✏️</span> تعديل</button>
-                                    <button onclick="cancelBookingAPI('${booking.bookingReference}', ${booking.price}, '${booking.refundType || 'full_100'}', '${(booking.cancellationPolicy || '').replace(/'/g, "\\'")}')" class="w-full text-red-600 hover:text-red-700 hover:bg-red-50/80 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95 border border-dashed border-red-200 bg-transparent cursor-pointer mt-2"><span>❌</span> إلغاء واسترداد</button>` : ''}
+                                    <button onclick="resendVoucherEmail('${booking.bookingReference}', '${booking.email || currentUser.email}')" class="w-full border border-slate-300 text-slate-700 bg-white hover:bg-slate-50 hover:text-[#00b4d8] hover:border-[#00b4d8] px-4 py-3 rounded-xl text-sm font-black flex items-center justify-center gap-2 transition-all shadow-sm active:scale-95 cursor-pointer">
+                                        <svg class="w-4 h-4 fill-current" viewBox="0 0 512 512"><path d="M48 64C21.5 64 0 85.5 0 112c0 15.1 7.1 29.3 19.2 38.4L236.8 313.6c11.4 8.5 27 8.5 38.4 0L492.8 150.4c12.1-9.1 19.2-23.3 19.2-38.4c0-26.5-21.5-48-48-48H48zM0 176V384c0 35.3 28.7 64 64 64H448c35.3 0 64-28.7 64-64V176L294.4 339.2c-22.8 17.1-54 17.1-76.8 0L0 176z"/></svg>
+                                        إرسال للإيميل
+                                    </button>
+                                    <div class="h-px w-full bg-slate-200 my-1"></div>
+                                    <button onclick="modifyBookingPrompt('${booking.bookingReference}', '${booking.customerName}', '${booking.phone || ''}')" class="w-full border border-transparent text-[#00b4d8] hover:bg-[#00b4d8]/10 px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 cursor-pointer bg-transparent">
+                                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 512 512"><path d="M471.6 21.7c-21.9-21.9-57.3-21.9-79.2 0L362.3 51.7l97.9 97.9 30.1-30.1c21.9-21.9 21.9-57.3 0-79.2L471.6 21.7zm-299.2 220c-6.1 6.1-10.8 13.6-13.5 21.9l-29.6 88.8c-2.9 8.6-.6 18.1 5.8 24.6s15.9 8.7 24.6 5.8l88.8-29.6c8.2-2.7 15.7-7.4 21.9-13.5L437.7 172.3 339.7 74.3 172.4 241.7zM96 64C43 64 0 107 0 160V416c0 53 43 96 96 96H352c53 0 96-43 96-96V320c0-17.7-14.3-32-32-32s-32 14.3-32 32v96c0 17.7-14.3 32-32 32H96c-17.7 0-32-14.3-32-32V160c0-17.7 14.3-32 32-32h96c17.7 0 32-14.3 32-32s-14.3-32-32-32H96z"/></svg> 
+                                        تعديل البيانات
+                                    </button>
+                                    <button onclick="cancelBookingAPI('${booking.bookingReference}', ${booking.price}, '${booking.refundType || 'full_100'}', '${(booking.cancellationPolicy || '').replace(/'/g, "\\'")}')" class="w-full text-red-500 hover:text-red-700 hover:bg-red-50 px-4 py-2 rounded-lg text-xs font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 border-none bg-transparent cursor-pointer">
+                                        <svg class="w-3.5 h-3.5 fill-current" viewBox="0 0 384 512"><path d="M342.6 150.6c12.5-12.5 12.5-32.8 0-45.3s-32.8-12.5-45.3 0L192 210.7 86.6 105.4c-12.5-12.5-32.8-12.5-45.3 0s-12.5 32.8 0 45.3L146.7 256 41.4 361.4c-12.5 12.5-12.5 32.8 0 45.3s32.8 12.5 45.3 0L192 301.3 297.4 406.6c12.5 12.5 32.8 12.5 45.3 0s12.5-32.8 0-45.3L237.3 256 342.6 150.6z"/></svg>
+                                        إلغاء واسترداد
+                                    </button>` 
+                                    : `<div class="bg-red-50 text-red-500 text-center py-2.5 rounded-xl text-sm font-bold border border-red-100 mt-2 flex items-center justify-center gap-2">
+                                        <svg class="w-4 h-4 fill-red-500" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg>
+                                        تم تنفيذ سياسة الإلغاء
+                                       </div>`}
                                 </div>
                             </div>`;
                     });
                     bookingsContainer.innerHTML = cardsHTML;
-                } else { bookingsContainer.innerHTML = `<div class="text-center py-6 text-red-500 bg-red-50 rounded-xl font-medium border border-red-100">حدث خطأ أثناء جلب البيانات: ${data.error || 'يرجى المحاولة لاحقاً.'}</div>`; }
-            } catch(e) { console.error('خطأ', e); bookingsContainer.innerHTML = `<div class="text-center py-6 text-red-500 bg-red-50 rounded-xl font-medium border border-red-100">حدث خطأ غير متوقع في الاتصال بالسيرفر.</div>`; }
+                } else { 
+                    bookingsContainer.innerHTML = `<div class="text-center py-6 text-red-500 bg-red-50 rounded-xl font-medium border border-red-100">حدث خطأ أثناء جلب البيانات: ${data.error || 'يرجى المحاولة لاحقاً.'}</div>`; 
+                }
+            } catch(e) { 
+                console.error('خطأ', e); 
+                bookingsContainer.innerHTML = `<div class="text-center py-6 text-red-500 bg-red-50 rounded-xl font-medium border border-red-100">حدث خطأ غير متوقع في الاتصال بالسيرفر.</div>`; 
+            }
         }
 
         async function modifyBookingPrompt(bookingReference, currentName, currentPhone) {
@@ -1970,7 +2079,7 @@
                     </div>
                     <span class="text-[10px] text-slate-400 font-bold mb-6 block">شامل الضرائب والرسوم</span>
 
-                    <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] border-none cursor-pointer text-base flex items-center justify-center gap-2" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                    <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] border-none cursor-pointer text-base flex items-center justify-center gap-2 mb-4" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
                       عرض الخيارات <i class="fa-solid fa-chevron-left text-sm opacity-80"></i>
                     </button>
 
