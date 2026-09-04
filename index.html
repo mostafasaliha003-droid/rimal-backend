@@ -1718,7 +1718,7 @@
                       <span class="text-4xl font-black text-[#800000] hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
                     </div>
                     <button class="w-full bg-[#800000] hover:bg-red-900 active:scale-95 transition-all text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-red-900/20 cursor-pointer border-none" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
-                      <i class="fa-solid fa-bed pointer-events-none"></i> اختر الغرفة
+                        <i class="fa-solid fa-bed pointer-events-none"></i> اختر الغرفة
                     </button>
                   </div>
                 </div>`;
@@ -1943,7 +1943,7 @@
                 });
                 const ziinaData = await ziinaRes.json();
 
-                if (ziinaData.success && (ziinaData.embedded_url || ziinaData.redirect_url)) {
+                if (ziinaData.success && (ziinaData.redirect_url || ziinaData.embedded_url)) {
                     const pendingData = { 
                         bookingReference, 
                         ziinaPaymentId: ziinaData.ziinaPaymentId || '', 
@@ -1961,70 +1961,12 @@
                     };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
 
-                    let baseEmbedUrl = ziinaData.embedded_url;
-                    if (!baseEmbedUrl && ziinaData.redirect_url) {
-                        baseEmbedUrl = ziinaData.redirect_url.replace('/payment_intent/', '/embedded/payment_intent/');
-                    }
-                    const finalIframeUrl = baseEmbedUrl + (baseEmbedUrl.includes('?') ? '&' : '?') + 'version=latest&locale=ar';
-
-                    const iframeContainer = document.createElement('div');
-                    iframeContainer.id = 'ziina-payment-modal';
-                    iframeContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter: blur(8px);';
+                    // توجيه العميل لصفحة الدفع الآمنة (Web Redirect) بدلاً من التطبيق
+                    btn.innerHTML = '<i class="fa-solid fa-lock"></i> جاري تحويلك لصفحة الدفع الآمنة...';
                     
-                    const iframeWrapper = document.createElement('div');
-                    iframeWrapper.style.cssText = 'position:relative; width:100%; max-width:450px; height:85%; max-height:820px; display:flex; justify-content:center; align-items:center; animation: scaleIn 0.3s ease-out forwards;';
-
-                    const iframe = document.createElement('iframe');
-                    iframe.id = 'ziina-checkout';
-                    iframe.src = finalIframeUrl;
-                    
-                    iframe.setAttribute('allow', 'payment *');
-                    
-                    iframe.style.cssText = 'width:100%; height:100%; border:none; border-radius:16px; background:transparent; box-shadow:0 20px 50px rgba(0,0,0,0.5);';
-                    
-                    const closeBtn = document.createElement('button');
-                    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> إغلاق الدفع';
-                    closeBtn.style.cssText = 'position:absolute; top:-40px; right:0; background:rgba(255,255,255,0.2); border:none; border-radius:8px; padding:6px 15px; cursor:pointer; font-weight:bold; color:white; font-size:14px; transition:all 0.2s;';
-                    closeBtn.onmouseover = () => { closeBtn.style.background = '#ff595e'; };
-                    closeBtn.onmouseout = () => { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
-                    closeBtn.onclick = () => {
-                        document.body.removeChild(iframeContainer);
-                        btn.innerHTML = origText; 
-                        btn.disabled = false;
-                        showToast('info', 'تم الإلغاء', 'تم إغلاق بوابة الدفع قبل إتمام العملية.');
-                    };
-
-                    iframeWrapper.appendChild(closeBtn);
-                    iframeWrapper.appendChild(iframe);
-                    iframeContainer.appendChild(iframeWrapper);
-                    document.body.appendChild(iframeContainer);
-
-                    window.addEventListener('message', function paymentListener(event) {
-                        const checkoutIframe = document.getElementById('ziina-checkout');
-                        if (!checkoutIframe || event.source !== checkoutIframe.contentWindow) return;
-                        
-                        const { type, data } = event.data || {};
-                        if (event.origin !== 'https://pay.ziina.com' || type !== 'ZIINA_PAYMENT_STATUS_CHANGE') return;
-
-                        if (data.status === "COMPLETED") {
-                            window.removeEventListener('message', paymentListener);
-                            iframeContainer.innerHTML = '<div style="text-align:center; color:white; font-family:Cairo;"><div style="font-size:60px; margin-bottom:15px;">✅</div><h2 style="font-size:24px; font-weight:900;">تم الدفع بنجاح!</h2><p style="color:#a5b4fc; font-weight:bold;">جاري تثبيت الحجز وإصدار التذكرة...</p></div>';
-                            
-                            setTimeout(() => {
-                                document.body.removeChild(iframeContainer);
-                                window.location.href = `https://remalbookings.com?payment=success&ref=${bookingReference}`;
-                            }, 1500);
-
-                        } else if (data.status === "FAILED") {
-                            showToast('error', 'فشلت العملية', 'تم رفض البطاقة أو فشل الدفع، يرجى المحاولة ببطاقة أخرى.');
-                        } else if (data.status === "CANCELED") {
-                            document.body.removeChild(iframeContainer);
-                            btn.innerHTML = origText; 
-                            btn.disabled = false;
-                            showToast('info', 'إلغاء الدفع', 'تم التراجع عن عملية الدفع.');
-                            window.removeEventListener('message', paymentListener);
-                        }
-                    });
+                    // استخدام redirect_url المخصص لصفحات الويب الخارجية لتفادي الإطار
+                    const paymentUrl = ziinaData.redirect_url || ziinaData.embedded_url;
+                    window.location.href = paymentUrl;
 
                 } else { 
                     showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); 
