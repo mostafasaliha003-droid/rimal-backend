@@ -1961,14 +1961,12 @@
                     };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
 
-                    // بناء رابط الدفع المدمج
                     let baseEmbedUrl = ziinaData.embedded_url;
                     if (!baseEmbedUrl && ziinaData.redirect_url) {
                         baseEmbedUrl = ziinaData.redirect_url.replace('/payment_intent/', '/embedded/payment_intent/');
                     }
                     const finalIframeUrl = baseEmbedUrl + (baseEmbedUrl.includes('?') ? '&' : '?') + 'version=latest&locale=ar';
 
-                    // إنشاء النافذة المنبثقة داخل الموقع
                     const iframeContainer = document.createElement('div');
                     iframeContainer.id = 'ziina-payment-modal';
                     iframeContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter: blur(8px);';
@@ -1980,7 +1978,6 @@
                     iframe.id = 'ziina-checkout';
                     iframe.src = finalIframeUrl;
                     
-                    // 🚀 السطر الأهم: إعطاء صلاحية الـ Apple Pay داخل الإطار
                     iframe.setAttribute('allow', 'payment *');
                     
                     iframe.style.cssText = 'width:100%; height:100%; border:none; border-radius:16px; background:transparent; box-shadow:0 20px 50px rgba(0,0,0,0.5);';
@@ -2002,7 +1999,6 @@
                     iframeContainer.appendChild(iframeWrapper);
                     document.body.appendChild(iframeContainer);
 
-                    // الاستماع لنتيجة الدفع من Ziina لإصدار الـ PDF
                     window.addEventListener('message', function paymentListener(event) {
                         const checkoutIframe = document.getElementById('ziina-checkout');
                         if (!checkoutIframe || event.source !== checkoutIframe.contentWindow) return;
