@@ -29,11 +29,9 @@
             --accent-coral: #ff595e;  
             --accent-yellow: #ffca3a;
             --accent-purple: #7209b7;
-            --bg-light: #f3f4f6;     
-            --text-main: #1f3a40;
-            --text-muted: #6c757d;
-            --white: #ffffff;
-            --shadow: 0 10px 30px rgba(31, 58, 64, 0.12);
+            --bg-light: #f8fafc;     
+            --text-main: #1e293b;
+            --text-muted: #64748b;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; }
@@ -43,35 +41,25 @@
         .view-section.active { display: block; animation: bounceIn 0.5s cubic-bezier(0.175, 0.885, 0.32, 1.275); }
         @keyframes bounceIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
 
-        /* حركات الظهور للوحة التحكم والبطاقات */
         @keyframes fadeInUp { to { opacity: 1; transform: translateY(0); } }
-        .animate-fade-in-up {
-            opacity: 0; transform: translateY(20px); animation: fadeInUp 0.5s ease-out forwards;
-        }
+        .animate-fade-in-up { opacity: 0; transform: translateY(20px); animation: fadeInUp 0.5s ease-out forwards; }
 
-        /* حركات النافذة المنبثقة */
         @keyframes scaleIn { from { opacity: 0; transform: scale(0.95); } to { opacity: 1; transform: scale(1); } }
         .modal-animate { animation: scaleIn 0.3s ease-out forwards; }
         .form-animate { opacity: 0; transform: translateY(10px); animation: fadeInUp 0.4s ease-out forwards; }
 
-        /* إخفاء سهم القائمة المنسدلة */
         .hide-select-arrow { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
         
-        /* مظهر مخصص للقائمة المنسدلة في قسم النقاط */
         .custom-select-icon {
             background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E");
-            background-repeat: no-repeat;
-            background-position: left 1rem center;
-            background-size: 1em;
+            background-repeat: no-repeat; background-position: left 1rem center; background-size: 1em;
         }
         
-        /* 🚀 الخدعة الاحترافية لحقول التاريخ */
         input[type="date"]::-webkit-calendar-picker-indicator {
             position: absolute; top: 0; left: 0; right: 0; bottom: 0;
             width: 100%; height: 100%; color: transparent; background: transparent; cursor: pointer; z-index: 10;
         }
 
-        /* شريط الحجوزات الحية الفيروسي */
         .live-ticker {
             background: linear-gradient(90deg, var(--accent-purple), var(--accent-cyan));
             color: white; padding: 8px 5%; font-size: 13px; font-weight: 800; text-align: center;
@@ -80,16 +68,13 @@
 
         header {
             background: linear-gradient(135deg, #1f3a40, #2a4d53); padding: 12px 5%; display: flex; justify-content: space-between;
-            align-items: center; color: var(--white); box-shadow: 0 6px 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
+            align-items: center; color: white; box-shadow: 0 6px 20px rgba(0,0,0,0.1); position: sticky; top: 0; z-index: 1000;
             border-bottom: 4px solid var(--accent-cyan);
         }
 
-        @keyframes wave {
-            0% { transform: rotate(0deg); } 25% { transform: rotate(14deg); } 75% { transform: rotate(-14deg); } 100% { transform: rotate(0deg); }
-        }
+        @keyframes wave { 0% { transform: rotate(0deg); } 25% { transform: rotate(14deg); } 75% { transform: rotate(-14deg); } 100% { transform: rotate(0deg); } }
         .wave-emoji { display: inline-block; animation: wave 1.5s infinite; }
 
-        /* 🌟 القائمة المنسدلة لحساب المستخدم الاحترافية */
         .user-dropdown-container { position: relative; display: inline-block; }
         .user-menu-btn {
             background: var(--accent-coral); color: white; border: 2px solid #d90429;
@@ -131,98 +116,50 @@
         }
 
         /* =========================================================
-           🚀 إضافات التصميم العالمي (Ultimate World-Class UX/UI) 
+           🚀 تحسينات الـ UX/UI (التذكرة الفاخرة)
            ========================================================= */
 
-        /* 1. تأثير التقييم الزجاجي الفاخر (Glassmorphism Rating) */
-        .glass-rating {
-            background: rgba(255, 255, 255, 0.85);
-            backdrop-filter: blur(10px);
-            border: 1px solid rgba(255, 255, 255, 0.6);
-            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
-            color: #1f3a40;
-            transition: all 0.3s ease;
+        /* فاصل التذكرة المتقطع العمودي (Desktop) */
+        .ticket-divider-v {
+            width: 2px;
+            background-image: linear-gradient(to bottom, #e2e8f0 50%, rgba(255,255,255,0) 0%);
+            background-position: right;
+            background-size: 2px 12px;
+            background-repeat: repeat-y;
+            position: relative;
         }
-        .glass-rating:hover { background: rgba(255, 255, 255, 0.95); transform: translateY(-2px); }
+        .ticket-divider-v::before, .ticket-divider-v::after {
+            content: ''; position: absolute; left: -11px; width: 24px; height: 24px; background-color: var(--bg-light); border-radius: 50%;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.04);
+        }
+        .ticket-divider-v::before { top: -12px; }
+        .ticket-divider-v::after { bottom: -12px; }
 
-        /* 2. 🪙 العملة الذهبية الواقعية (Ultra 3D Skeuomorphic Coin) - تم تنظيفها من النصوص السفلية */
-        .ultra-3d-coin {
-            position: absolute;
-            top: 15px;
-            right: 15px;
-            width: 80px;
-            height: 80px;
-            border-radius: 50%;
-            background: radial-gradient(ellipse at top left, #fceca4 0%, #d4af37 40%, #a66a10 80%, #4a2500 100%);
-            box-shadow: 
-                0 10px 25px rgba(0,0,0,0.4),
-                inset 0 0 0 3px #fdf3ba,
-                inset 0 0 0 7px #965b09,
-                inset 0 0 15px 7px rgba(0,0,0,0.6);
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            z-index: 20;
-            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+        /* فاصل التذكرة المتقطع الأفقي (Mobile) */
+        .ticket-divider-h {
+            height: 2px;
+            background-image: linear-gradient(to left, #e2e8f0 50%, rgba(255,255,255,0) 0%);
+            background-position: top;
+            background-size: 12px 2px;
+            background-repeat: repeat-x;
+            position: relative;
+            margin: 0 16px;
         }
-        
-        @media (min-width: 768px) {
-            .ultra-3d-coin { width: 95px; height: 95px; top: 20px; right: 20px; }
+        .ticket-divider-h::before, .ticket-divider-h::after {
+            content: ''; position: absolute; top: -11px; width: 24px; height: 24px; background-color: var(--bg-light); border-radius: 50%;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.04);
         }
+        .ticket-divider-h::before { right: -28px; }
+        .ticket-divider-h::after { left: -28px; }
 
-        .ultra-3d-coin:hover { transform: scale(1.08) rotate(5deg); }
-        
-        .ultra-3d-coin::before {
-            content: '';
-            position: absolute;
-            width: 70%; height: 70%;
-            border-radius: 50%;
-            border: 1px solid rgba(255, 235, 133, 0.5);
-            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
-            pointer-events: none;
-        }
-        
-        .ultra-3d-coin .coin-top {
-            font-size: 10px; font-weight: 900; color: #ffffff;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8); z-index: 2; margin-bottom: -2px;
-        }
-        @media (min-width: 768px) { .ultra-3d-coin .coin-top { font-size: 12px; } }
-
-        .ultra-3d-coin .coin-amount {
-            font-size: 30px; font-weight: 900; color: #ffffff;
-            text-shadow: 2px 2px 4px rgba(0,0,0,0.6), -1px -1px 0 rgba(255,255,255,0.4);
-            line-height: 1; z-index: 2; letter-spacing: -1px;
-        }
-        @media (min-width: 768px) { .ultra-3d-coin .coin-amount { font-size: 38px; } }
-
-        .ultra-3d-coin .coin-bottom {
-            font-size: 9px; font-weight: 900; color: #ffffff;
-            text-shadow: 1px 1px 2px rgba(0,0,0,0.8); z-index: 2; margin-top: 1px;
-        }
-        @media (min-width: 768px) { .ultra-3d-coin .coin-bottom { font-size: 11px; } }
-
-        /* 3. العملة الداكنة للزائر (السرية) */
-        .secret-ultra-coin {
-            background: radial-gradient(ellipse at top left, #64748b 0%, #1e293b 40%, #0f172a 80%, #000000 100%);
-            box-shadow: 
-                0 10px 20px rgba(0,0,0,0.5),
-                inset 0 0 0 3px #94a3b8,
-                inset 0 0 0 7px #020617,
-                inset 0 0 15px 7px rgba(0,0,0,0.8);
-            cursor: pointer;
-        }
-        .secret-ultra-coin::before { border: 1px solid rgba(255, 255, 255, 0.1); }
-
-        /* حركة النبض للعملة السرية */
+        /* نبض للعملة المغلقة */
         @keyframes subtlePulse {
-            0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.4), 0 10px 20px rgba(0,0,0,0.5), inset 0 0 0 3px #94a3b8, inset 0 0 0 7px #020617, inset 0 0 15px 7px rgba(0,0,0,0.8); }
-            70% { box-shadow: 0 0 0 10px rgba(250, 204, 21, 0), 0 10px 20px rgba(0,0,0,0.5), inset 0 0 0 3px #94a3b8, inset 0 0 0 7px #020617, inset 0 0 15px 7px rgba(0,0,0,0.8); }
-            100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0), 0 10px 20px rgba(0,0,0,0.5), inset 0 0 0 3px #94a3b8, inset 0 0 0 7px #020617, inset 0 0 15px 7px rgba(0,0,0,0.8); }
+            0% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0.4)); }
+            50% { filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.8)); }
+            100% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); }
         }
-        .pulse-effect { animation: subtlePulse 2.5s infinite; }
+        .pulse-coin { animation: subtlePulse 2.5s infinite; }
 
-        /* إخفاء مترجم جوجل الافتراضي */
         .goog-te-banner-frame { display: none !important; }
         body { top: 0px !important; }
     </style>
@@ -1744,7 +1681,7 @@
 
             const btn = document.getElementById('searchBtnText');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري البحث عن أفضل العروض...'; btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري البحث...'; btn.disabled = true;
 
             try {
                 const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
@@ -1758,8 +1695,6 @@
                         let minRate = h.minRate ? parseFloat(h.minRate) : Math.floor(Math.random() * 1500 + 400);
                         let imgs = [ "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80" ];
                         let mockFacilities = ["<i class='fa-solid fa-wifi'></i> واي فاي", "<i class='fa-solid fa-person-swimming'></i> مسبح", "<i class='fa-solid fa-spa'></i> سبا"];
-                        
-                        // احتساب الكاش باك كـ 10% من سعر الفندق (النقاط تكون x10 للدرهم)
                         let calculatedPoints = Math.floor(minRate * 10);
 
                         return {
@@ -1792,18 +1727,12 @@
                     });
                 }
                 const animationDelay = index * 100;
-                
-                // حساب الكاش باك
                 let cashbackAED = (hotel.basePoints / 10).toFixed(0);
 
-                // 🌟 تحديد تصميم العملة واللافتة التحفيزية بناءً على حالة المستخدم (السرية vs الذهبية)
                 let coinBadgeHTML = '';
-                let actionAreaNote = '';
-
                 if (currentUser) {
-                    // العميل مسجل: العملة الذهبية 3D (SVG)
                     coinBadgeHTML = `
-                        <div class="absolute top-4 right-4 w-24 h-24 md:w-28 md:h-28 transform transition-transform duration-300 hover:rotate-3 hover:scale-105 drop-shadow-xl z-20 cursor-default">
+                        <div class="absolute top-3 right-3 w-16 h-16 md:w-20 md:h-20 transform transition-transform duration-300 hover:rotate-3 hover:scale-105 z-20 cursor-default">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
                                 <linearGradient id="gold-outer-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1813,7 +1742,7 @@
                                   <stop offset="0%" stop-color="#7B4918"/><stop offset="50%" stop-color="#B8860B"/><stop offset="100%" stop-color="#F9D976"/>
                                 </linearGradient>
                                 <filter id="text-shadow-${index}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.5"/></filter>
-                                <filter id="coin-shadow-${index}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000" flood-opacity="0.4"/></filter>
+                                <filter id="coin-shadow-${index}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/></filter>
                               </defs>
                               <circle cx="100" cy="100" r="90" fill="url(#gold-outer-${index})" filter="url(#coin-shadow-${index})"/>
                               <circle cx="100" cy="100" r="84" fill="none" stroke="#5c3a0d" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
@@ -1827,19 +1756,9 @@
                               <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.1"/>
                             </svg>
                         </div>`;
-                    
-                    // شارة الثقة الخضراء (تحت زر الحجز)
-                    actionAreaNote = `
-                        <div class="mt-4 flex items-center justify-center gap-1.5 bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] px-3 py-2.5 rounded-xl w-full transition-all hover:bg-[#dcfce7] cursor-default shadow-sm">
-                            <i class="fa-solid fa-wallet text-[#16a34a] text-sm"></i>
-                            <span class="text-[11px] md:text-xs font-extrabold tracking-tight">يضاف الكاش باك لمحفظتك بعد الحجز</span>
-                        </div>
-                    `;
-
                 } else {
-                    // الزائر مجهول: العملة السرية الداكنة (SVG)
                     coinBadgeHTML = `
-                        <div onclick="openAuthModal()" class="absolute top-4 right-4 w-24 h-24 md:w-28 md:h-28 cursor-pointer transform transition-transform duration-300 hover:scale-105 hover:rotate-3 drop-shadow-xl z-20 pulse-effect rounded-full">
+                        <div onclick="openAuthModal()" class="absolute top-3 right-3 w-16 h-16 md:w-20 md:h-20 cursor-pointer transform transition-transform duration-300 hover:scale-105 hover:rotate-3 z-20 pulse-coin rounded-full">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
                                 <linearGradient id="dark-outer-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1848,83 +1767,75 @@
                                 <linearGradient id="dark-inner-${index}" x1="0%" y1="100%" x2="100%" y2="0%">
                                   <stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#1e293b"/><stop offset="100%" stop-color="#475569"/>
                                 </linearGradient>
-                                <filter id="coin-shadow-dark-${index}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000" flood-opacity="0.6"/></filter>
+                                <filter id="coin-shadow-dark-${index}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/></filter>
                               </defs>
                               <circle cx="100" cy="100" r="90" fill="url(#dark-outer-${index})" filter="url(#coin-shadow-dark-${index})"/>
                               <circle cx="100" cy="100" r="84" fill="none" stroke="#1e293b" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
                               <circle cx="100" cy="100" r="75" fill="url(#dark-inner-${index})"/>
                               <circle cx="100" cy="100" r="75" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.1"/>
-                              <text x="100" y="80" font-family="'Font Awesome 6 Free'" font-weight="900" font-size="50" fill="#facc15" text-anchor="middle">&#xf023;</text>
-                              <text x="100" y="130" font-family="'Cairo', sans-serif" font-size="24" font-weight="900" fill="#cbd5e1" text-anchor="middle">سر الأعضاء</text>
+                              <!-- رسمة القفل بالـ SVG بدلاً من الفونت -->
+                              <path d="M 85 75 V 65 A 15 15 0 0 1 115 65 V 75 H 120 V 115 H 80 V 75 Z M 92 75 H 108 V 65 A 8 8 0 0 0 92 65 Z" fill="#facc15" filter="url(#text-shadow-${index})"/>
+                              <text x="100" y="145" font-family="'Cairo', sans-serif" font-size="22" font-weight="900" fill="#cbd5e1" text-anchor="middle">سر الأعضاء</text>
                               <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.05"/>
                             </svg>
                         </div>`;
-                    
-                    // شارة التحفيز البرتقالية (تحت زر الحجز)
-                    actionAreaNote = `
-                        <div onclick="openAuthModal()" class="mt-4 flex items-center justify-center gap-1.5 bg-[#fff7ed] border border-[#ffedd5] text-[#9a3412] px-3 py-2.5 rounded-xl w-full cursor-pointer transition-all hover:bg-[#ffedd5] hover:shadow-md hover:-translate-y-0.5 group">
-                            <i class="fa-solid fa-lock text-[#ea580c] text-sm group-hover:text-[#f97316] transition-colors"></i>
-                            <span class="text-[11px] md:text-xs font-extrabold tracking-tight underline decoration-dashed underline-offset-4">سجل دخولك الآن لتفعيل الكاش باك</span>
-                        </div>
-                    `;
                 }
 
                 container.innerHTML += `
-                <div class="relative flex flex-col md:flex-row items-stretch bg-white rounded-3xl border border-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,180,216,0.15)] mb-6 overflow-hidden group animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
-                  <div class="w-full md:w-[40%] relative h-64 md:h-auto overflow-hidden bg-gray-200">
-                    <img src="${hotel.img}" alt="${hotel.name}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
-                    <!-- تظليل لضمان وضوح الشارات -->
+                <div class="flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] border border-gray-100 hover:shadow-[0_8px_25px_rgba(0,180,216,0.1)] transition-all duration-300 mb-6 overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                  
+                  <!-- 🖼️ قسم الصورة (يمين) -->
+                  <div class="relative w-full md:w-[280px] lg:w-[320px] h-56 md:h-auto shrink-0">
+                    <img src="${hotel.img}" alt="${hotel.name}" class="w-full h-full object-cover transition-transform duration-700 hover:scale-105" />
                     <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent pointer-events-none z-0"></div>
                     
-                    <!-- 🌟 شارة التقييم الزجاجية الجديدة -->
-                    <div class="absolute top-5 left-5 flex items-center gap-2 bg-white/70 backdrop-blur-md px-3 py-2 md:px-4 md:py-2.5 rounded-2xl border border-white/50 shadow-[0_8px_16px_rgba(0,0,0,0.15)] transition-colors hover:bg-white/80 cursor-default z-10">
-                        <span class="text-gray-800 font-extrabold text-sm md:text-base tracking-tight">${randomRating} ممتاز</span>
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 md:h-6 md:w-6 text-yellow-500 drop-shadow-sm" viewBox="0 0 20 20" fill="currentColor">
-                            <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                        </svg>
+                    <div class="absolute top-4 left-4 flex items-center gap-1.5 glass-rating px-3 py-1.5 rounded-xl z-10">
+                        <span class="text-xs font-black tracking-tight">${randomRating} ممتاز</span>
+                        <i class="fa-solid fa-star text-yellow-500 text-[10px]"></i>
                     </div>
                     
-                    <!-- 🌟 عملة الكاش باك (SVG) -->
                     ${coinBadgeHTML}
                   </div>
 
-                  <div class="flex-1 p-6 md:p-8 flex flex-col justify-between z-10 bg-white">
+                  <!-- 📝 قسم التفاصيل (المنتصف) -->
+                  <div class="flex-1 p-5 md:p-6 flex flex-col justify-between bg-white relative z-10">
                     <div>
-                      <h3 class="text-2xl md:text-3xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2"><bdi dir="auto">${hotel.name}</bdi></h3>
-                      <p class="text-base text-gray-500 font-semibold"><i class="fa-solid fa-location-dot text-gray-400 ml-1 text-sm"></i> الإمارات - <strong>${hotel.city}</strong></p>
-                      <div class="flex flex-wrap gap-2 mt-5">${facilitiesHTML}</div>
+                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2"><bdi dir="auto">${hotel.name}</bdi></h3>
+                      <p class="text-sm text-gray-500 font-semibold"><i class="fa-solid fa-location-dot text-gray-400 ml-1 text-[10px]"></i> الإمارات - <strong>${hotel.city}</strong></p>
+                      <div class="flex flex-wrap gap-2 mt-4">${facilitiesHTML}</div>
                     </div>
-                    <div class="mt-6 border border-dashed border-red-200 bg-red-50 text-red-700 p-3 text-sm rounded-xl font-bold flex flex-col sm:flex-row items-center gap-3">
-                      <span class="text-xl animate-pulse">🚨</span> <span><strong>تنبيه:</strong> ${hotel.funnyPolicy}</span>
+                    <div class="mt-5 border border-dashed border-red-200 bg-red-50 text-red-700 p-2.5 text-xs text-center rounded-xl font-bold flex flex-col sm:flex-row items-center justify-center gap-2">
+                      <span class="text-lg animate-pulse">🚨</span> <span><strong>تنبيه:</strong> ${hotel.funnyPolicy}</span>
                     </div>
                   </div>
 
-                  <!-- فاصل التذكرة (Ticket Divider) -->
-                  <div class="hidden md:flex flex-col justify-between items-center border-l-2 border-dashed border-gray-200 my-6 relative bg-white z-20">
-                    <div class="absolute -top-9 -right-4 w-8 h-8 bg-[#f3f4f6] rounded-full shadow-[inset_0_3px_5px_rgba(0,0,0,0.03)] z-10"></div>
-                    <div class="absolute -bottom-9 -right-4 w-8 h-8 bg-[#f3f4f6] rounded-full shadow-[inset_0_-3px_5px_rgba(0,0,0,0.03)] z-10"></div>
-                  </div>
-                  <!-- فاصل التذكرة للموبايل -->
-                  <div class="md:hidden relative border-t-2 border-dashed border-gray-200 mx-6 flex flex-row justify-between bg-white z-20">
-                    <div class="absolute -left-9 -top-4 w-8 h-8 bg-[#f3f4f6] rounded-full shadow-inner z-10"></div>
-                    <div class="absolute -right-9 -top-4 w-8 h-8 bg-[#f3f4f6] rounded-full shadow-inner z-10"></div>
-                  </div>
+                  <!-- ✂️ فاصل التذكرة المتقطع -->
+                  <div class="hidden md:block ticket-divider-v z-20"></div>
+                  <div class="md:hidden ticket-divider-h z-20"></div>
 
-                  <div class="w-full md:w-[25%] p-6 md:p-8 flex flex-col justify-center items-center bg-gray-50 z-10">
-                    <span class="text-sm font-bold text-gray-500 mb-2">السعر لليلة واحدة</span>
+                  <!-- 💰 قسم السعر (يسار) -->
+                  <div class="w-full md:w-[240px] lg:w-[260px] p-5 md:p-6 flex flex-col justify-center items-center bg-[#f8fafc] shrink-0 z-10">
+                    <span class="text-[11px] font-bold text-gray-500 mb-1">السعر لليلة واحدة</span>
                     <div class="text-center mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
-                      <span class="text-base font-bold text-gray-800 currency-label">AED</span>
-                      <span class="text-5xl font-black text-[#1f3a40] tracking-tight hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
+                      <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
+                      <span class="text-3xl lg:text-4xl font-black text-[#1f3a40] tracking-tight hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
                     </div>
-                    <span class="text-xs text-gray-400 font-bold mb-6 text-center w-full block">شامل الضريبة والرسوم</span>
+                    <span class="text-[10px] text-gray-400 font-bold mb-4 block">شامل الضريبة والرسوم</span>
 
-                    <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.3)] cursor-pointer border-none" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                    <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-3.5 rounded-xl shadow-md border-none cursor-pointer" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
                       احجز الغرفة
                     </button>
-                    
-                    <!-- 🌟 ملاحظة الكاش باك تحت الزر -->
-                    ${actionAreaNote}
 
+                    ${currentUser 
+                        ? `<div class="mt-3 flex items-center justify-center gap-1.5 bg-[#f0fdf4] text-[#166534] px-2 py-1.5 rounded-lg w-full cursor-default border border-[#bbf7d0]">
+                               <i class="fa-solid fa-wallet text-[#16a34a] text-[10px]"></i>
+                               <span class="text-[9px] font-extrabold">يضاف الكاش باك بعد الحجز</span>
+                           </div>` 
+                        : `<div onclick="openAuthModal()" class="mt-3 flex items-center justify-center gap-1.5 bg-[#fff7ed] text-[#9a3412] px-2 py-1.5 rounded-lg w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group">
+                               <i class="fa-solid fa-lock text-[#ea580c] text-[10px] group-hover:text-[#f97316]"></i>
+                               <span class="text-[9px] font-extrabold underline decoration-dashed underline-offset-2">سجل لتفعيل الكاش باك</span>
+                           </div>`
+                    }
                   </div>
                 </div>`;
             });
@@ -1974,13 +1885,10 @@
                 
                 let cashbackAED = (room.points / 10).toFixed(0);
                 
-                // 🌟 [الذكاء التسويقي] داخل صفحة الغرف
                 let coinBadgeHTML = '';
-                let actionAreaNote = '';
-
                 if (currentUser) {
                     coinBadgeHTML = `
-                        <div class="absolute top-2 right-2 w-16 h-16 transform transition-transform duration-300 z-10 cursor-default">
+                        <div class="w-16 h-16 md:w-20 md:h-20 transform transition-transform duration-300 z-10 cursor-default mx-auto mt-2">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
                                 <linearGradient id="gold-outer-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1990,7 +1898,7 @@
                                   <stop offset="0%" stop-color="#7B4918"/><stop offset="50%" stop-color="#B8860B"/><stop offset="100%" stop-color="#F9D976"/>
                                 </linearGradient>
                                 <filter id="text-shadow-r-${index}"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.5"/></filter>
-                                <filter id="coin-shadow-r-${index}"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000" flood-opacity="0.4"/></filter>
+                                <filter id="coin-shadow-r-${index}"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/></filter>
                               </defs>
                               <circle cx="100" cy="100" r="90" fill="url(#gold-outer-r-${index})" filter="url(#coin-shadow-r-${index})"/>
                               <circle cx="100" cy="100" r="84" fill="none" stroke="#5c3a0d" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
@@ -2002,17 +1910,9 @@
                               <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.1"/>
                             </svg>
                         </div>`;
-                    
-                    actionAreaNote = `
-                        <div class="mt-4 flex items-center justify-center gap-1.5 bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] px-3 py-2.5 rounded-xl w-full transition-all hover:bg-[#dcfce7] cursor-default shadow-sm">
-                            <i class="fa-solid fa-wallet text-[#16a34a] text-sm"></i>
-                            <span class="text-[11px] md:text-xs font-extrabold tracking-tight">يضاف الكاش باك لمحفظتك بعد الحجز</span>
-                        </div>
-                    `;
-
                 } else {
                     coinBadgeHTML = `
-                        <div onclick="openAuthModal()" class="cursor-pointer absolute top-2 right-2 w-16 h-16 transform transition-transform duration-300 hover:scale-105 drop-shadow-xl z-20 pulse-effect rounded-full">
+                        <div onclick="openAuthModal()" class="w-16 h-16 md:w-20 md:h-20 cursor-pointer transform transition-transform duration-300 hover:scale-105 z-10 pulse-coin rounded-full mx-auto mt-2">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
                                 <linearGradient id="dark-outer-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -2021,35 +1921,32 @@
                                 <linearGradient id="dark-inner-r-${index}" x1="0%" y1="100%" x2="100%" y2="0%">
                                   <stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#1e293b"/><stop offset="100%" stop-color="#475569"/>
                                 </linearGradient>
-                                <filter id="coin-shadow-dark-r-${index}"><feDropShadow dx="0" dy="6" stdDeviation="5" flood-color="#000" flood-opacity="0.6"/></filter>
+                                <filter id="coin-shadow-dark-r-${index}"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/></filter>
                               </defs>
                               <circle cx="100" cy="100" r="90" fill="url(#dark-outer-r-${index})" filter="url(#coin-shadow-dark-r-${index})"/>
                               <circle cx="100" cy="100" r="84" fill="none" stroke="#1e293b" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
                               <circle cx="100" cy="100" r="75" fill="url(#dark-inner-r-${index})"/>
                               <circle cx="100" cy="100" r="75" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.1"/>
-                              <text x="100" y="80" font-family="'Font Awesome 6 Free'" font-weight="900" font-size="50" fill="#facc15" text-anchor="middle">&#xf023;</text>
-                              <text x="100" y="130" font-family="'Cairo', sans-serif" font-size="24" font-weight="900" fill="#cbd5e1" text-anchor="middle">سر الأعضاء</text>
+                              <path d="M 85 75 V 65 A 15 15 0 0 1 115 65 V 75 H 120 V 115 H 80 V 75 Z M 92 75 H 108 V 65 A 8 8 0 0 0 92 65 Z" fill="#facc15" filter="url(#text-shadow-r-${index})"/>
+                              <text x="100" y="145" font-family="'Cairo', sans-serif" font-size="22" font-weight="900" fill="#cbd5e1" text-anchor="middle">سر الأعضاء</text>
+                              <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.05"/>
                             </svg>
                         </div>`;
-                    
-                    actionAreaNote = `
-                        <div onclick="openAuthModal()" class="mt-4 flex items-center justify-center gap-1.5 bg-[#fff7ed] border border-[#ffedd5] text-[#9a3412] px-3 py-2.5 rounded-xl w-full cursor-pointer transition-all hover:bg-[#ffedd5] hover:shadow-md hover:-translate-y-0.5 group">
-                            <i class="fa-solid fa-lock text-[#ea580c] text-sm group-hover:text-[#f97316] transition-colors"></i>
-                            <span class="text-[11px] md:text-xs font-extrabold tracking-tight underline decoration-dashed underline-offset-4">سجل دخولك الآن لتفعيل الكاش باك</span>
-                        </div>
-                    `;
                 }
 
                 container.innerHTML += `
-                    <div class="relative flex flex-col md:flex-row items-stretch bg-white rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_10px_40px_rgba(0,180,216,0.1)] overflow-hidden mb-6 animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
-                        <div class="w-full md:w-1/4 relative bg-gray-50 flex items-center justify-center p-4 border-b md:border-b-0 md:border-l border-dashed border-gray-200 min-h-[120px]">
-                            <!-- أيقونة للغرفة -->
-                            <i class="fa-solid fa-door-open text-6xl text-slate-200"></i>
+                    <div class="flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] border border-gray-100 hover:shadow-[0_8px_25px_rgba(0,180,216,0.1)] transition-all duration-300 mb-6 overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                        
+                        <!-- قسم صورة الغرفة (يمين) -->
+                        <div class="w-full md:w-[150px] relative bg-gray-50 border-b md:border-b-0 md:border-l border-dashed border-gray-200 shrink-0 flex flex-col items-center justify-center p-4">
+                            <i class="fa-solid fa-door-open text-4xl text-slate-200 mb-2"></i>
                             ${coinBadgeHTML}
                         </div>
-                        <div class="flex-2 p-6 w-full md:w-auto relative z-10 flex flex-col justify-between">
+
+                        <!-- قسم تفاصيل الغرفة (المنتصف) -->
+                        <div class="flex-1 p-5 md:p-6 w-full md:w-auto relative z-10 flex flex-col justify-between">
                             <div>
-                                <h3 class="text-xl font-black text-slate-800"><bdi dir="auto">${room.name}</bdi></h3>
+                                <h3 class="text-lg font-black text-slate-800"><bdi dir="auto">${room.name}</bdi></h3>
                                 <div class="flex flex-col gap-2.5 mt-4">
                                     <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit"><i class="fa-solid fa-bed opacity-80 pointer-events-none text-base"></i> الأسرة: ${room.bed}</span>
                                     <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit"><i class="fa-solid fa-utensils opacity-80 pointer-events-none text-base"></i> الوجبات: ${room.board}</span>
@@ -2065,31 +1962,33 @@
                         </div>
 
                         <!-- فاصل التذكرة -->
-                        <div class="hidden md:flex flex-col justify-between items-center border-l-2 border-dashed border-gray-200 my-6 relative bg-white z-20">
-                            <div class="absolute -top-9 -right-4 w-8 h-8 bg-[#f3f4f6] rounded-full shadow-[inset_0_3px_5px_rgba(0,0,0,0.03)] z-10"></div>
-                            <div class="absolute -bottom-9 -right-4 w-8 h-8 bg-[#f3f4f6] rounded-full shadow-[inset_0_-3px_5px_rgba(0,0,0,0.03)] z-10"></div>
-                        </div>
-                        <div class="md:hidden relative border-t-2 border-dashed border-gray-200 mx-6 flex flex-row justify-between bg-white z-20">
-                            <div class="absolute -left-9 -top-4 w-8 h-8 bg-[#f3f4f6] rounded-full shadow-inner z-10"></div>
-                            <div class="absolute -right-9 -top-4 w-8 h-8 bg-[#f3f4f6] rounded-full shadow-inner z-10"></div>
-                        </div>
+                        <div class="hidden md:block ticket-divider-v z-20"></div>
+                        <div class="md:hidden ticket-divider-h z-20"></div>
 
-                        <div class="w-full md:w-[25%] p-6 flex flex-col justify-center items-center bg-gray-50 z-10">
-                            <span class="text-sm font-bold text-gray-500 mb-2">السعر لليلة واحدة</span>
+                        <!-- قسم السعر والحجز (يسار) -->
+                        <div class="w-full md:w-[240px] lg:w-[260px] p-5 md:p-6 flex flex-col justify-center items-center bg-[#f8fafc] shrink-0 z-10">
+                            <span class="text-[11px] font-bold text-gray-500 mb-1">السعر لليلة واحدة</span>
                             <div class="text-center mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
-                                <span class="text-base font-bold text-gray-800 currency-label">AED</span>
-                                <span class="text-4xl font-black text-gray-900 tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
+                                <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
+                                <span class="text-3xl lg:text-4xl font-black text-[#1f3a40] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
                             </div>
-                            <span class="text-xs text-gray-400 font-bold mb-6 text-center w-full block">شامل الضريبة والرسوم</span>
+                            <span class="text-[10px] text-gray-400 font-bold mb-4 block">شامل الضريبة والرسوم</span>
 
-                            <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.3)] cursor-pointer border-none" 
+                            <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-3.5 rounded-xl shadow-md border-none cursor-pointer" 
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
                                 احجز الغرفة
                             </button>
-                            
-                            <!-- 🌟 ملاحظة الكاش باك تحت الزر -->
-                            ${actionAreaNote}
 
+                            ${currentUser 
+                                ? `<div class="mt-3 flex items-center justify-center gap-1.5 bg-[#f0fdf4] text-[#166534] px-2 py-1.5 rounded-lg w-full cursor-default border border-[#bbf7d0]">
+                                       <i class="fa-solid fa-wallet text-[#16a34a] text-[10px]"></i>
+                                       <span class="text-[9px] font-extrabold">يضاف الكاش باك بعد الحجز</span>
+                                   </div>` 
+                                : `<div onclick="openAuthModal()" class="mt-3 flex items-center justify-center gap-1.5 bg-[#fff7ed] text-[#9a3412] px-2 py-1.5 rounded-lg w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group">
+                                       <i class="fa-solid fa-lock text-[#ea580c] text-[10px] group-hover:text-[#f97316]"></i>
+                                       <span class="text-[9px] font-extrabold underline decoration-dashed underline-offset-2">سجل لتفعيل الكاش باك</span>
+                                   </div>`
+                            }
                         </div>
                     </div>`;
             });
