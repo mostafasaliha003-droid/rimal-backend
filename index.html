@@ -224,8 +224,8 @@
             <div class="absolute inset-0 opacity-10 bg-[url('https://www.transparenttextures.com/patterns/cubes.png')]"></div>
             <div class="relative z-10 max-w-4xl mx-auto text-center text-white">
                 <h1 id="heroTitle" class="text-4xl md:text-5xl lg:text-6xl font-extrabold mb-4 leading-tight drop-shadow-lg">عروض فنادق تخلّيك تفكّر <span class="text-yellow-300">تسحب على الدوام!</span> 🌴</h1>
-                <p id="heroSubtitle" class="text-lg md:text-xl font-medium text-purple-200 mb-2">✈️ احجز، فلّها، واكسب!</p>
-                <p class="text-sm md:text-base text-purple-300 mb-8 max-w-2xl mx-auto">منصة ذكية تضبطك بأقوى خصومات الفنادق وتعبي حسابك نقاط كاش باك.. لأن سفرك معنا لازم يكون مكسب ومتعة! 🥂✨</p>
+                <p id="heroSubtitle" class="text-lg md:text-xl font-medium text-purple-200 mb-2">✈️ احجز، فلّها، واسترجع كاش باك في حصالتك!</p>
+                <p class="text-sm md:text-base text-purple-300 mb-8 max-w-2xl mx-auto">منصة ذكية تضبطك بأقوى خصومات الفنادق وتعبي حسابك نقاط كاش باك لخصومات فورية.. لأن سفرك معنا لازم يكون مكسب ومتعة! 🥂✨</p>
             </div>
             <div class="custom-shape-divider-bottom z-0">
                 <svg data-name="Layer 1" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 120" preserveAspectRatio="none">
@@ -234,7 +234,7 @@
             </div>
         </section>
 
-        <!-- شريط البحث -->
+        <!-- 🌟 شريط البحث المطور (Search Bar) -->
         <section class="relative z-30 px-4 max-w-6xl mx-auto -mt-16">
             <div class="bg-white rounded-3xl shadow-[0_10px_35px_rgba(0,0,0,0.06)] border border-slate-100 p-2 md:p-3 relative z-30">
                 <div class="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100 gap-2 lg:gap-0">
@@ -521,7 +521,7 @@
         </div>
     </div>
 
-    <!-- واجهة الدفع وإتمام الحجز -->
+    <!-- واجهة الدفع وإتمام الحجز (فاتورة الدفع والمحفظة) -->
     <div id="bookingView" class="view-section">
         <div class="w-full bg-slate-800 pt-8 pb-32 px-4 text-center border-b-[6px] border-yellow-400">
             <h1 class="text-white text-3xl font-black flex items-center justify-center gap-3">
@@ -571,20 +571,36 @@
                         </div>
                     </div>
 
-                    <div class="bg-yellow-50/40 border border-dashed border-yellow-300 rounded-2xl p-5 mt-6">
-                        <label class="block text-sm font-black text-slate-700 mb-3 flex items-center gap-2">
-                            <i class="fa-solid fa-coins text-yellow-500 text-lg"></i> خصم فوري من حصالة النقاط:
-                        </label>
-                        <div class="relative">
-                            <select id="pointsDiscountSelect" onchange="updateFinalPriceCalculation()" class="w-full bg-white border border-yellow-200 rounded-xl py-3 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:border-yellow-400 focus:ring-2 focus:ring-yellow-400/20 transition-all shadow-sm cursor-pointer hide-select-arrow">
-                                <option value="0">بدون استخدام نقاط</option>
-                            </select>
-                            <i class="fa-solid fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+                    <!-- 🚀 قسم فاتورة الدفع وتطبيق الكاش باك -->
+                    <div class="bg-gray-50 border border-gray-200 rounded-2xl p-5 mt-6">
+                        <h3 class="text-sm font-black text-slate-700 mb-4 border-b border-gray-200 pb-3">تفاصيل السعر وتطبيق الخصم</h3>
+                        
+                        <div class="flex justify-between items-center mb-3">
+                            <span class="text-sm font-bold text-slate-600">السعر العام (المعتمد للفندق):</span>
+                            <span class="text-sm font-black text-slate-800" dir="ltr"><span id="summaryBasePrice">0</span> AED</span>
                         </div>
-                        <p class="text-[11px] font-extrabold text-red-500 mt-2 text-right">كل 10 نقاط = 1 درهم خصم</p>
+
+                        <div class="bg-yellow-50 border border-yellow-200 rounded-xl p-4 my-4 relative overflow-hidden">
+                            <div class="absolute -right-4 -top-4 opacity-10 text-5xl">💰</div>
+                            <label class="block text-sm font-black text-yellow-800 mb-2 relative z-10">
+                                استخدم رصيد حصالتك (الخصم الفوري):
+                            </label>
+                            <div class="relative z-10">
+                                <select id="pointsDiscountSelect" onchange="updateFinalPriceCalculation()" class="w-full bg-white border border-yellow-300 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:border-yellow-500 transition-all shadow-sm cursor-pointer hide-select-arrow">
+                                    <option value="0">بدون استخدام نقاط</option>
+                                </select>
+                                <i class="fa-solid fa-chevron-down absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 pointer-events-none text-[10px]"></i>
+                            </div>
+                            <p class="text-[11px] font-bold text-yellow-700 mt-2 text-right relative z-10">رصيدك الحالي: <span id="checkoutAvailablePoints">0</span> نقطة</p>
+                        </div>
+
+                        <div class="flex justify-between items-center text-green-600 mb-3 hidden" id="discountRow">
+                            <span class="text-sm font-bold">الخصم المطبق من المحفظة:</span>
+                            <span class="text-sm font-black" dir="ltr">- <span id="summaryDiscountAmount">0</span> AED</span>
+                        </div>
                     </div>
 
-                    <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5">
+                    <div class="bg-slate-50 border border-slate-100 rounded-2xl p-5 mt-4">
                         <h3 class="text-sm font-bold text-slate-600 mb-4">طريقة الدفع:</h3>
                         <div id="paymentMethodsContainer" class="flex flex-col gap-3"></div>
                         
@@ -603,7 +619,7 @@
 
                     <div class="border-t border-slate-100 pt-6 mt-4">
                         <div class="flex items-center justify-between mb-6">
-                            <span class="text-base font-black text-slate-700">المبلغ الإجمالي:</span>
+                            <span class="text-base font-black text-slate-700">الإجمالي الفعلي للدفع:</span>
                             <div class="flex items-baseline gap-1.5" dir="ltr">
                                 <span id="finalPriceCurrencyLabel" class="text-sm font-bold text-gray-400">AED</span>
                                 <span id="finalPriceDisplay" class="text-4xl font-black text-[#800000] tracking-tight">0.00</span>
@@ -708,7 +724,7 @@
                 <h3 id="modalTitle" class="text-white font-extrabold text-xl flex items-center justify-center gap-2 relative z-10 mt-2 tracking-wide">
                     فتح حساب جديد 🌴
                 </h3>
-                <p id="modalSubtitle" class="text-teal-100 text-xs font-bold text-center mt-1.5 relative z-10">مع كود التحقق OTP</p>
+                <p id="modalSubtitle" class="text-teal-100 text-xs font-bold text-center mt-1.5 relative z-10">سجل الآن واحصل على رصيد ترحيبي!</p>
             </div>
 
             <div class="p-7">
@@ -1003,19 +1019,19 @@
 
         let allHotels = [
             { 
-                name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 5, lat: 25.2048, lng: 55.2708, 
+                name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 100, lat: 25.2048, lng: 55.2708, 
                 img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
                 funnyPolicy: "إلغاء مجاني 100% - استرداد كامل المبلغ على الكرت في أي وقت! ✨", 
                 hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-credit-card'></i> دفع آمن عبر Ziina"]
             },
             { 
-                name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, lat: 25.2654, lng: 55.3272, 
+                name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 8900, lat: 25.2654, lng: 55.3272, 
                 img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
                 funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!", 
                 hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-person-swimming'></i> مسبح خارجي", "<i class='fa-solid fa-dumbbell'></i> صالة رياضية"]
             },
             { 
-                name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, lat: 25.1304, lng: 55.1172, 
+                name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 22020, lat: 25.1304, lng: 55.1172, 
                 img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", 
                 funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!", 
                 hotelFacilities: ["<i class='fa-solid fa-water'></i> شاطئ خاص", "<i class='fa-solid fa-spa'></i> مركز سبا وعافية", "<i class='fa-solid fa-bell-concierge'></i> خدمة غرف"]
@@ -1652,9 +1668,13 @@
                         let minRate = h.minRate ? parseFloat(h.minRate) : Math.floor(Math.random() * 1500 + 400);
                         let imgs = [ "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80" ];
                         let mockFacilities = ["<i class='fa-solid fa-wifi'></i> واي فاي", "<i class='fa-solid fa-person-swimming'></i> مسبح", "<i class='fa-solid fa-spa'></i> سبا"];
+                        
+                        // احتساب الكاش باك كـ 10% من سعر الفندق (النقاط تكون x10 للدرهم)
+                        let calculatedPoints = Math.floor(minRate * 10);
+
                         return {
                             code: h.code || "12345", name: h.name || "فندق شريك لرمال وفلّها", city: h.destinationName || "دبي",
-                            priceAED: minRate, basePoints: Math.floor(minRate * 0.5), lat: h.latitude || 25.2048 + (Math.random() * 0.1),
+                            priceAED: minRate, basePoints: calculatedPoints, lat: h.latitude || 25.2048 + (Math.random() * 0.1),
                             lng: h.longitude || 55.2708 + (Math.random() * 0.1), img: imgs[index % imgs.length],
                             funnyPolicy: "أسعار خيالية لفترة محدودة!", hotelFacilities: mockFacilities, rooms: h.rooms || []
                         };
@@ -1682,6 +1702,10 @@
                     });
                 }
                 const animationDelay = index * 100;
+                
+                // حساب مبلغ الكاش باك الفعلي المعروض للعميل
+                let cashbackAED = (hotel.basePoints / 10).toFixed(0);
+
                 container.innerHTML += `
                 <div class="relative flex flex-col md:flex-row items-stretch bg-white rounded-3xl border border-gray-100 transition-all duration-300 hover:-translate-y-1 hover:shadow-[0_10px_30px_rgba(0,180,216,0.15)] mb-6 overflow-hidden group animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
                   <div class="w-full md:w-1/3 relative h-56 md:h-auto overflow-hidden bg-gray-200">
@@ -1691,7 +1715,7 @@
                         <span class="bg-[#1f3a40] text-white px-1.5 py-0.5 rounded text-[10px]">${randomRating}</span> ممتاز
                     </div>
                     <div class="absolute top-6 -right-8 bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 text-xs font-black px-10 py-1.5 rotate-45 z-10 shadow-md pointer-events-none">
-                        كاش +${hotel.basePoints} نقطة ✨
+                        كاش باك ${cashbackAED} درهم ✨
                     </div>
                   </div>
                   <div class="flex-1 p-5 md:p-6 flex flex-col justify-between z-10 bg-white">
@@ -1718,8 +1742,9 @@
                       <span class="text-4xl font-black text-[#800000] hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
                     </div>
                     <button class="w-full bg-[#800000] hover:bg-red-900 active:scale-95 transition-all text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-red-900/20 cursor-pointer border-none" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
-                        <i class="fa-solid fa-bed pointer-events-none"></i> اختر الغرفة
+                      <i class="fa-solid fa-bed pointer-events-none"></i> اختر الغرفة
                     </button>
+                    <div class="bg-green-50 text-green-700 border border-green-200 px-2 py-1 rounded-lg text-[10px] font-bold mt-3 text-center w-full block">استرداد نقدي لمحفظتك بعد الدفع!</div>
                   </div>
                 </div>`;
             });
@@ -1734,16 +1759,18 @@
 
             let roomsList = [];
             if (hotelName.includes('الفندق التجريبي')) {
-                roomsList.push({ name: "غرفة تجريبية فاخرة (Test Standard Room)", bed: "سرير كينج مزدوج", board: "شامل الإفطار التجريبي", price: 10, points: 5, policyText: "استرداد كامل 100% رسوم مستردة في حال الإلغاء في أي وقت ✨", isFreeCancel: true, rateKey: "TEST-RATE-KEY-10AED", paymentType: "AT", refundType: "full_100" });
+                roomsList.push({ name: "غرفة تجريبية فاخرة (Test Standard Room)", bed: "سرير كينج مزدوج", board: "شامل الإفطار التجريبي", price: 10, points: 100, policyText: "استرداد كامل 100% رسوم مستردة في حال الإلغاء في أي وقت ✨", isFreeCancel: true, rateKey: "TEST-RATE-KEY-10AED", paymentType: "AT", refundType: "full_100" });
             } else if (apiRooms && apiRooms.length > 0) {
                 apiRooms.forEach(room => {
                     if (room.rates && room.rates.length > 0) {
                         room.rates.forEach(rate => {
                             let rType = 'full_100';
                             if(rate.freeCancellation) rType = 'full_100'; else if(rate.cancellationPolicies && rate.cancellationPolicies.length > 0) rType = 'api_policy'; else rType = 'non_refundable';
+                            
+                            let currentPrice = rate.net ? parseFloat(rate.net) : basePrice;
                             roomsList.push({
                                 name: room.name || "غرفة فندقية فاخرة", bed: "سرير مزدوج / كينج", board: rate.boardName || rate.board || "شامل الوجبات",
-                                price: rate.net ? parseFloat(rate.net) : basePrice, points: Math.floor((rate.net ? parseFloat(rate.net) : basePrice) * 0.5),
+                                price: currentPrice, points: Math.floor(currentPrice * 10),
                                 policyText: rate.formattedPolicy || "شروط الإلغاء مطبقة حسب سياسة المورد العالمي ✨", isFreeCancel: rate.freeCancellation || false,
                                 rateKey: rate.rateKey, paymentType: rate.paymentType || 'AT', refundType: rType
                             });
@@ -1754,8 +1781,8 @@
 
             if (roomsList.length === 0) {
                 roomsList = [
-                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO - بدون وجبات", price: basePrice, points: Math.floor(basePrice*0.5), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT", refundType: "non_refundable" },
-                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج", board: "BB - شامل الإفطار", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*0.6), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة ✨", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL", refundType: "full_100" }
+                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO - بدون وجبات", price: basePrice, points: Math.floor(basePrice*10), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT", refundType: "non_refundable" },
+                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج", board: "BB - شامل الإفطار", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*12), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة ✨", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL", refundType: "full_100" }
                 ];
             }
 
@@ -1764,6 +1791,8 @@
                 let cancelIcon = room.isFreeCancel ? 'fa-shield-check text-green-600' : 'fa-shield-halved text-red-600';
                 let policyTitleColor = room.isFreeCancel ? 'text-green-800' : 'text-red-800';
                 const animationDelay = index * 100;
+                
+                let cashbackAED = (room.points / 10).toFixed(0);
                 
                 container.innerHTML += `
                     <div class="relative flex flex-col md:flex-row items-stretch bg-white rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_10px_40px_rgba(0,180,216,0.1)] overflow-hidden mb-6 animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
@@ -1795,7 +1824,7 @@
                         </div>
 
                         <div class="w-full md:w-[30%] p-5 md:p-6 flex flex-col justify-center items-center bg-white z-10 relative border-t md:border-t-0 border-slate-50">
-                            <div class="bg-yellow-100 text-yellow-800 text-[10px] font-black px-3 py-1 rounded-full mb-3 flex items-center gap-1 border border-yellow-200">كاش +${room.points} نقطة ✨</div>
+                            <div class="bg-yellow-100 text-yellow-800 text-[10px] font-black px-3 py-1 rounded-full mb-3 flex items-center gap-1 border border-yellow-200">كاش باك ${cashbackAED} درهم ✨</div>
                             <div class="text-center mb-5 flex items-baseline justify-center gap-1.5" dir="ltr">
                                 <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
                                 <span class="text-4xl md:text-5xl font-black text-[#800000] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
@@ -1848,7 +1877,7 @@
         }
 
         function goToBooking(hotelName, price, roomName, boardType, policyText, rateKey, paymentType, refundType) {
-            if (!currentUser) { showToast('info', 'تنبيه', 'الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز!'); openAuthModal(); return; }
+            if (!currentUser) { showToast('info', 'تنبيه', 'الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز والاستفادة من خصم النقاط!'); openAuthModal(); return; }
             selectedHotel = `${hotelName} - ${roomName} (${boardType})`; currentBasePrice = price; currentPolicyText = policyText; currentRateKey = rateKey; currentPaymentType = paymentType || 'AT'; currentRefundType = refundType || 'full_100';
             
             document.getElementById('hotelNameTitle').innerHTML = `تأكيد حجز: <i class="fa-solid fa-hotel text-slate-400 mx-1 text-lg"></i> <br class="md:hidden" /><bdi dir="auto" class="text-[#1f3a40]">${hotelName}</bdi>`;
@@ -1881,6 +1910,10 @@
             else { payMethodsContainer.innerHTML = electronicPaymentHTML; }
             
             document.getElementById('custName').value = currentUser.name; document.getElementById('custEmail').value = currentUser.email; document.getElementById('custPhone').value = currentUser.phone || '';
+            
+            document.getElementById('summaryBasePrice').innerText = currentBasePrice;
+            document.getElementById('checkoutAvailablePoints').innerText = currentUser.points || 0;
+            
             setupPointsDropdown(); switchView('bookingView');
         }
 
@@ -1896,7 +1929,17 @@
 
         function updateFinalPriceCalculation() {
             const usedPts = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
-            let finalAED = Math.max(0, currentBasePrice - (usedPts / 10));
+            const discountAED = usedPts / 10;
+            let finalAED = Math.max(0, currentBasePrice - discountAED);
+            
+            const discountRow = document.getElementById('discountRow');
+            if(discountAED > 0) {
+                discountRow.classList.remove('hidden');
+                document.getElementById('summaryDiscountAmount').innerText = discountAED;
+            } else {
+                discountRow.classList.add('hidden');
+            }
+
             const selectedCurrency = document.getElementById('currencySelector').value;
             const currencyLabel = document.getElementById('finalPriceCurrencyLabel');
             const rates = { 'USD': 0.27, 'EUR': 0.25, 'SAR': 1.02, 'AED': 1 };
