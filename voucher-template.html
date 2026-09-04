@@ -5,16 +5,20 @@
     <title>Booking Voucher - Remal International</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;800;900&display=swap" rel="stylesheet">
     <style>
+        /* إعدادات الطباعة الدقيقة الأساسية */
         @page { size: A4; margin: 0; }
         body { 
             font-family: 'Cairo', sans-serif; 
-            background-color: #e2e8f0; 
+            background-color: #e2e8f0; /* لون خلفية يبرز التذكرة */
             margin: 0; 
             padding: 40px;
             color: #1e293b;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
+
+        /* منع التسطير من الروابط في الـ PDF */
+        a { text-decoration: none; color: inherit; }
 
         :root {
             --primary: #1f3a40;
@@ -67,7 +71,7 @@
         /* العلامة المائية */
         .watermark {
             position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-15deg);
-            width: 400px; height: 400px; opacity: 0.03; pointer-events: none; z-index: 0;
+            width: 400px; height: 400px; opacity: 0.02; pointer-events: none; z-index: 0;
         }
 
         /* القسم الأيمن (التفاصيل) */
@@ -88,7 +92,7 @@
         }
         .info-block { background: #f8fafc; padding: 18px; border-radius: 16px; border: 1px solid #e2e8f0; }
         .info-label { font-size: 11px; color: #64748b; font-weight: 800; margin-bottom: 5px; display: block; }
-        .info-value { font-size: 16px; color: var(--primary); font-weight: 900; margin: 0; }
+        .info-value { font-size: 15px; color: var(--primary); font-weight: 900; margin: 0; direction: ltr; text-align: right;}
 
         /* صندوق الفندق الأنيق */
         .hotel-block {
@@ -97,12 +101,26 @@
             position: relative; overflow: hidden;
         }
         
+        .hotel-header {
+            display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 15px; gap: 15px;
+        }
+
         .hotel-name { 
-            font-size: 24px; font-weight: 900; color: var(--primary); margin: 0 0 20px 0; 
-            display: flex; align-items: flex-start; gap: 10px; line-height: 1.3;
+            font-size: 20px; font-weight: 900; color: var(--primary); margin: 0; 
+            line-height: 1.4; display: flex; flex-direction: column; gap: 5px;
         }
         
-        .badges-container { display: flex; gap: 12px; flex-wrap: wrap; }
+        .room-type { font-size: 15px; font-weight: 700; color: #475569; }
+
+        /* رابط الخريطة التفاعلي المذهل */
+        .map-link {
+            display: inline-flex; align-items: center; gap: 6px; background: #e0f2fe; color: #0284c7;
+            padding: 8px 12px; border-radius: 10px; font-size: 11px; font-weight: 900; border: 1px solid #bae6fd;
+            transition: 0.3s; flex-shrink: 0;
+        }
+        .map-link svg { width: 14px; height: 14px; fill: #0284c7; }
+        
+        .badges-container { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 15px; }
         .badge {
             display: inline-flex; align-items: center; gap: 8px;
             padding: 8px 16px; border-radius: 12px; font-size: 13px; font-weight: 800;
@@ -116,7 +134,8 @@
             padding: 20px; border-radius: 16px;
         }
         .policy-title { color: #be123c; font-size: 13px; font-weight: 900; margin: 0 0 8px 0; display: flex; align-items: center; gap:8px;}
-        .policy-text { color: #881337; font-size: 14px; font-weight: 700; margin: 0; line-height: 1.6; }
+        .policy-text { color: #881337; font-size: 14px; font-weight: 700; margin: 0; line-height: 1.6; direction: rtl;}
+        .ltr-text { direction: ltr; display: inline-block; } /* لعزل النصوص الإنجليزية */
 
         /* الفاصل المتقطع (المقص) */
         .ticket-divider {
@@ -157,14 +176,19 @@
         /* السعر الإجمالي */
         .price-box { margin-top: 40px; width: 100%; background: var(--primary); color: white; padding: 20px; border-radius: 20px; box-shadow: 0 10px 25px rgba(31,58,64,0.3);}
         .price-label { font-size: 12px; font-weight: 700; opacity: 0.8; display: block; margin-bottom: 5px; text-transform: uppercase;}
-        .price-value { font-size: 28px; font-weight: 900; margin: 0; letter-spacing: -1px;}
+        .price-value { font-size: 28px; font-weight: 900; margin: 0; letter-spacing: -1px; direction: ltr;}
 
-        /* الفوتر */
+        /* الفوتر التفاعلي */
         .voucher-footer {
-            text-align: center; padding: 20px; background: #cbd5e1;
-            font-size: 12px; color: #334155; font-weight: 800;
+            margin-top: 25px; text-align: center; padding: 20px; background: #cbd5e1;
+            border-radius: 16px; font-size: 12px; color: #334155; font-weight: 800;
         }
         .footer-brand { color: var(--primary); font-weight: 900; font-size: 14px; margin-bottom: 5px; display: block;}
+        
+        .support-link {
+            display: inline-flex; align-items: center; gap: 6px; margin-top: 8px; color: #0f766e; background: #dcfce7;
+            padding: 5px 12px; border-radius: 50px; font-weight: 900; text-decoration: none; border: 1px solid #bbf7d0;
+        }
     </style>
 </head>
 <body>
@@ -174,7 +198,6 @@
         <!-- الهيدر الفاخر -->
         <header class="voucher-header">
             <div class="brand-container">
-                <!-- SVG Logo -->
                 <div class="logo-svg">
                     <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#00b4d8"/>
@@ -187,6 +210,7 @@
                 </div>
             </div>
             <div class="header-badge">
+                <!-- أيقونة تحقق SVG -->
                 <svg style="width:16px; height:16px; fill:white;" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg>
                 قسيمة حجز مؤكدة
             </div>
@@ -195,7 +219,7 @@
         <!-- جسم التذكرة -->
         <main class="ticket-body">
             
-            <!-- العلامة المائية الـ SVG -->
+            <!-- العلامة المائية -->
             <svg class="watermark" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#1f3a40"/>
                 <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="#1f3a40"/>
@@ -207,43 +231,53 @@
                 <div class="section-title">
                     <!-- أيقونة مستخدم SVG -->
                     <svg class="icon-svg" viewBox="0 0 448 512"><path d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z"/></svg>
-                    بيانات الضيف الأساسية
+                    بيانات الضيف الأساسية (Guest Details)
                 </div>
                 <div class="info-grid">
                     <div class="info-block">
-                        <span class="info-label">اسم الضيف (Guest Name)</span>
-                        <p class="info-value">{{customerName}}</p>
+                        <span class="info-label">اسم الضيف (Name)</span>
+                        <p class="info-value"><bdi>{{customerName}}</bdi></p>
                     </div>
                     <div class="info-block">
                         <span class="info-label">رقم التواصل (Phone)</span>
-                        <p class="info-value" dir="ltr">{{customerPhone}}</p>
+                        <p class="info-value"><bdi>{{customerPhone}}</bdi></p>
                     </div>
                     <div class="info-block" style="grid-column: span 2;">
                         <span class="info-label">البريد الإلكتروني (Email)</span>
-                        <p class="info-value">{{customerEmail}}</p>
+                        <p class="info-value"><bdi>{{customerEmail}}</bdi></p>
                     </div>
                 </div>
 
                 <div class="section-title" style="margin-top: 30px;">
                     <!-- أيقونة فندق SVG -->
                     <svg class="icon-svg" viewBox="0 0 384 512"><path d="M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112zM272 96h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16z"/></svg>
-                    تفاصيل الإقامة الفندقية
+                    تفاصيل الإقامة الفندقية (Stay Details)
                 </div>
+                
                 <div class="hotel-block">
-                    <h2 class="hotel-name">
-                        <svg style="width:24px; height:24px; fill:var(--cyan); shrink:0; margin-top:5px;" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z" opacity="0"/></svg>
-                        {{hotelName}}
-                    </h2>
+                    <div class="hotel-header">
+                        <div class="hotel-name">
+                            <bdi>{{hotelName}}</bdi>
+                            <!-- نوع الغرفة أسفل اسم الفندق بدلاً من كونه بجانبه لحل مشكلة التداخل -->
+                            <span class="room-type"><bdi>اختيارك: {{roomBed}}</bdi></span>
+                        </div>
+                        <!-- رابط الخريطة التفاعلي المذهل -->
+                        <a href="https://www.google.com/maps/search/?api=1&query={{hotelName}}" target="_blank" class="map-link">
+                            <svg viewBox="0 0 384 512"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>
+                            الخريطة
+                        </a>
+                    </div>
+
                     <div class="badges-container">
                         <span class="badge badge-bed">
                             <!-- أيقونة سرير SVG -->
                             <svg class="icon-svg" style="fill:#475569;" viewBox="0 0 640 512"><path d="M32 32c17.7 0 32 14.3 32 32V320H288V160c0-17.7 14.3-32 32-32H544c53 0 96 43 96 96V448c0 17.7-14.3 32-32 32s-32-14.3-32-32V416H32v32c0 17.7-14.3 32-32 32s-32-14.3-32-32V64C-32 46.3-17.7 32 0 32s32 14.3 32 32zm144 96a80 80 0 1 1 0 160 80 80 0 1 1 0-160z"/></svg>
-                            الأسرة: {{roomBed}}
+                            <bdi>الأسرة: سرير قياسي</bdi>
                         </span>
                         <span class="badge badge-meal">
                             <!-- أيقونة طعام SVG -->
                             <svg class="icon-svg" style="fill:#b45309;" viewBox="0 0 448 512"><path d="M416 0C400 0 288 32 288 176V288c0 35.3 28.7 64 64 64h32V480c0 17.7 14.3 32 32 32s32-14.3 32-32V352 24 0H416zM64 16C64 7.8 57.9 1 50 0C34 0 25.1 8 20.1 19.3L-7.4 85.3C-15.2 106.4 0 128 22.6 128H41.4c22.6 0 37.8-21.6 30.1-42.7L43.9 19.3C38.9 8 30 0 14 0c-7.9 1-14 7.8-14 16V480c0 17.7 14.3 32 32 32s32-14.3 32-32V16zM224 16c-17.7 0-32 14.3-32 32V256c0 17.7 14.3 32 32 32s32-14.3 32-32V48c0-17.7-14.3-32-32-32z"/></svg>
-                            الوجبات: {{boardType}}
+                            <bdi>الوجبات: {{boardType}}</bdi>
                         </span>
                     </div>
                 </div>
@@ -252,9 +286,10 @@
                     <h3 class="policy-title">
                         <!-- أيقونة تحذير SVG -->
                         <svg style="width:16px; height:16px; fill:#be123c;" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg>
-                        سياسة الإلغاء (Cancellation Policy)
+                        سياسة الإلغاء (Cancellation Policy):
                     </h3>
-                    <p class="policy-text">{{policyText}}</p>
+                    <!-- استخدام bdi لعزل النص العربي عن الإنجليزي لتفادي انقلاب الأقواس -->
+                    <p class="policy-text"><bdi>{{policyText}}</bdi></p>
                 </div>
 
             </div>
@@ -270,7 +305,7 @@
                 </div>
                 
                 <div class="security-marks">
-                    <!-- باركود وهمي SVG -->
+                    <!-- باركود وهمي لتعزيز الشكل كوثيقة رسمية -->
                     <svg class="barcode-svg" viewBox="0 0 100 200" preserveAspectRatio="none">
                         <rect x="10" y="0" width="8" height="200" fill="#94a3b8"/><rect x="25" y="0" width="4" height="200" fill="#94a3b8"/><rect x="35" y="0" width="12" height="200" fill="#94a3b8"/><rect x="55" y="0" width="5" height="200" fill="#94a3b8"/><rect x="65" y="0" width="10" height="200" fill="#94a3b8"/><rect x="85" y="0" width="5" height="200" fill="#94a3b8"/>
                     </svg>
@@ -278,7 +313,7 @@
                     <div style="display: flex; flex-direction: column; align-items: center; gap:10px;">
                         <div class="qr-box">
                             <div class="qr-placeholder"></div>
-                            <!-- علامة + بمنتصف الـ QR الوهمي -->
+                            <!-- علامة + بمنتصف الـ QR -->
                             <div style="position:absolute; background:white; padding:2px; border-radius:4px;"><svg width="15" height="15" viewBox="0 0 24 24" fill="#00b4d8"><path d="M12 5V19M5 12H19" stroke="#00b4d8" stroke-width="3" stroke-linecap="round"/></svg></div>
                         </div>
                     </div>
@@ -286,7 +321,7 @@
                 <span class="qr-text">احتفظ بهذا الرمز لإبرازه عند الوصول</span>
                 
                 <div class="price-box">
-                    <span class="price-label">إجمالي المدفوع (Total Paid)</span>
+                    <span class="price-label">إجمالي المدفوع (TOTAL PAID)</span>
                     <p class="price-value" dir="ltr">AED {{price}}</p>
                 </div>
             </div>
@@ -296,7 +331,13 @@
         <!-- الفوتر -->
         <footer class="voucher-footer">
             <span class="footer-brand">شركة الرمال الدولية لتنظيم الرحلات السياحية (L.L.C)</span>
-            دبي، الإمارات العربية المتحدة | للتواصل عبر الواتساب: 971544757578+ | management@remaltourismllc.com
+            دبي، الإمارات العربية المتحدة | management@remaltourismllc.com
+            <br>
+            <a href="https://wa.me/971544757578" target="_blank" class="support-link">
+                <!-- أيقونة واتساب SVG -->
+                <svg style="width:14px; height:14px; fill:#0f766e;" viewBox="0 0 448 512"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zM223.9 413.3c-33.2 0-65.8-8.9-94-25.7l-6.7-4-69.8 18.3L72 334.1l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-2.1-3.6 2.1-3.2 7.6-14.2 2.8-5.6 1.4-10.6-.5-13.4-1.9-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
+                لأي مساعدة، اضغط هنا للتحدث معنا عبر واتساب
+            </a>
         </footer>
 
     </div>
