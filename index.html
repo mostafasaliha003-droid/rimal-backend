@@ -156,7 +156,7 @@
             <div class="bg-white p-1.5 rounded-lg"><img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded-md object-cover bg-white p-0.5" onerror="this.src='https://via.placeholder.com/32?text=Logo'"></div>
             <div class="flex flex-col">
                 <span class="font-extrabold text-xl leading-none tracking-tight text-white">رمال وفلّها! <span class="wave-emoji">🌴</span></span>
-                <span class="text-[0.6rem] text-remal-turquoise tracking-[0.2em] uppercase font-bold mt-1">Remal & Chill</span>
+                <span class="text-[0.6rem] text-remal-turquoise tracking-[0.2em] uppercase font-bold mt-1" style="color:var(--accent-cyan)">Remal & Chill</span>
             </div>
         </a>
 
@@ -339,7 +339,7 @@
             <div class="flex flex-col lg:flex-row gap-8 items-start relative z-0">
                 
                 <!-- Filters & Map (Sticky Side) -->
-                <aside class="w-full lg:w-2/5 flex flex-col gap-6 sticky top-28">
+                <aside class="w-full lg:w-[320px] shrink-0 flex flex-col gap-6 sticky top-28">
                     <div class="bg-white rounded-3xl border border-slate-100 shadow-2xl p-4 md:p-6 transition-all">
                         <div class="flex items-center justify-between mb-5 px-2">
                             <div class="flex items-center gap-3">
@@ -348,33 +348,147 @@
                                 </div>
                                 <h2 class="text-lg md:text-xl font-black text-slate-800 tracking-tight">خريطة الفنادق <span class="text-[#00b4d8]">الحية</span></h2>
                             </div>
-                            <div class="text-xs text-slate-500 font-bold flex items-center gap-1.5 bg-slate-50 px-3 py-1.5 rounded-lg border border-slate-200 hidden sm:flex">
-                                <i class="fa-solid fa-satellite text-[#1f3a40]"></i> خريطة تفاعلية
-                            </div>
                         </div>
                         
-                        <div id="map" class="relative w-full h-[350px] md:h-[450px] rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-100 shadow-inner"></div>
+                        <div id="map" class="relative w-full h-[350px] md:h-[350px] rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-100 shadow-inner"></div>
                     </div>
 
-                    <div class="bg-white rounded-3xl border border-slate-100 shadow-xl p-6">
-                        <h3 class="text-lg font-black text-[#1f3a40] mb-4">فلترة وتصنيف 📍</h3>
-                        <div class="flex flex-col gap-3 font-bold text-sm text-gray-700">
-                            <label class="text-[#00b4d8] font-black border-b border-gray-100 pb-2 mb-1">المناطق:</label>
-                            <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600"><input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()"> كل المناطق</label>
-                            <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600"><input type="radio" name="cityFilter" value="دبي" onchange="filterHotels()"> دبي 🏙️</label>
-                            <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600"><input type="radio" name="cityFilter" value="أبوظبي" onchange="filterHotels()"> أبوظبي 👑</label>
-                            <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600"><input type="radio" name="cityFilter" value="الشارقة" onchange="filterHotels()"> الشارقة 📚</label>
-
-                            <label class="text-[#00b4d8] font-black border-b border-gray-100 pb-2 mt-3 mb-1">ترتيب النتائج:</label>
-                            <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600"><input type="radio" name="sortFilter" value="recommended" checked onchange="filterHotels()"> الأقوى ترشيحاً ⭐</label>
-                            <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600"><input type="radio" name="sortFilter" value="price_low" onchange="filterHotels()"> الأقل سعراً أولاً 💵</label>
-                            <label class="flex items-center gap-2 cursor-pointer hover:text-teal-600"><input type="radio" name="sortFilter" value="points_high" onchange="filterHotels()"> الأعلى نقاطاً في الحصالة 🎁</label>
+                    <!-- 🌟 مكون الفلتر الاحترافي المدمج (World-Class UI/UX) -->
+                    <div class="bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-6">
+                        <!-- Header with Clear Button -->
+                        <div class="flex items-center justify-between mb-6">
+                            <div class="flex items-center gap-2">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4" />
+                                </svg>
+                                <h2 class="text-gray-800 font-bold text-lg">فلترة وتصنيف</h2>
+                            </div>
+                            <!-- Clear Filters Button -->
+                            <button type="button" onclick="document.querySelector('input[name=cityFilter][value=all]').checked=true; document.querySelector('input[name=sortFilter][value=recommended]').checked=true; filterHotels();" class="group flex items-center gap-1 text-sm text-gray-400 hover:text-[#800000] font-medium transition-colors duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00b4d8] rounded p-2 -m-2 cursor-pointer bg-transparent border-none">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 transition-transform group-hover:-rotate-180 duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+                                    <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+                                </svg>
+                                مسح
+                            </button>
                         </div>
+
+                        <hr class="border-gray-100 mb-5">
+
+                        <!-- Regions Section -->
+                        <fieldset class="mb-7">
+                            <legend class="text-[#00b4d8] font-bold text-sm mb-4 w-full">المناطق:</legend>
+                            <div class="space-y-1">
+                                <!-- Option: All -->
+                                <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
+                                    <input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()" class="peer sr-only">
+                                    <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-[#800000] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
+                                    </div>
+                                    <div class="text-gray-400 peer-checked:text-[#00b4d8] transition-all duration-300 ease-in-out group-hover:-translate-y-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">كل المناطق</span>
+                                </label>
+
+                                <!-- Option: Dubai -->
+                                <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
+                                    <input type="radio" name="cityFilter" value="دبي" onchange="filterHotels()" class="peer sr-only">
+                                    <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-[#800000] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
+                                    </div>
+                                    <div class="text-gray-400 peer-checked:text-[#00b4d8] transition-all duration-300 ease-in-out group-hover:-translate-y-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">دبي</span>
+                                </label>
+
+                                <!-- Option: Abu Dhabi -->
+                                <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
+                                    <input type="radio" name="cityFilter" value="أبوظبي" onchange="filterHotels()" class="peer sr-only">
+                                    <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-[#800000] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
+                                    </div>
+                                    <div class="text-gray-400 peer-checked:text-[#00b4d8] transition-all duration-300 ease-in-out group-hover:-translate-y-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 3L8 7v4H4v8h16v-8h-4V7l-4-4zm0 4a2 2 0 110 4 2 2 0 010-4z" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">أبوظبي</span>
+                                </label>
+
+                                <!-- Option: Sharjah -->
+                                <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
+                                    <input type="radio" name="cityFilter" value="الشارقة" onchange="filterHotels()" class="peer sr-only">
+                                    <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-[#800000] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
+                                    </div>
+                                    <div class="text-gray-400 peer-checked:text-[#00b4d8] transition-all duration-300 ease-in-out group-hover:-translate-y-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">الشارقة</span>
+                                </label>
+                            </div>
+                        </fieldset>
+
+                        <hr class="border-gray-100 mb-5">
+
+                        <!-- Sort Section -->
+                        <fieldset>
+                            <legend class="text-[#00b4d8] font-bold text-sm mb-4 w-full">ترتيب النتائج:</legend>
+                            <div class="space-y-1">
+                                <!-- Recommended -->
+                                <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
+                                    <input type="radio" name="sortFilter" value="recommended" checked onchange="filterHotels()" class="peer sr-only">
+                                    <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-[#800000] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
+                                    </div>
+                                    <div class="text-gray-400 peer-checked:text-[#00b4d8] transition-all duration-300 ease-in-out group-hover:-translate-y-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">الأقوى ترشيحاً</span>
+                                </label>
+                                <!-- Lowest Price -->
+                                <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
+                                    <input type="radio" name="sortFilter" value="price_low" onchange="filterHotels()" class="peer sr-only">
+                                    <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-[#800000] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
+                                    </div>
+                                    <div class="text-gray-400 peer-checked:text-[#00b4d8] transition-all duration-300 ease-in-out group-hover:-translate-y-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">الأقل سعراً أولاً</span>
+                                </label>
+                                <!-- Highest Points -->
+                                <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
+                                    <input type="radio" name="sortFilter" value="points_high" onchange="filterHotels()" class="peer sr-only">
+                                    <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
+                                        <div class="w-2.5 h-2.5 rounded-full bg-[#800000] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
+                                    </div>
+                                    <div class="text-gray-400 peer-checked:text-[#00b4d8] transition-all duration-300 ease-in-out group-hover:-translate-y-0.5">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                    </div>
+                                    <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">الأعلى نقاطاً في الحصالة</span>
+                                </label>
+                            </div>
+                        </fieldset>
                     </div>
                 </aside>
 
                 <!-- Hotel List -->
-                <div class="w-full lg:w-3/5 space-y-6">
+                <div class="flex-1 space-y-6 min-w-0">
                     <div id="hotelsContainer"></div>
                 </div>
             </div>
@@ -763,8 +877,8 @@
     </div>
 
     <!-- زر خدمة العملاء والدردشة -->
-    <button id="openChatBtn" class="fixed bottom-5 right-5 bg-[#800020] text-white px-5 py-3 rounded-full font-bold shadow-lg hover:bg-red-900 transition-all z-[2000] border-none cursor-pointer">
-        💬 خدمة العملاء (للمؤكدة)
+    <button id="openChatBtn" class="fixed bottom-5 right-5 bg-[#800000] text-white px-5 py-3 rounded-full font-bold shadow-lg hover:bg-red-900 transition-all z-[2000] border-none cursor-pointer">
+        💬 خدمة العملاء
     </button>
 
     <div id="chatBoxModal" class="hidden fixed bottom-20 right-5 w-80 bg-white rounded-2xl shadow-2xl overflow-hidden z-[2000] border border-gray-200 flex-col">
@@ -785,7 +899,7 @@
             <div id="chatMessages" class="flex-1 p-3 overflow-y-auto bg-gray-50 text-sm space-y-2 text-right"></div>
             <div class="p-2 border-t border-gray-200 flex gap-2 bg-white">
                 <input type="text" id="messageInput" placeholder="اكتب رسالتك..." class="flex-1 p-2 border border-gray-200 rounded-lg outline-none text-sm focus:border-teal-500">
-                <button id="sendMsgBtn" class="bg-[#800020] text-white border-none px-4 rounded-lg cursor-pointer hover:bg-red-900 transition-colors"><i class="fa-solid fa-paper-plane"></i></button>
+                <button id="sendMsgBtn" class="bg-[#800000] text-white border-none px-4 rounded-lg cursor-pointer hover:bg-red-900 transition-colors"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
     </div>
@@ -1490,17 +1604,20 @@
 
         function filterHotels() {
             const query = document.getElementById('searchInput').value.toLowerCase().trim();
-            const cityRadio = document.querySelector('input[name="cityFilter"]:checked').value;
-            const sortRadio = document.querySelector('input[name="sortFilter"]:checked').value;
+            const cityRadio = document.querySelector('input[name="cityFilter"]:checked');
+            const sortRadio = document.querySelector('input[name="sortFilter"]:checked');
+            
+            const cityValue = cityRadio ? cityRadio.value : 'all';
+            const sortValue = sortRadio ? sortRadio.value : 'recommended';
 
             let filtered = allHotels.filter(h => {
                 const matchesQuery = h.name.toLowerCase().includes(query) || h.city.toLowerCase().includes(query);
-                const matchesCity = (cityRadio === 'all' || h.city === cityRadio);
+                const matchesCity = (cityValue === 'all' || h.city === cityValue);
                 return matchesQuery && matchesCity;
             });
 
-            if (sortRadio === 'price_low') { filtered.sort((a, b) => a.priceAED - b.priceAED); } 
-            else if (sortRadio === 'points_high') { filtered.sort((a, b) => b.basePoints - a.basePoints); }
+            if (sortValue === 'price_low') { filtered.sort((a, b) => a.priceAED - b.priceAED); } 
+            else if (sortValue === 'points_high') { filtered.sort((a, b) => b.basePoints - a.basePoints); }
 
             displayHotels(filtered); updateGoogleMarkers(filtered); changeCurrency();
         }
