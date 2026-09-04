@@ -630,7 +630,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
 
         await sendProfessionalEmail(
             email,
-            `تأكيد حجزك الفندقي من الرمال | المرجع: ${bookingReference}`, // 👈 عنوان إيميل مصحح ومختصر
+            `تأكيد حجزك الفندقي من الرمال | المرجع: ${bookingReference}`, 
             emailHtml,
             pdfBuffer,
             `Rimal-Voucher-${bookingReference}.pdf`
@@ -786,7 +786,7 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 
         await sendProfessionalEmail(
             email,
-            `إعادة إرسال قسيمة الحجز | المرجع: ${booking.bookingReference}`, // 👈 عنوان مصحح
+            `إعادة إرسال قسيمة الحجز | المرجع: ${booking.bookingReference}`, 
             emailHtml,
             pdfBuffer,
             `Rimal-Voucher-${booking.bookingReference}.pdf`
@@ -866,14 +866,113 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
         `;
         await sendProfessionalEmail(ADMIN_EMAIL, `طلب إلغاء حجز واسترداد | مرجع: ${booking.bookingReference}`, adminEmailHtml);
 
+        // 🌟 عزل وتنظيف اسم الفندق لمنع التداخل في الإيميل
+        let safeHotelName = (booking.hotelName || '').replace(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}]/gu, '').trim();
+
+        // 🚀 القالب الاحترافي العالمي لإيميل الإلغاء (Ultimate UX)
         const clientEmailHtml = `
-            <div dir="rtl" style="font-family:Cairo, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
-                <h2 style="color:#1f3a40;">مرحباً بك يا ${booking.customerName} ✈️</h2>
-                <p>تلقينا طلبك بإلغاء حجزك في <b>${booking.hotelName}</b> برقم المرجع: <b>${booking.bookingReference}</b>.</p>
-                <p>تم إرسال طلب الإلغاء إلى إدارة الحجوزات والمورد، وسيتم معالجة استرداد المبلغ (${refundAmountAED} AED) إلى بطاقتك خلال أيام عمل قليلة وفقاً لسياسة شروط الإلغاء الخاصة بالغرفة.</p>
-                <p style="color:#0077b6; margin-top:20px; font-weight:bold;">شكراً لتفهمك، ونتمنى خدمتك في رحلات قادمة أفضل!</p>
-            </div>
+        <!DOCTYPE html>
+        <html lang="ar" dir="rtl">
+        <head>
+            <meta charset="UTF-8">
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <title>تأكيد إلغاء الحجز - شركة الرمال</title>
+            <style>
+                @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+                body { margin: 0; padding: 0; font-family: 'Cairo', Arial, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased; }
+                table { border-spacing: 0; border-collapse: collapse; }
+                .wrapper { width: 100%; background-color: #f1f5f9; padding: 40px 0; }
+                .main-card { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(31,58,64,0.08); }
+            </style>
+        </head>
+        <body>
+            <table class="wrapper" width="100%" cellpadding="0" cellspacing="0">
+                <tr>
+                    <td align="center">
+                        <table class="main-card" width="100%" cellpadding="0" cellspacing="0">
+                            
+                            <!-- الهيدر (بلون تنبيهي أنيق) -->
+                            <tr>
+                                <td style="background-color: #1f3a40; padding: 35px 30px; text-align: center; border-bottom: 5px solid #ff595e;">
+                                    <h1 style="color: #ffffff; margin: 0; font-size: 30px; font-weight: 900; line-height: 1;">رمال وفلّها!</h1>
+                                    <p style="color: #ff595e; margin: 5px 0 0 0; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; font-weight: 800;">إشعار إلغاء حجز</p>
+                                </td>
+                            </tr>
+
+                            <!-- جسم الرسالة -->
+                            <tr>
+                                <td style="padding: 40px 30px; text-align: right;" dir="rtl">
+                                    
+                                    <!-- شارة الحالة -->
+                                    <div style="text-align: center; margin-bottom: 25px;">
+                                        <span style="background-color: #fff1f2; color: #be123c; padding: 10px 20px; border-radius: 50px; font-size: 13px; font-weight: bold; border: 1px solid #fecdd3; display: inline-block;">
+                                            ⚠️ تم استلام وتأكيد طلب الإلغاء
+                                        </span>
+                                    </div>
+
+                                    <h2 style="color: #1f3a40; font-size: 20px; font-weight: 900; margin: 0 0 15px 0;">مرحباً بك يا ${booking.customerName}،</h2>
+                                    <p style="color: #475569; font-size: 15px; line-height: 1.7; margin: 0 0 25px 0; font-weight: 600;">
+                                        نأسف لعدم تمكنك من السفر هذه المرة. نؤكد لك أنه قد تم إلغاء حجزك بنجاح لدى إدارة الحجوزات والمورد الخاص بفندق: <br>
+                                        <strong style="color: #1f3a40; font-size: 17px; display: block; margin-top: 8px;" dir="auto"><span style="unicode-bidi: plaintext;">${safeHotelName}</span></strong>
+                                    </p>
+
+                                    <!-- صندوق التفاصيل المالية (مطمئن وواضح) -->
+                                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; margin-bottom: 30px;">
+                                        <tr>
+                                            <td style="padding: 20px;">
+                                                <table width="100%" cellpadding="0" cellspacing="0">
+                                                    <tr>
+                                                        <td style="padding-bottom: 15px; border-bottom: 1px dashed #cbd5e1; text-align: right;">
+                                                            <span style="color: #64748b; font-size: 11px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px;">رقم المرجع (Booking Ref)</span>
+                                                            <strong style="color: #00b4d8; font-size: 17px; letter-spacing: 1px;" dir="ltr">${booking.bookingReference}</strong>
+                                                        </td>
+                                                    </tr>
+                                                    <tr>
+                                                        <td style="padding-top: 15px; text-align: right;">
+                                                            <span style="color: #64748b; font-size: 11px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px;">المبلغ الخاضع للاسترداد (Refund Amount)</span>
+                                                            <strong style="color: #ff595e; font-size: 22px; display: block; line-height: 1;" dir="ltr">AED ${refundAmountAED}</strong>
+                                                        </td>
+                                                    </tr>
+                                                </table>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                    <p style="color: #475569; font-size: 13px; line-height: 1.7; margin: 0 0 30px 0; font-weight: 600; background: #f1f5f9; padding: 15px; border-radius: 10px; border-right: 4px solid #00b4d8;">
+                                        <strong style="color: #0369a1;">متى يصلني المبلغ؟</strong><br>
+                                        تتم معالجة المبالغ المستردة تلقائياً وفقاً لسياسة الإلغاء. قد يستغرق ظهور المبلغ في كشف حساب بطاقتك البنكية <b>من 5 إلى 14 يوم عمل</b>، وذلك يعتمد بالكامل على البنك المصدر لبطاقتك.
+                                    </p>
+
+                                    <!-- الأزرار التفاعلية -->
+                                    <table width="100%" cellpadding="0" cellspacing="0">
+                                        <tr>
+                                            <td align="center">
+                                                <a href="https://wa.me/971544757578" style="background-color: #1f3a40; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 50px; font-weight: 900; font-size: 14px; display: inline-block; border: 2px solid #112226; box-shadow: 0 4px 10px rgba(31,58,64,0.2);">
+                                                    لأي استفسار، تواصل معنا عبر واتساب
+                                                </a>
+                                            </td>
+                                        </tr>
+                                    </table>
+
+                                </td>
+                            </tr>
+
+                            <!-- الفوتر -->
+                            <tr>
+                                <td style="background-color: #cbd5e1; padding: 25px; text-align: center; border-top: 1px solid #94a3b8;">
+                                    <p style="margin: 0 0 6px 0; color: #1f3a40; font-size: 14px; font-weight: 900;">شركة الرمال الدولية لتنظيم الرحلات السياحية (L.L.C)</p>
+                                    <p style="margin: 0; color: #475569; font-size: 12px; font-weight: bold;">دبي، الإمارات العربية المتحدة | management@remaltourismllc.com</p>
+                                </td>
+                            </tr>
+
+                        </table>
+                    </td>
+                </tr>
+            </table>
+        </body>
+        </html>
         `;
+
         await sendProfessionalEmail(booking.email, `تأكيد استلام طلب الإلغاء | مرجع: ${booking.bookingReference}`, clientEmailHtml);
 
         if (booking.phone) {
