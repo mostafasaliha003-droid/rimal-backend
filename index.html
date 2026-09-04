@@ -135,6 +135,65 @@
         
         .goog-te-banner-frame { display: none !important; }
         body { top: 0px !important; }
+
+        /* 🚀 تأثيرات الزر والريبون الجديدة */
+        .secret-ribbon {
+            position: absolute;
+            top: 20px;
+            right: -35px;
+            background: #111827;
+            color: #ffca3a;
+            padding: 5px 40px;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            transform: rotate(45deg);
+            z-index: 10;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+            border-bottom: 2px solid #ffca3a;
+        }
+        
+        .cashback-ribbon {
+            position: absolute;
+            top: 20px;
+            right: -35px;
+            background: linear-gradient(90deg, #ffca3a, #f59e0b);
+            color: #111827;
+            padding: 5px 40px;
+            font-size: 11px;
+            font-weight: 900;
+            text-transform: uppercase;
+            transform: rotate(45deg);
+            z-index: 10;
+            box-shadow: 0 4px 10px rgba(245, 158, 11, 0.4);
+        }
+
+        .secret-box {
+            background: linear-gradient(135deg, #fffcf0 0%, #fff 100%);
+            border: 1.5px solid #ffca3a;
+            border-radius: 12px;
+            padding: 8px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            box-shadow: inset 0 0 10px rgba(255,202,58,0.1);
+        }
+        .secret-box:hover {
+            box-shadow: 0 4px 15px rgba(255,202,58,0.3);
+            transform: translateY(-2px);
+        }
+        .secret-box i { transition: transform 0.3s ease; }
+        .secret-box:hover i { transform: scale(1.2) rotate(-5deg); color: #f59e0b; }
+        
+        /* حركة النبض للمربع السري */
+        @keyframes subtlePulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 202, 58, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(255, 202, 58, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 202, 58, 0); }
+        }
+        .pulse-effect { animation: subtlePulse 2s infinite; }
+
     </style>
 </head>
 <body class="antialiased text-slate-800 flex flex-col min-h-screen relative">
@@ -1706,14 +1765,14 @@
                 // حساب مبلغ الكاش باك الفعلي المعروض للعميل
                 let cashbackAED = (hotel.basePoints / 10).toFixed(0);
 
-                // 🌟 [الذكاء التسويقي] تحديد شكل الواجهة بناءً على تسجيل الدخول
+                // 🌟 [الذكاء التسويقي] تحديد شكل الواجهة بناءً على تسجيل الدخول (التصميم العالمي الجديد)
                 let ribbonHTML = '';
                 let cashbackBoxHTML = '';
 
                 if (currentUser) {
-                    // العميل مسجل: نظهر له الكاش باك بفخر
+                    // العميل مسجل: الشريط الذهبي وتأكيد الكاش باك
                     ribbonHTML = `
-                        <div class="absolute top-6 -right-8 bg-gradient-to-r from-yellow-400 to-yellow-500 text-slate-900 text-xs font-black px-10 py-1.5 rotate-45 z-10 shadow-md pointer-events-none">
+                        <div class="cashback-ribbon">
                             كاش باك ${cashbackAED} درهم ✨
                         </div>`;
                     
@@ -1723,19 +1782,19 @@
                             <span class="block text-sm font-black text-[#00b4d8]">استرجع ${cashbackAED} درهم فوراً!</span>
                         </div>`;
                 } else {
-                    // الزائر مجهول: نشعل فضوله للتسجيل
+                    // الزائر مجهول: الشريط الكحلي/الذهبي الفخم (سر الأعضاء) والزر النابض
                     ribbonHTML = `
-                        <div class="absolute top-6 -right-8 bg-gradient-to-r from-slate-700 to-slate-900 text-white text-[10px] font-black px-10 py-1.5 rotate-45 z-10 shadow-md pointer-events-none flex items-center justify-center gap-1">
+                        <div class="secret-ribbon flex items-center justify-center gap-1.5">
                             <i class="fa-solid fa-lock text-yellow-400"></i> سر الأعضاء
                         </div>`;
                     
                     cashbackBoxHTML = `
-                        <div onclick="openAuthModal()" class="w-full bg-gradient-to-r from-yellow-50 to-orange-50 border border-yellow-300 p-3 rounded-xl mb-4 text-center cursor-pointer transition-all duration-300 shadow-[0_0_15px_rgba(255,202,58,0.4)] hover:shadow-[0_0_20px_rgba(255,202,58,0.6)] hover:-translate-y-0.5 group">
-                            <div class="flex items-center justify-center gap-2 mb-1.5">
-                                <i class="fa-solid fa-lock text-yellow-600 group-hover:text-yellow-500 transition-colors"></i>
-                                <span class="text-xs font-black text-yellow-800">كاش باك مخفي! 🤫</span>
+                        <div onclick="openAuthModal()" class="secret-box mb-4 group pulse-effect">
+                            <div class="flex items-center justify-center gap-2 mb-1">
+                                <i class="fa-solid fa-lock text-yellow-600 text-sm"></i>
+                                <span class="text-sm font-black text-slate-800 tracking-tight">كاش باك مخفي! 🤫</span>
                             </div>
-                            <span class="block text-[11px] font-bold text-slate-600 underline decoration-dashed underline-offset-4 group-hover:text-[#00b4d8] transition-colors">
+                            <span class="block text-[11px] font-bold text-slate-500 decoration-dashed underline-offset-4 group-hover:text-yellow-600 transition-colors">
                                 اضغط وسجل مجاناً لفتح الرصيد
                             </span>
                         </div>`;
@@ -1746,7 +1805,7 @@
                   <div class="w-full md:w-1/3 relative h-56 md:h-auto overflow-hidden bg-gray-200">
                     <img src="${hotel.img}" alt="${hotel.name}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                     <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60"></div>
-                    <div class="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-bold px-2.5 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5">
+                    <div class="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-bold px-2.5 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 z-10">
                         <span class="bg-[#1f3a40] text-white px-1.5 py-0.5 rounded text-[10px]">${randomRating}</span> ممتاز
                     </div>
                     ${ribbonHTML}
@@ -1776,10 +1835,10 @@
                       <span class="text-4xl font-black text-[#800000] hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
                     </div>
 
-                    <!-- 🌟 صندوق الكاش باك الذكي -->
+                    <!-- 🌟 صندوق الكاش باك الذكي (World-Class UX) -->
                     ${cashbackBoxHTML}
 
-                    <button class="w-full bg-[#800000] hover:bg-red-900 active:scale-95 transition-all text-white font-bold py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-lg shadow-red-900/20 cursor-pointer border-none" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                    <button class="w-full bg-[#800000] hover:bg-[#a00000] active:scale-95 transition-transform duration-200 text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_4px_15px_rgba(128,0,0,0.3)] cursor-pointer border-none" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
                       <i class="fa-solid fa-bed pointer-events-none"></i> اختر الغرفة
                     </button>
                   </div>
@@ -1833,8 +1892,8 @@
                 
                 // 🌟 [الذكاء التسويقي] داخل صفحة الغرف
                 let cashbackBadge = currentUser 
-                    ? `<div class="bg-yellow-100 text-yellow-800 text-[10px] font-black px-3 py-1 rounded-full mb-3 flex items-center gap-1 border border-yellow-200">كاش باك ${cashbackAED} درهم ✨</div>`
-                    : `<div onclick="openAuthModal()" class="cursor-pointer bg-slate-800 text-yellow-400 text-[10px] font-black px-3 py-1 rounded-full mb-3 flex items-center gap-1 border border-yellow-500 hover:bg-slate-700 transition">🔒 سجل لفتح كاش باك الغرفة</div>`;
+                    ? `<div class="bg-gradient-to-r from-yellow-100 to-yellow-50 text-yellow-800 text-[10px] font-black px-3 py-1 rounded-full mb-3 flex items-center justify-center gap-1 border border-yellow-300 shadow-sm">كاش باك ${cashbackAED} درهم ✨</div>`
+                    : `<div onclick="openAuthModal()" class="cursor-pointer bg-gradient-to-r from-slate-800 to-slate-700 text-yellow-400 text-[10px] font-black px-3 py-1.5 rounded-full mb-3 flex items-center justify-center gap-1.5 border border-yellow-500 hover:scale-105 transition-transform shadow-md"><i class="fa-solid fa-lock"></i> سجل لفتح كاش باك الغرفة</div>`;
 
                 container.innerHTML += `
                     <div class="relative flex flex-col md:flex-row items-stretch bg-white rounded-2xl border border-gray-100 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all duration-300 hover:shadow-[0_10px_40px_rgba(0,180,216,0.1)] overflow-hidden mb-6 animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
