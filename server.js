@@ -130,7 +130,7 @@ let activeChatRooms = new Set();
 // ==========================================
 async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
     const mailOptions = {
-        from: '"شركة الرمال الدولية ✈️" <management@remaltourismllc.com>',
+        from: '"شركة الرمال الدولية" <management@remaltourismllc.com>',
         to: toEmail,
         subject: subject,
         html: htmlContent,
@@ -170,7 +170,7 @@ function generateHotelbedsSignature() {
     const timestamp = Math.floor(Date.now() / 1000);
     const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
     return { apiKey, signature };
-};
+}
 
 const fetchWithTimeout = async (url, options, timeout = 65000) => {
     const controller = new AbortController();
@@ -178,6 +178,12 @@ const fetchWithTimeout = async (url, options, timeout = 65000) => {
     const response = await fetch(url, { ...options, signal: controller.signal });
     clearTimeout(id);
     return response;
+};
+
+// 🌟 فلتر ذكي لتنظيف النصوص من الإيموجيز والمربعات الفارغة قبل حقنها في الـ PDF
+const sanitizeText = (str) => {
+    if (!str) return 'N/A';
+    return str.replace(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}\u{1F1E0}-\u{1F1FF}\u{1F200}-\u{1F2FF}\u{1F004}\u{1F0CF}\u{2B50}\u{2B06}\u{2934}\u{2935}]+/gu, '').trim();
 };
 
 // ==========================================
@@ -285,9 +291,9 @@ app.post('/api/auth/register-send-code', async (req, res) => {
 
         await sendProfessionalEmail(
             email,
-            'رمز التحقق الثنائي (OTP) - شركة الرمال الدولية ✈️',
+            'رمز التحقق لتفعيل حسابك - رمال وفلّها!',
             `<div dir="rtl" style="font-family:Cairo; padding:25px; text-align:center; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
-                <h2 style="color:#1f3a40;">أهلاً بك في شركة الرمال الدولية! ✈️</h2>
+                <h2 style="color:#1f3a40;">أهلاً بك في شركة الرمال الدولية!</h2>
                 <p>رمز التحقق (OTP) الخاص بك لتأكيد حسابك على remalbookings.com هو:</p>
                 <h1 style="color:#ff595e; font-size:38px; letter-spacing:6px; background:#fff; padding:10px; border-radius:8px; display:inline-block;">${code}</h1>
                 <p style="color:#6c757d; font-size:12px; margin-top:15px;">هذا الكود صالح لمدة 10 دقائق فقط.</p>
@@ -341,7 +347,7 @@ app.post('/api/auth/forgot-password-send', async (req, res) => {
 
         await sendProfessionalEmail(
             email,
-            'رمز استعادة كلمة المرور - شركة الرمال الدولية ✈️',
+            'رمز استعادة كلمة المرور - رمال وفلّها!',
             `<div dir="rtl" style="font-family:Cairo; padding:25px; text-align:center; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
                 <h2 style="color:#1f3a40;">استعادة كلمة المرور</h2>
                 <p>كود التحقق الخاص بك هو:</p>
@@ -376,7 +382,7 @@ app.post('/api/user/request-email-change', async (req, res) => {
         if (await User.findOne({ email: targetEmail })) return res.status(400).json({ success: false, error: 'البريد الجديد مستخدم مسبقاً!' });
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         updateEmailCodes[currentEmail] = { code, newEmail: targetEmail, expires: Date.now() + 10 * 60 * 1000 };
-        await sendProfessionalEmail(targetEmail, 'كود تأكيد تغيير البريد الإلكتروني - شركة الرمال الدولية', `<h2>رمز التحقق لتغيير بريدك هو: ${code}</h2>`);
+        await sendProfessionalEmail(targetEmail, 'تأكيد تغيير البريد الإلكتروني - رمال وفلّها!', `<h2>رمز التحقق لتغيير بريدك هو: ${code}</h2>`);
         res.json({ success: true, message: 'تم إرسال كود التحقق إلى بريدك الجديد!' });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
@@ -405,7 +411,7 @@ app.post('/api/user/request-password-change', async (req, res) => {
         if (!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود.' });
         const code = Math.floor(100000 + Math.random() * 900000).toString();
         updatePasswordCodes[email] = { code, expires: Date.now() + 10 * 60 * 1000 };
-        await sendProfessionalEmail(email, 'كود تأكيد تغيير كلمة المرور - شركة الرمال الدولية', `<h2>رمز التحقق لتغيير كلمة المرور هو: ${code}</h2>`);
+        await sendProfessionalEmail(email, 'تأكيد تغيير كلمة المرور - رمال وفلّها!', `<h2>رمز التحقق لتغيير كلمة المرور هو: ${code}</h2>`);
         res.json({ success: true, message: 'تم إرسال كود التحقق إلى بريدك!' });
     } catch (e) { res.status(500).json({ success: false, error: e.message }); }
 });
@@ -496,11 +502,9 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         email = email.toLowerCase().trim();
         const bookingReference = req.body.bookingReference || ('RIMAL-' + Math.floor(100000 + Math.random() * 900000));
         
-        // 🚀 السعر القادم من الواجهة هو السعر النهائي (بعد الخصم)
         let finalPrice = parseFloat(price) || 100; 
         let user = await User.findOne({ email });
 
-        // 1️⃣ خصم النقاط من رصيد العميل فقط (بدون التأثير على finalPrice لأنه مخصوم أصلاً من الواجهة)
         if (user && pointsUsed && pointsUsed > 0) {
             if (user.points >= pointsUsed) {
                 user.points -= pointsUsed;
@@ -508,9 +512,9 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         }
 
         let selectedRefundType = refundType || 'full_100';
-        let policyText = 'استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة'; // 🚀 مسح الإيموجي
-        if (selectedRefundType === 'partial_50') policyText = 'استرداد جزئي (50%) في حال إلغاء الحجز قبل 24 ساعة'; // 🚀 مسح الإيموجي
-        if (selectedRefundType === 'non_refundable') policyText = 'حجز غير قابل للاسترداد (Non-refundable)'; // 🚀 مسح الإيموجي
+        let policyText = 'استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة'; 
+        if (selectedRefundType === 'partial_50') policyText = 'استرداد جزئي (50%) في حال إلغاء الحجز قبل 24 ساعة'; 
+        if (selectedRefundType === 'non_refundable') policyText = 'حجز غير قابل للاسترداد (Non-refundable)'; 
 
         const deadline = new Date();
         deadline.setDate(deadline.getDate() + 2);
@@ -562,7 +566,6 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         });
         await newBooking.save();
 
-        // 2️⃣ إضافة كاش باك جديد للحجز الحالي (10% من قيمة الحجز الفعلي = finalPrice * 10)
         if (user) {
             const earnedPoints = Math.floor(finalPrice * 10);
             user.points += earnedPoints;
@@ -576,30 +579,32 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             );
         }
 
-        // --- التوليد الجديد للـ PDF باستخدام Puppeteer مع تحسينات Render ---
         let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
         let emailHtml = fs.readFileSync(path.join(__dirname, 'email-template.html'), 'utf8');
 
+        // تنظيف النصوص قبل حقنها لضمان عدم وجود مربعات في الـ PDF
+        let cleanHotelName = sanitizeText(hotelName);
+        let cleanPolicyText = sanitizeText(policyText);
+
         voucherHtml = voucherHtml
             .replace(/{{bookingReference}}/g, bookingReference)
-            .replace(/{{hotelName}}/g, hotelName || 'N/A')
-            .replace(/{{encodedHotelName}}/g, encodeURIComponent(hotelName || 'Dubai Hotel')) // 🚀 إضافة الخريطة
+            .replace(/{{hotelName}}/g, cleanHotelName)
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(cleanHotelName)) 
             .replace('{{customerName}}', customerName || 'N/A')
             .replace('{{customerPhone}}', phone || 'N/A')
             .replace('{{customerEmail}}', email || 'N/A')
             .replace('{{roomBed}}', 'سرير كينج / مزدوج')
             .replace('{{boardType}}', 'شامل الوجبات')
             .replace('{{price}}', finalPrice)
-            .replace('{{policyText}}', policyText);
+            .replace('{{policyText}}', cleanPolicyText);
 
         emailHtml = emailHtml
             .replace('{{customerName}}', (customerName || '').split(' ')[0] || 'ضيفنا الكريم')
-            .replace('{{hotelName}}', hotelName || 'N/A')
+            .replace('{{hotelName}}', cleanHotelName)
             .replace(/{{bookingReference}}/g, bookingReference)
             .replace('{{checkInDate}}', 'حسب الطلب')
             .replace('{{price}}', finalPrice);
 
-        // 🚀 التعديل الجذري الأول لـ Puppeteer على Render
         browser = await puppeteer.launch({
             headless: true, 
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
@@ -625,7 +630,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
 
         await sendProfessionalEmail(
             email,
-            `تأكيد حجزك الفندقي المؤكد في ${hotelName} - شركة الرمال الدولية ✈️`,
+            `تأكيد حجزك الفندقي من الرمال | المرجع: ${bookingReference}`, // 👈 عنوان إيميل مصحح ومختصر
             emailHtml,
             pdfBuffer,
             `Rimal-Voucher-${bookingReference}.pdf`
@@ -654,7 +659,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 مسار تعديل الحجز (Modify Booking API المربوط مع Hotelbeds)
+// 🚀 مسار تعديل الحجز (Modify Booking API המربوط مع Hotelbeds)
 // ==========================================
 app.put('/api/v1/bookings/modify/:reference', async (req, res) => {
     try {
@@ -733,26 +738,29 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
         let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
         let emailHtml = fs.readFileSync(path.join(__dirname, 'email-template.html'), 'utf8');
 
+        // تنظيف النصوص
+        let cleanHotelName = sanitizeText(booking.hotelName);
+        let cleanPolicyText = sanitizeText(booking.cancellationPolicy);
+
         voucherHtml = voucherHtml
             .replace(/{{bookingReference}}/g, booking.bookingReference)
-            .replace(/{{hotelName}}/g, booking.hotelName || 'N/A')
-            .replace(/{{encodedHotelName}}/g, encodeURIComponent(booking.hotelName || 'Dubai Hotel')) // 🚀 إضافة الخريطة
+            .replace(/{{hotelName}}/g, cleanHotelName)
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(cleanHotelName)) 
             .replace('{{customerName}}', booking.customerName || 'N/A')
             .replace('{{customerPhone}}', booking.phone || 'N/A')
             .replace('{{customerEmail}}', booking.email || 'N/A')
             .replace('{{roomBed}}', 'سرير كينج / مزدوج')
             .replace('{{boardType}}', 'شامل الوجبات')
             .replace('{{price}}', booking.price)
-            .replace('{{policyText}}', booking.cancellationPolicy);
+            .replace('{{policyText}}', cleanPolicyText);
 
         emailHtml = emailHtml
             .replace('{{customerName}}', (booking.customerName || '').split(' ')[0] || 'ضيفنا الكريم')
-            .replace('{{hotelName}}', booking.hotelName || 'N/A')
+            .replace('{{hotelName}}', cleanHotelName)
             .replace(/{{bookingReference}}/g, booking.bookingReference)
             .replace('{{checkInDate}}', 'حسب الطلب')
             .replace('{{price}}', booking.price);
 
-        // 🚀 التعديل الجذري الثاني لـ Puppeteer على Render
         browser = await puppeteer.launch({
             headless: true, 
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
@@ -778,7 +786,7 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 
         await sendProfessionalEmail(
             email,
-            `إعادة إرسال: قسيمة حجزك المؤكد في ${booking.hotelName} ✈️`,
+            `إعادة إرسال قسيمة الحجز | المرجع: ${booking.bookingReference}`, // 👈 عنوان مصحح
             emailHtml,
             pdfBuffer,
             `Rimal-Voucher-${booking.bookingReference}.pdf`
@@ -794,7 +802,7 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 });
 
 // ==========================================
-// 🚀 مسار إلغاء الحجز والإشعارات الإدارية للمتابعة اليدوية (الآمن والمضمون)
+// 🚀 مسار إلغاء الحجز والإشعارات الإدارية للمتابعة اليدوية
 // ==========================================
 app.post('/api/v1/bookings/cancel', async (req, res) => {
     try {
@@ -856,7 +864,7 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
                 <p style="color:#6c757d; font-size:12px;">يرجى مراجعة تفاصيل الكرت واسترداد المبلغ للعميل يدوياً من لوحة تحكم Ziina.</p>
             </div>
         `;
-        await sendProfessionalEmail(ADMIN_EMAIL, `طلب إلغاء حجز واسترداد - مرجع: ${booking.bookingReference}`, adminEmailHtml);
+        await sendProfessionalEmail(ADMIN_EMAIL, `طلب إلغاء حجز واسترداد | مرجع: ${booking.bookingReference}`, adminEmailHtml);
 
         const clientEmailHtml = `
             <div dir="rtl" style="font-family:Cairo, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #00b4d8;">
@@ -866,7 +874,7 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
                 <p style="color:#0077b6; margin-top:20px; font-weight:bold;">شكراً لتفهمك، ونتمنى خدمتك في رحلات قادمة أفضل!</p>
             </div>
         `;
-        await sendProfessionalEmail(booking.email, `تأكيد استلام طلب الإلغاء - شركة الرمال الدولية ✈️`, clientEmailHtml);
+        await sendProfessionalEmail(booking.email, `تأكيد استلام طلب الإلغاء | مرجع: ${booking.bookingReference}`, clientEmailHtml);
 
         if (booking.phone) {
             await sendWhatsAppNotification(
@@ -907,7 +915,7 @@ app.post('/api/v1/bookings/confirm-cash-payment', async (req, res) => {
         try {
             await sendProfessionalEmail(
                 booking.email,
-                `تأكيد استلام الدفع النقدي لحجزك ${booking.bookingReference} - شركة الرمال الدولية ✈️`,
+                `تأكيد استلام الدفع النقدي لحجزك | مرجع: ${booking.bookingReference}`,
                 `<div dir="rtl" style="font-family:Arial, sans-serif; padding:25px; background:#f7fff7; border-radius:12px; border:2px solid #2a9d8f;">
                     <h2 style="color:#1f3a40;">مرحباً بك يا بطل، ${booking.customerName}! ✈️</h2>
                     <p>نحيطك علماً بأنه تم تأكيد استلام الدفع النقدي (كاش) بنجاح من الفندق الشريك لحجزك في <b>${booking.hotelName}</b>.</p>
@@ -970,7 +978,6 @@ app.post('/api/v1/payments/ziina-intent', async (req, res) => {
         const data = await response.json();
 
         if (data.redirect_url) {
-            // إضافة رابط الـ Embedded checkout الخاص بـ Ziina
             res.json({ 
                 success: true, 
                 redirect_url: data.redirect_url, 
@@ -1003,7 +1010,6 @@ app.get('/payment-success', async (req, res) => {
                 <p>جاري تثبيت حجزك في السحابة وإرسال قسيمة الـ PDF والواتساب...</p>
                 <script>
                     setTimeout(() => {
-                        // 🚀 إرجاع التوجيه الرئيسي لموقع الرمال بعد النجاح
                         window.top.location.href = 'https://remalbookings.com?payment=success&ref=${reference}';
                     }, 2000);
                 </script>
@@ -1304,21 +1310,24 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
 
         let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
 
+        // تنظيف النصوص
+        let cleanHotelName = sanitizeText(booking.hotelName);
+        let cleanPolicyText = sanitizeText(booking.cancellationPolicy);
+
         voucherHtml = voucherHtml
             .replace(/{{bookingReference}}/g, booking.bookingReference)
-            .replace(/{{hotelName}}/g, booking.hotelName || 'N/A')
-            .replace(/{{encodedHotelName}}/g, encodeURIComponent(booking.hotelName || 'Dubai Hotel')) // 🚀 إضافة الخريطة
+            .replace(/{{hotelName}}/g, cleanHotelName)
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(cleanHotelName))
             .replace('{{customerName}}', booking.customerName || 'N/A')
             .replace('{{customerPhone}}', booking.phone || 'N/A')
             .replace('{{customerEmail}}', booking.email || 'N/A')
             .replace('{{roomBed}}', booking.bed || 'سرير كينج / مزدوج')
             .replace('{{boardType}}', booking.boardType || 'شامل الوجبات')
             .replace('{{price}}', booking.price)
-            .replace('{{policyText}}', booking.cancellationPolicy);
+            .replace('{{policyText}}', cleanPolicyText);
 
-        // 🚀 التعديل الجذري الثالث لـ Puppeteer على Render
         browser = await puppeteer.launch({
-            headless: true, // تغيير من "new" إلى true
+            headless: true, 
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
             args: [
                 '--no-sandbox',
@@ -1443,7 +1452,7 @@ app.post('/api/v1/hotels/search', async (req, res) => {
             processedHotels = data.hotels.hotels.map(hotel => {
                 let rooms = hotel.rooms ? hotel.rooms.map(room => {
                     let rates = room.rates ? room.rates.map(rate => {
-                        let policySummary = "سياسة إلغاء مطبقة حسب شروط الفندق"; // 🚀 مسح الإيموجي
+                        let policySummary = "سياسة إلغاء مطبقة حسب شروط الفندق"; 
                         
                         if (rate.cancellationPolicies && rate.cancellationPolicies.length > 0) {
                             let policies = rate.cancellationPolicies.map(p => {
@@ -1453,7 +1462,7 @@ app.post('/api/v1/hotels/search', async (req, res) => {
                             });
                             policySummary = `شروط الإلغاء من المورد: ${policies.join(' | ')}`;
                         } else if (rate.freeCancellation) {
-                            policySummary = "إلغاء مجاني بالكامل"; // 🚀 مسح الإيموجي
+                            policySummary = "إلغاء مجاني بالكامل"; 
                         }
 
                         return {
