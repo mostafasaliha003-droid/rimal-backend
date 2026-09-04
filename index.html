@@ -64,7 +64,6 @@
            🚀 تحسينات الهيدر والهيرو (Ultimate UX/UI)
            ========================================================= */
            
-        /* شريط الحجوزات الحية بهوية رمال (كحلي وتركواز) */
         .live-ticker {
             background: linear-gradient(90deg, #112226, #1f3a40, #00b4d8);
             background-size: 200% 200%;
@@ -75,9 +74,8 @@
         }
         @keyframes gradientMove { 0% {background-position: 0% 50%;} 50% {background-position: 100% 50%;} 100% {background-position: 0% 50%;} }
 
-        /* الهيدر الزجاجي (Glassmorphism) */
         header {
-            background: rgba(31, 58, 64, 0.85); /* كحلي شبه شفاف */
+            background: rgba(31, 58, 64, 0.95);
             backdrop-filter: blur(16px);
             -webkit-backdrop-filter: blur(16px);
             border-bottom: 1px solid rgba(255, 255, 255, 0.1);
@@ -89,7 +87,6 @@
         @keyframes wave { 0% { transform: rotate(0deg); } 25% { transform: rotate(14deg); } 75% { transform: rotate(-14deg); } 100% { transform: rotate(0deg); } }
         .wave-emoji { display: inline-block; animation: wave 1.5s infinite; }
 
-        /* أزرار الإعدادات (اللغة والعملة) - مبسطة وأنيقة بدون إطارات مزعجة */
         .settings-dropdown {
             background: transparent; padding: 6px 12px; border-radius: 20px; font-size: 13px; font-weight: 800; color: rgba(255,255,255,0.9);
             display: flex; align-items: center; gap: 6px; cursor: pointer; transition: all 0.2s ease;
@@ -98,46 +95,26 @@
         .settings-dropdown select { background: transparent; border: none; font-weight: 900; font-family: 'Cairo'; color: inherit; outline: none; cursor: pointer; }
         .settings-dropdown select option { background: var(--primary); color: white; }
 
-        /* قائمة المستخدم */
         .user-dropdown-container { position: relative; display: inline-block; }
         .user-dropdown-content {
             display: none; position: absolute; right: 0; background-color: #ffffff; min-width: 250px;
-            box-shadow: 0 20px 40px rgba(0,0,0,0.25); border-radius: 20px; z-index: 2000; overflow: hidden; border: 2px solid var(--accent-yellow); text-align: right;
+            box-shadow: 0 20px 40px rgba(0,0,0,0.25); border-radius: 20px; z-index: 2000; overflow: hidden; border: 2px solid var(--accent-cyan); text-align: right;
         }
         .user-dropdown-content a, .user-dropdown-content div.dropdown-header {
             color: var(--primary); padding: 12px 16px; text-decoration: none; display: block; font-size: 13px; font-weight: 800; cursor: pointer;
         }
-        .user-dropdown-content div.dropdown-header { background: #f8f9fa; border-bottom: 2px solid #e9ecef; color: var(--primary); line-height: 1.5; }
-        .user-dropdown-content a:hover { background-color: #f1f5f9; color: var(--accent-coral); }
+        .user-dropdown-content div.dropdown-header { background: #f8fafc; border-bottom: 2px solid #e2e8f0; color: var(--primary); line-height: 1.5; }
+        .user-dropdown-content a:hover { background-color: #f1f5f9; color: var(--accent-cyan); }
         .user-dropdown-container:hover .user-dropdown-content { display: block; }
 
-        /* الكبسولة المركزية (Pill Navigation) */
         .nav-pill {
-            background: rgba(255, 255, 255, 0.05);
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            border-radius: 9999px;
-            padding: 4px;
-            display: flex;
-            gap: 4px;
+            background: rgba(255, 255, 255, 0.05); border: 1px solid rgba(255, 255, 255, 0.1); border-radius: 9999px; padding: 4px; display: flex; gap: 4px;
         }
         .nav-pill-btn {
-            padding: 8px 20px;
-            border-radius: 9999px;
-            font-size: 13px;
-            font-weight: 800;
-            color: rgba(255, 255, 255, 0.8);
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            cursor: pointer;
-            border: none;
-            background: transparent;
+            padding: 8px 20px; border-radius: 9999px; font-size: 13px; font-weight: 800; color: rgba(255, 255, 255, 0.8);
+            transition: all 0.3s ease; display: flex; align-items: center; gap: 8px; cursor: pointer; border: none; background: transparent;
         }
-        .nav-pill-btn:hover, .nav-pill-btn.active {
-            background: rgba(255, 255, 255, 0.15);
-            color: white;
-        }
+        .nav-pill-btn:hover, .nav-pill-btn.active { background: rgba(255, 255, 255, 0.15); color: white; }
 
         .container { padding: 0 5%; margin-bottom: 60px; max-width: 1200px; margin-left: auto; margin-right: auto; }
 
@@ -148,16 +125,34 @@
         }
         .modal-content {
             background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 480px;
-            border: 4px solid var(--accent-yellow); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
+            border: 4px solid var(--accent-cyan); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
         }
 
-        /* فاصل التذكرة */
-        .ticket-divider-v { width: 2px; background-image: linear-gradient(to bottom, #e2e8f0 50%, rgba(255,255,255,0) 0%); background-position: right; background-size: 2px 12px; background-repeat: repeat-y; position: relative; }
-        .ticket-divider-v::before, .ticket-divider-v::after { content: ''; position: absolute; left: -11px; width: 24px; height: 24px; background-color: var(--bg-light); border-radius: 50%; box-shadow: inset 0 2px 4px rgba(0,0,0,0.04); }
-        .ticket-divider-v::before { top: -12px; } .ticket-divider-v::after { bottom: -12px; }
-        .ticket-divider-h { height: 2px; background-image: linear-gradient(to left, #e2e8f0 50%, rgba(255,255,255,0) 0%); background-position: top; background-size: 12px 2px; background-repeat: repeat-x; position: relative; margin: 0 16px; }
-        .ticket-divider-h::before, .ticket-divider-h::after { content: ''; position: absolute; top: -11px; width: 24px; height: 24px; background-color: var(--bg-light); border-radius: 50%; box-shadow: inset 0 2px 4px rgba(0,0,0,0.04); }
-        .ticket-divider-h::before { right: -28px; } .ticket-divider-h::after { left: -28px; }
+        /* =========================================================
+           🚀 تحسينات الـ UX/UI (التذكرة الفاخرة)
+           ========================================================= */
+
+        /* فاصل التذكرة المتقطع العمودي (Desktop) */
+        .ticket-divider-v {
+            width: 2px; background-image: linear-gradient(to bottom, #e2e8f0 50%, rgba(255,255,255,0) 0%);
+            background-position: right; background-size: 2px 14px; background-repeat: repeat-y; position: relative;
+        }
+        .ticket-divider-v::before, .ticket-divider-v::after {
+            content: ''; position: absolute; left: -12px; width: 26px; height: 26px; background-color: var(--bg-light); border-radius: 50%;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.03);
+        }
+        .ticket-divider-v::before { top: -13px; } .ticket-divider-v::after { bottom: -13px; }
+
+        /* فاصل التذكرة المتقطع الأفقي (Mobile) */
+        .ticket-divider-h {
+            height: 2px; background-image: linear-gradient(to left, #e2e8f0 50%, rgba(255,255,255,0) 0%);
+            background-position: top; background-size: 14px 2px; background-repeat: repeat-x; position: relative; margin: 0 16px;
+        }
+        .ticket-divider-h::before, .ticket-divider-h::after {
+            content: ''; position: absolute; top: -12px; width: 26px; height: 26px; background-color: var(--bg-light); border-radius: 50%;
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.03);
+        }
+        .ticket-divider-h::before { right: -29px; } .ticket-divider-h::after { left: -29px; }
 
         @keyframes subtlePulse { 0% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0.4)); } 50% { filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.8)); } 100% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); } }
         .pulse-coin { animation: subtlePulse 2.5s infinite; }
@@ -181,11 +176,9 @@
     <header>
         <!-- 🌟 كبسولة الهوية (SVG Logo + Text) -->
         <a class="group flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md pr-4 pl-6 py-2 rounded-2xl transition-all duration-300 cursor-pointer text-decoration-none shadow-[0_4px_15px_rgba(0,0,0,0.1)]" onclick="switchView('mainView')">
-            
-            <!-- اللوغو مبرمج بالـ SVG (نقي 100% وبدون خلفية) -->
+            <!-- اللوغو مبرمج بالـ SVG -->
             <div class="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
                 <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md">
-                    <!-- التدرجات اللونية (Gradients) -->
                     <defs>
                         <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
                             <stop offset="0%" stop-color="#48cae4"/>
@@ -196,16 +189,10 @@
                             <stop offset="100%" stop-color="#ff595e"/>
                         </linearGradient>
                     </defs>
-                    
-                    <!-- الشريط التركوازي العلوي -->
                     <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="url(#cyan-grad)"/>
-                    
-                    <!-- الشريط المرجاني السفلي (مع تأثير التداخل) -->
                     <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="url(#red-grad)"/>
                 </svg>
             </div>
-            
-            <!-- النصوص داخل الكبسولة -->
             <div class="flex flex-col justify-center">
                 <span class="font-black text-lg md:text-xl leading-none tracking-tight text-white drop-shadow-md">رمال وفلّها! <span class="wave-emoji ml-1 text-base">🌴</span></span>
                 <span class="text-[0.55rem] md:text-[0.65rem] tracking-[0.25em] uppercase font-black mt-1 text-[#00b4d8] drop-shadow-sm">Remal & Chill</span>
@@ -263,7 +250,7 @@
                 </button>
                 <div id="user-dropdown" class="user-dropdown-content absolute left-0 md:right-0 bg-white min-w-[250px] rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-100 text-right opacity-0 invisible transform translate-y-2 transition-all duration-200 origin-top mt-2">
                     <div class="dropdown-header bg-slate-50 p-4 border-b border-slate-100 text-[#1f3a40] text-xs font-bold flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 text-lg shadow-inner"><i class="fa-solid fa-wallet"></i></div>
+                        <div class="w-10 h-10 rounded-full bg-cyan-50 flex items-center justify-center text-[#00b4d8] text-lg shadow-inner"><i class="fa-solid fa-wallet"></i></div>
                         <div>
                             <span class="block text-gray-500 mb-0.5">رصيد حصالتك:</span>
                             <strong class="text-base text-gray-900"><span id="dropdownPoints">0</span> <span class="text-xs">نقطة</span></strong>
@@ -274,7 +261,7 @@
                         <a onclick="openEditEmailModal()" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-50 hover:text-[#00b4d8] cursor-pointer transition-colors"><i class="fa-solid fa-envelope w-5 text-center text-gray-400"></i> تعديل البريد</a>
                         <a onclick="openEditPasswordModal()" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-50 hover:text-[#00b4d8] cursor-pointer transition-colors"><i class="fa-solid fa-key w-5 text-center text-gray-400"></i> تغيير المرور</a>
                         <a onclick="openSavedCardsModal()" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-50 hover:text-[#00b4d8] cursor-pointer transition-colors"><i class="fa-solid fa-credit-card w-5 text-center text-gray-400"></i> البطاقات البنكية</a>
-                        <a onclick="switchView('registerView')" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer" id="bookingsNavBtn"><i class="fa-solid fa-suitcase-rolling w-5 text-center text-gray-400"></i> إدارة حجوزاتي</a>
+                        <a onclick="switchView('registerView')" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-50 hover:text-[#00b4d8] cursor-pointer transition-colors" id="bookingsNavBtn"><i class="fa-solid fa-suitcase-rolling w-5 text-center text-gray-400"></i> إدارة حجوزاتي</a>
                     </div>
                     <a onclick="logoutUser()" class="block px-4 py-3 bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 border-t border-red-100 cursor-pointer transition-colors"><i class="fa-solid fa-right-from-bracket w-5 text-center"></i> تسجيل خروج</a>
                 </div>
@@ -286,17 +273,14 @@
     <div id="mainView" class="view-section active">
         <!-- 🖼️ صورة حية مع تظليل كحلي فخم -->
         <section class="relative pt-24 pb-48 px-4 flex items-center justify-center min-h-[65vh] xl:min-h-[70vh]">
-            <!-- صورة الخلفية (الفخامة) -->
             <div class="absolute inset-0 z-0 bg-[#1f3a40]">
-                <!-- استخدمنا صورة لمنتجع فاخر لتعطي إيحاء السفر -->
+                <!-- صورة خلفية فخمة -->
                 <img src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1920&q=80" alt="Luxury Dubai Resort" class="w-full h-full object-cover opacity-60" />
             </div>
             
-            <!-- تدرج لوني كحلي متناسق مع هويتكم -->
             <div class="absolute inset-0 z-0 bg-gradient-to-b from-[#1f3a40]/95 via-[#1f3a40]/70 to-[#1f3a40]/90"></div>
             
             <div class="relative z-10 max-w-5xl mx-auto text-center text-white mt-8">
-                <!-- شارة ثقة صغيرة أعلى العنوان -->
                 <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-xs font-bold text-teal-100 mb-6 shadow-lg">
                     <i class="fa-solid fa-shield-check text-[#00b4d8]"></i> المنصة الأذكى لحجوزات الفنادق
                 </div>
@@ -314,7 +298,6 @@
                 </p>
             </div>
             
-            <!-- 🌊 تموج سفلي هندسي وناعم يفصل الهيرو عن البحث -->
             <div class="absolute bottom-0 left-0 w-full overflow-hidden leading-none z-0 pointer-events-none">
                 <svg viewBox="0 0 1200 120" preserveAspectRatio="none" class="w-full h-16 md:h-24" style="transform: rotate(180deg);">
                     <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" fill="#f8fafc"></path>
@@ -430,7 +413,6 @@
                 <!-- Filters & Map -->
                 <aside class="w-full lg:w-[320px] shrink-0 flex flex-col gap-6 sticky top-28">
                     <div class="bg-white rounded-3xl border border-slate-100 shadow-xl p-4 md:p-6 transition-all relative overflow-hidden">
-                        <!-- دمج خفيف للون العنابي في تصميم الفلتر -->
                         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#800000] to-[#00b4d8]"></div>
                         <div class="flex items-center justify-between mb-5 px-2 mt-2">
                             <div class="flex items-center gap-3">
@@ -528,7 +510,7 @@
                 </aside>
 
                 <!-- قائمة الفنادق -->
-                <div class="flex-1 space-y-6 min-w-0">
+                <div class="flex-1 space-y-8 min-w-0">
                     <div id="hotelsContainer"></div>
                 </div>
             </div>
@@ -1871,10 +1853,15 @@
                   <div class="flex-1 p-5 md:p-6 flex flex-col justify-between bg-white relative z-10">
                     <div>
                       <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2"><bdi dir="auto">${hotel.name}</bdi></h3>
-                      <p class="text-sm text-gray-500 font-semibold"><i class="fa-solid fa-location-dot text-gray-400 ml-1 text-[10px]"></i> الإمارات - <strong>${hotel.city}</strong></p>
-                      <div class="flex flex-wrap gap-2 mt-4">${facilitiesHTML}</div>
+                      <p class="text-sm text-gray-500 font-semibold text-right"><i class="fa-solid fa-location-dot text-gray-400 ml-1 text-[10px]"></i> الإمارات - <strong>${hotel.city}</strong></p>
+                      
+                      <div class="flex flex-wrap gap-2 mt-4 justify-start text-right">
+                          <!-- أيقونات المرافق بأسلوب نظيف -->
+                          <span class="inline-flex items-center gap-1.5 bg-slate-50 text-[#1f3a40] px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-100"><i class="fa-solid fa-wifi text-[#00b4d8]"></i> واي فاي مجاني</span>
+                          <span class="inline-flex items-center gap-1.5 bg-slate-50 text-[#1f3a40] px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-100"><i class="fa-solid fa-person-swimming text-[#00b4d8]"></i> مسبح</span>
+                      </div>
                     </div>
-                    <div class="mt-5 border border-dashed border-red-200 bg-red-50 text-red-700 p-2.5 text-xs text-center rounded-xl font-bold flex flex-col sm:flex-row items-center justify-center gap-2">
+                    <div class="mt-5 border border-dashed border-red-200 bg-red-50 text-red-700 p-2.5 text-xs text-right rounded-xl font-bold flex flex-col sm:flex-row items-center justify-start gap-2">
                       <span class="text-lg animate-pulse">🚨</span> <span><strong>تنبيه:</strong> ${hotel.funnyPolicy}</span>
                     </div>
                   </div>
@@ -1897,13 +1884,13 @@
                     </button>
 
                     ${currentUser 
-                        ? `<div class="mt-3 flex items-center justify-center gap-1.5 bg-[#f0fdf4] text-[#166534] px-2 py-1.5 rounded-lg w-full cursor-default border border-[#bbf7d0]">
-                               <i class="fa-solid fa-wallet text-[#16a34a] text-[10px]"></i>
-                               <span class="text-[9px] font-extrabold">يضاف الكاش باك بعد الحجز</span>
+                        ? `<div class="mt-3 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 px-3 py-2 rounded-xl w-full cursor-default border border-amber-200/60 shadow-sm">
+                               <i class="fa-solid fa-coins text-amber-500 text-sm"></i>
+                               <span class="text-[10px] font-black tracking-wide">يضاف الكاش باك بعد الحجز</span>
                            </div>` 
-                        : `<div onclick="openAuthModal()" class="mt-3 flex items-center justify-center gap-1.5 bg-[#fff7ed] text-[#9a3412] px-2 py-1.5 rounded-lg w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group">
-                               <i class="fa-solid fa-lock text-[#ea580c] text-[10px] group-hover:text-[#f97316]"></i>
-                               <span class="text-[9px] font-extrabold underline decoration-dashed underline-offset-2">سجل لتفعيل الكاش باك</span>
+                        : `<div onclick="openAuthModal()" class="mt-3 flex items-center justify-center gap-1.5 bg-[#fff7ed] text-[#9a3412] px-2 py-2 rounded-xl w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group shadow-sm">
+                               <i class="fa-solid fa-lock text-[#ea580c] text-xs group-hover:text-[#f97316]"></i>
+                               <span class="text-[10px] font-extrabold underline decoration-dashed underline-offset-2">سجل لتفعيل الكاش باك</span>
                            </div>`
                     }
                   </div>
@@ -2016,13 +2003,13 @@
                         <!-- قسم تفاصيل الغرفة (المنتصف) -->
                         <div class="flex-1 p-5 md:p-6 w-full md:w-auto relative z-10 flex flex-col justify-between">
                             <div>
-                                <h3 class="text-lg font-black text-slate-800"><bdi dir="auto">${room.name}</bdi></h3>
-                                <div class="flex flex-col gap-2.5 mt-4">
-                                    <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit"><i class="fa-solid fa-bed opacity-80 pointer-events-none text-base"></i> الأسرة: ${room.bed}</span>
-                                    <span class="inline-flex items-center gap-2 bg-[#00b4d8]/10 text-[#00b4d8] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit"><i class="fa-solid fa-utensils opacity-80 pointer-events-none text-base"></i> الوجبات: ${room.board}</span>
+                                <h3 class="text-lg font-black text-slate-800 text-right"><bdi dir="auto">${room.name}</bdi></h3>
+                                <div class="flex flex-col gap-2.5 mt-4 text-right">
+                                    <span class="inline-flex items-center justify-start gap-2 bg-slate-50 text-[#1f3a40] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit border border-slate-100"><i class="fa-solid fa-bed text-[#00b4d8] text-base"></i> الأسرة: ${room.bed}</span>
+                                    <span class="inline-flex items-center justify-start gap-2 bg-slate-50 text-[#1f3a40] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit border border-slate-100"><i class="fa-solid fa-utensils text-[#00b4d8] text-base"></i> الوجبات: ${room.board}</span>
                                 </div>
                             </div>
-                            <div class="mt-5 border ${cancelClass} p-3 text-sm rounded-xl font-bold flex items-start gap-2 relative overflow-hidden">
+                            <div class="mt-5 border ${cancelClass} p-3 text-sm rounded-xl font-bold flex items-start gap-2 relative overflow-hidden text-right">
                                 <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10"></i>
                                 <div class="relative z-10">
                                     <span class="block ${policyTitleColor}">سياسة الإلغاء الدقيقة:</span>
@@ -2050,13 +2037,13 @@
                             </button>
 
                             ${currentUser 
-                                ? `<div class="mt-3 flex items-center justify-center gap-1.5 bg-[#f0fdf4] text-[#166534] px-2 py-1.5 rounded-lg w-full cursor-default border border-[#bbf7d0]">
-                                       <i class="fa-solid fa-wallet text-[#16a34a] text-[10px]"></i>
-                                       <span class="text-[9px] font-extrabold">يضاف الكاش باك بعد الحجز</span>
+                                ? `<div class="mt-3 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 px-3 py-2 rounded-xl w-full cursor-default border border-amber-200/60 shadow-sm">
+                                       <i class="fa-solid fa-coins text-amber-500 text-sm"></i>
+                                       <span class="text-[10px] font-black tracking-wide">يضاف الكاش باك بعد الحجز</span>
                                    </div>` 
-                                : `<div onclick="openAuthModal()" class="mt-3 flex items-center justify-center gap-1.5 bg-[#fff7ed] text-[#9a3412] px-2 py-1.5 rounded-lg w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group">
-                                       <i class="fa-solid fa-lock text-[#ea580c] text-[10px] group-hover:text-[#f97316]"></i>
-                                       <span class="text-[9px] font-extrabold underline decoration-dashed underline-offset-2">سجل لتفعيل الكاش باك</span>
+                                : `<div onclick="openAuthModal()" class="mt-3 flex items-center justify-center gap-1.5 bg-[#fff7ed] text-[#9a3412] px-2 py-2 rounded-xl w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group shadow-sm">
+                                       <i class="fa-solid fa-lock text-[#ea580c] text-xs group-hover:text-[#f97316]"></i>
+                                       <span class="text-[10px] font-extrabold underline decoration-dashed underline-offset-2">سجل لتفعيل الكاش باك</span>
                                    </div>`
                             }
                         </div>
