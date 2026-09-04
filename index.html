@@ -60,10 +60,6 @@
             width: 100%; height: 100%; color: transparent; background: transparent; cursor: pointer; z-index: 10;
         }
 
-        /* =========================================================
-           🚀 تحسينات الهيدر والهيرو (Ultimate UX/UI)
-           ========================================================= */
-           
         .live-ticker {
             background: linear-gradient(90deg, #112226, #1f3a40, #00b4d8);
             background-size: 200% 200%;
@@ -128,10 +124,6 @@
             border: 4px solid var(--accent-cyan); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
         }
 
-        /* =========================================================
-           🚀 تحسينات الـ UX/UI (هيكلة التذكرة المقطوعة)
-           ========================================================= */
-
         .ticket-divider-v {
             width: 2px; background-image: linear-gradient(to bottom, #e2e8f0 50%, rgba(255,255,255,0) 0%);
             background-position: right; background-size: 2px 14px; background-repeat: repeat-y; position: relative;
@@ -155,9 +147,8 @@
         @keyframes subtlePulse { 0% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0.4)); } 50% { filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.8)); } 100% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); } }
         .pulse-coin { animation: subtlePulse 2.5s infinite; }
 
-        /* نقش الـ SVG للخلفية الكحلية */
         .bg-pattern {
-            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2V6h4V4H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
         }
 
         .goog-te-banner-frame { display: none !important; }
@@ -250,7 +241,6 @@
         </div>
     </header>
 
-    <!-- 🚀 Main View Section (World-Class Hero) -->
     <div id="mainView" class="view-section active">
         <section class="relative pt-24 pb-48 px-4 flex items-center justify-center min-h-[65vh] xl:min-h-[70vh]">
             <div class="absolute inset-0 z-0 bg-[#1f3a40]">
@@ -430,7 +420,7 @@
         </div>
     </div>
 
-    <!-- 🚀 واجهة اختيار الغرف -->
+    <!-- 🚀 واجهة اختيار الغرف (Room Selection View) -->
     <div id="roomSelectionView" class="view-section pb-20">
         <div class="bg-[#1f3a40] bg-pattern pt-12 pb-32 relative z-0 border-b-4 border-[#00b4d8] overflow-hidden">
             <div class="absolute inset-0 opacity-[0.03]" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83L54.627 0zM30 0l.83.83-30 30L0 30 30 0zm24.627 60l-.83-.83L60 45.373V46.2l-5.373 5.373z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E');"></div>
@@ -476,7 +466,6 @@
     <div id="bookingView" class="view-section bg-slate-50 min-h-screen pb-20">
         <!-- هيرو مدمج ومريح للعين مع SVG Wave -->
         <div class="w-full bg-[#1f3a40] pt-12 pb-40 px-4 text-center relative overflow-hidden">
-            <!-- Pattern هندسي ناعم لكسر الملل -->
             <div class="absolute inset-0 opacity-[0.03]" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83L54.627 0zM30 0l.83.83-30 30L0 30 30 0zm24.627 60l-.83-.83L60 45.373V46.2l-5.373 5.373z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E');"></div>
             
             <div class="relative z-10 flex flex-col items-center justify-center">
@@ -489,7 +478,6 @@
                 <p class="text-[#00b4d8] font-bold text-sm md:text-base">خطوة واحدة وتكون جاهزاً للسفر!</p>
             </div>
 
-            <!-- SVG Wave Smooth Transition -->
             <div class="absolute bottom-0 left-0 w-full overflow-hidden leading-none z-0 pointer-events-none">
                 <svg viewBox="0 0 1200 120" preserveAspectRatio="none" class="w-full h-12 md:h-20" style="transform: rotate(180deg);">
                     <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" fill="#f8fafc"></path>
@@ -497,7 +485,6 @@
             </div>
         </div>
 
-        <!-- بطاقة الدفع (أضيق وأكثر فخامة) -->
         <div class="max-w-xl w-full mx-auto px-4 -mt-32 relative z-10">
             <div class="bg-white rounded-[2rem] shadow-[0_20px_60px_rgba(31,58,64,0.12)] border border-slate-100 p-6 md:p-10 space-y-8">
                 
@@ -505,11 +492,9 @@
                     <h2 id="hotelNameTitle" class="text-xl md:text-2xl font-black text-[#1f3a40] leading-snug"></h2>
                 </div>
 
-                <!-- تذكرة ملخص الحجز -->
                 <div id="selectedRoomDetails" class="bg-gradient-to-br from-[#00b4d8]/5 to-transparent border border-[#00b4d8]/20 rounded-2xl p-5 relative overflow-hidden shadow-sm"></div>
 
                 <form id="bookingForm" onsubmit="confirmReservation(event)" class="space-y-6">
-                    <!-- الحقول بتصميم Fintech الفاخر -->
                     <div>
                         <label class="block text-xs font-bold text-slate-500 mb-2 uppercase tracking-wide">الاسم الكريم <span class="text-[#800000]">*</span></label>
                         <div class="relative group">
@@ -542,7 +527,6 @@
                         </div>
                     </div>
 
-                    <!-- 🚀 قسم فاتورة الدفع وتطبيق الكاش باك -->
                     <div class="bg-white border border-slate-200 rounded-2xl p-6 mt-8 shadow-sm">
                         <h3 class="text-sm font-black text-[#1f3a40] mb-5 flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-[#00b4d8]"><i class="fa-solid fa-receipt"></i></div> تفاصيل الدفع</h3>
                         
@@ -582,7 +566,7 @@
                         <div id="savedCardsPaymentSection" style="display:none;" class="mt-5 pt-5 border-t border-slate-100">
                             <label class="text-xs font-bold text-slate-500 mb-3 block uppercase tracking-wide">البطاقات المحفوظة:</label>
                             <div class="relative">
-                                <select id="savedCardsSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-[#00b4d8] focus:ring-4 focus:ring-[#00b4d8]/10 transition-all shadow-sm cursor-pointer custom-select-icon" onchange="fillSavedCard(this)" dir="ltr">
+                                <select id="savedCardsSelect" class="w-full bg-slate-50 border border-slate-200 rounded-xl py-3.5 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:bg-white focus:border-[#00b4d8] focus:ring-4 focus:ring-[#00b4d8]/10 transition-all shadow-sm cursor-pointer custom-select-icon hover:bg-white focus:border-[#00b4d8] transition-colors" onchange="fillSavedCard(this)" dir="ltr">
                                     <option value="" dir="rtl">-- اختر بطاقة محفوظة --</option>
                                 </select>
                             </div>
@@ -601,7 +585,6 @@
                             </div>
                         </div>
 
-                        <!-- الزر العظيم (Ultimate Button) -->
                         <button type="submit" class="w-full bg-gradient-to-l from-[#800000] via-[#a30000] to-[#800000] hover:from-[#990000] hover:via-[#cc0000] hover:to-[#990000] text-white font-black py-4.5 rounded-2xl flex items-center justify-center gap-3 shadow-[0_10px_30px_rgba(128,0,0,0.3)] hover:shadow-[0_15px_40px_rgba(128,0,0,0.4)] transition-all duration-300 border border-white/20 cursor-pointer active:scale-[0.98] text-lg group">
                             <i class="fa-solid fa-shield-check text-white/70 group-hover:text-white transition-colors text-xl"></i> 
                             <span>ادفع الآن بأمان</span>
@@ -870,20 +853,20 @@
             <p class="text-xs text-slate-500 font-bold mb-4">أدخل بيانات حجزك المؤكد للبدء:</p>
             <div class="relative mb-3">
                 <i class="fa-solid fa-hashtag absolute left-3 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                <input type="text" id="refCodeInput" placeholder="رقم الحجز (Reference)" class="w-full p-3 pl-10 border border-slate-200 rounded-xl text-sm bg-slate-50 text-left outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/10 font-bold transition-all" dir="ltr">
+                <input type="text" id="refCodeInput" placeholder="رقم الحجز (Reference)" class="w-full p-3 pl-10 border border-slate-200 rounded-xl text-sm bg-slate-50 text-left outline-none focus:border-teal-500" dir="ltr">
             </div>
             <div class="relative mb-5">
                 <i class="fa-solid fa-user absolute right-3 top-1/2 -translate-y-1/2 text-slate-300"></i>
-                <input type="text" id="clientNameInput" placeholder="الاسم الكامل" class="w-full p-3 pr-10 border border-slate-200 rounded-xl text-sm bg-slate-50 outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/10 font-bold transition-all">
+                <input type="text" id="clientNameInput" placeholder="الاسم الكامل" class="w-full p-3 pr-10 border border-slate-200 rounded-xl text-sm bg-slate-50 outline-none focus:border-teal-500">
             </div>
-            <button id="startChatBtn" class="w-full bg-[#00b4d8] hover:bg-[#0096b4] text-white p-3 rounded-xl font-black border-none cursor-pointer text-sm transition-all shadow-md active:scale-95">بدء المحادثة</button>
+            <button id="startChatBtn" class="w-full bg-teal-600 hover:bg-teal-700 text-white p-3 rounded-xl font-black border-none cursor-pointer text-sm transition-all shadow-md active:scale-95">بدء المحادثة</button>
             <p id="chatErrorMsg" class="text-red-500 text-xs mt-3 text-center font-bold"></p>
         </div>
 
         <div id="messagesView" class="hidden flex-col h-80">
             <div id="chatMessages" class="flex-1 p-4 overflow-y-auto bg-slate-50 text-sm space-y-3 text-right"></div>
             <div class="p-3 border-t border-slate-100 flex gap-2 bg-white">
-                <input type="text" id="messageInput" placeholder="اكتب رسالتك..." class="flex-1 p-3 border border-slate-200 rounded-xl outline-none text-sm focus:border-[#00b4d8] bg-slate-50 font-semibold transition-all">
+                <input type="text" id="messageInput" placeholder="اكتب رسالتك..." class="flex-1 p-3 border border-slate-200 rounded-xl outline-none text-sm focus:border-teal-500 bg-slate-50 font-semibold transition-all">
                 <button id="sendMsgBtn" class="bg-[#1f3a40] hover:bg-[#2a4d53] text-white border-none px-5 rounded-xl cursor-pointer transition-colors shadow-sm"><i class="fa-solid fa-paper-plane"></i></button>
             </div>
         </div>
@@ -1667,19 +1650,52 @@
             finally { btn.innerHTML = originalText; btn.disabled = false; }
         }
 
+        // Helper function to generate professional Meal Plan Badges
+        function getMealPlanUI(boardType) {
+            let config = { bg: 'bg-slate-50', border: 'border-slate-100', text: 'text-slate-600', icon: 'fa-utensils', iconColor: 'text-slate-400' };
+            let title = boardType || 'شامل الوجبات';
+            
+            const upperBoard = boardType ? boardType.toUpperCase() : '';
+
+            if (upperBoard.includes('RO') || upperBoard.includes('ROOM ONLY')) {
+                config = { bg: 'bg-slate-50', border: 'border-slate-200', text: 'text-slate-500', icon: 'fa-bed', iconColor: 'text-slate-400' };
+                title = 'بدون وجبات (Room Only)';
+            } else if (upperBoard.includes('BB') || upperBoard.includes('BREAKFAST')) {
+                config = { bg: 'bg-amber-50', border: 'border-amber-200', text: 'text-amber-800', icon: 'fa-mug-hot', iconColor: 'text-amber-500' };
+                title = 'شامل الإفطار (Breakfast)';
+            } else if (upperBoard.includes('HB') || upperBoard.includes('HALF')) {
+                config = { bg: 'bg-orange-50', border: 'border-orange-200', text: 'text-orange-800', icon: 'fa-plate-wheat', iconColor: 'text-orange-500' };
+                title = 'نصف إقامة (فطور وعشاء)';
+            } else if (upperBoard.includes('FB') || upperBoard.includes('FULL') || upperBoard.includes('AI') || upperBoard.includes('ALL')) {
+                config = { bg: 'bg-[#00b4d8]/10', border: 'border-[#00b4d8]/30', text: 'text-[#007790]', icon: 'fa-martini-glass-citrus', iconColor: 'text-[#00b4d8]' };
+                title = 'شامل كلياً (All Inclusive)';
+            }
+
+            return `<span class="inline-flex items-center gap-1.5 ${config.bg} ${config.text} px-3 py-1.5 rounded-lg text-[11px] font-black border ${config.border} shadow-sm whitespace-nowrap">
+                        <i class="fa-solid ${config.icon} ${config.iconColor} text-sm drop-shadow-sm"></i> ${title}
+                    </span>`;
+        }
+
         function displayHotels(hotelsArray) {
             const container = document.getElementById('hotelsContainer');
             if (!container) return; container.innerHTML = '';
-            const funnyMsgs = [ "🔥 باقي غرفة!", "🏃‍♂️ طق عصي على هالغرفة.. الحق!", "💸 السعر انهبل.. احجز قبل لا يستوعبون!" ];
+            
+            // Scarcity Triggers (World Class UX trick)
+            const scarcityMsgs = [ 
+                { text: "باقي غرفتين فقط!", color: "text-red-600", bg: "bg-red-50", border: "border-red-100", icon: "fa-fire" },
+                { text: "مطلوب بشدة اليوم", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", icon: "fa-arrow-trend-up" },
+                { text: "سعر حصري للأعضاء", color: "text-[#00b4d8]", bg: "bg-[#00b4d8]/10", border: "border-[#00b4d8]/20", icon: "fa-gem" }
+            ];
 
             hotelsArray.forEach((hotel, index) => {
-                let randomMsg = funnyMsgs[Math.floor(Math.random() * funnyMsgs.length)];
+                let randomScarcity = scarcityMsgs[Math.floor(Math.random() * scarcityMsgs.length)];
                 let randomRating = (Math.random() * (9.9 - 8.0) + 8.0).toFixed(1); 
+                
                 let facilitiesHTML = '';
                 if(hotel.hotelFacilities) {
                     hotel.hotelFacilities.forEach(fac => {
-                        let styledFac = fac.replace('<i ', '<i style="opacity: 0.7;" ');
-                        facilitiesHTML += `<span class="flex items-center gap-1.5 bg-[#00b4d8]/10 text-[#00b4d8] px-3 py-1.5 rounded-lg text-xs font-bold border border-[#00b4d8]/20">${styledFac}</span>`;
+                        let styledFac = fac.replace('<i ', '<i style="color: #00b4d8;" ');
+                        facilitiesHTML += `<span class="inline-flex items-center gap-1.5 bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-100">${styledFac}</span>`;
                     });
                 }
                 const animationDelay = index * 100;
@@ -1736,44 +1752,54 @@
                         </div>`;
                 }
 
+                // Determine a base meal plan based on mock data logic (for display purposes on main card)
+                let baseMealType = 'RO'; 
+                if(hotel.priceAED > 800) baseMealType = 'BB';
+                if(hotel.priceAED > 2000) baseMealType = 'HB';
+                let mealBadge = getMealPlanUI(baseMealType);
+
                 container.innerHTML += `
-                <div class="flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] border border-gray-100 hover:shadow-[0_8px_25px_rgba(0,180,216,0.1)] transition-all duration-300 mb-6 overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                <div class="flex flex-col md:flex-row bg-white rounded-[2rem] shadow-[0_4px_20px_rgba(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_15px_40px_rgba(0,180,216,0.1)] transition-all duration-500 mb-6 overflow-hidden animate-fade-in-up group" style="animation-delay: ${animationDelay}ms;">
                   
                   <!-- 🖼️ قسم الصورة (يمين) -->
-                  <div class="relative w-full md:w-[280px] lg:w-[320px] h-56 md:h-auto shrink-0">
-                    <img src="${hotel.img}" alt="${hotel.name}" class="w-full h-full object-cover transition-transform duration-700 hover:scale-105" />
-                    <div class="absolute inset-0 bg-gradient-to-b from-black/40 via-transparent to-transparent pointer-events-none z-0"></div>
+                  <div class="relative w-full md:w-[280px] lg:w-[320px] h-60 md:h-auto shrink-0 overflow-hidden">
+                    <img src="${hotel.img}" alt="${hotel.name}" class="w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#1f3a40]/80 via-transparent to-black/20 pointer-events-none z-0"></div>
                     
                     <!-- 🌟 شارة التقييم المزدوجة الفاخرة -->
-                    <div class="absolute top-4 left-4 flex items-center bg-white/90 backdrop-blur-md rounded-xl shadow-[0_8px_20px_rgba(0,0,0,0.2)] border border-white/50 overflow-hidden z-10 transition-transform duration-300 hover:scale-105 cursor-default">
-                        <div class="bg-gradient-to-br from-[#1f3a40] to-[#2a4d53] text-white px-3 py-1.5 flex items-center justify-center border-l border-white/20">
-                            <span class="font-black text-[14px] tracking-widest" dir="ltr">${randomRating}</span>
+                    <div class="absolute top-4 left-4 flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-lg overflow-hidden z-10">
+                        <div class="bg-gradient-to-br from-[#1f3a40] to-[#2a4d53] text-white px-3 py-1.5 flex items-center justify-center">
+                            <span class="font-black text-sm tracking-widest" dir="ltr">${randomRating}</span>
                         </div>
-                        <div class="px-2.5 py-1 flex items-center gap-1.5">
-                            <span class="text-[#1f3a40] font-extrabold text-xs">ممتاز</span>
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5 text-yellow-500 drop-shadow-sm" viewBox="0 0 20 20" fill="currentColor">
-                                <path d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z" />
-                            </svg>
+                        <div class="px-2.5 py-1 flex items-center gap-1">
+                            <span class="text-[#1f3a40] font-extrabold text-[11px]">ممتاز</span>
                         </div>
                     </div>
                     
                     ${coinBadgeHTML}
+                    
+                    <!-- Scarcity Badge on Image Bottom -->
+                    <div class="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 ${randomScarcity.bg} ${randomScarcity.color} px-3 py-1.5 rounded-lg text-[10px] font-black border ${randomScarcity.border} shadow-sm backdrop-blur-sm">
+                        <i class="fa-solid ${randomScarcity.icon} animate-pulse"></i> ${randomScarcity.text}
+                    </div>
                   </div>
 
                   <!-- 📝 قسم التفاصيل (المنتصف) -->
-                  <div class="flex-1 p-5 md:p-6 flex flex-col justify-between bg-white relative z-10">
+                  <div class="flex-1 p-6 md:p-8 flex flex-col justify-between bg-white relative z-10">
                     <div>
-                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2"><bdi dir="auto">${hotel.name}</bdi></h3>
-                      <p class="text-sm text-gray-500 font-semibold text-right"><i class="fa-solid fa-location-dot text-gray-400 ml-1 text-[10px]"></i> الإمارات - <strong>${hotel.city}</strong></p>
+                      <div class="flex items-center gap-2 mb-2">
+                        <div class="flex text-yellow-400 text-[10px]"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                      </div>
+                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2"><bdi dir="auto">${hotel.name}</bdi></h3>
+                      <p class="text-[13px] text-slate-500 font-bold mb-4 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-[#00b4d8]"></i> الإمارات - ${hotel.city} <span class="text-[#00b4d8] underline decoration-dashed cursor-pointer ml-2 text-[11px]">عرض على الخريطة</span></p>
                       
-                      <div class="flex flex-wrap gap-2 mt-4 justify-start text-right">
-                          <!-- أيقونات المرافق بأسلوب نظيف -->
-                          <span class="inline-flex items-center gap-1.5 bg-slate-50 text-[#1f3a40] px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-100"><i class="fa-solid fa-wifi text-[#00b4d8]"></i> واي فاي مجاني</span>
-                          <span class="inline-flex items-center gap-1.5 bg-slate-50 text-[#1f3a40] px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-100"><i class="fa-solid fa-person-swimming text-[#00b4d8]"></i> مسبح</span>
+                      <div class="flex flex-wrap gap-2 mt-4 justify-start">
+                          ${facilitiesHTML}
                       </div>
                     </div>
-                    <div class="mt-5 border border-dashed border-red-200 bg-red-50 text-red-700 p-2.5 text-xs text-right rounded-xl font-bold flex flex-col sm:flex-row items-center justify-start gap-2">
-                      <span class="text-lg animate-pulse">🚨</span> <span><strong>تنبيه:</strong> ${hotel.funnyPolicy}</span>
+                    <div class="mt-6 flex flex-wrap items-center gap-3">
+                       ${mealBadge}
+                       <span class="inline-flex items-center gap-1.5 bg-green-50 text-green-700 px-3 py-1.5 rounded-lg text-[11px] font-black border border-green-100 shadow-sm"><i class="fa-solid fa-check text-green-500"></i> إلغاء مجاني متاح</span>
                     </div>
                   </div>
 
@@ -1782,26 +1808,27 @@
                   <div class="md:hidden ticket-divider-h z-20"></div>
 
                   <!-- 💰 قسم السعر (يسار) -->
-                  <div class="w-full md:w-[240px] lg:w-[260px] p-5 md:p-6 flex flex-col justify-center items-center bg-[#f8fafc] shrink-0 z-10">
-                    <span class="text-[11px] font-bold text-gray-500 mb-1">السعر لليلة واحدة</span>
+                  <div class="w-full md:w-[260px] lg:w-[280px] p-6 md:p-8 flex flex-col justify-center items-center bg-gradient-to-b from-[#f8fafc] to-white shrink-0 z-10 relative">
+                    <span class="bg-[#00b4d8]/10 text-[#00b4d8] text-[10px] font-black px-3 py-1 rounded-full mb-3 border border-[#00b4d8]/20 tracking-wide">أفضل سعر متاح</span>
+                    <span class="text-[11px] font-bold text-slate-400 mb-1">ابتداءً من (لليلة)</span>
                     <div class="text-center mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
-                      <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
-                      <span class="text-3xl lg:text-4xl font-black text-[#1f3a40] tracking-tight hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
+                      <span class="text-sm font-bold text-slate-400 currency-label">AED</span>
+                      <span class="text-4xl lg:text-5xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
                     </div>
-                    <span class="text-[10px] text-gray-400 font-bold mb-4 block">شامل الضريبة والرسوم</span>
+                    <span class="text-[10px] text-slate-400 font-bold mb-6 block">شامل الضرائب والرسوم</span>
 
-                    <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-3.5 rounded-xl shadow-md border-none cursor-pointer" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
-                      احجز الغرفة
+                    <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] border-none cursor-pointer text-base flex items-center justify-center gap-2" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                      عرض الخيارات <i class="fa-solid fa-chevron-left text-sm opacity-80"></i>
                     </button>
 
                     ${currentUser 
-                        ? `<div class="mt-3 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 px-3 py-2 rounded-xl w-full cursor-default border border-amber-200/60 shadow-sm">
-                               <i class="fa-solid fa-coins text-amber-500 text-sm"></i>
-                               <span class="text-[10px] font-black tracking-wide">يضاف الكاش باك بعد الحجز</span>
+                        ? `<div class="mt-4 flex items-center justify-center gap-1.5 text-amber-600 text-[10px] font-black w-full cursor-default">
+                               <i class="fa-solid fa-coins text-amber-500"></i>
+                               <span>استرجع ${cashbackAED} درهم في حصالتك</span>
                            </div>` 
-                        : `<div onclick="openAuthModal()" class="mt-3 flex items-center justify-center gap-1.5 bg-[#fff7ed] text-[#9a3412] px-2 py-2 rounded-xl w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group shadow-sm">
-                               <i class="fa-solid fa-lock text-[#ea580c] text-xs group-hover:text-[#f97316]"></i>
-                               <span class="text-[10px] font-extrabold underline decoration-dashed underline-offset-2">سجل لتفعيل الكاش باك</span>
+                        : `<div onclick="openAuthModal()" class="mt-4 flex items-center justify-center gap-1.5 text-[#ea580c] text-[10px] font-black w-full cursor-pointer hover:text-[#c2410c] transition-colors group">
+                               <i class="fa-solid fa-lock text-[#ea580c] group-hover:text-[#c2410c]"></i>
+                               <span class="underline decoration-dashed underline-offset-4">سجل لتفعيل الكاش باك</span>
                            </div>`
                     }
                   </div>
@@ -1817,9 +1844,14 @@
             await fetchAndDisplayHotelReviews(hotelName);
 
             let roomsList = [];
-            if (hotelName.includes('الفندق التجريبي')) {
-                roomsList.push({ name: "غرفة تجريبية فاخرة (Test Standard Room)", bed: "سرير كينج مزدوج", board: "شامل الإفطار التجريبي", price: 10, points: 100, policyText: "استرداد كامل 100% رسوم مستردة في حال الإلغاء في أي وقت ✨", isFreeCancel: true, rateKey: "TEST-RATE-KEY-10AED", paymentType: "AT", refundType: "full_100" });
-            } else if (apiRooms && apiRooms.length > 0) {
+            // Mocking Data for beautiful UI if API is empty
+            if (hotelName.includes('الفندق التجريبي') || !apiRooms || apiRooms.length === 0) {
+                roomsList = [
+                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO", price: basePrice, points: Math.floor(basePrice*10), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT", refundType: "non_refundable" },
+                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج كبير", board: "BB", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*12), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة ✨", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL", refundType: "full_100" },
+                    { name: "جناح تنفيذي (Executive Suite)", bed: "سرير كينج + أريكة", board: "HB", price: Math.floor(basePrice * 1.8), points: Math.floor(basePrice*18), policyText: "إلغاء مجاني بالكامل - ادفع لاحقاً ✨", isFreeCancel: true, rateKey: "MOCK-RATE-STE", paymentType: "HOTEL", refundType: "full_100" }
+                ];
+            } else {
                 apiRooms.forEach(room => {
                     if (room.rates && room.rates.length > 0) {
                         room.rates.forEach(rate => {
@@ -1838,68 +1870,38 @@
                 });
             }
 
-            if (roomsList.length === 0) {
-                roomsList = [
-                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO - بدون وجبات", price: basePrice, points: Math.floor(basePrice*10), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT", refundType: "non_refundable" },
-                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج", board: "BB - شامل الإفطار", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*12), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة ✨", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL", refundType: "full_100" }
-                ];
-            }
-
+            // Grouping by Room Name to show variations elegantly
             roomsList.forEach((room, index) => {
-                let cancelClass = room.isFreeCancel ? 'border-green-200 bg-green-50/50 text-green-700' : 'border-red-200 bg-red-50/50 text-red-700';
-                let cancelIcon = room.isFreeCancel ? 'fa-shield-check text-green-600' : 'fa-shield-halved text-red-600';
-                let policyTitleColor = room.isFreeCancel ? 'text-green-800' : 'text-red-800';
+                let cancelClass = room.isFreeCancel ? 'border-emerald-200 bg-emerald-50/50 text-emerald-800' : 'border-red-200 bg-red-50/50 text-red-800';
+                let cancelIcon = room.isFreeCancel ? 'fa-shield-check text-emerald-500' : 'fa-shield-halved text-red-500';
+                let policyTitleColor = room.isFreeCancel ? 'text-emerald-700' : 'text-red-700';
                 const animationDelay = index * 100;
-                
                 let cashbackAED = (room.points / 10).toFixed(0);
                 
+                let mealBadge = getMealPlanUI(room.board);
+
                 let coinBadgeHTML = '';
                 if (currentUser) {
                     coinBadgeHTML = `
-                        <div class="w-12 h-12 transform transition-transform duration-300 z-10 cursor-default">
+                        <div class="w-10 h-10 transform transition-transform duration-300 cursor-default shadow-md rounded-full">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
-                                <linearGradient id="gold-outer-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
-                                  <stop offset="0%" stop-color="#D4AF37"/><stop offset="50%" stop-color="#FFF2A8"/><stop offset="100%" stop-color="#996515"/>
-                                </linearGradient>
-                                <linearGradient id="gold-inner-r-${index}" x1="0%" y1="100%" x2="100%" y2="0%">
-                                  <stop offset="0%" stop-color="#7B4918"/><stop offset="50%" stop-color="#B8860B"/><stop offset="100%" stop-color="#F9D976"/>
-                                </linearGradient>
+                                <linearGradient id="gold-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D4AF37"/><stop offset="50%" stop-color="#FFF2A8"/><stop offset="100%" stop-color="#996515"/></linearGradient>
                               </defs>
-                              <circle cx="100" cy="100" r="90" fill="url(#gold-outer-r-${index})"/>
-                              <circle cx="100" cy="100" r="84" fill="none" stroke="#5c3a0d" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
-                              <circle cx="100" cy="100" r="75" fill="url(#gold-inner-r-${index})"/>
-                              <circle cx="100" cy="100" r="75" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
-                              <text x="100" y="70" font-family="'Cairo', sans-serif" font-size="28" font-weight="800" fill="#ffffff" text-anchor="middle">كاش</text>
-                              <text x="100" y="145" font-family="'Cairo', sans-serif" font-size="65" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-2">${cashbackAED}</text>
-                            </svg>
-                        </div>`;
-                } else {
-                    coinBadgeHTML = `
-                        <div onclick="openAuthModal()" class="w-12 h-12 cursor-pointer transform transition-transform duration-300 hover:scale-105 z-10 pulse-coin rounded-full">
-                            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
-                              <defs>
-                                <linearGradient id="dark-outer-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
-                                  <stop offset="0%" stop-color="#334155"/><stop offset="50%" stop-color="#64748b"/><stop offset="100%" stop-color="#0f172a"/>
-                                </linearGradient>
-                                <linearGradient id="dark-inner-r-${index}" x1="0%" y1="100%" x2="100%" y2="0%">
-                                  <stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#1e293b"/><stop offset="100%" stop-color="#475569"/>
-                                </linearGradient>
-                              </defs>
-                              <circle cx="100" cy="100" r="90" fill="url(#dark-outer-r-${index})"/>
-                              <circle cx="100" cy="100" r="84" fill="none" stroke="#1e293b" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
-                              <circle cx="100" cy="100" r="75" fill="url(#dark-inner-r-${index})"/>
-                              <path d="M 85 75 V 65 A 15 15 0 0 1 115 65 V 75 H 120 V 115 H 80 V 75 Z M 92 75 H 108 V 65 A 8 8 0 0 0 92 65 Z" fill="#facc15"/>
+                              <circle cx="100" cy="100" r="95" fill="url(#gold-r-${index})"/>
+                              <circle cx="100" cy="100" r="80" fill="none" stroke="#5c3a0d" stroke-width="4" stroke-dasharray="6 6" opacity="0.6"/>
+                              <text x="100" y="85" font-family="'Cairo', sans-serif" font-size="35" font-weight="900" fill="#7B4918" text-anchor="middle">AED</text>
+                              <text x="100" y="150" font-family="'Cairo', sans-serif" font-size="70" font-weight="900" fill="#7B4918" text-anchor="middle" letter-spacing="-2">${cashbackAED}</text>
                             </svg>
                         </div>`;
                 }
 
                 container.innerHTML += `
-                    <!-- 🚀 بطاقة الغرفة الجديدة (تذكرة من قسمين فقط) -->
-                    <div class="flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] border border-gray-100 hover:shadow-[0_8px_25px_rgba(0,180,216,0.1)] transition-all duration-300 mb-6 overflow-hidden relative group animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                    <!-- 🚀 بطاقة تفاصيل الغرفة (World Class Room Row) -->
+                    <div class="flex flex-col md:flex-row bg-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.06)] border border-slate-100 hover:border-[#00b4d8]/40 transition-all duration-300 mb-6 overflow-hidden relative group animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
 
                         <!-- 🌟 العلامة المائية الفاخرة (لوغو رمال SVG) -->
-                        <div class="absolute -left-10 -bottom-10 w-64 h-64 opacity-[0.03] pointer-events-none transform -rotate-12 group-hover:scale-110 transition-transform duration-700 z-0">
+                        <div class="absolute -left-16 -bottom-16 w-80 h-80 opacity-[0.02] pointer-events-none transform -rotate-12 group-hover:scale-110 transition-transform duration-700 z-0">
                             <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
                                 <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#1f3a40"/>
                                 <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="#1f3a40"/>
@@ -1907,25 +1909,29 @@
                         </div>
 
                         <!-- 📝 قسم التفاصيل (اليمين) -->
-                        <div class="flex-1 p-6 md:p-8 relative z-10 flex flex-col justify-between text-right">
-                            <h3 class="text-xl md:text-2xl font-black text-[#1f3a40] max-w-[85%] leading-tight"><bdi dir="auto">${room.name}</bdi></h3>
+                        <div class="flex-1 p-6 md:p-8 relative z-10 flex flex-col justify-between">
+                            <h3 class="text-xl md:text-2xl font-black text-[#1f3a40] leading-tight flex items-center gap-3">
+                                <bdi dir="auto">${room.name}</bdi>
+                            </h3>
                             
-                            <div class="flex flex-col sm:flex-row gap-3 mt-5">
-                                <span class="inline-flex items-center justify-start gap-2 bg-[#00b4d8]/5 text-[#1f3a40] px-4 py-2 rounded-xl text-sm font-extrabold w-fit border border-[#00b4d8]/20 transition-colors">
-                                    <div class="w-7 h-7 rounded bg-white flex items-center justify-center shadow-sm"><i class="fa-solid fa-bed text-[#00b4d8] text-sm"></i></div>
-                                    الأسرة: ${room.bed}
+                            <div class="flex flex-wrap items-center gap-3 mt-4">
+                                <span class="inline-flex items-center gap-2 bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200">
+                                    <i class="fa-solid fa-bed text-slate-400"></i> ${room.bed}
                                 </span>
-                                <span class="inline-flex items-center justify-start gap-2 bg-[#00b4d8]/5 text-[#1f3a40] px-4 py-2 rounded-xl text-sm font-extrabold w-fit border border-[#00b4d8]/20 transition-colors">
-                                    <div class="w-7 h-7 rounded bg-white flex items-center justify-center shadow-sm"><i class="fa-solid fa-utensils text-[#00b4d8] text-sm"></i></div>
-                                    الوجبات: ${room.board}
+                                <span class="inline-flex items-center gap-2 bg-slate-50 text-slate-700 px-3 py-1.5 rounded-lg text-xs font-bold border border-slate-200">
+                                    <i class="fa-solid fa-user-group text-slate-400"></i> يتسع لـ 2 بالغين
                                 </span>
                             </div>
+
+                            <div class="mt-5 flex items-center gap-2">
+                                ${mealBadge}
+                            </div>
                             
-                            <div class="mt-6 border ${cancelClass} p-4 text-sm rounded-xl font-bold flex items-start gap-3 relative overflow-hidden bg-opacity-30">
-                                <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10 text-lg"></i>
+                            <div class="mt-5 border ${cancelClass} p-3 px-4 text-xs rounded-xl font-bold flex items-start gap-2.5 relative overflow-hidden bg-opacity-40">
+                                <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10 text-base"></i>
                                 <div class="relative z-10">
-                                    <span class="block ${policyTitleColor} font-black">سياسة الإلغاء الدقيقة:</span>
-                                    <span class="font-semibold mt-1 block whitespace-pre-line text-slate-600 leading-relaxed">${room.policyText}</span>
+                                    <span class="block ${policyTitleColor} font-black text-sm mb-1">السياسة:</span>
+                                    <span class="font-semibold block whitespace-pre-line text-slate-600 leading-relaxed">${room.policyText}</span>
                                 </div>
                             </div>
                         </div>
@@ -1936,28 +1942,24 @@
 
                         <!-- 💰 قسم السعر والحجز (يسار) -->
                         <div class="w-full md:w-[260px] lg:w-[280px] p-6 md:p-8 flex flex-col justify-center items-center bg-[#f8fafc] shrink-0 z-10 relative">
-                            <span class="text-xs font-bold text-gray-500 mb-1">السعر لليلة واحدة</span>
                             <div class="text-center mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
                                 <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
-                                <span class="text-4xl lg:text-5xl font-black text-[#1f3a40] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
+                                <span class="text-4xl lg:text-5xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
                             </div>
-                            <span class="text-[10px] text-gray-400 font-bold mb-6 block">شامل الضريبة والرسوم</span>
+                            <span class="text-[10px] text-gray-400 font-bold mb-5 block">شامل الضرائب والرسوم للغرفة</span>
 
-                            <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-95 transition-all duration-300 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.3)] border-none cursor-pointer text-base flex items-center justify-center gap-2" 
+                            <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] border-none cursor-pointer text-base flex items-center justify-center gap-2 mb-4" 
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
-                                <i class="fa-solid fa-lock text-white/50 text-sm"></i> احجز الغرفة
+                                <i class="fa-solid fa-lock text-white/50 text-sm"></i> حجز هذه الغرفة
                             </button>
 
-                            <!-- كبسولة الكاش باك الذكية -->
-                            <div class="mt-4 w-full bg-white border border-slate-200 rounded-xl p-2 flex items-center justify-between shadow-sm cursor-default hover:border-yellow-300 transition-colors group">
-                                <div class="flex items-center gap-2">
-                                    ${coinBadgeHTML}
-                                    <div class="text-right">
-                                        <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-wider">كاش باك مضاف</span>
-                                        <span class="block text-xs font-black text-[#1f3a40]">${currentUser ? 'مضمون لك' : '<span class="text-red-500 underline decoration-dashed cursor-pointer" onclick="openAuthModal()">سجل لتربح</span>'}</span>
-                                    </div>
+                            <!-- كبسولة الكاش باك الذكية المصغرة -->
+                            <div class="w-full bg-white border border-amber-100 rounded-xl p-2 flex items-center justify-start gap-3 shadow-sm cursor-default">
+                                ${currentUser ? coinBadgeHTML : `<div class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="openAuthModal()"><i class="fa-solid fa-piggy-bank text-amber-500"></i></div>`}
+                                <div class="text-right">
+                                    <span class="block text-[9px] text-amber-600 font-black uppercase tracking-wider">كاش باك مسترد</span>
+                                    <span class="block text-xs font-black text-[#1f3a40]">${currentUser ? `+ ${cashbackAED} نقطة` : '<span class="text-slate-400 underline decoration-dashed cursor-pointer text-[10px]" onclick="openAuthModal()">سجل لتربح</span>'}</span>
                                 </div>
-                                <i class="fa-solid fa-chevron-left text-slate-200 text-xs pl-2 group-hover:text-yellow-400 transition-colors"></i>
                             </div>
                         </div>
                     </div>`;
@@ -2015,25 +2017,25 @@
                 <div class="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-r border-[#00b4d8]/30"></div>
                 <div class="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-l border-[#00b4d8]/30"></div>
                 <ul class="space-y-3.5 text-sm md:text-base font-bold text-slate-700">
-                    <li class="flex items-start gap-3"><i class="fa-solid fa-bed text-teal-600 mt-1 shrink-0"></i><span>اختيارك: <bdi dir="auto" class="text-teal-800">${roomName}</bdi></span></li>
-                    <li class="flex items-start gap-3"><i class="fa-solid fa-utensils text-yellow-600 mt-1 shrink-0"></i><span>الوجبات: <span class="text-yellow-800">${boardType}</span></span></li>
-                    <li class="flex items-start gap-3"><i class="fa-solid fa-shield-halved text-green-600 mt-1 shrink-0"></i><span>سياسة الإلغاء: <span class="text-green-800 whitespace-pre-line block mt-1">${policyText}</span></span></li>
+                    <li class="flex items-start gap-3"><i class="fa-solid fa-door-open text-[#00b4d8] mt-1 shrink-0"></i><span>اختيارك: <bdi dir="auto" class="text-[#1f3a40]">${roomName}</bdi></span></li>
+                    <li class="flex items-start gap-3"><i class="fa-solid fa-utensils text-yellow-500 mt-1 shrink-0"></i><span>الوجبات: <span class="text-slate-800">${boardType}</span></span></li>
+                    <li class="flex items-start gap-3"><i class="fa-solid fa-shield-halved text-emerald-500 mt-1 shrink-0"></i><span>سياسة الإلغاء: <span class="text-slate-800 whitespace-pre-line block mt-1 leading-relaxed text-sm">${policyText}</span></span></li>
                 </ul>`;
 
             const payMethodsContainer = document.getElementById('paymentMethodsContainer');
             const electronicPaymentHTML = `
-                <label class="bg-white border-2 border-[#00b4d8] rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 relative cursor-pointer selected-pay-option" onclick="selectPayment('visa', this)">
+                <label class="bg-white border-2 border-[#00b4d8] rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 relative cursor-pointer selected-pay-option transition-all shadow-sm" onclick="selectPayment('visa', this)">
                     <input type="radio" name="payMethod" value="visa" checked class="hidden">
-                    <div class="absolute -top-2.5 -right-2.5 w-6 h-6 bg-[#00b4d8] rounded-full text-white flex items-center justify-center shadow-md check-icon"><i class="fa-solid fa-check text-xs"></i></div>
-                    <div class="flex items-center gap-3"><i class="fa-regular fa-credit-card text-[#00b4d8] text-xl"></i><div><span class="block font-black text-slate-800 text-sm">دفع إلكتروني آمن</span><span class="block text-xs font-bold text-slate-400 mt-0.5">مطلوب مسبقاً لتأكيد الحجز</span></div></div>
-                    <div class="flex items-center gap-2.5 text-2xl text-slate-300"><i class="fa-brands fa-cc-visa"></i><i class="fa-brands fa-cc-mastercard"></i><i class="fa-brands fa-cc-apple-pay"></i></div>
+                    <div class="absolute -top-3 -right-3 w-7 h-7 bg-[#00b4d8] rounded-full text-white flex items-center justify-center shadow-md check-icon border-2 border-white"><i class="fa-solid fa-check text-xs"></i></div>
+                    <div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full bg-[#00b4d8]/10 flex items-center justify-center"><i class="fa-regular fa-credit-card text-[#00b4d8] text-xl"></i></div><div><span class="block font-black text-slate-800 text-base">دفع إلكتروني آمن</span><span class="block text-xs font-bold text-slate-400 mt-1">مطلوب مسبقاً لتأكيد الحجز فوراً</span></div></div>
+                    <div class="flex items-center gap-2 text-3xl text-slate-300"><i class="fa-brands fa-cc-visa"></i><i class="fa-brands fa-cc-mastercard"></i></div>
                 </label>`;
             
             const hotelPaymentHTML = `
-                <label class="bg-white border-2 border-slate-200 rounded-xl p-4 flex flex-col sm:flex-row items-center justify-between gap-4 relative cursor-pointer selected-pay-option" onclick="selectPayment('hotel', this)">
+                <label class="bg-slate-50 border-2 border-transparent rounded-2xl p-5 flex flex-col sm:flex-row items-center justify-between gap-4 relative cursor-pointer selected-pay-option transition-all hover:bg-white hover:border-slate-200" onclick="selectPayment('hotel', this)">
                     <input type="radio" name="payMethod" value="hotel" class="hidden">
-                    <div class="absolute -top-2.5 -right-2.5 w-6 h-6 bg-[#00b4d8] rounded-full text-white items-center justify-center shadow-md check-icon hidden"><i class="fa-solid fa-check text-xs"></i></div>
-                    <div class="flex items-center gap-3"><i class="fa-solid fa-bell-concierge text-slate-400 text-xl"></i><div><span class="block font-black text-slate-800 text-sm">الدفع في الفندق</span><span class="block text-xs font-bold text-slate-400 mt-0.5">يتم الدفع عند الاستقبال</span></div></div>
+                    <div class="absolute -top-3 -right-3 w-7 h-7 bg-[#00b4d8] rounded-full text-white items-center justify-center shadow-md check-icon hidden border-2 border-white"><i class="fa-solid fa-check text-xs"></i></div>
+                    <div class="flex items-center gap-4"><div class="w-12 h-12 rounded-full bg-slate-200 flex items-center justify-center"><i class="fa-solid fa-bell-concierge text-slate-400 text-xl"></i></div><div><span class="block font-black text-slate-800 text-base">الدفع في الفندق</span><span class="block text-xs font-bold text-slate-400 mt-1">يتم الدفع عند الاستقبال</span></div></div>
                 </label>`;
 
             if (currentPaymentType === 'HOTEL') { payMethodsContainer.innerHTML = electronicPaymentHTML + hotelPaymentHTML; } 
@@ -2081,13 +2083,23 @@
 
         function selectPayment(method, element) {
             document.querySelectorAll('.selected-pay-option').forEach(el => {
-                el.classList.remove('border-[#00b4d8]'); el.classList.add('border-slate-200');
+                el.classList.remove('border-[#00b4d8]', 'bg-white', 'shadow-sm'); 
+                el.classList.add('border-transparent', 'bg-slate-50');
                 const checkIcon = el.querySelector('.check-icon'); if(checkIcon) { checkIcon.classList.remove('flex'); checkIcon.classList.add('hidden'); }
-                const mainIcon = el.querySelector('.text-xl'); if(mainIcon) { mainIcon.classList.remove('text-[#00b4d8]'); mainIcon.classList.add('text-slate-400'); }
+                const mainIconContainer = el.querySelector('.rounded-full');
+                if(mainIconContainer) {
+                    mainIconContainer.classList.remove('bg-[#00b4d8]/10'); mainIconContainer.classList.add('bg-slate-200');
+                    const i = mainIconContainer.querySelector('i'); if(i) { i.classList.remove('text-[#00b4d8]'); i.classList.add('text-slate-400'); }
+                }
             });
-            element.classList.remove('border-slate-200'); element.classList.add('border-[#00b4d8]');
+            element.classList.remove('border-transparent', 'bg-slate-50'); 
+            element.classList.add('border-[#00b4d8]', 'bg-white', 'shadow-sm');
             const activeCheck = element.querySelector('.check-icon'); if(activeCheck) { activeCheck.classList.remove('hidden'); activeCheck.classList.add('flex'); }
-            const activeMain = element.querySelector('.text-xl'); if(activeMain) { activeMain.classList.remove('text-slate-400'); activeMain.classList.add('text-[#00b4d8]'); }
+            const activeMainContainer = element.querySelector('.rounded-full');
+            if(activeMainContainer) {
+                activeMainContainer.classList.remove('bg-slate-200'); activeMainContainer.classList.add('bg-[#00b4d8]/10');
+                const i = activeMainContainer.querySelector('i'); if(i) { i.classList.remove('text-slate-400'); i.classList.add('text-[#00b4d8]'); }
+            }
             element.querySelector('input').checked = true;
         }
 
@@ -2102,7 +2114,7 @@
             
             const btn = e.target.querySelector('button[type="submit"]'); 
             const origText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تجهيز بوابة الدفع (Ziina)...'; 
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري تأمين الدفع...'; 
             btn.disabled = true;
 
             try {
@@ -2118,39 +2130,18 @@
 
                 if (ziinaData.success && (ziinaData.redirect_url || ziinaData.embedded_url)) {
                     const pendingData = { 
-                        bookingReference, 
-                        ziinaPaymentId: ziinaData.ziinaPaymentId || '', 
-                        hotelName: selectedHotel, 
-                        customerName, 
-                        email, 
-                        phone, 
-                        companions, 
-                        paymentMethod, 
-                        price: finalPrice, 
-                        pointsUsed, 
-                        cancellationPolicy: currentPolicyText, 
-                        rateKey: currentRateKey, 
-                        refundType: currentRefundType 
+                        bookingReference, ziinaPaymentId: ziinaData.ziinaPaymentId || '', hotelName: selectedHotel, customerName, email, phone, companions, paymentMethod, price: finalPrice, pointsUsed, cancellationPolicy: currentPolicyText, rateKey: currentRateKey, refundType: currentRefundType 
                     };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
-
-                    // توجيه العميل لصفحة الدفع الآمنة (Web Redirect) بدلاً من التطبيق
-                    btn.innerHTML = '<i class="fa-solid fa-lock"></i> جاري تحويلك لصفحة الدفع الآمنة...';
-                    
-                    // استخدام redirect_url المخصص لصفحات الويب الخارجية لتفادي الإطار
-                    const paymentUrl = ziinaData.redirect_url || ziinaData.embedded_url;
-                    window.location.href = paymentUrl;
-
+                    btn.innerHTML = '<i class="fa-solid fa-lock"></i> تحويل للبوابة...';
+                    window.location.href = ziinaData.redirect_url || ziinaData.embedded_url;
                 } else { 
                     showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); 
-                    btn.innerHTML = origText; 
-                    btn.disabled = false; 
+                    btn.innerHTML = origText; btn.disabled = false; 
                 }
             } catch(err) { 
-                console.error(err); 
-                showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم أثناء تجهيز الدفع.'); 
-                btn.innerHTML = origText; 
-                btn.disabled = false; 
+                console.error(err); showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم أثناء تجهيز الدفع.'); 
+                btn.innerHTML = origText; btn.disabled = false; 
             }
         }
     </script>
