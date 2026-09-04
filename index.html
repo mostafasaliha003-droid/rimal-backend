@@ -130,51 +130,113 @@
             border: 4px solid var(--accent-yellow); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
         }
         
-        /* 🚀 تأثيرات الزر والريبون الجديدة (World Class UI) 🚀 */
-        .luxury-ribbon {
-            position: absolute;
-            top: 26px;
-            right: -36px;
-            width: 160px;
-            transform: rotate(45deg);
-            text-align: center;
-            padding: 6px 0;
-            font-weight: 900;
-            font-size: 11px;
-            letter-spacing: 0.5px;
-            z-index: 20;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.3), inset 0 1px 0 rgba(255,255,255,0.3);
-            overflow: hidden; /* لمنع خروج اللمعة عن الإطار */
+        /* 🚀 تأثيرات التقييم الزجاجي الفاخر (Glassmorphism Rating) */
+        .glass-rating {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 4px 15px rgba(0,0,0,0.08);
+            color: #1f3a40;
         }
-        
-        /* اللمعة المتحركة الساحرة */
-        .luxury-ribbon::before {
-            content: '';
-            position: absolute;
-            top: 0; left: -100%;
-            width: 50%; height: 100%;
-            background: linear-gradient(to right, rgba(255,255,255,0) 0%, rgba(255,255,255,0.6) 50%, rgba(255,255,255,0) 100%);
-            transform: skewX(-25deg);
-            animation: ribbonShine 3s infinite;
-        }
-        @keyframes ribbonShine {
-            0% { left: -100%; }
-            20% { left: 200%; }
-            100% { left: 200%; }
+        .glass-rating .score {
+            background: linear-gradient(135deg, #1f3a40, #2a4d53);
+            color: white;
         }
 
-        /* ألوان الكاش باك للعميل المسجل */
-        .luxury-cashback {
-            background: linear-gradient(135deg, #FCD34D 0%, #F59E0B 100%);
-            color: #78350F;
-            border-bottom: 1px solid #B45309;
+        /* 🚀 الشارة الذهبية ثلاثية الأبعاد (3D Coin Badge) */
+        .gold-coin-badge {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 75px;
+            height: 75px;
+            border-radius: 50%;
+            background: radial-gradient(ellipse at top left, #ffe55c 0%, #f59e0b 50%, #b45309 100%);
+            border: 2px solid #fef08a;
+            box-shadow: 
+                inset 0 4px 8px rgba(255,255,255,0.6), 
+                inset 0 -4px 8px rgba(0,0,0,0.3), 
+                0 8px 15px rgba(0,0,0,0.3);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 10;
+            transition: all 0.3s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
-        /* ألوان سر الأعضاء للزائر المجهول */
-        .luxury-secret {
-            background: linear-gradient(135deg, #1E293B 0%, #0F172A 100%);
-            color: #FCD34D;
-            border-bottom: 1px solid #000;
-            border-top: 1px solid rgba(255,255,255,0.1);
+        .gold-coin-badge:hover {
+            transform: scale(1.1) rotate(10deg);
+        }
+        .gold-coin-badge .title {
+            font-size: 11px;
+            font-weight: 900;
+            color: #451a03;
+            margin-bottom: -4px;
+        }
+        .gold-coin-badge .amount {
+            font-size: 24px;
+            font-weight: 900;
+            color: #ffffff;
+            text-shadow: 0 2px 4px rgba(0,0,0,0.3);
+            line-height: 1;
+        }
+        .gold-coin-badge .currency {
+            font-size: 10px;
+            font-weight: 800;
+            color: #451a03;
+            margin-top: 2px;
+        }
+        
+        /* 🚀 ملاحظة "بعد الحجز" الأنيقة */
+        .post-booking-note {
+            position: absolute;
+            top: 98px; /* تقع أسفل العملة مباشرة */
+            right: 15px;
+            background: rgba(15, 23, 42, 0.8);
+            backdrop-filter: blur(4px);
+            color: #fcd34d;
+            font-size: 9px;
+            font-weight: 800;
+            padding: 4px 8px;
+            border-radius: 8px;
+            z-index: 10;
+            white-space: nowrap;
+            border: 1px solid rgba(255,255,255,0.1);
+            box-shadow: 0 4px 10px rgba(0,0,0,0.2);
+        }
+
+        /* 🚀 عملة القفل للزائر المجهول (Secret Coin) */
+        .secret-coin-badge {
+            background: radial-gradient(ellipse at top left, #334155 0%, #0f172a 50%, #020617 100%);
+            border-color: #475569;
+            box-shadow: 
+                inset 0 4px 8px rgba(255,255,255,0.1), 
+                inset 0 -4px 8px rgba(0,0,0,0.5), 
+                0 8px 15px rgba(0,0,0,0.3);
+        }
+        .secret-coin-badge .currency { color: #cbd5e1; font-size: 11px;}
+
+        /* حركة النبض للمربع السري */
+        @keyframes subtlePulse {
+            0% { box-shadow: 0 0 0 0 rgba(255, 202, 58, 0.4); }
+            70% { box-shadow: 0 0 0 6px rgba(255, 202, 58, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(255, 202, 58, 0); }
+        }
+        .pulse-effect { animation: subtlePulse 2s infinite; }
+        
+        .secret-box {
+            background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
+            border: 1px solid #475569;
+            border-radius: 12px;
+            padding: 8px 12px;
+            text-align: center;
+            cursor: pointer;
+            transition: all 0.3s ease;
+        }
+        .secret-box:hover {
+            box-shadow: 0 4px 15px rgba(255,202,58,0.2);
+            border-color: #f59e0b;
+            transform: translateY(-2px);
         }
 
         /* إخفاء مترجم جوجل الافتراضي */
@@ -1748,30 +1810,39 @@
                 }
                 const animationDelay = index * 100;
                 
-                // حساب مبلغ الكاش باك الفعلي المعروض للعميل
+                // حساب الكاش باك
                 let cashbackAED = (hotel.basePoints / 10).toFixed(0);
 
-                // 🌟 [الذكاء التسويقي] تحديد شكل الواجهة بناءً على تسجيل الدخول (التصميم العالمي الجديد)
-                let ribbonHTML = '';
+                // 🌟 تصميم العملات واللافتات بناءً على حالة المستخدم
+                let coinBadgeHTML = '';
                 let cashbackBoxHTML = '';
 
                 if (currentUser) {
-                    // العميل مسجل: الشريط الذهبي الفاخر وتأكيد الكاش باك
-                    ribbonHTML = `
-                        <div class="luxury-ribbon luxury-cashback">
-                            كاش باك ${cashbackAED} درهم ✨
+                    // العميل مسجل: العملة الذهبية + ملاحظة الإضافة بعد الحجز
+                    coinBadgeHTML = `
+                        <div class="gold-coin-badge">
+                            <span class="title">كاش باك</span>
+                            <span class="amount">${cashbackAED}</span>
+                            <span class="currency">درهم</span>
+                        </div>
+                        <div class="post-booking-note">
+                            <i class="fa-solid fa-wallet text-yellow-400"></i> يضاف لمحفظتك بعد الحجز
                         </div>`;
                     
                     cashbackBoxHTML = `
                         <div class="w-full bg-gradient-to-r from-[#00b4d8]/10 to-transparent border-r-4 border-[#00b4d8] p-3 rounded-xl mb-4 text-right transform transition-all hover:scale-[1.02]">
                             <span class="block text-[10px] font-black text-slate-500 mb-1">هدية رمال لحصالتك 🎁</span>
-                            <span class="block text-sm font-black text-[#00b4d8]">استرجع ${cashbackAED} درهم فوراً!</span>
+                            <span class="block text-sm font-black text-[#00b4d8]">ستسترجع ${cashbackAED} درهم بعد إتمام الحجز!</span>
                         </div>`;
                 } else {
-                    // الزائر مجهول: الشريط الكحلي/الذهبي الفخم (سر الأعضاء) والزر النابض
-                    ribbonHTML = `
-                        <div class="luxury-ribbon luxury-secret flex items-center justify-center gap-1.5">
-                            <i class="fa-solid fa-lock text-yellow-400"></i> سر الأعضاء
+                    // الزائر مجهول: العملة السوداء الغامضة لتحفيز التسجيل
+                    coinBadgeHTML = `
+                        <div class="gold-coin-badge secret-coin-badge cursor-pointer" onclick="openAuthModal()">
+                            <i class="fa-solid fa-lock text-yellow-400 text-xl mb-1"></i>
+                            <span class="currency text-xs">سر الأعضاء</span>
+                        </div>
+                        <div class="post-booking-note" style="color:white; cursor:pointer;" onclick="openAuthModal()">
+                            اضغط وسجل لفتح الرصيد 👆
                         </div>`;
                     
                     cashbackBoxHTML = `
@@ -1791,10 +1862,16 @@
                   <div class="w-full md:w-1/3 relative h-56 md:h-auto overflow-hidden bg-gray-200">
                     <img src="${hotel.img}" alt="${hotel.name}" class="w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" />
                     <div class="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-60"></div>
-                    <div class="absolute top-4 left-4 bg-white/90 backdrop-blur-sm text-gray-900 text-xs font-bold px-2.5 py-1.5 rounded-lg shadow-sm flex items-center gap-1.5 z-10">
-                        <span class="bg-[#1f3a40] text-white px-1.5 py-0.5 rounded text-[10px]">${randomRating}</span> ممتاز
+                    
+                    <!-- 🌟 شارة التقييم الزجاجية الجديدة -->
+                    <div class="absolute top-4 left-4 glass-rating text-xs font-bold px-2.5 py-1.5 rounded-xl shadow-sm flex items-center gap-1.5 z-10">
+                        <i class="fa-solid fa-star text-yellow-500"></i>
+                        <span class="score px-1.5 py-0.5 rounded-md text-[11px] font-black">${randomRating}</span> ممتاز
                     </div>
-                    ${ribbonHTML}
+                    
+                    <!-- 🌟 عملة الكاش باك 3D -->
+                    ${coinBadgeHTML}
+                    
                   </div>
                   <div class="flex-1 p-5 md:p-6 flex flex-col justify-between z-10 bg-white">
                     <div>
@@ -1821,10 +1898,8 @@
                       <span class="text-4xl font-black text-[#800000] hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
                     </div>
 
-                    <!-- 🌟 صندوق الكاش باك الذكي -->
                     ${cashbackBoxHTML}
 
-                    <!-- 🌟 زر اختيار الغرفة الفاخر -->
                     <button class="w-full bg-gradient-to-r from-red-800 to-rose-700 hover:from-red-900 hover:to-rose-800 active:scale-95 transition-all duration-300 text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(159,18,57,0.25)] hover:shadow-[0_10px_25px_rgba(159,18,57,0.4)] cursor-pointer border-none" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
                       <i class="fa-solid fa-bed pointer-events-none"></i> اختر الغرفة
                     </button>
@@ -1919,7 +1994,7 @@
                                 <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
                                 <span class="text-4xl md:text-5xl font-black text-[#800000] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
                             </div>
-                            <button class="w-full bg-gradient-to-r from-red-800 to-rose-700 hover:from-red-900 hover:to-rose-800 active:scale-95 transition-all duration-300 text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(159,18,57,0.25)] hover:shadow-[0_10px_25px_rgba(159,18,57,0.4)] cursor-pointer border-none" 
+                            <button class="w-full bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] text-white font-black py-3.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(0,180,216,0.3)] hover:shadow-[0_10px_25px_rgba(0,180,216,0.4)] transition-all border-none cursor-pointer active:scale-95" 
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
                                 <i class="fa-solid fa-check-circle pointer-events-none text-lg"></i> احجز هالغرفة
                             </button>
