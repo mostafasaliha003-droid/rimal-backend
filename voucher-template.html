@@ -5,22 +5,24 @@
     <title>Official Voucher - Remal International</title>
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <style>
-        /* 🚀 إعدادات طباعة صارمة لمقاس A4 لمنع الخط الأسود والانقسام */
+        /* 🚀 إعدادات طباعة صارمة لمقاس A4 لمنع الخطوط السوداء والتشوه */
         @page { size: A4; margin: 0; }
         body { 
             font-family: 'Cairo', sans-serif; 
             margin: 0; padding: 0;
-            background-color: #ffffff;
+            background-color: #e2e8f0;
+            display: flex; justify-content: center; align-items: center;
             -webkit-print-color-adjust: exact !important;
             print-color-adjust: exact !important;
         }
+
+        * { box-sizing: border-box; }
 
         :root {
             --primary: #1f3a40;
             --cyan: #00b4d8;
             --coral: #ff595e;
-            --text-dark: #0f172a;
-            --gray-bg: #f8fafc;
+            --gray-light: #f8fafc;
             --gray-border: #e2e8f0;
         }
 
@@ -28,15 +30,16 @@
         .a4-canvas {
             width: 794px;
             height: 1122px;
-            position: relative;
             background: white;
-            margin: 0 auto;
+            position: relative;
             overflow: hidden;
             display: flex;
             flex-direction: column;
         }
 
-        /* 1. الهيدر الفاخر */
+        /* ==================================
+           1. الهيدر الفاخر
+           ================================== */
         .voucher-header {
             background: linear-gradient(135deg, var(--primary) 0%, #2a4d53 100%);
             padding: 35px 40px;
@@ -44,22 +47,24 @@
             justify-content: space-between;
             align-items: center;
             border-bottom: 6px solid var(--cyan);
-            height: 130px; /* ارتفاع ثابت */
+            height: 130px;
             flex-shrink: 0;
         }
 
-        .brand-wrapper { display: flex; align-items: center; gap: 16px; }
-        .logo-svg { width: 55px; height: 55px; }
+        .brand-wrapper { display: flex; align-items: center; gap: 18px; }
+        .logo-svg { width: 55px; height: 55px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
         .brand-text-box h1 { font-size: 32px; font-weight: 900; margin: 0; color: white; line-height: 1;}
         .brand-text-box p { font-size: 11px; letter-spacing: 4px; color: var(--cyan); font-weight: 800; margin: 6px 0 0 0; text-transform: uppercase;}
         
         .status-badge {
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.3);
+            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25);
             padding: 10px 20px; border-radius: 50px; font-size: 13px; font-weight: 800; color: white;
-            display: flex; align-items: center; gap: 8px;
+            display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
         }
 
-        /* 2. منطقة التذكرة (الجسم) */
+        /* ==================================
+           2. منطقة التذكرة (الجسم)
+           ================================== */
         .ticket-body {
             display: flex;
             flex: 1;
@@ -69,16 +74,16 @@
 
         /* العلامة المائية */
         .watermark {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%) rotate(-10deg);
-            width: 500px; height: 500px; opacity: 0.02; pointer-events: none; z-index: 0;
+            position: absolute; top: 50%; left: 40%; transform: translate(-50%, -50%) rotate(-10deg);
+            width: 450px; height: 450px; opacity: 0.02; pointer-events: none; z-index: 0;
         }
 
         /* ==================================
-           القسم الأيسر (تفاصيل الدفع والـ QR)
+           القسم الأيسر (المرجع والـ QR)
            ================================== */
         .left-stub {
-            width: 260px;
-            background: var(--gray-bg);
+            width: 270px;
+            background: var(--gray-light);
             padding: 40px 25px;
             display: flex;
             flex-direction: column;
@@ -93,34 +98,47 @@
             content: ''; position: absolute; left: -16px; width: 30px; height: 30px;
             background-color: white; border-radius: 50%; z-index: 20;
         }
-        .left-stub::before { top: -15px; border-bottom: 2px solid var(--gray-border); }
-        .left-stub::after { bottom: -15px; border-top: 2px solid var(--gray-border); }
+        .left-stub::before { top: -15px; border-bottom: 3px solid var(--gray-border); }
+        .left-stub::after { bottom: -15px; border-top: 3px solid var(--gray-border); }
 
-        .ref-box { margin-bottom: 35px; width: 100%; text-align: center; }
-        .ref-label { font-size: 11px; color: #64748b; font-weight: 900; text-transform: uppercase; letter-spacing: 2px; display: block; margin-bottom: 8px; }
-        .ref-value { font-size: 22px; color: var(--coral); font-weight: 900; letter-spacing: 1px; background: white; padding: 12px; border-radius: 12px; border: 2px dashed #fda4af; margin: 0; }
+        .ref-box { margin-bottom: 30px; width: 100%; text-align: center; }
+        .ref-label { font-size: 11px; color: #64748b; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 8px; }
+        .ref-value { font-size: 22px; color: var(--coral); font-weight: 900; letter-spacing: 1.5px; background: white; padding: 12px; border-radius: 12px; border: 2px dashed #fda4af; margin: 0; }
 
         /* نظام الـ Dual QR الاحترافي */
         .dual-qr-section { width: 100%; display: flex; flex-direction: column; gap: 20px; align-items: center; margin-bottom: auto;}
         
         .qr-card {
-            background: white; padding: 12px; border-radius: 16px; width: 100%;
-            display: flex; flex-direction: column; align-items: center; gap: 10px;
-            border: 2px solid; box-shadow: 0 4px 10px rgba(0,0,0,0.03);
+            background: white; padding: 15px; border-radius: 16px; width: 100%;
+            display: flex; flex-direction: column; align-items: center; gap: 12px;
+            border: 2px solid; box-shadow: 0 4px 15px rgba(0,0,0,0.03); position: relative;
         }
         .qr-card.map { border-color: #bae6fd; }
         .qr-card.pdf { border-color: #e2e8f0; }
 
-        .qr-img-box { width: 110px; height: 110px; background: #f8fafc; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center;}
-        .qr-img-box img { width: 100%; height: 100%; object-fit: cover; }
+        .qr-img-box { width: 120px; height: 120px; background: white; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative;}
+        .qr-img-box img { width: 100%; height: 100%; object-fit: contain; }
         
-        .qr-label { font-size: 11px; font-weight: 900; display: flex; align-items: center; gap: 6px; padding: 6px 12px; border-radius: 50px;}
+        /* أيقونة بمنتصف الـ QR */
+        .qr-center-icon {
+            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: white; padding: 4px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
+        }
+        .qr-center-icon svg { width: 18px; height: 18px; }
+
+        .qr-label { font-size: 11px; font-weight: 900; display: flex; align-items: center; gap: 6px; padding: 8px 16px; border-radius: 50px; width: 100%; justify-content: center;}
         .map .qr-label { background: #e0f2fe; color: #0284c7; }
         .pdf .qr-label { background: #f1f5f9; color: var(--primary); }
 
-        .price-box { width: 100%; background: var(--primary); color: white; padding: 25px 20px; border-radius: 20px; text-align: center; margin-top: 30px;}
+        .price-box { width: 100%; background: var(--primary); color: white; padding: 25px 20px; border-radius: 20px; text-align: center; margin-top: 30px; position: relative; overflow: hidden;}
+        /* تصميم "الوصل" المشرشر من الأعلى للبطاقة المالية */
+        .price-box::before {
+            content: ""; position: absolute; top: -5px; left: 0; right: 0; height: 10px;
+            background-size: 20px 20px; background-repeat: repeat-x;
+            background-image: radial-gradient(circle at 10px 0px, transparent 10px, var(--primary) 11px);
+        }
         .price-label { font-size: 11px; font-weight: 800; opacity: 0.8; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
-        .price-value { font-size: 32px; font-weight: 900; margin: 0; direction: ltr; color: #facc15; line-height: 1;}
+        .price-value { font-size: 34px; font-weight: 900; margin: 0; direction: ltr; color: #facc15; line-height: 1;}
 
         /* ==================================
            القسم الأيمن (التفاصيل الفندقية)
@@ -134,62 +152,65 @@
             display: flex; align-items: center; gap: 10px; margin-bottom: 20px;
             border-bottom: 2px dashed var(--gray-border); padding-bottom: 12px;
         }
+        .section-icon { width: 18px; height: 18px; fill: var(--cyan); }
 
         .guest-grid {
             display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 40px;
         }
-        .guest-item { background: var(--gray-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--gray-border); }
-        .guest-label { font-size: 10px; color: #64748b; font-weight: 900; margin-bottom: 5px; display: block; text-transform: uppercase;}
+        .guest-item { background: var(--gray-bg); padding: 18px; border-radius: 14px; border: 1px solid var(--gray-border); }
+        .guest-label { font-size: 10px; color: #94a3b8; font-weight: 900; margin-bottom: 6px; display: block; text-transform: uppercase; letter-spacing: 0.5px;}
         .guest-value { font-size: 16px; color: var(--primary); font-weight: 900; margin: 0; unicode-bidi: isolate; }
 
         /* صندوق الفندق المحصن ضد التداخل */
         .hotel-card {
             background: #ffffff; border: 2px solid #e0f2fe; border-right: 6px solid var(--cyan);
-            padding: 30px 25px; border-radius: 16px; margin-bottom: auto; box-shadow: 0 10px 30px rgba(0,180,216,0.08);
+            padding: 30px; border-radius: 20px; margin-bottom: auto; box-shadow: 0 10px 40px rgba(0,180,216,0.08);
         }
         
-        .hotel-title-wrapper { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 20px;}
-        .hotel-title-text { display: flex; flex-direction: column; gap: 6px; width: 100%;}
+        .hotel-title-wrapper { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 25px;}
+        .hotel-title-icon { width: 28px; height: 28px; fill: var(--cyan); flex-shrink: 0; margin-top: 2px;}
+        .hotel-text-container { display: flex; flex-direction: column; gap: 10px; width: 100%;}
         
-        /* 🚨 عزل اللغات لمنع الانقلاب 100% */
-        .hotel-name { font-size: 22px; font-weight: 900; color: var(--primary); margin: 0; line-height: 1.4; unicode-bidi: isolate; direction: auto; }
-        .room-name { font-size: 15px; font-weight: 700; color: #475569; margin: 0; padding: 6px 12px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0; display: inline-block; width: fit-content; unicode-bidi: isolate; direction: auto; }
+        /* 🚨 السر هنا: العزل التام للنصوص لمنع تشوه الأقواس (Bidi-Isolation) */
+        .hotel-name { font-size: 24px; font-weight: 900; color: var(--primary); margin: 0; line-height: 1.4; }
+        .room-name { font-size: 15px; font-weight: 800; color: #475569; margin: 0; padding: 8px 14px; background: #f8fafc; border-radius: 10px; border: 1px dashed #cbd5e1; display: inline-block; width: fit-content; }
 
         .tags-row { display: flex; gap: 12px; flex-wrap: wrap; margin-top: 25px; padding-top: 20px; border-top: 1px dashed var(--gray-border);}
         .feature-tag {
             display: inline-flex; align-items: center; gap: 8px;
-            padding: 8px 16px; border-radius: 10px; font-size: 13px; font-weight: 800; unicode-bidi: isolate; direction: auto;
+            padding: 10px 18px; border-radius: 12px; font-size: 13px; font-weight: 800;
         }
         .tag-bed { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
         .tag-meal { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
 
         /* سياسة الإلغاء */
         .policy-card {
-            background: #fff1f2; border: 1px solid #fecdd3; padding: 20px; border-radius: 16px; border-right: 5px solid var(--coral); margin-top: 30px;
+            background: #fff1f2; border: 1px solid #fecdd3; padding: 25px; border-radius: 16px; border-right: 5px solid var(--coral); margin-top: 30px;
         }
-        .policy-header { display: flex; align-items: center; gap: 10px; color: #be123c; font-size: 13px; font-weight: 900; margin-bottom: 8px;}
-        .policy-text { color: #881337; font-size: 14px; font-weight: 700; margin: 0; line-height: 1.6; unicode-bidi: isolate; direction: auto; }
+        .policy-header { display: flex; align-items: center; gap: 10px; color: #be123c; font-size: 14px; font-weight: 900; margin-bottom: 8px;}
+        .policy-header svg { width: 16px; height: 16px; fill: #be123c; }
+        .policy-text { color: #881337; font-size: 14px; font-weight: 700; margin: 0; line-height: 1.6; }
 
-        /* 3. الفوتر (ثابت في أسفل الـ A4) */
+        /* ==================================
+           3. الفوتر (ثابت في أسفل الـ A4)
+           ================================== */
         .voucher-footer {
-            background: #e2e8f0; padding: 25px 40px; display: flex; flex-direction: column; align-items: center; text-align: center;
-            border-top: 1px solid #cbd5e1; height: 110px; flex-shrink: 0;
+            background: #cbd5e1; padding: 25px 40px; display: flex; flex-direction: column; align-items: center; text-align: center;
+            border-top: 1px solid #94a3b8; height: 115px; flex-shrink: 0;
         }
-        .footer-company { color: var(--primary); font-weight: 900; font-size: 14px; margin-bottom: 5px;}
-        .footer-info { font-size: 12px; color: #475569; font-weight: 700; margin-bottom: 8px;}
-        .whatsapp-tag { display: inline-flex; align-items: center; gap: 6px; background: #10b981; color: white; padding: 6px 20px; border-radius: 50px; font-size: 12px; font-weight: 900; }
+        .footer-company { color: var(--primary); font-weight: 900; font-size: 14px; margin-bottom: 6px;}
+        .footer-info { font-size: 12px; color: #475569; font-weight: 800; margin-bottom: 10px;}
+        .whatsapp-tag { display: inline-flex; align-items: center; gap: 6px; background: #0f766e; color: white; padding: 8px 25px; border-radius: 50px; font-size: 12px; font-weight: 900; box-shadow: 0 4px 10px rgba(15, 118, 110, 0.2); }
     </style>
 </head>
 <body>
 
-    <!-- حاوية الـ A4 الصارمة -->
     <div class="a4-canvas">
         
         <!-- الهيدر -->
         <header class="voucher-header">
             <div class="brand-wrapper">
                 <div class="logo-svg">
-                    <!-- SVG Logo -->
                     <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
                         <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#00b4d8"/>
                         <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="#ff595e"/>
@@ -218,14 +239,14 @@
             <div class="right-details">
                 
                 <div class="section-header">
-                    <svg viewBox="0 0 448 512" style="width:16px;height:16px;fill:var(--cyan);"><path d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z"/></svg>
+                    <svg class="section-icon" viewBox="0 0 448 512"><path d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z"/></svg>
                     بيانات الضيف الأساسية (Guest Details)
                 </div>
                 
                 <div class="guest-grid">
                     <div class="guest-item">
                         <span class="guest-label">الاسم (Name)</span>
-                        <p class="guest-value">{{customerName}}</p>
+                        <p class="guest-value"><bdi dir="auto">{{customerName}}</bdi></p>
                     </div>
                     <div class="guest-item">
                         <span class="guest-label">التواصل (Phone)</span>
@@ -238,27 +259,30 @@
                 </div>
 
                 <div class="section-header">
-                    <svg viewBox="0 0 384 512" style="width:16px;height:16px;fill:var(--cyan);"><path d="M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112zM272 96h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16z"/></svg>
+                    <svg class="section-icon" viewBox="0 0 384 512"><path d="M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112zM272 96h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16z"/></svg>
                     تفاصيل الإقامة الفندقية (Stay Details)
                 </div>
                 
                 <div class="hotel-card">
                     <div class="hotel-title-wrapper">
-                        <svg class="hotel-title-icon" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z" opacity="0"/><path d="M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112zM272 96h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16z"/></svg>
+                        <!-- أيقونة فندق أنيقة بدلاً من الكتلة السوداء المعطوبة -->
+                        <svg class="hotel-title-icon" viewBox="0 0 512 512"><path d="M64 32C28.7 32 0 60.7 0 96v352c0 17.7 14.3 32 32 32h128v-96c0-17.7 14.3-32 32-32h128c17.7 0 32 14.3 32 32v96h128c17.7 0 32-14.3 32-32V96c0-35.3-28.7-64-64-64H64zM128 160h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zM128 288h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16z"/></svg>
                         <div class="hotel-text-container">
-                            <h2 class="hotel-name">{{hotelName}}</h2>
-                            <p class="room-name">الغرفة المحجوزة: {{roomBed}}</p>
+                            <!-- العزل اللغوي لاسم الفندق -->
+                            <p class="hotel-name"><bdi dir="auto">{{hotelName}}</bdi></p>
+                            <!-- العزل اللغوي لنوع الغرفة -->
+                            <p class="room-name"><bdi dir="auto">الغرفة المحجوزة: {{roomBed}}</bdi></p>
                         </div>
                     </div>
 
                     <div class="tags-row">
                         <span class="feature-tag tag-bed">
-                            <svg style="width:14px;height:14px;fill:#475569;" viewBox="0 0 640 512"><path d="M32 32c17.7 0 32 14.3 32 32V320H288V160c0-17.7 14.3-32 32-32H544c53 0 96 43 96 96V448c0 17.7-14.3 32-32 32s-32-14.3-32-32V416H32v32c0 17.7-14.3 32-32 32s-32-14.3-32-32V64C-32 46.3-17.7 32 0 32s32 14.3 32 32zm144 96a80 80 0 1 1 0 160 80 80 0 1 1 0-160z"/></svg>
+                            <svg style="width:16px;height:16px;fill:#475569;" viewBox="0 0 640 512"><path d="M32 32c17.7 0 32 14.3 32 32V320H288V160c0-17.7 14.3-32 32-32H544c53 0 96 43 96 96V448c0 17.7-14.3 32-32 32s-32-14.3-32-32V416H32v32c0 17.7-14.3 32-32 32s-32-14.3-32-32V64C-32 46.3-17.7 32 0 32s32 14.3 32 32zm144 96a80 80 0 1 1 0 160 80 80 0 1 1 0-160z"/></svg>
                             أسرة مطابقة للحجز
                         </span>
                         <span class="feature-tag tag-meal">
-                            <svg style="width:14px;height:14px;fill:#b45309;" viewBox="0 0 448 512"><path d="M416 0C400 0 288 32 288 176V288c0 35.3 28.7 64 64 64h32V480c0 17.7 14.3 32 32 32s32-14.3 32-32V352 24 0H416zM64 16C64 7.8 57.9 1 50 0C34 0 25.1 8 20.1 19.3L-7.4 85.3C-15.2 106.4 0 128 22.6 128H41.4c22.6 0 37.8-21.6 30.1-42.7L43.9 19.3C38.9 8 30 0 14 0c-7.9 1-14 7.8-14 16V480c0 17.7 14.3 32 32 32s32-14.3 32-32V16zM224 16c-17.7 0-32 14.3-32 32V256c0 17.7 14.3 32 32 32s32-14.3 32-32V48c0-17.7-14.3-32-32-32z"/></svg>
-                            الوجبات: {{boardType}}
+                            <svg style="width:16px;height:16px;fill:#b45309;" viewBox="0 0 448 512"><path d="M416 0C400 0 288 32 288 176V288c0 35.3 28.7 64 64 64h32V480c0 17.7 14.3 32 32 32s32-14.3 32-32V352 24 0H416zM64 16C64 7.8 57.9 1 50 0C34 0 25.1 8 20.1 19.3L-7.4 85.3C-15.2 106.4 0 128 22.6 128H41.4c22.6 0 37.8-21.6 30.1-42.7L43.9 19.3C38.9 8 30 0 14 0c-7.9 1-14 7.8-14 16V480c0 17.7 14.3 32 32 32s32-14.3 32-32V16zM224 16c-17.7 0-32 14.3-32 32V256c0 17.7 14.3 32 32 32s32-14.3 32-32V48c0-17.7-14.3-32-32-32z"/></svg>
+                            <bdi dir="auto">الوجبات: {{boardType}}</bdi>
                         </span>
                     </div>
                 </div>
@@ -268,7 +292,8 @@
                         <svg viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg>
                         سياسة الإلغاء (Cancellation Policy)
                     </div>
-                    <p class="policy-text">{{policyText}}</p>
+                    <!-- عزل نص السياسة لمنع التشوه -->
+                    <p class="policy-text"><bdi dir="auto">{{policyText}}</bdi></p>
                 </div>
 
             </div>
@@ -285,41 +310,43 @@
                     <!-- 1. باركود الخريطة (للسائق) -->
                     <div class="qr-card map">
                         <div class="qr-img-box">
-                            <img src="https://quickchart.io/qr?text=https://www.google.com/maps/search/?api=1%26query={{encodedHotelName}}&size=150&margin=0" alt="Map QR">
+                            <img src="https://quickchart.io/qr?text=https://www.google.com/maps/search/?api=1%26query={{encodedHotelName}}&size=150&margin=0" alt="Map QR" onerror="this.style.display='none'">
+                            <!-- أيقونة الموقع في المنتصف -->
+                            <div class="qr-center-icon">
+                                <svg style="fill:#0284c7;" viewBox="0 0 384 512"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>
+                            </div>
                         </div>
-                        <span class="qr-label">
-                            <svg style="width:12px; height:12px; fill:#0284c7;" viewBox="0 0 384 512"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>
-                            موقع الفندق (للسائق)
-                        </span>
+                        <span class="qr-label">موقع الفندق (للسائق)</span>
                     </div>
 
                     <!-- 2. باركود التأكيد (للاستقبال) -->
                     <div class="qr-card pdf">
                         <div class="qr-img-box">
-                            <img src="https://quickchart.io/qr?text=https://rimal-api.onrender.com/api/bookings/pdf/{{bookingReference}}&size=150&margin=0" alt="PDF QR">
+                            <img src="https://quickchart.io/qr?text=https://rimal-api.onrender.com/api/bookings/pdf/{{bookingReference}}&size=150&margin=0" alt="PDF QR" onerror="this.style.display='none'">
+                            <!-- أيقونة التحميل في المنتصف -->
+                            <div class="qr-center-icon">
+                                <svg style="fill:var(--primary);" viewBox="0 0 384 512"><path d="M64 0C28.7 0 0 28.7 0 64V448c0 35.3 28.7 64 64 64H320c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zM256 0V128H384L256 0zM216 232V334.1l31-31c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-72 72c-9.4 9.4-24.6 9.4-33.9 0l-72-72c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l31 31V232c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg>
+                            </div>
                         </div>
-                        <span class="qr-label">
-                            <svg style="width:12px; height:12px; fill:var(--primary);" viewBox="0 0 384 512"><path d="M64 0C28.7 0 0 28.7 0 64V448c0 35.3 28.7 64 64 64H320c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zM256 0V128H384L256 0zM216 232V334.1l31-31c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-72 72c-9.4 9.4-24.6 9.4-33.9 0l-72-72c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l31 31V232c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg>
-                            نسخة الفندق (PDF)
-                        </span>
+                        <span class="qr-label">نسخة الفندق (PDF)</span>
                     </div>
 
                 </div>
                 
                 <div class="price-box">
-                    <span class="price-label">المدفوع (TOTAL PAID)</span>
+                    <span class="price-label">إجمالي المدفوع (TOTAL)</span>
                     <p class="price-value">AED {{price}}</p>
                 </div>
             </div>
 
         </main>
 
-        <!-- الفوتر -->
+        <!-- الفوتر ثابت بأسفل الصفحة A4 -->
         <footer class="voucher-footer">
             <span class="footer-company">شركة الرمال الدولية لتنظيم الرحلات السياحية (L.L.C)</span>
             <span class="footer-info">دبي، الإمارات العربية المتحدة | management@remaltourismllc.com</span>
             <div class="whatsapp-tag">
-                <svg viewBox="0 0 448 512"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zM223.9 413.3c-33.2 0-65.8-8.9-94-25.7l-6.7-4-69.8 18.3L72 334.1l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-2.1-3.6 2.1-3.2 7.6-14.2 2.8-5.6 1.4-10.6-.5-13.4-1.9-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
+                <svg viewBox="0 0 448 512" style="width:14px;height:14px;fill:white;"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zM223.9 413.3c-33.2 0-65.8-8.9-94-25.7l-6.7-4-69.8 18.3L72 334.1l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-2.1-3.6 2.1-3.2 7.6-14.2 2.8-5.6 1.4-10.6-.5-13.4-1.9-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
                 لأي مساعدة، تواصل عبر الواتساب: 971544757578+
             </div>
         </footer>
