@@ -428,7 +428,7 @@
                                     </div>
                                     <div class="text-gray-400 peer-checked:text-[#00b4d8] transition-all duration-300 ease-in-out group-hover:-translate-y-0.5">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="1.5">
-                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477 4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.253v13m0-13C10.832 5.477 9.246 5 7.5 5S4.168 5.477 3 6.253v13C4.168 18.477 5.754 18 7.5 18s3.332.477 4.5 1.253m0-13C13.168 5.477 14.754 5 16.5 5c1.747 0 3.332.477-4.5 1.253v13C19.832 18.477 18.247 18 16.5 18c-1.746 0-3.332.477-4.5 1.253" />
                                         </svg>
                                     </div>
                                     <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">الشارقة</span>
@@ -487,7 +487,7 @@
                     </div>
                 </aside>
 
-                <!-- Hotel List -->
+                <!-- قائمة الفنادق -->
                 <div class="flex-1 space-y-6 min-w-0">
                     <div id="hotelsContainer"></div>
                 </div>
@@ -495,7 +495,7 @@
         </div>
     </div>
 
-    <!-- 🌟 واجهة اختيار الغرف (Room Details) -->
+    <!-- واجهة اختيار الغرف -->
     <div id="roomSelectionView" class="view-section pb-20">
         <div class="bg-gradient-to-r from-[#4a2b75] to-[#3a1d5a] pt-16 pb-24 text-center px-4 relative z-0 border-b-[6px] border-[#ff595e]">
             <div class="max-w-4xl mx-auto flex flex-col items-center justify-center">
@@ -665,7 +665,7 @@
         </div>
     </div>
 
-    <!-- 🌟 لوحة تحكم العميل والحجوزات -->
+    <!-- لوحة تحكم العميل والحجوزات -->
     <div id="registerView" class="view-section min-h-screen bg-[#f8fafc] pb-12">
         <div class="bg-gradient-to-r from-purple-900 to-teal-500 pt-16 pb-28 px-4 text-center shadow-inner border-b-[6px] border-yellow-400 relative">
             <h1 class="text-3xl md:text-4xl font-black text-white mb-3 tracking-wide drop-shadow-md">مرحباً بك في عالمك الخاص 🌴</h1>
@@ -979,7 +979,7 @@
 
     <div id="google_translate_element" style="display:none;"></div>
 
-    <!-- 🚀 كود إزالة الكاش والـ Service Worker لجميع العملاء تلقائياً وبشكل جذري -->
+    <!-- كود إزالة الكاش والـ Service Worker لجميع العملاء تلقائياً -->
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
@@ -1019,19 +1019,19 @@
             { 
                 name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 5, lat: 25.2048, lng: 55.2708, 
                 img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
-                funnyPolicy: "إلغاء مجاني 100% - استرداد كامل المبلغ على الكرت في أي وقت! ✨",
+                funnyPolicy: "إلغاء مجاني 100% - استرداد كامل المبلغ على الكرت في أي وقت! ✨", 
                 hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-credit-card'></i> دفع آمن عبر Ziina"]
             },
             { 
                 name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 350, lat: 25.2654, lng: 55.3272, 
                 img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
-                funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!",
+                funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!", 
                 hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-person-swimming'></i> مسبح خارجي", "<i class='fa-solid fa-dumbbell'></i> صالة رياضية"]
             },
             { 
                 name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 600, lat: 25.1304, lng: 55.1172, 
                 img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", 
-                funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!",
+                funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!", 
                 hotelFacilities: ["<i class='fa-solid fa-water'></i> شاطئ خاص", "<i class='fa-solid fa-spa'></i> مركز سبا وعافية", "<i class='fa-solid fa-bell-concierge'></i> خدمة غرف"]
             }
         ];
@@ -1957,7 +1957,7 @@
                 });
                 const ziinaData = await ziinaRes.json();
 
-                if (ziinaData.success && (ziinaData.embedded_url || ziinaData.redirect_url)) {
+                if (ziinaData.success && (ziinaData.redirect_url || ziinaData.embedded_url)) {
                     const pendingData = { 
                         bookingReference, 
                         ziinaPaymentId: ziinaData.ziinaPaymentId || '', 
@@ -1975,70 +1975,10 @@
                     };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
 
-                    // 🚀 الحل الجذري: توليد واجهة الدفع المتكاملة (Embedded Checkout)
-                    let baseEmbedUrl = ziinaData.embedded_url;
-                    if (!baseEmbedUrl && ziinaData.redirect_url) {
-                        baseEmbedUrl = ziinaData.redirect_url.replace('/payment_intent/', '/embedded/payment_intent/');
-                    }
-                    
-                    const finalIframeUrl = baseEmbedUrl + (baseEmbedUrl.includes('?') ? '&' : '?') + 'version=latest&locale=ar';
-
-                    const iframeContainer = document.createElement('div');
-                    iframeContainer.id = 'ziina-payment-modal';
-                    iframeContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter: blur(8px);';
-                    
-                    const iframeWrapper = document.createElement('div');
-                    iframeWrapper.style.cssText = 'position:relative; width:100%; max-width:450px; height:85%; max-height:820px; display:flex; justify-content:center; align-items:center; animation: scaleIn 0.3s ease-out forwards;';
-
-                    const iframe = document.createElement('iframe');
-                    iframe.id = 'ziina-checkout';
-                    iframe.src = finalIframeUrl;
-                    iframe.style.cssText = 'width:100%; height:100%; border:none; border-radius:16px; background:transparent; box-shadow:0 20px 50px rgba(0,0,0,0.5);';
-                    
-                    const closeBtn = document.createElement('button');
-                    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> إغلاق الدفع';
-                    closeBtn.style.cssText = 'position:absolute; top:-40px; right:0; background:rgba(255,255,255,0.2); border:none; border-radius:8px; padding:6px 15px; cursor:pointer; font-weight:bold; color:white; font-size:14px; transition:all 0.2s;';
-                    closeBtn.onmouseover = () => { closeBtn.style.background = '#ff595e'; };
-                    closeBtn.onmouseout = () => { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
-                    closeBtn.onclick = () => {
-                        document.body.removeChild(iframeContainer);
-                        btn.innerHTML = origText; 
-                        btn.disabled = false;
-                        showToast('info', 'تم الإلغاء', 'تم إغلاق بوابة الدفع قبل إتمام العملية.');
-                    };
-
-                    iframeWrapper.appendChild(closeBtn);
-                    iframeWrapper.appendChild(iframe);
-                    iframeContainer.appendChild(iframeWrapper);
-                    document.body.appendChild(iframeContainer);
-
-                    // 📡 الاستماع لرد البوابة بشكل حي دون إعادة توجيه الصفحة
-                    window.addEventListener('message', function paymentListener(event) {
-                        const checkoutIframe = document.getElementById('ziina-checkout');
-                        if (!checkoutIframe || event.source !== checkoutIframe.contentWindow) return;
-                        
-                        const { type, data } = event.data || {};
-                        if (event.origin !== 'https://pay.ziina.com' || type !== 'ZIINA_PAYMENT_STATUS_CHANGE') return;
-
-                        if (data.status === "COMPLETED") {
-                            window.removeEventListener('message', paymentListener);
-                            iframeContainer.innerHTML = '<div style="text-align:center; color:white; font-family:Cairo;"><div style="font-size:60px; margin-bottom:15px;">✅</div><h2 style="font-size:24px; font-weight:900;">تم الدفع بنجاح!</h2><p style="color:#a5b4fc; font-weight:bold;">جاري تثبيت الحجز وإصدار التذكرة...</p></div>';
-                            
-                            setTimeout(() => {
-                                document.body.removeChild(iframeContainer);
-                                window.location.href = `https://remalbookings.com?payment=success&ref=${bookingReference}`;
-                            }, 1500);
-
-                        } else if (data.status === "FAILED") {
-                            showToast('error', 'فشلت العملية', 'تم رفض البطاقة أو فشل الدفع، يرجى المحاولة ببطاقة أخرى.');
-                        } else if (data.status === "CANCELED") {
-                            document.body.removeChild(iframeContainer);
-                            btn.innerHTML = origText; 
-                            btn.disabled = false;
-                            showToast('info', 'إلغاء الدفع', 'تم التراجع عن عملية الدفع.');
-                            window.removeEventListener('message', paymentListener);
-                        }
-                    });
+                    // 🚀 التوجيه المباشر والآمن لبوابة الدفع (لتفادي حظر الـ iframe ودعم Apple Pay بالكامل)
+                    btn.innerHTML = '<i class="fa-solid fa-lock"></i> جاري تحويلك لبوابة الدفع الآمنة...';
+                    const paymentUrl = ziinaData.redirect_url || ziinaData.embedded_url;
+                    window.location.href = paymentUrl;
 
                 } else { 
                     showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); 
