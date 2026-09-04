@@ -60,10 +60,6 @@
             width: 100%; height: 100%; color: transparent; background: transparent; cursor: pointer; z-index: 10;
         }
 
-        /* =========================================================
-           🚀 تحسينات الهيدر والهيرو (Ultimate UX/UI)
-           ========================================================= */
-           
         .live-ticker {
             background: linear-gradient(90deg, #112226, #1f3a40, #00b4d8);
             background-size: 200% 200%;
@@ -125,14 +121,10 @@
         }
         .modal-content {
             background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 480px;
-            border: 4px solid var(--accent-cyan); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
+            border: 4px solid var(--accent-yellow); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
         }
 
-        /* =========================================================
-           🚀 تحسينات الـ UX/UI (التذكرة الفاخرة)
-           ========================================================= */
-
-        /* فاصل التذكرة المتقطع العمودي (Desktop) */
+        /* فاصل التذكرة العمودي - تم تقصيره ليتناسب مع الغرف */
         .ticket-divider-v {
             width: 2px; background-image: linear-gradient(to bottom, #e2e8f0 50%, rgba(255,255,255,0) 0%);
             background-position: right; background-size: 2px 14px; background-repeat: repeat-y; position: relative;
@@ -143,7 +135,6 @@
         }
         .ticket-divider-v::before { top: -13px; } .ticket-divider-v::after { bottom: -13px; }
 
-        /* فاصل التذكرة المتقطع الأفقي (Mobile) */
         .ticket-divider-h {
             height: 2px; background-image: linear-gradient(to left, #e2e8f0 50%, rgba(255,255,255,0) 0%);
             background-position: top; background-size: 14px 2px; background-repeat: repeat-x; position: relative; margin: 0 16px;
@@ -157,36 +148,34 @@
         @keyframes subtlePulse { 0% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0.4)); } 50% { filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.8)); } 100% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); } }
         .pulse-coin { animation: subtlePulse 2.5s infinite; }
 
+        /* نقش الـ SVG للخلفية الكحلية */
+        .bg-pattern {
+            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
+        }
+
         .goog-te-banner-frame { display: none !important; }
         body { top: 0px !important; }
     </style>
 </head>
 <body class="antialiased text-slate-800 flex flex-col min-h-screen relative">
 
-    <!-- حاوية الإشعارات العائمة -->
     <div id="toast-container" class="fixed top-6 left-0 right-0 z-[9999] flex flex-col items-center gap-3 px-4 pointer-events-none"></div>
 
-    <!-- 🚀 شريط الحجوزات الحية بتدرج الرمال -->
     <div class="live-ticker">
         <i class="fa-solid fa-bolt text-yellow-400"></i>
         <span id="tickerText">🔥 أحمد من دبي حجز ليلتين واستعد للسحب على الدوام! 🌴</span>
     </div>
 
-    <!-- 🚀 الهيدر الزجاجي الفاخر -->
     <header>
-        <!-- 🌟 كبسولة الهوية (SVG Logo + Text) -->
         <a class="group flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md pr-4 pl-6 py-2 rounded-2xl transition-all duration-300 cursor-pointer text-decoration-none shadow-[0_4px_15px_rgba(0,0,0,0.1)]" onclick="switchView('mainView')">
-            <!-- اللوغو مبرمج بالـ SVG -->
             <div class="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
                 <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md">
                     <defs>
                         <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#48cae4"/>
-                            <stop offset="100%" stop-color="#00b4d8"/>
+                            <stop offset="0%" stop-color="#48cae4"/><stop offset="100%" stop-color="#00b4d8"/>
                         </linearGradient>
                         <linearGradient id="red-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#ff758f"/>
-                            <stop offset="100%" stop-color="#ff595e"/>
+                            <stop offset="0%" stop-color="#ff758f"/><stop offset="100%" stop-color="#ff595e"/>
                         </linearGradient>
                     </defs>
                     <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="url(#cyan-grad)"/>
@@ -199,48 +188,33 @@
             </div>
         </a>
 
-        <!-- الكبسولة المركزية (Dynamic Island Style) -->
         <div class="hidden lg:flex nav-pill">
-            <button onclick="switchView('mainView')" class="nav-pill-btn active">
-                <i class="fa-solid fa-compass text-[#00b4d8]"></i> استكشاف الفنادق
-            </button>
-            <button onclick="switchView('lookupView')" class="nav-pill-btn">
-                <i class="fa-solid fa-magnifying-glass text-[#00b4d8]"></i> تتبع حجزك
-            </button>
-            <button onclick="switchView('registerView')" class="nav-pill-btn !text-yellow-400">
-                <i class="fa-solid fa-piggy-bank"></i> حصالة النقاط
-            </button>
+            <button onclick="switchView('mainView')" class="nav-pill-btn active"><i class="fa-solid fa-compass text-[#00b4d8]"></i> استكشاف الفنادق</button>
+            <button onclick="switchView('lookupView')" class="nav-pill-btn"><i class="fa-solid fa-magnifying-glass text-[#00b4d8]"></i> تتبع حجزك</button>
+            <button onclick="switchView('registerView')" class="nav-pill-btn !text-yellow-400"><i class="fa-solid fa-piggy-bank"></i> حصالة النقاط</button>
         </div>
 
         <div class="flex items-center gap-2 md:gap-4">
-            <!-- إعدادات مبسطة بدون إطارات -->
             <div class="hidden sm:flex items-center bg-white/5 border border-white/10 rounded-full px-2 py-1 backdrop-blur-sm">
                 <div class="settings-dropdown">
                     <i class="fa-solid fa-globe text-[#00b4d8] opacity-80"></i>
                     <select id="languageSelect" onchange="changeLanguage(this.value)">
-                        <option value="ar">العربية 🇦🇪</option>
-                        <option value="en">English 🇬🇧</option>
-                        <option value="ru">Русский 🇷🇺</option>
+                        <option value="ar">العربية 🇦🇪</option><option value="en">English 🇬🇧</option><option value="ru">Русский 🇷🇺</option>
                     </select>
                 </div>
                 <div class="w-[1px] h-4 bg-white/20 mx-1"></div>
                 <div class="settings-dropdown">
                     <i class="fa-solid fa-coins text-yellow-400 opacity-80"></i>
                     <select id="currencySelector" onchange="changeCurrency()">
-                        <option value="AED">AED</option>
-                        <option value="USD">USD</option>
-                        <option value="EUR">EUR</option>
-                        <option value="SAR">SAR</option>
+                        <option value="AED">AED</option><option value="USD">USD</option><option value="EUR">EUR</option><option value="SAR">SAR</option>
                     </select>
                 </div>
             </div>
 
-            <!-- زر تسجيل الدخول بخلفية العنابي الفاخر -->
             <button id="regBtnText" onclick="openAuthModal()" class="hidden bg-gradient-to-r from-[#800000] to-[#990000] hover:from-[#990000] hover:to-[#b30000] text-white px-5 py-2.5 rounded-full text-sm font-bold transition-all flex items-center gap-2 shadow-[0_4px_15px_rgba(128,0,0,0.4)] cursor-pointer border border-white/10">
                 <i class="fa-regular fa-user"></i> تسجيل الدخول
             </button>
 
-            <!-- القائمة المنسدلة للمستخدم -->
             <div class="user-dropdown-container relative inline-block" id="userDropdownContainer" style="display:none;">
                 <button id="user-menu-btn" class="bg-gradient-to-r from-[#800000] to-[#990000] text-white px-5 py-2.5 rounded-full font-bold text-sm flex items-center gap-2 cursor-pointer border border-white/10 shadow-[0_4px_15px_rgba(128,0,0,0.4)] transition-transform hover:scale-105">
                     <i class="fa-regular fa-user shrink-0"></i>
@@ -250,7 +224,7 @@
                 </button>
                 <div id="user-dropdown" class="user-dropdown-content absolute left-0 md:right-0 bg-white min-w-[250px] rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-100 text-right opacity-0 invisible transform translate-y-2 transition-all duration-200 origin-top mt-2">
                     <div class="dropdown-header bg-slate-50 p-4 border-b border-slate-100 text-[#1f3a40] text-xs font-bold flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-cyan-50 flex items-center justify-center text-[#00b4d8] text-lg shadow-inner"><i class="fa-solid fa-wallet"></i></div>
+                        <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 text-lg shadow-inner"><i class="fa-solid fa-wallet"></i></div>
                         <div>
                             <span class="block text-gray-500 mb-0.5">رصيد حصالتك:</span>
                             <strong class="text-base text-gray-900"><span id="dropdownPoints">0</span> <span class="text-xs">نقطة</span></strong>
@@ -271,13 +245,10 @@
 
     <!-- 🚀 Main View Section (World-Class Hero) -->
     <div id="mainView" class="view-section active">
-        <!-- 🖼️ صورة حية مع تظليل كحلي فخم -->
         <section class="relative pt-24 pb-48 px-4 flex items-center justify-center min-h-[65vh] xl:min-h-[70vh]">
             <div class="absolute inset-0 z-0 bg-[#1f3a40]">
-                <!-- صورة خلفية فخمة -->
                 <img src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1920&q=80" alt="Luxury Dubai Resort" class="w-full h-full object-cover opacity-60" />
             </div>
-            
             <div class="absolute inset-0 z-0 bg-gradient-to-b from-[#1f3a40]/95 via-[#1f3a40]/70 to-[#1f3a40]/90"></div>
             
             <div class="relative z-10 max-w-5xl mx-auto text-center text-white mt-8">
@@ -287,7 +258,6 @@
                 
                 <h1 id="heroTitle" class="text-4xl md:text-6xl lg:text-7xl font-extrabold mb-6 leading-tight drop-shadow-2xl">
                     عروض فنادق تخلّيك تفكّر <br class="hidden md:block"/>
-                    <!-- تأثير نيون مضيء لكلمة على الدوام -->
                     <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#00b4d8] to-[#48cae4] filter drop-shadow-[0_0_15px_rgba(0,180,216,0.4)]">تسحب على الدوام!</span> 🌴
                 </h1>
                 <p id="heroSubtitle" class="text-lg md:text-2xl font-semibold text-slate-200 mb-4 drop-shadow-md">
@@ -305,97 +275,65 @@
             </div>
         </section>
 
-        <!-- 🚀 مربع البحث الطافي (Floating Search Bar 3D) -->
+        <!-- 🚀 مربع البحث الطافي -->
         <section class="relative z-30 px-4 max-w-6xl mx-auto -mt-24 md:-mt-28 mb-16">
             <div class="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(31,58,64,0.15)] border border-white p-3 relative z-30 transition-transform duration-300 hover:-translate-y-1">
                 <div class="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100 gap-2 lg:gap-0">
-                  
                   <div class="flex-1 px-4 py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-2xl relative">
                     <div class="flex items-center justify-between">
                       <div class="w-full">
                         <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">الوجهة أو المدينة</span>
-                        <select id="destinationSelect" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none cursor-pointer hide-select-arrow mt-1" dir="rtl">
-                           <option value="DXB">دبي (المدينة بالكامل)</option>
-                        </select>
+                        <select id="destinationSelect" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none cursor-pointer hide-select-arrow mt-1" dir="rtl"><option value="DXB">دبي (المدينة بالكامل)</option></select>
                       </div>
-                      <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#00b4d8]/10 transition-colors">
-                        <i class="fa-solid fa-map-location-dot text-slate-300 text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i>
-                      </div>
+                      <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#00b4d8]/10 transition-colors"><i class="fa-solid fa-map-location-dot text-slate-300 text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i></div>
                     </div>
                   </div>
-          
                   <div class="flex-1 px-4 py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-2xl relative">
                     <div class="flex items-center justify-between">
                       <div class="w-full">
                         <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">اسم الفندق (اختياري)</span>
                         <input type="text" id="searchInput" placeholder="مثل: أتلانتس النخلة..." onkeyup="filterHotels()" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none placeholder:font-semibold placeholder:text-slate-300 mt-1" />
                       </div>
-                      <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#00b4d8]/10 transition-colors">
-                        <i class="fa-solid fa-bed text-slate-300 text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i>
-                      </div>
+                      <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#00b4d8]/10 transition-colors"><i class="fa-solid fa-bed text-slate-300 text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i></div>
                     </div>
                   </div>
-          
                   <div class="px-4 py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-2xl min-w-[140px] relative">
                     <div class="flex items-center justify-between gap-3">
-                      <div class="w-full">
-                        <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">تاريخ الدخول</span>
-                        <input type="date" id="checkInDate" onchange="filterHotels()" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none mt-1 cursor-pointer hide-select-arrow" />
-                      </div>
+                      <div class="w-full"><span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">تاريخ الدخول</span><input type="date" id="checkInDate" onchange="filterHotels()" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none mt-1 cursor-pointer hide-select-arrow" /></div>
                     </div>
                   </div>
-          
                   <div class="px-4 py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-2xl min-w-[140px] relative">
                     <div class="flex items-center justify-between gap-3">
-                      <div class="w-full">
-                        <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">تاريخ الخروج</span>
-                        <input type="date" id="checkOutDate" onchange="filterHotels()" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none mt-1 cursor-pointer hide-select-arrow" />
-                      </div>
+                      <div class="w-full"><span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">تاريخ الخروج</span><input type="date" id="checkOutDate" onchange="filterHotels()" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none mt-1 cursor-pointer hide-select-arrow" /></div>
                     </div>
                   </div>
-          
                   <div class="px-4 py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-2xl min-w-[100px] relative">
                     <div class="flex items-center justify-between gap-3">
-                      <div class="w-full">
-                        <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">البالغين</span>
-                        <input type="number" id="adultsInput" min="1" max="10" value="2" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none mt-1 text-right">
-                      </div>
+                      <div class="w-full"><span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">البالغين</span><input type="number" id="adultsInput" min="1" max="10" value="2" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none mt-1 text-right"></div>
                       <i class="fa-solid fa-user-group text-slate-300 text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i>
                     </div>
                   </div>
-          
                   <div class="px-4 py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-2xl min-w-[100px] relative">
                     <div class="flex items-center justify-between gap-2">
-                      <div class="w-full">
-                        <span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">الأطفال</span>
-                        <input type="number" id="childrenInput" min="0" max="5" value="0" onchange="renderChildAges()" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none mt-1 text-right">
-                      </div>
+                      <div class="w-full"><span class="block text-[11px] font-bold text-slate-400 uppercase tracking-wide">الأطفال</span><input type="number" id="childrenInput" min="0" max="5" value="0" onchange="renderChildAges()" class="w-full bg-transparent text-sm font-black text-[#1f3a40] focus:outline-none mt-1 text-right"></div>
                       <i class="fa-solid fa-child-reaching text-slate-300 text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i>
                     </div>
                   </div>
-          
                   <div class="p-2 lg:pl-2">
                     <button onclick="searchLiveHotels()" id="searchBtnText" class="w-full lg:w-auto bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-95 text-white font-black px-8 py-4 rounded-2xl transition-all shadow-[0_8px_20px_rgba(128,0,0,0.3)] flex items-center justify-center gap-2 cursor-pointer border-none h-full">
-                      <i class="fa-solid fa-magnifying-glass text-white/70 pointer-events-none text-lg"></i>
-                      <span class="text-base">ابحث</span>
+                      <i class="fa-solid fa-magnifying-glass text-white/70 pointer-events-none text-lg"></i><span class="text-base">ابحث</span>
                     </button>
                   </div>
                 </div>
             </div>
-            
             <div class="mt-4 max-w-2xl mx-auto" id="childAgesContainer" style="display:none; background:white; padding:20px; border-radius:20px; border:2px dashed var(--accent-cyan); box-shadow: 0 10px 25px rgba(0,180,216,0.1);"></div>
 
             <!-- زر تصفية الوجبات العائم -->
             <div class="flex justify-center mt-6 relative z-20">
                 <div class="relative inline-block group">
                   <select id="boardBasisFilter" onchange="updateBoardText(this); filterHotels();" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" dir="rtl">
-                    <option value="ALL">كل الوجبات (All)</option>
-                    <option value="RO">بدون وجبات (Room Only)</option>
-                    <option value="BB">شامل الإفطار (Breakfast)</option>
-                    <option value="HB">نصف إقامة (Half Board)</option>
-                    <option value="AI">شامل كلياً (All Inclusive)</option>
+                    <option value="ALL">كل الوجبات (All)</option><option value="RO">بدون وجبات (Room Only)</option><option value="BB">شامل الإفطار (Breakfast)</option><option value="HB">نصف إقامة (Half Board)</option><option value="AI">شامل كلياً (All Inclusive)</option>
                   </select>
-                  
                   <div class="inline-flex items-center gap-2.5 px-6 py-3 rounded-full border border-slate-200 bg-white shadow-sm group-hover:shadow-md group-hover:border-[#00b4d8] transition-all pointer-events-none">
                     <i class="fa-solid fa-utensils text-slate-400 group-hover:text-[#00b4d8] transition-colors"></i>
                     <span class="text-xs font-bold text-slate-500">تصفية الوجبات:</span>
@@ -416,93 +354,65 @@
                         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#800000] to-[#00b4d8]"></div>
                         <div class="flex items-center justify-between mb-5 px-2 mt-2">
                             <div class="flex items-center gap-3">
-                                <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm">
-                                    <i class="fa-solid fa-map-location-dot text-[#00b4d8] text-lg"></i>
-                                </div>
+                                <div class="w-10 h-10 rounded-xl bg-slate-50 flex items-center justify-center border border-slate-100 shadow-sm"><i class="fa-solid fa-map-location-dot text-[#00b4d8] text-lg"></i></div>
                                 <h2 class="text-lg md:text-xl font-black text-[#1f3a40] tracking-tight">الخريطة <span class="text-[#00b4d8]">الحية</span></h2>
                             </div>
                         </div>
                         <div id="map" class="relative w-full h-[350px] md:h-[350px] rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-100 shadow-inner"></div>
                     </div>
 
-                    <!-- الفلتر والتصنيف -->
                     <div class="bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-6">
                         <div class="flex items-center justify-between mb-6">
                             <div class="flex items-center gap-2">
-                                <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500">
-                                    <i class="fa-solid fa-sliders text-sm"></i>
-                                </div>
+                                <div class="w-8 h-8 rounded-full bg-slate-50 flex items-center justify-center text-slate-500"><i class="fa-solid fa-sliders text-sm"></i></div>
                                 <h2 class="text-[#1f3a40] font-black text-lg">التصفية</h2>
                             </div>
-                            <button type="button" onclick="document.querySelector('input[name=cityFilter][value=all]').checked=true; document.querySelector('input[name=sortFilter][value=recommended]').checked=true; filterHotels();" class="text-xs text-slate-400 hover:text-[#800000] font-bold transition-colors duration-300 ease-in-out underline decoration-dashed underline-offset-4 cursor-pointer bg-transparent border-none">
-                                مسح الفلاتر
-                            </button>
+                            <button type="button" onclick="document.querySelector('input[name=cityFilter][value=all]').checked=true; document.querySelector('input[name=sortFilter][value=recommended]').checked=true; filterHotels();" class="text-xs text-slate-400 hover:text-[#800000] font-bold transition-colors duration-300 ease-in-out underline decoration-dashed underline-offset-4 cursor-pointer bg-transparent border-none">مسح الفلاتر</button>
                         </div>
-
                         <hr class="border-slate-100 mb-5">
-
                         <fieldset class="mb-7">
                             <legend class="text-slate-400 font-bold text-xs uppercase tracking-wide mb-4 w-full">المدينة:</legend>
                             <div class="space-y-1">
                                 <label class="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors duration-300 ease-in-out border border-transparent hover:border-slate-100">
                                     <input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()" class="peer sr-only">
-                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm">
-                                        <div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
-                                    </div>
-                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 ease-in-out text-[15px]">الكل</span>
+                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 flex items-center justify-center transition-all duration-300 shadow-sm"><div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform"></div></div>
+                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 text-[15px]">الكل</span>
                                 </label>
-
                                 <label class="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors duration-300 ease-in-out border border-transparent hover:border-slate-100">
                                     <input type="radio" name="cityFilter" value="دبي" onchange="filterHotels()" class="peer sr-only">
-                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm">
-                                        <div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
-                                    </div>
-                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 ease-in-out text-[15px]">دبي</span>
+                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 flex items-center justify-center transition-all duration-300 shadow-sm"><div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform"></div></div>
+                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 text-[15px]">دبي</span>
                                 </label>
-
                                 <label class="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors duration-300 ease-in-out border border-transparent hover:border-slate-100">
                                     <input type="radio" name="cityFilter" value="أبوظبي" onchange="filterHotels()" class="peer sr-only">
-                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm">
-                                        <div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
-                                    </div>
-                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 ease-in-out text-[15px]">أبوظبي</span>
+                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 flex items-center justify-center transition-all duration-300 shadow-sm"><div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform"></div></div>
+                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 text-[15px]">أبوظبي</span>
                                 </label>
-
                                 <label class="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors duration-300 ease-in-out border border-transparent hover:border-slate-100">
                                     <input type="radio" name="cityFilter" value="الشارقة" onchange="filterHotels()" class="peer sr-only">
-                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm">
-                                        <div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
-                                    </div>
-                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 ease-in-out text-[15px]">الشارقة</span>
+                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 flex items-center justify-center transition-all duration-300 shadow-sm"><div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform"></div></div>
+                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 text-[15px]">الشارقة</span>
                                 </label>
                             </div>
                         </fieldset>
-
                         <hr class="border-slate-100 mb-5">
-
                         <fieldset>
                             <legend class="text-slate-400 font-bold text-xs uppercase tracking-wide mb-4 w-full">الترتيب حسب:</legend>
                             <div class="space-y-1">
                                 <label class="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors duration-300 ease-in-out border border-transparent hover:border-slate-100">
                                     <input type="radio" name="sortFilter" value="recommended" checked onchange="filterHotels()" class="peer sr-only">
-                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm">
-                                        <div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
-                                    </div>
-                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 ease-in-out text-[15px]">الأقوى ترشيحاً</span>
+                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] flex items-center justify-center transition-all duration-300 shadow-sm"><div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform"></div></div>
+                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 text-[15px]">الأقوى ترشيحاً</span>
                                 </label>
                                 <label class="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors duration-300 ease-in-out border border-transparent hover:border-slate-100">
                                     <input type="radio" name="sortFilter" value="price_low" onchange="filterHotels()" class="peer sr-only">
-                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm">
-                                        <div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
-                                    </div>
-                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 ease-in-out text-[15px]">الأقل سعراً أولاً</span>
+                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] flex items-center justify-center transition-all duration-300 shadow-sm"><div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform"></div></div>
+                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 text-[15px]">الأقل سعراً أولاً</span>
                                 </label>
                                 <label class="group flex items-center gap-3 p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors duration-300 ease-in-out border border-transparent hover:border-slate-100">
                                     <input type="radio" name="sortFilter" value="points_high" onchange="filterHotels()" class="peer sr-only">
-                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] flex items-center justify-center transition-all duration-300 ease-in-out shadow-sm">
-                                        <div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform duration-300 ease-in-out"></div>
-                                    </div>
-                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 ease-in-out text-[15px]">الأعلى كاش باك</span>
+                                    <div class="w-5 h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] flex items-center justify-center transition-all duration-300 shadow-sm"><div class="w-2.5 h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform"></div></div>
+                                    <span class="text-slate-600 peer-checked:text-[#1f3a40] peer-checked:font-black transition-all duration-300 text-[15px]">الأعلى كاش باك</span>
                                 </label>
                             </div>
                         </fieldset>
@@ -517,45 +427,49 @@
         </div>
     </div>
 
-    <!-- واجهة اختيار الغرف -->
+    <!-- 🚀 واجهة اختيار الغرف (Room Selection View - Redesigned) -->
     <div id="roomSelectionView" class="view-section pb-20">
-        <div class="bg-gradient-to-b from-[#1f3a40] to-[#112226] pt-16 pb-28 text-center px-4 relative z-0 border-b-4 border-[#00b4d8]">
-            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center">
-              <div class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center mb-4 border border-white/20">
-                  <i class="fa-solid fa-hotel text-white text-2xl"></i>
+        <!-- هيرو الغرف المحدث (خلفية بنقش هندسي وزر رجوع علوي) -->
+        <div class="bg-[#1f3a40] bg-pattern pt-8 pb-32 relative z-0 border-b-4 border-[#00b4d8]">
+            <div class="absolute inset-0 bg-gradient-to-b from-[#1f3a40]/80 to-[#112226]/95 z-0"></div>
+            
+            <div class="max-w-5xl mx-auto px-4 relative z-10 flex justify-between items-start mb-6">
+                <!-- زر رجوع يطفو بأناقة -->
+                <button onclick="switchView('mainView')" class="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-sm font-bold py-2.5 px-6 rounded-full border border-white/20 flex items-center gap-2 transition-all cursor-pointer">
+                    <i class="fa-solid fa-arrow-right pointer-events-none"></i> رجوع
+                </button>
+            </div>
+
+            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center relative z-10 mt-4">
+              <div class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center mb-4 border border-white/20 shadow-lg">
+                  <i class="fa-solid fa-building text-white text-2xl"></i>
               </div>
-              <h1 id="detailsHotelName" class="text-3xl md:text-5xl font-black text-white mb-3 leading-tight drop-shadow-lg">
+              <h1 id="detailsHotelName" class="text-3xl md:text-5xl font-black text-white mb-3 leading-tight drop-shadow-lg text-center px-4">
               </h1>
-              <p class="text-slate-300 text-sm md:text-base font-semibold max-w-xl mx-auto">
+              <p class="text-slate-300 text-sm md:text-base font-semibold max-w-xl mx-auto text-center px-4">
                 اختر الغرفة، السرير، وخطة الوجبات وشروط الإلغاء بدقة لتجربة سفر لا تُنسى!
               </p>
             </div>
         </div>
         
-        <div class="container max-w-5xl mx-auto px-4 sm:px-6 -mt-16 relative z-10 space-y-6">
-            <div class="flex justify-between items-center mb-2">
-              <button onclick="switchView('mainView')" class="bg-white hover:bg-slate-50 text-slate-700 text-sm font-bold py-2.5 px-5 rounded-full shadow-md border border-slate-100 flex items-center gap-2 transition-transform hover:-translate-x-1 cursor-pointer">
-                <i class="fa-solid fa-arrow-right pointer-events-none"></i> رجوع
-              </button>
-              
-              <button onclick="openReviewModal()" class="bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] text-white text-xs font-bold py-2.5 px-5 rounded-full shadow-md transition-all hover:shadow-lg flex items-center gap-1.5 cursor-pointer border-none">
-                أضف تقييمك <i class="fa-solid fa-star pointer-events-none text-[10px] text-yellow-300"></i>
-              </button>
-            </div>
-            
-            <div class="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-[0_10px_40px_rgba(0,0,0,0.05)] relative overflow-hidden mb-8">
-              <div class="text-center mb-6 border-b border-slate-100 pb-6">
-                <h3 class="text-xl font-black text-[#1f3a40] flex items-center justify-center gap-2">
+        <div class="container max-w-5xl mx-auto px-4 sm:px-6 -mt-20 relative z-10 space-y-6">
+            <!-- صندوق التقييمات المحسن -->
+            <div class="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-[0_15px_40px_rgba(0,0,0,0.08)] relative overflow-hidden mb-8">
+              <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-5">
+                <h3 class="text-lg md:text-xl font-black text-[#1f3a40] flex items-center gap-2">
                   <i class="fa-solid fa-quote-right text-[#00b4d8] opacity-50"></i> تقييمات ضيوف رمال
                 </h3>
+                <button onclick="openReviewModal()" class="bg-[#00b4d8] hover:bg-[#0096b4] text-white text-xs font-bold py-2 px-5 rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-none">
+                  أضف تقييمك <i class="fa-solid fa-star text-yellow-300 pointer-events-none text-[10px]"></i>
+                </button>
               </div>
-        
               <div id="hotelReviewsContainer" class="space-y-4">
                   <p class="text-slate-400 text-center font-bold">جاري تحميل التقييمات...</p>
               </div>
             </div>
 
-            <div id="roomsContainer"></div>
+            <!-- حاوية الغرف -->
+            <div id="roomsContainer" class="space-y-6"></div>
         </div>
     </div>
 
@@ -609,20 +523,15 @@
                         </div>
                     </div>
 
-                    <!-- 🚀 قسم فاتورة الدفع وتطبيق الكاش باك -->
                     <div class="bg-[#f8fafc] border border-slate-200 rounded-2xl p-5 mt-6 shadow-inner">
                         <h3 class="text-sm font-black text-[#1f3a40] mb-4 border-b border-slate-200 pb-3"><i class="fa-solid fa-receipt text-[#00b4d8]"></i> تفاصيل السعر وتطبيق الخصم</h3>
-                        
                         <div class="flex justify-between items-center mb-3">
                             <span class="text-sm font-bold text-slate-600">السعر العام (المعتمد للفندق):</span>
                             <span class="text-sm font-black text-slate-800" dir="ltr"><span id="summaryBasePrice">0</span> AED</span>
                         </div>
-
                         <div class="bg-gradient-to-r from-yellow-50 to-amber-50 border border-yellow-200 rounded-xl p-4 my-4 relative overflow-hidden shadow-sm">
                             <div class="absolute -right-4 -top-4 opacity-10 text-5xl">💰</div>
-                            <label class="block text-sm font-black text-amber-800 mb-2 relative z-10">
-                                استخدم رصيد حصالتك (الخصم الفوري):
-                            </label>
+                            <label class="block text-sm font-black text-amber-800 mb-2 relative z-10">استخدم رصيد حصالتك (الخصم الفوري):</label>
                             <div class="relative z-10">
                                 <select id="pointsDiscountSelect" onchange="updateFinalPriceCalculation()" class="w-full bg-white border border-amber-300 rounded-xl py-2.5 px-4 text-sm font-bold text-slate-700 focus:outline-none focus:border-amber-500 transition-all shadow-sm cursor-pointer hide-select-arrow">
                                     <option value="0">بدون استخدام نقاط</option>
@@ -631,7 +540,6 @@
                             </div>
                             <p class="text-[11px] font-bold text-amber-700 mt-2 text-right relative z-10">رصيدك الحالي: <span id="checkoutAvailablePoints">0</span> نقطة</p>
                         </div>
-
                         <div class="flex justify-between items-center text-emerald-600 mb-3 hidden bg-emerald-50 p-2 rounded-lg border border-emerald-100" id="discountRow">
                             <span class="text-sm font-bold"><i class="fa-solid fa-tags"></i> الخصم المطبق:</span>
                             <span class="text-sm font-black" dir="ltr">- <span id="summaryDiscountAmount">0</span> AED</span>
@@ -641,7 +549,6 @@
                     <div class="bg-white border border-slate-200 rounded-2xl p-5 mt-4 shadow-sm">
                         <h3 class="text-sm font-black text-[#1f3a40] mb-4"><i class="fa-solid fa-credit-card text-[#00b4d8]"></i> طريقة الدفع:</h3>
                         <div id="paymentMethodsContainer" class="flex flex-col gap-3"></div>
-                        
                         <div id="savedCardsPaymentSection" style="display:none;" class="mt-4 pt-4 border-t border-slate-100">
                             <label class="text-xs font-bold text-slate-500 mb-2 block">أو استخدم بطاقة محفوظة:</label>
                             <div class="relative">
@@ -733,32 +640,17 @@
                 </div>
 
                 <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-10">
-                    <!-- كارد الحصالة -->
                     <div class="bg-gradient-to-br from-amber-50 to-yellow-100 border border-yellow-200/60 rounded-3xl p-8 text-center shadow-sm relative overflow-hidden group hover:shadow-md transition-shadow">
-                        <div class="absolute -right-4 -top-4 opacity-10 transform group-hover:scale-110 transition-transform duration-500">
-                            <span class="text-9xl">👑</span>
-                        </div>
-                        <p class="text-amber-800 font-bold mb-3 relative z-10 flex items-center justify-center gap-2">
-                            <i class="fa-solid fa-piggy-bank text-xl"></i> حصالة حسابك الدائمة
-                        </p>
-                        <div class="text-5xl font-black text-slate-800 mb-1 relative z-10 tracking-tight">
-                            <span id="dashPointsDisplay">0</span> <span class="text-lg text-slate-500 font-bold">نقطة</span>
-                        </div>
-                        <div class="relative z-10 mt-2 inline-block bg-white/60 px-3 py-1 rounded-lg border border-amber-200/50 text-amber-900 font-black text-sm" dir="ltr">
-                            AED <span id="dashPointsAEDDisplay">0.00</span>
-                        </div>
+                        <div class="absolute -right-4 -top-4 opacity-10 transform group-hover:scale-110 transition-transform duration-500"><span class="text-9xl">👑</span></div>
+                        <p class="text-amber-800 font-bold mb-3 relative z-10 flex items-center justify-center gap-2"><i class="fa-solid fa-piggy-bank text-xl"></i> حصالة حسابك الدائمة</p>
+                        <div class="text-5xl font-black text-slate-800 mb-1 relative z-10 tracking-tight"><span id="dashPointsDisplay">0</span> <span class="text-lg text-slate-500 font-bold">نقطة</span></div>
+                        <div class="relative z-10 mt-2 inline-block bg-white/60 px-3 py-1 rounded-lg border border-amber-200/50 text-amber-900 font-black text-sm" dir="ltr">AED <span id="dashPointsAEDDisplay">0.00</span></div>
                     </div>
-                    
-                    <!-- كارد دعوة للحجز -->
                     <div onclick="switchView('mainView')" class="bg-gradient-to-br from-cyan-50 to-teal-100 border border-cyan-200/60 rounded-3xl p-8 text-center flex flex-col justify-center shadow-sm relative overflow-hidden group cursor-pointer hover:shadow-md transition-all hover:-translate-y-1">
-                        <div class="absolute -left-2 -bottom-4 opacity-10 transform group-hover:translate-x-4 group-hover:-translate-y-4 transition-transform duration-700">
-                            <i class="fa-solid fa-plane-departure text-9xl text-cyan-600"></i>
-                        </div>
+                        <div class="absolute -left-2 -bottom-4 opacity-10 transform group-hover:translate-x-4 group-hover:-translate-y-4 transition-transform duration-700"><i class="fa-solid fa-plane-departure text-9xl text-cyan-600"></i></div>
                         <p class="text-[#007790] font-black mb-2 text-xl relative z-10">😎 جاهز تسحب على الدوام؟</p>
                         <p class="text-cyan-700 text-sm relative z-10 font-bold max-w-[250px] mx-auto leading-relaxed">اختر وجهتك القادمة، اجمع نقاطك المضمونة، وخلي ترتيبات الحجز علينا!</p>
-                        <div class="relative z-10 mt-4 mx-auto w-10 h-10 bg-white rounded-full flex items-center justify-center shadow text-[#00b4d8] group-hover:bg-[#00b4d8] group-hover:text-white transition-colors">
-                            <i class="fa-solid fa-arrow-left"></i>
-                        </div>
+                        <div class="relative z-10 mt-4 mx-auto w-10 h-10 bg-white rounded-full flex items-center justify-center shadow text-[#00b4d8] group-hover:bg-[#00b4d8] group-hover:text-white transition-colors"><i class="fa-solid fa-arrow-left"></i></div>
                     </div>
                 </div>
 
@@ -781,26 +673,16 @@
     <div id="socialModal" class="modal-overlay fixed inset-0 z-[3000] hidden items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
         <div class="bg-white w-full max-w-md rounded-[2rem] shadow-2xl relative animate-[scaleIn_0.3s_ease-out_forwards] border border-white/20 overflow-hidden">
             <div class="bg-gradient-to-r from-[#1f3a40] to-[#112226] pt-10 pb-8 px-6 relative border-b-4 border-[#00b4d8]">
-                <button onclick="closeAuthModal()" class="absolute top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors duration-200 z-10 cursor-pointer border-none">
-                    <i class="fa-solid fa-xmark"></i>
-                </button>
-                <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg p-2">
-                    <img src="logo.jpg" alt="Logo" class="w-full h-full object-cover rounded-xl" onerror="this.src='https://via.placeholder.com/64'">
-                </div>
-                <h3 id="modalTitle" class="text-white font-extrabold text-2xl text-center relative z-10 tracking-tight">
-                    فتح حساب جديد 🌴
-                </h3>
+                <button onclick="closeAuthModal()" class="absolute top-4 left-4 w-8 h-8 flex items-center justify-center rounded-full bg-white/10 text-white hover:bg-white/20 transition-colors duration-200 z-10 cursor-pointer border-none"><i class="fa-solid fa-xmark"></i></button>
+                <div class="w-16 h-16 bg-white rounded-2xl flex items-center justify-center mx-auto mb-4 shadow-lg p-2"><img src="logo.jpg" alt="Logo" class="w-full h-full object-cover rounded-xl" onerror="this.src='https://via.placeholder.com/64'"></div>
+                <h3 id="modalTitle" class="text-white font-extrabold text-2xl text-center relative z-10 tracking-tight">فتح حساب جديد 🌴</h3>
                 <p id="modalSubtitle" class="text-[#00b4d8] text-sm font-bold text-center mt-2 relative z-10">سجل الآن واحصل على رصيد ترحيبي!</p>
             </div>
 
             <div class="p-8">
                 <div class="flex bg-slate-50 p-1.5 rounded-2xl mb-8 border border-slate-100">
-                    <button type="button" id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-3 bg-white rounded-xl shadow-sm text-[#00b4d8] font-black text-sm transition-all duration-300 border-none cursor-pointer">
-                        حساب جديد
-                    </button>
-                    <button type="button" id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-3 text-slate-400 font-bold text-sm hover:text-slate-600 transition-all duration-300 border-none cursor-pointer bg-transparent">
-                        تسجيل دخول
-                    </button>
+                    <button type="button" id="tabRegisterBtn" onclick="switchAuthTab('register')" class="flex-1 py-3 bg-white rounded-xl shadow-sm text-[#00b4d8] font-black text-sm transition-all duration-300 border-none cursor-pointer">حساب جديد</button>
+                    <button type="button" id="tabLoginBtn" onclick="switchAuthTab('login')" class="flex-1 py-3 text-slate-400 font-bold text-sm hover:text-slate-600 transition-all duration-300 border-none cursor-pointer bg-transparent">تسجيل دخول</button>
                 </div>
 
                 <form id="registerForm" onsubmit="requestVerificationCode(event)" class="space-y-4 block animate-fade-in-up">
@@ -827,9 +709,7 @@
                         </div>
                     </div>
                     <div>
-                        <label class="block text-slate-500 text-xs font-bold mb-1.5 text-right flex items-center gap-1">
-                            رقم الهاتف: <i class="fa-brands fa-whatsapp text-green-500 text-sm"></i>
-                        </label>
+                        <label class="block text-slate-500 text-xs font-bold mb-1.5 text-right flex items-center gap-1">رقم الهاتف: <i class="fa-brands fa-whatsapp text-green-500 text-sm"></i></label>
                         <div class="relative group">
                             <span class="absolute inset-y-0 right-0 pr-4 flex items-center pointer-events-none text-slate-300 group-focus-within:text-[#00b4d8] transition-colors"><i class="fa-solid fa-mobile-screen"></i></span>
                             <input type="tel" id="modalPhone" required inputmode="tel" dir="ltr" placeholder="+971 54 475 7578" class="w-full text-left pr-11 pl-4 py-3.5 bg-slate-50 border border-slate-200 rounded-xl text-sm font-bold text-slate-800 focus:outline-none focus:border-[#00b4d8] focus:bg-white focus:ring-4 focus:ring-[#00b4d8]/10 transition-all placeholder-slate-300">
@@ -1852,7 +1732,7 @@
                   <!-- 📝 قسم التفاصيل (المنتصف) -->
                   <div class="flex-1 p-5 md:p-6 flex flex-col justify-between bg-white relative z-10">
                     <div>
-                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2"><bdi dir="auto">${hotel.name}</bdi></h3>
+                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2 text-right"><bdi dir="auto">${hotel.name}</bdi></h3>
                       <p class="text-sm text-gray-500 font-semibold text-right"><i class="fa-solid fa-location-dot text-gray-400 ml-1 text-[10px]"></i> الإمارات - <strong>${hotel.city}</strong></p>
                       
                       <div class="flex flex-wrap gap-2 mt-4 justify-start text-right">
@@ -1945,7 +1825,7 @@
                 let coinBadgeHTML = '';
                 if (currentUser) {
                     coinBadgeHTML = `
-                        <div class="w-16 h-16 md:w-20 md:h-20 transform transition-transform duration-300 z-10 cursor-default mx-auto mt-2">
+                        <div class="w-16 h-16 transform transition-transform duration-300 z-10 cursor-default">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
                                 <linearGradient id="gold-outer-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1969,7 +1849,7 @@
                         </div>`;
                 } else {
                     coinBadgeHTML = `
-                        <div onclick="openAuthModal()" class="w-16 h-16 md:w-20 md:h-20 cursor-pointer transform transition-transform duration-300 hover:scale-105 z-10 pulse-coin rounded-full mx-auto mt-2">
+                        <div onclick="openAuthModal()" class="w-16 h-16 cursor-pointer transform transition-transform duration-300 hover:scale-105 z-10 pulse-coin rounded-full">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
                                 <linearGradient id="dark-outer-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1992,58 +1872,65 @@
                 }
 
                 container.innerHTML += `
+                    <!-- 🚀 بطاقة الغرفة الجديدة (تذكرة من قسمين فقط) -->
                     <div class="flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] border border-gray-100 hover:shadow-[0_8px_25px_rgba(0,180,216,0.1)] transition-all duration-300 mb-6 overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
-                        
-                        <!-- قسم صورة الغرفة (يمين) -->
-                        <div class="w-full md:w-[150px] relative bg-gray-50 border-b md:border-b-0 md:border-l border-dashed border-gray-200 shrink-0 flex flex-col items-center justify-center p-4">
-                            <i class="fa-solid fa-door-open text-4xl text-slate-200 mb-2"></i>
-                            ${coinBadgeHTML}
-                        </div>
 
-                        <!-- قسم تفاصيل الغرفة (المنتصف) -->
-                        <div class="flex-1 p-5 md:p-6 w-full md:w-auto relative z-10 flex flex-col justify-between">
-                            <div>
-                                <h3 class="text-lg font-black text-slate-800 text-right"><bdi dir="auto">${room.name}</bdi></h3>
-                                <div class="flex flex-col gap-2.5 mt-4 text-right">
-                                    <span class="inline-flex items-center justify-start gap-2 bg-slate-50 text-[#1f3a40] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit border border-slate-100"><i class="fa-solid fa-bed text-[#00b4d8] text-base"></i> الأسرة: ${room.bed}</span>
-                                    <span class="inline-flex items-center justify-start gap-2 bg-slate-50 text-[#1f3a40] px-3.5 py-1.5 rounded-lg text-sm font-extrabold w-fit border border-slate-100"><i class="fa-solid fa-utensils text-[#00b4d8] text-base"></i> الوجبات: ${room.board}</span>
+                        <!-- 📝 قسم التفاصيل (اليمين) -->
+                        <div class="flex-1 p-6 md:p-8 relative z-10 flex flex-col justify-between">
+                            
+                            <!-- العملة تطفو بأناقة بجانب العنوان -->
+                            <div class="absolute top-6 left-6 flex flex-col items-center gap-1">
+                                ${coinBadgeHTML}
+                            </div>
+
+                            <div class="pr-2 text-right">
+                                <h3 class="text-xl md:text-2xl font-black text-[#1f3a40] max-w-[70%]"><bdi dir="auto">${room.name}</bdi></h3>
+                                <div class="flex flex-col gap-3 mt-5">
+                                    <span class="inline-flex items-center justify-start gap-2 bg-slate-50 text-[#1f3a40] px-4 py-2 rounded-lg text-sm font-extrabold w-fit border border-slate-100 transition-colors hover:border-[#00b4d8]/30">
+                                        <div class="w-6 h-6 rounded bg-[#00b4d8]/10 flex items-center justify-center"><i class="fa-solid fa-bed text-[#00b4d8] text-sm"></i></div>
+                                        الأسرة: ${room.bed}
+                                    </span>
+                                    <span class="inline-flex items-center justify-start gap-2 bg-slate-50 text-[#1f3a40] px-4 py-2 rounded-lg text-sm font-extrabold w-fit border border-slate-100 transition-colors hover:border-[#00b4d8]/30">
+                                        <div class="w-6 h-6 rounded bg-[#00b4d8]/10 flex items-center justify-center"><i class="fa-solid fa-utensils text-[#00b4d8] text-sm"></i></div>
+                                        الوجبات: ${room.board}
+                                    </span>
                                 </div>
                             </div>
-                            <div class="mt-5 border ${cancelClass} p-3 text-sm rounded-xl font-bold flex items-start gap-2 relative overflow-hidden text-right">
-                                <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10"></i>
+                            <div class="mt-6 border ${cancelClass} p-4 text-sm rounded-xl font-bold flex items-start gap-3 relative overflow-hidden text-right">
+                                <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10 text-lg"></i>
                                 <div class="relative z-10">
                                     <span class="block ${policyTitleColor}">سياسة الإلغاء الدقيقة:</span>
-                                    <span class="font-semibold mt-1 block whitespace-pre-line text-slate-600">${room.policyText}</span>
+                                    <span class="font-semibold mt-1 block whitespace-pre-line text-slate-600 leading-relaxed">${room.policyText}</span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- فاصل التذكرة -->
+                        <!-- ✂️ فاصل التذكرة المتقطع -->
                         <div class="hidden md:block ticket-divider-v z-20"></div>
                         <div class="md:hidden ticket-divider-h z-20"></div>
 
-                        <!-- قسم السعر والحجز (يسار) -->
-                        <div class="w-full md:w-[240px] lg:w-[260px] p-5 md:p-6 flex flex-col justify-center items-center bg-[#f8fafc] shrink-0 z-10">
-                            <span class="text-[11px] font-bold text-gray-500 mb-1">السعر لليلة واحدة</span>
+                        <!-- 💰 قسم السعر والحجز (يسار) -->
+                        <div class="w-full md:w-[260px] lg:w-[280px] p-6 md:p-8 flex flex-col justify-center items-center bg-[#f8fafc] shrink-0 z-10">
+                            <span class="text-xs font-bold text-gray-500 mb-1">السعر لليلة واحدة</span>
                             <div class="text-center mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
                                 <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
-                                <span class="text-3xl lg:text-4xl font-black text-[#1f3a40] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
+                                <span class="text-4xl lg:text-5xl font-black text-[#1f3a40] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
                             </div>
-                            <span class="text-[10px] text-gray-400 font-bold mb-4 block">شامل الضريبة والرسوم</span>
+                            <span class="text-[10px] text-gray-400 font-bold mb-6 block">شامل الضريبة والرسوم</span>
 
-                            <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-3.5 rounded-xl shadow-md border-none cursor-pointer" 
+                            <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.3)] border-none cursor-pointer text-lg" 
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
                                 احجز الغرفة
                             </button>
 
                             ${currentUser 
-                                ? `<div class="mt-3 flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 px-3 py-2 rounded-xl w-full cursor-default border border-amber-200/60 shadow-sm">
+                                ? `<div class="mt-4 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 px-3 py-2.5 rounded-xl w-full cursor-default border border-amber-200/60 shadow-sm">
                                        <i class="fa-solid fa-coins text-amber-500 text-sm"></i>
-                                       <span class="text-[10px] font-black tracking-wide">يضاف الكاش باك بعد الحجز</span>
+                                       <span class="text-[11px] font-black tracking-wide">يضاف الكاش باك بعد الحجز</span>
                                    </div>` 
-                                : `<div onclick="openAuthModal()" class="mt-3 flex items-center justify-center gap-1.5 bg-[#fff7ed] text-[#9a3412] px-2 py-2 rounded-xl w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group shadow-sm">
-                                       <i class="fa-solid fa-lock text-[#ea580c] text-xs group-hover:text-[#f97316]"></i>
-                                       <span class="text-[10px] font-extrabold underline decoration-dashed underline-offset-2">سجل لتفعيل الكاش باك</span>
+                                : `<div onclick="openAuthModal()" class="mt-4 flex items-center justify-center gap-2 bg-[#fff7ed] text-[#9a3412] px-3 py-2.5 rounded-xl w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group shadow-sm">
+                                       <i class="fa-solid fa-lock text-[#ea580c] text-sm group-hover:text-[#f97316]"></i>
+                                       <span class="text-[11px] font-extrabold underline decoration-dashed underline-offset-4">سجل لتفعيل الكاش باك</span>
                                    </div>`
                             }
                         </div>
@@ -2060,18 +1947,23 @@
                 const res = await fetch(`${API_URL}/api/v1/reviews/hotel/${encodeURIComponent(hotelName)}`);
                 const data = await res.json();
                 if (data.success) {
-                    let html = `<div style="font-weight:900; color:var(--primary); margin-bottom:10px;">متوسط التقييم العام: <span style="color:var(--accent-yellow); font-size:18px;">⭐ ${data.averageRating} / 5</span> (${data.totalReviews} تقييم معتمد)</div>`;
+                    let html = `<div class="text-center mb-6"><div class="inline-flex items-center justify-center gap-3 bg-slate-50 border border-slate-100 px-6 py-3 rounded-2xl"><span class="text-slate-600 font-bold text-sm">متوسط التقييم العام:</span><span class="text-[#1f3a40] font-black text-2xl tracking-tight" dir="ltr">${data.averageRating} <span class="text-sm text-slate-400">/ 5</span></span><div class="flex text-yellow-400 text-sm">`;
+                    for(let i=0; i<Math.round(data.averageRating); i++) html += '<i class="fa-solid fa-star"></i>';
+                    html += `</div><span class="text-xs font-bold text-slate-400">(${data.totalReviews} تقييم معتمد)</span></div></div>`;
+                    
                     let allCombinedReviews = [...data.reviews.local, ...data.reviews.globalSupplier];
-                    if (allCombinedReviews.length === 0) { html += `<p style="font-size:13px; color:var(--text-muted);">لا توجد تقييمات محلية بعد، كن أول من يقيّم هذا الفندق!</p>`; } 
+                    if (allCombinedReviews.length === 0) { html += `<p class="text-center text-sm font-bold text-slate-400 py-6">لا توجد تقييمات محلية بعد، كن أول من يقيّم هذا الفندق!</p>`; } 
                     else {
+                        html += `<div class="grid grid-cols-1 md:grid-cols-2 gap-4">`;
                         allCombinedReviews.forEach(rev => {
-                            let stars = '⭐'.repeat(Math.round(rev.rating));
-                            html += `<div style="background:#f8f9fa; padding:12px; border-radius:12px; border:1px solid #e2e8f0; font-size:13px;"><div style="display:flex; justify-content:space-between; margin-bottom:4px;"><strong>${rev.customerName}</strong><span style="color:var(--accent-yellow);">${stars}</span></div><p style="color:var(--text-main); font-weight:600;">"${rev.comment}"</p></div>`;
+                            let stars = ''; for(let i=0; i<Math.round(rev.rating); i++) stars += '<i class="fa-solid fa-star text-yellow-400 text-xs"></i>';
+                            html += `<div class="bg-slate-50/50 p-5 rounded-2xl border border-slate-100 hover:border-[#00b4d8]/20 transition-colors"><div class="flex items-center justify-between mb-3"><div class="flex items-center gap-3"><div class="w-8 h-8 rounded-full bg-[#1f3a40] text-white flex items-center justify-center font-bold text-xs">${rev.customerName.charAt(0)}</div><strong class="text-sm text-[#1f3a40]">${rev.customerName}</strong></div><div class="flex gap-0.5">${stars}</div></div><p class="text-slate-600 font-semibold text-sm leading-relaxed">"${rev.comment}"</p></div>`;
                         });
+                        html += `</div>`;
                     }
                     container.innerHTML = html;
-                } else { container.innerHTML = '<p style="color:var(--text-muted);">تعذر تحميل التقييمات حالياً.</p>'; }
-            } catch (e) { container.innerHTML = '<p style="color:var(--text-muted);">خطأ في الاتصال بسيرفر التقييمات.</p>'; }
+                } else { container.innerHTML = '<p class="text-center text-sm font-bold text-slate-400 py-6">تعذر تحميل التقييمات حالياً.</p>'; }
+            } catch (e) { container.innerHTML = '<p class="text-center text-sm font-bold text-red-400 py-6">خطأ في الاتصال بسيرفر التقييمات.</p>'; }
         }
 
         async function submitHotelReview(e) {
