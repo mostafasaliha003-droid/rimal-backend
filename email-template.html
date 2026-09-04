@@ -3,58 +3,113 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>تأكيد الحجز - رمال وفلّها</title>
+    <title>تأكيد حجزك - شركة الرمال</title>
+    <!-- استدعاء خط كايرو (للأجهزة التي تدعمه) -->
+    <style>
+        @import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;700;900&display=swap');
+        body { margin: 0; padding: 0; font-family: 'Cairo', Arial, Helvetica, sans-serif; background-color: #f1f5f9; -webkit-font-smoothing: antialiased; }
+        table { border-spacing: 0; border-collapse: collapse; }
+        td { padding: 0; }
+        .wrapper { width: 100%; table-layout: fixed; background-color: #f1f5f9; padding: 40px 0; }
+        .main-card { background-color: #ffffff; margin: 0 auto; width: 100%; max-width: 600px; border-radius: 16px; overflow: hidden; box-shadow: 0 10px 30px rgba(31,58,64,0.08); }
+    </style>
 </head>
-<body style="margin: 0; padding: 0; background-color: #f3f4f6; font-family: Tahoma, Arial, sans-serif; -webkit-font-smoothing: antialiased;">
-    <table width="100%" border="0" cellspacing="0" cellpadding="0" style="background-color: #f3f4f6; padding: 40px 15px;">
+<body>
+    <!-- الحاوية الخارجية -->
+    <table class="wrapper" width="100%" cellpadding="0" cellspacing="0">
         <tr>
             <td align="center">
-                <table width="600" border="0" cellspacing="0" cellpadding="0" style="background-color: #ffffff; border-radius: 24px; overflow: hidden; box-shadow: 0 10px 30px rgba(0,0,0,0.05); text-align: right; direction: rtl;">
+                
+                <!-- البطاقة البيضاء الرئيسية -->
+                <table class="main-card" width="100%" cellpadding="0" cellspacing="0" style="background-color: #ffffff; max-width: 600px; border-radius: 16px; overflow: hidden;">
                     
-                    <!-- الترويسة -->
+                    <!-- الهيدر الفاخر -->
                     <tr>
-                        <td style="background: linear-gradient(135deg, #1f3a40, #2a4d53); padding: 40px; text-align: center; border-bottom: 5px solid #00b4d8;">
-                            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: bold;">رمال وفلّها! 🌴</h1>
-                            <p style="color: #00b4d8; font-size: 13px; letter-spacing: 3px; font-weight: bold; margin: 8px 0 0 0;">REMAL & CHILL</p>
+                        <td style="background-color: #1f3a40; background-image: linear-gradient(135deg, #1f3a40 0%, #2a4d53 100%); padding: 35px 30px; text-align: center; border-bottom: 5px solid #00b4d8;">
+                            <h1 style="color: #ffffff; margin: 0; font-size: 32px; font-weight: 900; line-height: 1;">رمال وفلّها!</h1>
+                            <p style="color: #00b4d8; margin: 5px 0 0 0; font-size: 12px; letter-spacing: 4px; text-transform: uppercase; font-weight: 800;">Remal & Chill</p>
                         </td>
                     </tr>
 
-                    <!-- المحتوى الرئيسي -->
+                    <!-- جسم الرسالة -->
                     <tr>
-                        <td style="padding: 40px;">
-                            <h2 style="color: #1f3a40; font-size: 24px; margin-top: 0; margin-bottom: 15px;">أهلاً بك في عالمك الخاص، {{customerName}}!</h2>
-                            <p style="color: #6c757d; font-size: 16px; line-height: 1.8; margin-bottom: 25px;">
-                                لقد تم تأكيد حجزك رسمياً في <strong style="color: #00b4d8;">{{hotelName}}</strong>. نحن متحمسون جداً لتجربتك القادمة، وقد أرفقنا قسيمة الحجز (PDF) المعتمدة مع هذا البريد.
-                            </p>
+                        <td style="padding: 40px 30px; text-align: right;" dir="rtl">
                             
-                            <!-- تفاصيل سريعة -->
-                            <div style="background-color: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 16px; padding: 20px; margin-bottom: 30px;">
-                                <p style="margin: 0 0 10px 0; color: #1f3a40; font-size: 15px;"><strong>رقم المرجع:</strong> <span style="color: #ff595e;" dir="ltr">{{bookingReference}}</span></p>
-                                <p style="margin: 0 0 10px 0; color: #1f3a40; font-size: 15px;"><strong>تاريخ الدخول:</strong> {{checkInDate}}</p>
-                                <p style="margin: 0; color: #1f3a40; font-size: 15px;"><strong>المبلغ المدفوع:</strong> <span dir="ltr">{{price}} AED</span></p>
+                            <!-- رسالة التأكيد -->
+                            <div style="text-align: center; margin-bottom: 30px;">
+                                <span style="background-color: #dcfce7; color: #059669; padding: 10px 20px; border-radius: 50px; font-size: 13px; font-weight: bold; border: 1px solid #bbf7d0; display: inline-block;">
+                                    ✅ تم تأكيد حجزك رسمياً
+                                </span>
                             </div>
 
-                            <!-- الملاحظة -->
-                            <p style="color: #800000; font-size: 14px; font-weight: bold; text-align: center; margin-bottom: 0;">
-                                📄 يرجى تحميل المرفق (PDF) وإبرازه عند الوصول للفندق.
+                            <h2 style="color: #1f3a40; font-size: 22px; font-weight: 900; margin: 0 0 10px 0;">أهلاً بك في عالمك الخاص، {{customerName}} ✨</h2>
+                            <p style="color: #475569; font-size: 15px; line-height: 1.7; margin: 0 0 25px 0; font-weight: 600;">
+                                نحن متحمسون جداً لتجربتك القادمة! لقد تم حجز إقامتك بنجاح في: <br>
+                                <strong style="color: #ff595e; font-size: 18px; display: block; margin-top: 8px;" dir="auto">{{hotelName}}</strong>
                             </p>
+
+                            <!-- صندوق تفاصيل الحجز -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 14px; margin-bottom: 30px;">
+                                <tr>
+                                    <td style="padding: 20px;">
+                                        <table width="100%" cellpadding="0" cellspacing="0">
+                                            <tr>
+                                                <td style="padding-bottom: 15px; border-bottom: 1px dashed #cbd5e1; text-align: right;">
+                                                    <span style="color: #64748b; font-size: 11px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px;">رقم المرجع (Booking Ref)</span>
+                                                    <strong style="color: #00b4d8; font-size: 18px; letter-spacing: 1px;" dir="ltr">{{bookingReference}}</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding: 15px 0; border-bottom: 1px dashed #cbd5e1; text-align: right;">
+                                                    <span style="color: #64748b; font-size: 11px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px;">تاريخ الدخول (Check-in)</span>
+                                                    <strong style="color: #1f3a40; font-size: 15px;">{{checkInDate}}</strong>
+                                                </td>
+                                            </tr>
+                                            <tr>
+                                                <td style="padding-top: 15px; text-align: right;">
+                                                    <span style="color: #64748b; font-size: 11px; font-weight: bold; text-transform: uppercase; display: block; margin-bottom: 4px;">المبلغ المدفوع (Total Paid)</span>
+                                                    <strong style="color: #1f3a40; font-size: 18px;" dir="ltr">AED {{price}}</strong>
+                                                </td>
+                                            </tr>
+                                        </table>
+                                    </td>
+                                </tr>
+                            </table>
+
+                            <!-- ملاحظة الـ PDF الهامة -->
+                            <div style="background-color: #fff1f2; padding: 18px; border-right: 5px solid #ff595e; border-radius: 12px; margin-bottom: 35px;">
+                                <strong style="color: #be123c; font-size: 14px; display: block; margin-bottom: 6px;">📄 قسيمة الحجز المرفقة:</strong>
+                                <p style="color: #881337; font-size: 13px; line-height: 1.6; margin: 0; font-weight: 600;">
+                                    لقد أرفقنا <b>قسيمة الحجز (Voucher)</b> بصيغة PDF مع هذا البريد. يرجى تحميل المرفق والاحتفاظ به لإبرازه لموظف الاستقبال عند الوصول للفندق.
+                                </p>
+                            </div>
+
+                            <!-- الأزرار التفاعلية -->
+                            <table width="100%" cellpadding="0" cellspacing="0" style="margin-bottom: 10px;">
+                                <tr>
+                                    <td align="center">
+                                        <!-- زر الواتساب -->
+                                        <a href="https://wa.me/971544757578" style="background-color: #10b981; color: #ffffff; text-decoration: none; padding: 14px 28px; border-radius: 50px; font-weight: 900; font-size: 14px; display: inline-block; border: 2px solid #059669;">
+                                            التواصل المباشر عبر واتساب
+                                        </a>
+                                    </td>
+                                </tr>
+                            </table>
+
                         </td>
                     </tr>
 
                     <!-- الفوتر -->
                     <tr>
-                        <td style="background-color: #111827; padding: 30px 40px; text-align: center;">
-                            <p style="color: #ffffff; font-size: 15px; font-weight: bold; margin: 0 0 10px 0;">شركة الرمال الدولية لخدمات السفر</p>
-                            <p style="color: #94a3b8; font-size: 13px; margin: 0 0 20px 0; line-height: 1.6;">
-                                فرع قرية الأعمال، ميناء سعيد | فرع فندق الميدان، دبي<br>
-                                remalbookings.com
-                            </p>
-                            <a href="https://wa.me/971544757578" style="background-color: #25D366; color: #ffffff; text-decoration: none; font-weight: bold; font-size: 14px; padding: 12px 25px; border-radius: 50px; display: inline-block;">
-                                دعم الواتساب المباشر
-                            </a>
+                        <td style="background-color: #cbd5e1; padding: 25px; text-align: center; border-top: 1px solid #94a3b8;">
+                            <p style="margin: 0 0 6px 0; color: #1f3a40; font-size: 14px; font-weight: 900;">شركة الرمال الدولية لتنظيم الرحلات السياحية (L.L.C)</p>
+                            <p style="margin: 0; color: #475569; font-size: 12px; font-weight: bold;">دبي، الإمارات العربية المتحدة | management@remaltourismllc.com</p>
                         </td>
                     </tr>
+
                 </table>
+                <!-- نهاية البطاقة -->
+                
             </td>
         </tr>
     </table>
