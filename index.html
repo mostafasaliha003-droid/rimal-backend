@@ -139,12 +139,10 @@
 </head>
 <body class="antialiased text-slate-800 flex flex-col min-h-screen relative">
 
-    <!-- ============================================== -->
-    <!-- حاوية الإشعارات العائمة (Toast Container) -->
-    <!-- ============================================== -->
+    <!-- حاوية الإشعارات العائمة -->
     <div id="toast-container" class="fixed top-6 left-0 right-0 z-[9999] flex flex-col items-center gap-3 px-4 pointer-events-none"></div>
 
-    <!-- 🌟 شريط الحجوزات الحية -->
+    <!-- شريط الحجوزات الحية -->
     <div class="live-ticker">
         <i class="fa-solid fa-bolt" style="color: var(--accent-yellow);"></i>
         <span id="tickerText">🔥 أحمد من عجمان حجز ليلتين واستعد للسحب على الدوام! 🌴</span>
@@ -156,7 +154,7 @@
             <div class="bg-white p-1.5 rounded-lg"><img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded-md object-cover bg-white p-0.5" onerror="this.src='https://via.placeholder.com/32?text=Logo'"></div>
             <div class="flex flex-col">
                 <span class="font-extrabold text-xl leading-none tracking-tight text-white">رمال وفلّها! <span class="wave-emoji">🌴</span></span>
-                <span class="text-[0.6rem] text-remal-turquoise tracking-[0.2em] uppercase font-bold mt-1" style="color:var(--accent-cyan)">Remal & Chill</span>
+                <span class="text-[0.6rem] tracking-[0.2em] uppercase font-bold mt-1" style="color:var(--accent-cyan)">Remal & Chill</span>
             </div>
         </a>
 
@@ -236,7 +234,7 @@
             </div>
         </section>
 
-        <!-- 🌟 شريط البحث المطور (Search Bar) -->
+        <!-- شريط البحث -->
         <section class="relative z-30 px-4 max-w-6xl mx-auto -mt-16">
             <div class="bg-white rounded-3xl shadow-[0_10px_35px_rgba(0,0,0,0.06)] border border-slate-100 p-2 md:p-3 relative z-30">
                 <div class="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100 gap-2 lg:gap-0">
@@ -313,7 +311,7 @@
             
             <div class="container mt-4" id="childAgesContainer" style="display:none; background:white; padding:15px; border-radius:16px; border:2px dashed var(--accent-cyan);"></div>
 
-            <!-- زر تصفية الوجبات (Select Dropdown) -->
+            <!-- زر تصفية الوجبات -->
             <div class="flex justify-center mt-6 relative z-20">
                 <div class="relative inline-block group">
                   <select id="boardBasisFilter" onchange="updateBoardText(this); filterHotels();" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" dir="rtl">
@@ -334,11 +332,11 @@
             </div>
         </section>
 
-        <!-- Hotels List & Map Layout -->
+        <!-- عرض الفنادق والخريطة -->
         <div class="container mt-8 relative z-10">
             <div class="flex flex-col lg:flex-row gap-8 items-start relative z-0">
                 
-                <!-- Filters & Map (Sticky Side) -->
+                <!-- Filters & Map -->
                 <aside class="w-full lg:w-[320px] shrink-0 flex flex-col gap-6 sticky top-28">
                     <div class="bg-white rounded-3xl border border-slate-100 shadow-2xl p-4 md:p-6 transition-all">
                         <div class="flex items-center justify-between mb-5 px-2">
@@ -349,13 +347,11 @@
                                 <h2 class="text-lg md:text-xl font-black text-slate-800 tracking-tight">خريطة الفنادق <span class="text-[#00b4d8]">الحية</span></h2>
                             </div>
                         </div>
-                        
                         <div id="map" class="relative w-full h-[350px] md:h-[350px] rounded-2xl overflow-hidden border border-slate-200/80 bg-slate-100 shadow-inner"></div>
                     </div>
 
-                    <!-- 🌟 مكون الفلتر الاحترافي المدمج (World-Class UI/UX) -->
+                    <!-- الفلتر والتصنيف -->
                     <div class="bg-white rounded-3xl border border-slate-100 shadow-[0_4px_20px_rgba(0,0,0,0.05)] p-6">
-                        <!-- Header with Clear Button -->
                         <div class="flex items-center justify-between mb-6">
                             <div class="flex items-center gap-2">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-6 h-6 text-gray-700" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
@@ -363,7 +359,6 @@
                                 </svg>
                                 <h2 class="text-gray-800 font-bold text-lg">فلترة وتصنيف</h2>
                             </div>
-                            <!-- Clear Filters Button -->
                             <button type="button" onclick="document.querySelector('input[name=cityFilter][value=all]').checked=true; document.querySelector('input[name=sortFilter][value=recommended]').checked=true; filterHotels();" class="group flex items-center gap-1 text-sm text-gray-400 hover:text-[#800000] font-medium transition-colors duration-300 ease-in-out focus:outline-none focus-visible:ring-2 focus-visible:ring-[#00b4d8] rounded p-2 -m-2 cursor-pointer bg-transparent border-none">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="w-3.5 h-3.5 transition-transform group-hover:-rotate-180 duration-500" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
                                     <path stroke-linecap="round" stroke-linejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
@@ -374,11 +369,9 @@
 
                         <hr class="border-gray-100 mb-5">
 
-                        <!-- Regions Section -->
                         <fieldset class="mb-7">
                             <legend class="text-[#00b4d8] font-bold text-sm mb-4 w-full">المناطق:</legend>
                             <div class="space-y-1">
-                                <!-- Option: All -->
                                 <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
                                     <input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()" class="peer sr-only">
                                     <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
@@ -392,7 +385,6 @@
                                     <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">كل المناطق</span>
                                 </label>
 
-                                <!-- Option: Dubai -->
                                 <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
                                     <input type="radio" name="cityFilter" value="دبي" onchange="filterHotels()" class="peer sr-only">
                                     <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
@@ -406,7 +398,6 @@
                                     <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">دبي</span>
                                 </label>
 
-                                <!-- Option: Abu Dhabi -->
                                 <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
                                     <input type="radio" name="cityFilter" value="أبوظبي" onchange="filterHotels()" class="peer sr-only">
                                     <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
@@ -420,7 +411,6 @@
                                     <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">أبوظبي</span>
                                 </label>
 
-                                <!-- Option: Sharjah -->
                                 <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
                                     <input type="radio" name="cityFilter" value="الشارقة" onchange="filterHotels()" class="peer sr-only">
                                     <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
@@ -438,11 +428,9 @@
 
                         <hr class="border-gray-100 mb-5">
 
-                        <!-- Sort Section -->
                         <fieldset>
                             <legend class="text-[#00b4d8] font-bold text-sm mb-4 w-full">ترتيب النتائج:</legend>
                             <div class="space-y-1">
-                                <!-- Recommended -->
                                 <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
                                     <input type="radio" name="sortFilter" value="recommended" checked onchange="filterHotels()" class="peer sr-only">
                                     <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
@@ -456,7 +444,6 @@
                                     </div>
                                     <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">الأقوى ترشيحاً</span>
                                 </label>
-                                <!-- Lowest Price -->
                                 <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
                                     <input type="radio" name="sortFilter" value="price_low" onchange="filterHotels()" class="peer sr-only">
                                     <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
@@ -469,7 +456,6 @@
                                     </div>
                                     <span class="text-gray-600 peer-checked:text-gray-900 peer-checked:font-bold transition-all duration-300 ease-in-out text-[15px]">الأقل سعراً أولاً</span>
                                 </label>
-                                <!-- Highest Points -->
                                 <label class="group flex items-center gap-3 p-2 rounded-xl cursor-pointer hover:bg-[#00b4d8]/10 transition-colors duration-300 ease-in-out">
                                     <input type="radio" name="sortFilter" value="points_high" onchange="filterHotels()" class="peer sr-only">
                                     <div class="w-5 h-5 rounded-full border-2 border-gray-300 peer-checked:border-[#800000] peer-focus-visible:ring-2 peer-focus-visible:ring-[#00b4d8] peer-focus-visible:ring-offset-2 flex items-center justify-center transition-all duration-300 ease-in-out">
@@ -1957,7 +1943,7 @@
                 });
                 const ziinaData = await ziinaRes.json();
 
-                if (ziinaData.success && (ziinaData.redirect_url || ziinaData.embedded_url)) {
+                if (ziinaData.success && (ziinaData.embedded_url || ziinaData.redirect_url)) {
                     const pendingData = { 
                         bookingReference, 
                         ziinaPaymentId: ziinaData.ziinaPaymentId || '', 
@@ -1975,10 +1961,74 @@
                     };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
 
-                    // 🚀 التوجيه المباشر والآمن لبوابة الدفع (لتفادي حظر الـ iframe ودعم Apple Pay بالكامل)
-                    btn.innerHTML = '<i class="fa-solid fa-lock"></i> جاري تحويلك لبوابة الدفع الآمنة...';
-                    const paymentUrl = ziinaData.redirect_url || ziinaData.embedded_url;
-                    window.location.href = paymentUrl;
+                    // بناء رابط الدفع المدمج
+                    let baseEmbedUrl = ziinaData.embedded_url;
+                    if (!baseEmbedUrl && ziinaData.redirect_url) {
+                        baseEmbedUrl = ziinaData.redirect_url.replace('/payment_intent/', '/embedded/payment_intent/');
+                    }
+                    const finalIframeUrl = baseEmbedUrl + (baseEmbedUrl.includes('?') ? '&' : '?') + 'version=latest&locale=ar';
+
+                    // إنشاء النافذة المنبثقة داخل الموقع
+                    const iframeContainer = document.createElement('div');
+                    iframeContainer.id = 'ziina-payment-modal';
+                    iframeContainer.style.cssText = 'position:fixed; top:0; left:0; width:100%; height:100%; background:rgba(15,23,42,0.85); z-index:9999; display:flex; justify-content:center; align-items:center; backdrop-filter: blur(8px);';
+                    
+                    const iframeWrapper = document.createElement('div');
+                    iframeWrapper.style.cssText = 'position:relative; width:100%; max-width:450px; height:85%; max-height:820px; display:flex; justify-content:center; align-items:center; animation: scaleIn 0.3s ease-out forwards;';
+
+                    const iframe = document.createElement('iframe');
+                    iframe.id = 'ziina-checkout';
+                    iframe.src = finalIframeUrl;
+                    
+                    // 🚀 السطر الأهم: إعطاء صلاحية الـ Apple Pay داخل الإطار
+                    iframe.setAttribute('allow', 'payment *');
+                    
+                    iframe.style.cssText = 'width:100%; height:100%; border:none; border-radius:16px; background:transparent; box-shadow:0 20px 50px rgba(0,0,0,0.5);';
+                    
+                    const closeBtn = document.createElement('button');
+                    closeBtn.innerHTML = '<i class="fa-solid fa-xmark"></i> إغلاق الدفع';
+                    closeBtn.style.cssText = 'position:absolute; top:-40px; right:0; background:rgba(255,255,255,0.2); border:none; border-radius:8px; padding:6px 15px; cursor:pointer; font-weight:bold; color:white; font-size:14px; transition:all 0.2s;';
+                    closeBtn.onmouseover = () => { closeBtn.style.background = '#ff595e'; };
+                    closeBtn.onmouseout = () => { closeBtn.style.background = 'rgba(255,255,255,0.2)'; };
+                    closeBtn.onclick = () => {
+                        document.body.removeChild(iframeContainer);
+                        btn.innerHTML = origText; 
+                        btn.disabled = false;
+                        showToast('info', 'تم الإلغاء', 'تم إغلاق بوابة الدفع قبل إتمام العملية.');
+                    };
+
+                    iframeWrapper.appendChild(closeBtn);
+                    iframeWrapper.appendChild(iframe);
+                    iframeContainer.appendChild(iframeWrapper);
+                    document.body.appendChild(iframeContainer);
+
+                    // الاستماع لنتيجة الدفع من Ziina لإصدار الـ PDF
+                    window.addEventListener('message', function paymentListener(event) {
+                        const checkoutIframe = document.getElementById('ziina-checkout');
+                        if (!checkoutIframe || event.source !== checkoutIframe.contentWindow) return;
+                        
+                        const { type, data } = event.data || {};
+                        if (event.origin !== 'https://pay.ziina.com' || type !== 'ZIINA_PAYMENT_STATUS_CHANGE') return;
+
+                        if (data.status === "COMPLETED") {
+                            window.removeEventListener('message', paymentListener);
+                            iframeContainer.innerHTML = '<div style="text-align:center; color:white; font-family:Cairo;"><div style="font-size:60px; margin-bottom:15px;">✅</div><h2 style="font-size:24px; font-weight:900;">تم الدفع بنجاح!</h2><p style="color:#a5b4fc; font-weight:bold;">جاري تثبيت الحجز وإصدار التذكرة...</p></div>';
+                            
+                            setTimeout(() => {
+                                document.body.removeChild(iframeContainer);
+                                window.location.href = `https://remalbookings.com?payment=success&ref=${bookingReference}`;
+                            }, 1500);
+
+                        } else if (data.status === "FAILED") {
+                            showToast('error', 'فشلت العملية', 'تم رفض البطاقة أو فشل الدفع، يرجى المحاولة ببطاقة أخرى.');
+                        } else if (data.status === "CANCELED") {
+                            document.body.removeChild(iframeContainer);
+                            btn.innerHTML = origText; 
+                            btn.disabled = false;
+                            showToast('info', 'إلغاء الدفع', 'تم التراجع عن عملية الدفع.');
+                            window.removeEventListener('message', paymentListener);
+                        }
+                    });
 
                 } else { 
                     showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); 
