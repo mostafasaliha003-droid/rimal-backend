@@ -495,13 +495,14 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         
         email = email.toLowerCase().trim();
         const bookingReference = req.body.bookingReference || ('RIMAL-' + Math.floor(100000 + Math.random() * 900000));
-        let finalPrice = parseFloat(price) || 100;
+        
+        // 🚀 السعر القادم من الواجهة هو السعر النهائي (بعد الخصم)
+        let finalPrice = parseFloat(price) || 100; 
         let user = await User.findOne({ email });
 
+        // 1️⃣ خصم النقاط من رصيد العميل فقط (بدون التأثير على finalPrice لأنه مخصوم أصلاً من الواجهة)
         if (user && pointsUsed && pointsUsed > 0) {
             if (user.points >= pointsUsed) {
-                let discountAmount = pointsUsed / 10;
-                finalPrice = Math.max(0, finalPrice - discountAmount);
                 user.points -= pointsUsed;
             }
         }
@@ -561,8 +562,10 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         });
         await newBooking.save();
 
+        // 2️⃣ إضافة كاش باك جديد للحجز الحالي (10% من قيمة الحجز الفعلي = finalPrice * 10)
         if (user) {
-            user.points += Math.round(finalPrice * 0.2);
+            const earnedPoints = Math.floor(finalPrice * 10);
+            user.points += earnedPoints;
             await user.save();
         }
 
