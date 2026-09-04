@@ -174,7 +174,7 @@
 
     <header>
         <a class="group flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md pr-4 pl-6 py-2 rounded-2xl transition-all duration-300 cursor-pointer text-decoration-none shadow-[0_4px_15px_rgba(0,0,0,0.1)]" onclick="switchView('mainView')">
-            <div class="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
+            <div class="relative w-10 h-10 md:w-12 h-12 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
                 <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md">
                     <defs>
                         <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -419,7 +419,7 @@
                     </div>
                 </aside>
 
-                <!-- 🚀 قائمة الفنادق (بطاقات محسنة وحل مشكلة الصورة) -->
+                <!-- 🚀 قائمة الفنادق -->
                 <div class="flex-1 space-y-8 min-w-0">
                     <div id="hotelsContainer"></div>
                 </div>
@@ -686,7 +686,7 @@
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول/الإنشاء -->
+    <!-- نوافذ الأمان الأخرى -->
     <div id="socialModal" class="modal-overlay fixed inset-0 z-[3000] hidden items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
         <div class="bg-white w-full max-w-md rounded-[2rem] shadow-2xl relative animate-[scaleIn_0.3s_ease-out_forwards] border border-white/20 overflow-hidden">
             <div class="bg-gradient-to-r from-[#1f3a40] to-[#112226] pt-10 pb-8 px-6 relative border-b-4 border-[#00b4d8]">
@@ -950,7 +950,6 @@
 
     <div id="google_translate_element" style="display:none;"></div>
 
-    <!-- كود إزالة الكاش والـ Service Worker لجميع العملاء تلقائياً -->
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
@@ -990,7 +989,7 @@
             { 
                 name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 100, lat: 25.2048, lng: 55.2708, 
                 img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
-                funnyPolicy: "إلغاء مجاني 100% - استرداد كامل المبلغ على الكرت في أي وقت! ✨", 
+                funnyPolicy: "إلغاء مجاني 100% - استرداد كامل المبلغ على الكرت في أي وقت!", 
                 hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-credit-card'></i> دفع آمن عبر Ziina"]
             },
             { 
@@ -1051,6 +1050,76 @@
             toastElement.classList.remove('translate-y-0', 'opacity-100', 'scale-100');
             toastElement.classList.add('-translate-y-4', 'opacity-0', 'scale-95');
             setTimeout(() => { toastElement.remove(); }, 500);
+        }
+
+        // 🚀 دالة عرض نافذة الإلغاء الفاخرة (Ultimate UX Cancel Modal)
+        function showPremiumCancelModal(bookingRef, price, refundType, policyText, onConfirmCallback) {
+            let refundAmount = 0;
+            let refundPercentageText = "0%";
+            
+            if (refundType === 'full_100' || policyText.includes('100%')) {
+                refundAmount = price;
+                refundPercentageText = "100%";
+            } else if (refundType === 'partial_50' || policyText.includes('50%') || policyText.includes('جزء')) {
+                refundAmount = price * 0.5;
+                refundPercentageText = "50%";
+            } else {
+                refundAmount = 0;
+                refundPercentageText = "غير قابل للاسترداد";
+            }
+
+            const modalHtml = `
+                <div id="remal-cancel-overlay" class="modal-overlay" style="display:flex; opacity:0; transition: 0.3s ease; z-index:9999;">
+                    <div class="bg-white w-[90%] max-w-md rounded-3xl p-6 text-center shadow-2xl transform scale-95 transition-transform duration-300 border-t-[6px] border-[#ff595e]">
+                        <div class="w-16 h-16 bg-red-50 text-[#ff595e] rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-triangle-exclamation text-3xl"></i>
+                        </div>
+                        
+                        <h3 class="text-[#1f3a40] font-black text-xl mb-2">هل أنت متأكد من الإلغاء؟</h3>
+                        <p class="text-slate-500 font-bold text-sm mb-5">أنت على وشك إلغاء الحجز رقم: <b dir="ltr" class="text-[#1f3a40]">${bookingRef}</b></p>
+                        
+                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 text-right" dir="rtl">
+                            <p class="text-sm font-bold text-slate-600 mb-2 flex items-center gap-2"><i class="fa-solid fa-file-contract text-[#00b4d8]"></i> سياسة الفندق:</p>
+                            <p class="text-xs font-bold text-[#be123c] mb-4 bg-red-50 p-2 rounded-lg border border-red-100">${policyText}</p>
+                            
+                            <div class="bg-white border border-slate-200 p-3 rounded-xl text-center">
+                                <span class="block text-xs font-bold text-slate-500 mb-1">المبلغ الخاضع للاسترداد (${refundPercentageText})</span>
+                                <span class="block text-xl font-black text-[#1f3a40]" dir="ltr">AED ${refundAmount}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button id="remal-close-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors cursor-pointer border-none">تراجع</button>
+                            <button id="remal-confirm-btn" class="flex-1 bg-[#ff595e] hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer border-none shadow-md">نعم، ألغِ الحجز</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const overlay = document.getElementById('remal-cancel-overlay');
+            const innerBox = overlay.querySelector('.bg-white');
+            
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+                innerBox.classList.remove('scale-95');
+                innerBox.classList.add('scale-100');
+            }, 10);
+
+            document.getElementById('remal-close-btn').onclick = () => {
+                overlay.style.opacity = '0';
+                innerBox.classList.remove('scale-100');
+                innerBox.classList.add('scale-95');
+                setTimeout(() => overlay.remove(), 300);
+            };
+
+            document.getElementById('remal-confirm-btn').onclick = () => {
+                const btn = document.getElementById('remal-confirm-btn');
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الإلغاء...';
+                btn.disabled = true;
+                btn.classList.add('opacity-70', 'cursor-not-allowed');
+                onConfirmCallback(overlay, innerBox); 
+            };
         }
 
         window.onload = function() {
@@ -1521,7 +1590,7 @@
                             <div class="relative flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 hover:border-[#00b4d8]/40 transition-all duration-300 mb-6 overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
                                 ${badgeHTML}
                                 <div class="pr-2 mb-5 mt-6 sm:mt-0 p-6 flex-1">
-                                    <h4 class="font-black text-[#1f3a40] text-lg mb-2 ml-24 flex items-center gap-2"><span class="text-[#00b4d8] text-xl shrink-0">🏨</span><bdi dir="auto">${booking.hotelName} - <span class="text-slate-500 font-normal">${booking.roomType || 'غرفة فندقية'}</span></bdi></h4>
+                                    <h4 class="font-black text-[#1f3a40] text-lg mb-2 ml-24 flex items-center gap-2"><span class="text-[#00b4d8] text-xl shrink-0">🏨</span><bdi dir="auto"><span style="unicode-bidi: plaintext;">${booking.hotelName}</span> - <span class="text-slate-500 font-normal">${booking.roomType || 'غرفة فندقية'}</span></bdi></h4>
                                     <div class="mb-3"><span class="bg-slate-100 px-2.5 py-1 rounded-lg text-xs font-medium text-slate-600 inline-block">✨ ${booking.mealPlan || 'شامل الوجبات'}</span></div>
                                     <div class="flex flex-wrap items-center gap-2 mt-3 text-xs">
                                         <div class="bg-slate-50 border border-slate-200 px-3 py-1.5 rounded-lg font-medium text-slate-600 flex items-center gap-1.5"><span class="text-slate-400">المرجع:</span><bdi dir="ltr" class="font-bold text-slate-800">${booking.bookingReference}</bdi></div>
@@ -1534,7 +1603,7 @@
                                     <button onclick="resendVoucherEmail('${booking.bookingReference}', '${booking.email || currentUser.email}')" class="w-full border border-[#1f3a40] text-[#1f3a40] hover:bg-slate-100 px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 cursor-pointer bg-transparent"><span>📤</span> إعادة إرسال</button>
                                     ${isConfirmed ? `
                                     <button onclick="modifyBookingPrompt('${booking.bookingReference}', '${booking.customerName}', '${booking.phone || ''}')" class="w-full border border-slate-300 text-slate-700 hover:bg-white px-4 py-2.5 rounded-xl text-sm font-bold flex items-center justify-center gap-2 transition-colors active:scale-95 cursor-pointer bg-white shadow-sm"><span>✏️</span> تعديل</button>
-                                    <button onclick="cancelBookingAPI('${booking.bookingReference}')" class="w-full text-red-600 hover:text-red-700 hover:bg-red-50/80 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95 border border-dashed border-red-200 bg-transparent cursor-pointer mt-2"><span>❌</span> إلغاء واسترداد</button>` : ''}
+                                    <button onclick="cancelBookingAPI('${booking.bookingReference}', ${booking.price}, '${booking.refundType || 'full_100'}', '${(booking.cancellationPolicy || '').replace(/'/g, "\\'")}')" class="w-full text-red-600 hover:text-red-700 hover:bg-red-50/80 px-4 py-2.5 rounded-xl text-xs font-bold flex items-center justify-center gap-1.5 transition-colors active:scale-95 border border-dashed border-red-200 bg-transparent cursor-pointer mt-2"><span>❌</span> إلغاء واسترداد</button>` : ''}
                                 </div>
                             </div>`;
                     });
@@ -1563,13 +1632,102 @@
             } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
         }
 
-        async function cancelBookingAPI(bookingReference) {
-            if(!confirm('هل أنت متأكد من رغبتك في إلغاء الحجز وتفعيل سياسة استرداد المبلغ آلياً على نفس بطاقة الدفع (حسب شروط المورد)؟')) return;
-            try {
-                const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference }) });
-                const data = await res.json();
-                if(data.success) { showToast('success', 'تم الإلغاء', data.message); fetchUserData(); } else { showToast('error', 'حدث خطأ', data.error); }
-            } catch(e) { showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); }
+        // 🚀 دالة عرض نافذة الإلغاء الفاخرة (Ultimate UX Cancel Modal)
+        function showPremiumCancelModal(bookingRef, price, refundType, policyText, onConfirmCallback) {
+            let refundAmount = 0;
+            let refundPercentageText = "0%";
+            
+            if (refundType === 'full_100' || policyText.includes('100%')) {
+                refundAmount = price;
+                refundPercentageText = "100%";
+            } else if (refundType === 'partial_50' || policyText.includes('50%') || policyText.includes('جزء')) {
+                refundAmount = price * 0.5;
+                refundPercentageText = "50%";
+            } else if (refundType === 'non_refundable' || policyText.includes('غير قابل للاسترداد') || policyText.includes('لا يوجد')) {
+                refundAmount = 0;
+                refundPercentageText = "غير قابل للاسترداد";
+            } else {
+                refundAmount = 0;
+                refundPercentageText = "غير قابل للاسترداد";
+            }
+
+            const modalHtml = `
+                <div id="remal-cancel-overlay" class="modal-overlay" style="display:flex; opacity:0; transition: 0.3s ease; z-index:9999;">
+                    <div class="bg-white w-[90%] max-w-md rounded-3xl p-6 text-center shadow-2xl transform scale-95 transition-transform duration-300 border-t-[6px] border-[#ff595e]">
+                        <div class="w-16 h-16 bg-red-50 text-[#ff595e] rounded-full flex items-center justify-center mx-auto mb-4">
+                            <i class="fa-solid fa-triangle-exclamation text-3xl"></i>
+                        </div>
+                        
+                        <h3 class="text-[#1f3a40] font-black text-xl mb-2">هل أنت متأكد من الإلغاء؟</h3>
+                        <p class="text-slate-500 font-bold text-sm mb-5">أنت على وشك إلغاء الحجز رقم: <b dir="ltr" class="text-[#1f3a40]">${bookingRef}</b></p>
+                        
+                        <div class="bg-slate-50 border border-slate-200 rounded-2xl p-4 mb-6 text-right" dir="rtl">
+                            <p class="text-sm font-bold text-slate-600 mb-2 flex items-center gap-2"><i class="fa-solid fa-file-contract text-[#00b4d8]"></i> سياسة الفندق:</p>
+                            <p class="text-xs font-bold text-[#be123c] mb-4 bg-red-50 p-2 rounded-lg border border-red-100"><bdi dir="auto"><span style="unicode-bidi: plaintext;">${policyText}</span></bdi></p>
+                            
+                            <div class="bg-white border border-slate-200 p-3 rounded-xl text-center">
+                                <span class="block text-xs font-bold text-slate-500 mb-1">المبلغ الخاضع للاسترداد (${refundPercentageText})</span>
+                                <span class="block text-xl font-black text-[#1f3a40]" dir="ltr">AED ${refundAmount}</span>
+                            </div>
+                        </div>
+
+                        <div class="flex gap-3">
+                            <button id="remal-close-btn" class="flex-1 bg-slate-100 hover:bg-slate-200 text-slate-700 font-bold py-3 rounded-xl transition-colors cursor-pointer border-none">تراجع</button>
+                            <button id="remal-confirm-btn" class="flex-1 bg-[#ff595e] hover:bg-red-600 text-white font-bold py-3 rounded-xl transition-colors cursor-pointer border-none shadow-md">نعم، ألغِ الحجز</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+
+            document.body.insertAdjacentHTML('beforeend', modalHtml);
+            const overlay = document.getElementById('remal-cancel-overlay');
+            const innerBox = overlay.querySelector('.bg-white');
+            
+            setTimeout(() => {
+                overlay.style.opacity = '1';
+                innerBox.classList.remove('scale-95');
+                innerBox.classList.add('scale-100');
+            }, 10);
+
+            document.getElementById('remal-close-btn').onclick = () => {
+                overlay.style.opacity = '0';
+                innerBox.classList.remove('scale-100');
+                innerBox.classList.add('scale-95');
+                setTimeout(() => overlay.remove(), 300);
+            };
+
+            document.getElementById('remal-confirm-btn').onclick = () => {
+                const btn = document.getElementById('remal-confirm-btn');
+                btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري الإلغاء...';
+                btn.disabled = true;
+                btn.classList.add('opacity-70', 'cursor-not-allowed');
+                onConfirmCallback(overlay, innerBox); 
+            };
+        }
+
+        async function cancelBookingAPI(bookingReference, price, refundType, policyText) {
+            showPremiumCancelModal(bookingReference, price, refundType, policyText, async (overlay, innerBox) => {
+                try {
+                    const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference }) });
+                    const data = await res.json();
+                    
+                    overlay.style.opacity = '0';
+                    innerBox.classList.remove('scale-100');
+                    innerBox.classList.add('scale-95');
+                    setTimeout(() => overlay.remove(), 300);
+
+                    if(data.success) { 
+                        showToast('success', 'تم الإلغاء بنجاح', data.message); 
+                        fetchUserData(); 
+                    } else { 
+                        showToast('error', 'حدث خطأ', data.error); 
+                    }
+                } catch(e) { 
+                    overlay.style.opacity = '0';
+                    setTimeout(() => overlay.remove(), 300);
+                    showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم.'); 
+                }
+            });
         }
 
         function logoutUser() { localStorage.removeItem('rimal_current_user'); currentUser = null; checkUserSession(); switchView('mainView'); showToast('info', 'وداعاً', 'تم تسجيل الخروج من حسابك بنجاح.'); }
@@ -1654,7 +1812,6 @@
             finally { btn.innerHTML = originalText; btn.disabled = false; }
         }
 
-        // Helper function to generate professional Meal Plan Badges
         function getMealPlanUI(boardType) {
             let config = { bg: 'bg-slate-50', border: 'border-slate-100', text: 'text-slate-600', icon: 'fa-utensils', iconColor: 'text-slate-400' };
             let title = boardType || 'شامل الوجبات';
@@ -1763,7 +1920,6 @@
                 container.innerHTML += `
                 <div class="relative flex flex-col md:flex-row bg-white rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_15px_40px_rgba(0,180,216,0.12)] transition-all duration-500 mb-6 group overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
                   
-                  <!-- 🖼️ Image Section (Right) - FIXED WITH ABSOLUTE INSET -->
                   <div class="relative w-full md:w-[320px] shrink-0 h-64 md:h-auto overflow-hidden">
                     <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" onerror="this.src='https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80'" />
                     <div class="absolute inset-0 bg-gradient-to-t from-[#1f3a40]/80 via-transparent to-black/20 pointer-events-none z-0"></div>
@@ -1784,13 +1940,12 @@
                     </div>
                   </div>
 
-                  <!-- 📝 Details Section (Middle) - FIXED WITH MIN-W-0 -->
                   <div class="flex-1 p-6 md:p-8 flex flex-col justify-between relative z-10 min-w-0 bg-white">
                     <div>
                       <div class="flex items-center gap-2 mb-2">
                         <div class="flex text-yellow-400 text-[10px]"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
                       </div>
-                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2 truncate"><bdi dir="auto">${hotel.name}</bdi></h3>
+                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2 truncate"><bdi dir="auto"><span style="unicode-bidi: plaintext;">${hotel.name}</span></bdi></h3>
                       <p class="text-[13px] text-slate-500 font-bold mb-4 flex items-center gap-1.5 truncate"><i class="fa-solid fa-location-dot text-[#00b4d8]"></i> الإمارات - ${hotel.city} <span class="text-[#00b4d8] underline decoration-dashed cursor-pointer ml-2 text-[11px]">عرض على الخريطة</span></p>
                       
                       <div class="flex flex-wrap gap-2 mt-4 justify-start">
@@ -1803,11 +1958,9 @@
                     </div>
                   </div>
 
-                  <!-- ✂️ Divider -->
                   <div class="hidden md:block ticket-divider-v z-20"></div>
                   <div class="md:hidden ticket-divider-h z-20"></div>
 
-                  <!-- 💰 Price Section (Left) -->
                   <div class="w-full md:w-[260px] lg:w-[280px] p-6 md:p-8 flex flex-col justify-center items-center bg-gradient-to-b from-[#f8fafc] to-white shrink-0 z-10 relative border-l border-slate-50">
                     <span class="bg-[#00b4d8]/10 text-[#00b4d8] text-[10px] font-black px-3 py-1 rounded-full mb-3 border border-[#00b4d8]/20 tracking-wide">أفضل سعر متاح</span>
                     <span class="text-[11px] font-bold text-slate-400 mb-1">ابتداءً من (لليلة)</span>
@@ -1828,7 +1981,7 @@
                            </div>` 
                         : `<div onclick="openAuthModal()" class="mt-4 flex items-center justify-center gap-1.5 text-[#ea580c] text-[10px] font-black w-full cursor-pointer hover:text-[#c2410c] transition-colors group">
                                <i class="fa-solid fa-lock text-[#ea580c] group-hover:text-[#c2410c]"></i>
-                               <span class="underline decoration-dashed underline-offset-4">سجل لتفعيل الكاش باك</span>
+                               <span class="underline decoration-dashed underline-offset-4">سجل لتربح</span>
                            </div>`
                     }
                   </div>
@@ -1838,18 +1991,17 @@
         }
 
         async function viewHotelDetails(hotelName, basePrice, apiRooms) {
-            document.getElementById('detailsHotelName').innerHTML = `<bdi dir="auto">${hotelName}</bdi>`;
+            document.getElementById('detailsHotelName').innerHTML = `<bdi dir="auto"><span style="unicode-bidi: plaintext;">${hotelName}</span></bdi>`;
             const container = document.getElementById('roomsContainer');
             if (!container) return; container.innerHTML = '';
             await fetchAndDisplayHotelReviews(hotelName);
 
             let roomsList = [];
-            // Mocking Data for beautiful UI if API is empty
             if (hotelName.includes('الفندق التجريبي') || !apiRooms || apiRooms.length === 0) {
                 roomsList = [
-                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO", price: basePrice, points: Math.floor(basePrice*10), policyText: "غير قابل للاسترداد (Non-refundable) 🔒", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT", refundType: "non_refundable" },
-                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج كبير", board: "BB", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*12), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة ✨", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL", refundType: "full_100" },
-                    { name: "جناح تنفيذي (Executive Suite)", bed: "سرير كينج + أريكة", board: "HB", price: Math.floor(basePrice * 1.8), points: Math.floor(basePrice*18), policyText: "إلغاء مجاني بالكامل - ادفع لاحقاً ✨", isFreeCancel: true, rateKey: "MOCK-RATE-STE", paymentType: "HOTEL", refundType: "full_100" }
+                    { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO", price: basePrice, points: Math.floor(basePrice*10), policyText: "غير قابل للاسترداد (Non-refundable)", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT", refundType: "non_refundable" },
+                    { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج كبير", board: "BB", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*12), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL", refundType: "full_100" },
+                    { name: "جناح تنفيذي (Executive Suite)", bed: "سرير كينج + أريكة", board: "HB", price: Math.floor(basePrice * 1.8), points: Math.floor(basePrice*18), policyText: "إلغاء مجاني بالكامل - ادفع لاحقاً", isFreeCancel: true, rateKey: "MOCK-RATE-STE", paymentType: "HOTEL", refundType: "full_100" }
                 ];
             } else {
                 apiRooms.forEach(room => {
@@ -1862,7 +2014,7 @@
                             roomsList.push({
                                 name: room.name || "غرفة فندقية فاخرة", bed: "سرير مزدوج / كينج", board: rate.boardName || rate.board || "شامل الوجبات",
                                 price: currentPrice, points: Math.floor(currentPrice * 10),
-                                policyText: rate.formattedPolicy || "شروط الإلغاء مطبقة حسب سياسة المورد العالمي ✨", isFreeCancel: rate.freeCancellation || false,
+                                policyText: rate.formattedPolicy || "شروط الإلغاء مطبقة حسب سياسة المورد العالمي", isFreeCancel: rate.freeCancellation || false,
                                 rateKey: rate.rateKey, paymentType: rate.paymentType || 'AT', refundType: rType
                             });
                         });
@@ -1896,10 +2048,8 @@
                 }
 
                 container.innerHTML += `
-                    <!-- 🚀 بطاقة تفاصيل الغرفة (World Class Room Row) -->
                     <div class="relative flex flex-col md:flex-row bg-white rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 hover:border-[#00b4d8]/40 transition-all duration-300 mb-6 overflow-hidden group animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
 
-                        <!-- 🌟 العلامة المائية الفاخرة (لوغو رمال SVG) -->
                         <div class="absolute -left-16 -bottom-16 w-80 h-80 opacity-[0.02] pointer-events-none transform -rotate-12 group-hover:scale-110 transition-transform duration-700 z-0">
                             <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
                                 <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#1f3a40"/>
@@ -1907,10 +2057,9 @@
                             </svg>
                         </div>
 
-                        <!-- 📝 Details Section (Middle) - FIXED WITH MIN-W-0 -->
                         <div class="flex-1 p-6 md:p-8 flex flex-col justify-between relative z-10 min-w-0 bg-transparent">
                             <h3 class="text-xl md:text-2xl font-black text-[#1f3a40] leading-tight flex items-center gap-3 truncate">
-                                <bdi dir="auto">${room.name}</bdi>
+                                <bdi dir="auto"><span style="unicode-bidi: plaintext;">${room.name}</span></bdi>
                             </h3>
                             
                             <div class="flex flex-wrap items-center gap-3 mt-4">
@@ -1930,16 +2079,14 @@
                                 <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10 text-base"></i>
                                 <div class="relative z-10 min-w-0">
                                     <span class="block ${policyTitleColor} font-black text-sm mb-1">السياسة:</span>
-                                    <span class="font-semibold block whitespace-pre-line text-slate-600 leading-relaxed">${room.policyText}</span>
+                                    <span class="font-semibold block whitespace-pre-line text-slate-600 leading-relaxed"><bdi dir="auto"><span style="unicode-bidi: plaintext;">${room.policyText}</span></bdi></span>
                                 </div>
                             </div>
                         </div>
 
-                        <!-- ✂️ Divider -->
                         <div class="hidden md:block ticket-divider-v z-20"></div>
                         <div class="md:hidden ticket-divider-h z-20"></div>
 
-                        <!-- 💰 Price Section (Left) -->
                         <div class="w-full md:w-[260px] lg:w-[280px] p-6 md:p-8 flex flex-col justify-center items-center bg-slate-50 shrink-0 z-10 relative">
                             <div class="text-center mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
                                 <span class="text-sm font-bold text-slate-400 currency-label">AED</span>
@@ -1952,7 +2099,6 @@
                                 <i class="fa-solid fa-lock text-white/50 text-sm"></i> حجز هذه الغرفة
                             </button>
 
-                            <!-- كبسولة الكاش باك الذكية المصغرة -->
                             <div class="w-full bg-white border border-amber-100 rounded-xl p-2 flex items-center justify-start gap-3 shadow-sm cursor-default">
                                 ${currentUser ? coinBadgeHTML : `<div class="w-10 h-10 rounded-full bg-amber-50 flex items-center justify-center border border-amber-200 cursor-pointer hover:bg-amber-100" onclick="openAuthModal()"><i class="fa-solid fa-piggy-bank text-amber-500"></i></div>`}
                                 <div class="text-right">
@@ -1963,7 +2109,6 @@
                         </div>
                     </div>`;
             });
-
             changeCurrency(); switchView('roomSelectionView');
         }
 
@@ -2011,14 +2156,14 @@
             if (!currentUser) { showToast('info', 'تنبيه', 'الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز والاستفادة من خصم النقاط!'); openAuthModal(); return; }
             selectedHotel = `${hotelName} - ${roomName} (${boardType})`; currentBasePrice = price; currentPolicyText = policyText; currentRateKey = rateKey; currentPaymentType = paymentType || 'AT'; currentRefundType = refundType || 'full_100';
             
-            document.getElementById('hotelNameTitle').innerHTML = `تأكيد حجز: <i class="fa-solid fa-hotel text-slate-400 mx-1 text-lg"></i> <br class="md:hidden" /><bdi dir="auto" class="text-[#1f3a40]">${hotelName}</bdi>`;
+            document.getElementById('hotelNameTitle').innerHTML = `تأكيد حجز: <i class="fa-solid fa-hotel text-slate-400 mx-1 text-lg"></i> <br class="md:hidden" /><bdi dir="auto" class="text-[#1f3a40]"><span style="unicode-bidi: plaintext;">${hotelName}</span></bdi>`;
             document.getElementById('selectedRoomDetails').innerHTML = `
                 <div class="absolute -left-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-r border-[#00b4d8]/30"></div>
                 <div class="absolute -right-3 top-1/2 -translate-y-1/2 w-6 h-6 bg-white rounded-full border-l border-[#00b4d8]/30"></div>
                 <ul class="space-y-3.5 text-sm md:text-base font-bold text-slate-700">
-                    <li class="flex items-start gap-3"><i class="fa-solid fa-bed text-teal-600 mt-1 shrink-0"></i><span>اختيارك: <bdi dir="auto" class="text-teal-800">${roomName}</bdi></span></li>
+                    <li class="flex items-start gap-3"><i class="fa-solid fa-bed text-teal-600 mt-1 shrink-0"></i><span>اختيارك: <bdi dir="auto" class="text-teal-800"><span style="unicode-bidi: plaintext;">${roomName}</span></bdi></span></li>
                     <li class="flex items-start gap-3"><i class="fa-solid fa-utensils text-yellow-600 mt-1 shrink-0"></i><span>الوجبات: <span class="text-yellow-800">${boardType}</span></span></li>
-                    <li class="flex items-start gap-3"><i class="fa-solid fa-shield-halved text-green-600 mt-1 shrink-0"></i><span>سياسة الإلغاء: <span class="text-green-800 whitespace-pre-line block mt-1">${policyText}</span></span></li>
+                    <li class="flex items-start gap-3"><i class="fa-solid fa-shield-halved text-green-600 mt-1 shrink-0"></i><span>سياسة الإلغاء: <span class="text-green-800 whitespace-pre-line block mt-1"><bdi dir="auto"><span style="unicode-bidi: plaintext;">${policyText}</span></bdi></span></span></li>
                 </ul>`;
 
             const payMethodsContainer = document.getElementById('paymentMethodsContainer');
@@ -2135,10 +2280,8 @@
                     };
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
 
-                    // توجيه العميل لصفحة الدفع الآمنة (Web Redirect) بدلاً من التطبيق
                     btn.innerHTML = '<i class="fa-solid fa-lock"></i> جاري تحويلك لصفحة الدفع الآمنة...';
                     
-                    // استخدام redirect_url المخصص لصفحات الويب الخارجية لتفادي الإطار
                     const paymentUrl = ziinaData.redirect_url || ziinaData.embedded_url;
                     window.location.href = paymentUrl;
 
