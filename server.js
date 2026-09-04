@@ -95,7 +95,7 @@ const bookingSchema = new mongoose.Schema({
     paymentMethod: String,
     companions: String,
     status: { type: String, default: 'active' },
-    cancellationPolicy: { type: String, default: 'شروط المورد مطبقة ✨' },
+    cancellationPolicy: { type: String, default: 'شروط المورد مطبقة' },
     freeCancelDeadline: { type: Date },
     refundType: { type: String, default: 'full_100' },
     createdAt: { type: Date, default: Date.now }
@@ -508,9 +508,9 @@ app.post('/api/v1/bookings/create', async (req, res) => {
         }
 
         let selectedRefundType = refundType || 'full_100';
-        let policyText = 'استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة ✨';
-        if (selectedRefundType === 'partial_50') policyText = 'استرداد جزئي (50%) في حال إلغاء الحجز قبل 24 ساعة ⚠️';
-        if (selectedRefundType === 'non_refundable') policyText = 'حجز غير قابل للاسترداد (Non-refundable) 🔒';
+        let policyText = 'استرداد كامل 100% مجاني حتى قبل الموعد بـ 48 ساعة'; // 🚀 مسح الإيموجي
+        if (selectedRefundType === 'partial_50') policyText = 'استرداد جزئي (50%) في حال إلغاء الحجز قبل 24 ساعة'; // 🚀 مسح الإيموجي
+        if (selectedRefundType === 'non_refundable') policyText = 'حجز غير قابل للاسترداد (Non-refundable)'; // 🚀 مسح الإيموجي
 
         const deadline = new Date();
         deadline.setDate(deadline.getDate() + 2);
@@ -582,10 +582,11 @@ app.post('/api/v1/bookings/create', async (req, res) => {
 
         voucherHtml = voucherHtml
             .replace(/{{bookingReference}}/g, bookingReference)
+            .replace(/{{hotelName}}/g, hotelName || 'N/A')
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(hotelName || 'Dubai Hotel')) // 🚀 إضافة الخريطة
             .replace('{{customerName}}', customerName || 'N/A')
             .replace('{{customerPhone}}', phone || 'N/A')
             .replace('{{customerEmail}}', email || 'N/A')
-            .replace('{{hotelName}}', hotelName || 'N/A')
             .replace('{{roomBed}}', 'سرير كينج / مزدوج')
             .replace('{{boardType}}', 'شامل الوجبات')
             .replace('{{price}}', finalPrice)
@@ -600,7 +601,7 @@ app.post('/api/v1/bookings/create', async (req, res) => {
 
         // 🚀 التعديل الجذري الأول لـ Puppeteer على Render
         browser = await puppeteer.launch({
-            headless: true, // تغيير من "new" إلى true
+            headless: true, 
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
             args: [
                 '--no-sandbox',
@@ -734,10 +735,11 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 
         voucherHtml = voucherHtml
             .replace(/{{bookingReference}}/g, booking.bookingReference)
+            .replace(/{{hotelName}}/g, booking.hotelName || 'N/A')
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(booking.hotelName || 'Dubai Hotel')) // 🚀 إضافة الخريطة
             .replace('{{customerName}}', booking.customerName || 'N/A')
             .replace('{{customerPhone}}', booking.phone || 'N/A')
             .replace('{{customerEmail}}', booking.email || 'N/A')
-            .replace('{{hotelName}}', booking.hotelName || 'N/A')
             .replace('{{roomBed}}', 'سرير كينج / مزدوج')
             .replace('{{boardType}}', 'شامل الوجبات')
             .replace('{{price}}', booking.price)
@@ -752,7 +754,7 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
 
         // 🚀 التعديل الجذري الثاني لـ Puppeteer على Render
         browser = await puppeteer.launch({
-            headless: true, // تغيير من "new" إلى true
+            headless: true, 
             executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
             args: [
                 '--no-sandbox',
@@ -1304,10 +1306,11 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
 
         voucherHtml = voucherHtml
             .replace(/{{bookingReference}}/g, booking.bookingReference)
+            .replace(/{{hotelName}}/g, booking.hotelName || 'N/A')
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(booking.hotelName || 'Dubai Hotel')) // 🚀 إضافة الخريطة
             .replace('{{customerName}}', booking.customerName || 'N/A')
             .replace('{{customerPhone}}', booking.phone || 'N/A')
             .replace('{{customerEmail}}', booking.email || 'N/A')
-            .replace('{{hotelName}}', booking.hotelName || 'N/A')
             .replace('{{roomBed}}', booking.bed || 'سرير كينج / مزدوج')
             .replace('{{boardType}}', booking.boardType || 'شامل الوجبات')
             .replace('{{price}}', booking.price)
@@ -1440,7 +1443,7 @@ app.post('/api/v1/hotels/search', async (req, res) => {
             processedHotels = data.hotels.hotels.map(hotel => {
                 let rooms = hotel.rooms ? hotel.rooms.map(room => {
                     let rates = room.rates ? room.rates.map(rate => {
-                        let policySummary = "سياسة إلغاء مطبقة حسب شروط الفندق 🔒";
+                        let policySummary = "سياسة إلغاء مطبقة حسب شروط الفندق"; // 🚀 مسح الإيموجي
                         
                         if (rate.cancellationPolicies && rate.cancellationPolicies.length > 0) {
                             let policies = rate.cancellationPolicies.map(p => {
@@ -1450,7 +1453,7 @@ app.post('/api/v1/hotels/search', async (req, res) => {
                             });
                             policySummary = `شروط الإلغاء من المورد: ${policies.join(' | ')}`;
                         } else if (rate.freeCancellation) {
-                            policySummary = "إلغاء مجاني بالكامل ✨";
+                            policySummary = "إلغاء مجاني بالكامل"; // 🚀 مسح الإيموجي
                         }
 
                         return {
