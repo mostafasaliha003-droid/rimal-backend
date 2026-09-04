@@ -129,29 +129,98 @@
             background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 480px;
             border: 4px solid var(--accent-yellow); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
         }
-        
-        /* حركة النبض للصندوق السري */
-        @keyframes subtlePulse {
-            0% { box-shadow: 0 0 0 0 rgba(255, 202, 58, 0.4); }
-            70% { box-shadow: 0 0 0 6px rgba(255, 202, 58, 0); }
-            100% { box-shadow: 0 0 0 0 rgba(255, 202, 58, 0); }
-        }
-        .pulse-effect { animation: subtlePulse 2s infinite; }
-        
-        .secret-box {
-            background: linear-gradient(135deg, #111827 0%, #0f172a 100%);
-            border: 1px solid #475569;
-            border-radius: 12px;
-            padding: 8px 12px;
-            text-align: center;
-            cursor: pointer;
+
+        /* =========================================================
+           🚀 إضافات التصميم العالمي (Ultimate World-Class UX/UI) 
+           ========================================================= */
+
+        /* 1. تأثير التقييم الزجاجي الفاخر (Glassmorphism Rating) */
+        .glass-rating {
+            background: rgba(255, 255, 255, 0.85);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(255, 255, 255, 0.6);
+            box-shadow: 0 8px 20px rgba(0,0,0,0.15);
+            color: #1f3a40;
             transition: all 0.3s ease;
         }
-        .secret-box:hover {
-            box-shadow: 0 4px 15px rgba(255,202,58,0.2);
-            border-color: #f59e0b;
-            transform: translateY(-2px);
+        .glass-rating:hover { background: rgba(255, 255, 255, 0.95); transform: translateY(-2px); }
+
+        /* 2. 🪙 العملة الذهبية الواقعية (Ultra 3D Skeuomorphic Coin) - تم تنظيفها من النصوص السفلية */
+        .ultra-3d-coin {
+            position: absolute;
+            top: 15px;
+            right: 15px;
+            width: 80px;
+            height: 80px;
+            border-radius: 50%;
+            background: radial-gradient(ellipse at top left, #fceca4 0%, #d4af37 40%, #a66a10 80%, #4a2500 100%);
+            box-shadow: 
+                0 10px 25px rgba(0,0,0,0.4),
+                inset 0 0 0 3px #fdf3ba,
+                inset 0 0 0 7px #965b09,
+                inset 0 0 15px 7px rgba(0,0,0,0.6);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            z-index: 20;
+            transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
         }
+        
+        @media (min-width: 768px) {
+            .ultra-3d-coin { width: 95px; height: 95px; top: 20px; right: 20px; }
+        }
+
+        .ultra-3d-coin:hover { transform: scale(1.08) rotate(5deg); }
+        
+        .ultra-3d-coin::before {
+            content: '';
+            position: absolute;
+            width: 70%; height: 70%;
+            border-radius: 50%;
+            border: 1px solid rgba(255, 235, 133, 0.5);
+            box-shadow: inset 0 2px 5px rgba(0,0,0,0.3);
+            pointer-events: none;
+        }
+        
+        .ultra-3d-coin .coin-top {
+            font-size: 10px; font-weight: 900; color: #ffffff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8); z-index: 2; margin-bottom: -2px;
+        }
+        @media (min-width: 768px) { .ultra-3d-coin .coin-top { font-size: 12px; } }
+
+        .ultra-3d-coin .coin-amount {
+            font-size: 30px; font-weight: 900; color: #ffffff;
+            text-shadow: 2px 2px 4px rgba(0,0,0,0.6), -1px -1px 0 rgba(255,255,255,0.4);
+            line-height: 1; z-index: 2; letter-spacing: -1px;
+        }
+        @media (min-width: 768px) { .ultra-3d-coin .coin-amount { font-size: 38px; } }
+
+        .ultra-3d-coin .coin-bottom {
+            font-size: 9px; font-weight: 900; color: #ffffff;
+            text-shadow: 1px 1px 2px rgba(0,0,0,0.8); z-index: 2; margin-top: 1px;
+        }
+        @media (min-width: 768px) { .ultra-3d-coin .coin-bottom { font-size: 11px; } }
+
+        /* 3. العملة الداكنة للزائر (السرية) */
+        .secret-ultra-coin {
+            background: radial-gradient(ellipse at top left, #64748b 0%, #1e293b 40%, #0f172a 80%, #000000 100%);
+            box-shadow: 
+                0 10px 20px rgba(0,0,0,0.5),
+                inset 0 0 0 3px #94a3b8,
+                inset 0 0 0 7px #020617,
+                inset 0 0 15px 7px rgba(0,0,0,0.8);
+            cursor: pointer;
+        }
+        .secret-ultra-coin::before { border: 1px solid rgba(255, 255, 255, 0.1); }
+
+        /* حركة النبض للعملة السرية */
+        @keyframes subtlePulse {
+            0% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0.4), 0 10px 20px rgba(0,0,0,0.5), inset 0 0 0 3px #94a3b8, inset 0 0 0 7px #020617, inset 0 0 15px 7px rgba(0,0,0,0.8); }
+            70% { box-shadow: 0 0 0 10px rgba(250, 204, 21, 0), 0 10px 20px rgba(0,0,0,0.5), inset 0 0 0 3px #94a3b8, inset 0 0 0 7px #020617, inset 0 0 15px 7px rgba(0,0,0,0.8); }
+            100% { box-shadow: 0 0 0 0 rgba(250, 204, 21, 0), 0 10px 20px rgba(0,0,0,0.5), inset 0 0 0 3px #94a3b8, inset 0 0 0 7px #020617, inset 0 0 15px 7px rgba(0,0,0,0.8); }
+        }
+        .pulse-effect { animation: subtlePulse 2.5s infinite; }
 
         /* إخفاء مترجم جوجل الافتراضي */
         .goog-te-banner-frame { display: none !important; }
@@ -322,7 +391,7 @@
                   </div>
           
                   <div class="p-1.5 lg:pl-1">
-                    <button onclick="searchLiveHotels()" id="searchBtnText" class="w-full lg:w-auto bg-[#800000] hover:bg-red-900 active:scale-95 text-white font-bold px-8 py-3.5 rounded-2xl transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 cursor-pointer border-none">
+                    <button onclick="searchLiveHotels()" id="searchBtnText" class="w-full lg:w-auto bg-[#800000] hover:bg-[#600000] active:scale-95 text-white font-bold px-8 py-3.5 rounded-2xl transition-all shadow-lg shadow-red-900/20 flex items-center justify-center gap-2 cursor-pointer border-none">
                       <i class="fa-solid fa-magnifying-glass text-[#00b4d8] pointer-events-none"></i>
                       <span>ابحث</span>
                     </button>
@@ -1724,14 +1793,15 @@
                 }
                 const animationDelay = index * 100;
                 
-                // حساب مبلغ الكاش باك الفعلي المعروض للعميل
+                // حساب الكاش باك
                 let cashbackAED = (hotel.basePoints / 10).toFixed(0);
 
-                // 🌟 تحديد تصميم العملات واللافتات بناءً على حالة المستخدم مع SVG 3D Coin
+                // 🌟 تحديد تصميم العملة واللافتة التحفيزية بناءً على حالة المستخدم (السرية vs الذهبية)
                 let coinBadgeHTML = '';
+                let actionAreaNote = '';
 
                 if (currentUser) {
-                    // العميل مسجل: العملة الذهبية 3D SVG
+                    // العميل مسجل: العملة الذهبية 3D (SVG)
                     coinBadgeHTML = `
                         <div class="absolute top-4 right-4 w-24 h-24 md:w-28 md:h-28 transform transition-transform duration-300 hover:rotate-3 hover:scale-105 drop-shadow-xl z-20 cursor-default">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
@@ -1756,12 +1826,18 @@
                               <text x="100" y="160" font-family="'Cairo', sans-serif" font-size="20" font-weight="bold" fill="#ffffff" text-anchor="middle" filter="url(#text-shadow-${index})">درهم</text>
                               <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.1"/>
                             </svg>
-                        </div>
-                        <div class="absolute top-[105px] md:top-[120px] right-4 bg-slate-900/80 backdrop-blur-sm text-yellow-400 text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-lg border border-white/10 shadow-lg z-20 text-center">
-                            يضاف لمحفظتك بعد الحجز
                         </div>`;
+                    
+                    // شارة الثقة الخضراء (تحت زر الحجز)
+                    actionAreaNote = `
+                        <div class="mt-4 flex items-center justify-center gap-1.5 bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] px-3 py-2.5 rounded-xl w-full transition-all hover:bg-[#dcfce7] cursor-default shadow-sm">
+                            <i class="fa-solid fa-wallet text-[#16a34a] text-sm"></i>
+                            <span class="text-[11px] md:text-xs font-extrabold tracking-tight">يضاف الكاش باك لمحفظتك بعد الحجز</span>
+                        </div>
+                    `;
+
                 } else {
-                    // الزائر مجهول: العملة السوداء الغامضة (SVG Dark Mode)
+                    // الزائر مجهول: العملة السرية الداكنة (SVG)
                     coinBadgeHTML = `
                         <div onclick="openAuthModal()" class="absolute top-4 right-4 w-24 h-24 md:w-28 md:h-28 cursor-pointer transform transition-transform duration-300 hover:scale-105 hover:rotate-3 drop-shadow-xl z-20 pulse-effect rounded-full">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
@@ -1782,10 +1858,15 @@
                               <text x="100" y="130" font-family="'Cairo', sans-serif" font-size="24" font-weight="900" fill="#cbd5e1" text-anchor="middle">سر الأعضاء</text>
                               <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.05"/>
                             </svg>
-                        </div>
-                        <div onclick="openAuthModal()" class="cursor-pointer absolute top-[105px] md:top-[120px] right-4 bg-yellow-500 text-slate-900 text-[9px] md:text-[10px] font-bold px-3 py-1.5 rounded-lg shadow-lg z-20 text-center hover:bg-yellow-400 transition-colors">
-                            اضغط وسجل لفتح الرصيد 👆
                         </div>`;
+                    
+                    // شارة التحفيز البرتقالية (تحت زر الحجز)
+                    actionAreaNote = `
+                        <div onclick="openAuthModal()" class="mt-4 flex items-center justify-center gap-1.5 bg-[#fff7ed] border border-[#ffedd5] text-[#9a3412] px-3 py-2.5 rounded-xl w-full cursor-pointer transition-all hover:bg-[#ffedd5] hover:shadow-md hover:-translate-y-0.5 group">
+                            <i class="fa-solid fa-lock text-[#ea580c] text-sm group-hover:text-[#f97316] transition-colors"></i>
+                            <span class="text-[11px] md:text-xs font-extrabold tracking-tight underline decoration-dashed underline-offset-4">سجل دخولك الآن لتفعيل الكاش باك</span>
+                        </div>
+                    `;
                 }
 
                 container.innerHTML += `
@@ -1803,7 +1884,7 @@
                         </svg>
                     </div>
                     
-                    <!-- 🌟 عملة الكاش باك 3D -->
+                    <!-- 🌟 عملة الكاش باك (SVG) -->
                     ${coinBadgeHTML}
                   </div>
 
@@ -1840,6 +1921,10 @@
                     <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-4 rounded-xl flex items-center justify-center gap-2 shadow-[0_8px_20px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.3)] cursor-pointer border-none" onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
                       احجز الغرفة
                     </button>
+                    
+                    <!-- 🌟 ملاحظة الكاش باك تحت الزر -->
+                    ${actionAreaNote}
+
                   </div>
                 </div>`;
             });
@@ -1889,8 +1974,9 @@
                 
                 let cashbackAED = (room.points / 10).toFixed(0);
                 
-                // 🌟 [الذكاء التسويقي] العملة داخل الغرف بشكل مصغر SVG 3D
+                // 🌟 [الذكاء التسويقي] داخل صفحة الغرف
                 let coinBadgeHTML = '';
+                let actionAreaNote = '';
 
                 if (currentUser) {
                     coinBadgeHTML = `
@@ -1915,10 +2001,15 @@
                               <text x="100" y="160" font-family="'Cairo', sans-serif" font-size="20" font-weight="bold" fill="#ffffff" text-anchor="middle" filter="url(#text-shadow-r-${index})">درهم</text>
                               <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.1"/>
                             </svg>
-                        </div>
-                        <div class="absolute top-[70px] right-2 bg-slate-900/80 backdrop-blur-sm text-yellow-400 text-[8px] font-bold px-2 py-1 rounded-md border border-white/10 shadow-lg z-20 text-center">
-                            يضاف لمحفظتك بعد الحجز
                         </div>`;
+                    
+                    actionAreaNote = `
+                        <div class="mt-4 flex items-center justify-center gap-1.5 bg-[#f0fdf4] border border-[#bbf7d0] text-[#166534] px-3 py-2.5 rounded-xl w-full transition-all hover:bg-[#dcfce7] cursor-default shadow-sm">
+                            <i class="fa-solid fa-wallet text-[#16a34a] text-sm"></i>
+                            <span class="text-[11px] md:text-xs font-extrabold tracking-tight">يضاف الكاش باك لمحفظتك بعد الحجز</span>
+                        </div>
+                    `;
+
                 } else {
                     coinBadgeHTML = `
                         <div onclick="openAuthModal()" class="cursor-pointer absolute top-2 right-2 w-16 h-16 transform transition-transform duration-300 hover:scale-105 drop-shadow-xl z-20 pulse-effect rounded-full">
@@ -1939,10 +2030,14 @@
                               <text x="100" y="80" font-family="'Font Awesome 6 Free'" font-weight="900" font-size="50" fill="#facc15" text-anchor="middle">&#xf023;</text>
                               <text x="100" y="130" font-family="'Cairo', sans-serif" font-size="24" font-weight="900" fill="#cbd5e1" text-anchor="middle">سر الأعضاء</text>
                             </svg>
-                        </div>
-                        <div onclick="openAuthModal()" class="cursor-pointer absolute top-[70px] right-2 bg-yellow-500 text-slate-900 text-[8px] font-bold px-2 py-1 rounded-md shadow-lg z-20 text-center hover:bg-yellow-400 transition-colors">
-                            سجل لفتح الرصيد 👆
                         </div>`;
+                    
+                    actionAreaNote = `
+                        <div onclick="openAuthModal()" class="mt-4 flex items-center justify-center gap-1.5 bg-[#fff7ed] border border-[#ffedd5] text-[#9a3412] px-3 py-2.5 rounded-xl w-full cursor-pointer transition-all hover:bg-[#ffedd5] hover:shadow-md hover:-translate-y-0.5 group">
+                            <i class="fa-solid fa-lock text-[#ea580c] text-sm group-hover:text-[#f97316] transition-colors"></i>
+                            <span class="text-[11px] md:text-xs font-extrabold tracking-tight underline decoration-dashed underline-offset-4">سجل دخولك الآن لتفعيل الكاش باك</span>
+                        </div>
+                    `;
                 }
 
                 container.innerHTML += `
@@ -1983,7 +2078,7 @@
                             <span class="text-sm font-bold text-gray-500 mb-2">السعر لليلة واحدة</span>
                             <div class="text-center mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
                                 <span class="text-base font-bold text-gray-800 currency-label">AED</span>
-                                <span class="text-4xl font-black text-[#1f3a40] tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
+                                <span class="text-4xl font-black text-gray-900 tracking-tight hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
                             </div>
                             <span class="text-xs text-gray-400 font-bold mb-6 text-center w-full block">شامل الضريبة والرسوم</span>
 
@@ -1991,6 +2086,10 @@
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
                                 احجز الغرفة
                             </button>
+                            
+                            <!-- 🌟 ملاحظة الكاش باك تحت الزر -->
+                            ${actionAreaNote}
+
                         </div>
                     </div>`;
             });
