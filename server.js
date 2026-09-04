@@ -598,8 +598,10 @@ app.post('/api/v1/bookings/create', async (req, res) => {
             .replace('{{checkInDate}}', 'حسب الطلب')
             .replace('{{price}}', finalPrice);
 
+        // 🚀 التعديل الجذري الأول لـ Puppeteer على Render
         browser = await puppeteer.launch({
-            headless: "new",
+            headless: true, // تغيير من "new" إلى true
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -748,8 +750,10 @@ app.post('/api/v1/bookings/resend-email', async (req, res) => {
             .replace('{{checkInDate}}', 'حسب الطلب')
             .replace('{{price}}', booking.price);
 
+        // 🚀 التعديل الجذري الثاني لـ Puppeteer على Render
         browser = await puppeteer.launch({
-            headless: "new",
+            headless: true, // تغيير من "new" إلى true
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
@@ -1309,8 +1313,10 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
             .replace('{{price}}', booking.price)
             .replace('{{policyText}}', booking.cancellationPolicy);
 
+        // 🚀 التعديل الجذري الثالث لـ Puppeteer على Render
         browser = await puppeteer.launch({
-            headless: "new",
+            headless: true, // تغيير من "new" إلى true
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
             args: [
                 '--no-sandbox',
                 '--disable-setuid-sandbox',
