@@ -179,11 +179,36 @@
 
     <!-- 🚀 الهيدر الزجاجي الفاخر -->
     <header>
-        <a class="flex items-center gap-3 cursor-pointer text-decoration-none" onclick="switchView('mainView')">
-            <div class="bg-white p-1 rounded-lg shadow-sm"><img src="logo.jpg" alt="Remal & Chill Logo" class="w-8 h-8 rounded object-cover" onerror="this.src='https://via.placeholder.com/32?text=Logo'"></div>
-            <div class="flex flex-col">
-                <span class="font-extrabold text-xl leading-none tracking-tight text-white drop-shadow-md">رمال وفلّها! <span class="wave-emoji">🌴</span></span>
-                <span class="text-[0.6rem] tracking-[0.2em] uppercase font-bold mt-1 text-[#00b4d8]">Remal & Chill</span>
+        <!-- 🌟 كبسولة الهوية (SVG Logo + Text) -->
+        <a class="group flex items-center gap-3 bg-white/5 hover:bg-white/10 border border-white/10 backdrop-blur-md pr-4 pl-6 py-2 rounded-2xl transition-all duration-300 cursor-pointer text-decoration-none shadow-[0_4px_15px_rgba(0,0,0,0.1)]" onclick="switchView('mainView')">
+            
+            <!-- اللوغو مبرمج بالـ SVG (نقي 100% وبدون خلفية) -->
+            <div class="relative w-10 h-10 md:w-12 md:h-12 flex items-center justify-center transform group-hover:scale-105 transition-transform duration-300">
+                <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md">
+                    <!-- التدرجات اللونية (Gradients) -->
+                    <defs>
+                        <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#48cae4"/>
+                            <stop offset="100%" stop-color="#00b4d8"/>
+                        </linearGradient>
+                        <linearGradient id="red-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#ff758f"/>
+                            <stop offset="100%" stop-color="#ff595e"/>
+                        </linearGradient>
+                    </defs>
+                    
+                    <!-- الشريط التركوازي العلوي -->
+                    <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="url(#cyan-grad)"/>
+                    
+                    <!-- الشريط المرجاني السفلي (مع تأثير التداخل) -->
+                    <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="url(#red-grad)"/>
+                </svg>
+            </div>
+            
+            <!-- النصوص داخل الكبسولة -->
+            <div class="flex flex-col justify-center">
+                <span class="font-black text-lg md:text-xl leading-none tracking-tight text-white drop-shadow-md">رمال وفلّها! <span class="wave-emoji ml-1 text-base">🌴</span></span>
+                <span class="text-[0.55rem] md:text-[0.65rem] tracking-[0.25em] uppercase font-black mt-1 text-[#00b4d8] drop-shadow-sm">Remal & Chill</span>
             </div>
         </a>
 
@@ -249,7 +274,7 @@
                         <a onclick="openEditEmailModal()" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-50 hover:text-[#00b4d8] cursor-pointer transition-colors"><i class="fa-solid fa-envelope w-5 text-center text-gray-400"></i> تعديل البريد</a>
                         <a onclick="openEditPasswordModal()" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-50 hover:text-[#00b4d8] cursor-pointer transition-colors"><i class="fa-solid fa-key w-5 text-center text-gray-400"></i> تغيير المرور</a>
                         <a onclick="openSavedCardsModal()" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-50 hover:text-[#00b4d8] cursor-pointer transition-colors"><i class="fa-solid fa-credit-card w-5 text-center text-gray-400"></i> البطاقات البنكية</a>
-                        <a onclick="switchView('registerView')" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-50 hover:text-[#00b4d8] cursor-pointer transition-colors" id="bookingsNavBtn"><i class="fa-solid fa-suitcase-rolling w-5 text-center text-gray-400"></i> إدارة حجوزاتي</a>
+                        <a onclick="switchView('registerView')" class="block px-4 py-2.5 text-slate-700 font-bold text-xs hover:bg-slate-100 cursor-pointer" id="bookingsNavBtn"><i class="fa-solid fa-suitcase-rolling w-5 text-center text-gray-400"></i> إدارة حجوزاتي</a>
                     </div>
                     <a onclick="logoutUser()" class="block px-4 py-3 bg-red-50 text-red-600 font-bold text-xs hover:bg-red-100 border-t border-red-100 cursor-pointer transition-colors"><i class="fa-solid fa-right-from-bracket w-5 text-center"></i> تسجيل خروج</a>
                 </div>
@@ -1719,7 +1744,7 @@
 
             const btn = document.getElementById('searchBtnText');
             const originalText = btn.innerHTML;
-            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> البحث...'; btn.disabled = true;
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> جاري البحث...'; btn.disabled = true;
 
             try {
                 const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
