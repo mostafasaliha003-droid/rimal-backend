@@ -60,6 +60,10 @@
             width: 100%; height: 100%; color: transparent; background: transparent; cursor: pointer; z-index: 10;
         }
 
+        /* =========================================================
+           🚀 تحسينات الهيدر والهيرو (Ultimate UX/UI)
+           ========================================================= */
+           
         .live-ticker {
             background: linear-gradient(90deg, #112226, #1f3a40, #00b4d8);
             background-size: 200% 200%;
@@ -121,17 +125,20 @@
         }
         .modal-content {
             background: white; padding: 30px; border-radius: 24px; width: 90%; max-width: 480px;
-            border: 4px solid var(--accent-yellow); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
+            border: 4px solid var(--accent-cyan); text-align: center; max-height: 90vh; overflow-y: auto; position: relative;
         }
 
-        /* فاصل التذكرة العمودي - تم تقصيره ليتناسب مع الغرف */
+        /* =========================================================
+           🚀 تحسينات الـ UX/UI (هيكلة التذكرة المقطوعة)
+           ========================================================= */
+
         .ticket-divider-v {
             width: 2px; background-image: linear-gradient(to bottom, #e2e8f0 50%, rgba(255,255,255,0) 0%);
             background-position: right; background-size: 2px 14px; background-repeat: repeat-y; position: relative;
         }
         .ticket-divider-v::before, .ticket-divider-v::after {
             content: ''; position: absolute; left: -12px; width: 26px; height: 26px; background-color: var(--bg-light); border-radius: 50%;
-            box-shadow: inset 0 3px 6px rgba(0,0,0,0.03);
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.03); z-index: 20;
         }
         .ticket-divider-v::before { top: -13px; } .ticket-divider-v::after { bottom: -13px; }
 
@@ -141,17 +148,12 @@
         }
         .ticket-divider-h::before, .ticket-divider-h::after {
             content: ''; position: absolute; top: -12px; width: 26px; height: 26px; background-color: var(--bg-light); border-radius: 50%;
-            box-shadow: inset 0 3px 6px rgba(0,0,0,0.03);
+            box-shadow: inset 0 3px 6px rgba(0,0,0,0.03); z-index: 20;
         }
         .ticket-divider-h::before { right: -29px; } .ticket-divider-h::after { left: -29px; }
 
         @keyframes subtlePulse { 0% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0.4)); } 50% { filter: drop-shadow(0 0 10px rgba(250, 204, 21, 0.8)); } 100% { filter: drop-shadow(0 0 0 rgba(250, 204, 21, 0)); } }
         .pulse-coin { animation: subtlePulse 2.5s infinite; }
-
-        /* نقش الـ SVG للخلفية الكحلية */
-        .bg-pattern {
-            background-image: url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' fill-rule='evenodd'%3E%3Cg fill='%23ffffff' fill-opacity='0.03'%3E%3Cpath d='M36 34v-4h-2v4h-4v2h4v4h2v-4h4v-2h-4zm0-30V0h-2v4h-4v2h4v4h2V6h4V4h-4zM6 34v-4H4v4H0v2h4v4h2v-4h4v-2H6zM6 4V0H4v4H0v2h4v4h2V6h4V4H6z'/%3E%3C/g%3E%3C/g%3E%3C/svg%3E");
-        }
 
         .goog-te-banner-frame { display: none !important; }
         body { top: 0px !important; }
@@ -172,10 +174,12 @@
                 <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full drop-shadow-md">
                     <defs>
                         <linearGradient id="cyan-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#48cae4"/><stop offset="100%" stop-color="#00b4d8"/>
+                            <stop offset="0%" stop-color="#48cae4"/>
+                            <stop offset="100%" stop-color="#00b4d8"/>
                         </linearGradient>
                         <linearGradient id="red-grad" x1="0%" y1="0%" x2="100%" y2="100%">
-                            <stop offset="0%" stop-color="#ff758f"/><stop offset="100%" stop-color="#ff595e"/>
+                            <stop offset="0%" stop-color="#ff758f"/>
+                            <stop offset="100%" stop-color="#ff595e"/>
                         </linearGradient>
                     </defs>
                     <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="url(#cyan-grad)"/>
@@ -224,7 +228,7 @@
                 </button>
                 <div id="user-dropdown" class="user-dropdown-content absolute left-0 md:right-0 bg-white min-w-[250px] rounded-2xl shadow-2xl z-50 overflow-hidden border border-gray-100 text-right opacity-0 invisible transform translate-y-2 transition-all duration-200 origin-top mt-2">
                     <div class="dropdown-header bg-slate-50 p-4 border-b border-slate-100 text-[#1f3a40] text-xs font-bold flex items-center gap-3">
-                        <div class="w-10 h-10 rounded-full bg-yellow-100 flex items-center justify-center text-yellow-600 text-lg shadow-inner"><i class="fa-solid fa-wallet"></i></div>
+                        <div class="w-10 h-10 rounded-full bg-cyan-50 flex items-center justify-center text-[#00b4d8] text-lg shadow-inner"><i class="fa-solid fa-wallet"></i></div>
                         <div>
                             <span class="block text-gray-500 mb-0.5">رصيد حصالتك:</span>
                             <strong class="text-base text-gray-900"><span id="dropdownPoints">0</span> <span class="text-xs">نقطة</span></strong>
@@ -275,7 +279,6 @@
             </div>
         </section>
 
-        <!-- 🚀 مربع البحث الطافي -->
         <section class="relative z-30 px-4 max-w-6xl mx-auto -mt-24 md:-mt-28 mb-16">
             <div class="bg-white/95 backdrop-blur-2xl rounded-3xl shadow-[0_20px_50px_rgba(31,58,64,0.15)] border border-white p-3 relative z-30 transition-transform duration-300 hover:-translate-y-1">
                 <div class="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100 gap-2 lg:gap-0">
@@ -328,7 +331,6 @@
             </div>
             <div class="mt-4 max-w-2xl mx-auto" id="childAgesContainer" style="display:none; background:white; padding:20px; border-radius:20px; border:2px dashed var(--accent-cyan); box-shadow: 0 10px 25px rgba(0,180,216,0.1);"></div>
 
-            <!-- زر تصفية الوجبات العائم -->
             <div class="flex justify-center mt-6 relative z-20">
                 <div class="relative inline-block group">
                   <select id="boardBasisFilter" onchange="updateBoardText(this); filterHotels();" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" dir="rtl">
@@ -347,8 +349,6 @@
         <!-- عرض الفنادق والخريطة -->
         <div class="container mt-8 relative z-10">
             <div class="flex flex-col lg:flex-row gap-8 items-start relative z-0">
-                
-                <!-- Filters & Map -->
                 <aside class="w-full lg:w-[320px] shrink-0 flex flex-col gap-6 sticky top-28">
                     <div class="bg-white rounded-3xl border border-slate-100 shadow-xl p-4 md:p-6 transition-all relative overflow-hidden">
                         <div class="absolute top-0 left-0 w-full h-1 bg-gradient-to-r from-[#800000] to-[#00b4d8]"></div>
@@ -427,39 +427,42 @@
         </div>
     </div>
 
-    <!-- 🚀 واجهة اختيار الغرف (Room Selection View - Redesigned) -->
+    <!-- 🚀 واجهة اختيار الغرف (Room Selection View - Ultimate UI) -->
     <div id="roomSelectionView" class="view-section pb-20">
-        <!-- هيرو الغرف المحدث (خلفية بنقش هندسي وزر رجوع علوي) -->
-        <div class="bg-[#1f3a40] bg-pattern pt-8 pb-32 relative z-0 border-b-4 border-[#00b4d8]">
-            <div class="absolute inset-0 bg-gradient-to-b from-[#1f3a40]/80 to-[#112226]/95 z-0"></div>
+        
+        <!-- هيرو الغرف المحدث (خلفية كحلية غامرة) -->
+        <div class="bg-[#1f3a40] pt-12 pb-32 relative z-0 border-b-4 border-[#00b4d8] overflow-hidden">
+            <!-- Pattern هندسي ناعم لكسر الملل -->
+            <div class="absolute inset-0 opacity-[0.03]" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83L54.627 0zM30 0l.83.83-30 30L0 30 30 0zm24.627 60l-.83-.83L60 45.373V46.2l-5.373 5.373z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E');"></div>
+            <div class="absolute inset-0 bg-gradient-to-b from-transparent to-[#112226]/95 z-0"></div>
             
-            <div class="max-w-5xl mx-auto px-4 relative z-10 flex justify-between items-start mb-6">
+            <div class="max-w-6xl mx-auto px-4 relative z-10 flex justify-end items-start mb-6">
                 <!-- زر رجوع يطفو بأناقة -->
-                <button onclick="switchView('mainView')" class="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-sm font-bold py-2.5 px-6 rounded-full border border-white/20 flex items-center gap-2 transition-all cursor-pointer">
-                    <i class="fa-solid fa-arrow-right pointer-events-none"></i> رجوع
+                <button onclick="switchView('mainView')" class="bg-white/10 hover:bg-white/20 backdrop-blur-md text-white text-sm font-bold py-2.5 px-6 rounded-full border border-white/20 flex items-center gap-2 transition-all cursor-pointer shadow-lg hover:-translate-x-1">
+                    <i class="fa-solid fa-arrow-right pointer-events-none"></i> رجوع للبحث
                 </button>
             </div>
 
-            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center relative z-10 mt-4">
-              <div class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-full flex items-center justify-center mb-4 border border-white/20 shadow-lg">
-                  <i class="fa-solid fa-building text-white text-2xl"></i>
+            <div class="max-w-4xl mx-auto flex flex-col items-center justify-center relative z-10 mt-2">
+              <div class="w-16 h-16 bg-white/10 backdrop-blur-md rounded-2xl flex items-center justify-center mb-5 border border-white/20 shadow-lg transform rotate-3">
+                  <i class="fa-solid fa-building text-[#00b4d8] text-3xl"></i>
               </div>
-              <h1 id="detailsHotelName" class="text-3xl md:text-5xl font-black text-white mb-3 leading-tight drop-shadow-lg text-center px-4">
+              <h1 id="detailsHotelName" class="text-3xl md:text-5xl font-black text-white mb-4 leading-tight drop-shadow-lg text-center px-4">
               </h1>
-              <p class="text-slate-300 text-sm md:text-base font-semibold max-w-xl mx-auto text-center px-4">
-                اختر الغرفة، السرير، وخطة الوجبات وشروط الإلغاء بدقة لتجربة سفر لا تُنسى!
+              <p class="text-slate-300 text-sm md:text-base font-medium max-w-xl mx-auto text-center px-4">
+                اختر الغرفة المناسبة لرحلتك، راجع خطة الوجبات، وتأكد من سياسة الإلغاء قبل الحجز.
               </p>
             </div>
         </div>
         
-        <div class="container max-w-5xl mx-auto px-4 sm:px-6 -mt-20 relative z-10 space-y-6">
+        <div class="container max-w-5xl mx-auto px-4 sm:px-6 -mt-16 relative z-10 space-y-8">
             <!-- صندوق التقييمات المحسن -->
-            <div class="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-[0_15px_40px_rgba(0,0,0,0.08)] relative overflow-hidden mb-8">
-              <div class="flex justify-between items-center mb-6 border-b border-slate-100 pb-5">
+            <div class="bg-white border border-slate-100 rounded-3xl p-6 md:p-8 shadow-[0_15px_40px_rgba(0,0,0,0.08)] relative overflow-hidden">
+              <div class="flex flex-col sm:flex-row justify-between items-center gap-4 mb-6 border-b border-slate-100 pb-5">
                 <h3 class="text-lg md:text-xl font-black text-[#1f3a40] flex items-center gap-2">
-                  <i class="fa-solid fa-quote-right text-[#00b4d8] opacity-50"></i> تقييمات ضيوف رمال
+                  <i class="fa-solid fa-quote-right text-[#00b4d8] opacity-50 text-2xl"></i> تقييمات ضيوف رمال
                 </h3>
-                <button onclick="openReviewModal()" class="bg-[#00b4d8] hover:bg-[#0096b4] text-white text-xs font-bold py-2 px-5 rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-none">
+                <button onclick="openReviewModal()" class="bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] text-white text-xs font-bold py-2.5 px-5 rounded-full shadow-md transition-all flex items-center gap-1.5 cursor-pointer border-none hover:shadow-lg">
                   أضف تقييمك <i class="fa-solid fa-star text-yellow-300 pointer-events-none text-[10px]"></i>
                 </button>
               </div>
@@ -483,11 +486,9 @@
 
         <div class="max-w-2xl w-full mx-auto px-4 -mt-24 relative z-10 mb-20">
             <div class="bg-white rounded-3xl shadow-[0_20px_50px_rgba(31,58,64,0.1)] border border-slate-100 p-6 md:p-8 space-y-8">
-                
                 <div class="text-center border-b border-slate-100 pb-5">
                     <h2 id="hotelNameTitle" class="text-xl md:text-2xl font-extrabold text-[#1f3a40] leading-snug"></h2>
                 </div>
-
                 <div id="selectedRoomDetails" class="bg-slate-50 border border-slate-200 rounded-2xl p-5 relative overflow-hidden"></div>
 
                 <form id="bookingForm" onsubmit="confirmReservation(event)" class="space-y-5">
@@ -498,23 +499,20 @@
                             <input type="text" id="custName" required class="w-full bg-white border border-slate-200 rounded-xl py-3 pr-11 pl-4 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/20 transition-all shadow-sm" />
                         </div>
                     </div>
-
                     <div class="space-y-1.5">
-                        <label class="block text-sm font-bold text-slate-600">الإيميل (لإرسال قسيمة PDF المؤكدة) <span class="text-[#800000]">*</span></label>
+                        <label class="block text-sm font-bold text-slate-600">الإيميل (لإرسال قسيمة PDF) <span class="text-[#800000]">*</span></label>
                         <div class="relative group">
                             <i class="fa-solid fa-envelope absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#00b4d8] transition-colors pointer-events-none"></i>
                             <input type="email" id="custEmail" required dir="ltr" class="w-full text-left bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/20 transition-all shadow-sm" />
                         </div>
                     </div>
-
                     <div class="space-y-1.5">
-                        <label class="block text-sm font-bold text-slate-600">التليفون (رقم الواتساب <i class="fa-brands fa-whatsapp text-green-500"></i>) <span class="text-[#800000]">*</span></label>
+                        <label class="block text-sm font-bold text-slate-600">التليفون (واتساب <i class="fa-brands fa-whatsapp text-green-500"></i>) <span class="text-[#800000]">*</span></label>
                         <div class="relative group">
                             <i class="fa-solid fa-phone absolute left-4 top-1/2 -translate-y-1/2 text-slate-400 group-focus-within:text-[#00b4d8] transition-colors pointer-events-none"></i>
                             <input type="tel" id="custPhone" inputmode="tel" required dir="ltr" placeholder="+971544757578" class="w-full text-left bg-white border border-slate-200 rounded-xl py-3 pl-11 pr-4 text-sm font-bold text-slate-800 focus:outline-none focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/20 transition-all tracking-wide shadow-sm" />
                         </div>
                     </div>
-
                     <div class="space-y-1.5">
                         <label class="block text-sm font-bold text-slate-600">أسماء المرافقين:</label>
                         <div class="relative group">
@@ -523,6 +521,7 @@
                         </div>
                     </div>
 
+                    <!-- 🚀 قسم فاتورة الدفع وتطبيق الكاش باك -->
                     <div class="bg-[#f8fafc] border border-slate-200 rounded-2xl p-5 mt-6 shadow-inner">
                         <h3 class="text-sm font-black text-[#1f3a40] mb-4 border-b border-slate-200 pb-3"><i class="fa-solid fa-receipt text-[#00b4d8]"></i> تفاصيل السعر وتطبيق الخصم</h3>
                         <div class="flex justify-between items-center mb-3">
@@ -608,7 +607,6 @@
                             <input type="email" id="lookupEmail" required placeholder="name@example.com" class="w-full p-3.5 pl-11 rounded-xl border border-slate-200 font-bold bg-slate-50 focus:bg-white focus:border-[#00b4d8] focus:ring-2 focus:ring-[#00b4d8]/20 transition-all outline-none text-left" dir="ltr">
                         </div>
                     </div>
-                    
                     <div class="pt-2">
                         <button type="submit" class="w-full bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(0,180,216,0.3)] hover:shadow-[0_10px_25px_rgba(0,180,216,0.4)] transition-all active:scale-95 cursor-pointer border-none flex items-center justify-center gap-2">
                             <i class="fa-solid fa-satellite-dish"></i> ابحث عن الحجز
@@ -669,7 +667,7 @@
         </div>
     </div>
 
-    <!-- نافذة تسجيل الدخول/الإنشاء -->
+    <!-- نوافذ الأمان الأخرى -->
     <div id="socialModal" class="modal-overlay fixed inset-0 z-[3000] hidden items-center justify-center p-4 bg-slate-900/80 backdrop-blur-md">
         <div class="bg-white w-full max-w-md rounded-[2rem] shadow-2xl relative animate-[scaleIn_0.3s_ease-out_forwards] border border-white/20 overflow-hidden">
             <div class="bg-gradient-to-r from-[#1f3a40] to-[#112226] pt-10 pb-8 px-6 relative border-b-4 border-[#00b4d8]">
@@ -747,7 +745,6 @@
         </div>
     </div>
 
-    <!-- نوافذ الأمان الأخرى -->
     <div id="editEmailModal" class="modal-overlay hidden fixed inset-0 z-[3000] items-center justify-center p-4 bg-slate-900/80 backdrop-blur-sm">
         <div class="bg-white rounded-3xl p-7 w-full max-w-sm relative shadow-2xl">
             <h3 class="text-[#1f3a40] font-black text-xl mb-4 text-center">تعديل البريد ✉️</h3>
@@ -1732,7 +1729,7 @@
                   <!-- 📝 قسم التفاصيل (المنتصف) -->
                   <div class="flex-1 p-5 md:p-6 flex flex-col justify-between bg-white relative z-10">
                     <div>
-                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2 text-right"><bdi dir="auto">${hotel.name}</bdi></h3>
+                      <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2"><bdi dir="auto">${hotel.name}</bdi></h3>
                       <p class="text-sm text-gray-500 font-semibold text-right"><i class="fa-solid fa-location-dot text-gray-400 ml-1 text-[10px]"></i> الإمارات - <strong>${hotel.city}</strong></p>
                       
                       <div class="flex flex-wrap gap-2 mt-4 justify-start text-right">
@@ -1825,7 +1822,7 @@
                 let coinBadgeHTML = '';
                 if (currentUser) {
                     coinBadgeHTML = `
-                        <div class="w-16 h-16 transform transition-transform duration-300 z-10 cursor-default">
+                        <div class="w-12 h-12 transform transition-transform duration-300 z-10 cursor-default">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
                                 <linearGradient id="gold-outer-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1834,22 +1831,18 @@
                                 <linearGradient id="gold-inner-r-${index}" x1="0%" y1="100%" x2="100%" y2="0%">
                                   <stop offset="0%" stop-color="#7B4918"/><stop offset="50%" stop-color="#B8860B"/><stop offset="100%" stop-color="#F9D976"/>
                                 </linearGradient>
-                                <filter id="text-shadow-r-${index}"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.5"/></filter>
-                                <filter id="coin-shadow-r-${index}"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/></filter>
                               </defs>
-                              <circle cx="100" cy="100" r="90" fill="url(#gold-outer-r-${index})" filter="url(#coin-shadow-r-${index})"/>
+                              <circle cx="100" cy="100" r="90" fill="url(#gold-outer-r-${index})"/>
                               <circle cx="100" cy="100" r="84" fill="none" stroke="#5c3a0d" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
                               <circle cx="100" cy="100" r="75" fill="url(#gold-inner-r-${index})"/>
                               <circle cx="100" cy="100" r="75" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
-                              <text x="100" y="62" font-family="'Cairo', sans-serif" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" filter="url(#text-shadow-r-${index})">كاش باك</text>
-                              <text x="100" y="130" font-family="'Cairo', sans-serif" font-size="70" font-weight="900" fill="#ffffff" text-anchor="middle" filter="url(#text-shadow-r-${index})" letter-spacing="-2">${cashbackAED}</text>
-                              <text x="100" y="160" font-family="'Cairo', sans-serif" font-size="20" font-weight="bold" fill="#ffffff" text-anchor="middle" filter="url(#text-shadow-r-${index})">درهم</text>
-                              <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.1"/>
+                              <text x="100" y="70" font-family="'Cairo', sans-serif" font-size="28" font-weight="800" fill="#ffffff" text-anchor="middle">كاش</text>
+                              <text x="100" y="145" font-family="'Cairo', sans-serif" font-size="65" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-2">${cashbackAED}</text>
                             </svg>
                         </div>`;
                 } else {
                     coinBadgeHTML = `
-                        <div onclick="openAuthModal()" class="w-16 h-16 cursor-pointer transform transition-transform duration-300 hover:scale-105 z-10 pulse-coin rounded-full">
+                        <div onclick="openAuthModal()" class="w-12 h-12 cursor-pointer transform transition-transform duration-300 hover:scale-105 z-10 pulse-coin rounded-full">
                             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                               <defs>
                                 <linearGradient id="dark-outer-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -1858,48 +1851,46 @@
                                 <linearGradient id="dark-inner-r-${index}" x1="0%" y1="100%" x2="100%" y2="0%">
                                   <stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#1e293b"/><stop offset="100%" stop-color="#475569"/>
                                 </linearGradient>
-                                <filter id="coin-shadow-dark-r-${index}"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/></filter>
                               </defs>
-                              <circle cx="100" cy="100" r="90" fill="url(#dark-outer-r-${index})" filter="url(#coin-shadow-dark-r-${index})"/>
+                              <circle cx="100" cy="100" r="90" fill="url(#dark-outer-r-${index})"/>
                               <circle cx="100" cy="100" r="84" fill="none" stroke="#1e293b" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
                               <circle cx="100" cy="100" r="75" fill="url(#dark-inner-r-${index})"/>
-                              <circle cx="100" cy="100" r="75" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.1"/>
-                              <path d="M 85 75 V 65 A 15 15 0 0 1 115 65 V 75 H 120 V 115 H 80 V 75 Z M 92 75 H 108 V 65 A 8 8 0 0 0 92 65 Z" fill="#facc15" filter="url(#text-shadow-r-${index})"/>
-                              <text x="100" y="145" font-family="'Cairo', sans-serif" font-size="22" font-weight="900" fill="#cbd5e1" text-anchor="middle">سر الأعضاء</text>
-                              <path d="M 20 80 A 90 90 0 0 1 180 80 A 120 80 0 0 0 20 80 Z" fill="#ffffff" opacity="0.05"/>
+                              <path d="M 85 75 V 65 A 15 15 0 0 1 115 65 V 75 H 120 V 115 H 80 V 75 Z M 92 75 H 108 V 65 A 8 8 0 0 0 92 65 Z" fill="#facc15"/>
                             </svg>
                         </div>`;
                 }
 
                 container.innerHTML += `
                     <!-- 🚀 بطاقة الغرفة الجديدة (تذكرة من قسمين فقط) -->
-                    <div class="flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] border border-gray-100 hover:shadow-[0_8px_25px_rgba(0,180,216,0.1)] transition-all duration-300 mb-6 overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                    <div class="flex flex-col md:flex-row bg-white rounded-2xl shadow-[0_4px_15px_rgba(0,0,0,0.05)] border border-gray-100 hover:shadow-[0_8px_25px_rgba(0,180,216,0.1)] transition-all duration-300 mb-6 overflow-hidden relative group animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+
+                        <!-- 🌟 العلامة المائية الفاخرة (لوغو رمال SVG) -->
+                        <div class="absolute -left-10 -bottom-10 w-64 h-64 opacity-[0.03] pointer-events-none transform -rotate-12 group-hover:scale-110 transition-transform duration-700 z-0">
+                            <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
+                                <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#1f3a40"/>
+                                <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="#1f3a40"/>
+                            </svg>
+                        </div>
 
                         <!-- 📝 قسم التفاصيل (اليمين) -->
-                        <div class="flex-1 p-6 md:p-8 relative z-10 flex flex-col justify-between">
+                        <div class="flex-1 p-6 md:p-8 relative z-10 flex flex-col justify-between text-right">
+                            <h3 class="text-xl md:text-2xl font-black text-[#1f3a40] max-w-[85%] leading-tight"><bdi dir="auto">${room.name}</bdi></h3>
                             
-                            <!-- العملة تطفو بأناقة بجانب العنوان -->
-                            <div class="absolute top-6 left-6 flex flex-col items-center gap-1">
-                                ${coinBadgeHTML}
+                            <div class="flex flex-col sm:flex-row gap-3 mt-5">
+                                <span class="inline-flex items-center justify-start gap-2 bg-[#00b4d8]/5 text-[#1f3a40] px-4 py-2 rounded-xl text-sm font-extrabold w-fit border border-[#00b4d8]/20 transition-colors">
+                                    <div class="w-7 h-7 rounded bg-white flex items-center justify-center shadow-sm"><i class="fa-solid fa-bed text-[#00b4d8] text-sm"></i></div>
+                                    الأسرة: ${room.bed}
+                                </span>
+                                <span class="inline-flex items-center justify-start gap-2 bg-[#00b4d8]/5 text-[#1f3a40] px-4 py-2 rounded-xl text-sm font-extrabold w-fit border border-[#00b4d8]/20 transition-colors">
+                                    <div class="w-7 h-7 rounded bg-white flex items-center justify-center shadow-sm"><i class="fa-solid fa-utensils text-[#00b4d8] text-sm"></i></div>
+                                    الوجبات: ${room.board}
+                                </span>
                             </div>
-
-                            <div class="pr-2 text-right">
-                                <h3 class="text-xl md:text-2xl font-black text-[#1f3a40] max-w-[70%]"><bdi dir="auto">${room.name}</bdi></h3>
-                                <div class="flex flex-col gap-3 mt-5">
-                                    <span class="inline-flex items-center justify-start gap-2 bg-slate-50 text-[#1f3a40] px-4 py-2 rounded-lg text-sm font-extrabold w-fit border border-slate-100 transition-colors hover:border-[#00b4d8]/30">
-                                        <div class="w-6 h-6 rounded bg-[#00b4d8]/10 flex items-center justify-center"><i class="fa-solid fa-bed text-[#00b4d8] text-sm"></i></div>
-                                        الأسرة: ${room.bed}
-                                    </span>
-                                    <span class="inline-flex items-center justify-start gap-2 bg-slate-50 text-[#1f3a40] px-4 py-2 rounded-lg text-sm font-extrabold w-fit border border-slate-100 transition-colors hover:border-[#00b4d8]/30">
-                                        <div class="w-6 h-6 rounded bg-[#00b4d8]/10 flex items-center justify-center"><i class="fa-solid fa-utensils text-[#00b4d8] text-sm"></i></div>
-                                        الوجبات: ${room.board}
-                                    </span>
-                                </div>
-                            </div>
-                            <div class="mt-6 border ${cancelClass} p-4 text-sm rounded-xl font-bold flex items-start gap-3 relative overflow-hidden text-right">
+                            
+                            <div class="mt-6 border ${cancelClass} p-4 text-sm rounded-xl font-bold flex items-start gap-3 relative overflow-hidden bg-opacity-30">
                                 <i class="fa-solid ${cancelIcon} mt-0.5 relative z-10 text-lg"></i>
                                 <div class="relative z-10">
-                                    <span class="block ${policyTitleColor}">سياسة الإلغاء الدقيقة:</span>
+                                    <span class="block ${policyTitleColor} font-black">سياسة الإلغاء الدقيقة:</span>
                                     <span class="font-semibold mt-1 block whitespace-pre-line text-slate-600 leading-relaxed">${room.policyText}</span>
                                 </div>
                             </div>
@@ -1910,7 +1901,7 @@
                         <div class="md:hidden ticket-divider-h z-20"></div>
 
                         <!-- 💰 قسم السعر والحجز (يسار) -->
-                        <div class="w-full md:w-[260px] lg:w-[280px] p-6 md:p-8 flex flex-col justify-center items-center bg-[#f8fafc] shrink-0 z-10">
+                        <div class="w-full md:w-[260px] lg:w-[280px] p-6 md:p-8 flex flex-col justify-center items-center bg-[#f8fafc] shrink-0 z-10 relative">
                             <span class="text-xs font-bold text-gray-500 mb-1">السعر لليلة واحدة</span>
                             <div class="text-center mb-1 flex items-baseline justify-center gap-1.5" dir="ltr">
                                 <span class="text-sm font-bold text-gray-400 currency-label">AED</span>
@@ -1918,21 +1909,22 @@
                             </div>
                             <span class="text-[10px] text-gray-400 font-bold mb-6 block">شامل الضريبة والرسوم</span>
 
-                            <button class="w-full bg-[#800000] hover:bg-[#600000] active:scale-95 transition-all duration-300 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.3)] border-none cursor-pointer text-lg" 
+                            <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-95 transition-all duration-300 text-white font-black py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_25px_rgba(128,0,0,0.3)] border-none cursor-pointer text-base flex items-center justify-center gap-2" 
                                 onclick="goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
-                                احجز الغرفة
+                                <i class="fa-solid fa-lock text-white/50 text-sm"></i> احجز الغرفة
                             </button>
 
-                            ${currentUser 
-                                ? `<div class="mt-4 flex items-center justify-center gap-2 bg-gradient-to-r from-amber-50 to-yellow-50 text-amber-800 px-3 py-2.5 rounded-xl w-full cursor-default border border-amber-200/60 shadow-sm">
-                                       <i class="fa-solid fa-coins text-amber-500 text-sm"></i>
-                                       <span class="text-[11px] font-black tracking-wide">يضاف الكاش باك بعد الحجز</span>
-                                   </div>` 
-                                : `<div onclick="openAuthModal()" class="mt-4 flex items-center justify-center gap-2 bg-[#fff7ed] text-[#9a3412] px-3 py-2.5 rounded-xl w-full cursor-pointer hover:bg-[#ffedd5] border border-[#ffedd5] transition-colors group shadow-sm">
-                                       <i class="fa-solid fa-lock text-[#ea580c] text-sm group-hover:text-[#f97316]"></i>
-                                       <span class="text-[11px] font-extrabold underline decoration-dashed underline-offset-4">سجل لتفعيل الكاش باك</span>
-                                   </div>`
-                            }
+                            <!-- كبسولة الكاش باك الذكية -->
+                            <div class="mt-4 w-full bg-white border border-slate-200 rounded-xl p-2 flex items-center justify-between shadow-sm cursor-default hover:border-yellow-300 transition-colors group">
+                                <div class="flex items-center gap-2">
+                                    ${coinBadgeHTML}
+                                    <div class="text-right">
+                                        <span class="block text-[9px] text-gray-400 font-bold uppercase tracking-wider">كاش باك مضاف</span>
+                                        <span class="block text-xs font-black text-[#1f3a40]">${currentUser ? 'مضمون لك' : '<span class="text-red-500 underline decoration-dashed cursor-pointer" onclick="openAuthModal()">سجل لتربح</span>'}</span>
+                                    </div>
+                                </div>
+                                <i class="fa-solid fa-chevron-left text-slate-200 text-xs pl-2 group-hover:text-yellow-400 transition-colors"></i>
+                            </div>
                         </div>
                     </div>`;
             });
