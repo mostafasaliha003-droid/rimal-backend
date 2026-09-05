@@ -393,7 +393,6 @@
                         <fieldset class="mb-5 md:mb-7">
                             <legend class="text-slate-400 font-bold text-[10px] md:text-xs uppercase tracking-wide mb-3 md:mb-4 w-full">المدينة:</legend>
                             <div class="grid grid-cols-2 lg:grid-cols-1 gap-1.5 md:space-y-1">
-                                <!-- نفس أزرار الفلتر -->
                                 <label class="group flex items-center gap-2 md:gap-3 p-2 md:p-2.5 rounded-xl cursor-pointer hover:bg-slate-50 transition-colors border border-slate-50 hover:border-slate-100">
                                     <input type="radio" name="cityFilter" value="all" checked onchange="filterHotels()" class="peer sr-only">
                                     <div class="w-4 h-4 md:w-5 md:h-5 rounded-full border-2 border-slate-300 peer-checked:border-[#00b4d8] flex items-center justify-center transition-all shadow-sm"><div class="w-2 h-2 md:w-2.5 md:h-2.5 rounded-full bg-[#00b4d8] scale-0 peer-checked:scale-100 transition-transform"></div></div>
@@ -448,6 +447,7 @@
             </div>
         </div>
     </div> <!-- نهاية قسم mainView -->
+
     <!-- 🚀 واجهة اختيار الغرف -->
     <div id="roomSelectionView" class="view-section pb-20">
         <div class="bg-[#1f3a40] pt-12 pb-24 md:pb-32 relative z-0 border-b-4 border-[#00b4d8] overflow-hidden">
@@ -970,7 +970,7 @@
         </div>
     </footer>
 
-    <!-- السكريبتات -->
+    <!-- السكريبتات الخارجية -->
     <div id="google_translate_element" style="display:none;"></div>
     <script>
         if ('serviceWorker' in navigator) {
@@ -999,7 +999,7 @@
     <script type="text/javascript" src="//translate.google.com/translate_a/element.js?cb=googleTranslateElementInit"></script>
     <script async defer src="https://maps.googleapis.com/maps/api/js?key=AIzaSyCkqVnoRsRtoETOTqR68CUtyk0o0E3XaEQ&callback=initGoogleMap"></script>
     <script src="https://cdn.socket.io/4.7.2/socket.io.min.js"></script>
-
+    <!-- 🚀 الجزء الثاني (2 من 2): كود JavaScript بالكامل وإغلاق الملف -->
     <script>
         const API_URL = 'https://rimal-api.onrender.com';
 
@@ -1009,7 +1009,7 @@
 
         // 🌟 قاموس الأيقونات
         const UI_ICONS = {
-            hotel: `<svg class="w-5 h-5 md:w-6 md:h-6 fill-[#00b4d8]" viewBox="0 0 512 512"><path d="M64 32C28.7 32 0 60.7 0 96v352c0 17.7 14.3 32 32 32h128v-96c0-17.7 14.3-32 32-32h128c17.7 0 32 14.3 32 32v96h128c17.7 0 32-14.3 32-32V96c0-35.3-28.7-64-64-64H64zM128 160h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zM128 288h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16z"/></svg>`,
+            hotel: `<svg class="w-5 h-5 md:w-6 md:h-6 fill-[#00b4d8]" viewBox="0 0 512 512"><path d="M64 32C28.7 32 0 60.7 0 96v352c0 17.7 14.3 32 32 32h128v-96c0-17.7 14.3-32 32-32h128c17.7 0 32 14.3 32 32v96h128c17.7 0 32-14.3 32-32V96c0-35.3-28.7-64-64-64H64zM128 160h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16z"/></svg>`,
             food: `<svg class="w-3.5 h-3.5 fill-amber-600" viewBox="0 0 448 512"><path d="M416 0C400 0 288 32 288 176V288c0 35.3 28.7 64 64 64h32V480c0 17.7 14.3 32 32 32s32-14.3 32-32V352 24 0H416zM64 16C64 7.8 57.9 1 50 0C34 0 25.1 8 20.1 19.3L-7.4 85.3C-15.2 106.4 0 128 22.6 128H41.4c22.6 0 37.8-21.6 30.1-42.7L43.9 19.3C38.9 8 30 0 14 0c-7.9 1-14 7.8-14 16V480c0 17.7 14.3 32 32 32s32-14.3 32-32V16zM224 16c-17.7 0-32 14.3-32 32V256c0 17.7 14.3 32 32 32s32-14.3 32-32V48c0-17.7-14.3-32-32-32z"/></svg>`,
             price: `<svg class="w-4 h-4 fill-[#00b4d8]" viewBox="0 0 576 512"><path d="M64 64C28.7 64 0 92.7 0 128V384c0 35.3 28.7 64 64 64H512c35.3 0 64-28.7 64-64V128c0-35.3-28.7-64-64-64H64zm64 320H64V320c35.3 0 64 28.7 64 64zM64 192V128h64c0 35.3-28.7 64-64 64zM448 384c0-35.3 28.7-64 64-64v64H448zm64-192c-35.3 0-64-28.7-64-64h64v64zM288 160a96 96 0 1 1 0 192 96 96 0 1 1 0-192z"/></svg>`,
             policy: `<svg class="w-4 h-4 fill-slate-400 mt-0.5 shrink-0" viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg>`,
