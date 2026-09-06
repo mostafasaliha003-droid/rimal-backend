@@ -79,6 +79,14 @@
             100% { transform: translateX(-15%); }
         }
 
+        /* 🚀 Masterstroke 5: Jackpot Coin Drop Animation */
+        @keyframes coinDrop {
+            0% { transform: translateY(-10px) scale(0.5) rotate(0deg); opacity: 0; }
+            15% { opacity: 1; transform: translateY(20px) scale(1.2) rotate(45deg); }
+            80% { opacity: 1; }
+            100% { transform: translateY(200px) scale(1) rotate(360deg); opacity: 0; }
+        }
+
         /* تنسيقات الموبايل PWA */
         @media (max-width: 768px) {
             .mobile-hide { display: none !important; }
@@ -86,7 +94,6 @@
             .mobile-search-expanded { display: none; }
             .mobile-bottom-sheet { position: fixed; bottom: 0; left: 0; right: 0; background: white; border-radius: 24px 24px 0 0; padding: 20px; z-index: 4000; box-shadow: 0 -10px 40px rgba(0,0,0,0.2); transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1); }
             .mobile-bottom-sheet.open { transform: translateY(0); }
-            /* 🚀 Added proper body padding so content doesn't get hidden behind bottom nav */
             body { padding-bottom: 70px; }
         }
     </style>
@@ -831,7 +838,7 @@
             </div>
             <div id="passStep2" style="display:none;">
                 <div class="mb-3 text-right"><label class="block text-[10px] md:text-xs font-bold text-gray-700 mb-1.5">كود (OTP):</label><input type="text" id="passOtpInput" required placeholder="123456" class="w-full text-center tracking-widest text-base md:text-lg p-2.5 md:p-3 bg-gray-50 border border-gray-200 rounded-lg md:rounded-xl outline-none focus:border-teal-500 transition-all" dir="ltr"></div>
-                <div class="mb-4 text-right"><label class="block text-[10px] md:text-xs font-bold text-gray-700 mb-1.5">كلمة المرور الجديدة:</label><input type="password" id="newPasswordInput" required placeholder="********" class="w-full text-left p-2.5 md:p-3 bg-gray-50 border border-gray-200 rounded-lg md:rounded-xl outline-none focus:border-teal-500 transition-all text-sm" dir="ltr"></div>
+                <div class="mb-4 text-right"><label class="block text-[10px] md:text-xs font-bold text-gray-700 mb-1.5">كلمة المرور الجديدة:</label><input type="password" id="newPasswordInput" required placeholder="********" class="w-full text-left p-2.5 md:p-3 bg-gray-50 border border-slate-200 rounded-lg md:rounded-xl outline-none focus:border-teal-500 transition-all text-sm" dir="ltr"></div>
                 <button type="button" class="w-full bg-green-600 hover:bg-green-700 text-white font-black py-2.5 md:py-3 rounded-lg md:rounded-xl border-none cursor-pointer shadow-md text-sm" onclick="Auth.verifyAndChangePassword()">تحديث ✅</button>
             </div>
             <button type="button" onclick="Auth.closeEditPasswordModal()" class="w-full mt-3 bg-gray-200 hover:bg-gray-300 text-gray-800 font-bold py-2 md:py-2.5 rounded-lg md:rounded-xl border-none cursor-pointer transition text-xs md:text-sm">إغلاق</button>
@@ -1056,5 +1063,99 @@
     <script src="js/checkout.js"></script>
     <script src="js/main.js"></script>
 
+    <!-- 🚀 Masterstroke 5: The Dopamine Jackpot Logic -->
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            const ptsEl = document.getElementById('dashPointsDisplay');
+            const aedEl = document.getElementById('dashPointsAEDDisplay');
+            const registerView = document.getElementById('registerView');
+            if (!ptsEl || !aedEl || !registerView) return;
+
+            let isAnimating = false;
+
+            // 1. مراقبة ظهور صفحة لوحة التحكم للعميل
+            const viewObserver = new MutationObserver((mutations) => {
+                mutations.forEach(m => {
+                    if (m.attributeName === 'class' && registerView.classList.contains('active')) {
+                        triggerJackpotIfReady();
+                    }
+                });
+            });
+            viewObserver.observe(registerView, { attributes: true });
+
+            // 2. مراقبة تحديث النقاط من السيرفر
+            const pointsObserver = new MutationObserver((mutations) => {
+                if (isAnimating) return; 
+                if (registerView.classList.contains('active')) {
+                    triggerJackpotIfReady();
+                }
+            });
+            pointsObserver.observe(ptsEl, { characterData: true, childList: true, subtree: true });
+
+            function triggerJackpotIfReady() {
+                if (isAnimating) return;
+                let targetPoints = parseInt(ptsEl.innerText.replace(/,/g, ''));
+                if (targetPoints > 0) {
+                    isAnimating = true;
+                    playJackpot(targetPoints);
+                }
+            }
+
+            function playJackpot(targetPoints) {
+                // تصفير الأرقام ثم بدء العد السريع
+                animateValue(ptsEl, 0, targetPoints, 2000);
+                animateValueAED(aedEl, 0, targetPoints / 10, 2000);
+
+                // تأثير تساقط العملات الذهبية
+                const card = ptsEl.closest('.bg-gradient-to-br');
+                if (card) {
+                    card.style.position = 'relative';
+                    for (let i = 0; i < 18; i++) {
+                        setTimeout(() => {
+                            const coin = document.createElement('div');
+                            coin.innerHTML = '<i class="fa-solid fa-coins text-yellow-400 drop-shadow-md text-2xl md:text-3xl"></i>';
+                            coin.style.position = 'absolute';
+                            coin.style.left = (Math.random() * 80 + 10) + '%'; 
+                            coin.style.top = '-20px';
+                            coin.style.animation = 'coinDrop ' + (1 + Math.random() * 1.5) + 's ease-in forwards';
+                            coin.style.zIndex = '50';
+                            coin.style.pointerEvents = 'none';
+                            card.appendChild(coin);
+                            
+                            setTimeout(() => coin.remove(), 2500);
+                        }, Math.random() * 1000); 
+                    }
+                }
+
+                setTimeout(() => { isAnimating = false; }, 2500);
+            }
+
+            function animateValue(obj, start, end, duration) {
+                let startTimestamp = null;
+                const step = (timestamp) => {
+                    if (!startTimestamp) startTimestamp = timestamp;
+                    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                    const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+                    obj.innerHTML = Math.floor(easeOutQuart * (end - start) + start).toLocaleString('en-US');
+                    if (progress < 1) window.requestAnimationFrame(step);
+                    else obj.innerHTML = end.toLocaleString('en-US');
+                };
+                window.requestAnimationFrame(step);
+            }
+
+            function animateValueAED(obj, start, end, duration) {
+                let startTimestamp = null;
+                const step = (timestamp) => {
+                    if (!startTimestamp) startTimestamp = timestamp;
+                    const progress = Math.min((timestamp - startTimestamp) / duration, 1);
+                    const easeOutQuart = 1 - Math.pow(1 - progress, 4);
+                    obj.innerHTML = (easeOutQuart * (end - start) + start).toFixed(2);
+                    if (progress < 1) window.requestAnimationFrame(step);
+                    else obj.innerHTML = end.toFixed(2);
+                };
+                window.requestAnimationFrame(step);
+            }
+        });
+    </script>
 </body>
 </html>
