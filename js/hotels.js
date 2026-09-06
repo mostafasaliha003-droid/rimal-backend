@@ -116,7 +116,7 @@ const Hotels = {
             if(hotel.hotelFacilities) {
                 hotel.hotelFacilities.forEach(fac => {
                     let styledFac = fac.replace('<i ', '<i style="color: #00b4d8;" ');
-                    facilitiesHTML += `<span class="inline-flex items-center gap-1.5 text-slate-500 text-[11px] font-bold shrink-0 bg-slate-50 px-2 py-1 rounded-md border border-slate-100">${styledFac}</span>`;
+                    facilitiesHTML += `<span class="inline-flex items-center gap-1.5 text-slate-500 text-[11px] font-bold shrink-0 bg-slate-50 px-2.5 py-1.5 rounded-md border border-slate-100 shadow-sm">${styledFac}</span>`;
                 });
             }
             const animationDelay = index * 100;
@@ -228,9 +228,9 @@ const Hotels = {
 
                     ${cashbackHTML}
 
-                    <!-- 🚀 THE FIXED BUTTON 🚀 -->
+                    <!-- 🚀 THE FIXED BUTTON - Now explicitly using Checkout.viewHotelDetails 🚀 -->
                     <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-3.5 md:py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.25)] border-none cursor-pointer text-sm md:text-base flex items-center justify-center gap-2" 
-                        onclick="viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                        onclick="if(typeof Checkout !== 'undefined') Checkout.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
                         تحديد الغرف <i class="fa-solid fa-chevron-left text-[10px] md:text-sm opacity-80 pointer-events-none"></i>
                     </button>
                 </div>
