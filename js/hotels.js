@@ -232,63 +232,80 @@ const Hotels = {
             let baseMealType = 'RO'; 
             if(hotel.priceAED > 800) baseMealType = 'BB';
             if(hotel.priceAED > 2000) baseMealType = 'HB';
-            // 🚀 التصحيح الأهم: استدعاء دالة الوجبات من كائن Hotels مباشرة
             let mealBadge = Hotels.getMealPlanUI(baseMealType);
 
             container.innerHTML += `
-            <div class="compact-card relative flex flex-col lg:flex-row bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_15px_40px_rgba(0,180,216,0.12)] transition-all duration-500 mb-5 md:mb-6 group overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+            <div class="relative bg-white rounded-3xl shadow-[0_4px_20px_rgba(0,0,0,0.03)] border border-slate-100 hover:shadow-[0_15px_40px_rgba(0,180,216,0.12)] hover:border-[#00b4d8]/30 transition-all duration-300 mb-6 group animate-fade-in-up flex flex-col lg:flex-row overflow-hidden" style="animation-delay: ${animationDelay}ms;">
               
-              <div class="img-container relative w-full lg:w-[320px] shrink-0 h-48 sm:h-64 lg:h-auto overflow-hidden rounded-t-[1.5rem] lg:rounded-none lg:rounded-r-[2rem]">
-                <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" onerror="this.src='https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80'" />
-                <div class="absolute inset-0 bg-gradient-to-t from-[#1f3a40]/80 via-transparent to-black/20 pointer-events-none z-0"></div>
-                
-                <div class="absolute top-2 left-2 md:top-4 md:left-4 flex items-center bg-white/95 backdrop-blur-md rounded-lg md:rounded-xl shadow-lg overflow-hidden z-10">
-                    <div class="bg-gradient-to-br from-[#1f3a40] to-[#2a4d53] text-white px-2 py-1 md:px-3 md:py-1.5 flex items-center justify-center">
-                        <span class="font-black text-[10px] md:text-sm tracking-widest" dir="ltr">${randomRating}</span>
+              <!-- Image Section -->
+              <div class="relative w-full lg:w-[380px] shrink-0 h-56 sm:h-72 lg:h-auto overflow-hidden p-2">
+                <div class="w-full h-full rounded-2xl overflow-hidden relative">
+                    <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-700 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80'" />
+                    <div class="absolute inset-0 bg-gradient-to-t from-black/70 via-black/10 to-transparent pointer-events-none z-0"></div>
+                    
+                    <!-- Rating Badge -->
+                    <div class="absolute top-3 left-3 flex items-center bg-white/95 backdrop-blur-md rounded-lg shadow-lg overflow-hidden z-10">
+                        <div class="bg-[#1f3a40] text-white px-2.5 py-1 flex items-center justify-center">
+                            <span class="font-black text-sm tracking-wider" dir="ltr">${randomRating}</span>
+                        </div>
+                        <div class="px-2 py-1 flex items-center">
+                            <span class="text-[#1f3a40] font-extrabold text-[10px]">ممتاز</span>
+                        </div>
                     </div>
-                    <div class="px-2 py-1 md:px-2.5 md:py-1.5 flex items-center gap-1">
-                        <span class="text-[#1f3a40] font-extrabold text-[9px] md:text-[11px]">ممتاز</span>
+
+                    <!-- Scarcity Tag -->
+                    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 ${randomScarcity.bg} ${randomScarcity.color} px-3 py-1.5 rounded-lg text-[10px] font-black shadow-sm backdrop-blur-md border border-white/20">
+                        <i class="fa-solid ${randomScarcity.icon} animate-pulse"></i> ${randomScarcity.text}
                     </div>
-                </div>
-                
-                ${coinBadgeHTML}
-                
-                <div class="absolute bottom-2 right-2 md:bottom-4 md:right-4 z-10 flex items-center gap-1 md:gap-1.5 ${randomScarcity.bg} ${randomScarcity.color} px-2 py-1 md:px-3 md:py-1.5 rounded-md md:rounded-lg text-[9px] md:text-[10px] font-black border ${randomScarcity.border} shadow-sm backdrop-blur-sm">
-                    <i class="fa-solid ${randomScarcity.icon} animate-pulse"></i> ${randomScarcity.text}
                 </div>
               </div>
 
-              <div class="compact-card-body flex-1 p-4 sm:p-6 md:p-8 flex flex-col justify-between relative z-10 min-w-0 bg-white">
+              <!-- Content Section -->
+              <div class="flex-1 p-5 sm:p-6 lg:p-8 flex flex-col justify-between relative z-10">
                 <div>
-                  <div class="flex items-center gap-1 md:gap-2 mb-1.5 md:mb-2">
-                    <div class="flex text-yellow-400 text-[8px] md:text-[10px]"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
+                  <div class="flex items-center gap-1 mb-2">
+                    <div class="flex text-yellow-400 text-[10px]"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
                   </div>
-                  <h3 class="text-base sm:text-xl lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-1.5 md:mb-2 truncate"><bdi dir="auto"><span style="unicode-bidi: plaintext;">${hotel.name}</span></bdi></h3>
-                  <p class="text-[11px] md:text-[13px] text-slate-500 font-bold mb-3 md:mb-4 flex items-center gap-1 md:gap-1.5 truncate"><i class="fa-solid fa-location-dot text-[#00b4d8]"></i> الإمارات - ${hotel.city}</p>
+                  <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors leading-tight mb-2 truncate"><bdi dir="auto">${hotel.name}</bdi></h3>
+                  <p class="text-[13px] text-slate-500 font-bold mb-4 flex items-center gap-1.5"><i class="fa-solid fa-location-dot text-[#00b4d8]"></i> الإمارات - ${hotel.city} <span class="text-[#00b4d8] underline decoration-dashed cursor-pointer ml-2 text-[11px] hover:text-[#007790]">عرض على الخريطة</span></p>
                   
-                  <div class="compact-facilities-scroll flex gap-1.5 md:gap-2 mt-2 md:mt-4 justify-start">
+                  <div class="flex flex-wrap gap-2 mt-3 justify-start">
                       ${facilitiesHTML}
                   </div>
                 </div>
                 
-                <div class="hidden lg:block ticket-divider-v z-20"></div>
+                <div class="mt-6 flex flex-wrap items-center gap-3">
+                   ${mealBadge}
+                   <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[11px] font-black border border-emerald-100 shadow-sm"><i class="fa-solid fa-check text-emerald-500"></i> إلغاء مجاني</span>
+                </div>
+              </div>
 
-                <div class="compact-price-row w-full lg:w-[260px] xl:w-[280px] p-0 lg:p-4 sm:p-6 md:p-8 flex flex-row lg:flex-col justify-between lg:justify-center items-end lg:items-center bg-transparent lg:bg-gradient-to-b from-[#f8fafc] to-white shrink-0 z-10 relative lg:border-l border-slate-50 lg:p-6">
-                    <div class="price-box text-right lg:text-center mb-0 lg:mb-4 w-1/2 lg:w-auto">
-                        <span class="hidden lg:inline-block bg-[#00b4d8]/10 text-[#00b4d8] text-[9px] md:text-[10px] font-black px-2 md:px-3 py-1 rounded-full mb-2 border border-[#00b4d8]/20 tracking-wide">أفضل سعر متاح</span>
-                        <span class="text-[8px] md:text-[11px] font-bold text-slate-400 mb-0.5 block">ابتداءً من (لليلة)</span>
-                        <div class="flex items-baseline justify-start lg:justify-center gap-1 md:gap-1.5" dir="ltr">
-                            <span class="text-[10px] md:text-sm font-bold text-slate-400 currency-label">AED</span>
-                            <span class="text-xl sm:text-4xl lg:text-5xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
-                        </div>
-                        <span class="text-[7px] md:text-[10px] text-slate-400 font-bold block mt-0.5">شامل الضرائب والرسوم</span>
+              <!-- Divider -->
+              <div class="hidden lg:block w-px bg-slate-100 my-6"></div>
+              <div class="lg:hidden h-px bg-slate-100 mx-6 my-2"></div>
+
+              <!-- Price & Action Section -->
+              <div class="w-full lg:w-[280px] p-5 sm:p-6 lg:p-8 flex flex-col justify-center items-center bg-white shrink-0 z-10 relative">
+                
+                ${currentUser ? `
+                <!-- Premium Glass Cashback Badge -->
+                <div class="absolute -top-3 lg:-top-6 right-6 lg:right-auto lg:left-6 bg-gradient-to-br from-[#00b4d8] to-[#007790] text-white rounded-xl shadow-[0_10px_20px_rgba(0,180,216,0.3)] p-2.5 min-w-[80px] border border-white/20 transform rotate-3 hover:rotate-0 transition-transform z-20">
+                    <span class="block text-[9px] font-black uppercase tracking-wider text-cyan-100 text-center mb-0.5">كاش باك</span>
+                    <span class="block text-xl font-black text-center leading-none" dir="ltr">+${cashbackAED}</span>
+                </div>` : ''}
+
+                <div class="text-center w-full mt-4 lg:mt-0">
+                    <span class="text-[11px] font-bold text-slate-400 mb-1 block">السعر الإجمالي (لليلة)</span>
+                    <div class="flex items-baseline justify-center gap-1.5" dir="ltr">
+                        <span class="text-sm font-bold text-slate-400 currency-label">AED</span>
+                        <span class="text-4xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
                     </div>
+                    <span class="text-[10px] text-slate-400 font-bold mb-5 block">شامل الضرائب والرسوم</span>
 
-                    <button class="w-auto lg:w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-2.5 px-4 md:py-4 rounded-xl shadow-md border-none cursor-pointer text-xs md:text-base flex items-center justify-center gap-1.5 md:gap-2 m-0" onclick="if(typeof Checkout !== 'undefined') Checkout.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
-                        عرض الخيارات <i class="fa-solid fa-chevron-left text-[8px] md:text-sm opacity-80"></i>
+                    <button class="w-full bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] active:scale-95 transition-all duration-300 text-white font-black py-3.5 rounded-xl shadow-[0_8px_20px_rgba(0,180,216,0.3)] border-none text-sm flex items-center justify-center gap-2 mb-4 cursor-pointer" onclick="if(typeof Checkout !== 'undefined') Checkout.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                        تحديد الغرف <i class="fa-solid fa-chevron-left text-xs opacity-80 pointer-events-none"></i>
                     </button>
                 </div>
-
               </div>
             </div>`;
         });
