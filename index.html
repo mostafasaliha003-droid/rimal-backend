@@ -2,8 +2,28 @@
 <html lang="ar" dir="rtl" id="htmlRoot">
 <head>
     <meta charset="UTF-8">
+    <!-- 🚀 التعديل الأهم: منع تكبير الشاشة العشوائي في الهاتف وضبط الأبعاد 100% -->
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <meta http-equiv="Cache-Control" content="no-cache, no-store, must-revalidate">
+    <meta http-equiv="Pragma" content="no-cache">
+    <meta http-equiv="Expires" content="0">
+    <title>رمال وفلّها! | Remal & Chill - احجز، فلّها، واكسب! ✈️</title>
+    
+    <!-- 🚀 أكواد تطبيق الجوال PWA -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#1f3a40">
+    <link rel="apple-touch-icon" href="logo.jpg">
+    
+    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+
+    <!-- 🚀 ربط ملف التنسيقات الخارجي للبراند -->
+    <link rel="stylesheet" href="style.css">
+    
     <style>
-        /* المتغيرات الأساسية للموقع */
         :root {
             --primary: #1f3a40;        
             --accent-cyan: #00b4d8;    
@@ -13,61 +33,6 @@
             --bg-light: #f8fafc;     
             --text-main: #1e293b;
             --text-muted: #64748b;
-        }
-
-        /* ========================================================= 
-           📱 Ultimate Mobile UX Enhancements
-           ========================================================= */
-        @media (max-width: 768px) {
-            .mobile-hide { display: none !important; }
-            
-            /* 1. شريط البحث اللاصق (Collapsed Sticky Search) */
-            .mobile-search-bar {
-                position: sticky; top: 0; z-index: 900; background: white;
-                padding: 10px 15px; border-bottom: 1px solid #e2e8f0;
-                box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-                display: flex !important; justify-content: space-between; align-items: center;
-                transition: transform 0.3s ease;
-            }
-            .mobile-search-expanded { display: none; }
-            
-            /* 2. نافذة البحث المنبثقة (Bottom Sheet) */
-            .mobile-bottom-sheet {
-                position: fixed; bottom: 0; left: 0; right: 0;
-                background: white; border-radius: 24px 24px 0 0;
-                padding: 20px; z-index: 4000; box-shadow: 0 -10px 40px rgba(0,0,0,0.2);
-                transform: translateY(100%); transition: transform 0.4s cubic-bezier(0.4, 0, 0.2, 1);
-            }
-            .mobile-bottom-sheet.open { transform: translateY(0); }
-            
-            /* 3. شريط التنقل السفلي PWA (Bottom Nav) */
-            .bottom-nav {
-                position: fixed; bottom: 0; left: 0; right: 0;
-                background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px);
-                border-top: 1px solid #e2e8f0; display: flex !important; justify-content: space-around;
-                padding-bottom: env(safe-area-inset-bottom); z-index: 1000;
-                box-shadow: 0 -4px 15px rgba(0,0,0,0.05);
-            }
-            .bottom-nav-item {
-                display: flex; flex-direction: column; align-items: center; padding: 8px 0;
-                color: var(--text-muted); font-size: 10px; font-weight: bold; text-decoration: none;
-                flex-grow: 1; text-align: center;
-            }
-            .bottom-nav-item.active { color: var(--accent-cyan); }
-            .bottom-nav-item i { font-size: 20px; margin-bottom: 4px; }
-            
-            /* 4. بطاقة الفندق المضغوطة (Compact Hotel Card) */
-            .compact-card { flex-direction: column !important; padding: 0 !important; overflow: hidden; }
-            .compact-card .img-container { width: 100% !important; height: 200px !important; border-radius: 0 !important; }
-            .compact-card-body { padding: 15px !important; }
-            .compact-facilities-scroll { display: flex; overflow-x: auto; white-space: nowrap; padding-bottom: 5px; scrollbar-width: none; }
-            .compact-facilities-scroll::-webkit-scrollbar { display: none; }
-            
-            .compact-price-row { display: flex; justify-content: space-between; align-items: flex-end; margin-top: 15px; padding-top: 15px; border-top: 1px dashed #e2e8f0; }
-            .compact-price-row .price-box { background: transparent !important; border: none !important; padding: 0 !important; text-align: right; width: auto !important; }
-            .compact-price-row button { width: auto !important; padding: 10px 20px !important; border-radius: 12px !important; margin: 0 !important; }
-            
-            body { padding-bottom: 70px; } /* لترك مساحة للـ Bottom Nav */
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; font-family: 'Cairo', sans-serif; }
