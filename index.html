@@ -15,13 +15,13 @@
     <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
     
-    <!-- 🚀 Masterstroke: إضافة مكتبة Flatpickr للتقويم الفاخر -->
+    <!-- 🚀 Masterstroke: مكتبة Flatpickr للتقويم الفاخر -->
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
     <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/airbnb.css">
 
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
-    <script src="https://npmcdn.com/flatpickr/dist/l10n/ar.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr/dist/l10n/ar.js"></script>
 
     <!-- ربط ملف الستايل الأساسي الموجود لديك في الـ Root -->
     <link rel="stylesheet" href="style.css">
@@ -50,10 +50,10 @@
         .hide-select-arrow { -webkit-appearance: none; -moz-appearance: none; appearance: none; }
         .custom-select-icon { background-image: url("data:image/svg+xml;charset=UTF-8,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%2364748b' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E"); background-repeat: no-repeat; background-position: left 1rem center; background-size: 1em; }
         
-        /* 🚀 إخفاء التقويم الافتراضي وتنسيق Flatpickr */
+        /* 🚀 تنسيق تقويم Flatpickr وإخفاء الأصلي */
         input[type="date"]::-webkit-calendar-picker-indicator { display: none; }
         input[type="date"] { cursor: pointer; }
-        .flatpickr-calendar { border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important; border: 1px solid #e2e8f0; font-family: 'Cairo'; padding: 10px; }
+        .flatpickr-calendar { border-radius: 20px; box-shadow: 0 20px 40px rgba(0,0,0,0.15) !important; border: 1px solid #e2e8f0; font-family: 'Cairo'; padding: 10px; z-index: 9999 !important; }
         .flatpickr-day.selected, .flatpickr-day.startRange, .flatpickr-day.endRange, .flatpickr-day.selected.inRange, .flatpickr-day.startRange.inRange, .flatpickr-day.endRange.inRange, .flatpickr-day.selected:focus, .flatpickr-day.startRange:focus, .flatpickr-day.endRange:focus, .flatpickr-day.selected:hover, .flatpickr-day.startRange:hover, .flatpickr-day.endRange:hover, .flatpickr-day.selected.prevMonthDay, .flatpickr-day.startRange.prevMonthDay, .flatpickr-day.endRange.prevMonthDay, .flatpickr-day.selected.nextMonthDay, .flatpickr-day.startRange.nextMonthDay, .flatpickr-day.endRange.nextMonthDay { background: #00b4d8; border-color: #00b4d8; font-weight: bold; }
 
         .live-ticker { background: linear-gradient(90deg, #112226, #1f3a40, #00b4d8); background-size: 200% 200%; animation: gradientMove 5s ease infinite; color: white; padding: 8px 5%; font-size: 11px; md:font-size: 13px; font-weight: 800; text-align: center; display: flex; justify-content: center; align-items: center; gap: 6px; md:gap: 10px; border-bottom: 1px solid rgba(0, 180, 216, 0.3); }
@@ -135,6 +135,15 @@
             </div>
         </div>
         <i class="fa-solid fa-sliders text-slate-400"></i>
+    </div>
+
+    <!-- 📱 نافذة البحث المنبثقة من الأسفل للهاتف -->
+    <div id="mobileSearchSheet" class="mobile-bottom-sheet hidden md:hidden">
+        <div class="flex justify-between items-center mb-4 border-b border-slate-100 pb-3">
+            <h3 class="font-black text-lg text-[#1f3a40]">تعديل البحث</h3>
+            <button onclick="UI.closeMobileSearchSheet()" class="bg-slate-100 w-8 h-8 rounded-full text-slate-500 border-none cursor-pointer"><i class="fa-solid fa-xmark"></i></button>
+        </div>
+        <div id="mobileSearchContentTarget"></div>
     </div>
 
     <header>
@@ -242,100 +251,115 @@
             </div>
         </section>
 
-        <!-- 🚀 Masterstrokes (1, 2, 3): Glassmorphism Floating Search Bar + Custom Dropdowns -->
-        <section id="searchFormContainer" class="relative z-30 px-3 md:px-4 max-w-6xl mx-auto -mt-24 md:-mt-36 mb-12 md:mb-16">
+        <!-- 🚀 Masterstrokes (1, 2, 3): Glassmorphism Floating Search Bar + Custom Dropdowns 🚀 -->
+        <section id="searchFormContainer" class="relative z-30 px-3 md:px-4 max-w-7xl mx-auto -mt-24 md:-mt-36 mb-12 md:mb-16">
             <!-- The Glass Capsule -->
             <div class="bg-white/70 backdrop-blur-2xl rounded-3xl md:rounded-[2.5rem] shadow-[0_25px_50px_rgba(31,58,64,0.15)] border border-white/60 p-2.5 md:p-4 relative z-30 transition-all duration-500 hover:shadow-[0_30px_60px_rgba(31,58,64,0.2)] lg:hover:-translate-y-1">
                 
-                <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 md:gap-3 relative">
+                <!-- Smart Grid Layout for All Fields -->
+                <div class="flex flex-col lg:flex-row w-full gap-2 md:gap-3 relative">
                   
-                  <!-- 1. الوجهة (Custom Dropdown) -->
-                  <div class="flex-1 bg-white/80 hover:bg-white rounded-2xl transition-all border border-white shadow-sm relative group cursor-pointer" onclick="toggleSearchDropdown('destDropdown')">
-                    <div class="px-4 py-3 md:py-4 flex items-center justify-between">
-                      <div class="w-full">
-                        <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">الوجهة أو المدينة</span>
-                        <div class="text-xs md:text-sm font-black text-[#1f3a40] truncate" id="destDisplay">دبي (المدينة بالكامل)</div>
-                        <input type="hidden" id="destinationSelect" value="DXB">
-                      </div>
-                      <div class="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-map-location-dot text-[#00b4d8]"></i></div>
-                    </div>
-                    <!-- The Dropdown List -->
-                    <div id="destDropdown" class="hidden absolute top-[110%] left-0 right-0 bg-white rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] border border-slate-100 z-50 overflow-hidden">
-                        <div class="p-2 space-y-1 max-h-60 overflow-y-auto">
-                            <div class="p-3 hover:bg-cyan-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors" onclick="selectDestination('DXB', 'دبي (المدينة بالكامل)')">
-                                <div class="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center"><i class="fa-solid fa-building text-[#00b4d8]"></i></div>
-                                <div><h4 class="font-black text-sm text-[#1f3a40]">دبي</h4><p class="text-[10px] text-slate-500">المدينة بالكامل</p></div>
-                            </div>
-                            <div class="p-3 hover:bg-cyan-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors" onclick="selectDestination('AUH', 'أبوظبي (المدينة بالكامل)')">
-                                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"><i class="fa-solid fa-building text-slate-500"></i></div>
-                                <div><h4 class="font-black text-sm text-[#1f3a40]">أبوظبي</h4><p class="text-[10px] text-slate-500">العاصمة الإماراتية</p></div>
-                            </div>
-                            <div class="p-3 hover:bg-cyan-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors" onclick="selectDestination('SHJ', 'الشارقة (المدينة بالكامل)')">
-                                <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"><i class="fa-solid fa-building text-slate-500"></i></div>
-                                <div><h4 class="font-black text-sm text-[#1f3a40]">الشارقة</h4><p class="text-[10px] text-slate-500">عاصمة الثقافة</p></div>
-                            </div>
+                  <!-- Group 1: Destination & Hotel -->
+                  <div class="flex flex-col md:flex-row gap-2 md:gap-3 flex-1 lg:flex-[1.2]">
+                      <!-- 1. الوجهة (Custom Dropdown) -->
+                      <div id="destToggleBtn" class="flex-1 bg-white/80 hover:bg-white rounded-2xl transition-all border border-white shadow-sm relative group cursor-pointer" onclick="toggleSearchDropdown('destDropdown')">
+                        <div class="px-4 py-3 md:py-4 flex items-center justify-between h-full">
+                          <div class="w-full min-w-0">
+                            <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">الوجهة أو المدينة</span>
+                            <div class="text-xs md:text-sm font-black text-[#1f3a40] truncate w-full pr-1" id="destDisplay">دبي (المدينة بالكامل)</div>
+                            <input type="hidden" id="destinationSelect" value="DXB">
+                          </div>
+                          <div class="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-map-location-dot text-[#00b4d8]"></i></div>
                         </div>
-                    </div>
-                  </div>
-                  
-                  <!-- 2. التواريخ (Flatpickr Integration) -->
-                  <div class="flex-1 lg:flex-[1.5] flex bg-white/80 hover:bg-white rounded-2xl transition-all border border-white shadow-sm relative group">
-                      <div class="flex-1 px-4 py-3 md:py-4 border-l border-slate-100">
-                          <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">تاريخ الدخول</span>
-                          <input type="text" id="checkInDate" placeholder="اختر التاريخ" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none" readonly />
-                      </div>
-                      <div class="flex-1 px-4 py-3 md:py-4">
-                          <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">تاريخ الخروج</span>
-                          <input type="text" id="checkOutDate" placeholder="اختر التاريخ" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none" readonly />
-                      </div>
-                  </div>
-                  
-                  <!-- 3. الضيوف (Interactive Popover) -->
-                  <div class="flex-1 px-4 py-3 md:py-4 bg-white/80 hover:bg-white rounded-2xl transition-all border border-white shadow-sm relative group cursor-pointer lg:min-w-[200px]" onclick="toggleSearchDropdown('guestsDropdown')">
-                    <div class="flex items-center justify-between h-full">
-                        <div class="w-full">
-                            <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">الضيوف والغرف</span>
-                            <div class="text-xs md:text-sm font-black text-[#1f3a40] truncate" id="guestsDisplay">2 بالغين، 0 أطفال</div>
-                        </div>
-                        <div class="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-users text-[#00b4d8]"></i></div>
-                    </div>
-                    <!-- Guests Popover Menu -->
-                    <div id="guestsDropdown" class="guests-popover hidden absolute top-[110%] left-0 w-full sm:w-[300px] bg-white rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] border border-slate-100 z-50 p-4 cursor-default" onclick="event.stopPropagation()">
-                        <div class="space-y-4">
-                            <!-- Adults -->
-                            <div class="flex items-center justify-between">
-                                <div><h4 class="font-black text-sm text-[#1f3a40]">البالغين</h4><p class="text-[10px] text-slate-500">12+ سنة</p></div>
-                                <div class="flex items-center gap-3">
-                                    <button type="button" onclick="updateGuests('adults', -1)" class="w-8 h-8 rounded-full border border-[#00b4d8] text-[#00b4d8] flex items-center justify-center hover:bg-cyan-50"><i class="fa-solid fa-minus"></i></button>
-                                    <span id="adultsCount" class="font-black w-4 text-center">2</span>
-                                    <input type="hidden" id="adultsInput" value="2">
-                                    <button type="button" onclick="updateGuests('adults', 1)" class="w-8 h-8 rounded-full border border-[#00b4d8] text-[#00b4d8] flex items-center justify-center hover:bg-cyan-50"><i class="fa-solid fa-plus"></i></button>
+                        <!-- Dropdown List -->
+                        <div id="destDropdown" class="hidden absolute top-[110%] left-0 right-0 bg-white rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] border border-slate-100 z-50 overflow-hidden">
+                            <div class="p-2 space-y-1 max-h-60 overflow-y-auto">
+                                <div class="p-3 hover:bg-cyan-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors" onclick="selectDestination('DXB', 'دبي (المدينة بالكامل)')">
+                                    <div class="w-8 h-8 rounded-full bg-cyan-100 flex items-center justify-center"><i class="fa-solid fa-building text-[#00b4d8]"></i></div>
+                                    <div><h4 class="font-black text-sm text-[#1f3a40]">دبي</h4><p class="text-[10px] text-slate-500">المدينة بالكامل</p></div>
+                                </div>
+                                <div class="p-3 hover:bg-cyan-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors" onclick="selectDestination('AUH', 'أبوظبي (المدينة بالكامل)')">
+                                    <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"><i class="fa-solid fa-building text-slate-500"></i></div>
+                                    <div><h4 class="font-black text-sm text-[#1f3a40]">أبوظبي</h4><p class="text-[10px] text-slate-500">العاصمة الإماراتية</p></div>
+                                </div>
+                                <div class="p-3 hover:bg-cyan-50 rounded-xl cursor-pointer flex items-center gap-3 transition-colors" onclick="selectDestination('SHJ', 'الشارقة (المدينة بالكامل)')">
+                                    <div class="w-8 h-8 rounded-full bg-slate-100 flex items-center justify-center"><i class="fa-solid fa-building text-slate-500"></i></div>
+                                    <div><h4 class="font-black text-sm text-[#1f3a40]">الشارقة</h4><p class="text-[10px] text-slate-500">عاصمة الثقافة</p></div>
                                 </div>
                             </div>
-                            <hr class="border-slate-100">
-                            <!-- Children -->
-                            <div class="flex items-center justify-between">
-                                <div><h4 class="font-black text-sm text-[#1f3a40]">الأطفال</h4><p class="text-[10px] text-slate-500">0 - 11 سنة</p></div>
-                                <div class="flex items-center gap-3">
-                                    <button type="button" onclick="updateGuests('children', -1)" class="w-8 h-8 rounded-full border border-slate-200 text-slate-400 flex items-center justify-center hover:bg-slate-50"><i class="fa-solid fa-minus"></i></button>
-                                    <span id="childrenCount" class="font-black w-4 text-center">0</span>
-                                    <input type="hidden" id="childrenInput" value="0">
-                                    <button type="button" onclick="updateGuests('children', 1)" class="w-8 h-8 rounded-full border border-[#00b4d8] text-[#00b4d8] flex items-center justify-center hover:bg-cyan-50"><i class="fa-solid fa-plus"></i></button>
-                                </div>
-                            </div>
-                            <div id="childAgesContainer" class="hidden mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100"></div>
-                            <button type="button" onclick="toggleSearchDropdown('guestsDropdown')" class="w-full bg-[#1f3a40] text-white font-bold py-2 rounded-xl mt-2 text-sm">تطبيق</button>
                         </div>
-                    </div>
-                  </div>
-                  
-                  <!-- 4. زر البحث العنابي الفاخر -->
-                  <div class="w-full lg:w-auto h-full mt-1 lg:mt-0">
-                    <button onclick="Hotels.searchLiveHotels()" id="searchBtnText" class="w-full lg:w-auto bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-95 text-white font-black px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl transition-all shadow-[0_8px_20px_rgba(128,0,0,0.25)] flex items-center justify-center gap-2 cursor-pointer border border-white/20 h-full lg:min-h-[76px]">
-                      <i class="fa-solid fa-magnifying-glass text-white/80"></i><span class="text-sm md:text-base">ابحث الآن</span>
-                    </button>
+                      </div>
+                      
+                      <!-- 2. اسم الفندق -->
+                      <div class="flex-1 px-4 py-3 md:py-4 bg-white/80 hover:bg-white rounded-2xl transition-all border border-white shadow-sm relative group cursor-pointer">
+                        <div class="flex items-center justify-between h-full">
+                          <div class="w-full min-w-0">
+                            <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">اسم الفندق (اختياري)</span>
+                            <input type="text" id="searchInput" placeholder="أتلانتس النخلة..." onkeyup="Hotels.filterHotels()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none placeholder:font-bold placeholder:text-slate-400" />
+                          </div>
+                          <div class="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-bed text-[#00b4d8]"></i></div>
+                        </div>
+                      </div>
                   </div>
 
+                  <!-- Group 2: Dates, Guests & Button -->
+                  <div class="flex flex-col md:flex-row gap-2 md:gap-3 flex-1 lg:flex-[2]">
+                      <!-- 3. التواريخ (Flatpickr Integration) -->
+                      <div class="flex-[1.2] flex bg-white/80 hover:bg-white rounded-2xl transition-all border border-white shadow-sm relative group">
+                          <div class="flex-1 px-3 py-3 md:py-4 border-l border-slate-100 cursor-pointer" onclick="if(document.getElementById('checkInDate')._flatpickr) document.getElementById('checkInDate')._flatpickr.open()">
+                              <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">الدخول</span>
+                              <input type="text" id="checkInDate" placeholder="اختر التاريخ" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none cursor-pointer" readonly />
+                          </div>
+                          <div class="flex-1 px-3 py-3 md:py-4 cursor-pointer" onclick="if(document.getElementById('checkOutDate')._flatpickr) document.getElementById('checkOutDate')._flatpickr.open()">
+                              <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">الخروج</span>
+                              <input type="text" id="checkOutDate" placeholder="اختر التاريخ" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none cursor-pointer" readonly />
+                          </div>
+                      </div>
+                      
+                      <!-- 4. الضيوف (Interactive Popover) -->
+                      <div id="guestsToggleBtn" class="flex-1 px-4 py-3 md:py-4 bg-white/80 hover:bg-white rounded-2xl transition-all border border-white shadow-sm relative group cursor-pointer lg:min-w-[180px]" onclick="toggleSearchDropdown('guestsDropdown')">
+                        <div class="flex items-center justify-between h-full">
+                            <div class="w-full min-w-0">
+                                <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wider mb-0.5">الضيوف</span>
+                                <div class="text-xs md:text-sm font-black text-[#1f3a40] truncate" id="guestsDisplay">2 بالغين، 0 أطفال</div>
+                            </div>
+                            <div class="w-8 h-8 rounded-full bg-slate-50 border border-slate-100 flex items-center justify-center shrink-0"><i class="fa-solid fa-users text-[#00b4d8]"></i></div>
+                        </div>
+                        <!-- Guests Popover Menu -->
+                        <div id="guestsDropdown" class="guests-popover hidden absolute top-[110%] left-0 w-full sm:w-[280px] bg-white rounded-2xl shadow-[0_20px_40px_rgba(0,0,0,0.15)] border border-slate-100 z-50 p-4 cursor-default" onclick="event.stopPropagation()">
+                            <div class="space-y-4">
+                                <div class="flex items-center justify-between">
+                                    <div><h4 class="font-black text-sm text-[#1f3a40]">البالغين</h4><p class="text-[10px] text-slate-500">12+ سنة</p></div>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" onclick="updateGuests('adults', -1)" class="w-8 h-8 rounded-full border border-[#00b4d8] text-[#00b4d8] flex items-center justify-center hover:bg-cyan-50 transition"><i class="fa-solid fa-minus"></i></button>
+                                        <span id="adultsCount" class="font-black w-4 text-center">2</span>
+                                        <input type="hidden" id="adultsInput" value="2">
+                                        <button type="button" onclick="updateGuests('adults', 1)" class="w-8 h-8 rounded-full border border-[#00b4d8] text-[#00b4d8] flex items-center justify-center hover:bg-cyan-50 transition"><i class="fa-solid fa-plus"></i></button>
+                                    </div>
+                                </div>
+                                <hr class="border-slate-100">
+                                <div class="flex items-center justify-between">
+                                    <div><h4 class="font-black text-sm text-[#1f3a40]">الأطفال</h4><p class="text-[10px] text-slate-500">0 - 11 سنة</p></div>
+                                    <div class="flex items-center gap-3">
+                                        <button type="button" onclick="updateGuests('children', -1)" class="w-8 h-8 rounded-full border border-slate-200 text-slate-400 flex items-center justify-center hover:bg-slate-50 transition"><i class="fa-solid fa-minus"></i></button>
+                                        <span id="childrenCount" class="font-black w-4 text-center">0</span>
+                                        <input type="hidden" id="childrenInput" value="0">
+                                        <button type="button" onclick="updateGuests('children', 1)" class="w-8 h-8 rounded-full border border-[#00b4d8] text-[#00b4d8] flex items-center justify-center hover:bg-cyan-50 transition"><i class="fa-solid fa-plus"></i></button>
+                                    </div>
+                                </div>
+                                <div id="childAgesContainer" class="hidden mt-3 p-3 bg-slate-50 rounded-xl border border-slate-100"></div>
+                                <button type="button" onclick="toggleSearchDropdown('guestsDropdown')" class="w-full bg-[#1f3a40] hover:bg-slate-800 text-white font-bold py-2 rounded-xl mt-2 text-sm transition-colors cursor-pointer border-none">تأكيد الضيوف</button>
+                            </div>
+                        </div>
+                      </div>
+                      
+                      <!-- 5. زر البحث العنابي الفاخر -->
+                      <div class="w-full md:w-auto h-full mt-1 md:mt-0 flex-shrink-0">
+                        <button onclick="Hotels.searchLiveHotels()" id="searchBtnText" class="w-full md:w-auto bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-95 text-white font-black px-6 lg:px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl transition-all shadow-[0_8px_20px_rgba(128,0,0,0.25)] flex items-center justify-center gap-2 cursor-pointer border border-white/20 h-full lg:min-h-[72px]">
+                          <i class="fa-solid fa-magnifying-glass text-white/80"></i><span class="text-sm md:text-base whitespace-nowrap">ابحث الآن</span>
+                        </button>
+                      </div>
+                  </div>
                 </div>
             </div>
 
@@ -919,7 +943,7 @@
         </div>
     </div>
 
-    <!-- زر خدمة العملاء والدردشة (معدل للشاشات الصغيرة) -->
+    <!-- زر خدمة العملاء والدردشة -->
     <button id="openChatBtn" class="fixed bottom-20 right-4 md:bottom-5 md:right-5 bg-gradient-to-r from-[#800000] to-[#990000] text-white px-4 py-3 md:px-5 md:py-3.5 rounded-full font-bold text-xs md:text-sm shadow-lg hover:shadow-xl transition-all z-[2000] border-none cursor-pointer flex items-center gap-1.5 md:gap-2 hover:-translate-y-1">
         <i class="fa-solid fa-headset"></i> <span class="hidden sm:inline">خدمة العملاء</span>
     </button>
@@ -953,7 +977,6 @@
         </div>
     </div>
 
-    <!-- الفوتر (Mobile Responsive Footer) -->
     <footer class="relative bg-slate-900 text-gray-300 pt-12 md:pt-16 pb-6 md:pb-8 border-t-[4px] md:border-t-[6px] border-[#00b4d8] overflow-hidden mt-auto" dir="rtl">
         <div class="absolute inset-0 opacity-5 pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\'60\' height=\'60\' viewBox=\'0 0 60 60\' xmlns=\'http://www.w3.org/2000/svg\'%3E%3Cpath d=\'M54.627 0l.83.83-54.627 54.627-.83-.83L54.627 0zM30 0l.83.83-30 30L0 30 30 0zm24.627 60l-.83-.83L60 45.373V46.2l-5.373 5.373z\' fill=\'%23ffffff\' fill-rule=\'evenodd\'/%3E%3C/svg%3E');"></div>
 
@@ -1028,41 +1051,29 @@
 
     <!-- 📱 شريط التنقل السفلي للموبايل (Mobile App Bottom Navigation) -->
     <nav class="md:hidden fixed bottom-0 left-0 right-0 bg-white/95 backdrop-blur-lg border-t border-slate-200 flex justify-around items-center pt-3 pb-[env(safe-area-inset-bottom,15px)] z-[9999] shadow-[0_-4px_25px_rgba(0,0,0,0.08)]">
-        
-        <!-- زر الرئيسية -->
         <a href="#" onclick="UI.switchView('mainView'); return false;" class="flex flex-col items-center gap-1.5 px-3 text-[#00b4d8] transition-colors text-decoration-none">
             <i class="fa-solid fa-compass text-[22px]"></i>
             <span class="text-[10px] font-black">الرئيسية</span>
         </a>
-        
-        <!-- زر تتبع الحجز -->
         <a href="#" onclick="UI.switchView('lookupView'); return false;" class="flex flex-col items-center gap-1.5 px-3 text-slate-400 hover:text-[#00b4d8] transition-colors text-decoration-none">
             <i class="fa-solid fa-magnifying-glass text-[22px]"></i>
             <span class="text-[10px] font-bold">تتبع حجزك</span>
         </a>
-        
-        <!-- زر الحصالة (النقاط) -->
         <a href="#" onclick="UI.switchView('registerView'); return false;" class="flex flex-col items-center gap-1.5 px-3 text-slate-400 hover:text-yellow-500 transition-colors relative text-decoration-none">
             <i class="fa-solid fa-piggy-bank text-[22px]"></i>
             <span class="text-[10px] font-bold">حصّالتي</span>
         </a>
-        
-        <!-- زر تسجيل الدخول / حسابي -->
         <a href="#" onclick="if(typeof currentUser !== 'undefined' && currentUser) { UI.switchView('registerView'); } else { Auth.openAuthModal(); } return false;" class="flex flex-col items-center gap-1.5 px-3 text-slate-400 hover:text-[#800000] transition-colors text-decoration-none">
             <i class="fa-regular fa-user text-[22px]"></i>
             <span class="text-[10px] font-bold">حسابي</span>
         </a>
-        
     </nav>
 
-    <!-- السكريبتات الخارجية -->
     <div id="google_translate_element" style="display:none;"></div>
     <script>
         if ('serviceWorker' in navigator) {
             navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for (let registration of registrations) {
-                    registration.unregister();
-                }
+                for (let registration of registrations) { registration.unregister(); }
             });
             if ('caches' in window) {
                 caches.keys().then(function(names) {
@@ -1071,13 +1082,10 @@
             }
         }
     </script>
-
     <script type="text/javascript">
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
-                pageLanguage: 'ar',
-                includedLanguages: 'ar,en,ru',
-                autoDisplay: false
+                pageLanguage: 'ar', includedLanguages: 'ar,en,ru', autoDisplay: false
             }, 'google_translate_element');
         }
     </script>
@@ -1144,20 +1152,20 @@
             toggleSearchDropdown('destDropdown');
         }
 
-        // إغلاق القوائم عند النقر خارجها
+        // إغلاق القوائم عند النقر خارجها (تم إصلاح الخطأ البرمجي هنا)
         document.addEventListener('click', (e) => {
-            if (!e.target.closest('#guestsDropdown') && !e.target.closest('[onclick="toggleSearchDropdown(\\\'guestsDropdown\\')"]')) {
+            if (!e.target.closest('#guestsDropdown') && !e.target.closest('#guestsToggleBtn')) {
                 const guestsDropdown = document.getElementById('guestsDropdown');
                 if (guestsDropdown && !guestsDropdown.classList.contains('hidden')) toggleSearchDropdown('guestsDropdown');
             }
-            if (!e.target.closest('#destDropdown') && !e.target.closest('[onclick="toggleSearchDropdown(\\\'destDropdown\\')"]')) {
+            if (!e.target.closest('#destDropdown') && !e.target.closest('#destToggleBtn')) {
                 const destDropdown = document.getElementById('destDropdown');
                 if (destDropdown && !destDropdown.classList.contains('hidden')) toggleSearchDropdown('destDropdown');
             }
         });
 
         document.addEventListener('DOMContentLoaded', () => {
-            // تهيئة Flatpickr للتواريخ
+            // 🚀 تهيئة التقويم الفاخر (Flatpickr)
             const today = new Date();
             const tomorrow = new Date(today);
             tomorrow.setDate(tomorrow.getDate() + 1);
@@ -1172,8 +1180,9 @@
                     if(selectedDates[0]) {
                         const minOut = new Date(selectedDates[0]);
                         minOut.setDate(minOut.getDate() + 1);
-                        fpCheckOut.set('minDate', minOut);
-                        fpCheckOut.open();
+                        document.getElementById('checkOutDate')._flatpickr.set('minDate', minOut);
+                        // الفتح التلقائي لتاريخ الخروج
+                        setTimeout(() => document.getElementById('checkOutDate')._flatpickr.open(), 100);
                     }
                 }
             });
@@ -1186,7 +1195,7 @@
                 disableMobile: true
             });
 
-            // The Dopamine Jackpot Logic
+            // 🚀 Masterstroke 5: The Dopamine Jackpot Logic 🎰
             const ptsEl = document.getElementById('dashPointsDisplay');
             const aedEl = document.getElementById('dashPointsAEDDisplay');
             const registerView = document.getElementById('registerView');
