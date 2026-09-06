@@ -193,92 +193,102 @@
     </header>
 
     <div id="mainView" class="view-section active">
+        <!-- 🚀 Hero Section - Premium Depth -->
         <section class="relative pt-16 md:pt-24 pb-32 md:pb-48 px-4 flex items-center justify-center min-h-[50vh] md:min-h-[65vh] xl:min-h-[70vh]">
             <div class="absolute inset-0 z-0 bg-[#1f3a40]">
-                <img src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1920&q=80" alt="Luxury Dubai Resort" class="w-full h-full object-cover opacity-60" />
+                <img src="https://images.unsplash.com/photo-1582719478250-c89cae4dc85b?auto=format&fit=crop&w=1920&q=80" alt="Luxury Dubai Resort" class="w-full h-full object-cover opacity-50" />
             </div>
-            <div class="absolute inset-0 z-0 bg-gradient-to-b from-[#1f3a40]/95 via-[#1f3a40]/70 to-[#1f3a40]/90"></div>
+            <!-- Seamless Gradient for Depth -->
+            <div class="absolute inset-0 z-0 bg-gradient-to-b from-[#1f3a40]/90 via-[#1f3a40]/60 to-[#f8fafc]"></div>
             
             <div class="relative z-10 max-w-5xl mx-auto text-center text-white mt-4 md:mt-8">
-                <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-md px-3 md:px-4 py-1 md:py-1.5 rounded-full text-[10px] md:text-xs font-bold text-teal-100 mb-4 md:mb-6 shadow-lg">
+                <!-- Floating Badge -->
+                <div class="inline-flex items-center gap-2 bg-white/10 border border-white/20 backdrop-blur-md px-4 py-1.5 rounded-full text-[10px] md:text-xs font-bold text-teal-50 mb-6 shadow-xl transform transition hover:scale-105 cursor-default">
                     <i class="fa-solid fa-shield-check text-[#00b4d8]"></i> المنصة الأذكى لحجوزات الفنادق
                 </div>
                 
-                <h1 id="heroTitle" class="text-3xl sm:text-4xl md:text-6xl lg:text-7xl font-extrabold mb-4 md:mb-6 leading-tight drop-shadow-2xl">
+                <h1 id="heroTitle" class="text-3xl sm:text-5xl md:text-6xl lg:text-7xl font-extrabold mb-4 md:mb-6 leading-tight drop-shadow-2xl">
                     عروض فنادق تخلّيك تفكّر <br class="hidden sm:block"/>
-                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#00b4d8] to-[#48cae4] filter drop-shadow-[0_0_15px_rgba(0,180,216,0.4)]">تسحب على الدوام!</span> 🌴
+                    <span class="text-transparent bg-clip-text bg-gradient-to-r from-[#00b4d8] to-[#48cae4] filter drop-shadow-[0_0_20px_rgba(0,180,216,0.3)]">تسحب على الدوام!</span> 🌴
                 </h1>
-                <p id="heroSubtitle" class="text-sm md:text-2xl font-semibold text-slate-200 mb-3 md:mb-4 drop-shadow-md px-2">
+                <p id="heroSubtitle" class="text-sm md:text-2xl font-semibold text-white/90 mb-3 md:mb-4 drop-shadow-lg px-2">
                     ✈️ احجز، فلّها، واسترجع كاش باك في حصالتك!
                 </p>
-                <p class="text-xs md:text-base text-slate-400 max-w-2xl mx-auto font-medium px-4">
+                <p class="text-xs md:text-sm text-slate-300 max-w-2xl mx-auto font-medium px-4 drop-shadow">
                     منصة ذكية تضبطك بأقوى خصومات الفنادق وتعبي حسابك نقاط كاش باك لخصومات فورية.. لأن سفرك معنا لازم يكون مكسب ومتعة! 🥂✨
                 </p>
             </div>
-            
-            <div class="absolute bottom-0 left-0 w-full overflow-hidden leading-none z-0 pointer-events-none">
-                <svg viewBox="0 0 1200 120" preserveAspectRatio="none" class="w-full h-10 md:h-24" style="transform: rotate(180deg);">
-                    <path d="M321.39,56.44c58-10.79,114.16-30.13,172-41.86,82.39-16.72,168.19-17.73,250.45-.39C823.78,31,906.67,72,985.66,92.83c70.05,18.48,146.53,26.09,214.34,3V0H0V27.35A600.21,600.21,0,0,0,321.39,56.44Z" fill="#f8fafc"></path>
-                </svg>
-            </div>
         </section>
 
-        <!-- 🚀 شريط البحث -->
-        <section id="searchFormContainer" class="relative z-30 px-3 md:px-4 max-w-6xl mx-auto -mt-20 md:-mt-28 mb-12 md:mb-16">
-            <div class="bg-white/95 backdrop-blur-2xl rounded-2xl md:rounded-3xl shadow-[0_20px_50px_rgba(31,58,64,0.15)] border border-white p-2 md:p-3 relative z-30 transition-transform duration-300 md:hover:-translate-y-1">
-                <div class="flex flex-col lg:flex-row items-stretch lg:items-center divide-y lg:divide-y-0 lg:divide-x lg:divide-x-reverse divide-slate-100 gap-0">
+        <!-- 🚀 Masterstroke 1: Glassmorphism Floating Search Bar -->
+        <section id="searchFormContainer" class="relative z-30 px-3 md:px-4 max-w-6xl mx-auto -mt-24 md:-mt-36 mb-12 md:mb-16">
+            <!-- The Glass Capsule -->
+            <div class="bg-white/70 backdrop-blur-2xl rounded-3xl md:rounded-[2.5rem] shadow-[0_25px_50px_rgba(31,58,64,0.15)] border border-white/60 p-2.5 md:p-4 relative z-30 transition-all duration-500 hover:shadow-[0_30px_60px_rgba(31,58,64,0.2)] lg:hover:-translate-y-1">
+                
+                <div class="flex flex-col lg:flex-row items-stretch lg:items-center gap-2 md:gap-3">
                   
-                  <div class="flex-1 px-3 py-2.5 md:px-4 md:py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-xl md:rounded-2xl relative">
+                  <!-- الوجهة -->
+                  <div class="flex-1 px-4 py-3 md:py-4 bg-white/60 hover:bg-white/90 rounded-2xl transition-all border border-white/50 shadow-sm relative group cursor-pointer">
                     <div class="flex items-center justify-between">
                       <div class="w-full">
-                        <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide">الوجهة أو المدينة</span>
-                        <select id="destinationSelect" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none cursor-pointer hide-select-arrow mt-1" dir="rtl"><option value="DXB">دبي (المدينة بالكامل)</option></select>
+                        <span class="block text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">الوجهة أو المدينة</span>
+                        <select id="destinationSelect" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none cursor-pointer hide-select-arrow" dir="rtl">
+                            <option value="DXB">دبي (المدينة بالكامل)</option>
+                            <option value="AUH">أبوظبي</option>
+                            <option value="SHJ">الشارقة</option>
+                        </select>
                       </div>
-                      <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#00b4d8]/10 transition-colors"><i class="fa-solid fa-map-location-dot text-slate-300 text-xs md:text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i></div>
+                      <div class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform shrink-0"><i class="fa-solid fa-map-location-dot text-[#00b4d8]"></i></div>
                     </div>
                   </div>
                   
-                  <div class="flex-1 px-3 py-2.5 md:px-4 md:py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-xl md:rounded-2xl relative">
+                  <!-- اسم الفندق -->
+                  <div class="flex-1 px-4 py-3 md:py-4 bg-white/60 hover:bg-white/90 rounded-2xl transition-all border border-white/50 shadow-sm relative group cursor-pointer hidden lg:block">
                     <div class="flex items-center justify-between">
                       <div class="w-full">
-                        <span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide">اسم الفندق (اختياري)</span>
-                        <input type="text" id="searchInput" placeholder="مثل: أتلانتس النخلة..." onkeyup="Hotels.filterHotels()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none placeholder:font-semibold placeholder:text-slate-300 mt-1" />
+                        <span class="block text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">اسم الفندق (اختياري)</span>
+                        <input type="text" id="searchInput" placeholder="مثل: أتلانتس النخلة..." onkeyup="Hotels.filterHotels()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none placeholder:font-bold placeholder:text-slate-400" />
                       </div>
-                      <div class="w-6 h-6 md:w-8 md:h-8 rounded-full bg-slate-50 flex items-center justify-center group-hover:bg-[#00b4d8]/10 transition-colors"><i class="fa-solid fa-bed text-slate-300 text-xs md:text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i></div>
+                      <div class="w-8 h-8 rounded-full bg-white shadow-sm flex items-center justify-center group-hover:scale-110 transition-transform shrink-0"><i class="fa-solid fa-bed text-[#00b4d8]"></i></div>
                     </div>
                   </div>
                   
-                  <div class="flex flex-row divide-x divide-x-reverse divide-slate-100 w-full lg:w-auto">
-                      <div class="flex-1 px-3 py-2.5 md:px-4 md:py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-xl md:rounded-2xl lg:min-w-[140px] relative">
-                        <div class="flex items-center justify-between gap-1 md:gap-3">
-                          <div class="w-full"><span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide">تاريخ الدخول</span><input type="date" id="checkInDate" onchange="Hotels.filterHotels()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none mt-1 cursor-pointer hide-select-arrow" /></div>
+                  <!-- التواريخ -->
+                  <div class="flex flex-row gap-2 w-full lg:w-auto">
+                      <div class="flex-1 px-4 py-3 md:py-4 bg-white/60 hover:bg-white/90 rounded-2xl transition-all border border-white/50 shadow-sm relative group cursor-pointer lg:min-w-[150px]">
+                          <span class="block text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">الدخول</span>
+                          <input type="date" id="checkInDate" onchange="Hotels.filterHotels()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none cursor-pointer hide-select-arrow" />
+                      </div>
+                      <div class="flex-1 px-4 py-3 md:py-4 bg-white/60 hover:bg-white/90 rounded-2xl transition-all border border-white/50 shadow-sm relative group cursor-pointer lg:min-w-[150px]">
+                          <span class="block text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">الخروج</span>
+                          <input type="date" id="checkOutDate" onchange="Hotels.filterHotels()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none cursor-pointer hide-select-arrow" />
+                      </div>
+                  </div>
+                  
+                  <!-- الضيوف -->
+                  <div class="flex flex-row gap-2 w-full lg:w-auto">
+                      <div class="flex-1 px-4 py-3 md:py-4 bg-white/60 hover:bg-white/90 rounded-2xl transition-all border border-white/50 shadow-sm relative group cursor-pointer lg:min-w-[100px]">
+                        <div class="flex items-center justify-between">
+                            <div class="w-full">
+                                <span class="block text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">البالغين</span>
+                                <input type="number" id="adultsInput" min="1" max="10" value="2" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none text-right">
+                            </div>
                         </div>
                       </div>
-                      <div class="flex-1 px-3 py-2.5 md:px-4 md:py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-xl md:rounded-2xl lg:min-w-[140px] relative">
-                        <div class="flex items-center justify-between gap-1 md:gap-3">
-                          <div class="w-full"><span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide">تاريخ الخروج</span><input type="date" id="checkOutDate" onchange="Hotels.filterHotels()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none mt-1 cursor-pointer hide-select-arrow" /></div>
+                      <div class="flex-1 px-4 py-3 md:py-4 bg-white/60 hover:bg-white/90 rounded-2xl transition-all border border-white/50 shadow-sm relative group cursor-pointer lg:min-w-[100px]">
+                        <div class="flex items-center justify-between">
+                            <div class="w-full">
+                                <span class="block text-[10px] md:text-[11px] font-bold text-slate-500 uppercase tracking-wider mb-1">الأطفال</span>
+                                <input type="number" id="childrenInput" min="0" max="5" value="0" onchange="Hotels.renderChildAges()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none text-right">
+                            </div>
                         </div>
                       </div>
                   </div>
                   
-                  <div class="flex flex-row divide-x divide-x-reverse divide-slate-100 w-full lg:w-auto">
-                      <div class="flex-1 px-3 py-2.5 md:px-4 md:py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-xl md:rounded-2xl lg:min-w-[100px] relative">
-                        <div class="flex items-center justify-between gap-2 md:gap-3">
-                          <div class="w-full"><span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide">البالغين</span><input type="number" id="adultsInput" min="1" max="10" value="2" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none mt-1 text-right"></div>
-                          <i class="fa-solid fa-user-group text-slate-300 text-xs md:text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i>
-                        </div>
-                      </div>
-                      <div class="flex-1 px-3 py-2.5 md:px-4 md:py-3.5 group cursor-pointer transition-colors hover:bg-slate-50 rounded-xl md:rounded-2xl lg:min-w-[100px] relative">
-                        <div class="flex items-center justify-between gap-1 md:gap-2">
-                          <div class="w-full"><span class="block text-[10px] md:text-[11px] font-bold text-slate-400 uppercase tracking-wide">الأطفال</span><input type="number" id="childrenInput" min="0" max="5" value="0" onchange="Hotels.renderChildAges()" class="w-full bg-transparent text-xs md:text-sm font-black text-[#1f3a40] focus:outline-none mt-1 text-right"></div>
-                          <i class="fa-solid fa-child-reaching text-slate-300 text-xs md:text-sm group-hover:text-[#00b4d8] transition-colors pointer-events-none"></i>
-                        </div>
-                      </div>
-                  </div>
-                  
-                  <div class="p-2 lg:pl-2 mt-2 lg:mt-0">
-                    <button onclick="Hotels.searchLiveHotels()" id="searchBtnText" class="w-full lg:w-auto bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-95 text-white font-black px-6 py-3 md:px-8 md:py-4 rounded-xl md:rounded-2xl transition-all shadow-[0_8px_20px_rgba(128,0,0,0.3)] flex items-center justify-center gap-2 cursor-pointer border-none h-full">
-                      <i class="fa-solid fa-magnifying-glass text-white/70 pointer-events-none text-base md:text-lg"></i><span class="text-sm md:text-base">ابحث</span>
+                  <!-- زر البحث العنابي الفاخر -->
+                  <div class="w-full lg:w-auto h-full mt-1 lg:mt-0">
+                    <button onclick="Hotels.searchLiveHotels()" id="searchBtnText" class="w-full lg:w-auto bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-95 text-white font-black px-8 py-3.5 md:py-4 rounded-xl md:rounded-2xl transition-all shadow-[0_8px_20px_rgba(128,0,0,0.25)] flex items-center justify-center gap-2 cursor-pointer border border-white/20 h-full lg:min-h-[76px]">
+                      <i class="fa-solid fa-magnifying-glass text-white/80"></i><span class="text-sm md:text-base">ابحث الآن</span>
                     </button>
                   </div>
                 </div>
@@ -286,16 +296,17 @@
             
             <div class="mt-4 max-w-2xl mx-auto" id="childAgesContainer" style="display:none; background:white; padding:15px md:padding:20px; border-radius:15px md:border-radius:20px; border:2px dashed var(--accent-cyan); box-shadow: 0 10px 25px rgba(0,180,216,0.1);"></div>
 
-            <div class="flex justify-center mt-4 md:mt-6 relative z-20">
+            <!-- الفلتر الزجاجي -->
+            <div class="flex justify-center mt-6 relative z-20">
                 <div class="relative inline-block group w-[90%] md:w-auto">
                   <select id="boardBasisFilter" onchange="UI.updateBoardText(this); Hotels.filterHotels();" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" dir="rtl">
                     <option value="ALL">كل الوجبات (All)</option><option value="RO">بدون وجبات (Room Only)</option><option value="BB">شامل الإفطار (Breakfast)</option><option value="HB">نصف إقامة (Half Board)</option><option value="AI">شامل كلياً (All Inclusive)</option>
                   </select>
-                  <div class="flex items-center justify-center gap-2 px-4 py-2.5 md:px-6 md:py-3 rounded-full border border-slate-200 bg-white shadow-sm group-hover:shadow-md group-hover:border-[#00b4d8] transition-all pointer-events-none">
-                    <i class="fa-solid fa-utensils text-slate-400 group-hover:text-[#00b4d8] transition-colors text-xs md:text-sm"></i>
+                  <div class="flex items-center justify-center gap-2 px-5 py-3 rounded-full border border-white bg-white/80 backdrop-blur-md shadow-[0_8px_20px_rgba(0,0,0,0.05)] group-hover:shadow-[0_8px_25px_rgba(0,180,216,0.15)] group-hover:border-[#00b4d8]/50 transition-all pointer-events-none">
+                    <i class="fa-solid fa-utensils text-[#00b4d8]"></i>
                     <span class="text-[10px] md:text-xs font-bold text-slate-500">تصفية الوجبات:</span>
                     <span id="selectedBoardText" class="text-[#1f3a40] font-black underline decoration-dashed decoration-[#00b4d8] underline-offset-4 text-xs md:text-sm truncate">كل الوجبات (All)</span>
-                    <i class="fa-solid fa-chevron-down text-[8px] md:text-[10px] text-slate-400 group-hover:text-[#00b4d8] transition-transform group-hover:translate-y-0.5 pointer-events-none"></i>
+                    <i class="fa-solid fa-chevron-down text-[8px] md:text-[10px] text-slate-400 group-hover:text-[#00b4d8] transition-transform group-hover:translate-y-0.5"></i>
                   </div>
                 </div>
             </div>
