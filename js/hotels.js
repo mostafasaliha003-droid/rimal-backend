@@ -1,41 +1,70 @@
 // js/hotels.js
 
+// مصفوفة احتياطية لضمان عدم توقف الفنادق تحت أي ظرف
+if (typeof allHotels === 'undefined' || !allHotels || allHotels.length === 0) {
+    window.allHotels = [
+        { 
+            name: "🏨 الفندق التجريبي للاختبار (Test Hotel 10 AED)", city: "دبي", priceAED: 10, basePoints: 100, lat: 25.2048, lng: 55.2708, 
+            img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
+            funnyPolicy: "إلغاء مجاني 100% - استرداد كامل المبلغ على الكرت في أي وقت!", 
+            hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-credit-card'></i> دفع آمن عبر Ziina"]
+        },
+        { 
+            name: "فندق ريا كريك (Reya Creek Hotel)", city: "دبي", priceAED: 890, basePoints: 8900, lat: 25.2654, lng: 55.3272, 
+            img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80", 
+            funnyPolicy: "ممنوع إدخال بطاطس حارة للغرفة!", 
+            hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-person-swimming'></i> مسبح خارجي", "<i class='fa-solid fa-dumbbell'></i> صالة رياضية"]
+        },
+        { 
+            name: "فندق أتلانتس النخلة، دبي", city: "دبي", priceAED: 2202, basePoints: 22020, lat: 25.1304, lng: 55.1172, 
+            img: "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80", 
+            funnyPolicy: "سمكة الشيمو ممنوعة من المسابح!", 
+            hotelFacilities: ["<i class='fa-solid fa-water'></i> شاطئ خاص", "<i class='fa-solid fa-spa'></i> مركز سبا وعافية", "<i class='fa-solid fa-bell-concierge'></i> خدمة غرف"]
+        }
+    ];
+}
+
 const Hotels = {
     filterHotels: function() {
-        const query = document.getElementById('searchInput').value.toLowerCase().trim();
-        const cityRadio = document.querySelector('input[name="cityFilter"]:checked');
-        const sortRadio = document.querySelector('input[name="sortFilter"]:checked');
-        
-        const cityValue = cityRadio ? cityRadio.value : 'all';
-        const sortValue = sortRadio ? sortRadio.value : 'recommended';
+        try {
+            const searchInput = document.getElementById('searchInput');
+            const query = searchInput ? searchInput.value.toLowerCase().trim() : '';
+            const cityRadio = document.querySelector('input[name="cityFilter"]:checked');
+            const sortRadio = document.querySelector('input[name="sortFilter"]:checked');
+            
+            const cityValue = cityRadio ? cityRadio.value : 'all';
+            const sortValue = sortRadio ? sortRadio.value : 'recommended';
 
-        let filtered = allHotels.filter(h => {
-            const matchesQuery = h.name.toLowerCase().includes(query) || h.city.toLowerCase().includes(query);
-            const matchesCity = (cityValue === 'all' || h.city === cityValue);
-            return matchesQuery && matchesCity;
-        });
+            let filtered = allHotels.filter(h => {
+                const matchesQuery = h.name.toLowerCase().includes(query) || h.city.toLowerCase().includes(query);
+                const matchesCity = (cityValue === 'all' || h.city === cityValue);
+                return matchesQuery && matchesCity;
+            });
 
-        if (sortValue === 'price_low') { filtered.sort((a, b) => a.priceAED - b.priceAED); } 
-        else if (sortValue === 'points_high') { filtered.sort((a, b) => b.basePoints - a.basePoints); }
+            if (sortValue === 'price_low') { filtered.sort((a, b) => a.priceAED - b.priceAED); } 
+            else if (sortValue === 'points_high') { filtered.sort((a, b) => b.basePoints - a.basePoints); }
 
-        Hotels.displayHotels(filtered); 
-        if (typeof updateGoogleMarkers !== 'undefined') updateGoogleMarkers(filtered); 
-        UI.changeCurrency();
+            Hotels.displayHotels(filtered); 
+            if (typeof updateGoogleMarkers === 'function') updateGoogleMarkers(filtered); 
+            if (typeof UI !== 'undefined' && UI.changeCurrency) UI.changeCurrency();
+        } catch(e) { console.error("Error in filterHotels:", e); }
     },
 
     renderChildAges: function() {
-        const count = parseInt(document.getElementById('childrenInput').value) || 0;
-        const container = document.getElementById('childAgesContainer');
-        if (!container) return;
-        container.innerHTML = '';
-        if (count > 0) {
-            container.style.display = 'block';
-            let html = '<label class="text-[11px] md:text-[13px] font-black text-[#1f3a40] mb-2 md:mb-3 display-block">أعمار الأطفال عند تسجيل الوصول:</label><div class="flex gap-2 md:gap-3 flex-wrap">';
-            for (let i = 0; i < count; i++) { 
-                html += `<div class="flex-1 min-w-[80px] md:min-w-[100px]"><label class="text-[9px] md:text-[11px] text-slate-500 font-bold mb-1 display-block">الطفل ${i+1}</label><select class="childAgeSelect w-full p-2 md:p-2.5 rounded-lg md:rounded-xl border border-slate-300 font-bold text-xs md:text-sm outline-none focus:border-[#00b4d8]">${Hotels.generateAgeOptions()}</select></div>`; 
-            }
-            html += '</div>'; container.innerHTML = html;
-        } else { container.style.display = 'none'; }
+        try {
+            const count = parseInt(document.getElementById('childrenInput').value) || 0;
+            const container = document.getElementById('childAgesContainer');
+            if (!container) return;
+            container.innerHTML = '';
+            if (count > 0) {
+                container.style.display = 'block';
+                let html = '<label class="text-[11px] md:text-[13px] font-black text-[#1f3a40] mb-2 md:mb-3 display-block">أعمار الأطفال عند تسجيل الوصول:</label><div class="flex gap-2 md:gap-3 flex-wrap">';
+                for (let i = 0; i < count; i++) { 
+                    html += `<div class="flex-1 min-w-[80px] md:min-w-[100px]"><label class="text-[9px] md:text-[11px] text-slate-500 font-bold mb-1 display-block">الطفل ${i+1}</label><select class="childAgeSelect w-full p-2 md:p-2.5 rounded-lg md:rounded-xl border border-slate-300 font-bold text-xs md:text-sm outline-none focus:border-[#00b4d8]">${Hotels.generateAgeOptions()}</select></div>`; 
+                }
+                html += '</div>'; container.innerHTML = html;
+            } else { container.style.display = 'none'; }
+        } catch(e) { console.error("Error in renderChildAges:", e); }
     },
 
     generateAgeOptions: function() {
@@ -43,22 +72,27 @@ const Hotels = {
     },
 
     searchLiveHotels: async function() {
-        const query = document.getElementById('searchInput').value;
-        const destinationCode = document.getElementById('destinationSelect').value;
-        const checkIn = document.getElementById('checkInDate').value;
-        const checkOut = document.getElementById('checkOutDate').value;
-        const adults = document.getElementById('adultsInput').value;
-        const children = document.getElementById('childrenInput').value;
-        const boardBasis = document.getElementById('boardBasisFilter').value;
-
-        let childrenAges = []; document.querySelectorAll('.childAgeSelect').forEach(sel => childrenAges.push(parseInt(sel.value)));
-
         const btn = document.getElementById('searchBtnText');
-        const originalText = btn.innerHTML;
-        btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm md:text-base"></i> <span class="text-xs md:text-sm">جاري البحث...</span>'; 
-        btn.disabled = true;
+        const originalText = btn ? btn.innerHTML : '';
+        if(btn) {
+            btn.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-sm md:text-base"></i> <span class="text-xs md:text-sm">جاري البحث...</span>'; 
+            btn.disabled = true;
+        }
 
         try {
+            const query = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
+            const destinationSelect = document.getElementById('destinationSelect');
+            const destinationCode = destinationSelect ? destinationSelect.value : 'DXB';
+            const checkIn = document.getElementById('checkInDate') ? document.getElementById('checkInDate').value : '';
+            const checkOut = document.getElementById('checkOutDate') ? document.getElementById('checkOutDate').value : '';
+            const adults = document.getElementById('adultsInput') ? document.getElementById('adultsInput').value : 2;
+            const children = document.getElementById('childrenInput') ? document.getElementById('childrenInput').value : 0;
+            const boardBasisFilter = document.getElementById('boardBasisFilter');
+            const boardBasis = boardBasisFilter ? boardBasisFilter.value : 'ALL';
+
+            let childrenAges = []; 
+            document.querySelectorAll('.childAgeSelect').forEach(sel => childrenAges.push(parseInt(sel.value)));
+
             const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
                 method: 'POST', headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ checkIn, checkOut, adults: parseInt(adults), children: parseInt(children), childrenAges, boardBasis, destinationCode })
@@ -82,17 +116,25 @@ const Hotels = {
                 if(query) liveHotels = liveHotels.filter(h => h.name.toLowerCase().includes(query.toLowerCase()));
                 allHotels = [allHotels[0], ...liveHotels]; 
                 Hotels.displayHotels(allHotels); 
-                if (typeof updateGoogleMarkers !== 'undefined') updateGoogleMarkers(allHotels); 
-                if(window.innerWidth <= 768) UI.closeMobileSearchSheet(); 
-            } else { UI.showToast('info', 'لا توجد نتائج', 'لم نتمكن من العثور على فنادق تطابق بحثك.'); }
-        } catch (e) { console.error(e); UI.showToast('error', 'خطأ اتصال', 'خطأ في الاتصال بسيرفر الفنادق.'); } 
-        finally { btn.innerHTML = originalText; btn.disabled = false; }
+                if (typeof updateGoogleMarkers === 'function') updateGoogleMarkers(allHotels); 
+                if(window.innerWidth <= 768 && typeof UI !== 'undefined') UI.closeMobileSearchSheet(); 
+            } else { 
+                if (typeof UI !== 'undefined') UI.showToast('info', 'لا توجد نتائج', 'لم نتمكن من العثور على فنادق تطابق بحثك.'); 
+            }
+        } catch (e) { 
+            console.error(e); 
+            if (typeof UI !== 'undefined') UI.showToast('error', 'خطأ اتصال', 'خطأ في الاتصال بسيرفر الفنادق.'); 
+        } finally { 
+            if(btn) {
+                btn.innerHTML = originalText; 
+                btn.disabled = false; 
+            }
+        }
     },
 
     getMealPlanUI: function(boardType) {
         let config = { bg: 'bg-slate-50', border: 'border-slate-100', text: 'text-slate-600', icon: 'fa-utensils', iconColor: 'text-slate-400' };
         let title = boardType || 'شامل الوجبات';
-        
         const upperBoard = boardType ? boardType.toUpperCase() : '';
 
         if (upperBoard.includes('RO') || upperBoard.includes('ROOM ONLY')) {
@@ -116,8 +158,14 @@ const Hotels = {
 
     displayHotels: function(hotelsArray) {
         const container = document.getElementById('hotelsContainer');
-        if (!container) return; container.innerHTML = '';
+        if (!container) return; 
+        container.innerHTML = '';
         
+        if(!hotelsArray || hotelsArray.length === 0) {
+            container.innerHTML = '<p class="text-center font-bold text-slate-400 py-10">لا توجد فنادق متاحة حالياً.</p>';
+            return;
+        }
+
         const scarcityMsgs = [ 
             { text: "باقي غرفتين فقط!", color: "text-red-600", bg: "bg-red-50", border: "border-red-100", icon: "fa-fire" },
             { text: "مطلوب بشدة اليوم", color: "text-orange-600", bg: "bg-orange-50", border: "border-orange-100", icon: "fa-arrow-trend-up" },
@@ -139,7 +187,7 @@ const Hotels = {
             let cashbackAED = (hotel.basePoints / 10).toFixed(0);
 
             let coinBadgeHTML = '';
-            if (currentUser) {
+            if (typeof currentUser !== 'undefined' && currentUser) {
                 coinBadgeHTML = `
                     <div class="absolute top-2 right-2 md:top-3 md:right-3 w-12 h-12 md:w-20 md:h-20 transform transition-transform duration-300 hover:rotate-3 hover:scale-105 z-20 cursor-default">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
@@ -150,23 +198,19 @@ const Hotels = {
                             <linearGradient id="gold-inner-${index}" x1="0%" y1="100%" x2="100%" y2="0%">
                               <stop offset="0%" stop-color="#7B4918"/><stop offset="50%" stop-color="#B8860B"/><stop offset="100%" stop-color="#F9D976"/>
                             </linearGradient>
-                            <filter id="text-shadow-${index}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="2" stdDeviation="2" flood-color="#000" flood-opacity="0.5"/></filter>
-                            <filter id="coin-shadow-${index}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.3"/></filter>
                           </defs>
-                          <circle cx="100" cy="100" r="90" fill="url(#gold-outer-${index})" filter="url(#coin-shadow-${index})"/>
+                          <circle cx="100" cy="100" r="90" fill="url(#gold-outer-${index})"/>
                           <circle cx="100" cy="100" r="84" fill="none" stroke="#5c3a0d" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
                           <circle cx="100" cy="100" r="75" fill="url(#gold-inner-${index})"/>
                           <circle cx="100" cy="100" r="75" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.3"/>
-                          <path d="M 165 110 A 62 62 0 0 0 165 70" fill="none" stroke="#ffffff" stroke-width="3" stroke-linecap="round" opacity="0.7"/>
-                          <polygon points="165,65 172,75 158,75" fill="#ffffff" opacity="0.7"/>
-                          <text x="100" y="62" font-family="'Cairo', sans-serif" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle" filter="url(#text-shadow-${index})">كاش باك</text>
-                          <text x="100" y="130" font-family="'Cairo', sans-serif" font-size="70" font-weight="900" fill="#ffffff" text-anchor="middle" filter="url(#text-shadow-${index})" letter-spacing="-2">${cashbackAED}</text>
-                          <text x="100" y="160" font-family="'Cairo', sans-serif" font-size="20" font-weight="bold" fill="#ffffff" text-anchor="middle" filter="url(#text-shadow-${index})">درهم</text>
+                          <text x="100" y="62" font-family="'Cairo', sans-serif" font-size="22" font-weight="800" fill="#ffffff" text-anchor="middle">كاش باك</text>
+                          <text x="100" y="130" font-family="'Cairo', sans-serif" font-size="70" font-weight="900" fill="#ffffff" text-anchor="middle" letter-spacing="-2">${cashbackAED}</text>
+                          <text x="100" y="160" font-family="'Cairo', sans-serif" font-size="20" font-weight="bold" fill="#ffffff" text-anchor="middle">درهم</text>
                         </svg>
                     </div>`;
             } else {
                 coinBadgeHTML = `
-                    <div onclick="Auth.openAuthModal()" class="absolute top-2 right-2 md:top-3 md:right-3 w-12 h-12 md:w-20 md:h-20 cursor-pointer transform transition-transform duration-300 hover:scale-105 hover:rotate-3 z-20 pulse-coin rounded-full">
+                    <div onclick="if(typeof Auth !== 'undefined') Auth.openAuthModal();" class="absolute top-2 right-2 md:top-3 md:right-3 w-12 h-12 md:w-20 md:h-20 cursor-pointer transform transition-transform duration-300 hover:scale-105 hover:rotate-3 z-20 pulse-coin rounded-full">
                         <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
                           <defs>
                             <linearGradient id="dark-outer-${index}" x1="0%" y1="0%" x2="100%" y2="100%">
@@ -175,17 +219,21 @@ const Hotels = {
                             <linearGradient id="dark-inner-${index}" x1="0%" y1="100%" x2="100%" y2="0%">
                               <stop offset="0%" stop-color="#020617"/><stop offset="50%" stop-color="#1e293b"/><stop offset="100%" stop-color="#475569"/>
                             </linearGradient>
-                            <filter id="coin-shadow-dark-${index}" x="-20%" y="-20%" width="140%" height="140%"><feDropShadow dx="0" dy="4" stdDeviation="4" flood-color="#000" flood-opacity="0.4"/></filter>
                           </defs>
-                          <circle cx="100" cy="100" r="90" fill="url(#dark-outer-${index})" filter="url(#coin-shadow-dark-${index})"/>
+                          <circle cx="100" cy="100" r="90" fill="url(#dark-outer-${index})"/>
                           <circle cx="100" cy="100" r="84" fill="none" stroke="#1e293b" stroke-width="3" stroke-dasharray="4 4" opacity="0.6"/>
                           <circle cx="100" cy="100" r="75" fill="url(#dark-inner-${index})"/>
                           <circle cx="100" cy="100" r="75" fill="none" stroke="#FFFFFF" stroke-width="1.5" opacity="0.1"/>
-                          <path d="M 85 75 V 65 A 15 15 0 0 1 115 65 V 75 H 120 V 115 H 80 V 75 Z M 92 75 H 108 V 65 A 8 8 0 0 0 92 65 Z" fill="#facc15" filter="url(#text-shadow-${index})"/>
                           <text x="100" y="145" font-family="'Cairo', sans-serif" font-size="22" font-weight="900" fill="#cbd5e1" text-anchor="middle">سر الأعضاء</text>
                         </svg>
                     </div>`;
             }
+
+            let baseMealType = 'RO'; 
+            if(hotel.priceAED > 800) baseMealType = 'BB';
+            if(hotel.priceAED > 2000) baseMealType = 'HB';
+            // 🚀 التصحيح الأهم: استدعاء دالة الوجبات من كائن Hotels مباشرة
+            let mealBadge = Hotels.getMealPlanUI(baseMealType);
 
             container.innerHTML += `
             <div class="compact-card relative flex flex-col lg:flex-row bg-white rounded-[1.5rem] md:rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_15px_40px_rgba(0,180,216,0.12)] transition-all duration-500 mb-5 md:mb-6 group overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
@@ -236,7 +284,7 @@ const Hotels = {
                         <span class="text-[7px] md:text-[10px] text-slate-400 font-bold block mt-0.5">شامل الضرائب والرسوم</span>
                     </div>
 
-                    <button class="w-auto lg:w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-2.5 px-4 md:py-4 rounded-xl shadow-md border-none cursor-pointer text-xs md:text-base flex items-center justify-center gap-1.5 md:gap-2 m-0" onclick="Checkout.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                    <button class="w-auto lg:w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-2.5 px-4 md:py-4 rounded-xl shadow-md border-none cursor-pointer text-xs md:text-base flex items-center justify-center gap-1.5 md:gap-2 m-0" onclick="if(typeof Checkout !== 'undefined') Checkout.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
                         عرض الخيارات <i class="fa-solid fa-chevron-left text-[8px] md:text-sm opacity-80"></i>
                     </button>
                 </div>
@@ -244,7 +292,7 @@ const Hotels = {
               </div>
             </div>`;
         });
-        UI.changeCurrency();
+        if (typeof UI !== 'undefined' && UI.changeCurrency) UI.changeCurrency();
     },
 
     fetchAndDisplayHotelReviews: async function(hotelName) {
@@ -273,3 +321,9 @@ const Hotels = {
         } catch (e) { container.innerHTML = '<p class="text-center text-[10px] md:text-sm font-bold text-red-400 py-4 md:py-6">خطأ في الاتصال بسيرفر التقييمات.</p>'; }
     }
 };
+
+// ضمان عمل الدوال عالمياً حتى لا يتعطل أي زر
+window.Hotels = Hotels;
+window.filterHotels = Hotels.filterHotels;
+window.searchLiveHotels = Hotels.searchLiveHotels;
+window.renderChildAges = Hotels.renderChildAges;
