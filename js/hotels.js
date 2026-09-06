@@ -103,9 +103,9 @@ const Hotels = {
         }
 
         const scarcityMsgs = [ 
-            { text: "باقي غرفتين فقط!", color: "text-rose-600", bg: "bg-rose-50/90", border: "border-rose-100", icon: "fa-fire" },
-            { text: "مطلوب بشدة اليوم", color: "text-amber-600", bg: "bg-amber-50/90", border: "border-amber-100", icon: "fa-arrow-trend-up" },
-            { text: "خيار المسافرين المفضل", color: "text-[#00b4d8]", bg: "bg-[#00b4d8]/10", border: "border-[#00b4d8]/20", icon: "fa-gem" }
+            { text: "باقي غرفتين فقط!", color: "text-rose-600", bg: "bg-white/90", border: "border-rose-100", icon: "fa-fire text-rose-500" },
+            { text: "مطلوب بشدة اليوم", color: "text-amber-600", bg: "bg-white/90", border: "border-amber-100", icon: "fa-arrow-trend-up text-amber-500" },
+            { text: "خيار المسافرين المفضل", color: "text-[#00b4d8]", bg: "bg-[#00b4d8]/10", border: "border-[#00b4d8]/20", icon: "fa-gem text-[#00b4d8]" }
         ];
 
         hotelsArray.forEach((hotel, index) => {
@@ -116,7 +116,7 @@ const Hotels = {
             if(hotel.hotelFacilities) {
                 hotel.hotelFacilities.forEach(fac => {
                     let styledFac = fac.replace('<i ', '<i style="color: #00b4d8;" ');
-                    facilitiesHTML += `<span class="inline-flex items-center gap-1.5 bg-slate-50 text-slate-600 px-3 py-1.5 rounded-lg text-[11px] font-bold border border-slate-100 shrink-0">${styledFac}</span>`;
+                    facilitiesHTML += `<span class="inline-flex items-center gap-1.5 text-slate-600 text-[11px] font-bold shrink-0 bg-slate-50 px-2.5 py-1.5 rounded-md border border-slate-100 shadow-sm">${styledFac}</span>`;
                 });
             }
             const animationDelay = index * 100;
@@ -127,99 +127,116 @@ const Hotels = {
             if(hotel.priceAED > 2000) baseMealType = 'HB';
             let mealBadge = Hotels.getMealPlanUI(baseMealType);
 
+            // 🌟 Masterstroke 2: Golden Cashback Tag
+            let cashbackHTML = typeof currentUser !== 'undefined' && currentUser ? 
+                `<div class="w-full bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-200 p-2.5 rounded-xl flex items-center justify-start gap-3 shadow-sm transition-transform hover:-translate-y-0.5 cursor-default mt-4">
+                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-inner shrink-0">
+                        <i class="fa-solid fa-coins text-white text-xs"></i>
+                    </div>
+                    <div class="text-right flex-1">
+                        <span class="block text-[9px] text-amber-700 font-black uppercase tracking-wider mb-0.5">مكافأة حجز</span>
+                        <span class="block text-xs font-black text-amber-900" dir="ltr">+${cashbackAED} AED <span class="text-[9px] font-bold text-amber-700">كاش باك</span></span>
+                    </div>
+                </div>` : 
+                `<div class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl flex items-center justify-start gap-3 shadow-sm transition-colors hover:bg-slate-100 cursor-pointer mt-4" onclick="if(typeof Auth !== 'undefined') Auth.openAuthModal();">
+                    <div class="w-8 h-8 rounded-full bg-slate-200 flex items-center justify-center shrink-0">
+                        <i class="fa-solid fa-lock text-slate-500 text-xs"></i>
+                    </div>
+                    <div class="text-right flex-1">
+                        <span class="block text-[9px] text-slate-500 font-black uppercase tracking-wider mb-0.5">مكافأة حجز</span>
+                        <span class="block text-xs font-bold text-[#00b4d8] underline decoration-dashed">سجل الدخول لتربح</span>
+                    </div>
+                </div>`;
+
             // 🚀 The Ultimate World Class Card UI 🚀
             container.innerHTML += `
-            <div class="relative flex flex-col lg:flex-row bg-white rounded-3xl shadow-[0_4px_25px_rgba(0,0,0,0.04)] border border-slate-100 hover:shadow-[0_20px_40px_rgba(0,180,216,0.08)] transition-all duration-400 mb-8 group overflow-hidden animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+            <div class="relative bg-white rounded-[2rem] shadow-[0_4px_25px_rgba(0,0,0,0.05)] border border-slate-100 hover:shadow-[0_20px_40px_rgba(0,180,216,0.12)] hover:border-[#00b4d8]/40 transition-all duration-400 mb-8 group overflow-hidden animate-fade-in-up flex flex-col lg:flex-row" style="animation-delay: ${animationDelay}ms;">
               
               <!-- 1. Image Section (Right) -->
-              <div class="relative w-full lg:w-[360px] shrink-0 h-64 lg:h-auto overflow-hidden p-2.5">
-                <div class="w-full h-full rounded-[1.2rem] overflow-hidden relative">
+              <div class="relative w-full lg:w-[340px] shrink-0 h-64 lg:h-auto overflow-hidden p-3">
+                <div class="w-full h-full rounded-3xl overflow-hidden relative">
                     <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-110" onerror="this.src='https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80'" />
-                    <div class="absolute inset-0 bg-gradient-to-t from-[#1f3a40]/90 via-transparent to-black/20 pointer-events-none z-0"></div>
+                    <div class="absolute inset-0 bg-gradient-to-t from-[#1f3a40]/90 via-black/10 to-transparent pointer-events-none z-0"></div>
                     
-                    <!-- Glassmorphism Rating Badge -->
-                    <div class="absolute top-3 left-3 flex items-center bg-white/20 backdrop-blur-md border border-white/30 rounded-xl shadow-lg overflow-hidden z-10 text-white">
-                        <div class="bg-[#00b4d8] px-2.5 py-1.5 flex items-center justify-center">
-                            <span class="font-black text-sm tracking-wider" dir="ltr">${randomRating}</span>
+                    <!-- Floating Glass Rating -->
+                    <div class="absolute top-4 left-4 flex items-center bg-white/20 backdrop-blur-md border border-white/30 rounded-xl shadow-lg overflow-hidden z-10 p-1">
+                        <div class="bg-gradient-to-r from-[#1f3a40] to-[#2a4d53] text-white px-2.5 py-1 rounded-lg flex items-center justify-center">
+                            <span class="font-black text-xs tracking-wider" dir="ltr">${randomRating}</span>
                         </div>
-                        <div class="px-2.5 py-1.5 flex items-center">
-                            <span class="font-bold text-[11px]">رائع</span>
+                        <div class="px-2 flex items-center">
+                            <span class="text-white font-extrabold text-[10px] drop-shadow-md">ممتاز</span>
                         </div>
                     </div>
                     
-                    <!-- Scarcity Glass Tag -->
-                    <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 ${randomScarcity.bg} ${randomScarcity.color} px-3 py-1.5 rounded-lg text-[10px] font-black shadow-lg backdrop-blur-md border ${randomScarcity.border}">
-                        <i class="fa-solid ${randomScarcity.icon} animate-pulse"></i> ${randomScarcity.text}
+                    <!-- Scarcity Tag -->
+                    <div class="absolute bottom-4 right-4 z-10 flex items-center gap-1.5 ${randomScarcity.bg} ${randomScarcity.color} px-3 py-1.5 rounded-lg text-[10px] font-black shadow-lg backdrop-blur-md border ${randomScarcity.border}">
+                        <i class="fa-solid ${randomScarcity.icon}"></i> ${randomScarcity.text}
                     </div>
                 </div>
               </div>
 
               <!-- 2. Hotel Details Section (Middle) -->
-              <div class="flex-1 p-5 lg:p-6 flex flex-col justify-center relative z-10 bg-white">
+              <div class="flex-1 p-5 lg:p-7 flex flex-col justify-center relative z-10 bg-white">
                   <div class="flex items-center gap-1 mb-2">
                     <div class="flex text-yellow-400 text-[10px] drop-shadow-sm"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
                   </div>
                   
-                  <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2 line-clamp-2"><bdi dir="auto">${hotel.name}</bdi></h3>
+                  <h3 class="text-xl lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2 line-clamp-2 pr-1"><bdi dir="auto">${hotel.name}</bdi></h3>
                   
-                  <p class="text-[12px] text-slate-500 font-semibold mb-4 flex items-center gap-1.5 truncate">
+                  <p class="text-[12px] text-slate-500 font-bold mb-4 flex items-center gap-1.5 truncate">
                       <i class="fa-solid fa-location-dot text-[#00b4d8]"></i> الإمارات - ${hotel.city} 
-                      <span class="text-[#00b4d8] underline decoration-dashed cursor-pointer ml-2 text-[10px] hover:text-[#007790] transition-colors">عرض على الخريطة</span>
+                      <span class="text-[#00b4d8] underline decoration-dashed cursor-pointer ml-2 text-[10px] hover:text-[#007790] transition-colors">عرض الخريطة</span>
                   </p>
                   
-                  <div class="flex flex-wrap gap-2 mt-1 justify-start">
+                  <div class="flex flex-wrap gap-2 mt-2 justify-start">
                       ${facilitiesHTML}
                   </div>
                   
-                  <div class="mt-5 flex flex-wrap items-center gap-2">
+                  <div class="mt-5 pt-5 border-t border-slate-100 flex flex-wrap items-center gap-3">
                      ${mealBadge}
                      <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-3 py-1.5 rounded-lg text-[11px] font-black border border-emerald-100 shadow-sm"><i class="fa-solid fa-shield-check text-emerald-500"></i> إلغاء مجاني متاح</span>
                   </div>
               </div>
 
-              <!-- Masterstroke: Ticket Divider -->
+              <!-- Masterstroke: The True Ticket Divider -->
               <div class="hidden lg:flex items-center relative z-20">
-                  <div class="w-px h-3/4 border-l-2 border-dashed border-slate-200 relative">
-                      <div class="absolute -top-12 -left-3 w-6 h-6 bg-[var(--bg-light)] rounded-full border-b border-slate-200"></div>
-                      <div class="absolute -bottom-12 -left-3 w-6 h-6 bg-[var(--bg-light)] rounded-full border-t border-slate-200"></div>
+                  <div class="w-px h-[85%] border-l-2 border-dashed border-slate-200 relative">
+                      <div class="absolute -top-10 -left-4 w-8 h-8 bg-[var(--bg-light)] rounded-full border-b border-slate-200 shadow-inner"></div>
+                      <div class="absolute -bottom-10 -left-4 w-8 h-8 bg-[var(--bg-light)] rounded-full border-t border-slate-200 shadow-inner"></div>
                   </div>
               </div>
-              <div class="lg:hidden h-px border-t-2 border-dashed border-slate-200 mx-6 relative z-20">
-                  <div class="absolute -left-8 -top-3 w-6 h-6 bg-[var(--bg-light)] rounded-full border-r border-slate-200"></div>
-                  <div class="absolute -right-8 -top-3 w-6 h-6 bg-[var(--bg-light)] rounded-full border-l border-slate-200"></div>
+              <div class="lg:hidden h-px border-t-2 border-dashed border-slate-200 mx-8 relative z-20">
+                  <div class="absolute -left-6 -top-4 w-8 h-8 bg-[var(--bg-light)] rounded-full border-r border-slate-200 shadow-inner"></div>
+                  <div class="absolute -right-6 -top-4 w-8 h-8 bg-[var(--bg-light)] rounded-full border-l border-slate-200 shadow-inner"></div>
               </div>
 
-              <!-- 3. Price & CTA Section (Left) -->
-              <div class="w-full lg:w-[280px] p-6 flex flex-col justify-center items-center bg-slate-50 shrink-0 z-10 relative overflow-hidden rounded-bl-3xl rounded-br-3xl lg:rounded-bl-3xl lg:rounded-br-none lg:rounded-tl-3xl">
+              <!-- 3. The Buy Box Section (Left) -->
+              <div class="w-full lg:w-[300px] p-6 lg:p-8 flex flex-col justify-center items-center bg-gradient-to-b from-[#f8fafc] to-white shrink-0 z-10 relative overflow-hidden">
                 
-                <!-- Subtle Background Pattern (Masterstroke) -->
-                <div class="absolute inset-0 opacity-[0.03] pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\\'40\\' height=\\'40\\' viewBox=\\'0 0 40 40\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cpath d=\\'M20 20.5V18H0v-2h20v-2H0v-2h20v-2H0V8h20V6H0V4h20V2H0V0h22v20h2V0h2v20h2V0h2v20h2V0h2v20h2V0h2v20h2v2H20v-1.5zM0 20h2v20H0V20zm4 0h2v20H4V20zm4 0h2v20H8V20zm4 0h2v20h-2V20zm4 0h2v20h-2V20zm4 4v16h2V24h-2zm4 0v16h2V24h-2zm4 0v16h2V24h-2zm4 0v16h2V24h-2zm4 0v16h2V24h-2z\\' fill=\\'%231f3a40\\' fill-rule=\\'evenodd\\'/%3E%3C/svg%3E');"></div>
+                <!-- Masterstroke 3: Premium Sand Dunes SVG Pattern -->
+                <div class="absolute inset-0 opacity-[0.06] pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\\'100\\' height=\\'40\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cpath d=\\'M0 20c25 0 25-20 50-20s25 20 50 20 25-20 50-20\\'%20fill=\\'none\\' stroke=\\'%231f3a40\\' stroke-width=\\'1\\'/%3E%3C/svg%3E'); background-size: 100px 40px;"></div>
 
-                <div class="text-center w-full relative z-10">
-                    <span class="text-[11px] font-bold text-slate-500 mb-1 block">السعر الإجمالي (لليلة)</span>
-                    <div class="flex items-baseline justify-center gap-1.5" dir="ltr">
-                        <span class="text-sm font-bold text-slate-400 currency-label">AED</span>
-                        <span class="text-4xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
+                <div class="text-center w-full relative z-10 flex flex-col h-full justify-between">
+                    
+                    <div class="mb-4">
+                        <span class="inline-block bg-[#00b4d8]/10 text-[#00b4d8] text-[9px] md:text-[10px] font-black px-3 py-1 rounded-full mb-3 border border-[#00b4d8]/20 tracking-wide uppercase">أفضل سعر متاح</span>
+                        <span class="text-[11px] font-bold text-slate-400 mb-1 block">السعر الإجمالي (لليلة)</span>
+                        
+                        <div class="flex items-baseline justify-center gap-1.5 mb-1" dir="ltr">
+                            <span class="text-sm font-bold text-slate-400 currency-label">AED</span>
+                            <span class="text-4xl md:text-5xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
+                        </div>
+                        <span class="text-[9px] text-slate-400 font-bold block">شامل الضرائب والرسوم</span>
                     </div>
-                    <span class="text-[10px] text-slate-400 font-bold mb-4 block">شامل الضرائب والرسوم</span>
 
-                    <!-- Premium Cyan CTA Button -->
-                    <button class="w-full bg-gradient-to-r from-[#00b4d8] to-[#007790] hover:from-[#0096b4] hover:to-[#005f73] active:scale-[0.98] transition-all duration-300 text-white font-black py-3.5 rounded-xl shadow-[0_8px_20px_rgba(0,180,216,0.3)] hover:shadow-[0_12px_25px_rgba(0,180,216,0.4)] border-none cursor-pointer text-sm flex items-center justify-center gap-2 mb-4" 
-                        onclick="if(typeof UI !== 'undefined' && UI.viewHotelDetails) UI.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
-                        تحديد الغرف <i class="fa-solid fa-arrow-left-long text-xs opacity-80 pointer-events-none"></i>
-                    </button>
+                    <div class="mt-auto">
+                        <!-- Masterstroke 1: Return of the Ruby Red CTA -->
+                        <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-3.5 md:py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.25)] hover:shadow-[0_12px_25px_rgba(128,0,0,0.35)] border-none cursor-pointer text-sm md:text-base flex items-center justify-center gap-2" 
+                            onclick="if(typeof UI !== 'undefined' && UI.viewHotelDetails) { UI.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')}); } else if(typeof viewHotelDetails === 'function') { viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')}); }">
+                            تحديد الغرف <i class="fa-solid fa-chevron-left text-[10px] md:text-sm opacity-80 pointer-events-none"></i>
+                        </button>
 
-                    <!-- Integrated Cashback Box (Clean, No Bleeding) -->
-                    <div class="w-full bg-white border border-amber-100 rounded-xl p-2.5 flex items-center justify-start gap-3 shadow-sm transition-colors hover:bg-amber-50/50 cursor-pointer" onclick="if(typeof Auth !== 'undefined' && !currentUser) Auth.openAuthModal();">
-                        <div class="w-10 h-10 rounded-full bg-gradient-to-br from-amber-300 to-amber-500 flex items-center justify-center shadow-md shrink-0">
-                            <i class="fa-solid fa-coins text-white text-lg drop-shadow-sm"></i>
-                        </div>
-                        <div class="text-right flex-1">
-                            <span class="block text-[9px] text-amber-600 font-black uppercase tracking-wider mb-0.5">مكافأة حجز</span>
-                            <span class="block text-xs font-black text-[#1f3a40]">
-                                ${typeof currentUser !== 'undefined' && currentUser ? `<span dir="ltr">+ ${cashbackAED}</span> نقطة كاش باك` : '<span class="text-[#00b4d8] underline decoration-dashed text-[10px]">سجل الدخول لتربح</span>'}
-                            </span>
-                        </div>
+                        ${cashbackHTML}
                     </div>
 
                 </div>
@@ -229,9 +246,7 @@ const Hotels = {
         if (typeof UI !== 'undefined' && UI.changeCurrency) UI.changeCurrency();
     },
 
-    // ... (باقي الدوال مثل fetchAndDisplayHotelReviews تبقى كما هي تماماً دون تغيير)
     fetchAndDisplayHotelReviews: async function(hotelName) {
-        // [الكود السابق لهذه الدالة يبقى كما هو]
         const container = document.getElementById('hotelReviewsContainer');
         if (!container) return; container.innerHTML = '<p class="text-center text-xs md:text-sm text-slate-400 font-bold py-4">جاري جلب التقييمات...</p>';
         try {
@@ -258,4 +273,8 @@ const Hotels = {
     }
 };
 
+// ضمان عمل الدوال عالمياً
 window.Hotels = Hotels;
+window.filterHotels = Hotels.filterHotels;
+window.searchLiveHotels = Hotels.searchLiveHotels;
+window.renderChildAges = Hotels.renderChildAges;
