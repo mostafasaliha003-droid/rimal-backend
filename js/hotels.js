@@ -87,7 +87,7 @@ const Hotels = {
             title = 'نصف إقامة (فطور وعشاء)';
         }
 
-        return `<span class="inline-flex items-center gap-1.5 ${config.bg} ${config.text} px-2.5 py-1 rounded-lg text-[10px] font-black border ${config.border} shadow-sm whitespace-nowrap">
+        return `<span class="inline-flex items-center gap-1.5 ${config.bg} ${config.text} px-2.5 py-1 rounded-lg text-[9px] md:text-[10px] font-black border ${config.border} shadow-sm whitespace-nowrap">
                     <i class="fa-solid ${config.icon} ${config.iconColor}"></i> ${title}
                 </span>`;
     },
@@ -108,6 +108,14 @@ const Hotels = {
             { text: "خيار المسافرين المفضل", color: "text-[#00b4d8]", bg: "bg-white/95", border: "border-[#00b4d8]/30", icon: "fa-gem text-[#00b4d8]" }
         ];
 
+        // حقن ستايل إخفاء شريط التمرير للموبايل
+        if (!document.getElementById('hide-scrollbar-style')) {
+            const style = document.createElement('style');
+            style.id = 'hide-scrollbar-style';
+            style.innerHTML = `.hide-scrollbar::-webkit-scrollbar { display: none; } .hide-scrollbar { -ms-overflow-style: none; scrollbar-width: none; }`;
+            document.head.appendChild(style);
+        }
+
         hotelsArray.forEach((hotel, index) => {
             let randomScarcity = scarcityMsgs[Math.floor(Math.random() * scarcityMsgs.length)];
             let randomRating = (Math.random() * (9.9 - 8.0) + 8.0).toFixed(1); 
@@ -116,7 +124,8 @@ const Hotels = {
             if(hotel.hotelFacilities) {
                 hotel.hotelFacilities.forEach(fac => {
                     let styledFac = fac.replace('<i ', '<i style="color: #00b4d8;" ');
-                    facilitiesHTML += `<span class="inline-flex items-center gap-1.5 text-slate-600 text-[10px] font-bold shrink-0 bg-slate-50 px-2.5 py-1 rounded border border-slate-100 shadow-sm">${styledFac}</span>`;
+                    // Masterstroke: snap-center للموبايل فقط
+                    facilitiesHTML += `<span class="inline-flex items-center gap-1.5 text-slate-600 text-[10px] font-bold shrink-0 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm snap-center lg:snap-align-none">${styledFac}</span>`;
                 });
             }
             const animationDelay = index * 100;
@@ -127,38 +136,33 @@ const Hotels = {
             if(hotel.priceAED > 2000) baseMealType = 'HB';
             let mealBadge = Hotels.getMealPlanUI(baseMealType);
 
-            // 🌟 Masterstroke 3: Golden Foil Cashback
+            // 🌟 الكاش باك المتكامل
             let cashbackHTML = typeof currentUser !== 'undefined' && currentUser ? 
-                `<div class="w-full bg-gradient-to-r from-amber-100 to-amber-50 border border-amber-200 p-2.5 rounded-xl flex items-center justify-start gap-3 shadow-[0_2px_10px_rgba(251,191,36,0.15)] transition-transform hover:-translate-y-0.5 cursor-default mb-4">
-                    <div class="w-8 h-8 rounded-full bg-gradient-to-br from-amber-400 to-amber-600 flex items-center justify-center shadow-inner shrink-0">
-                        <i class="fa-solid fa-coins text-white text-xs"></i>
-                    </div>
-                    <div class="text-right flex-1">
-                        <span class="block text-[9px] text-amber-700 font-black uppercase tracking-wider mb-0.5">مكافأة حجز</span>
-                        <span class="block text-[11px] font-black text-amber-900" dir="ltr">+${cashbackAED} AED <span class="text-[9px] font-bold text-amber-700">كاش باك</span></span>
+                `<div class="w-full bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 p-2 lg:p-2.5 rounded-xl flex items-center justify-center gap-2 shadow-sm mb-3 lg:mb-4">
+                    <i class="fa-solid fa-coins text-amber-500 text-base lg:text-lg drop-shadow-sm"></i>
+                    <div class="text-right">
+                        <span class="block text-[8px] lg:text-[9px] text-amber-600 font-black uppercase tracking-wider mb-0.5">مكافأة حجز</span>
+                        <span class="block text-[10px] lg:text-[11px] font-black text-amber-900" dir="ltr">+${cashbackAED} AED</span>
                     </div>
                 </div>` : 
-                `<div class="w-full bg-slate-50 border border-slate-200 p-2.5 rounded-xl flex items-center justify-start gap-3 shadow-sm transition-colors hover:bg-slate-100 cursor-pointer mb-4" onclick="if(typeof Auth !== 'undefined') Auth.openAuthModal();">
-                    <div class="w-8 h-8 rounded-full bg-white flex items-center justify-center border border-slate-200 shrink-0">
-                        <i class="fa-solid fa-lock text-slate-400 text-xs"></i>
-                    </div>
-                    <div class="text-right flex-1">
-                        <span class="block text-[9px] text-slate-500 font-black uppercase tracking-wider mb-0.5">مكافأة حجز</span>
-                        <span class="block text-[10px] font-bold text-[#00b4d8] underline decoration-dashed">سجل الدخول لتربح</span>
+                `<div class="w-full bg-white border border-slate-200 p-2 lg:p-2.5 rounded-xl flex items-center justify-center gap-2 shadow-sm transition-colors hover:bg-slate-50 cursor-pointer mb-3 lg:mb-4" onclick="if(typeof Auth !== 'undefined') Auth.openAuthModal();">
+                    <i class="fa-solid fa-lock text-slate-400 text-base lg:text-lg"></i>
+                    <div class="text-right">
+                        <span class="block text-[8px] lg:text-[9px] text-slate-500 font-black uppercase tracking-wider mb-0.5">مكافأة حجز</span>
+                        <span class="block text-[9px] lg:text-[10px] font-bold text-[#00b4d8] underline decoration-dashed">سجل الدخول لتربح</span>
                     </div>
                 </div>`;
 
-            // 🚀 The Ultimate World Class UNIFIED Ticket UI 🚀
+            // 🚀 The Ultimate World Class UNIFIED Ticket UI (Desktop + Mobile) 🚀
             container.innerHTML += `
-            <div class="relative bg-white rounded-2xl md:rounded-[2rem] shadow-[0_8px_30px_rgba(0,0,0,0.04)] hover:shadow-[0_15px_40px_rgba(31,58,64,0.08)] border border-slate-100 transition-all duration-300 mb-8 group overflow-hidden animate-fade-in-up flex flex-col lg:flex-row" style="animation-delay: ${animationDelay}ms;">
+            <div class="relative bg-white rounded-2xl lg:rounded-[2rem] shadow-[0_8px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_15px_40px_rgba(31,58,64,0.08)] border border-slate-100 transition-all duration-300 mb-6 lg:mb-8 group overflow-hidden animate-fade-in-up flex flex-col lg:flex-row mx-1 lg:mx-0" style="animation-delay: ${animationDelay}ms;">
               
-              <!-- 1. Image Section (Right) -->
-              <div class="relative w-full lg:w-[320px] shrink-0 h-56 lg:h-auto overflow-hidden p-2.5">
-                <div class="w-full h-full rounded-[1.2rem] overflow-hidden relative">
+              <!-- 1. Image Section (Top on Mobile, Right on Desktop) -->
+              <div class="relative w-full lg:w-[320px] shrink-0 h-52 sm:h-64 lg:h-auto overflow-hidden p-2 lg:p-2.5 pb-0 lg:pb-2.5">
+                <div class="w-full h-full rounded-xl lg:rounded-[1.2rem] overflow-hidden relative">
                     <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" onerror="this.src='https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80'" />
                     <div class="absolute inset-0 bg-gradient-to-t from-[#1f3a40]/90 via-black/5 to-transparent pointer-events-none z-0"></div>
                     
-                    <!-- Floating Glass Rating -->
                     <div class="absolute top-3 left-3 flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-lg overflow-hidden z-10 p-1 border border-white/50">
                         <div class="bg-gradient-to-r from-[#1f3a40] to-[#2a4d53] text-white px-2 py-1 rounded-lg flex items-center justify-center">
                             <span class="font-black text-[11px] md:text-xs tracking-wider" dir="ltr">${randomRating}</span>
@@ -168,80 +172,92 @@ const Hotels = {
                         </div>
                     </div>
                     
-                    <!-- Scarcity Tag -->
                     <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 ${randomScarcity.bg} ${randomScarcity.color} px-2.5 py-1 rounded-lg text-[9px] md:text-[10px] font-black shadow-md border ${randomScarcity.border}">
                         <i class="fa-solid ${randomScarcity.icon}"></i> ${randomScarcity.text}
                     </div>
                 </div>
               </div>
 
-              <!-- 2. Hotel Details Section (Middle - RIGHT ALIGNED) -->
-              <div class="flex-1 p-5 md:p-6 lg:p-7 flex flex-col justify-between relative z-10 bg-white text-right">
+              <!-- 2. Hotel Details Section (Middle on Desktop, Below Image on Mobile) -->
+              <div class="flex-1 p-4 lg:p-7 flex flex-col justify-between relative z-10 bg-white text-right">
                   <div>
-                      <div class="flex items-center gap-1 mb-2 justify-start">
+                      <div class="flex items-center gap-1 mb-1.5 lg:mb-2 justify-start">
                         <div class="flex text-yellow-400 text-[9px] md:text-[10px] drop-shadow-sm"><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i><i class="fa-solid fa-star"></i></div>
                       </div>
                       
-                      <h3 class="text-lg md:text-xl lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2 line-clamp-2 w-full text-right"><bdi dir="auto">${hotel.name}</bdi></h3>
+                      <h3 class="text-lg lg:text-2xl font-black text-[#1f3a40] group-hover:text-[#00b4d8] transition-colors cursor-pointer leading-tight mb-2 line-clamp-2 w-full text-right"><bdi dir="auto">${hotel.name}</bdi></h3>
                       
-                      <p class="text-[11px] md:text-[12px] text-slate-500 font-bold mb-4 flex items-center gap-1.5 w-full justify-start">
+                      <p class="text-[10px] lg:text-[12px] text-slate-500 font-bold mb-3 lg:mb-4 flex items-center gap-1.5 w-full justify-start">
                           <i class="fa-solid fa-location-dot text-[#00b4d8]"></i>
                           الإمارات - ${hotel.city} 
                           <span class="text-[#00b4d8] underline decoration-dashed cursor-pointer ml-2 text-[9px] md:text-[10px] hover:text-[#007790] transition-colors">عرض الخريطة</span>
                       </p>
                       
-                      <div class="flex flex-wrap gap-2 mt-2 justify-start w-full">
+                      <!-- Masterstroke: Swipeable Horizontal list on Mobile -->
+                      <div class="flex overflow-x-auto lg:flex-wrap gap-2 mt-2 justify-start w-full snap-x hide-scrollbar pb-1 lg:pb-0" style="-webkit-overflow-scrolling: touch;">
                           ${facilitiesHTML}
                       </div>
                   </div>
                   
-                  <div class="mt-4 pt-4 border-t border-slate-50 flex flex-wrap items-center gap-2 md:gap-3 w-full justify-start">
+                  <div class="mt-3 lg:mt-4 pt-3 lg:pt-4 border-t border-slate-50 flex flex-wrap items-center gap-2 md:gap-3 w-full justify-start">
                      ${mealBadge}
-                     <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[10px] font-black border border-emerald-100 shadow-sm"><i class="fa-solid fa-shield-check text-emerald-500"></i> إلغاء مجاني</span>
+                     <span class="inline-flex items-center gap-1.5 bg-emerald-50 text-emerald-700 px-2.5 py-1 rounded-lg text-[9px] lg:text-[10px] font-black border border-emerald-100 shadow-sm"><i class="fa-solid fa-shield-check text-emerald-500"></i> إلغاء مجاني</span>
                   </div>
               </div>
 
-              <!-- Masterstroke 1: The Unified Ticket Punch Hole Divider -->
+              <!-- Masterstroke: Ticket Divider (Vertical on Desktop, Horizontal on Mobile) -->
+              <!-- Desktop Vertical -->
               <div class="hidden lg:flex items-center relative z-20 w-0">
                   <div class="w-px h-[90%] border-l-2 border-dashed border-slate-200 absolute left-0 top-1/2 -translate-y-1/2"></div>
-                  <!-- Top Cutout -->
-                  <div class="absolute -top-4 left-[-14px] w-7 h-7 bg-[#f8fafc] rounded-full border-b border-slate-200 shadow-inner z-30"></div>
-                  <!-- Bottom Cutout -->
-                  <div class="absolute -bottom-4 left-[-14px] w-7 h-7 bg-[#f8fafc] rounded-full border-t border-slate-200 shadow-inner z-30"></div>
+                  <div class="absolute -top-4 left-[-14px] w-7 h-7 bg-[var(--bg-light)] rounded-full border-b border-slate-200 shadow-inner z-30"></div>
+                  <div class="absolute -bottom-4 left-[-14px] w-7 h-7 bg-[var(--bg-light)] rounded-full border-t border-slate-200 shadow-inner z-30"></div>
               </div>
-              <div class="lg:hidden h-px border-t-2 border-dashed border-slate-200 relative z-20 w-full">
-                  <!-- Left Cutout -->
-                  <div class="absolute -left-1 -top-3.5 w-7 h-7 bg-[#f8fafc] rounded-full border-r border-slate-200 shadow-inner z-30"></div>
-                  <!-- Right Cutout -->
-                  <div class="absolute -right-1 -top-3.5 w-7 h-7 bg-[#f8fafc] rounded-full border-l border-slate-200 shadow-inner z-30"></div>
+              <!-- Mobile Horizontal -->
+              <div class="lg:hidden h-px border-t-2 border-dashed border-slate-200 relative z-20 mx-6 my-2">
+                  <div class="absolute -left-6 -top-3.5 w-7 h-7 bg-[var(--bg-light)] rounded-full border-r border-slate-200 shadow-inner z-30"></div>
+                  <div class="absolute -right-6 -top-3.5 w-7 h-7 bg-[var(--bg-light)] rounded-full border-l border-slate-200 shadow-inner z-30"></div>
               </div>
 
-              <!-- 3. The Buy Box Section (Left) -->
-              <div class="w-full lg:w-[270px] xl:w-[290px] p-5 lg:p-7 flex flex-col justify-center items-center bg-slate-50 shrink-0 z-10 relative overflow-hidden rounded-b-2xl lg:rounded-bl-[2rem] lg:rounded-br-none lg:rounded-tl-[2rem]">
+              <!-- 3. The Buy Box Section (Bottom on Mobile, Left on Desktop) -->
+              <div class="w-full lg:w-[270px] xl:w-[290px] p-4 lg:p-7 flex flex-col justify-center items-center bg-slate-50 shrink-0 z-10 relative overflow-hidden rounded-b-2xl lg:rounded-bl-[2rem] lg:rounded-br-none lg:rounded-tl-[2rem]">
                 
-                <!-- Masterstroke 2: Topographic SVG Pattern (Luxury Touch) -->
-                <div class="absolute inset-0 opacity-[0.04] pointer-events-none" style="background-image: url('data:image/svg+xml,%3Csvg width=\\'100\\' height=\\'100\\' viewBox=\\'0 0 100 100\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cpath d=\\'M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z\\' fill=\\'%231f3a40\\' fill-rule=\\'evenodd\\'/%3E%3C/svg%3E');"></div>
+                <!-- SVG Pattern (Desktop only for cleaner mobile view) -->
+                <div class="absolute inset-0 opacity-[0.04] pointer-events-none hidden lg:block" style="background-image: url('data:image/svg+xml,%3Csvg width=\\'100\\' height=\\'100\\' viewBox=\\'0 0 100 100\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cpath d=\\'M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z\\' fill=\\'%231f3a40\\' fill-rule=\\'evenodd\\'/%3E%3C/svg%3E');"></div>
 
                 <div class="text-center w-full relative z-10 flex flex-col justify-center h-full">
                     
-                    <span class="inline-block bg-[#00b4d8]/10 text-[#00b4d8] text-[9px] font-black px-2.5 py-1 rounded-full mb-3 border border-[#00b4d8]/20 tracking-wide uppercase mx-auto w-fit">أفضل سعر متاح</span>
-                    
-                    <span class="text-[10px] font-bold text-slate-400 mb-0.5 block">السعر الإجمالي (لليلة)</span>
-                    
-                    <div class="flex items-baseline justify-center gap-1.5 mb-1" dir="ltr">
-                        <span class="text-xs font-bold text-slate-400 currency-label">AED</span>
-                        <span class="text-3xl md:text-4xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
+                    <div class="hidden lg:block">
+                        <span class="inline-block bg-[#00b4d8]/10 text-[#00b4d8] text-[10px] font-black px-3 py-1 rounded-full mb-3 border border-[#00b4d8]/20 tracking-wide uppercase mx-auto w-fit">أفضل سعر متاح</span>
                     </div>
-                    
-                    <span class="text-[8px] md:text-[9px] text-slate-400 font-bold mb-4 block">شامل الضرائب والرسوم</span>
 
-                    ${cashbackHTML}
+                    <!-- Masterstroke: Horizontal layout on mobile for Space saving -->
+                    <div class="flex flex-row lg:flex-col items-center lg:justify-center justify-between w-full mb-3 lg:mb-0">
+                        <div class="text-right lg:text-center">
+                            <span class="text-[9px] lg:text-[10px] font-bold text-slate-400 mb-0.5 block">السعر الإجمالي (لليلة)</span>
+                            <div class="flex items-baseline justify-start lg:justify-center gap-1.5 mb-0.5 lg:mb-1" dir="ltr">
+                                <span class="text-xs lg:text-sm font-bold text-slate-400 currency-label">AED</span>
+                                <span class="text-3xl lg:text-4xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${hotel.priceAED}">${hotel.priceAED}</span>
+                            </div>
+                            <span class="text-[8px] lg:text-[9px] text-slate-400 font-bold block">شامل الضرائب والرسوم</span>
+                        </div>
+                        
+                        <!-- CTA Button on Mobile (Beside price) -->
+                        <div class="w-[130px] lg:hidden">
+                            <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] active:scale-[0.98] transition-all text-white font-black py-3 rounded-xl shadow-[0_6px_15px_rgba(128,0,0,0.2)] border-none cursor-pointer text-xs flex items-center justify-center gap-1.5" 
+                                onclick="Hotels.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                                تحديد الغرف <i class="fa-solid fa-chevron-left text-[9px] opacity-80"></i>
+                            </button>
+                        </div>
+                    </div>
 
-                    <!-- 🚀 THE FIXED RED BUTTON (Masterstroke 4: Seamless Navigation) 🚀 -->
-                    <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-3 md:py-3.5 rounded-xl shadow-[0_6px_15px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_20px_rgba(128,0,0,0.3)] border-none cursor-pointer text-sm flex items-center justify-center gap-2" 
-                        onclick="Hotels.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
-                        تحديد الغرف <i class="fa-solid fa-chevron-left text-[10px] opacity-80 pointer-events-none"></i>
-                    </button>
+                    <div class="hidden lg:block w-full">
+                        ${cashbackHTML}
+                        <!-- CTA Button on Desktop (Below price) -->
+                        <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-3.5 rounded-xl shadow-[0_6px_15px_rgba(128,0,0,0.2)] hover:shadow-[0_10px_20px_rgba(128,0,0,0.3)] border-none cursor-pointer text-sm flex items-center justify-center gap-2" 
+                            onclick="Hotels.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;')})">
+                            تحديد الغرف <i class="fa-solid fa-chevron-left text-[10px] opacity-80 pointer-events-none"></i>
+                        </button>
+                    </div>
                 </div>
               </div>
             </div>`;
@@ -249,7 +265,7 @@ const Hotels = {
         if (typeof UI !== 'undefined' && UI.changeCurrency) UI.changeCurrency();
     },
 
-    // 🚀 الدالة المفقودة التي كانت تسبب عدم عمل الزر 🚀
+    // 🚀 دالة رسم الغرف والانتقال للصفحة الثانية (متجاوبة مع الجوال) 🚀
     viewHotelDetails: async function(hotelName, basePrice, apiRooms) {
         const titleEl = document.getElementById('detailsHotelName');
         if(titleEl) titleEl.innerHTML = `<bdi dir="auto"><span style="unicode-bidi: plaintext;">${hotelName}</span></bdi>`;
@@ -303,29 +319,29 @@ const Hotels = {
             let mealBadge = Hotels.getMealPlanUI(room.board);
 
             container.innerHTML += `
-                <div class="relative flex flex-col lg:flex-row bg-white rounded-2xl md:rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 hover:border-[#00b4d8]/40 transition-all duration-300 mb-5 md:mb-6 overflow-hidden group animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
+                <div class="relative flex flex-col lg:flex-row bg-white rounded-2xl md:rounded-3xl shadow-[0_4px_15px_rgba(0,0,0,0.04)] border border-slate-100 hover:border-[#00b4d8]/40 transition-all duration-300 mb-4 md:mb-6 overflow-hidden group animate-fade-in-up mx-1 lg:mx-0" style="animation-delay: ${animationDelay}ms;">
                     
                     <div class="flex-1 p-4 sm:p-6 md:p-8 flex flex-col justify-between relative z-10 min-w-0 bg-transparent text-right">
-                        <h3 class="text-lg sm:text-xl md:text-2xl font-black text-[#1f3a40] leading-tight flex items-center gap-2 md:gap-3 truncate justify-start">
+                        <h3 class="text-base sm:text-xl md:text-2xl font-black text-[#1f3a40] leading-tight flex items-center gap-2 md:gap-3 truncate justify-start">
                             <bdi dir="auto">${room.name}</bdi>
                         </h3>
-                        <div class="flex flex-wrap items-center gap-2 md:gap-3 mt-3 md:mt-4 justify-start">
-                            <span class="inline-flex items-center gap-1 md:gap-2 bg-slate-50 text-slate-700 px-2 md:px-3 py-1 md:py-1.5 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold border border-slate-200"><i class="fa-solid fa-bed text-slate-400"></i> ${room.bed}</span>
-                            <span class="inline-flex items-center gap-1 md:gap-2 bg-slate-50 text-slate-700 px-2 md:px-3 py-1 md:py-1.5 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold border border-slate-200"><i class="fa-solid fa-user-group text-slate-400"></i> يتسع لـ 2 بالغين</span>
+                        <div class="flex overflow-x-auto lg:flex-wrap items-center gap-2 md:gap-3 mt-2 md:mt-4 justify-start hide-scrollbar snap-x">
+                            <span class="inline-flex items-center gap-1 md:gap-2 bg-slate-50 text-slate-700 px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[9px] md:text-xs font-bold border border-slate-200 shrink-0 snap-center lg:snap-align-none"><i class="fa-solid fa-bed text-slate-400"></i> ${room.bed}</span>
+                            <span class="inline-flex items-center gap-1 md:gap-2 bg-slate-50 text-slate-700 px-2 md:px-3 py-1 md:py-1.5 rounded-lg text-[9px] md:text-xs font-bold border border-slate-200 shrink-0 snap-center lg:snap-align-none"><i class="fa-solid fa-user-group text-slate-400"></i> يتسع لـ 2 بالغين</span>
                         </div>
                         <div class="mt-3 md:mt-5 flex items-center gap-2 justify-start">
                             ${mealBadge}
                         </div>
-                        <div class="mt-4 md:mt-5 border ${cancelClass} p-2.5 md:p-3 px-3 md:px-4 text-[10px] md:text-xs rounded-lg md:rounded-xl font-bold flex items-start gap-2 md:gap-2.5 relative overflow-hidden bg-opacity-40 text-right">
+                        <div class="mt-3 md:mt-5 border ${cancelClass} p-2.5 md:p-3 px-3 md:px-4 text-[9px] md:text-xs rounded-xl font-bold flex items-start gap-2 md:gap-2.5 relative overflow-hidden bg-opacity-40 text-right">
                             <i class="fa-solid ${cancelIcon} mt-0.5 md:mt-1 relative z-10 text-sm md:text-base shrink-0"></i>
                             <div class="relative z-10 min-w-0">
-                                <span class="block ${policyTitleColor} font-black text-[11px] md:text-sm mb-0.5 md:mb-1">السياسة:</span>
+                                <span class="block ${policyTitleColor} font-black text-[10px] md:text-sm mb-0.5 md:mb-1">السياسة:</span>
                                 <span class="font-semibold block whitespace-pre-line text-slate-600 leading-relaxed"><bdi dir="auto">${room.policyText}</bdi></span>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Room Ticket Divider -->
+                    <!-- Responsive Room Ticket Divider -->
                     <div class="hidden lg:flex items-center relative z-20 w-0">
                         <div class="w-px h-full border-l-2 border-dashed border-slate-200 absolute left-0 top-0"></div>
                         <div class="absolute -top-1 left-[-12px] w-6 h-6 bg-[var(--bg-light)] rounded-full border-b border-slate-200 shadow-inner z-30"></div>
@@ -336,17 +352,23 @@ const Hotels = {
                         <div class="absolute -right-1 -top-3 w-6 h-6 bg-[var(--bg-light)] rounded-full border-l border-slate-200 shadow-inner z-30"></div>
                     </div>
 
-                    <div class="w-full lg:w-[260px] xl:w-[280px] p-5 sm:p-6 md:p-8 flex flex-col justify-center items-center bg-slate-50 shrink-0 z-10 relative">
-                        <div class="text-center mb-1 flex items-baseline justify-center gap-1 md:gap-1.5" dir="ltr">
-                            <span class="text-xs md:text-sm font-bold text-slate-400 currency-label">AED</span>
-                            <span class="text-3xl sm:text-4xl lg:text-5xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
+                    <!-- Mobile Bottom / Desktop Left Box -->
+                    <div class="w-full lg:w-[260px] xl:w-[280px] p-4 sm:p-6 md:p-8 flex flex-row lg:flex-col justify-between lg:justify-center items-center bg-slate-50 shrink-0 z-10 relative">
+                        <div class="text-right lg:text-center">
+                            <span class="text-[9px] md:text-[10px] text-slate-400 font-bold mb-0.5 block lg:hidden">سعر الغرفة</span>
+                            <div class="flex items-baseline justify-start lg:justify-center gap-1 md:gap-1.5" dir="ltr">
+                                <span class="text-[10px] md:text-sm font-bold text-slate-400 currency-label">AED</span>
+                                <span class="text-2xl sm:text-4xl lg:text-5xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
+                            </div>
+                            <span class="hidden lg:block text-[9px] md:text-[10px] text-slate-400 font-bold mb-4 md:mb-5 block text-center">شامل الضرائب والرسوم للغرفة</span>
                         </div>
-                        <span class="text-[9px] md:text-[10px] text-slate-400 font-bold mb-4 md:mb-5 block text-center">شامل الضرائب والرسوم للغرفة</span>
 
-                        <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-3 md:py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] border-none cursor-pointer text-sm md:text-base flex items-center justify-center gap-1.5 md:gap-2 mb-3 md:mb-4" 
-                            onclick="if(typeof Checkout !== 'undefined') Checkout.goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
-                            <i class="fa-solid fa-lock text-white/50 text-[10px] md:text-sm"></i> حجز هذه الغرفة
-                        </button>
+                        <div class="w-[120px] lg:w-full">
+                            <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-2.5 md:py-4 rounded-xl shadow-[0_6px_15px_rgba(128,0,0,0.2)] border-none cursor-pointer text-[11px] md:text-base flex items-center justify-center gap-1.5 md:gap-2 lg:mb-4" 
+                                onclick="if(typeof Checkout !== 'undefined') Checkout.goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
+                                حجز الغرفة <i class="fa-solid fa-lock text-white/50 text-[9px] md:text-sm"></i>
+                            </button>
+                        </div>
                     </div>
                 </div>`;
         });
@@ -380,4 +402,9 @@ const Hotels = {
     }
 };
 
+// ضمان عمل الدوال عالمياً
 window.Hotels = Hotels;
+window.filterHotels = Hotels.filterHotels;
+window.searchLiveHotels = Hotels.searchLiveHotels;
+window.renderChildAges = Hotels.renderChildAges;
+window.viewHotelDetails = Hotels.viewHotelDetails;
