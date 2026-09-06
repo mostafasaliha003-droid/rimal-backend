@@ -185,7 +185,7 @@ const Hotels = {
             if(hotel.hotelFacilities) {
                 hotel.hotelFacilities.forEach(fac => {
                     let styledFac = fac.replace('<i ', '<i style="color: #00b4d8;" ');
-                    facilitiesHTML += `<span class="inline-flex items-center gap-1.5 text-slate-600 text-[10px] font-bold shrink-0 bg-slate-50 px-2.5 py-1 rounded border border-slate-100 shadow-sm snap-center lg:snap-align-none">${styledFac}</span>`;
+                    facilitiesHTML += `<span class="inline-flex items-center gap-1.5 text-slate-600 text-[10px] font-bold shrink-0 bg-slate-50 px-2.5 py-1.5 rounded-lg border border-slate-100 shadow-sm snap-center lg:snap-align-none">${styledFac}</span>`;
                 });
             }
             const animationDelay = index * 100;
@@ -196,9 +196,9 @@ const Hotels = {
             if(hotel.priceAED > 2000) baseMealType = 'HB';
             let mealBadge = Hotels.getMealPlanUI(baseMealType);
 
-            // 🌟 الكاش باك المتكامل (Golden Foil Cashback)
+            // 🌟 الكاش باك المتكامل
             let cashbackHTML = typeof currentUser !== 'undefined' && currentUser ? 
-                `<div class="w-full bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 p-2 lg:p-2.5 rounded-xl flex items-center justify-center gap-2 shadow-[0_2px_10px_rgba(251,191,36,0.15)] mb-3 lg:mb-4 cursor-default">
+                `<div class="w-full bg-gradient-to-r from-amber-50 to-yellow-50 border border-amber-200 p-2 lg:p-2.5 rounded-xl flex items-center justify-center gap-2 shadow-sm mb-3 lg:mb-4">
                     <i class="fa-solid fa-coins text-amber-500 text-base lg:text-lg drop-shadow-sm"></i>
                     <div class="text-right">
                         <span class="block text-[8px] lg:text-[9px] text-amber-600 font-black uppercase tracking-wider mb-0.5">مكافأة حجز</span>
@@ -213,7 +213,7 @@ const Hotels = {
                     </div>
                 </div>`;
 
-            // 🚀 The Ultimate World Class UNIFIED Ticket UI 🚀
+            // 🚀 The Ultimate World Class UNIFIED Ticket UI (Desktop + Mobile) 🚀
             container.innerHTML += `
             <div class="relative bg-white rounded-2xl lg:rounded-[2rem] shadow-[0_8px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_15px_40px_rgba(31,58,64,0.08)] border border-slate-100 transition-all duration-300 mb-6 lg:mb-8 group overflow-hidden animate-fade-in-up flex flex-col lg:flex-row mx-1 lg:mx-0" style="animation-delay: ${animationDelay}ms;">
               
@@ -233,7 +233,7 @@ const Hotels = {
                     </div>
                     
                     <div class="absolute bottom-3 right-3 z-10 flex items-center gap-1.5 ${randomScarcity.bg} ${randomScarcity.color} px-2.5 py-1 rounded-lg text-[9px] md:text-[10px] font-black shadow-md border ${randomScarcity.border}">
-                        <i class="fa-solid ${randomScarcity.icon} animate-pulse"></i> ${randomScarcity.text}
+                        <i class="fa-solid ${randomScarcity.icon}"></i> ${randomScarcity.text}
                     </div>
                 </div>
               </div>
@@ -264,22 +264,21 @@ const Hotels = {
                   </div>
               </div>
 
-              <!-- Masterstroke: The Unified Ticket Punch Hole Divider -->
+              <!-- Ticket Divider -->
               <div class="hidden lg:flex items-center relative z-20 w-0">
                   <div class="w-px h-[90%] border-l-2 border-dashed border-slate-200 absolute left-0 top-1/2 -translate-y-1/2"></div>
-                  <div class="absolute -top-4 left-[-14px] w-7 h-7 bg-[#f8fafc] rounded-full border-b border-slate-200 shadow-inner z-30"></div>
-                  <div class="absolute -bottom-4 left-[-14px] w-7 h-7 bg-[#f8fafc] rounded-full border-t border-slate-200 shadow-inner z-30"></div>
+                  <div class="absolute -top-4 left-[-14px] w-7 h-7 bg-[var(--bg-light)] rounded-full border-b border-slate-200 shadow-inner z-30"></div>
+                  <div class="absolute -bottom-4 left-[-14px] w-7 h-7 bg-[var(--bg-light)] rounded-full border-t border-slate-200 shadow-inner z-30"></div>
               </div>
               <div class="lg:hidden h-px border-t-2 border-dashed border-slate-200 relative z-20 mx-6 my-1">
-                  <div class="absolute -left-6 -top-3.5 w-7 h-7 bg-[#f8fafc] rounded-full border-r border-slate-200 shadow-inner z-30"></div>
-                  <div class="absolute -right-6 -top-3.5 w-7 h-7 bg-[#f8fafc] rounded-full border-l border-slate-200 shadow-inner z-30"></div>
+                  <div class="absolute -left-6 -top-3.5 w-7 h-7 bg-[var(--bg-light)] rounded-full border-r border-slate-200 shadow-inner z-30"></div>
+                  <div class="absolute -right-6 -top-3.5 w-7 h-7 bg-[var(--bg-light)] rounded-full border-l border-slate-200 shadow-inner z-30"></div>
               </div>
 
               <!-- 3. The Buy Box Section -->
               <div class="w-full lg:w-[270px] xl:w-[290px] p-4 lg:p-7 flex flex-col justify-center items-center bg-slate-50 shrink-0 z-10 relative overflow-hidden rounded-b-2xl lg:rounded-bl-[2rem] lg:rounded-br-none lg:rounded-tl-[2rem]">
                 
-                <!-- SVG Luxury Sand Dunes Pattern -->
-                <div class="absolute inset-0 opacity-[0.03] pointer-events-none hidden lg:block" style="background-image: url('data:image/svg+xml,%3Csvg width=\\'100\\' height=\\'40\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cpath d=\\'M0 20 Q 20 0, 40 20 T 80 20\\' fill=\\'none\\' stroke=\\'%23800000\\' stroke-width=\\'2\\'/%3E%3C/svg%3E'); background-size: 100px 40px;"></div>
+                <div class="absolute inset-0 opacity-[0.04] pointer-events-none hidden lg:block" style="background-image: url('data:image/svg+xml,%3Csvg width=\\'100\\' height=\\'100\\' viewBox=\\'0 0 100 100\\' xmlns=\\'http://www.w3.org/2000/svg\\'%3E%3Cpath d=\\'M11 18c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm48 25c3.866 0 7-3.134 7-7s-3.134-7-7-7-7 3.134-7 7 3.134 7 7 7zm-43-7c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm63 31c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM34 90c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zm56-76c1.657 0 3-1.343 3-3s-1.343-3-3-3-3 1.343-3 3 1.343 3 3 3zM12 86c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm28-65c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm23-11c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-6 60c2.21 0 4-1.79 4-4s-1.79-4-4-4-4 1.79-4 4 1.79 4 4 4zm29 22c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zM32 63c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm57-13c2.76 0 5-2.24 5-5s-2.24-5-5-5-5 2.24-5 5 2.24 5 5 5zm-9-21c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM60 91c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM35 41c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2zM12 60c1.105 0 2-.895 2-2s-.895-2-2-2-2 .895-2 2 .895 2 2 2z\\' fill=\\'%231f3a40\\' fill-rule=\\'evenodd\\'/%3E%3C/svg%3E');"></div>
 
                 <div class="text-center w-full relative z-10 flex flex-col justify-center h-full">
                     
@@ -321,7 +320,7 @@ const Hotels = {
         if (typeof UI !== 'undefined' && UI.changeCurrency) UI.changeCurrency();
     },
 
-    // 🚀 Masterstroke 4: The Ultimate Room Details View 🚀
+    // 🚀 Masterstroke 4: The Ultimate Room Details View with Sticky Bar 🚀
     viewHotelDetails: async function(hotelName, basePrice, apiRooms) {
         const titleEl = document.getElementById('detailsHotelName');
         if(titleEl) titleEl.innerHTML = `<bdi dir="auto"><span style="unicode-bidi: plaintext;">${hotelName}</span></bdi>`;
@@ -338,26 +337,31 @@ const Hotels = {
 
         await Hotels.fetchAndDisplayHotelReviews(hotelName);
 
-        // 🌟 Masterstroke 4: Sticky Action Bar (يظهر عند النزول بالصفحة)
+        // 🌟 Masterstroke 4: Sticky Action Bar 
         let stickyHeaderHTML = `
-            <div class="sticky top-[60px] lg:top-[70px] z-[40] bg-white/95 backdrop-blur-xl border border-slate-200 shadow-[0_10px_30px_rgba(31,58,64,0.08)] p-3 md:p-4 mb-6 rounded-2xl flex justify-between items-center animate-fade-in-up">
+            <div id="smartStickyBar" class="sticky top-[60px] lg:top-[70px] z-[50] bg-white/95 backdrop-blur-xl border border-slate-200 shadow-[0_15px_40px_rgba(31,58,64,0.12)] p-2.5 md:p-3 mb-6 rounded-2xl flex justify-between items-center opacity-0 translate-y-[-20px] pointer-events-none transition-all duration-500 mx-1 lg:mx-0">
                 <div class="flex items-center gap-2 md:gap-3">
                     <div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-cyan-50 flex items-center justify-center shrink-0 border border-cyan-100">
                         <i class="fa-solid fa-hotel text-[#00b4d8] text-xs md:text-sm"></i>
                     </div>
                     <div>
-                        <h3 class="text-xs md:text-sm font-black text-[#1f3a40] line-clamp-1 w-[120px] sm:w-auto"><bdi dir="auto">${hotelName}</bdi></h3>
-                        <p class="text-[9px] md:text-[10px] text-emerald-600 font-bold mt-0.5"><i class="fa-solid fa-check-circle"></i> متوفر غرف للحجز الفوري</p>
+                        <h3 class="text-xs md:text-sm font-black text-[#1f3a40] line-clamp-1 max-w-[140px] sm:max-w-[220px]"><bdi dir="auto">${hotelName}</bdi></h3>
+                        <p class="text-[9px] md:text-[10px] text-rose-600 font-bold mt-0.5 flex items-center gap-1">
+                            <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping shrink-0"></span> يحظى باهتمام عالي الآن
+                        </p>
                     </div>
                 </div>
                 <div class="text-left flex items-center gap-3">
                     <div class="hidden sm:block text-right">
-                        <span class="text-[9px] text-slate-400 block font-bold">ابتداءً من</span>
+                        <span class="text-[9px] text-slate-400 block font-bold">السعر المبدئي</span>
                         <div class="flex items-baseline gap-1" dir="ltr">
                             <span class="text-[10px] font-bold text-slate-400">AED</span>
                             <span class="text-lg font-black text-[#1f3a40] tracking-tighter">${basePrice}</span>
                         </div>
                     </div>
+                    <button onclick="window.scrollBy({top: 400, behavior: 'smooth'})" class="bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-95 text-white px-3 py-2 md:px-4 md:py-2.5 rounded-xl text-[10px] md:text-xs font-black shadow-[0_4px_12px_rgba(128,0,0,0.2)] border-none cursor-pointer flex items-center gap-1.5 transition-all">
+                        اختر غرفتك <i class="fa-solid fa-arrow-down animate-bounce text-[9px] md:text-[10px]"></i>
+                    </button>
                 </div>
             </div>
         `;
@@ -391,6 +395,24 @@ const Hotels = {
 
         container.innerHTML = stickyHeaderHTML;
         
+        // 🌟 مراقب التمرير (Observer) لظهور الشريط الذكي
+        setTimeout(() => {
+            const stickyBar = document.getElementById('smartStickyBar');
+            const heroSection = document.getElementById('detailsHotelName');
+            if(stickyBar && heroSection) {
+                const observer = new IntersectionObserver((entries) => {
+                    if(entries[0].isIntersecting) {
+                        stickyBar.classList.add('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
+                        stickyBar.classList.remove('opacity-100', 'translate-y-0', 'pointer-events-auto');
+                    } else {
+                        stickyBar.classList.remove('opacity-0', 'translate-y-[-20px]', 'pointer-events-none');
+                        stickyBar.classList.add('opacity-100', 'translate-y-0', 'pointer-events-auto');
+                    }
+                }, { threshold: 0.1 });
+                observer.observe(heroSection);
+            }
+        }, 300);
+
         roomsList.forEach((room, index) => {
             let cancelClass = room.isFreeCancel ? 'border-emerald-200 bg-emerald-50/60 text-emerald-800' : 'border-slate-200 bg-slate-50/60 text-slate-700';
             let cancelIcon = room.isFreeCancel ? 'fa-shield-check text-emerald-500' : 'fa-circle-info text-slate-400';
@@ -402,9 +424,11 @@ const Hotels = {
             container.innerHTML += `
                 <div class="relative flex flex-col lg:flex-row bg-white rounded-2xl md:rounded-[2rem] shadow-[0_4px_25px_rgba(0,0,0,0.03)] hover:shadow-[0_15px_40px_rgba(31,58,64,0.07)] border border-slate-100 transition-all duration-300 mb-6 overflow-hidden group animate-fade-in-up mx-1 lg:mx-0" style="animation-delay: ${animationDelay}ms;">
                     
+                    <!-- Details Section -->
                     <div class="flex-1 p-5 lg:p-7 flex flex-col justify-between relative z-10 bg-white text-right">
                         <div>
-                            <div class="inline-flex items-center gap-1.5 bg-rose-50 border border-rose-100 text-rose-600 px-2.5 py-1 rounded-full text-[9px] md:text-[10px] font-black mb-3">
+                            <!-- Live Pulse / Urgency Tag -->
+                            <div class="inline-flex items-center gap-1.5 bg-rose-50 border border-rose-100 text-rose-600 px-2.5 py-1 rounded-full text-[10px] font-black mb-3">
                                 <span class="w-1.5 h-1.5 rounded-full bg-rose-500 animate-ping"></span>
                                 ${room.urgency}
                             </div>
@@ -452,7 +476,7 @@ const Hotels = {
 
                         <div class="text-center w-full relative z-10 flex flex-col lg:flex-col flex-row justify-between lg:justify-center items-center h-full">
                             
-                            <!-- Golden Foil Cashback Badge (Desktop) -->
+                            <!-- Golden Foil Cashback Badge -->
                             <div class="hidden lg:flex items-center justify-center gap-1.5 bg-gradient-to-r from-amber-100/80 to-yellow-50 border border-amber-200/80 px-3 py-1 rounded-full mb-3 mx-auto shadow-sm w-fit">
                                 <i class="fa-solid fa-coins text-amber-500 text-[11px]"></i>
                                 <span class="text-[10px] font-black text-amber-900" dir="ltr">+${cashbackAED} AED كاش باك</span>
@@ -468,7 +492,7 @@ const Hotels = {
                             </div>
 
                             <div class="w-[140px] lg:w-full">
-                                <!-- Booking CTA Button (Red Velvet Style) -->
+                                <!-- Booking CTA Button -->
                                 <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-3 lg:py-3.5 rounded-xl shadow-[0_6px_18px_rgba(128,0,0,0.25)] border-none cursor-pointer text-xs md:text-sm flex items-center justify-center gap-2" 
                                     onclick="if(typeof Checkout !== 'undefined') Checkout.goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
                                     <i class="fa-solid fa-lock text-white/60 text-[10px] md:text-xs"></i> 
