@@ -21,17 +21,20 @@ app.use(express.json());
 // ==========================================
 // 🛡️ إعدادات الحماية المتقدمة (CORS Policy)
 // ==========================================
+// 🚀 تم تحديث القائمة البيضاء لتشمل رابط GitHub Pages الجديد للواجهة!
 const allowedOrigins = [
     'https://remalbookings.com',
     'https://www.remalbookings.com',
     'http://localhost:10000',
     'http://127.0.0.1:10000',
-    'https://rimal-api.onrender.com' 
+    'https://rimal-api.onrender.com',
+    'https://mostafasaliha003-droid.github.io' // 👈 هذا هو الرابط السحري الذي سيحل المشكلة
 ];
 
 app.use(cors({
     origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin)) {
+        // السماح بالطلبات من النطاقات المصرح بها، أو الطلبات التي لا تحتوي على origin (مثل Postman)، أو null (في بعض الحالات النادرة)
+        if (!origin || allowedOrigins.includes(origin) || origin === 'null') {
             callback(null, true);
         } else {
             console.warn(`محاولة اتصال مرفوضة من النطاق: ${origin}`);
