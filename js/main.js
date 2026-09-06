@@ -35,11 +35,13 @@ window.onload = function() {
         }
     }
 
+    // هنا يتم تشغيل الموقع بالكامل!
     Hotels.displayHotels(allHotels);
     Auth.checkUserSession();
     Hotels.fetchLiveDestinations();
     UI.setupDropdownToggle();
     
+    // دالة رسم الحجوزات في لوحة التحكم
     window.renderBookingsList = function(bookings, container) {
         let cardsHTML = '';
         bookings.forEach((booking, index) => {
