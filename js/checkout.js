@@ -1,140 +1,27 @@
 // js/checkout.js
 
 const Checkout = {
-    viewHotelDetails: async function(hotelName, basePrice, apiRooms) {
-        document.getElementById('detailsHotelName').innerHTML = `<bdi dir="auto"><span style="unicode-bidi: plaintext;">${hotelName}</span></bdi>`;
-        const container = document.getElementById('roomsContainer');
-        if (!container) return; container.innerHTML = '';
-        await Hotels.fetchAndDisplayHotelReviews(hotelName);
+    currentBookingData: null,
 
-        let roomsList = [];
-        if (hotelName.includes('الفندق التجريبي') || !apiRooms || apiRooms.length === 0) {
-            roomsList = [
-                { name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج", board: "RO", price: basePrice, points: Math.floor(basePrice*10), policyText: "غير قابل للاسترداد (Non-refundable)", isFreeCancel: false, rateKey: "MOCK-RATE-STD", paymentType: "AT", refundType: "non_refundable" },
-                { name: "غرفة ديلوكس (Deluxe Room)", bed: "سرير كينج كبير", board: "BB", price: Math.floor(basePrice * 1.2), points: Math.floor(basePrice*12), policyText: "إلغاء مجاني حتى قبل الموعد بـ 48 ساعة", isFreeCancel: true, rateKey: "MOCK-RATE-DLX", paymentType: "HOTEL", refundType: "full_100" },
-                { name: "جناح تنفيذي (Executive Suite)", bed: "سرير كينج + أريكة", board: "HB", price: Math.floor(basePrice * 1.8), points: Math.floor(basePrice*18), policyText: "إلغاء مجاني بالكامل - ادفع لاحقاً", isFreeCancel: true, rateKey: "MOCK-RATE-STE", paymentType: "HOTEL", refundType: "full_100" }
-            ];
-        } else {
-            apiRooms.forEach(room => {
-                if (room.rates && room.rates.length > 0) {
-                    room.rates.forEach(rate => {
-                        let rType = 'full_100';
-                        if(rate.freeCancellation) rType = 'full_100'; else if(rate.cancellationPolicies && rate.cancellationPolicies.length > 0) rType = 'api_policy'; else rType = 'non_refundable';
-                        
-                        let currentPrice = rate.net ? parseFloat(rate.net) : basePrice;
-                        roomsList.push({
-                            name: room.name || "غرفة فندقية فاخرة", bed: "سرير مزدوج / كينج", board: rate.boardName || rate.board || "شامل الوجبات",
-                            price: currentPrice, points: Math.floor(currentPrice * 10),
-                            policyText: rate.formattedPolicy || "شروط الإلغاء مطبقة حسب سياسة المورد العالمي", isFreeCancel: rate.freeCancellation || false,
-                            rateKey: rate.rateKey, paymentType: rate.paymentType || 'AT', refundType: rType
-                        });
-                    });
-                }
-            });
+    goToBooking: function(bookingData) {
+        if (!currentUser) { 
+            UI.showToast('info', 'تنبيه', 'الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز والاستفادة من خصم النقاط!'); 
+            Auth.openAuthModal(); 
+            return; 
         }
 
-        roomsList.forEach((room, index) => {
-            let cancelClass = room.isFreeCancel ? 'border-emerald-200 bg-emerald-50/50 text-emerald-800' : 'border-red-200 bg-red-50/50 text-red-800';
-            let cancelIcon = room.isFreeCancel ? 'fa-shield-check text-emerald-500' : 'fa-shield-halved text-red-500';
-            let policyTitleColor = room.isFreeCancel ? 'text-emerald-700' : 'text-red-700';
-            const animationDelay = index * 100;
-            let cashbackAED = (room.points / 10).toFixed(0);
-            
-            let mealBadge = Hotels.getMealPlanUI(room.board);
-
-            let coinBadgeHTML = '';
-            if (currentUser) {
-                coinBadgeHTML = `
-                    <div class="w-8 h-8 md:w-10 md:h-10 transform transition-transform duration-300 cursor-default shadow-md rounded-full shrink-0">
-                        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" class="w-full h-full">
-                          <defs>
-                            <linearGradient id="gold-r-${index}" x1="0%" y1="0%" x2="100%" y2="100%"><stop offset="0%" stop-color="#D4AF37"/><stop offset="50%" stop-color="#FFF2A8"/><stop offset="100%" stop-color="#996515"/></linearGradient>
-                          </defs>
-                          <circle cx="100" cy="100" r="95" fill="url(#gold-r-${index})"/>
-                          <circle cx="100" cy="100" r="80" fill="none" stroke="#5c3a0d" stroke-width="4" stroke-dasharray="6 6" opacity="0.6"/>
-                          <text x="100" y="85" font-family="'Cairo', sans-serif" font-size="35" font-weight="900" fill="#7B4918" text-anchor="middle">AED</text>
-                          <text x="100" y="150" font-family="'Cairo', sans-serif" font-size="70" font-weight="900" fill="#7B4918" text-anchor="middle" letter-spacing="-2">${cashbackAED}</text>
-                        </svg>
-                    </div>`;
-            }
-
-            container.innerHTML += `
-                <div class="relative flex flex-col lg:flex-row bg-white rounded-2xl md:rounded-3xl shadow-[0_8px_30px_rgba(0,0,0,0.04)] border border-slate-100 hover:border-[#00b4d8]/40 transition-all duration-300 mb-5 md:mb-6 overflow-hidden group animate-fade-in-up" style="animation-delay: ${animationDelay}ms;">
-
-                    <div class="absolute -left-12 md:-left-16 -bottom-12 md:-bottom-16 w-64 md:w-80 h-64 md:h-80 opacity-[0.02] pointer-events-none transform -rotate-12 group-hover:scale-110 transition-transform duration-700 z-0">
-                        <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg" class="w-full h-full">
-                            <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#1f3a40"/>
-                            <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="#1f3a40"/>
-                        </svg>
-                    </div>
-
-                    <div class="flex-1 p-4 sm:p-6 md:p-8 flex flex-col justify-between relative z-10 min-w-0 bg-transparent">
-                        <h3 class="text-lg sm:text-xl md:text-2xl font-black text-[#1f3a40] leading-tight flex items-center gap-2 md:gap-3 truncate">
-                            <bdi dir="auto"><span style="unicode-bidi: plaintext;">${room.name}</span></bdi>
-                        </h3>
-                        
-                        <div class="flex flex-wrap items-center gap-2 md:gap-3 mt-3 md:mt-4">
-                            <span class="inline-flex items-center gap-1 md:gap-2 bg-slate-50 text-slate-700 px-2 md:px-3 py-1 md:py-1.5 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold border border-slate-200">
-                                <i class="fa-solid fa-bed text-slate-400"></i> ${room.bed}
-                            </span>
-                            <span class="inline-flex items-center gap-1 md:gap-2 bg-slate-50 text-slate-700 px-2 md:px-3 py-1 md:py-1.5 rounded-md md:rounded-lg text-[10px] md:text-xs font-bold border border-slate-200">
-                                <i class="fa-solid fa-user-group text-slate-400"></i> يتسع لـ 2 بالغين
-                            </span>
-                        </div>
-
-                        <div class="mt-3 md:mt-5 flex items-center gap-2">
-                            ${mealBadge}
-                        </div>
-                        
-                        <div class="mt-4 md:mt-5 border ${cancelClass} p-2.5 md:p-3 px-3 md:px-4 text-[10px] md:text-xs rounded-lg md:rounded-xl font-bold flex items-start gap-2 md:gap-2.5 relative overflow-hidden bg-opacity-40">
-                            <i class="fa-solid ${cancelIcon} mt-0.5 md:mt-1 relative z-10 text-sm md:text-base shrink-0"></i>
-                            <div class="relative z-10 min-w-0">
-                                <span class="block ${policyTitleColor} font-black text-[11px] md:text-sm mb-0.5 md:mb-1">السياسة:</span>
-                                <span class="font-semibold block whitespace-pre-line text-slate-600 leading-relaxed"><bdi dir="auto"><span style="unicode-bidi: plaintext;">${room.policyText}</span></bdi></span>
-                            </div>
-                        </div>
-                    </div>
-
-                    <div class="hidden lg:block ticket-divider-v z-20"></div>
-                    <div class="lg:hidden ticket-divider-h z-20 my-2"></div>
-
-                    <div class="w-full lg:w-[260px] xl:w-[280px] p-4 sm:p-6 md:p-8 flex flex-col justify-center items-center bg-slate-50 shrink-0 z-10 relative border-l border-slate-50">
-                        <div class="text-center mb-1 flex items-baseline justify-center gap-1 md:gap-1.5" dir="ltr">
-                            <span class="text-xs md:text-sm font-bold text-slate-400 currency-label">AED</span>
-                            <span class="text-3xl sm:text-4xl lg:text-5xl font-black text-[#1f3a40] tracking-tighter hotel-price-display" data-price-aed="${room.price}">${room.price}</span>
-                        </div>
-                        <span class="text-[9px] md:text-[10px] text-slate-400 font-bold mb-4 md:mb-5 block text-center">شامل الضرائب والرسوم للغرفة</span>
-
-                        <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-3 md:py-4 rounded-xl shadow-[0_8px_20px_rgba(128,0,0,0.2)] border-none cursor-pointer text-sm md:text-base flex items-center justify-center gap-1.5 md:gap-2 mb-3 md:mb-4" 
-                            onclick="Checkout.goToBooking('${hotelName.replace(/'/g, "\\'")}', ${room.price}, '${room.name.replace(/'/g, "\\'")}', '${room.board}', '${room.policyText.replace(/'/g, "\\'")}', '${room.rateKey}', '${room.paymentType}', '${room.refundType}')">
-                            <i class="fa-solid fa-lock text-white/50 text-[10px] md:text-sm"></i> حجز هذه الغرفة
-                        </button>
-
-                        <div class="w-full bg-white border border-amber-100 rounded-lg md:rounded-xl p-2 flex items-center justify-start gap-2 md:gap-3 shadow-sm cursor-default">
-                            ${currentUser ? coinBadgeHTML : `<div class="w-8 h-8 md:w-10 md:h-10 rounded-full bg-amber-50 flex items-center justify-center border border-amber-200 cursor-pointer hover:bg-amber-100 shrink-0" onclick="Auth.openAuthModal()"><i class="fa-solid fa-piggy-bank text-amber-500 text-xs md:text-base"></i></div>`}
-                            <div class="text-right flex-1">
-                                <span class="block text-[8px] md:text-[9px] text-amber-600 font-black uppercase tracking-wider">كاش باك مسترد</span>
-                                <span class="block text-[10px] md:text-xs font-black text-[#1f3a40]">${currentUser ? `+ ${cashbackAED} نقطة` : '<span class="text-slate-400 underline decoration-dashed cursor-pointer text-[9px] md:text-[10px]" onclick="Auth.openAuthModal()">سجل لتربح</span>'}</span>
-                            </div>
-                        </div>
-                    </div>
-                </div>`;
-        });
-        UI.changeCurrency(); 
-        UI.switchView('roomSelectionView');
-    },
-
-    goToBooking: function(hotelName, price, roomName, boardType, policyText, rateKey, paymentType, refundType) {
-        if (!currentUser) { UI.showToast('info', 'تنبيه', 'الرجاء تسجيل الدخول أولاً قبل الانتقال للحجز والاستفادة من خصم النقاط!'); Auth.openAuthModal(); return; }
-        selectedHotel = `${hotelName} - ${roomName} (${boardType})`; currentBasePrice = price; currentPolicyText = policyText; currentRateKey = rateKey; currentPaymentType = paymentType || 'AT'; currentRefundType = refundType || 'full_100';
+        // حفظ بيانات الغرفة والمورد في ذاكرة الواجهة
+        Checkout.currentBookingData = bookingData;
+        const { hotelName, price, roomName, board, policyText, paymentType } = bookingData;
         
         document.getElementById('hotelNameTitle').innerHTML = `تأكيد حجز: <i class="fa-solid fa-hotel text-slate-400 mx-1 text-sm md:text-lg"></i> <br class="md:hidden" /><bdi dir="auto" class="text-[#1f3a40] text-base md:text-2xl mt-1 md:mt-0 inline-block"><span style="unicode-bidi: plaintext;">${hotelName}</span></bdi>`;
+        
         document.getElementById('selectedRoomDetails').innerHTML = `
             <div class="absolute -left-2 md:-left-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-6 md:h-6 bg-white rounded-full border-r border-[#00b4d8]/30"></div>
             <div class="absolute -right-2 md:-right-3 top-1/2 -translate-y-1/2 w-4 h-4 md:w-6 md:h-6 bg-white rounded-full border-l border-[#00b4d8]/30"></div>
             <ul class="space-y-2.5 md:space-y-3.5 text-xs md:text-base font-bold text-slate-700">
                 <li class="flex items-start gap-2 md:gap-3"><i class="fa-solid fa-bed text-teal-600 mt-1 pl-0.5 shrink-0"></i><span>اختيارك: <bdi dir="auto" class="text-teal-800"><span style="unicode-bidi: plaintext;">${roomName}</span></bdi></span></li>
-                <li class="flex items-start gap-2 md:gap-3"><i class="fa-solid fa-utensils text-yellow-600 mt-1 pl-1 shrink-0"></i><span>الوجبات: <span class="text-yellow-800">${boardType}</span></span></li>
+                <li class="flex items-start gap-2 md:gap-3"><i class="fa-solid fa-utensils text-yellow-600 mt-1 pl-1 shrink-0"></i><span>الوجبات: <span class="text-yellow-800">${board}</span></span></li>
                 <li class="flex items-start gap-2 md:gap-3"><i class="fa-solid fa-shield-halved text-green-600 mt-1 pl-1 shrink-0"></i><span>سياسة الإلغاء: <span class="text-green-800 whitespace-pre-line block mt-0.5 md:mt-1 text-[10px] md:text-sm"><bdi dir="auto"><span style="unicode-bidi: plaintext;">${policyText}</span></bdi></span></span></li>
             </ul>`;
 
@@ -154,12 +41,14 @@ const Checkout = {
                 <div class="flex items-center gap-2 md:gap-3"><i class="fa-solid fa-bell-concierge text-slate-400 text-lg md:text-xl"></i><div><span class="block font-black text-slate-800 text-xs md:text-sm">الدفع في الفندق</span><span class="block text-[10px] md:text-xs font-bold text-slate-400 mt-0.5">يتم الدفع عند الاستقبال</span></div></div>
             </label>`;
 
-        if (currentPaymentType === 'HOTEL') { payMethodsContainer.innerHTML = electronicPaymentHTML + hotelPaymentHTML; } 
+        if (paymentType === 'HOTEL') { payMethodsContainer.innerHTML = electronicPaymentHTML + hotelPaymentHTML; } 
         else { payMethodsContainer.innerHTML = electronicPaymentHTML; }
         
-        document.getElementById('custName').value = currentUser.name; document.getElementById('custEmail').value = currentUser.email; document.getElementById('custPhone').value = currentUser.phone || '';
+        document.getElementById('custName').value = currentUser.name; 
+        document.getElementById('custEmail').value = currentUser.email; 
+        document.getElementById('custPhone').value = currentUser.phone || '';
         
-        document.getElementById('summaryBasePrice').innerText = currentBasePrice;
+        document.getElementById('summaryBasePrice').innerText = price;
         document.getElementById('checkoutAvailablePoints').innerText = currentUser.points || 0;
         
         Checkout.setupPointsDropdown(); 
@@ -169,17 +58,18 @@ const Checkout = {
     setupPointsDropdown: function() {
         const select = document.getElementById('pointsDiscountSelect');
         if (!select) return; select.innerHTML = '<option value="0">بدون استخدام نقاط</option>';
-        if(currentUser && currentUser.points >= 50) {
-            let maxPointsToUse = Math.min(currentUser.points, currentBasePrice * 10);
+        if(currentUser && currentUser.points >= 50 && Checkout.currentBookingData) {
+            let maxPointsToUse = Math.min(currentUser.points, Checkout.currentBookingData.price * 10);
             for(let p = 50; p <= maxPointsToUse; p += 50) { select.innerHTML += `<option value="${p}">${p} نقطة (خصم ${p/10} AED)</option>`; }
         }
         Checkout.updateFinalPriceCalculation();
     },
 
     updateFinalPriceCalculation: function() {
+        if (!Checkout.currentBookingData) return;
         const usedPts = parseInt(document.getElementById('pointsDiscountSelect').value) || 0;
         const discountAED = usedPts / 10;
-        let finalAED = Math.max(0, currentBasePrice - discountAED);
+        let finalAED = Math.max(0, Checkout.currentBookingData.price - discountAED);
         
         const discountRow = document.getElementById('discountRow');
         if(discountAED > 0) {
@@ -226,43 +116,80 @@ const Checkout = {
 
         try {
             const bookingReference = 'RIMAL-' + Math.floor(100000 + Math.random() * 900000);
-            let finalPrice = Math.max(0, currentBasePrice - (pointsUsed / 10));
+            let finalPrice = Math.max(0, Checkout.currentBookingData.price - (pointsUsed / 10));
 
-            const ziinaRes = await fetch(`${API_URL}/api/v1/payments/ziina-intent`, { 
-                method: 'POST', 
-                headers: { 'Content-Type': 'application/json' }, 
-                body: JSON.stringify({ amountAED: finalPrice, bookingReference: bookingReference }) 
-            });
-            const ziinaData = await ziinaRes.json();
+            // تقسيم الاسم لدبي لينك
+            const nameParts = customerName.split(' ');
+            const firstName = nameParts[0] || 'Guest';
+            const lastName = nameParts.slice(1).join(' ') || 'Remal';
 
-            if (ziinaData.success && (ziinaData.redirect_url || ziinaData.embedded_url)) {
-                const pendingData = { 
-                    bookingReference, 
-                    ziinaPaymentId: ziinaData.ziinaPaymentId || '', 
-                    hotelName: selectedHotel, 
-                    customerName, 
-                    email, 
-                    phone, 
-                    companions, 
-                    paymentMethod, 
-                    price: finalPrice, 
-                    pointsUsed, 
-                    cancellationPolicy: currentPolicyText, 
-                    rateKey: currentRateKey, 
-                    refundType: currentRefundType 
-                };
-                localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
+            // تجميع الحزمة المتكاملة للسيرفر المزدوج
+            const pendingData = { 
+                bookingReference, 
+                provider: Checkout.currentBookingData.provider,
+                hotelId: Checkout.currentBookingData.hotelId,
+                roomId: Checkout.currentBookingData.roomId,
+                processKey: Checkout.currentBookingData.processKey,
+                hotelName: Checkout.currentBookingData.hotelName, 
+                guestName: customerName,
+                customerName: customerName, 
+                email, 
+                phone,
+                holderPhone: phone, 
+                holderEmail: email,
+                holderFirstName: firstName,
+                holderLastName: lastName,
+                passengers: [ { title: "Mr.", firstName: firstName, lastName: lastName, age: 30 } ],
+                nationality: "AE",
+                companions, 
+                paymentMethod, 
+                price: finalPrice, 
+                oldPriceAED: finalPrice,
+                pointsUsed, 
+                cancellationPolicy: Checkout.currentBookingData.policyText, 
+                rateKey: Checkout.currentBookingData.roomId, 
+                refundType: Checkout.currentBookingData.refundType 
+            };
 
-                btn.innerHTML = '<i class="fa-solid fa-lock text-sm md:text-lg"></i> <span class="text-xs md:text-sm">جاري تحويلك لصفحة الدفع...</span>';
+            const API_KEY = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
+
+            // إذا كان الدفع إلكتروني (Ziina)، نرسل لمسار recheck-and-pay
+            if (paymentMethod === 'visa') {
+                const res = await fetch(`${API_URL}/api/v1/hotels/recheck-and-pay`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    body: JSON.stringify(pendingData)
+                });
+                const data = await res.json();
+
+                if (data.success && data.payment_url) {
+                    localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
+                    btn.innerHTML = '<i class="fa-solid fa-lock text-sm md:text-lg"></i> <span class="text-xs md:text-sm">جاري تحويلك لصفحة الدفع...</span>';
+                    window.location.href = data.payment_url;
+                } else {
+                    UI.showToast('error', 'خطأ في التحقق', data.error || data.message || 'عذراً، لم تعد الغرفة متاحة بهذا السعر.');
+                    btn.innerHTML = origText; 
+                    btn.disabled = false;
+                }
+            } else {
+                // دفع في الفندق، توجيه مباشر لتأكيد الحجز الفعلي
+                const res = await fetch(`${API_URL}/api/v1/hotels/book`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    body: JSON.stringify(pendingData)
+                });
+                const data = await res.json();
                 
-                const paymentUrl = ziinaData.redirect_url || ziinaData.embedded_url;
-                window.location.href = paymentUrl;
-
-            } else { 
-                UI.showToast('error', 'خطأ في الدفع', ziinaData.error || 'تعذر إنشاء رابط الدفع'); 
-                btn.innerHTML = origText; 
-                btn.disabled = false; 
+                if (data.success) {
+                    localStorage.setItem('pending_reservation', JSON.stringify(pendingData));
+                    window.location.href = `/?payment=success&ref=${bookingReference}`;
+                } else {
+                    UI.showToast('error', 'خطأ في الحجز', data.error || 'تعذر تأكيد الحجز.');
+                    btn.innerHTML = origText; 
+                    btn.disabled = false;
+                }
             }
+
         } catch(err) { 
             console.error(err); 
             UI.showToast('error', 'خطأ اتصال', 'تعذر الاتصال بالخادم أثناء تجهيز الدفع.'); 
@@ -277,7 +204,7 @@ const Checkout = {
                 <div class="bg-white w-[90%] max-w-md rounded-2xl md:rounded-3xl p-5 md:p-8 text-center shadow-2xl transform scale-95 transition-transform duration-300 border-t-[4px] md:border-t-[6px] border-[#00b4d8]">
                     
                     <div class="w-12 h-12 md:w-16 md:h-16 bg-cyan-50 text-[#00b4d8] rounded-full flex items-center justify-center mx-auto mb-3 md:mb-4 border border-cyan-100 shadow-sm">
-                        ${UI_ICONS.modalEdit}
+                        ${UI_ICONS ? UI_ICONS.modalEdit : '<i class="fa-solid fa-pen"></i>'}
                     </div>
                     
                     <h3 class="text-[#1f3a40] font-black text-lg md:text-xl mb-1 md:mb-2">تحديث بيانات الحجز</h3>
@@ -480,3 +407,42 @@ const Checkout = {
         });
     }
 };
+
+window.Checkout = Checkout;
+
+// 🚀 اقتناص العودة من الدفع (Ziina Redirect Handler) لتأكيد الحجز في المحرك الجديد
+document.addEventListener('DOMContentLoaded', async () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    if (urlParams.get('payment') === 'success') {
+        const pendingDataStr = localStorage.getItem('pending_reservation');
+        if (pendingDataStr) {
+            const pendingData = JSON.parse(pendingDataStr);
+            const API_KEY = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
+
+            // مسح الذاكرة لتجنب التكرار
+            localStorage.removeItem('pending_reservation');
+
+            if (typeof UI !== 'undefined') UI.showToast('info', 'جاري إتمام الحجز', 'جاري إصدار التذكرة وإرسالها لبريدك...');
+
+            try {
+                const res = await fetch(`${API_URL}/api/v1/hotels/book`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    body: JSON.stringify(pendingData)
+                });
+                const data = await res.json();
+                if(data.success) {
+                    if (typeof UI !== 'undefined') {
+                        UI.showToast('success', 'تم الحجز بنجاح! ✈️', 'تم إرسال قسيمة الفندق (Voucher) إلى بريدك الإلكتروني.');
+                        setTimeout(() => UI.switchView('registerView'), 1500);
+                    }
+                    if (typeof Auth !== 'undefined') Auth.fetchUserData();
+                } else {
+                    if (typeof UI !== 'undefined') UI.showToast('error', 'حدث خطأ', data.error || 'يرجى التواصل مع خدمة العملاء.');
+                }
+            } catch(e) {
+                console.error("Booking Confirmation Error:", e);
+            }
+        }
+    }
+});
