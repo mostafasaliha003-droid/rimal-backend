@@ -2,6 +2,9 @@
 
 const API_URL = 'https://rimal-api.onrender.com';
 
+// 🔐 مفتاح الأمان للاتصال بالمحرك الجديد (API Security Guard)
+const API_KEY = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
+
 // المتغيرات العامة التي تحتاجها كل الملفات
 let currentUser = JSON.parse(localStorage.getItem('rimal_current_user')) || null;
 let selectedHotel = '', currentBasePrice = 0, currentPolicyText = '', currentRateKey = '', currentPaymentType = 'AT', currentRefundType = 'full_100';
