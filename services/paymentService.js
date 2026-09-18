@@ -1,5 +1,6 @@
-const axios = require('axios');
-const logger = require('./loggerService'); // 🔴 تم إضافة نظام المراقبة لتوثيق العمليات المالية
+// services/paymentService.js
+
+const logger = require('./loggerService'); 
 
 // 1. بوابة التحقق من السعر (Recheck Validation Gate)
 async function validatePrice(oldPriceAED, newPriceAED) {
@@ -14,7 +15,7 @@ async function validatePrice(oldPriceAED, newPriceAED) {
         return { 
             success: false, 
             error: "PRICE_CHANGED", 
-            message: "تغير سعر الفندق بنسبة تتجاوز الحد المسموح. يرجى تحديث البحث.",
+            message: "تغير سعر الفندق بنسبة تتجاوز الحد المسموح. يرجى إعادة البحث لتحديث السعر.",
             variance: variancePercentage
         };
     }
@@ -30,40 +31,60 @@ async function createZiinaCheckout(bookingDetails, finalPrice) {
     try {
         // سحب مفتاح Ziina من الملف السري لحماية بيانات الشركة
         const ziinaApiKey = process.env.ZIINA_API_KEY;
+        
+        // جلب رقم المرجع لربطه بالبوابة المالية
+        const bookingReference = bookingDetails.bookingReference || `RML-${Date.now()}`;
+        
+        // 🔴 Ziina تتعامل بالعملات الصغرى (فلس)
+        const amountInFils = Math.round(finalPrice * 100);
+
+        if (amountInFils < 200) {
+            throw new Error('الحد الأدنى للمعاملة هو 2 درهم.');
+        }
 
         if (ziinaApiKey && ziinaApiKey !== '') {
             // ==========================================
             // 🔴 الربط الفعلي مع Ziina API (Live Mode)
             // ==========================================
             logger.info("Initiating Live Transaction with Ziina API...");
-            const response = await axios.post('https://api.ziina.com/v1/payment_intents', {
-                amount: Math.round(finalPrice * 100), // Ziina تتعامل بالعملات الصغرى (فلس)
-                currency: 'AED',
-                success_url: 'https://remalbookings.com/success',
-                cancel_url: 'https://remalbookings.com/cancel'
-            }, { 
-                headers: { 
+            
+            const response = await fetch('https://api-v2.ziina.com/api/payment_intent', {
+                method: 'POST',
+                headers: {
                     'Authorization': `Bearer ${ziinaApiKey}`,
                     'Content-Type': 'application/json'
-                } 
+                },
+                body: JSON.stringify({
+                    amount: amountInFils,
+                    currency_code: 'AED',
+                    // توجيه العميل بعد الدفع لسيرفرنا لالتقاطه وإصدار الحجز
+                    success_url: `https://rimal-api.onrender.com/payment-success?ref=${bookingReference}`,
+                    cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`
+                })
             });
             
-            logger.info("Live Ziina Payment URL generated successfully.");
-            return response.data.payment_url;
+            const data = await response.json();
+
+            if (data.redirect_url) {
+                logger.info("Live Ziina Payment URL generated successfully.");
+                return data.redirect_url;
+            } else {
+                logger.error("Ziina Error Details:", data);
+                throw new Error("فشل في توليد رابط الدفع من Ziina.");
+            }
             
         } else {
             // ==========================================
             // 🟡 وضع المحاكاة (Sandbox/Mock Mode)
-            // يعمل فقط إذا كان المفتاح السري فارغاً
             // ==========================================
             logger.warn("ZIINA_API_KEY is missing in .env! Operating in Mock/Sandbox mode.");
-            const mockZiinaUrl = `https://pay.ziina.com/remal-test-checkout?amount=${finalPrice}&session=${Date.now()}`;
+            const mockZiinaUrl = `https://pay.ziina.com/remal-test-checkout?amount=${finalPrice}&session=${Date.now()}&ref=${bookingReference}`;
             return mockZiinaUrl;
         }
 
     } catch (error) {
         logger.error("❌ Ziina Checkout Error", { error: error.message });
-        throw new Error("فشل في تهيئة بوابة الدفع");
+        throw new Error("فشل في تهيئة بوابة الدفع: " + error.message);
     }
 }
 
