@@ -50,7 +50,6 @@ const fetchFromDubaiLink = async (endpoint, method = 'POST', body = null, isBook
 
 /**
  * 🏨 1. البحث عن توافر الفنادق (Shopping API - Availability)
- * بناءً على توثيق TripstickConnect الإصدار 3.5
  */
 const searchAvailability = async (searchParams) => {
     try {
@@ -58,19 +57,17 @@ const searchAvailability = async (searchParams) => {
             checkInDate, 
             checkOutDate, 
             adults = 2, 
-            childrenAges = [], // مصفوفة بأعمار الأطفال
-            hotelCodes = [],   // مصفوفة بأكواد الفنادق
+            childrenAges = [], 
+            hotelCodes = [],   
             nationality = 'AE', 
             currency = 'AED' 
         } = searchParams;
 
-        // حساب عدد الليالي بناءً على تواريخ الدخول والخروج
         const checkIn = new Date(checkInDate);
         const checkOut = new Date(checkOutDate);
         const nights = Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24));
 
         // 🛡️ تطبيق قواعد Tripstick الصارمة للأطفال:
-        // الأعمار من 0 إلى 12 فقط. 13 فما فوق يُحتسب كبالغ.
         let validAdultsCount = adults;
         const validChildrenAges = [];
         
@@ -82,15 +79,14 @@ const searchAvailability = async (searchParams) => {
             }
         });
 
-        // بناء هيكل الطلب (Payload) كما يطلبه المورد
         const payload = {
             hotel_codes: hotelCodes,
             preferences: {
                 nationality: nationality,
-                checkin: checkInDate, // صيغة YYYY-MM-DD
+                checkin: checkInDate, 
                 currency: currency,
                 nights: nights > 0 ? nights : 1,
-                timeout: 15 // مهلة البحث بالثواني
+                timeout: 15 
             },
             rooms: [
                 {
@@ -102,11 +98,10 @@ const searchAvailability = async (searchParams) => {
 
         logger.info("Sending Availability Request to Dubai Link...");
 
-        // إرسال الطلب (false تعني استخدام SHOPPING_URL)
         const response = await fetchFromDubaiLink('/availability', 'POST', payload, false);
         
         logger.info(`Dubai Link Search Success. Found ${response.response?.hotelCount || 0} hotels.`);
-        return response.response; // إرجاع كائن response الداخلي مباشرة
+        return response.response; 
 
     } catch (error) {
         logger.error("Dubai Link Availability Search Failed", { error: error.message });
@@ -116,7 +111,6 @@ const searchAvailability = async (searchParams) => {
 
 /**
  * 🏨 2. فحص السعر اللحظي (Booking API - Check Hotel Rate)
- * خطوة إلزامية قبل الحجز للتأكد من توافر الغرفة وعدم تغير السعر
  */
 const checkHotelRate = async (groupId) => {
     try {
@@ -128,7 +122,6 @@ const checkHotelRate = async (groupId) => {
         
         logger.info(`Sending Rate Check Request to Dubai Link for group_id: ${groupId}`);
 
-        // إرسال الطلب (true تعني استخدام BOOKING_URL المخصص لمسارات الحجز)
         const response = await fetchFromDubaiLink('/checkHotelRate', 'POST', payload, true);
         
         logger.info(`Dubai Link Rate Check Status: ${response.response}`);
@@ -143,7 +136,6 @@ const checkHotelRate = async (groupId) => {
 
 /**
  * 🏨 3. تأكيد الحجز (Booking API - Confirm Booking)
- * ملاحظة هامة: agent_reference أصبح إجبارياً في الإصدار v3.5
  */
 const bookHotel = async (bookingDetails) => {
     try {
@@ -155,12 +147,14 @@ const bookHotel = async (bookingDetails) => {
             holderPhone,
             nationality = 'AE',
             groupId, 
+            roomId, // 🔴 التقاط roomId القادم من الواجهة
             processKey, 
             passengers = [] 
         } = bookingDetails;
 
-        // توليد agent_reference فريد (متطلب إلزامي في v3.5)
-        // الصيغة المقترحة: AGT-YYYYMMDD-Random
+        // 🔴 توحيد المتغيرات: استخدام groupId إذا توفر، أو roomId كبديل
+        const finalGroupId = groupId || roomId;
+
         const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
         const randomId = Math.floor(10000 + Math.random() * 90000);
         const agentReference = `AGT-${dateStr}-${randomId}`;
@@ -174,19 +168,19 @@ const bookHotel = async (bookingDetails) => {
                 nationality: nationality,
                 phone: holderPhone
             },
-            agent_reference: agentReference, // 🔴 متطلب إلزامي
+            agent_reference: agentReference, 
             hotel: [
                 {
-                    group_id: groupId,
+                    group_id: finalGroupId,
                     rooms: [
                         {
                             process_key: processKey,
                             passengers: passengers.map(p => ({
                                 type: p.age >= 13 ? "AD" : "CH",
                                 title: p.title || "Mr.",
-                                first_name: p.firstName,
-                                last_name: p.lastName,
-                                age: p.age
+                                first_name: p.firstName || holderFirstName,
+                                last_name: p.lastName || holderLastName,
+                                age: p.age || 30
                             }))
                         }
                     ]
@@ -196,7 +190,6 @@ const bookHotel = async (bookingDetails) => {
 
         logger.info(`Sending Booking Request to Dubai Link for agent_reference: ${agentReference}`);
 
-        // إرسال الطلب (true تعني استخدام BOOKING_URL)
         const response = await fetchFromDubaiLink('/book', 'POST', payload, true);
         
         logger.info(`Dubai Link Booking Success. Booking Ref: ${response.response?.booking_reference}`);
