@@ -7,6 +7,8 @@
   "background_color": "#1f3a40",
   "theme_color": "#1f3a40",
   "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar",
   "icons": [
     {
       "src": "icon-maskable.png",
