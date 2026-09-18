@@ -103,6 +103,12 @@ const UI = {
         sheet.classList.remove('open');
         if(overlay) overlay.classList.remove('opacity-100');
         
+        // إغلاق أي قوائم منسدلة داخل النافذة (مثل قائمة الضيوف) لتجنب التداخل
+        document.querySelectorAll('.guests-popover, #destDropdown').forEach(el => {
+            el.classList.add('hidden');
+            if (el.classList.contains('active')) el.classList.remove('active');
+        });
+
         setTimeout(() => {
             sheet.classList.add('hidden');
             if(overlay) overlay.remove();
@@ -196,7 +202,7 @@ const UI = {
                         <a href="${API_URL}/api/bookings/pdf/${b.bookingReference}" target="_blank" class="block w-full text-center bg-[#1f3a40] hover:bg-slate-800 text-white px-4 py-2 md:px-5 md:py-2.5 rounded-lg md:rounded-xl text-xs md:text-sm font-bold transition shadow text-decoration-none">📄 تحميل قسيمة الحجز PDF</a>
                     </div>`;
             } else { resultDiv.innerHTML = `<div class="bg-red-50 text-red-600 p-3 md:p-4 rounded-lg md:rounded-xl text-center font-bold mt-4 border border-red-200 text-xs md:text-sm">❌ ${data.error}</div>`; }
-        } catch(err) { resultDiv.innerHTML = `<div class="bg-red-50 text-red-600 p-3 md:p-4 rounded-lg md:rounded-xl text-center font-bold mt-4 border border-red-200 text-xs md:text-sm">❌ خطأ في الاتصال بالخادم.</div>`; }
+        } catch(err) { resultDiv.innerHTML = `<div class="bg-red-50 text-red-600 p-3 md:p-4 rounded-lg md:rounded-xl text-center font-bold mt-4 border border-red-200 text-xs md:text-sm">❌ خطأ في الاتصال بالخادم. يرجى المحاولة لاحقاً.</div>`; }
     }
 };
 
