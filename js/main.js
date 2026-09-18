@@ -1,6 +1,6 @@
 // js/main.js
 
-// 1. دالة تهيئة الخريطة (كانت مفقودة)
+// 1. دالة تهيئة الخريطة
 window.initGoogleMap = function() {
     try {
         const uaeCenter = { lat: 25.2048, lng: 55.2708 };
@@ -34,9 +34,10 @@ window.updateGoogleMarkers = function(hotelsArray) {
     } catch(e) { console.error("خطأ في تحديث الخريطة:", e); }
 };
 
-// 2. دالة جلب الوجهات المباشرة (كانت مفقودة)
+// 2. دالة جلب الوجهات المباشرة
 window.fetchLiveDestinations = async function() {
     try {
+        // نضع مسار الاتصال مع إضافة API KEY للمسارات المحمية إذا لزم الأمر في المستقبل
         const res = await fetch(`${API_URL}/api/v1/hotels/destinations`);
         const data = await res.json();
         if (data.success && data.destinations && data.destinations.length > 0) {
@@ -52,7 +53,7 @@ window.fetchLiveDestinations = async function() {
     } catch (e) { console.error("خطأ في جلب الوجهات الجغرافية:", e); }
 };
 
-// 3. دالة تهيئة الدردشة (كانت مفقودة)
+// 3. دالة تهيئة الدردشة
 window.initLiveChatSocket = function() {
     try {
         if (typeof io === 'undefined') return;
@@ -161,10 +162,10 @@ window.renderBookingsList = function(bookings, container) {
                     <div class="md:hidden h-px border-t-2 border-dashed border-slate-200 mx-4 md:mx-6 relative z-10"><div class="absolute -left-4 md:-left-6 -top-2.5 md:-top-3 w-5 h-5 md:w-6 md:h-6 bg-[#f8fafc] rounded-full border-r border-slate-200"></div><div class="absolute -right-4 md:-right-6 -top-2.5 md:-top-3 w-5 h-5 md:w-6 md:h-6 bg-[#f8fafc] rounded-full border-l border-slate-200"></div></div>
                     <div class="flex flex-col justify-center gap-2 md:gap-3.5 bg-slate-50 p-4 md:p-8 shrink-0 w-full md:w-[280px] relative z-10 border-r border-transparent">
                         <a href="${typeof API_URL !== 'undefined' ? API_URL : ''}/api/bookings/pdf/${booking.bookingReference}" target="_blank" class="w-full bg-[#1f3a40] hover:bg-slate-800 text-white px-3 md:px-4 py-2.5 md:py-3.5 rounded-lg md:rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 md:gap-2.5 transition-all shadow-[0_4px_15px_rgba(31,58,64,0.2)] hover:shadow-[0_6px_20px_rgba(31,58,64,0.3)] active:scale-95 text-decoration-none border-none cursor-pointer">${safeIcons.download} تحميل قسيمة الحجز</a>
-                        <button onclick="Checkout.resendVoucherEmail('${booking.bookingReference}', '${booking.email || (typeof currentUser !== 'undefined' ? currentUser.email : '')}')" class="w-full border-2 border-slate-200 text-slate-600 bg-white hover:bg-slate-50 hover:text-[#00b4d8] hover:border-[#00b4d8]/50 px-3 md:px-4 py-2.5 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 md:gap-2.5 transition-all shadow-sm active:scale-95 cursor-pointer">${safeIcons.email} إرسال للإيميل</button>
+                        <button onclick="Checkout.resendVoucherEmail('${booking.bookingReference}', '${booking.email || (typeof currentUser !== 'undefined' && currentUser ? currentUser.email : '')}')" class="w-full border-2 border-slate-200 text-slate-600 bg-white hover:bg-slate-50 hover:text-[#00b4d8] hover:border-[#00b4d8]/50 px-3 md:px-4 py-2.5 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 md:gap-2.5 transition-all shadow-sm active:scale-95 cursor-pointer">${safeIcons.email} إرسال للإيميل</button>
                         ${isConfirmed ? `<div class="h-px w-full bg-slate-200 my-1 md:my-2"></div>
                         <button onclick="Checkout.modifyBookingPrompt('${booking.bookingReference}', '${booking.customerName}', '${booking.phone || ''}')" class="w-full border border-transparent text-[#00b4d8] hover:bg-[#00b4d8]/10 px-3 md:px-4 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold flex items-center justify-center gap-1.5 md:gap-2 transition-colors active:scale-95 cursor-pointer bg-transparent">${safeIcons.edit} تعديل بيانات الحجز</button>
-                        <button onclick="Checkout.cancelBookingAPI('${booking.bookingReference}', ${booking.price}, '${booking.refundType || 'full_100'}', '${(booking.cancellationPolicy || '').replace(/'/g, "\\'")}')" class="w-full text-red-500 hover:text-red-700 hover:bg-red-50 px-3 md:px-4 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold flex items-center justify-center gap-1.5 md:gap-2 transition-colors active:scale-95 border-none bg-transparent cursor-pointer">${safeIcons.cancel} إلغاء واسترداد</button>` 
+                        <button onclick="Checkout.cancelBookingAPI('${booking.bookingReference}',${booking.price}, '${booking.refundType \vert{}\vert{} 'full_100'}', '${(booking.cancellationPolicy || '').replace(/'/g, "\\'")}')" class="w-full text-red-500 hover:text-red-700 hover:bg-red-50 px-3 md:px-4 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold flex items-center justify-center gap-1.5 md:gap-2 transition-colors active:scale-95 border-none bg-transparent cursor-pointer">${safeIcons.cancel} إلغاء واسترداد</button>` 
                         : `<div class="bg-red-50 text-red-500 text-center py-2 md:py-3 rounded-lg md:rounded-xl text-[10px] md:text-xs font-black border border-red-200 mt-1 md:mt-2 flex items-center justify-center gap-1.5 md:gap-2 shadow-inner">${safeIcons.fail} تم تنفيذ سياسة الإلغاء</div>`}
                     </div>
                 </div>`;
