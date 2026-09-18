@@ -25,6 +25,10 @@ const securityService = require('./services/securityService');
 const startHotelSyncJob = require('./jobs/syncHotels'); 
 
 const app = express();
+
+// 🔴 السطر السحري لحل مشكلة الـ IP الوهمي على منصة Render (مهم جداً لجدار الحماية)
+app.set('trust proxy', 1);
+
 const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
@@ -330,8 +334,9 @@ app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, as
         });
         await newBooking.save();
 
-        const pdfPath = await notificationService.generateVoucher(bookingDetails, finalHCN);
-        await notificationService.sendEmailConfirmation(newBooking.email, newBooking.customerName, finalHCN, pdfPath);
+        // 🔴 التعديل هنا: استخدام pdfBuffer بدلاً من المسار المحذوف
+        const pdfBuffer = await notificationService.generateVoucher(bookingDetails, finalHCN);
+        await notificationService.sendEmailConfirmation(newBooking.email, newBooking.customerName, finalHCN, pdfBuffer);
 
         return res.status(200).json({ success: true, hcn: finalHCN });
     } catch (error) { res.status(500).json({ success: false, error: "Booking Failed" }); }
