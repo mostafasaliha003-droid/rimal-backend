@@ -1070,18 +1070,22 @@
     </nav>
 
     <div id="google_translate_element" style="display:none;"></div>
+    
+    <!-- 🚀 Masterstroke Fix: تفعيل تطبيق الـ PWA بشكل صحيح هنا -->
     <script>
         if ('serviceWorker' in navigator) {
-            navigator.serviceWorker.getRegistrations().then(function(registrations) {
-                for (let registration of registrations) { registration.unregister(); }
+            window.addEventListener('load', () => {
+                navigator.serviceWorker.register('/sw.js')
+                    .then(registration => {
+                        console.log('✅ تم تشغيل تطبيق الرمال (PWA) بنجاح!', registration.scope);
+                    })
+                    .catch(error => {
+                        console.error('❌ فشل تشغيل تطبيق الرمال:', error);
+                    });
             });
-            if ('caches' in window) {
-                caches.keys().then(function(names) {
-                    for (let name of names) caches.delete(name);
-                });
-            }
         }
     </script>
+    
     <script type="text/javascript">
         function googleTranslateElementInit() {
             new google.translate.TranslateElement({
