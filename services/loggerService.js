@@ -1,38 +1,26 @@
-const fs = require('fs');
-const path = require('path');
+// services/loggerService.js
 
-// التأكد من وجود مجلد لحفظ السجلات في السيرفر
-const logsDir = path.join(__dirname, '../logs');
-if (!fs.existsSync(logsDir)) {
-    fs.mkdirSync(logsDir);
-}
+/**
+ * 🚀 خدمة السجلات السحابية المتوافقة مع Render
+ * تعتمد على طباعة السجلات لتلتقطها لوحة تحكم Render تلقائياً دون استهلاك مساحة التخزين المؤقتة.
+ */
 
-// الدالة الرئيسية لكتابة الأحداث
-function writeLog(level, message, data = {}) {
+const formatMessage = (level, icon, message, data) => {
     const timestamp = new Date().toISOString();
-    // تحويل البيانات الإضافية إلى نص مقروء
-    const dataString = Object.keys(data).length ? ` | Data: ${JSON.stringify(data)}` : '';
-    const logEntry = `[${timestamp}] [${level.toUpperCase()}] ${message}${dataString}\n`;
-    
-    const filePath = path.join(logsDir, 'system.log');
-    
-    // إضافة الحدث للملف دون مسح الأحداث القديمة
-    fs.appendFile(filePath, logEntry, (err) => {
-        if (err) console.error("❌ Failed to write to log file:", err);
-    });
-}
+    const dataString = Object.keys(data).length ? `\n   📦 Data: ${JSON.stringify(data)}` : '';
+    return `[${timestamp}] [${level}] ${icon} ${message}${dataString}`;
+};
 
 module.exports = {
-    info: (message, data) => {
-        console.log(`ℹ️ ${message}`); // طباعة على الشاشة
-        writeLog('info', message, data); // وحفظ في الملف
+    info: (message, data = {}) => {
+        console.log(formatMessage('INFO', 'ℹ️', message, data));
     },
-    error: (message, data) => {
-        console.error(`❌ ${message}`);
-        writeLog('error', message, data);
+    
+    error: (message, data = {}) => {
+        console.error(formatMessage('ERROR', '❌', message, data));
     },
-    warn: (message, data) => {
-        console.warn(`⚠️ ${message}`);
-        writeLog('warn', message, data);
+    
+    warn: (message, data = {}) => {
+        console.warn(formatMessage('WARN', '⚠️', message, data));
     }
 };
