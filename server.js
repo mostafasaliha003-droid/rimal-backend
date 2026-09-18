@@ -95,10 +95,18 @@ const bookingSchema = new mongoose.Schema({
     supplierReference: { type: String, default: 'Pending' }, 
     supplierStatus: { type: String, default: 'Pending' }, 
     email: { type: String, required: true, index: true },
-    customerName: String, hotelName: String, price: Number, paymentMethod: String,
-    companions: String, status: { type: String, default: 'active' },
+    customerName: String, 
+    phone: String, // تمت إضافته
+    hotelName: String, 
+    roomType: String, // تمت إضافته
+    boardType: String, // تمت إضافته
+    price: Number, 
+    paymentMethod: String,
+    companions: String, 
+    status: { type: String, default: 'active' },
     cancellationPolicy: { type: String, default: 'شروط المورد مطبقة' },
-    freeCancelDeadline: { type: Date }, refundType: { type: String, default: 'full_100' },
+    freeCancelDeadline: { type: Date }, 
+    refundType: { type: String, default: 'full_100' },
     createdAt: { type: Date, default: Date.now }
 });
 
@@ -327,14 +335,22 @@ app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, as
             finalHCN = (await ratehawkService.bookHotel(bookingDetails)).hcn;
         }
 
+        // 🔴 تحديث لحفظ كل بيانات الحجز لتوليد PDF لاحقاً بشكل سليم
         const newBooking = new Booking({ 
-            bookingReference: finalHCN || ('RML-' + Date.now()), supplierReference: finalHCN || 'Pending', 
-            hotelName: bookingDetails.hotelName || 'Unknown Hotel', customerName: bookingDetails.guestName || "ضيفنا", 
-            email: bookingDetails.email || "customer@example.com", status: 'active', price: bookingDetails.price || 0
+            bookingReference: finalHCN || ('RML-' + Date.now()), 
+            supplierReference: finalHCN || 'Pending', 
+            hotelName: bookingDetails.hotelName || 'Unknown Hotel', 
+            customerName: bookingDetails.guestName || bookingDetails.customerName || "ضيفنا", 
+            email: bookingDetails.email || bookingDetails.holderEmail || "customer@example.com", 
+            phone: bookingDetails.phone || bookingDetails.holderPhone || "",
+            roomType: bookingDetails.roomName || 'غرفة قياسية',
+            boardType: bookingDetails.board || 'RO',
+            cancellationPolicy: bookingDetails.cancellationPolicy || bookingDetails.policyText || 'شروط المورد مطبقة',
+            status: 'active', 
+            price: bookingDetails.price || 0
         });
         await newBooking.save();
 
-        // 🔴 التعديل هنا: استخدام pdfBuffer بدلاً من المسار المحذوف
         const pdfBuffer = await notificationService.generateVoucher(bookingDetails, finalHCN);
         await notificationService.sendEmailConfirmation(newBooking.email, newBooking.customerName, finalHCN, pdfBuffer);
 
@@ -343,7 +359,7 @@ app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, as
 });
 
 // ==========================================
-// 🚀 10. مسارات تحميل الـ PDF و التقييمات والإدارة (القديمة)
+// 🚀 10. مسارات تحميل الـ PDF و التقييمات والإدارة
 // ==========================================
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
     let browser;
@@ -352,20 +368,40 @@ app.get('/api/bookings/pdf/:reference', async (req, res) => {
         if(!booking) return res.status(404).send('Booking not found');
 
         let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
-        voucherHtml = voucherHtml.replace(/{{bookingReference}}/g, booking.bookingReference)
-            .replace(/{{hotelName}}/g, sanitizeText(booking.hotelName))
-            .replace('{{customerName}}', booking.customerName || 'N/A')
-            .replace('{{price}}', booking.price);
+        
+        let cleanHotelName = sanitizeText(booking.hotelName);
 
-        browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-setuid-sandbox'] });
+        // 🔴 تعبئة كافة الحقول المطلوبة في القالب الفاخر
+        voucherHtml = voucherHtml
+            .replace(/{{bookingReference}}/g, booking.bookingReference)
+            .replace(/{{hotelName}}/g, cleanHotelName)
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(cleanHotelName))
+            .replace('{{customerName}}', booking.customerName || 'N/A')
+            .replace('{{customerPhone}}', booking.phone || 'N/A')
+            .replace('{{customerEmail}}', booking.email || 'N/A')
+            .replace('{{roomBed}}', booking.roomType || 'غرفة فندقية')
+            .replace('{{boardType}}', booking.boardType || 'N/A')
+            .replace('{{price}}', booking.price)
+            .replace('{{policyText}}', sanitizeText(booking.cancellationPolicy));
+
+        browser = await puppeteer.launch({ 
+            headless: true, 
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
+        });
+        
         const page = await browser.newPage();
         await page.setContent(voucherHtml, { waitUntil: 'networkidle0' });
 
-        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true });
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' } });
         res.setHeader('Content-Type', 'application/pdf');
         res.setHeader('Content-Disposition', `inline; filename=Rimal-Voucher-${booking.bookingReference}.pdf`);
         res.send(pdfBuffer);
-    } catch (e) { res.status(500).send('Error generating PDF'); } finally { if (browser) await browser.close(); }
+    } catch (e) { 
+        res.status(500).send('Error generating PDF'); 
+    } finally { 
+        if (browser) await browser.close(); 
+    }
 });
 
 app.post('/api/v1/reviews/create', async (req, res) => {
