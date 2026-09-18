@@ -1,96 +1,130 @@
-const PDFDocument = require('pdfkit');
+// services/notificationService.js
+
+const puppeteer = require('puppeteer');
 const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer'); 
-const logger = require('./loggerService'); // 🔴 تم دمج نظام المراقبة لسجلات النظام
+const logger = require('./loggerService'); 
 
-// 1. توليد قسيمة الحجز (PDF Voucher)
+// 🌟 فلتر ذكي لتنظيف النصوص من الإيموجيز قبل حقنها في الـ PDF
+const sanitizeText = (str) => {
+    if (!str) return 'N/A';
+    return str.replace(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}]+/gu, '').trim();
+};
+
+// إعداد خادم الإيميل (يفضل إبقاء حساب Gmail الرسمي لضمان وصول الرسائل للـ Inbox)
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: process.env.SMTP_USER || 'management@remaltourismllc.com',
+        pass: process.env.SMTP_PASS || 'tliy arac oiob deej'
+    }
+});
+
+// 1. توليد قسيمة الحجز الفاخرة باستخدام Puppeteer (في الذاكرة - Buffer)
 async function generateVoucher(bookingDetails, hcn) {
-    logger.info(`📄 Generating PDF Voucher for booking with HCN: ${hcn}...`);
-    
-    return new Promise((resolve, reject) => {
-        try {
-            const doc = new PDFDocument({ margin: 50 });
-            
-            const dir = path.join(__dirname, '../vouchers');
-            if (!fs.existsSync(dir)){ fs.mkdirSync(dir); }
-            
-            const filePath = path.join(dir, `Voucher_${hcn}.pdf`);
-            const stream = fs.createWriteStream(filePath);
-            doc.pipe(stream);
+    logger.info(`📄 Generating Luxury PDF Voucher via Puppeteer for HCN: ${hcn}...`);
+    let browser;
+    try {
+        // استدعاء قالب الـ HTML الأساسي من المجلد الجذري
+        const templatePath = path.join(__dirname, '../voucher-template.html');
+        let voucherHtml = fs.readFileSync(templatePath, 'utf8');
 
-            // تصميم القسيمة (بألوان وهوية شركة الرمال)
-            doc.fontSize(25).fillColor('#00b4d8').text('Remalbookings Voucher', { align: 'center' });
-            doc.moveDown();
-            doc.fontSize(16).fillColor('#1f3a40').text(`Hotel Confirmation Number (HCN): ${hcn}`, { underline: true });
-            doc.moveDown();
-            doc.fontSize(14).fillColor('#000000');
-            doc.text(`Guest Name: ${bookingDetails.guestName || 'Valued Guest'}`);
-            doc.text(`Hotel: ${bookingDetails.hotelName || 'Remal Partner Hotel'}`);
-            doc.text(`Check-in: ${bookingDetails.checkIn || 'N/A'}`);
-            doc.text(`Check-out: ${bookingDetails.checkOut || 'N/A'}`);
-            doc.moveDown(2);
-            doc.fontSize(12).fillColor('gray').text('Thank you for choosing Remal International Company!', { align: 'center' });
-            
-            doc.end();
+        // تنظيف البيانات
+        let cleanHotelName = sanitizeText(bookingDetails.hotelName);
+        let cleanPolicyText = sanitizeText(bookingDetails.cancellationPolicy || bookingDetails.policyText);
 
-            stream.on('finish', () => {
-                logger.info(`✅ PDF Voucher saved successfully at: ${filePath}`);
-                resolve(filePath);
-            });
-        } catch (error) {
-            logger.error("❌ Error generating PDF:", { error: error.message });
-            reject(error);
-        }
-    });
+        // حقن البيانات في القالب
+        voucherHtml = voucherHtml
+            .replace(/{{bookingReference}}/g, hcn)
+            .replace(/{{hotelName}}/g, cleanHotelName)
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(cleanHotelName)) 
+            .replace('{{customerName}}', bookingDetails.guestName || bookingDetails.customerName || 'N/A')
+            .replace('{{customerPhone}}', bookingDetails.phone || bookingDetails.holderPhone || 'N/A')
+            .replace('{{customerEmail}}', bookingDetails.email || bookingDetails.holderEmail || 'N/A')
+            .replace('{{roomBed}}', bookingDetails.roomName || 'سرير مزدوج / كينج')
+            .replace('{{boardType}}', bookingDetails.board || 'شامل الوجبات')
+            .replace('{{price}}', bookingDetails.price || 0)
+            .replace('{{policyText}}', cleanPolicyText);
+
+        // تشغيل Puppeteer بإعدادات متوافقة مع Render
+        browser = await puppeteer.launch({
+            headless: true, 
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
+            args: [
+                '--no-sandbox',
+                '--disable-setuid-sandbox',
+                '--disable-dev-shm-usage',
+                '--disable-gpu',
+                '--no-first-run',
+                '--no-zygote',
+                '--single-process'
+            ]
+        });
+        
+        const page = await browser.newPage();
+        await page.setContent(voucherHtml, { waitUntil: 'networkidle0' });
+
+        // توليد الـ PDF في الذاكرة (Buffer) بدلاً من حفظه في القرص الصلب
+        const pdfBuffer = await page.pdf({
+            format: 'A4',
+            printBackground: true,
+            margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' }
+        });
+
+        logger.info(`✅ PDF Buffer generated successfully for ${hcn}`);
+        return pdfBuffer;
+
+    } catch (error) {
+        logger.error("❌ Error generating PDF with Puppeteer:", { error: error.message });
+        throw error;
+    } finally {
+        if (browser) await browser.close();
+    }
 }
 
 // 2. 🚀 إرسال الإيميل الرسمي مع المرفقات
-async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfFilePath) {
+async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
     logger.info(`📧 Attempting to send official confirmation email to ${customerEmail}...`);
 
     try {
-        const smtpUser = process.env.SMTP_USER;
-        const smtpPass = process.env.SMTP_PASS;
+        const templatePath = path.join(__dirname, '../email-template.html');
+        let emailHtml = '';
 
-        // التحقق من وجود بيانات الإيميل في ملف .env
-        if (!smtpUser || !smtpPass) {
-            logger.warn("⚠️ Email not sent: SMTP credentials missing in .env (Running in Mock Mode)");
-            return false;
-        }
-
-        // إعدادات خادم الإيميل الديناميكية
-        let transporter = nodemailer.createTransport({
-            host: process.env.SMTP_HOST || "smtp.yourcompany.com", 
-            port: process.env.SMTP_PORT || 465,
-            secure: true,
-            auth: {
-                user: smtpUser,
-                pass: smtpPass,
-            },
-        });
-
-        // تصميم محتوى الإيميل
-        let info = await transporter.sendMail({
-            from: `"Remalbookings Support" <${smtpUser}>`,
-            to: customerEmail,
-            subject: `تأكيد حجزك الفندقي - رقم التأكيد: ${hcn} 🏨`,
-            html: `
-                <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; color: #1f3a40;">
-                    <h2>مرحباً ${guestName}،</h2>
+        // استخدام القالب الفاخر إذا كان موجوداً، وإلا استخدام قالب نصي بديل
+        if (fs.existsSync(templatePath)) {
+            emailHtml = fs.readFileSync(templatePath, 'utf8');
+            emailHtml = emailHtml
+                .replace('{{customerName}}', (guestName || '').split(' ')[0] || 'ضيفنا الكريم')
+                .replace('{{hotelName}}', 'فندقك المختار')
+                .replace(/{{bookingReference}}/g, hcn)
+                .replace('{{checkInDate}}', 'حسب الطلب')
+                .replace('{{price}}', ''); // السعر مسجل في القسيمة المرفقة
+        } else {
+            emailHtml = `
+                <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; background: #f0f8ff; border: 2px solid #0077b6; border-radius: 10px;">
+                    <h2 style="color: #0077b6;">مرحباً ${guestName}،</h2>
                     <p>نشكرك على اختيار <b>شركة الرمال الدولية</b> لحجز إقامتك.</p>
                     <p>تم تأكيد حجزك بنجاح. يرجى إبراز رقم التأكيد التالي عند الوصول لمكتب الاستقبال في الفندق:</p>
-                    <h3 style="color: #00b4d8; background: #f8f9fa; padding: 10px; border-radius: 8px; width: fit-content;">رقم التأكيد (HCN): ${hcn}</h3>
-                    <p>لقد أرفقنا قسيمة الحجز (Voucher) كملف PDF مع هذه الرسالة. يرجى تحميله والاحتفاظ به.</p>
+                    <h3 style="color: #d90429; background: #ffffff; padding: 10px; border-radius: 8px; width: fit-content;">رقم التأكيد (HCN): ${hcn}</h3>
+                    <p>لقد أرفقنا قسيمة الحجز المعتمدة (Voucher) كملف PDF مع هذه الرسالة. يرجى تحميله والاحتفاظ به.</p>
                     <br>
                     <p>نتمنى لك إقامة سعيدة!</p>
                     <p><strong>فريق دعم Remalbookings</strong></p>
                 </div>
-            `,
+            `;
+        }
+
+        let info = await transporter.sendMail({
+            from: '"شركة الرمال الدولية" <management@remaltourismllc.com>',
+            to: customerEmail,
+            subject: `تأكيد حجزك الفندقي من الرمال | المرجع: ${hcn}`,
+            html: emailHtml,
             attachments: [
                 {
-                    filename: `Remalbookings_Voucher_${hcn}.pdf`,
-                    path: pdfFilePath // 🔴 إرفاق الـ PDF آلياً من السيرفر
+                    filename: `Rimal-Voucher-${hcn}.pdf`,
+                    content: pdfBuffer, // تمرير الـ Buffer المولد من Puppeteer مباشرة
+                    contentType: 'application/pdf'
                 }
             ]
         });
