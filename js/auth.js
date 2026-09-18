@@ -240,8 +240,6 @@ const Auth = {
                 const dashPointsAEDDisplayEl = document.getElementById('dashPointsAEDDisplay');
                 if (dashPointsAEDDisplayEl) dashPointsAEDDisplayEl.innerText = ptsAED;
                 
-                // بقية منطق عرض الحجوزات (سيتم وضعه لاحقاً في main.js لتجنب التكرار الطويل هنا)
-                // تم إخفاء باقي بناء HTML الحجوزات لتسهيل القراءة، سننقله لملف main أو hotels.
                 if(typeof window.renderBookingsList === 'function') window.renderBookingsList(data.bookings, bookingsContainer);
             } else { 
                 bookingsContainer.innerHTML = `<div class="text-center py-8 md:py-12 text-red-500 bg-red-50 rounded-xl md:rounded-2xl font-bold border border-red-100 shadow-sm text-xs md:text-sm">حدث خطأ أثناء جلب البيانات: ${data.error || 'يرجى المحاولة لاحقاً.'}</div>`; 
