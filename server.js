@@ -22,7 +22,6 @@ const webhookService = require('./services/webhookService');
 const logger = require('./services/loggerService'); 
 const mappingService = require('./services/mappingService'); 
 const securityService = require('./services/securityService'); 
-const startHotelSyncJob = require('./jobs/syncHotels'); 
 
 const app = express();
 
@@ -438,7 +437,6 @@ mongoose.connect(MONGO_URI)
             console.log(`🌐 Multi-Supplier Engine (RateHawk + Dubai Link) is Active`);
             console.log(`🛡️  API Security Guard & Rate Limiters are Armed`); 
         });
-        startHotelSyncJob();
     })
     .catch((error) => {
         console.error(`❌ CRITICAL ERROR: MongoDB Connection Failed!`, error.message);
