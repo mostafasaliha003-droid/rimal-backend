@@ -1,3 +1,4 @@
+// services/mappingService.js
 const logger = require('./loggerService'); 
 
 // ==========================================
@@ -64,6 +65,10 @@ function standardizeHotelData(rawHotel) {
         provider: "unknown",
         hotelId: "",
         name: "",
+        city: rawHotel.city || rawHotel.destinationName || "دبي",
+        lat: rawHotel.lat || rawHotel.latitude || 25.2048,
+        lng: rawHotel.lng || rawHotel.longitude || 55.2708,
+        image: rawHotel.image || rawHotel.img || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
         rooms: []
     };
 
@@ -74,16 +79,21 @@ function standardizeHotelData(rawHotel) {
         standardHotel.name = rawHotel.hotel || rawHotel.hotel_name || "Unknown Hotel";
         
         rawHotel.groupRooms.forEach(group => {
+            const amount = group.groupPrice?.amount || 0;
+            const currency = group.groupPrice?.currency || 'AED';
+            
             standardHotel.rooms.push({
                 roomId: group.group_id, // يستخدم لفحص السعر
                 processKey: group.rooms && group.rooms[0] ? group.rooms[0].id : null, // متطلب إلزامي للحجز
                 name: group.name || "Standard Room",
-                mealType: group.boardCode || group.boardName || "RO",
-                price: group.groupPrice?.amount || 0,
-                currency: group.groupPrice?.currency || 'AED',
+                board: normalizeMealType(group.boardCode || group.boardName),
+                price: convertToAED(amount, currency),
+                currency: 'AED',
                 isInstantConfirmation: true, // نتائج بحث Shopping API تعتبر فورية
-                refundable: group.refundable || false,
-                originalData: group // الاحتفاظ بالبيانات الأصلية لاستخدامها وقت الحجز
+                freeCancellation: group.refundable || false,
+                formattedPolicy: group.refundable ? "إلغاء مجاني - شروط الفندق مطبقة" : "غير قابل للاسترداد",
+                paymentType: "HOTEL",
+                originalData: group 
             });
         });
         return standardHotel;
@@ -102,12 +112,15 @@ function standardizeHotelData(rawHotel) {
 
             standardHotel.rooms.push({
                 roomId: rate.match_hash || rate.book_hash, // RateKey
+                processKey: '', // RateHawk doesn't need processKey
                 name: rate.room_name || rate.name || "Standard Room",
-                mealType: rate.meal || "RO",
-                price: amount,
-                currency: currencyCode,
+                board: normalizeMealType(rate.meal),
+                price: convertToAED(amount, currencyCode),
+                currency: 'AED',
                 isInstantConfirmation: true, 
-                refundable: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before !== null,
+                freeCancellation: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before !== null,
+                formattedPolicy: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before ? "إلغاء مجاني متاح" : "غير قابل للاسترداد",
+                paymentType: rate.payment_options?.payment_types?.[0]?.tax_data?.taxes?.length > 0 ? "AT" : "HOTEL",
                 originalData: rate
             });
         });
@@ -119,7 +132,18 @@ function standardizeHotelData(rawHotel) {
         standardHotel.provider = rawHotel.provider || "generic";
         standardHotel.hotelId = rawHotel.hotelId || rawHotel.id || "N/A";
         standardHotel.name = rawHotel.name;
-        standardHotel.rooms = rawHotel.rooms;
+        standardHotel.rooms = rawHotel.rooms.map(room => ({
+            roomId: room.roomId || room.group_id || room.rateKey || "N/A",
+            processKey: room.processKey || room.id || "",
+            name: room.name || "Standard Room",
+            board: room.board || room.mealType || "RO",
+            price: convertToAED(room.price || room.amount || 0, room.currency || 'AED'),
+            currency: 'AED',
+            freeCancellation: room.freeCancellation || room.refundable || false,
+            formattedPolicy: room.formattedPolicy || "تطبق شروط الإلغاء",
+            paymentType: room.paymentType || "AT",
+            isInstantConfirmation: room.isInstantConfirmation !== false
+        }));
         return standardHotel;
     }
 
@@ -157,14 +181,10 @@ function deduplicateHotels(hotelsList) {
                 return;
             }
 
-            // 💱 تحويل سعر الغرفة إلى الدرهم الإماراتي للمقارنة العادلة
-            const priceInAED = convertToAED(room.price, room.currency || 'AED');
-
             validRooms.push({
                 ...room,
                 masterRoomName: normalizeRoomName(room.name),
-                masterMealCode: normalizeMealType(room.mealType),
-                priceAED: priceInAED 
+                masterMealCode: normalizeMealType(room.board)
             });
         });
 
@@ -172,15 +192,20 @@ function deduplicateHotels(hotelsList) {
         if (validRooms.length === 0) return;
 
         hotel.rooms = validRooms;
-        hotel.startingPriceAED = Math.min(...validRooms.map(r => r.priceAED));
+        // 🔴 تحديث المسمى ليطابق ما تتوقعه الواجهة الأمامية (priceAED بدلاً من startingPriceAED)
+        hotel.priceAED = Math.min(...validRooms.map(r => r.price));
 
         if (uniqueHotels.has(normalizedHash)) {
             const existingHotel = uniqueHotels.get(normalizedHash);
             
             // مقارنة السعر الموحد بالدرهم لاختيار المورد الأرخص للعميل
-            if (hotel.startingPriceAED < existingHotel.startingPriceAED) {
+            if (hotel.priceAED < existingHotel.priceAED) {
                 logger.info(`📉 Found cheaper price for [${existingHotel.name}] via ${hotel.provider}. Updating best offer...`);
                 uniqueHotels.set(normalizedHash, hotel); 
+            } else if (hotel.priceAED === existingHotel.priceAED) {
+                // دمج الغرف لإعطاء خيارات أكثر للعميل في حال تطابق سعر الفندق
+                existingHotel.rooms = [...existingHotel.rooms, ...hotel.rooms];
+                uniqueHotels.set(normalizedHash, existingHotel);
             }
         } else {
             uniqueHotels.set(normalizedHash, hotel);
