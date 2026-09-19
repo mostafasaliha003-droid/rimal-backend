@@ -5,7 +5,7 @@ const mongoose = require('mongoose');
 // 1. تعريف نموذج الفندق في قاعدة البيانات (Schema)
 // ==========================================
 const hotelSchema = new mongoose.Schema({
-    hotelId: { type: String, required: true, unique: true }, // كود الفندق من Tripstick
+    hotelId: { type: String, required: true, unique: true }, 
     name: String,
     address: String,
     city: String,
@@ -17,7 +17,6 @@ const hotelSchema = new mongoose.Schema({
     provider: { type: String, default: 'dubailink' }
 });
 
-// تجنب تعريف الموديل مرتين إذا كان موجوداً
 const Hotel = mongoose.models.Hotel || mongoose.model('Hotel', hotelSchema);
 
 // ==========================================
@@ -39,45 +38,57 @@ const syncDubaiHotels = async () => {
         await mongoose.connect(MONGO_URI);
         console.log('✅ Connected to MongoDB successfully.');
 
-        // تشفير بيانات الدخول بنظام Base64
         const auth = Buffer.from(`${USER}:${PASS}`).toString('base64');
         const headers = {
             'Content-Type': 'application/json',
             'Authorization': `Basic ${auth}`
         };
 
-        // كود وجهة دبي كما هو مذكور في توثيق Tripstick
-        const payload = {
-            destination: 678516887551164416,
-            limit: 500 // جلب 500 فندق كدفعة أولى
-        };
-
         console.log(`🌐 Fetching hotels from Content API: ${CONTENT_URL}/hotels`);
         
-        // تجاوز التدقيق المحلي على شهادات الأمان (كما فعلنا في Render)
         process.env.NODE_TLS_REJECT_UNAUTHORIZED = '0';
 
-        const response = await fetch(`${CONTENT_URL}/hotels`, {
+        // 🚨 التعديل 1: إرسال الطلب كنص مباشر لمنع JS من تقريب الرقم الكبير
+        const payloadString = '{"destination": 678516887551164416, "limit": 500}';
+
+        let response = await fetch(`${CONTENT_URL}/hotels`, {
             method: 'POST',
             headers: headers,
-            body: JSON.stringify(payload)
+            body: payloadString
         });
 
-        const data = await response.json();
+        let data = await response.json();
+        let hotels = data.hotels || [];
 
-        if (!response.ok) {
-            throw new Error(data.message || `API Error ${response.status}`);
+        // 🚨 التعديل 2: خطة بديلة لو كان الحساب التجريبي لا يحتوي على دبي
+        if (hotels.length === 0) {
+            console.log(`⚠️ No hotels found for Dubai specific code. Fetching ANY available hotels in your test account...`);
+            
+            response = await fetch(`${CONTENT_URL}/hotels`, {
+                method: 'POST',
+                headers: headers,
+                body: '{"limit": 500}' // طلب بدون تحديد مدينة
+            });
+            
+            data = await response.json();
+            hotels = data.hotels || [];
         }
 
-        const hotels = data.hotels || [];
-        console.log(`📦 Received ${hotels.length} hotels for Dubai. Saving to database...`);
+        if (hotels.length === 0) {
+            console.log(`❌ Still 0 hotels. Your Tripstick account might be completely empty in the Content API.`);
+            process.exit(0);
+        }
+
+        console.log(`📦 Received ${hotels.length} hotels. Saving to database...`);
 
         let savedCount = 0;
         
-        // 🔄 إدخال أو تحديث البيانات في MongoDB (Upsert)
         for (const h of hotels) {
+            // تجاهل الفنادق التي لا تملك اسم أو كود
+            if (!h.code || !h.hotel_name) continue; 
+
             await Hotel.findOneAndUpdate(
-                { hotelId: h.code.toString() }, // البحث بواسطة كود الفندق
+                { hotelId: h.code.toString() }, 
                 {
                     name: h.hotel_name,
                     address: h.address,
@@ -89,14 +100,13 @@ const syncDubaiHotels = async () => {
                     image: h.image,
                     provider: 'dubailink'
                 },
-                { upsert: true, new: true } // تحديث إذا وجد، أو إنشاء جديد
+                { upsert: true, new: true } 
             );
             savedCount++;
         }
 
-        console.log(`🎉 Success! Synchronized ${savedCount} hotels in Dubai.`);
+        console.log(`🎉 Success! Synchronized ${savedCount} hotels into MongoDB.`);
         
-        // إغلاق الاتصال بعد الانتهاء
         await mongoose.connection.close();
         process.exit(0);
 
@@ -106,5 +116,4 @@ const syncDubaiHotels = async () => {
     }
 };
 
-// تشغيل السكربت
 syncDubaiHotels();
