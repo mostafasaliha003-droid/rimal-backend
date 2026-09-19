@@ -37,8 +37,7 @@ window.updateGoogleMarkers = function(hotelsArray) {
 // 2. دالة جلب الوجهات المباشرة
 window.fetchLiveDestinations = async function() {
     try {
-        // نضع مسار الاتصال مع إضافة API KEY للمسارات المحمية إذا لزم الأمر في المستقبل
-        const res = await fetch(`${API_URL}/api/v1/hotels/destinations`);
+        const res = await fetch(`${typeof API_URL !== 'undefined' ? API_URL : 'https://rimal-api.onrender.com'}/api/v1/hotels/destinations`);
         const data = await res.json();
         if (data.success && data.destinations && data.destinations.length > 0) {
             const select = document.getElementById('destinationSelect');
@@ -57,7 +56,7 @@ window.fetchLiveDestinations = async function() {
 window.initLiveChatSocket = function() {
     try {
         if (typeof io === 'undefined') return;
-        const socket = io(API_URL);
+        const socket = io(typeof API_URL !== 'undefined' ? API_URL : 'https://rimal-api.onrender.com');
         const openBtn = document.getElementById('openChatBtn');
         const closeBtn = document.getElementById('closeChatBtn');
         const chatModal = document.getElementById('chatBoxModal');
@@ -136,7 +135,6 @@ window.renderBookingsList = function(bookings, container) {
             let cardBg = isConfirmed ? 'bg-white' : 'bg-slate-50 opacity-90';
             let cardBorder = isConfirmed ? 'border-slate-200 hover:border-[#00b4d8] hover:shadow-xl' : 'border-slate-300 border-dashed';
             
-            // حماية في حال لم يقرأ الأيقونات
             let safeIcons = typeof UI_ICONS !== 'undefined' ? UI_ICONS : {success:'✅', fail:'❌', hotel:'🏨', food:'🍽️', price:'💰', policy:'📄', download:'📥', email:'✉️', edit:'✏️', cancel:'🗑️'};
 
             let statusBadge = isConfirmed 
@@ -176,7 +174,7 @@ window.renderBookingsList = function(bookings, container) {
                     <div class="hidden md:block w-px border-l-2 border-dashed border-slate-200 my-6 relative z-10"><div class="absolute -top-6 -left-3 w-6 h-6 bg-[#f8fafc] rounded-full border-b border-slate-200"></div><div class="absolute -bottom-6 -left-3 w-6 h-6 bg-[#f8fafc] rounded-full border-t border-slate-200"></div></div>
                     <div class="md:hidden h-px border-t-2 border-dashed border-slate-200 mx-4 md:mx-6 relative z-10"><div class="absolute -left-4 md:-left-6 -top-2.5 md:-top-3 w-5 h-5 md:w-6 md:h-6 bg-[#f8fafc] rounded-full border-r border-slate-200"></div><div class="absolute -right-4 md:-right-6 -top-2.5 md:-top-3 w-5 h-5 md:w-6 md:h-6 bg-[#f8fafc] rounded-full border-l border-slate-200"></div></div>
                     <div class="flex flex-col justify-center gap-2 md:gap-3.5 bg-slate-50 p-4 md:p-8 shrink-0 w-full md:w-[280px] relative z-10 border-r border-transparent">
-                        <a href="${typeof API_URL !== 'undefined' ? API_URL : ''}/api/bookings/pdf/${booking.bookingReference}" target="_blank" class="w-full bg-[#1f3a40] hover:bg-slate-800 text-white px-3 md:px-4 py-2.5 md:py-3.5 rounded-lg md:rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 md:gap-2.5 transition-all shadow-[0_4px_15px_rgba(31,58,64,0.2)] hover:shadow-[0_6px_20px_rgba(31,58,64,0.3)] active:scale-95 text-decoration-none border-none cursor-pointer">${safeIcons.download} تحميل قسيمة الحجز</a>
+                        <a href="${typeof API_URL !== 'undefined' ? API_URL : 'https://rimal-api.onrender.com'}/api/bookings/pdf/${booking.bookingReference}" target="_blank" class="w-full bg-[#1f3a40] hover:bg-slate-800 text-white px-3 md:px-4 py-2.5 md:py-3.5 rounded-lg md:rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 md:gap-2.5 transition-all shadow-[0_4px_15px_rgba(31,58,64,0.2)] hover:shadow-[0_6px_20px_rgba(31,58,64,0.3)] active:scale-95 text-decoration-none border-none cursor-pointer">${safeIcons.download} تحميل قسيمة الحجز</a>
                         <button onclick="Checkout.resendVoucherEmail('${booking.bookingReference}', '${booking.email || (typeof currentUser !== 'undefined' && currentUser ? currentUser.email : '')}')" class="w-full border-2 border-slate-200 text-slate-600 bg-white hover:bg-slate-50 hover:text-[#00b4d8] hover:border-[#00b4d8]/50 px-3 md:px-4 py-2.5 md:py-3 rounded-lg md:rounded-xl text-xs md:text-sm font-black flex items-center justify-center gap-2 md:gap-2.5 transition-all shadow-sm active:scale-95 cursor-pointer">${safeIcons.email} إرسال للإيميل</button>
                         ${isConfirmed ? `<div class="h-px w-full bg-slate-200 my-1 md:my-2"></div>
                         <button onclick="Checkout.modifyBookingPrompt('${booking.bookingReference}', '${booking.customerName}', '${booking.phone || ''}')" class="w-full border border-transparent text-[#00b4d8] hover:bg-[#00b4d8]/10 px-3 md:px-4 py-2 md:py-2.5 rounded-lg md:rounded-xl text-[10px] md:text-xs font-bold flex items-center justify-center gap-1.5 md:gap-2 transition-colors active:scale-95 cursor-pointer bg-transparent">${safeIcons.edit} تعديل بيانات الحجز</button>
@@ -193,7 +191,6 @@ window.renderBookingsList = function(bookings, container) {
 window.onload = function() {
     console.log("🚀 جاري بدء تشغيل المنصة بأمان...");
 
-    // إعداد التواريخ
     try {
         const checkInInput = document.getElementById('checkInDate');
         if (checkInInput) checkInInput.valueAsDate = new Date();
@@ -202,80 +199,73 @@ window.onload = function() {
         if (checkOutInput) checkOutInput.valueAsDate = tomorrow;
         const mealSelect = document.getElementById('boardBasisFilter');
         if (mealSelect && typeof UI !== 'undefined') UI.updateBoardText(mealSelect);
-    } catch(e) { console.warn("خطأ بسيط في إعداد التواريخ:", e); }
+    } catch(e) {}
 
-    // التحقق من حالة الدخول
     try {
-        if (typeof Auth !== 'undefined') {
-            Auth.checkUserSession();
-        } else {
-            console.error("❌ ملف auth.js لم يتم تحميله أو به خطأ.");
-            // تفعيل الزر يدوياً كخطة بديلة
-            document.getElementById('regBtnText').style.display = 'inline-block';
-        }
-    } catch(e) { console.error("Error in checkUserSession:", e); }
+        if (typeof Auth !== 'undefined') Auth.checkUserSession();
+        else document.getElementById('regBtnText').style.display = 'inline-block';
+    } catch(e) {}
 
-    // عرض الفنادق
     try {
-        if (typeof allHotels !== 'undefined' && typeof Hotels !== 'undefined') {
-            Hotels.displayHotels(allHotels);
-        } else {
-            console.error("❌ مصفوفة الفنادق allHotels أو ملف hotels.js مفقود.");
-        }
-    } catch(e) { console.error("Error in displayHotels:", e); }
+        if (typeof allHotels !== 'undefined' && typeof Hotels !== 'undefined') Hotels.displayHotels(allHotels);
+    } catch(e) {}
 
-    // جلب الوجهات الحية
-    try {
-        if (typeof fetchLiveDestinations === 'function') window.fetchLiveDestinations();
-    } catch(e) { console.warn("Error in fetchLiveDestinations:", e); }
-
-    // إعداد الدردشة والقوائم
+    try { if (typeof fetchLiveDestinations === 'function') window.fetchLiveDestinations(); } catch(e) {}
     try {
         if (typeof UI !== 'undefined') UI.setupDropdownToggle();
         if (typeof initLiveChatSocket === 'function') window.initLiveChatSocket();
-    } catch(e) { console.warn("Error in UI/Chat setup:", e); }
+    } catch(e) {}
 };
 
-// 6. التقاط العميل العائد من بوابة الدفع Ziina لتأكيد الحجز الفعلي وإصدار التذكرة
-window.addEventListener('DOMContentLoaded', async () => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const paymentStatus = urlParams.get('payment');
-    const refCode = urlParams.get('ref');
+// 6. التقاط العميل العائد من بوابة الدفع (التنفيذ الإجباري IIFE)
+(async function forceCatchPaymentRedirect() {
+    try {
+        const urlParams = new URLSearchParams(window.location.search);
+        const paymentStatus = urlParams.get('payment');
+        const refCode = urlParams.get('ref');
 
-    if (paymentStatus === 'success') {
-        // سحب بيانات الحجز المعلقة التي حفظناها قبل الذهاب للدفع
-        const pendingDataStr = localStorage.getItem('pending_reservation');
-        
-        if (pendingDataStr) {
-            const pendingData = JSON.parse(pendingDataStr);
-            const API_KEY = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e'; // مفتاح الحماية
+        if (paymentStatus === 'success') {
+            console.log("✅ حدث العودة من الدفع يعمل بامتياز!");
+            
+            const pendingDataStr = localStorage.getItem('pending_reservation');
+            
+            if (pendingDataStr) {
+                const pendingData = JSON.parse(pendingDataStr);
+                const API_KEY = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e'; 
+                const baseApiUrl = typeof API_URL !== 'undefined' ? API_URL : 'https://rimal-api.onrender.com';
 
-            // إظهار رسالة للمستخدم أثناء التواصل مع مزود الخدمة
-            if (typeof UI !== 'undefined' && UI.showToast) {
-                UI.showToast('info', 'جاري إتمام الحجز... ⏳', 'يرجى الانتظار، جاري إصدار التذكرة من مزود الخدمة.');
-            }
+                // تنظيف الرابط من الأعلى فوراً
+                window.history.replaceState({}, document.title, window.location.pathname);
 
-            try {
-                // 🚀 إرسال الطلب للسيرفر لتأكيد الحجز الفعلي مع المورد وإرسال الإيميل
-                const res = await fetch(`${API_URL}/api/v1/hotels/book`, {
+                setTimeout(() => {
+                    if (typeof UI !== 'undefined' && UI.showToast) {
+                        UI.showToast('info', 'جاري إتمام الحجز... ⏳', 'يرجى الانتظار، جاري إصدار التذكرة.');
+                    } else {
+                        alert('جاري إتمام الحجز وإصدار التذكرة...');
+                    }
+                }, 500);
+
+                console.log("🚀 إرسال طلب الحجز الفعلي للسيرفر...");
+                const res = await fetch(`${baseApiUrl}/api/v1/hotels/book`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
                     body: JSON.stringify(pendingData)
                 });
-                const data = await res.json();
                 
-                // مسح البيانات المؤقتة حتى لا يتم تكرار الحجز بالخطأ
+                const data = await res.json();
+                console.log("📦 استجابة السيرفر:", data);
+                
                 localStorage.removeItem('pending_reservation');
 
                 if(data.success) {
                     if (typeof UI !== 'undefined' && UI.showToast) {
                         UI.showToast('success', 'تم الحجز بنجاح! ✈️', 'تم تأكيد حجزك وإرسال التذكرة إلى بريدك الإلكتروني.');
+                    } else {
+                        alert('تم الحجز بنجاح! التذكرة في طريقها لبريدك.');
                     }
                     
-                    // تحديث بيانات المستخدم في الواجهة (لجلب النقاط والحجز الجديد)
                     if (typeof Auth !== 'undefined') Auth.fetchUserData();
 
-                    // توجيه العميل للوحة التحكم ليرى حجزه
                     setTimeout(() => {
                         if (typeof UI !== 'undefined' && UI.switchView) {
                             UI.switchView('registerView');
@@ -283,29 +273,26 @@ window.addEventListener('DOMContentLoaded', async () => {
                     }, 2500);
                 } else {
                     if (typeof UI !== 'undefined' && UI.showToast) {
-                        UI.showToast('error', 'حدث خطأ في تأكيد الحجز', data.error || 'يرجى التواصل مع خدمة العملاء وتزويدهم برقم المرجع.');
+                        UI.showToast('error', 'حدث خطأ في تأكيد الحجز', data.error || 'يرجى التواصل مع خدمة العملاء.');
                     }
                 }
-            } catch(e) {
-                console.error("Booking Confirmation Error:", e);
+            } else {
+                console.warn("⚠️ لم يتم العثور على بيانات الحجز المؤقتة.");
+                window.history.replaceState({}, document.title, window.location.pathname);
                 if (typeof UI !== 'undefined' && UI.showToast) {
-                    UI.showToast('error', 'خطأ في الاتصال', 'يرجى التواصل مع خدمة العملاء.');
+                    UI.showToast('warning', 'حالة الدفع', 'تم التقاط عودة الدفع، يرجى تتبع حجزك أو تحديث السجل.');
                 }
+                if (typeof Auth !== 'undefined') Auth.fetchUserData();
             }
-            
-            // تنظيف الرابط من الأعلى
+        } 
+        else if (paymentStatus === 'cancel') {
+            console.log("⚠️ تم التقاط حالة الإلغاء.");
             window.history.replaceState({}, document.title, window.location.pathname);
-            
-        } else if (refCode) {
-            // حالة عودة العميل وتحديث الصفحة بعد إتمام الحجز مسبقاً
-            window.history.replaceState({}, document.title, window.location.pathname);
-            if (typeof Auth !== 'undefined') Auth.fetchUserData();
+            if (typeof UI !== 'undefined' && UI.showToast) {
+                UI.showToast('error', 'تم الإلغاء ⚠️', 'تم إلغاء عملية الدفع.');
+            }
         }
-    } 
-    else if (paymentStatus === 'cancel') {
-        if (typeof UI !== 'undefined' && UI.showToast) {
-            UI.showToast('error', 'تم الإلغاء ⚠️', 'تم إلغاء عملية الدفع. لم يتم سحب أي مبالغ.');
-        }
-        window.history.replaceState({}, document.title, window.location.pathname);
+    } catch(err) {
+        console.error("❌ خطأ قاسي أثناء محاولة التقاط مسار الدفع:", err);
     }
-});
+})();
