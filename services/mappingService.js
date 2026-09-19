@@ -76,7 +76,9 @@ function standardizeHotelData(rawHotel) {
     if (rawHotel.hotel_code && rawHotel.groupRooms) {
         standardHotel.provider = "dubailink";
         standardHotel.hotelId = rawHotel.hotel_code;
-        standardHotel.name = rawHotel.hotel || rawHotel.hotel_name || "Unknown Hotel";
+        
+        // 🚨 التعديل هنا: إضافة كود الفندق للاسم لمنع فلتر التكرار من دمج الفنادق المختلفة
+        standardHotel.name = rawHotel.hotel || rawHotel.hotel_name || `Unknown Hotel (${rawHotel.hotel_code})`;
         
         rawHotel.groupRooms.forEach(group => {
             const amount = group.groupPrice?.amount || 0;
