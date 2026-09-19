@@ -32,6 +32,9 @@ const fetchFromDubaiLink = async (endpoint, method = 'POST', body = null, isBook
     };
 
     try {
+        // 🔴 طباعة الرابط النهائي بدقة قبل إرسال الطلب لكشف أي أخطاء مطبعية
+        logger.info(`🌐 Sending request to DubaiLink: ${url}`); 
+        
         const response = await fetch(url, options);
         const data = await response.json();
 
@@ -43,7 +46,13 @@ const fetchFromDubaiLink = async (endpoint, method = 'POST', body = null, isBook
 
         return data;
     } catch (error) {
-        logger.error(`DubaiLink Connection Error at ${endpoint}`, { message: error.message });
+        // 🔴 استخراج السبب الجذري للخطأ (الذي يخفيه Node.js عادة)
+        const rootCause = error.cause ? error.cause.message : 'Unknown cause';
+        logger.error(`DubaiLink Connection Error at ${endpoint}`, { 
+            message: error.message, 
+            cause: rootCause,
+            failedUrl: url 
+        });
         throw error;
     }
 };
