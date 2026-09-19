@@ -220,3 +220,39 @@ window.onload = function() {
         if (typeof initLiveChatSocket === 'function') window.initLiveChatSocket();
     } catch(e) { console.warn("Error in UI/Chat setup:", e); }
 };
+
+// 6. التقاط العميل العائد من بوابة الدفع Ziina
+window.addEventListener('DOMContentLoaded', () => {
+    const urlParams = new URLSearchParams(window.location.search);
+    const paymentStatus = urlParams.get('payment');
+    const refCode = urlParams.get('ref');
+
+    if (paymentStatus === 'success' && refCode) {
+        // 1. إظهار رسالة نجاح أنيقة
+        if (typeof UI !== 'undefined' && UI.showToast) {
+            UI.showToast(`🎉 تم تأكيد حجزك ودفعك بنجاح! رقم المرجع: ${refCode}`);
+        } else {
+            alert(`🎉 تم تأكيد حجزك ودفعك بنجاح! رقم المرجع: ${refCode}`);
+        }
+
+        // 2. توجيه العميل إلى صفحة "تتبع الحجز" ووضع رقم المرجع تلقائياً
+        setTimeout(() => {
+            if (typeof UI !== 'undefined' && UI.switchView) {
+                UI.switchView('lookupView');
+                const refInput = document.getElementById('lookupRef');
+                if (refInput) {
+                    refInput.value = refCode;
+                }
+            }
+        }, 1500);
+
+        // 3. تنظيف الرابط من الأعلى حتى لا تتكرر الرسالة عند تحديث الصفحة
+        window.history.replaceState({}, document.title, window.location.pathname);
+    } 
+    else if (paymentStatus === 'cancel') {
+        if (typeof UI !== 'undefined' && UI.showToast) {
+            UI.showToast('⚠️ تم إلغاء عملية الدفع. لم يتم سحب أي مبالغ.', true);
+        }
+        window.history.replaceState({}, document.title, window.location.pathname);
+    }
+});
