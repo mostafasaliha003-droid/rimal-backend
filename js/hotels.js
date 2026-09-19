@@ -5,7 +5,7 @@ if (typeof allHotels === 'undefined' || !allHotels || allHotels.length === 0) {
     window.allHotels = [
         { 
             provider: "ratehawk", hotelId: "mock1", name: "🏨 الفندق التجريبي للاختبار (Test Hotel)", city: "دبي", priceAED: 10, basePoints: 100, lat: 25.2048, lng: 55.2708, 
-            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Town_Square_Dubai_-_Nshama.jpg/800px-Town_Square_Dubai_-_Nshama.jpg", 
+            img: "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80", 
             funnyPolicy: "إلغاء مجاني 100%", 
             hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-credit-card'></i> دفع آمن"]
         }
@@ -120,14 +120,21 @@ const Hotels = {
                 let liveHotels = resultsArray.map((h, index) => {
                     let minRate = h.minRate || h.priceAED || h.price || Math.floor(Math.random() * 1500 + 400);
                     
-                    // 🌟 الحل النهائي المضمون: صور من سيرفرات مفتوحة (Wikimedia) لا تحظر الروابط أبداً
-                    let imgCitymax = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Town_Square_Dubai_-_Nshama.jpg/800px-Town_Square_Dubai_-_Nshama.jpg"; 
-                    let imgGrand = "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Dubai_Marina_Skyline.jpg/800px-Dubai_Marina_Skyline.jpg";
-                    
-                    // تحديد الصورة بناءً على كود الفندق أو اسمه
-                    let finalImg = imgCitymax;
-                    if(h.code === '38772617' || (h.name && h.name.includes("Grand"))) {
-                        finalImg = imgGrand;
+                    // صور فندقية متباينة وعالية الدقة
+                    const imgTest = "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80";
+                    const imgCitymax = "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=800&q=80";
+                    const imgGrand = "https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=800&q=80";
+
+                    const hotelCode = (h.code || h.hotel_code || h.hotelId || '').toString();
+                    const hotelName = (h.name || h.hotel || '').toLowerCase();
+
+                    let selectedImg = imgTest;
+                    if (hotelCode === '39619181' || hotelName.includes('citymax')) {
+                        selectedImg = imgCitymax;
+                    } else if (hotelCode === '38772617' || hotelName.includes('excelsior')) {
+                        selectedImg = imgGrand;
+                    } else if (h.image && !h.image.includes('bstatic')) {
+                        selectedImg = h.image;
                     }
                     
                     let mockFacilities = ["<i class='fa-solid fa-wifi'></i> واي فاي", "<i class='fa-solid fa-person-swimming'></i> مسبح", "<i class='fa-solid fa-spa'></i> سبا"];
@@ -143,8 +150,7 @@ const Hotels = {
                         basePoints: calculatedPoints, 
                         lat: h.latitude || h.lat || 25.2048 + (Math.random() * 0.1),
                         lng: h.longitude || h.lng || 55.2708 + (Math.random() * 0.1), 
-                        // 🔴 هنا كان الخطأ: تأكد من استخدام finalImg فقط لضمان ظهور الصورة
-                        img: finalImg,
+                        img: selectedImg,
                         funnyPolicy: "أسعار خيالية لفترة محدودة!", 
                         hotelFacilities: h.facilities || mockFacilities, 
                         rooms: h.rooms || []
@@ -235,7 +241,7 @@ const Hotels = {
             <div class="relative bg-white rounded-2xl lg:rounded-[2rem] shadow-[0_8px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_15px_40px_rgba(31,58,64,0.08)] border border-slate-100 transition-all duration-300 mb-6 lg:mb-8 group overflow-hidden animate-fade-in-up flex flex-col lg:flex-row mx-1 lg:mx-0" style="animation-delay: ${animationDelay}ms;">
               <div class="relative w-full lg:w-[320px] shrink-0 h-52 sm:h-64 lg:h-auto overflow-hidden p-2 lg:p-2.5 pb-0 lg:pb-2.5">
                 <div class="w-full h-full rounded-xl lg:rounded-[1.2rem] overflow-hidden relative">
-                    <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
+                    <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" onerror="this.onerror=null; this.src='https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';" />
                     <div class="absolute inset-0 bg-gradient-to-t from-[#1f3a40]/90 via-black/5 to-transparent pointer-events-none z-0"></div>
                     <div class="absolute top-3 left-3 flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-lg overflow-hidden z-10 p-1 border border-white/50">
                         <div class="bg-gradient-to-r from-[#1f3a40] to-[#2a4d53] text-white px-2 py-1 rounded-lg flex items-center justify-center">
