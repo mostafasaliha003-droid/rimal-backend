@@ -318,7 +318,6 @@ app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, a
                 if (apiHotel && apiHotel.hotel_code) {
                     const dbInfo = await Hotel.findOne({ hotelId: apiHotel.hotel_code.toString() });
                     
-                    // 💡 تحديد اسم فريد مسبقاً بناءً على الكود لتجنب الفلترة العكسية
                     let uniqueFallbackName = apiHotel.hotel_code.toString() === '39619181' ? 'Citymax Hotel Al Barsha' : 
                                              apiHotel.hotel_code.toString() === '38772617' ? 'Grand Excelsior Hotel' : 
                                              `فندق دبي المميز (${apiHotel.hotel_code})`;
@@ -327,15 +326,18 @@ app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, a
                         logger.info(`✅ DB Match Found for Hotel: ${apiHotel.hotel_code}`);
                         apiHotel.hotel = dbInfo.name || uniqueFallbackName;
                         const validImage = dbInfo.image && dbInfo.image.startsWith('http') ? dbInfo.image : null;
-                        apiHotel.image = validImage || "https://images.unsplash.com/photo-1551882547-ff40c0d5b9af?auto=format&fit=crop&w=600&q=80";
+                        apiHotel.image = validImage || (apiHotel.hotel_code.toString() === '39619181' 
+                            ? "https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=600&q=80" 
+                            : "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80");
                         apiHotel.city = dbInfo.city || 'دبي';
                     } else {
                         logger.warn(`❌ No DB Match for Hotel: ${apiHotel.hotel_code}`);
-                        apiHotel.hotel = uniqueFallbackName; // تعيين الاسم الفريد
-                        // تخصيص صورة مختلفة لكل فندق لتبدو الواجهة احترافية
+                        apiHotel.hotel = uniqueFallbackName;
+                        
+                        // 🌟 وضع صور فخمة ومختلفة كلياً لتظهر في الواجهة
                         apiHotel.image = apiHotel.hotel_code.toString() === '39619181' 
-                            ? "https://images.unsplash.com/photo-1551882547-ff40c0d5b9af?auto=format&fit=crop&w=600&q=80" 
-                            : "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80";
+                            ? "https://images.unsplash.com/photo-1542314831-c6a4d27ce6a2?auto=format&fit=crop&w=600&q=80" // صورة فندق سيتي ماكس
+                            : "https://images.unsplash.com/photo-1582719508461-905c673771fd?auto=format&fit=crop&w=600&q=80"; // صورة جراند إكسلسيور
                     }
                 }
                 return apiHotel;
