@@ -72,8 +72,15 @@ const searchAvailability = async (searchParams) => {
             currency = 'AED' 
         } = searchParams;
 
-        const checkIn = new Date(checkInDate);
-        const checkOut = new Date(checkOutDate);
+        // 🛠️ رقعة التجربة: حقن بيانات افتراضية إذا كانت الواجهة الأمامية ترسل بيانات فارغة أو ناقصة
+        const finalCheckIn = checkInDate || new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0]; // بعد 7 أيام
+        const finalCheckOut = checkOutDate || new Date(Date.now() + 86400000 * 8).toISOString().split('T')[0]; // ليلة واحدة
+        
+        // استخدام أكواد فنادق دبي من توثيق Tripstick في حال كانت المصفوفة فارغة
+        const finalHotelCodes = hotelCodes && hotelCodes.length > 0 ? hotelCodes : [38772617, 39619181, 15066967]; 
+
+        const checkIn = new Date(finalCheckIn);
+        const checkOut = new Date(finalCheckOut);
         const nights = Math.round((checkOut - checkIn) / (1000 * 60 * 60 * 24));
 
         // 🛡️ تطبيق قواعد Tripstick الصارمة للأطفال:
@@ -89,10 +96,10 @@ const searchAvailability = async (searchParams) => {
         });
 
         const payload = {
-            hotel_codes: hotelCodes,
+            hotel_codes: finalHotelCodes,
             preferences: {
                 nationality: nationality,
-                checkin: checkInDate, 
+                checkin: finalCheckIn, 
                 currency: currency,
                 nights: nights > 0 ? nights : 1,
                 timeout: 15 
