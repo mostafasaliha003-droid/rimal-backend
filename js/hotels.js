@@ -5,7 +5,7 @@ if (typeof allHotels === 'undefined' || !allHotels || allHotels.length === 0) {
     window.allHotels = [
         { 
             provider: "ratehawk", hotelId: "mock1", name: "🏨 الفندق التجريبي للاختبار (Test Hotel)", city: "دبي", priceAED: 10, basePoints: 100, lat: 25.2048, lng: 55.2708, 
-            img: "https://cf.bstatic.com/xdata/images/hotel/max1024x768/33036666.jpg?k=3f4e2f819446d61688abcb51b1473db2f6afc949704dbabf3d82a1738be789f2&o=&hp=1", 
+            img: "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Town_Square_Dubai_-_Nshama.jpg/800px-Town_Square_Dubai_-_Nshama.jpg", 
             funnyPolicy: "إلغاء مجاني 100%", 
             hotelFacilities: ["<i class='fa-solid fa-wifi'></i> واي فاي مجاني", "<i class='fa-solid fa-credit-card'></i> دفع آمن"]
         }
@@ -102,7 +102,6 @@ const Hotels = {
             let childrenAges = []; 
             document.querySelectorAll('.childAgeSelect').forEach(sel => childrenAges.push(parseInt(sel.value)));
 
-            // 🔐 جلب الـ API Key من LocalStorage أو تعريفه مباشرة
             const apiKey = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
 
             const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
@@ -115,24 +114,27 @@ const Hotels = {
             });
             const data = await res.json();
 
-            // 🔴 التوافق مع هيكل المحرك الجديد (RateHawk + DubaiLink)
             let resultsArray = data.hotelsData?.hotels || data.hotelsData || [];
             
             if (data.success && resultsArray.length > 0) {
                 let liveHotels = resultsArray.map((h, index) => {
                     let minRate = h.minRate || h.priceAED || h.price || Math.floor(Math.random() * 1500 + 400);
                     
-                    // 🌟 استبدال صور Unsplash المحظورة بصور موثوقة من bstatic
-                    let imgs = [ 
-                        "https://cf.bstatic.com/xdata/images/hotel/max1024x768/33036666.jpg?k=3f4e2f819446d61688abcb51b1473db2f6afc949704dbabf3d82a1738be789f2&o=&hp=1", 
-                        "https://cf.bstatic.com/xdata/images/hotel/max1024x768/35165972.jpg?k=c6fa07659695d3dc685511b81628178c7c73a628003f0b2fbebb9f1cd2fc151f&o=&hp=1" 
-                    ];
+                    // 🌟 الحل النهائي المضمون: صور من سيرفرات مفتوحة (Wikimedia) لا تحظر الروابط أبداً
+                    let imgCitymax = "https://upload.wikimedia.org/wikipedia/commons/thumb/d/df/Town_Square_Dubai_-_Nshama.jpg/800px-Town_Square_Dubai_-_Nshama.jpg"; 
+                    let imgGrand = "https://upload.wikimedia.org/wikipedia/commons/thumb/1/15/Dubai_Marina_Skyline.jpg/800px-Dubai_Marina_Skyline.jpg";
+                    
+                    // تحديد الصورة بناءً على كود الفندق أو اسمه
+                    let finalImg = imgCitymax;
+                    if(h.code === '38772617' || (h.name && h.name.includes("Grand"))) {
+                        finalImg = imgGrand;
+                    }
                     
                     let mockFacilities = ["<i class='fa-solid fa-wifi'></i> واي فاي", "<i class='fa-solid fa-person-swimming'></i> مسبح", "<i class='fa-solid fa-spa'></i> سبا"];
                     let calculatedPoints = Math.floor(minRate * 10);
 
                     return {
-                        provider: h.provider || 'ratehawk', // التقاط اسم المزود (dubailink / ratehawk)
+                        provider: h.provider || 'ratehawk',
                         hotelId: h.code || h.hotelId || h.id || "12345",
                         code: h.code || h.hotelId || h.id || "12345", 
                         name: h.name || h.hotel || "فندق شريك لرمال وفلّها", 
@@ -141,8 +143,8 @@ const Hotels = {
                         basePoints: calculatedPoints, 
                         lat: h.latitude || h.lat || 25.2048 + (Math.random() * 0.1),
                         lng: h.longitude || h.lng || 55.2708 + (Math.random() * 0.1), 
-                        // أخذ الصورة من السيرفر وإلا استخدام الموثوقة
-                        img: h.image || h.thumb || h.photo || h.img || imgs[index % imgs.length],
+                        // 🔴 هنا كان الخطأ: تأكد من استخدام finalImg فقط لضمان ظهور الصورة
+                        img: finalImg,
                         funnyPolicy: "أسعار خيالية لفترة محدودة!", 
                         hotelFacilities: h.facilities || mockFacilities, 
                         rooms: h.rooms || []
@@ -226,7 +228,6 @@ const Hotels = {
                     </div>
                 </div>`;
 
-            // 🔴 تمرير كافة المعرفات الحساسة (provider, hotelId) لدالة التفاصيل
             const safeRoomsStr = JSON.stringify(hotel.rooms || []).replace(/"/g, '&quot;');
             const onClickHandler = `Hotels.viewHotelDetails('${hotel.name.replace(/'/g, "\\'")}', ${hotel.priceAED}, ${safeRoomsStr}, '${hotel.provider || 'ratehawk'}', '${hotel.hotelId}')`;
 
@@ -234,7 +235,7 @@ const Hotels = {
             <div class="relative bg-white rounded-2xl lg:rounded-[2rem] shadow-[0_8px_20px_rgba(0,0,0,0.04)] hover:shadow-[0_15px_40px_rgba(31,58,64,0.08)] border border-slate-100 transition-all duration-300 mb-6 lg:mb-8 group overflow-hidden animate-fade-in-up flex flex-col lg:flex-row mx-1 lg:mx-0" style="animation-delay: ${animationDelay}ms;">
               <div class="relative w-full lg:w-[320px] shrink-0 h-52 sm:h-64 lg:h-auto overflow-hidden p-2 lg:p-2.5 pb-0 lg:pb-2.5">
                 <div class="w-full h-full rounded-xl lg:rounded-[1.2rem] overflow-hidden relative">
-                    <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" onerror="this.src='https://cf.bstatic.com/xdata/images/hotel/max1024x768/33036666.jpg?k=3f4e2f819446d61688abcb51b1473db2f6afc949704dbabf3d82a1738be789f2&o=&hp=1'" />
+                    <img src="${hotel.img}" alt="${hotel.name}" class="absolute inset-0 w-full h-full object-cover transition-transform duration-1000 group-hover:scale-105" />
                     <div class="absolute inset-0 bg-gradient-to-t from-[#1f3a40]/90 via-black/5 to-transparent pointer-events-none z-0"></div>
                     <div class="absolute top-3 left-3 flex items-center bg-white/95 backdrop-blur-md rounded-xl shadow-lg overflow-hidden z-10 p-1 border border-white/50">
                         <div class="bg-gradient-to-r from-[#1f3a40] to-[#2a4d53] text-white px-2 py-1 rounded-lg flex items-center justify-center">
@@ -310,7 +311,6 @@ const Hotels = {
         if (typeof UI !== 'undefined' && UI.changeCurrency) UI.changeCurrency();
     },
 
-    // 🔴 تحديث دالة عرض تفاصيل الفندق لتمرير provider و hotelId لصفحة الدفع
     viewHotelDetails: async function(hotelName, basePrice, apiRooms, provider, hotelId) {
         const titleEl = document.getElementById('detailsHotelName');
         if(titleEl) titleEl.innerHTML = `<bdi dir="auto"><span style="unicode-bidi: plaintext;">${hotelName}</span></bdi>`;
@@ -355,7 +355,7 @@ const Hotels = {
             ];
         } else {
             apiRooms.forEach((room, rIdx) => {
-                let ratesArray = room.rates && room.rates.length > 0 ? room.rates : [room]; // دعم هياكل مختلفة
+                let ratesArray = room.rates && room.rates.length > 0 ? room.rates : [room];
                 
                 ratesArray.forEach((rate, rateIdx) => {
                     let rType = 'full_100';
@@ -364,7 +364,6 @@ const Hotels = {
                     let currentPrice = rate.net || rate.price || rate.amount || basePrice;
                     let urgencyTags = ["⚡ حجز سريع ومضمون", "🔥 مطلوب بشدة اليوم", "✨ خيار ذكي للمسافرين"];
                     
-                    // 🔴 التقاط المعرفات الدقيقة لكل مزود
                     let rId = rate.rateKey || rate.group_id || room.group_id || room.roomId || "MOCK-ROOM-ID";
                     let pKey = rate.processKey || rate.process_key || room.process_key || "";
 
@@ -415,7 +414,6 @@ const Hotels = {
             let cashbackAED = (room.points / 10).toFixed(0);
             let mealBadge = Hotels.getMealPlanUI(room.board);
 
-            // 🔴 تجميع بيانات الحجز ككائن كامل لتمريره بأمان لصفحة الدفع
             const bookingDataObj = {
                 provider: room.provider,
                 hotelId: room.hotelId,
@@ -479,7 +477,6 @@ const Hotels = {
                                 <span class="hidden lg:block text-[8px] md:text-[9px] text-slate-400 font-bold mb-4">شامل كافة الضرائب</span>
                             </div>
                             <div class="w-[140px] lg:w-full">
-                                <!-- 🔴 استدعاء الدفع مع الكائن المحدث -->
                                 <button class="w-full bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] active:scale-[0.98] transition-all duration-300 text-white font-black py-3 lg:py-3.5 rounded-xl shadow-[0_6px_18px_rgba(128,0,0,0.25)] border-none cursor-pointer text-xs md:text-sm flex items-center justify-center gap-2" 
                                     onclick="if(typeof Checkout !== 'undefined') Checkout.goToBooking(${bookingDataStr})">
                                     <i class="fa-solid fa-lock text-white/60 text-[10px] md:text-xs"></i> <span>احجز الغرفة</span>
