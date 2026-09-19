@@ -57,8 +57,8 @@ async function createZiinaCheckout(bookingDetails, finalPrice) {
                 body: JSON.stringify({
                     amount: amountInFils,
                     currency_code: 'AED',
-                    // توجيه العميل بعد الدفع لسيرفرنا لالتقاطه وإصدار الحجز
-                    success_url: `https://rimal-api.onrender.com/payment-success?ref=${bookingReference}`,
+                    // تم التعديل هنا: توجيه العميل بعد الدفع لواجهة الموقع الأمامية
+                    success_url: `https://remalbookings.com/index.html?payment=success&ref=${bookingReference}`,
                     cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`
                 })
             });
