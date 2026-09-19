@@ -123,6 +123,21 @@ const Checkout = {
             const firstName = nameParts[0] || 'Guest';
             const lastName = nameParts.slice(1).join(' ') || 'Remal';
 
+            // قراءة عدد البالغين من الواجهة (مع وضع شخصين كافتراضي لتجنب أخطاء الغرف المزدوجة)
+            const adultsInputEl = document.getElementById('adultsInput');
+            const adultsCount = adultsInputEl ? parseInt(adultsInputEl.value) : 2;
+            const generatedPassengers = [];
+
+            // إنشاء مسافرين بناءً على العدد المطلوب
+            for (let i = 0; i < adultsCount; i++) {
+                generatedPassengers.push({
+                    title: "Mr.", 
+                    firstName: i === 0 ? firstName : `Guest ${i+1}`, 
+                    lastName: i === 0 ? lastName : lastName, 
+                    age: 30 
+                });
+            }
+
             // تجميع الحزمة المتكاملة للسيرفر المزدوج
             const pendingData = { 
                 bookingReference, 
@@ -139,7 +154,7 @@ const Checkout = {
                 holderEmail: email,
                 holderFirstName: firstName,
                 holderLastName: lastName,
-                passengers: [ { title: "Mr.", firstName: firstName, lastName: lastName, age: 30 } ],
+                passengers: generatedPassengers, // استخدام المصفوفة الديناميكية
                 nationality: "AE",
                 companions, 
                 paymentMethod, 
