@@ -113,8 +113,23 @@ window.initLiveChatSocket = function() {
 // 4. دالة رسم الحجوزات 
 window.renderBookingsList = function(bookings, container) {
     try {
+        if(!bookings || bookings.length === 0) {
+            container.innerHTML = `
+                <div class="text-center py-10 md:py-16 bg-slate-50 rounded-2xl md:rounded-3xl border border-slate-200 border-dashed animate-fade-in-up">
+                    <div class="w-16 h-16 md:w-20 md:h-20 bg-white rounded-full flex items-center justify-center mx-auto mb-4 shadow-sm text-slate-300">
+                        <i class="fa-solid fa-suitcase-rolling text-3xl md:text-4xl"></i>
+                    </div>
+                    <h3 class="text-[#1f3a40] font-black text-lg md:text-xl mb-2">لا توجد حجوزات حالياً</h3>
+                    <p class="text-slate-500 font-bold text-xs md:text-sm mb-6">يبدو أنك لم تقم بأي حجز بعد. ابدأ رحلتك الآن لجمع النقاط!</p>
+                    <button onclick="UI.switchView('mainView')" class="bg-gradient-to-l from-[#800000] to-[#a30000] hover:from-[#990000] hover:to-[#cc0000] text-white px-6 py-3 rounded-xl font-black text-sm transition-all shadow-md active:scale-95 border-none cursor-pointer">
+                        استكشاف الفنادق 🌴
+                    </button>
+                </div>
+            `;
+            return;
+        }
+
         let cardsHTML = '';
-        if(!bookings || bookings.length === 0) return;
         bookings.forEach((booking, index) => {
             let isConfirmed = booking.status !== 'cancelled';
             const animationDelay = index * 100;
