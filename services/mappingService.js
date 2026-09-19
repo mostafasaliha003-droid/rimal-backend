@@ -84,10 +84,17 @@ function standardizeHotelData(rawHotel) {
             const amount = group.groupPrice?.amount || 0;
             const currency = group.groupPrice?.currency || 'AED';
             
+            const firstRoom = (group.rooms && group.rooms[0]) || {};
+            const roomAdults = parseInt(firstRoom.adults ?? firstRoom.adults_count, 10);
+            const roomChildren = Array.isArray(firstRoom.children)
+                ? firstRoom.children
+                : (Array.isArray(firstRoom.children_ages) ? firstRoom.children_ages : []);
             standardHotel.rooms.push({
                 roomId: group.group_id, // يستخدم لفحص السعر
-                processKey: group.rooms && group.rooms[0] ? group.rooms[0].id : null, // متطلب إلزامي للحجز
-                name: group.name || "Standard Room",
+                processKey: firstRoom.process_key || firstRoom.processKey || firstRoom.id || null,
+                adults: Number.isFinite(roomAdults) && roomAdults > 0 ? roomAdults : undefined,
+                childrenAges: roomChildren,
+                name: group.name || firstRoom.room_name || "Standard Room",
                 board: normalizeMealType(group.boardCode || group.boardName),
                 price: convertToAED(amount, currency),
                 currency: 'AED',
