@@ -95,10 +95,10 @@ const bookingSchema = new mongoose.Schema({
     supplierStatus: { type: String, default: 'Pending' }, 
     email: { type: String, required: true, index: true },
     customerName: String, 
-    phone: String, // تمت إضافته
+    phone: String, 
     hotelName: String, 
-    roomType: String, // تمت إضافته
-    boardType: String, // تمت إضافته
+    roomType: String, 
+    boardType: String, 
     price: Number, 
     paymentMethod: String,
     companions: String, 
@@ -115,9 +115,24 @@ const reviewSchema = new mongoose.Schema({
     comment: { type: String, required: true }, createdAt: { type: Date, default: Date.now }
 });
 
+// 🌟 تعريف هيكل الفنادق المخزنة لربطها بأسعار دبي لينك
+const hotelSchema = new mongoose.Schema({
+    hotelId: { type: String, required: true, unique: true },
+    name: String,
+    address: String,
+    city: String,
+    countryCode: String,
+    stars: String,
+    latitude: String,
+    longitude: String,
+    image: String,
+    provider: { type: String, default: 'dubailink' }
+});
+
 const User = mongoose.model('User', userSchema);
 const Booking = mongoose.model('Booking', bookingSchema);
 const Review = mongoose.model('Review', reviewSchema);
+const Hotel = mongoose.model('Hotel', hotelSchema); // تفعيل الموديل
 
 let verificationCodes = {}; let passwordResetCodes = {}; let updateEmailCodes = {}; let updatePasswordCodes = {};  
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
@@ -291,13 +306,38 @@ app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, a
         ]);
 
         const rateHawkHotels = rateHawkResult.status === 'fulfilled' && rateHawkResult.value ? rateHawkResult.value : [];
-        const dubaiLinkHotels = dubaiLinkResult.status === 'fulfilled' && dubaiLinkResult.value && dubaiLinkResult.value.hotelList ? dubaiLinkResult.value.hotelList : [];
+        
+        let dubaiLinkHotels = [];
+        if (dubaiLinkResult.status === 'fulfilled' && dubaiLinkResult.value) {
+            // استخراج الفنادق سواء كانت داخل كائن أو مصفوفة مباشرة
+            dubaiLinkHotels = Array.isArray(dubaiLinkResult.value) ? dubaiLinkResult.value : (dubaiLinkResult.value.hotelList || []);
+        }
+
+        // 🌟 الدمج السحري: جلب الأسماء والصور من قاعدة البيانات ودمجها مع الأسعار اللحظية
+        if (dubaiLinkHotels.length > 0) {
+            dubaiLinkHotels = await Promise.all(dubaiLinkHotels.map(async (apiHotel) => {
+                if (apiHotel && apiHotel.hotel_code) {
+                    const dbInfo = await Hotel.findOne({ hotelId: apiHotel.hotel_code.toString() });
+                    if (dbInfo) {
+                        apiHotel.hotel = dbInfo.name; // استبدال Unknown Hotel
+                        apiHotel.image = dbInfo.image; // حقن الصورة الحقيقية
+                        apiHotel.city = dbInfo.city;
+                        apiHotel.lat = dbInfo.latitude;
+                        apiHotel.lng = dbInfo.longitude;
+                    }
+                }
+                return apiHotel;
+            }));
+        }
 
         const allRawHotels = [...rateHawkHotels, ...dubaiLinkHotels]; 
         const cleanAndCheapestHotels = mappingService.deduplicateHotels(allRawHotels);
 
         return res.status(200).json({ success: true, hotelsData: cleanAndCheapestHotels });
-    } catch (error) { res.status(500).json({ success: false, error: "Search Failed" }); }
+    } catch (error) { 
+        logger.error("Search Error", { error: error.message });
+        res.status(500).json({ success: false, error: "Search Failed" }); 
+    }
 });
 
 app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
@@ -307,7 +347,7 @@ app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.booking
 
         if (provider === 'dubailink') {
             const dlResponse = await dubailinkService.checkHotelRate(roomId); 
-            if (dlResponse.response === 'EXPIRED_OR_INVALID_GROUP_ID') return res.status(400).json({ success: false, error: 'الغرفة لم تعد متاحة.' });
+            if (dlResponse.response === 'EXPIRED_OR_INVALID_GROUP_ID') return res.status(400).json({ success: false, error: 'الغرفة لم পুনরায় متاحة.' });
             if (dlResponse.response === 'RATE_CHANGED' && dlResponse.group_rooms.length > 0) {
                 finalValidatedPrice = mappingService.convertToAED(dlResponse.group_rooms[0].groupPrice.amount, dlResponse.group_rooms[0].groupPrice.currency);
             }
