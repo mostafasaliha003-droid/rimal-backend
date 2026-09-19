@@ -1,327 +1,236 @@
+// services/mappingService.js
 const logger = require('./loggerService'); 
 
-const SHOPPING_URL = process.env.DUBAILINK_SHOPPING_URL;
-const BOOKING_URL = process.env.DUBAILINK_BOOKING_URL;
-
-/**
- * 🔐 توليد ترويسة المصادقة بنظام Base64 كما هو مطلوب في توثيق Tripstick
- */
-const getAuthHeader = () => {
-    const user = process.env.DUBAILINK_USER;
-    const pass = process.env.DUBAILINK_PASS;
-    const base64Credentials = Buffer.from(`${user}:${pass}`).toString('base64');
-    return `Basic ${base64Credentials}`;
+// ==========================================
+// 💱 0. محرك تحويل العملات (Currency Engine) 
+// ==========================================
+// أسعار صرف تقريبية (يتم استخدام الدرهم كعملة أساسية للتسوية)
+const exchangeRatesToAED = {
+    'AED': 1.00,
+    'USD': 3.67,
+    'EUR': 4.05,
+    'SAR': 0.98,
+    'GBP': 4.85
 };
 
-/**
- * 🚀 دالة مركزية لإرسال الطلبات إلى Dubai Link API
- */
-const fetchFromDubaiLink = async (endpoint, method = 'POST', body = null, isBookingApi = false) => {
-    const baseUrl = isBookingApi ? BOOKING_URL : SHOPPING_URL;
-    const url = `${baseUrl}${endpoint}`;
+function convertToAED(amount, currency) {
+    if (!amount || !currency) return 0;
+    const rate = exchangeRatesToAED[currency.toUpperCase()];
+    if (!rate) {
+        logger.warn(`⚠️ Unknown currency [${currency}] detected. Assuming 1:1 ratio for safety.`);
+        return amount; 
+    }
+    return amount * rate;
+}
+
+// ==========================================
+// 🧹 1. قواميس التنظيف والتوحيد (Normalization Dictionaries)
+// ==========================================
+function normalizeHotelName(name) {
+    if (!name) return "";
+    return name.toLowerCase()
+        .replace(/[^a-z0-9]/g, '') 
+        .replace(/(hotel|resort|spa|suites|apartments)/g, ''); 
+}
+
+function normalizeRoomName(roomName) {
+    if (!roomName) return "standard";
+    return roomName.toLowerCase()
+        .replace(/(non-refundable|non refundable|ro|room only)/gi, '') 
+        .replace(/dbl/gi, 'double') 
+        .replace(/sngl/gi, 'single')
+        .replace(/[^a-z0-9\s]/g, '') 
+        .trim();
+}
+
+function normalizeMealType(mealString) {
+    if (!mealString) return "RO"; 
     
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': getAuthHeader()
+    const meal = mealString.toLowerCase();
+    
+    if (meal.includes('all inclusive') && meal.includes('ultra')) return "UAI";
+    if (meal.includes('all inclusive')) return "AI";
+    if (meal.includes('full board') || (meal.includes('lunch') && meal.includes('dinner'))) return "FB";
+    if (meal.includes('half board') || meal.match(/breakfast.*dinner|dinner.*breakfast/)) return "HB";
+    if (meal.includes('breakfast') || meal.includes('buffet') || meal.includes('bb')) return "BB";
+    
+    return "RO"; 
+}
+
+// ==========================================
+// 🔄 2. محول البيانات الشامل (Universal Data Adapter)
+// ==========================================
+function standardizeHotelData(rawHotel) {
+    let standardHotel = {
+        provider: "unknown",
+        hotelId: "",
+        name: "",
+        city: rawHotel.city || rawHotel.destinationName || "دبي",
+        lat: rawHotel.lat || rawHotel.latitude || 25.2048,
+        lng: rawHotel.lng || rawHotel.longitude || 55.2708,
+        image: rawHotel.image || rawHotel.img || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
+        rooms: []
     };
 
-    const options = {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : null
-    };
-
-    try {
-        // 🔴 طباعة الرابط النهائي بدقة قبل إرسال الطلب لكشف أي أخطاء مطبعية
-        logger.info(`🌐 Sending request to DubaiLink: ${url}`); 
+    // 🟢 اكتشاف وتوحيد بيانات Dubai Link (Tripstick)
+    if (rawHotel.hotel_code && rawHotel.groupRooms) {
+        standardHotel.provider = "dubailink";
+        standardHotel.hotelId = rawHotel.hotel_code;
         
-        const response = await fetch(url, options);
-        const data = await response.json();
+        // 🚨 التعديل هنا: إضافة كود الفندق للاسم لمنع فلتر التكرار من دمج الفنادق المختلفة
+        standardHotel.name = rawHotel.hotel || rawHotel.hotel_name || `Unknown Hotel (${rawHotel.hotel_code})`;
+        
+        rawHotel.groupRooms.forEach(group => {
+            const amount = group.groupPrice?.amount || 0;
+            const currency = group.groupPrice?.currency || 'AED';
+            
+            const firstRoom = (group.rooms && group.rooms[0]) || {};
+            const roomAdults = parseInt(firstRoom.adults ?? firstRoom.adults_count, 10);
+            const roomChildren = Array.isArray(firstRoom.children)
+                ? firstRoom.children
+                : (Array.isArray(firstRoom.children_ages) ? firstRoom.children_ages : []);
+            standardHotel.rooms.push({
+                roomId: group.group_id, // يستخدم لفحص السعر
+                processKey: firstRoom.process_key || firstRoom.processKey || firstRoom.id || null,
+                adults: Number.isFinite(roomAdults) && roomAdults > 0 ? roomAdults : undefined,
+                childrenAges: roomChildren,
+                name: group.name || firstRoom.room_name || "Standard Room",
+                board: normalizeMealType(group.boardCode || group.boardName),
+                price: convertToAED(amount, currency),
+                currency: 'AED',
+                isInstantConfirmation: true, // نتائج بحث Shopping API تعتبر فورية
+                freeCancellation: group.refundable || false,
+                formattedPolicy: group.refundable ? "إلغاء مجاني - شروط الفندق مطبقة" : "غير قابل للاسترداد",
+                paymentType: "HOTEL",
+                originalData: group 
+            });
+        });
+        return standardHotel;
+    }
 
-        // معالجة أخطاء الـ API بناءً على رموز HTTP المذكورة في التوثيق
-        if (!response.ok) {
-            logger.error(`DubaiLink API Error [${response.status}] at ${endpoint}`, { details: data });
-            throw new Error(data.error || data.message || `API Error: ${response.status}`);
+    // 🔵 اكتشاف وتوحيد بيانات RateHawk 
+    if (rawHotel.id && rawHotel.rates) {
+        standardHotel.provider = "ratehawk";
+        standardHotel.hotelId = rawHotel.id;
+        standardHotel.name = rawHotel.name || "Unknown Hotel";
+        
+        rawHotel.rates.forEach(rate => {
+            // استخراج السعر بأمان من هيكل RateHawk المعقد
+            const amount = rate.payment_options?.payment_types?.[0]?.amount || rate.price || 0;
+            const currencyCode = rate.payment_options?.payment_types?.[0]?.currency_code || rate.currency || 'AED';
+
+            standardHotel.rooms.push({
+                roomId: rate.match_hash || rate.book_hash, // RateKey
+                processKey: '', // RateHawk doesn't need processKey
+                name: rate.room_name || rate.name || "Standard Room",
+                board: normalizeMealType(rate.meal),
+                price: convertToAED(amount, currencyCode),
+                currency: 'AED',
+                isInstantConfirmation: true, 
+                freeCancellation: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before !== null,
+                formattedPolicy: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before ? "إلغاء مجاني متاح" : "غير قابل للاسترداد",
+                paymentType: rate.payment_options?.payment_types?.[0]?.tax_data?.taxes?.length > 0 ? "AT" : "HOTEL",
+                originalData: rate
+            });
+        });
+        return standardHotel;
+    }
+
+    // ⚪ هيكل افتراضي (في حال كانت البيانات موحدة مسبقاً)
+    if (rawHotel.name && rawHotel.rooms) {
+        standardHotel.provider = rawHotel.provider || "generic";
+        standardHotel.hotelId = rawHotel.hotelId || rawHotel.id || "N/A";
+        standardHotel.name = rawHotel.name;
+        standardHotel.rooms = rawHotel.rooms.map(room => ({
+            roomId: room.roomId || room.group_id || room.rateKey || "N/A",
+            processKey: room.processKey || room.id || "",
+            name: room.name || "Standard Room",
+            board: room.board || room.mealType || "RO",
+            price: convertToAED(room.price || room.amount || 0, room.currency || 'AED'),
+            currency: 'AED',
+            freeCancellation: room.freeCancellation || room.refundable || false,
+            formattedPolicy: room.formattedPolicy || "تطبق شروط الإلغاء",
+            paymentType: room.paymentType || "AT",
+            isInstantConfirmation: room.isInstantConfirmation !== false
+        }));
+        return standardHotel;
+    }
+
+    return null; // تجاهل أي بيانات غير صالحة لا تتبع الهياكل المعروفة
+}
+
+// ==========================================
+// 🎯 3. خوارزمية التطابق والفلترة الذكية (Deduplication & Quality Filter)
+// ==========================================
+function deduplicateHotels(hotelsList) {
+    logger.info(`🧩 Deduplication & Quality Filter Started: Analyzing ${hotelsList.length} raw hotels from multiple providers...`);
+    const uniqueHotels = new Map();
+
+    hotelsList.forEach(rawHotel => {
+        // 🔄 توحيد هيكل البيانات أولاً ليفهمه المحرك بغض النظر عن المورد
+        const hotel = standardizeHotelData(rawHotel);
+
+        // 🔴 فلترة الجودة 1: تجاهل الفندق إذا كانت بياناته ناقصة أو هيكله غير مدعوم
+        if (!hotel || !hotel.name || !hotel.rooms || hotel.rooms.length === 0) {
+            return; 
         }
 
-        return data;
-    } catch (error) {
-        // 🔴 استخراج السبب الجذري للخطأ (الذي يخفيه Node.js عادة)
-        const rootCause = error.cause ? error.cause.message : 'Unknown cause';
-        logger.error(`DubaiLink Connection Error at ${endpoint}`, { 
-            message: error.message, 
-            cause: rootCause,
-            failedUrl: url 
-        });
-        throw error;
-    }
-};
+        const normalizedHash = normalizeHotelName(hotel.name);
+        let validRooms = [];
 
-/**
- * 🏨 1. البحث عن توافر الفنادق (Shopping API - Availability)
- */
-const searchAvailability = async (searchParams) => {
-    try {
-        const { 
-            checkInDate, 
-            checkOutDate,
-            checkIn: checkInParam,
-            checkOut: checkOutParam,
-            adults = 2,
-            children = 0,
-            childrenAges = [], 
-            hotelCodes = [],   
-            nationality = 'AE', 
-            currency = 'AED' 
-        } = searchParams;
-
-        const finalCheckIn = checkInDate || checkInParam || new Date(Date.now() + 86400000 * 7).toISOString().split('T')[0];
-        const finalCheckOut = checkOutDate || checkOutParam || new Date(Date.now() + 86400000 * 8).toISOString().split('T')[0];
-        
-        const finalHotelCodes = hotelCodes && hotelCodes.length > 0 ? hotelCodes : [38772617, 39619181, 15066967]; 
-
-        const checkInDateObj = new Date(finalCheckIn);
-        const checkOutDateObj = new Date(finalCheckOut);
-        const nights = Math.round((checkOutDateObj - checkInDateObj) / (1000 * 60 * 60 * 24));
-
-        // 🛡️ تطبيق قواعد Tripstick الصارمة للأطفال:
-        let validAdultsCount = Math.max(1, parseInt(adults, 10) || 2);
-        const validChildrenAges = [];
-        const incomingAges = Array.isArray(childrenAges) ? [...childrenAges] : [];
-        const requestedChildren = Math.max(0, parseInt(children, 10) || 0);
-        while (incomingAges.length < requestedChildren) incomingAges.push(6);
-        
-        incomingAges.forEach(age => {
-            const n = Number(age);
-            if (n >= 0 && n <= 12) {
-                validChildrenAges.push(n);
-            } else {
-                validAdultsCount += 1; // تحويل الطفل الأكبر من 12 لبالغ لتجنب رفض الطلب
+        // تنظيف الغرف وفلترتها
+        hotel.rooms.forEach(room => {
+            // 🔴 فلترة الجودة 2: حجب الحجوزات غير الفورية (On Request)
+            if (room.isInstantConfirmation === false || room.status === 'ON_REQUEST') {
+                return;
             }
+
+            // 🔴 فلترة الجودة 3: حجب الغرف التي لا تحتوي على سعر واضح
+            if (!room.price || room.price <= 0) {
+                return;
+            }
+
+            validRooms.push({
+                ...room,
+                masterRoomName: normalizeRoomName(room.name),
+                masterMealCode: normalizeMealType(room.board)
+            });
         });
 
-        const payload = {
-            hotel_codes: finalHotelCodes,
-            preferences: {
-                nationality: nationality,
-                checkin: finalCheckIn, 
-                currency: currency,
-                nights: nights > 0 ? nights : 1,
-                timeout: 15 
-            },
-            rooms: [
-                {
-                    adults: validAdultsCount,
-                    children: validChildrenAges
-                }
-            ]
-        };
+        // إذا بعد الفلترة لم يتبق أي غرفة صالحة، نتجاهل الفندق
+        if (validRooms.length === 0) return;
 
-        logger.info("Sending Availability Request to Dubai Link...");
+        hotel.rooms = validRooms;
+        // 🔴 تحديث المسمى ليطابق ما تتوقعه الواجهة الأمامية (priceAED بدلاً من startingPriceAED)
+        hotel.priceAED = Math.min(...validRooms.map(r => r.price));
 
-        const response = await fetchFromDubaiLink('/availability', 'POST', payload, false);
-        
-        logger.info(`Dubai Link Search Success. Found ${response.response?.hotelCount || 0} hotels.`);
-        return response.response; 
-
-    } catch (error) {
-        logger.error("Dubai Link Availability Search Failed", { error: error.message });
-        throw error;
-    }
-};
-
-/**
- * 🏨 2. فحص السعر اللحظي (Booking API - Check Hotel Rate)
- */
-const checkHotelRate = async (groupId) => {
-    try {
-        if (!groupId) {
-            throw new Error("group_id is required for checking rate");
+        if (uniqueHotels.has(normalizedHash)) {
+            const existingHotel = uniqueHotels.get(normalizedHash);
+            
+            // مقارنة السعر الموحد بالدرهم لاختيار المورد الأرخص للعميل
+            if (hotel.priceAED < existingHotel.priceAED) {
+                logger.info(`📉 Found cheaper price for [${existingHotel.name}] via ${hotel.provider}. Updating best offer...`);
+                uniqueHotels.set(normalizedHash, hotel); 
+            } else if (hotel.priceAED === existingHotel.priceAED) {
+                // دمج الغرف لإعطاء خيارات أكثر للعميل في حال تطابق سعر الفندق
+                existingHotel.rooms = [...existingHotel.rooms, ...hotel.rooms];
+                uniqueHotels.set(normalizedHash, existingHotel);
+            }
+        } else {
+            uniqueHotels.set(normalizedHash, hotel);
         }
-
-        const payload = { group_id: groupId };
-        
-        logger.info(`Sending Rate Check Request to Dubai Link for group_id: ${groupId}`);
-
-        const response = await fetchFromDubaiLink('/checkHotelRate', 'POST', payload, true);
-        
-        logger.info(`Dubai Link Rate Check Status: ${response.response}`);
-        
-        return response; 
-
-    } catch (error) {
-        logger.error("Dubai Link Rate Check Failed", { error: error.message });
-        throw error;
-    }
-};
-
-/**
- * 🏨 3. تأكيد الحجز (Booking API - Confirm Booking)
- */
-const normalizeChildrenAges = (childrenField) => {
-    if (Array.isArray(childrenField)) {
-        return childrenField.map(Number).filter((n) => Number.isFinite(n) && n >= 0 && n <= 12);
-    }
-    const count = parseInt(childrenField, 10);
-    if (Number.isFinite(count) && count > 0) return Array(count).fill(6);
-    return [];
-};
-
-const occupancyFromGroup = (group) => {
-    const room = (group && Array.isArray(group.rooms) && group.rooms[0]) || group || {};
-    const adults = parseInt(room.adults ?? room.adults_count ?? group?.adults, 10);
-    return {
-        adults: Number.isFinite(adults) && adults > 0 ? adults : null,
-        childrenAges: normalizeChildrenAges(room.children || room.children_ages || group?.children),
-        processKey: room.process_key || room.processKey || room.id || null
-    };
-};
-
-const buildTripstickPassengers = ({ holderFirstName, holderLastName, passengers, adults, childrenAges }) => {
-    const incoming = Array.isArray(passengers) ? passengers : [];
-    let adultCount = parseInt(adults, 10);
-    if (!Number.isFinite(adultCount) || adultCount < 1) {
-        const inferredAdults = incoming.filter((p) => (p.type === 'AD') || Number(p.age) >= 13).length;
-        adultCount = Math.max(inferredAdults, 2);
-    }
-
-    const childAges = [];
-    (Array.isArray(childrenAges) ? childrenAges : []).forEach((age) => {
-        const n = Number(age);
-        if (n >= 0 && n <= 12) childAges.push(n);
-        else adultCount += 1;
     });
 
-    const mapped = incoming.map((p) => {
-        const age = Number(p.age);
-        const isChild = p.type === 'CH' || (Number.isFinite(age) && age <= 12);
-        return {
-            type: isChild ? 'CH' : 'AD',
-            title: p.title || (isChild ? 'Mstr.' : 'Mr.'),
-            first_name: p.first_name || p.firstName || holderFirstName || 'Guest',
-            last_name: p.last_name || p.lastName || holderLastName || 'Remal',
-            age: isChild ? (Number.isFinite(age) ? age : 6) : (Number.isFinite(age) && age >= 13 ? age : 30)
-        };
-    });
-
-    const adultPassengers = mapped.filter((p) => p.type === 'AD');
-    while (adultPassengers.length < adultCount) {
-        adultPassengers.push({
-            type: 'AD',
-            title: 'Mr.',
-            first_name: adultPassengers[0]?.first_name || holderFirstName || 'Guest',
-            last_name: holderLastName || 'Remal',
-            age: 30
-        });
-    }
-
-    const childPassengers = childAges.map((age, idx) => {
-        const existing = mapped.filter((p) => p.type === 'CH')[idx];
-        return existing ? { ...existing, age } : {
-            type: 'CH',
-            title: 'Mstr.',
-            first_name: `Child${idx + 1}`,
-            last_name: holderLastName || 'Remal',
-            age
-        };
-    });
-
-    return {
-        adultCount,
-        childAges,
-        passengers: [...adultPassengers.slice(0, adultCount), ...childPassengers]
-    };
-};
-
-const bookHotel = async (bookingDetails) => {
-    try {
-        const { 
-            holderTitle = "Mr.",
-            holderFirstName,
-            holderLastName,
-            holderEmail,
-            holderPhone,
-            nationality = 'AE',
-            groupId, 
-            roomId,
-            processKey, 
-            passengers = [],
-            adults,
-            childrenAges = []
-        } = bookingDetails;
-
-        const finalGroupId = groupId || roomId;
-        let liveProcessKey = processKey;
-        let occupancyAdults = adults;
-        let occupancyChildren = childrenAges;
-
-        try {
-            const rateCheck = await checkHotelRate(finalGroupId);
-            const groups = rateCheck.group_rooms || rateCheck.groupRooms || rateCheck.response?.group_rooms || [];
-            const liveOccupancy = occupancyFromGroup(groups[0]);
-            if (liveOccupancy.processKey) liveProcessKey = liveOccupancy.processKey;
-            if (liveOccupancy.adults) occupancyAdults = liveOccupancy.adults;
-            if (groups[0]) occupancyChildren = liveOccupancy.childrenAges;
-        } catch (rateErr) {
-            logger.warn('Dubai Link rate check before book failed, using client occupancy', { error: rateErr.message });
-        }
-
-        const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-        const randomId = Math.floor(10000 + Math.random() * 90000);
-        const agentReference = `AGT-${dateStr}-${randomId}`;
-
-        const built = buildTripstickPassengers({
-            holderFirstName,
-            holderLastName,
-            passengers,
-            adults: occupancyAdults,
-            childrenAges: occupancyChildren
-        });
-
-        const payload = {
-            holder: {
-                title: holderTitle,
-                firstname: holderFirstName,
-                lastname: holderLastName,
-                email: holderEmail,
-                nationality: nationality,
-                phone: holderPhone
-            },
-            agent_reference: agentReference, 
-            hotel: [
-                {
-                    group_id: finalGroupId,
-                    rooms: [
-                        {
-                            process_key: liveProcessKey,
-                            passengers: built.passengers
-                        }
-                    ]
-                }
-            ]
-        };
-
-        logger.info(`Sending Booking Request to Dubai Link for agent_reference: ${agentReference}`, {
-            adults: built.adultCount,
-            children: built.childAges.length,
-            processKey: liveProcessKey ? 'present' : 'missing'
-        });
-
-        const response = await fetchFromDubaiLink('/book', 'POST', payload, true);
-        
-        logger.info(`Dubai Link Booking Success. Booking Ref: ${response.response?.booking_reference}`);
-        
-        return response.response;
-
-    } catch (error) {
-        logger.error("Dubai Link Booking Failed", { error: error.message });
-        throw error;
-    }
-};
+    const finalList = Array.from(uniqueHotels.values());
+    logger.info(`✅ Processing Complete: Filtered down to ${finalList.length} unique, cheapest hotels across all API partners.`);
+    
+    return finalList;
+}
 
 module.exports = {
-    fetchFromDubaiLink,
-    searchAvailability,
-    checkHotelRate,
-    bookHotel
+    deduplicateHotels,
+    convertToAED,
+    normalizeHotelName,
+    normalizeRoomName, 
+    normalizeMealType  
 };
