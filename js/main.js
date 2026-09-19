@@ -221,37 +221,75 @@ window.onload = function() {
     } catch(e) { console.warn("Error in UI/Chat setup:", e); }
 };
 
-// 6. التقاط العميل العائد من بوابة الدفع Ziina
-window.addEventListener('DOMContentLoaded', () => {
+// 6. التقاط العميل العائد من بوابة الدفع Ziina لتأكيد الحجز الفعلي وإصدار التذكرة
+window.addEventListener('DOMContentLoaded', async () => {
     const urlParams = new URLSearchParams(window.location.search);
     const paymentStatus = urlParams.get('payment');
     const refCode = urlParams.get('ref');
 
-    if (paymentStatus === 'success' && refCode) {
-        // 1. إظهار رسالة نجاح أنيقة
-        if (typeof UI !== 'undefined' && UI.showToast) {
-            UI.showToast(`🎉 تم تأكيد حجزك ودفعك بنجاح! رقم المرجع: ${refCode}`);
-        } else {
-            alert(`🎉 تم تأكيد حجزك ودفعك بنجاح! رقم المرجع: ${refCode}`);
-        }
+    if (paymentStatus === 'success') {
+        // سحب بيانات الحجز المعلقة التي حفظناها قبل الذهاب للدفع
+        const pendingDataStr = localStorage.getItem('pending_reservation');
+        
+        if (pendingDataStr) {
+            const pendingData = JSON.parse(pendingDataStr);
+            const API_KEY = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e'; // مفتاح الحماية
 
-        // 2. توجيه العميل إلى صفحة "تتبع الحجز" ووضع رقم المرجع تلقائياً
-        setTimeout(() => {
-            if (typeof UI !== 'undefined' && UI.switchView) {
-                UI.switchView('lookupView');
-                const refInput = document.getElementById('lookupRef');
-                if (refInput) {
-                    refInput.value = refCode;
+            // إظهار رسالة للمستخدم أثناء التواصل مع مزود الخدمة
+            if (typeof UI !== 'undefined' && UI.showToast) {
+                UI.showToast('info', 'جاري إتمام الحجز... ⏳', 'يرجى الانتظار، جاري إصدار التذكرة من مزود الخدمة.');
+            }
+
+            try {
+                // 🚀 إرسال الطلب للسيرفر لتأكيد الحجز الفعلي مع المورد وإرسال الإيميل
+                const res = await fetch(`${API_URL}/api/v1/hotels/book`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    body: JSON.stringify(pendingData)
+                });
+                const data = await res.json();
+                
+                // مسح البيانات المؤقتة حتى لا يتم تكرار الحجز بالخطأ
+                localStorage.removeItem('pending_reservation');
+
+                if(data.success) {
+                    if (typeof UI !== 'undefined' && UI.showToast) {
+                        UI.showToast('success', 'تم الحجز بنجاح! ✈️', 'تم تأكيد حجزك وإرسال التذكرة إلى بريدك الإلكتروني.');
+                    }
+                    
+                    // تحديث بيانات المستخدم في الواجهة (لجلب النقاط والحجز الجديد)
+                    if (typeof Auth !== 'undefined') Auth.fetchUserData();
+
+                    // توجيه العميل للوحة التحكم ليرى حجزه
+                    setTimeout(() => {
+                        if (typeof UI !== 'undefined' && UI.switchView) {
+                            UI.switchView('registerView');
+                        }
+                    }, 2500);
+                } else {
+                    if (typeof UI !== 'undefined' && UI.showToast) {
+                        UI.showToast('error', 'حدث خطأ في تأكيد الحجز', data.error || 'يرجى التواصل مع خدمة العملاء وتزويدهم برقم المرجع.');
+                    }
+                }
+            } catch(e) {
+                console.error("Booking Confirmation Error:", e);
+                if (typeof UI !== 'undefined' && UI.showToast) {
+                    UI.showToast('error', 'خطأ في الاتصال', 'يرجى التواصل مع خدمة العملاء.');
                 }
             }
-        }, 1500);
-
-        // 3. تنظيف الرابط من الأعلى حتى لا تتكرر الرسالة عند تحديث الصفحة
-        window.history.replaceState({}, document.title, window.location.pathname);
+            
+            // تنظيف الرابط من الأعلى
+            window.history.replaceState({}, document.title, window.location.pathname);
+            
+        } else if (refCode) {
+            // حالة عودة العميل وتحديث الصفحة بعد إتمام الحجز مسبقاً
+            window.history.replaceState({}, document.title, window.location.pathname);
+            if (typeof Auth !== 'undefined') Auth.fetchUserData();
+        }
     } 
     else if (paymentStatus === 'cancel') {
         if (typeof UI !== 'undefined' && UI.showToast) {
-            UI.showToast('⚠️ تم إلغاء عملية الدفع. لم يتم سحب أي مبالغ.', true);
+            UI.showToast('error', 'تم الإلغاء ⚠️', 'تم إلغاء عملية الدفع. لم يتم سحب أي مبالغ.');
         }
         window.history.replaceState({}, document.title, window.location.pathname);
     }
