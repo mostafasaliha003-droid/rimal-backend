@@ -12,6 +12,8 @@ if (typeof allHotels === 'undefined' || !allHotels || allHotels.length === 0) {
     ];
 }
 
+window.lastSearchOccupancy = window.lastSearchOccupancy || { adults: 2, childrenAges: [] };
+
 const Hotels = {
     filterHotels: function() {
         try {
@@ -101,6 +103,11 @@ const Hotels = {
 
             let childrenAges = []; 
             document.querySelectorAll('.childAgeSelect').forEach(sel => childrenAges.push(parseInt(sel.value)));
+            const adultsCount = Math.max(1, parseInt(adults, 10) || 2);
+            const childrenCount = Math.max(0, parseInt(children, 10) || 0);
+            while (childrenAges.length < childrenCount) childrenAges.push(6);
+
+            window.lastSearchOccupancy = { adults: adultsCount, childrenAges };
 
             const apiKey = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
 
@@ -110,7 +117,7 @@ const Hotels = {
                     'Content-Type': 'application/json',
                     'x-api-key': apiKey 
                 },
-                body: JSON.stringify({ checkIn, checkOut, adults: parseInt(adults), children: parseInt(children), childrenAges, boardBasis, destinationCode })
+                body: JSON.stringify({ checkIn, checkOut, checkInDate: checkIn, checkOutDate: checkOut, adults: adultsCount, children: childrenCount, childrenAges, boardBasis, destinationCode })
             });
             const data = await res.json();
 
@@ -371,13 +378,18 @@ const Hotels = {
                     let urgencyTags = ["⚡ حجز سريع ومضمون", "🔥 مطلوب بشدة اليوم", "✨ خيار ذكي للمسافرين"];
                     
                     let rId = rate.rateKey || rate.group_id || room.group_id || room.roomId || "MOCK-ROOM-ID";
-                    let pKey = rate.processKey || rate.process_key || room.process_key || "";
+                    let pKey = rate.processKey || rate.process_key || room.processKey || room.process_key || "";
+                    const roomAdults = parseInt(rate.adults || room.adults, 10);
+                    const roomChildren = Array.isArray(rate.childrenAges) ? rate.childrenAges
+                        : (Array.isArray(room.childrenAges) ? room.childrenAges : null);
 
                     roomsList.push({
                         provider: provider || 'ratehawk',
                         hotelId: hotelId || '12345',
                         roomId: rId,
                         processKey: pKey,
+                        adults: Number.isFinite(roomAdults) && roomAdults > 0 ? roomAdults : undefined,
+                        childrenAges: roomChildren,
                         name: room.name || rate.name || "غرفة فندقية فاخرة", 
                         bed: room.bed || rate.bed || "سرير كينج / مزدوج", 
                         board: rate.boardName || rate.board || room.board || "شامل الوجبات",
@@ -420,6 +432,10 @@ const Hotels = {
             let cashbackAED = (room.points / 10).toFixed(0);
             let mealBadge = Hotels.getMealPlanUI(room.board);
 
+            const occupancy = (typeof window.lastSearchOccupancy !== 'undefined' && window.lastSearchOccupancy)
+                ? window.lastSearchOccupancy
+                : { adults: 2, childrenAges: [] };
+            const bookingAdults = parseInt(room.adults, 10);
             const bookingDataObj = {
                 provider: room.provider,
                 hotelId: room.hotelId,
@@ -431,7 +447,9 @@ const Hotels = {
                 board: room.board,
                 policyText: room.policyText.replace(/'/g, "\\'"),
                 paymentType: room.paymentType,
-                refundType: room.refundType
+                refundType: room.refundType,
+                adults: Number.isFinite(bookingAdults) && bookingAdults > 0 ? bookingAdults : occupancy.adults,
+                childrenAges: Array.isArray(room.childrenAges) ? room.childrenAges : occupancy.childrenAges
             };
             const bookingDataStr = JSON.stringify(bookingDataObj).replace(/"/g, '&quot;').replace(/'/g, '&#39;');
 
