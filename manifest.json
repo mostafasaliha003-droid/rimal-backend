@@ -1,0 +1,26 @@
+{
+  "name": "شركة الرمال الدولية - Remal Bookings",
+  "short_name": "الرمال",
+  "description": "منصة الحجوزات والسفر الرسمية لشركة الرمال الدولية في دبي",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1f3a40",
+  "theme_color": "#1f3a40",
+  "orientation": "portrait",
+  "dir": "rtl",
+  "lang": "ar",
+  "icons": [
+    {
+      "src": "icon-maskable.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "icon-maskable.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

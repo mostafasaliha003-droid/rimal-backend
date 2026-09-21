@@ -1,0 +1,739 @@
+require('dotenv').config(); 
+const express = require('express');
+const cors = require('cors');
+const nodemailer = require('nodemailer');
+const bcrypt = require('bcryptjs');
+const mongoose = require('mongoose');
+const path = require('path');
+const puppeteer = require('puppeteer'); 
+const fs = require('fs'); 
+const crypto = require('crypto'); 
+const http = require('http'); 
+const { Server } = require('socket.io'); 
+
+// ==========================================
+// 🧩 1. استدعاء خدمات المحرك الجديد
+// ==========================================
+const ratehawkService = require('./services/ratehawkService');
+const dubailinkService = require('./services/dubailinkService'); 
+const paymentService = require('./services/paymentService');
+const notificationService = require('./services/notificationService'); 
+const webhookService = require('./services/webhookService'); 
+const logger = require('./services/loggerService'); 
+const mappingService = require('./services/mappingService'); 
+const securityService = require('./services/securityService'); 
+
+const app = express();
+
+// 🔴 السطر السحري لحل مشكلة الـ IP الوهمي على منصة Render (مهم جداً لجدار الحماية)
+app.set('trust proxy', 1);
+
+const server = http.createServer(app);
+const io = new Server(server, { cors: { origin: "*" } });
+
+app.use(express.json());
+
+// 🛡️ تطبيق جدار الحماية العام على كل السيرفر
+app.use(securityService.globalLimiter);
+
+// ==========================================
+// 🛡️ 2. إعدادات الحماية (CORS Policy)
+// ==========================================
+const allowedOrigins = [
+    'https://remalbookings.com',
+    'https://www.remalbookings.com',
+    'http://localhost:10000',
+    'http://127.0.0.1:10000',
+    'https://rimal-api.onrender.com',
+    'https://mostafasaliha003-droid.github.io' 
+];
+
+app.use(cors({
+    origin: function (origin, callback) {
+        if (!origin || allowedOrigins.includes(origin) || origin === 'null') {
+            callback(null, true);
+        } else {
+            console.warn(`محاولة اتصال مرفوضة من النطاق: ${origin}`);
+            callback(new Error('CORS Policy: Access Denied. هذا السيرفر مخصص حصرياً لمنصة شركة الرمال الدولية.'));
+        }
+    },
+    methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    credentials: true 
+}));
+
+app.use(express.static(__dirname));
+
+// ==========================================
+// 🚀 3. إعدادات البريد وقاعدة البيانات
+// ==========================================
+const transporter = nodemailer.createTransport({
+    service: 'gmail',
+    auth: {
+        user: 'management@remaltourismllc.com',
+        pass: 'tliy arac oiob deej'
+    }
+});
+
+const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:RimalBooking2026@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
+
+const userSchema = new mongoose.Schema({
+    name: { type: String, required: true },
+    email: { type: String, required: true, unique: true, lowercase: true },
+    password: { type: String, required: true },
+    phone: String,
+    nationality: String,
+    birthYear: Number,
+    points: { type: Number, default: 500 },
+    savedCards: [{ cardHolder: String, maskedNumber: String, cardToken: String }],
+    createdAt: { type: Date, default: Date.now }
+});
+
+const bookingSchema = new mongoose.Schema({
+    bookingReference: { type: String, required: true, unique: true },
+    ziinaPaymentId: { type: String, default: '' }, 
+    supplierReference: { type: String, default: 'Pending' }, 
+    hotelConfirmationNumber: { type: String, default: '' },
+    supplierStatus: { type: String, default: 'Pending' }, 
+    provider: { type: String, default: 'ratehawk' }, 
+    email: { type: String, required: true, index: true },
+    customerName: String, 
+    phone: String, 
+    hotelName: String, 
+    roomType: String, 
+    boardType: String, 
+    price: Number, 
+    paymentMethod: String,
+    companions: String, 
+    status: { type: String, default: 'active' },
+    cancellationPolicy: { type: String, default: 'شروط المورد مطبقة' },
+    freeCancelDeadline: { type: Date }, 
+    refundType: { type: String, default: 'full_100' },
+    createdAt: { type: Date, default: Date.now }
+});
+
+const reviewSchema = new mongoose.Schema({
+    hotelName: { type: String, required: true }, customerName: { type: String, required: true },
+    email: { type: String, required: true }, rating: { type: Number, required: true, min: 1, max: 5 },
+    comment: { type: String, required: true }, createdAt: { type: Date, default: Date.now }
+});
+
+// 🌟 تعريف هيكل الفنادق المخزنة لربطها بأسعار دبي لينك
+const hotelSchema = new mongoose.Schema({
+    hotelId: { type: String, required: true, unique: true },
+    name: String,
+    address: String,
+    city: String,
+    countryCode: String,
+    stars: String,
+    latitude: String,
+    longitude: String,
+    image: String,
+    provider: { type: String, default: 'dubailink' }
+});
+
+const User = mongoose.model('User', userSchema);
+const Booking = mongoose.model('Booking', bookingSchema);
+const Review = mongoose.model('Review', reviewSchema);
+const Hotel = mongoose.model('Hotel', hotelSchema); // تفعيل الموديل
+
+let verificationCodes = {}; let passwordResetCodes = {}; let updateEmailCodes = {}; let updatePasswordCodes = {};  
+const ADMIN_EMAIL = 'management@remaltourismllc.com';
+const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
+let activeChatRooms = new Set();
+
+// ==========================================
+// 🛡️ 4. حارس الأمن (API Security Guard)
+// ==========================================
+const verifyAPIKey = (req, res, next) => {
+    const clientKey = req.headers['x-api-key'];
+    const serverKey = process.env.REMAL_SECURE_KEY; 
+    
+    if (clientKey !== serverKey) {
+        logger.warn(`Blocked unauthorized access attempt`, { ip: req.ip }); 
+        return res.status(403).json({ success: false, error: "Access Denied: Invalid API Key" });
+    }
+    next(); 
+};
+
+// ==========================================
+// 🚀 5. دوال مساعدة القديمة
+// ==========================================
+async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
+    const mailOptions = { from: '"شركة الرمال الدولية" <management@remaltourismllc.com>', to: toEmail, subject: subject, html: htmlContent };
+    if (attachmentBuffer && attachmentFilename) {
+        mailOptions.attachments = [{ filename: attachmentFilename, content: attachmentBuffer, contentType: 'application/pdf' }];
+    }
+    try { await transporter.sendMail(mailOptions); } catch (error) { console.error('❌ خطأ البريد:', error); }
+}
+
+async function sendWhatsAppNotification(toPhone, messageText) {
+    try { console.log(`📱 [WhatsApp API Mock]: رسالة لـ ${toPhone}: \n${messageText}`); return true; } catch (error) { return false; }
+}
+
+function generateHotelbedsSignature() {
+    const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
+    const secret = '3eQESu8wOA'; 
+    const timestamp = Math.floor(Date.now() / 1000);
+    const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
+    return { apiKey, signature };
+}
+
+const fetchWithTimeout = async (url, options, timeout = 65000) => {
+    const controller = new AbortController();
+    const id = setTimeout(() => controller.abort(), timeout);
+    const response = await fetch(url, { ...options, signal: controller.signal });
+    clearTimeout(id);
+    return response;
+};
+
+const sanitizeText = (str) => {
+    if (!str) return 'N/A';
+    return str.replace(/[\u{1F300}-\u{1F6FF}\u{2600}-\u{26FF}\u{2700}-\u{27BF}\u{1F900}-\u{1F9FF}]+/gu, '').trim();
+};
+
+// ==========================================
+// 💬 6. نظام الدردشة الفورية (Live Chat Socket.io)
+// ==========================================
+io.on('connection', (socket) => {
+    socket.on('join_chat', async (data) => {
+        const { referenceCode, clientName } = data;
+        try {
+            const booking = await Booking.findOne({ bookingReference: (referenceCode || '').trim(), customerName: new RegExp((clientName || '').trim(), 'i') });
+            if (booking) {
+                socket.join(referenceCode); activeChatRooms.add(referenceCode);
+                socket.emit('chat_joined', { success: true, message: 'تم التحقق من الحجز بنجاح. أهلاً بك.' });
+                io.to('admin_chat_room').emit('new_chat_room', { referenceCode, customerName: booking.customerName });
+            } else {
+                socket.emit('chat_joined', { success: false, message: 'عذراً، بيانات الحجز أو الاسم غير مطابقة.' });
+            }
+        } catch (e) { socket.emit('chat_joined', { success: false, message: 'حدث خطأ.' }); }
+    });
+
+    socket.on('admin_join', () => { socket.join('admin_chat_room'); socket.emit('active_rooms_list', Array.from(activeChatRooms)); });
+
+    socket.on('send_message', async (data) => {
+        const { referenceCode, sender, message } = data;
+        if(!referenceCode) return;
+        activeChatRooms.add(referenceCode);
+        io.to(referenceCode).emit('receive_message', { sender, message, time: new Date() });
+        io.to('admin_chat_room').emit('receive_message', { referenceCode, sender, message, time: new Date() });
+        
+        try {
+            const booking = await Booking.findOne({ bookingReference: referenceCode });
+            if (booking && sender !== 'الإدارة (Remal)') {
+                const adminChatEmailHtml = `<div dir="rtl" style="font-family:Cairo; padding:20px; background:#f0f8ff;"><h2>💬 استفسار شات جديد!</h2><p><b>مرجع:</b> ${booking.bookingReference}</p><p><b>العميل:</b> ${booking.customerName}</p><p><b>رسالة:</b> ${message}</p></div>`;
+                await sendProfessionalEmail(ADMIN_EMAIL, `استفسار شات جديد من ${booking.customerName}`, adminChatEmailHtml);
+            }
+        } catch (mailErr) {}
+    });
+});
+
+app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res) => {
+    res.type('text/plain'); res.send('7b2276657273696f6e223a312c227073704964223a2230363037433038433936323146303343413343384645434133434536373733323032343633453942384639453632433843453634413741433834423943344341222c22637265617465644f6e223a313735383739313636383133377d');
+});
+
+// ==========================================
+// 🔔 7. مسار الاستماع (Webhooks) لـ RateHawk
+// ==========================================
+app.post('/api/v1/webhooks/ratehawk', async (req, res) => {
+    // ✅ نرد فوراً بـ 200 حتى تعلم RateHawk أننا استلمنا الإشعار (المعالجة تتم لاحقاً)
+    res.status(200).json({ success: true, received: true });
+
+    const payload = req.body || {};
+    // نعالج بشكل غير متزامن بعد الرد
+    setImmediate(async () => {
+        try {
+            // 🔐 التحقق من توقيع الـ Webhook (HMAC-SHA256) — تنبيه فقط ما لم يُفعّل الوضع الصارم
+            const sig = ratehawkService.verifyWebhookSignature(payload);
+            if (!sig.verified) {
+                logger.warn(`⚠️ [WEBHOOK] Signature not verified (${sig.reason || 'mismatch'})`);
+                if (process.env.RATEHAWK_WEBHOOK_STRICT === 'true') return;
+            }
+
+            const { partnerOrderId, rawStatus, confirmed, failed } = ratehawkService.parseWebhook(payload);
+            if (!partnerOrderId) { logger.warn('⚠️ [WEBHOOK] Missing partner_order_id in payload'); return; }
+
+            const booking = await Booking.findOne({ $or: [{ supplierReference: partnerOrderId }, { bookingReference: partnerOrderId }] });
+            if (!booking) { logger.warn(`⚠️ [WEBHOOK] No matching booking for ${partnerOrderId}`); return; }
+
+            if (confirmed) {
+                booking.supplierStatus = 'CONFIRMED';
+                booking.status = 'active';
+                await booking.save();
+                logger.info(`✅ [WEBHOOK] Booking ${partnerOrderId} CONFIRMED. Issuing voucher + email...`);
+                try {
+                    const details = {
+                        hotelName: booking.hotelName,
+                        guestName: booking.customerName,
+                        customerName: booking.customerName,
+                        email: booking.email,
+                        phone: booking.phone,
+                        roomName: booking.roomType,
+                        board: booking.boardType,
+                        price: booking.price,
+                        cancellationPolicy: booking.cancellationPolicy
+                    };
+                    const pdfBuffer = await notificationService.generateVoucher(details, booking.bookingReference);
+                    await notificationService.sendEmailConfirmation(booking.email, booking.customerName, booking.bookingReference, pdfBuffer);
+                    logger.info(`📧 [WEBHOOK] Voucher emailed for ${booking.bookingReference}`);
+                } catch (mailErr) {
+                    logger.error(`❌ [WEBHOOK] Voucher/email failed for ${booking.bookingReference}`, { error: mailErr.message });
+                }
+            } else if (failed) {
+                booking.supplierStatus = 'FAILED';
+                booking.status = 'failed';
+                await booking.save();
+                // 🚨 سجل واضح لمعالجة استرداد الأموال عبر Ziina لاحقاً
+                logger.error(`🚨 [WEBHOOK][REFUND_REQUIRED] Booking ${partnerOrderId} FAILED (status="${rawStatus}"). ref=${booking.bookingReference} amount=${booking.price} AED email=${booking.email}`);
+            } else {
+                logger.info(`ℹ️ [WEBHOOK] Booking ${partnerOrderId} intermediate/unknown status: "${rawStatus}"`);
+            }
+        } catch (error) {
+            logger.error("❌ [WEBHOOK] Processing error", { error: error.message });
+        }
+    });
+});
+
+// ==========================================
+// 🚀 8. مسارات التوثيق (Auth) والمستخدمين
+// ==========================================
+app.get('/api/v1/health-check', async (req, res) => {
+    res.json({ success: true, cloudServer: 'Render Backend Active with Live Chat & Multi-Supplier Engine 🚀', timestamp: new Date() });
+});
+
+// 🩺 Health/monitoring endpoint (uptime + MongoDB connection state).
+app.get('/api/v1/health', (req, res) => {
+    const DB_STATES = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting', 99: 'uninitialized' };
+    const readyState = mongoose.connection.readyState;
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        database: DB_STATES[readyState] || 'unknown',
+        databaseState: readyState
+    });
+});
+
+app.post('/api/auth/register-send-code', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const existingUser = await User.findOne({ email });
+        if (existingUser) return res.status(400).json({ success: false, error: 'البريد مسجل مسبقاً!' });
+        
+        const code = Math.floor(100000 + Math.random() * 900000).toString();
+        verificationCodes[email] = { ...req.body, password: bcrypt.hashSync(req.body.password || '123456', 8), code, expires: Date.now() + 10 * 60000 };
+
+        await sendProfessionalEmail(email, 'رمز التحقق لتفعيل حسابك - رمال!', `<h2 dir="rtl">الكود: ${code}</h2>`);
+        res.json({ success: true, message: 'تم إرسال كود التحقق!' });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/auth/verify-and-register', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        const record = verificationCodes[email];
+        if (!record || record.code !== req.body.code || Date.now() > record.expires) return res.status(400).json({ success: false, error: 'كود غير صحيح' });
+        
+        let user = new User({ name: record.name, email, password: record.password, phone: record.phone, nationality: record.nationality, birthYear: record.birthYear, points: 500 });
+        await user.save();
+        delete verificationCodes[email];
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points } });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.post('/api/auth/login', async (req, res) => {
+    try {
+        const email = (req.body.email || '').toLowerCase().trim();
+        let user = await User.findOne({ email });
+        if (!user || !bcrypt.compareSync(req.body.password, user.password)) return res.status(400).json({ success: false, error: 'بيانات الدخول غير صحيحة' });
+        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone, savedCards: user.savedCards } });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/user/profile', async (req, res) => {
+    try {
+        const email = (req.query.email || '').toLowerCase().trim();
+        let user = await User.findOne({ email });
+        if(!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
+        let bookings = await Booking.find({ email: email }).sort({ createdAt: -1 });
+        res.json({ success: true, profile: { name: user.name, email: user.email, points: user.points, phone: user.phone, savedCards: user.savedCards }, bookings });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+// 🌍 قائمة الوجهات لقائمة البحث المنسدلة (كانت مفقودة وتُرجع 404)
+app.get('/api/v1/hotels/destinations', (req, res) => {
+    res.json({
+        success: true,
+        destinations: [
+            { code: 'DXB', name: { content: 'دبي — Dubai' } }
+        ]
+    });
+});
+
+// ==========================================
+// 🌟 9. المحرك الجديد الشامل (RateHawk + Dubai Link) مع دمج صور متعددة الخصائص
+// ==========================================
+app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    logger.info("New live secure search request received");
+    try {
+        const [rateHawkResult, dubaiLinkResult] = await Promise.allSettled([
+            ratehawkService.fetchHotelsInChunks(req.body),
+            dubailinkService.searchAvailability(req.body)
+        ]);
+
+        const rateHawkHotels = rateHawkResult.status === 'fulfilled' && rateHawkResult.value ? rateHawkResult.value : [];
+        
+        let dubaiLinkHotels = [];
+        if (dubaiLinkResult.status === 'fulfilled' && dubaiLinkResult.value) {
+            dubaiLinkHotels = Array.isArray(dubaiLinkResult.value) ? dubaiLinkResult.value : (dubaiLinkResult.value.hotelList || []);
+        }
+
+        // 🌟 الدمج السحري مع صور حقيقية غير قابلة للحظر وبخصائص متعددة
+        if (dubaiLinkHotels.length > 0) {
+            dubaiLinkHotels = await Promise.all(dubaiLinkHotels.map(async (apiHotel) => {
+                if (apiHotel && apiHotel.hotel_code) {
+                    const dbInfo = await Hotel.findOne({ hotelId: apiHotel.hotel_code.toString() });
+                    
+                    let uniqueFallbackName = apiHotel.hotel_code.toString() === '39619181' ? 'Citymax Hotel Al Barsha' : 
+                                             apiHotel.hotel_code.toString() === '38772617' ? 'Grand Excelsior Hotel' : 
+                                             `فندق دبي المميز (${apiHotel.hotel_code})`;
+
+                    let defaultImage = "https://cf.bstatic.com/xdata/images/hotel/max1024x768/33036666.jpg?k=3f4e2f819446d61688abcb51b1473db2f6afc949704dbabf3d82a1738be789f2&o=&hp=1";
+                    
+                    if (apiHotel.hotel_code.toString() === '38772617') {
+                        defaultImage = "https://cf.bstatic.com/xdata/images/hotel/max1024x768/35165972.jpg?k=c6fa07659695d3dc685511b81628178c7c73a628003f0b2fbebb9f1cd2fc151f&o=&hp=1";
+                    }
+
+                    if (dbInfo) {
+                        logger.info(`✅ DB Match Found for Hotel: ${apiHotel.hotel_code}`);
+                        apiHotel.hotel = dbInfo.name || uniqueFallbackName;
+                        apiHotel.city = dbInfo.city || 'دبي';
+                        // حقن الصورة الحقيقية إذا وجدت أو الافتراضية الموثوقة
+                        let finalImage = (dbInfo.image && dbInfo.image.startsWith('http')) ? dbInfo.image : defaultImage;
+                        apiHotel.image = finalImage;
+                        apiHotel.thumb = finalImage; // إضافة لضمان التوافق
+                        apiHotel.photo = finalImage; // إضافة لضمان التوافق
+                    } else {
+                        logger.warn(`❌ No DB Match for Hotel: ${apiHotel.hotel_code}`);
+                        apiHotel.hotel = uniqueFallbackName;
+                        apiHotel.city = 'دبي';
+                        apiHotel.image = defaultImage;
+                        apiHotel.thumb = defaultImage; // إضافة لضمان التوافق
+                        apiHotel.photo = defaultImage; // إضافة لضمان التوافق
+                    }
+                }
+                return apiHotel;
+            }));
+        }
+
+        const allRawHotels = [...rateHawkHotels, ...dubaiLinkHotels]; 
+        const cleanAndCheapestHotels = mappingService.deduplicateHotels(allRawHotels);
+
+        return res.status(200).json({ success: true, hotelsData: cleanAndCheapestHotels });
+    } catch (error) { 
+        logger.error("Search Error", { error: error.message });
+        res.status(500).json({ success: false, error: "Search Failed" }); 
+    }
+});
+
+// 🏨 HP-on-selection: full rooms/rates (bookable book_hash) for a single hotel the
+// user opened. SERP powers the listing; this powers the hotel details page.
+app.post('/api/v1/hotels/:hotelId/rates', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    try {
+        const { hotelId } = req.params;
+        const result = await ratehawkService.getHotelPricing(hotelId, req.body || {});
+        if (!result.success) {
+            return res.status(404).json({ success: false, error: result.error || 'not_found', message: 'تعذّر جلب أسعار الغرف لهذا الفندق.' });
+        }
+        return res.status(200).json({
+            success: true,
+            hotel: {
+                hotelId: result.hotelId, hid: result.hid, name: result.name,
+                image: result.image, stars: result.stars,
+                latitude: result.latitude, longitude: result.longitude
+            },
+            rooms: result.rooms
+        });
+    } catch (error) {
+        logger.error('Hotel rates (HP-on-selection) failed', { error: error.message });
+        return res.status(500).json({ success: false, error: 'rates_error', message: 'حدث خطأ أثناء جلب أسعار الغرف.' });
+    }
+});
+
+app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    const { hotelId, oldPriceAED, provider, roomId } = req.body; 
+    try {
+        let finalValidatedPrice = oldPriceAED;
+        let validatedBookHash = null;
+
+        if (provider === 'dubailink') {
+            const dlResponse = await dubailinkService.checkHotelRate(roomId); 
+            if (dlResponse.response === 'EXPIRED_OR_INVALID_GROUP_ID') return res.status(400).json({ success: false, error: 'الغرفة لم تعد متاحة.' });
+            if (dlResponse.response === 'RATE_CHANGED' && dlResponse.group_rooms.length > 0) {
+                finalValidatedPrice = mappingService.convertToAED(dlResponse.group_rooms[0].groupPrice.amount, dlResponse.group_rooms[0].groupPrice.currency);
+            }
+        } else if (provider === 'ratehawk') {
+            // 🔵 خطوة الـ Prebook: التحقق الحي من التوافر والسعر قبل توليد رابط الدفع
+            const recheckResult = await ratehawkService.recheckHotel(req.body);
+            if (!recheckResult.success) {
+                // الغرفة لم تعد متاحة (sold out / rate expired)
+                return res.status(400).json({ success: false, error: 'SOLD_OUT', message: 'عذراً، لم تعد هذه الغرفة متاحة. يرجى إعادة البحث واختيار غرفة أخرى.' });
+            }
+            finalValidatedPrice = recheckResult.finalPrice;
+            validatedBookHash = recheckResult.book_hash;
+        }
+        
+        // 🛡️ بوابة الـ 2%: ترفض أي زيادة سعر تتجاوز 2% (paymentService.validatePrice)
+        const validation = await paymentService.validatePrice(oldPriceAED, finalValidatedPrice);
+        if (!validation.success) return res.status(400).json(validation);
+
+        const paymentUrl = await paymentService.createZiinaCheckout(req.body, validation.finalPrice);
+        return res.status(200).json({ success: true, payment_url: paymentUrl, book_hash: validatedBookHash, validatedPriceAED: validation.finalPrice });
+    } catch (error) { 
+        logger.error("Recheck/Prebook failed", { error: error.message });
+        res.status(500).json({ success: false, error: "فشل التحقق" }); 
+    }
+});
+
+app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    const bookingDetails = req.body;
+    try {
+        // 🛡️ لا يُنفَّذ الحجز إلا بعد دفع ناجح (visa) أو عند اختيار الدفع في الفندق (Pay at Hotel)
+        const method = String(bookingDetails.paymentMethod || '').toLowerCase();
+        const isPayAtHotel = !['visa', 'card', 'online', 'ziina'].includes(method);
+        const paymentConfirmed = bookingDetails.paymentStatus === 'success' || bookingDetails.paymentConfirmed === true;
+        if (!isPayAtHotel && !paymentConfirmed) {
+            return res.status(402).json({ success: false, error: 'PAYMENT_REQUIRED', message: 'لا يمكن تأكيد الحجز قبل إتمام عملية الدفع.' });
+        }
+
+        let finalHCN;
+        let supplierReference = 'Pending';
+        let supplierStatus = 'Pending';
+
+        if (bookingDetails.provider === 'dubailink') {
+            finalHCN = (await dubailinkService.bookHotel(bookingDetails)).booking_reference; 
+            supplierReference = finalHCN || 'Pending';
+            supplierStatus = 'Confirmed';
+        } else {
+            // 🔵 RateHawk: Create + Start + Check (polling) للحجز.
+            // - دفع بالبطاقة: نستخدم الـ book_hash المُثبَّت مسبقاً في مسار recheck-and-pay (لا نكرر الـ Prebook بعد الدفع).
+            // - الدفع في الفندق: لا يوجد Prebook سابق، لذا نُثبّت السعر الآن قبل الحجز.
+            let bookHashToUse = bookingDetails.book_hash;
+            if (!bookHashToUse) {
+                const pre = await ratehawkService.recheckHotel(bookingDetails);
+                if (!pre.success) {
+                    return res.status(400).json({ success: false, error: 'SOLD_OUT', message: 'عذراً، لم تعد هذه الغرفة متاحة للحجز.' });
+                }
+                bookHashToUse = pre.book_hash;
+            }
+            const booking = await ratehawkService.bookHotel({ ...bookingDetails, book_hash: bookHashToUse });
+            if (!booking.success) {
+                return res.status(400).json({ success: false, error: booking.status || 'BOOKING_FAILED', message: 'تعذر تأكيد الحجز لدى المورد. لم يتم خصم أي مبلغ من طرفنا.' });
+            }
+            finalHCN = booking.hcn;                               // partner_order_id (مرجعنا)
+            supplierReference = booking.hcn;
+            supplierStatus = booking.status === 'confirmed' ? 'CONFIRMED' : 'PROCESSING';
+        }
+
+        // 🔴 تحديث لحفظ كل بيانات الحجز لتوليد PDF لاحقاً بشكل سليم
+        const newBooking = new Booking({ 
+            bookingReference: finalHCN || ('RML-' + Date.now()), 
+            supplierReference: supplierReference || 'Pending', 
+            supplierStatus: supplierStatus,
+            provider: bookingDetails.provider || 'ratehawk',
+            hotelName: bookingDetails.hotelName || 'Unknown Hotel', 
+            customerName: bookingDetails.guestName || bookingDetails.customerName || "ضيفنا", 
+            email: bookingDetails.email || bookingDetails.holderEmail || "customer@example.com", 
+            phone: bookingDetails.phone || bookingDetails.holderPhone || "",
+            roomType: bookingDetails.roomName || 'غرفة قياسية',
+            boardType: bookingDetails.board || 'RO',
+            cancellationPolicy: bookingDetails.cancellationPolicy || bookingDetails.policyText || 'شروط المورد مطبقة',
+            status: 'active', 
+            price: bookingDetails.price || 0
+        });
+        await newBooking.save();
+
+        const pdfBuffer = await notificationService.generateVoucher(bookingDetails, finalHCN);
+        await notificationService.sendEmailConfirmation(newBooking.email, newBooking.customerName, finalHCN, pdfBuffer);
+
+        return res.status(200).json({ success: true, hcn: finalHCN, supplierStatus });
+    } catch (error) { 
+        logger.error("Booking Failed", { error: error.message });
+        res.status(500).json({ success: false, error: "Booking Failed" }); 
+    }
+});
+
+// ==========================================
+// 🚀 10. مسارات تحميل الـ PDF و التقييمات والإدارة
+// ==========================================
+app.get('/api/bookings/pdf/:reference', async (req, res) => {
+    let browser;
+    try {
+        const booking = await Booking.findOne({ bookingReference: req.params.reference });
+        if(!booking) return res.status(404).send('Booking not found');
+
+        let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
+        
+        let cleanHotelName = sanitizeText(booking.hotelName);
+
+        // 🔴 تعبئة كافة الحقول المطلوبة في القالب الفاخر
+        voucherHtml = voucherHtml
+            .replace(/{{bookingReference}}/g, booking.bookingReference)
+            .replace(/{{hotelName}}/g, cleanHotelName)
+            .replace(/{{encodedHotelName}}/g, encodeURIComponent(cleanHotelName))
+            .replace('{{customerName}}', booking.customerName || 'N/A')
+            .replace('{{customerPhone}}', booking.phone || 'N/A')
+            .replace('{{customerEmail}}', booking.email || 'N/A')
+            .replace('{{roomBed}}', booking.roomType || 'غرفة فندقية')
+            .replace('{{boardType}}', booking.boardType || 'N/A')
+            .replace('{{price}}', booking.price)
+            .replace('{{policyText}}', sanitizeText(booking.cancellationPolicy));
+
+        browser = await puppeteer.launch({ 
+            headless: true, 
+            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
+            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
+        });
+        
+        const page = await browser.newPage();
+        await page.setContent(voucherHtml, { waitUntil: 'networkidle0' });
+
+        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' } });
+        res.setHeader('Content-Type', 'application/pdf');
+        res.setHeader('Content-Disposition', `inline; filename=Rimal-Voucher-${booking.bookingReference}.pdf`);
+        res.send(pdfBuffer);
+    } catch (e) { 
+        res.status(500).send('Error generating PDF'); 
+    } finally { 
+        if (browser) await browser.close(); 
+    }
+});
+
+app.post('/api/v1/reviews/create', async (req, res) => {
+    try {
+        const { email, customerName, hotelName, rating, comment } = req.body;
+        const newReview = new Review({ hotelName, customerName, email: email.toLowerCase().trim(), rating: Number(rating), comment });
+        await newReview.save();
+        res.status(201).json({ success: true, message: 'تم الإضافة بنجاح!' });
+    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
+});
+
+app.get('/api/v1/admin/stats', async (req, res) => {
+    try {
+        const totalBookings = await Booking.countDocuments();
+        const activeBookings = await Booking.countDocuments({ status: 'active' });
+        res.json({ success: true, stats: { totalBookings, activeBookings } });
+    } catch (error) { res.status(500).json({ success: false }); }
+});
+
+// 📊 مراقبة حدود RateHawk API الحية (Rate Limits) — لفريق العمليات
+app.get('/api/v1/admin/ratehawk-limits', verifyAPIKey, async (req, res) => {
+    try {
+        // Array of { endpoint, is_active, is_limited, requests_number, seconds_number }
+        const limits = await ratehawkService.getApiOverview();
+        return res.json({ success: true, count: limits.length, limits });
+    } catch (error) {
+        logger.error('RateHawk overview (rate limits) failed', { error: error.message });
+        return res.status(502).json({ success: false, error: 'overview_failed', message: error.message });
+    }
+});
+
+// ==========================================
+// 🛑 مسار إلغاء الحجز (RateHawk order/cancel + تحديث قاعدة البيانات)
+// ==========================================
+app.get('/api/v1/bookings/:partnerOrderId/info', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    try {
+        const result = await ratehawkService.getOrderInfo(req.params.partnerOrderId);
+        if (!result.success) return res.status(502).json(result);
+        return res.status(200).json(result);
+    } catch (error) {
+        logger.error('Order info route failed', { error: error.message });
+        return res.status(500).json({ success: false, error: 'ORDER_INFO_ERROR' });
+    }
+});
+
+app.post('/api/v1/bookings/:partnerOrderId/cancel', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    try {
+        const result = await ratehawkService.cancelOrder(req.params.partnerOrderId);
+        if (!result.success) return res.status(400).json(result);
+        return res.status(200).json(result);
+    } catch (error) {
+        logger.error('Order cancellation route failed', { error: error.message });
+        return res.status(500).json({ success: false, error: 'CANCEL_ERROR' });
+    }
+});
+
+app.post('/api/v1/bookings/cancel', async (req, res) => {
+    try {
+        const ref = req.body.bookingId || req.body.bookingReference || req.body.reference;
+        if (!ref) return res.status(400).json({ success: false, error: 'MISSING_REFERENCE', message: 'رقم مرجع الحجز مطلوب.' });
+
+        const booking = await Booking.findOne({ $or: [{ bookingReference: ref }, { supplierReference: ref }] });
+        if (!booking) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'الحجز غير موجود.' });
+        if (booking.status === 'cancelled') {
+            return res.status(200).json({ success: true, alreadyCancelled: true, message: 'الحجز ملغى مسبقاً.' });
+        }
+
+        const provider = booking.provider || 'ratehawk';
+        let amountRefunded = null;
+
+        if (provider === 'ratehawk') {
+            // partner_order_id هو مرجعنا المخزَّن في supplierReference/bookingReference
+            const partnerOrderId = booking.supplierReference || booking.bookingReference;
+            const result = await ratehawkService.cancelBooking(partnerOrderId, 0);
+            if (!result.success) {
+                logger.warn(`Cancellation rejected by RateHawk for ${partnerOrderId}: ${result.error}`);
+                return res.status(400).json({ success: false, error: result.error || 'CANCEL_FAILED', message: 'تعذّر إلغاء الحجز لدى المورد. قد تكون سياسة الإلغاء غير مسموحة.' });
+            }
+            amountRefunded = result.amountRefunded;
+        }
+        // ملاحظة: مورّدون آخرون (dubailink) يُحدَّثون في قاعدة البيانات فقط حالياً
+
+        booking.status = 'cancelled';
+        booking.supplierStatus = 'CANCELLED';
+        await booking.save();
+
+        logger.info(`🛑 Booking ${booking.bookingReference} cancelled (provider=${provider}).`);
+        return res.status(200).json({
+            success: true,
+            message: 'تم إلغاء الحجز بنجاح.',
+            bookingReference: booking.bookingReference,
+            amountRefunded
+        });
+    } catch (error) {
+        logger.error('Cancel booking failed', { error: error.message });
+        return res.status(500).json({ success: false, error: 'CANCEL_ERROR', message: 'حدث خطأ أثناء إلغاء الحجز.' });
+    }
+});
+
+app.get('/admin', (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
+
+// ==========================================
+// 🚀 11. تشغيل السيرفر المدمج
+// ==========================================
+const PORT = process.env.PORT || 10000;
+
+// 🚀 ابدأ سيرفر HTTP فورًا حتى لا يسقط الموقع بالكامل إذا تأخّر اتصال قاعدة البيانات.
+// (سابقًا كان server.listen داخل mongoose.connect().then فيؤدي فشل الاتصال إلى توقّف الموقع كليًا.)
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`========================================`);
+    console.log(`🚀 السيرفر المدمج يعمل على المنفذ ${PORT} مع دعم Live Chat`);
+    console.log(`🌐 Multi-Supplier Engine (RateHawk + Dubai Link) is Active`);
+    console.log(`🛡️  API Security Guard & Rate Limiters are Armed`);
+});
+
+// 🔗 الاتصال بقاعدة البيانات في الخلفية مع إعادة محاولة تلقائية (لا يمنع تشغيل السيرفر).
+async function connectMongoWithRetry(attempt = 1) {
+    try {
+        await mongoose.connect(MONGO_URI);
+        console.log(`✅ MongoDB Database Connected Successfully!`);
+    } catch (error) {
+        const delay = Math.min(30000, 2000 * attempt);
+        console.error(`❌ MongoDB connection failed (attempt ${attempt}): ${error.message}. Retrying in ${delay / 1000}s...`);
+        setTimeout(() => connectMongoWithRetry(attempt + 1), delay);
+    }
+}
+mongoose.connection.on('disconnected', () => console.warn('⚠️ MongoDB disconnected.'));
+mongoose.connection.on('reconnected', () => console.log('✅ MongoDB reconnected.'));
+connectMongoWithRetry();
