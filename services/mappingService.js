@@ -57,6 +57,123 @@ function normalizeMealType(mealString) {
     return "RO"; 
 }
 
+function isObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function displayValue(value) {
+    if (value === null || value === undefined || value === '') return null;
+    if (typeof value === 'boolean') return value ? 'Yes' : 'No';
+    if (typeof value === 'object') return null;
+    return String(value).replace(/_/g, ' ').replace(/\s+/g, ' ').trim();
+}
+
+function displayPrice(value, currency) {
+    if (isObject(value)) {
+        currency = value.currency || currency;
+        value = value.amount ?? value.price;
+    }
+    const price = displayValue(value);
+    if (!price) return null;
+    return `${price}${currency ? ` ${currency}` : ''}`;
+}
+
+function metapolicyEntries(value) {
+    if (Array.isArray(value)) return value.filter(item => item !== null && item !== undefined);
+    if (isObject(value)) return Object.keys(value).length ? [value] : [];
+    return displayValue(value) ? [value] : [];
+}
+
+function makeMetapolicyRule(type, title, source, fields) {
+    const details = {};
+    const parts = [];
+
+    fields.forEach(([key, label, formatter]) => {
+        const value = source && source[key];
+        const formatted = formatter ? formatter(value, source) : displayValue(value);
+        if (formatted === null || formatted === undefined || formatted === '') return;
+        details[key] = value;
+        parts.push(`${label}: ${formatted}`);
+    });
+
+    if (typeof source === 'string' || typeof source === 'number' || typeof source === 'boolean') {
+        parts.push(displayValue(source));
+    }
+    if (!parts.length) return null;
+
+    return { type, title, text: parts.join('; '), details };
+}
+
+/**
+ * Convert ETG's nullable metapolicy_struct into rules that can be rendered as-is.
+ * The parser keeps the source values in details while providing text for simple rendering.
+ */
+function parseMetapolicy(metapolicyStruct) {
+    if (!isObject(metapolicyStruct)) return [];
+
+    const rules = [];
+    const addRules = (key, title, fields) => {
+        const entries = metapolicyEntries(metapolicyStruct[key]);
+        entries.forEach((entry, index) => {
+            const ruleTitle = entries.length > 1 ? `${title} ${index + 1}` : title;
+            const rule = makeMetapolicyRule(key, ruleTitle, entry, fields);
+            if (rule) rules.push(rule);
+        });
+    };
+    const price = (value, source) => displayPrice(value, source && source.currency);
+
+    addRules('deposit', 'Deposit', [
+        ['availability', 'Availability'], ['type', 'Type'], ['payment_type', 'Payment'],
+        ['pricing_method', 'Pricing'], ['price', 'Price', price], ['currency', 'Currency']
+    ]);
+    addRules('internet', 'Internet', [
+        ['type', 'Type'], ['inclusion', 'Inclusion'], ['price', 'Price', price]
+    ]);
+    addRules('meal', 'Meal', [
+        ['type', 'Type'], ['inclusion', 'Inclusion'], ['price', 'Price', price],
+        ['age_start', 'Age from'], ['age_end', 'Age to']
+    ]);
+    addRules('children_meal', "Children's meal", [
+        ['type', 'Type'], ['inclusion', 'Inclusion'], ['price', 'Price', price],
+        ['age_start', 'Age from'], ['age_end', 'Age to']
+    ]);
+    addRules('extra_bed', 'Extra bed', [
+        ['amount', 'Amount'], ['inclusion', 'Inclusion'], ['price', 'Price', price]
+    ]);
+    addRules('cot', 'Cot', [
+        ['amount', 'Amount'], ['inclusion', 'Inclusion'], ['price', 'Price', price]
+    ]);
+    addRules('children', 'Children', [
+        ['amount', 'Amount'], ['inclusion', 'Inclusion'], ['price', 'Price', price]
+    ]);
+    addRules('pets', 'Pets', [
+        ['pets_type', 'Pets type'], ['inclusion', 'Inclusion'], ['price', 'Price', price]
+    ]);
+    addRules('parking', 'Parking', [
+        ['type', 'Type'], ['inclusion', 'Inclusion'], ['price', 'Price', price]
+    ]);
+    addRules('shuttle', 'Shuttle', [
+        ['type', 'Type'], ['inclusion', 'Inclusion'], ['price', 'Price', price]
+    ]);
+    addRules('visa', 'Visa', [
+        ['type', 'Type'], ['inclusion', 'Inclusion'], ['price', 'Price', price]
+    ]);
+    addRules('no_show', 'No-show', [
+        ['availability', 'Availability'], ['type', 'Type'], ['price', 'Price', price],
+        ['currency', 'Currency']
+    ]);
+    addRules('add_fee', 'Additional fee', [
+        ['type', 'Type'], ['inclusion', 'Inclusion'], ['price', 'Price', price],
+        ['currency', 'Currency']
+    ]);
+    addRules('check_in_check_out', 'Check-in / check-out', [
+        ['check_in', 'Check-in'], ['check_out', 'Check-out'], ['early_check_in', 'Early check-in'],
+        ['late_check_out', 'Late check-out'], ['price', 'Price', price], ['currency', 'Currency']
+    ]);
+
+    return rules;
+}
+
 // ==========================================
 // 🔄 2. محول البيانات الشامل (Universal Data Adapter)
 // ==========================================
@@ -70,6 +187,7 @@ function standardizeHotelData(rawHotel) {
         lat: rawHotel.lat || rawHotel.latitude || 25.2048,
         lng: rawHotel.lng || rawHotel.longitude || 55.2708,
         image: rawHotel.image || rawHotel.img || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",
+        metapolicy: parseMetapolicy(rawHotel.metapolicy_struct || rawHotel.metapolicy),
         rooms: []
     };
 
@@ -233,5 +351,7 @@ module.exports = {
     convertToAED,
     normalizeHotelName,
     normalizeRoomName, 
-    normalizeMealType  
+    normalizeMealType,
+    parseMetapolicy,
+    MetapolicyParser: parseMetapolicy
 };

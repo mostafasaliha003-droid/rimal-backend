@@ -273,6 +273,7 @@ async function searchAvailability(rawParams = {}) {
             city: d.city || 'دبي',
             latitude: d.latitude || '',
             longitude: d.longitude || '',
+            metapolicy_struct: d.staticData && d.staticData.metapolicy_struct,
             rates: h.rates || [],
             provider: 'ratehawk'
         };
@@ -296,7 +297,13 @@ async function getHotelPricing(hotelId, searchParams = {}) {
         if (!res.ok) return { success: false, error: res.error || 'hp_failed', rooms: [] };
         const hotel = res.data && res.data.hotels && res.data.hotels[0];
         if (!hotel) return { success: false, error: 'not_found', rooms: [] };
-        entry = { rates: hotel.rates || [], id: hotel.id, hid: hotel.hid, expires: Date.now() + HP_CACHE_TTL_MS };
+        entry = {
+            rates: hotel.rates || [],
+            metapolicy_struct: hotel.metapolicy_struct || hotel.metapolicy || null,
+            id: hotel.id,
+            hid: hotel.hid,
+            expires: Date.now() + HP_CACHE_TTL_MS
+        };
         hpCache.set(key, entry);
     }
 
@@ -316,6 +323,8 @@ async function getHotelPricing(hotelId, searchParams = {}) {
         city: (doc && doc.city) || 'دبي',
         latitude: (doc && doc.latitude) || '',
         longitude: (doc && doc.longitude) || '',
+        metapolicy_struct: entry.metapolicy_struct
+            || (doc && doc.staticData && doc.staticData.metapolicy_struct),
         rates: entry.rates || [],
         provider: 'ratehawk'
     };
@@ -329,6 +338,7 @@ async function getHotelPricing(hotelId, searchParams = {}) {
         stars: raw.stars,
         latitude: raw.latitude,
         longitude: raw.longitude,
+        metapolicy: (mapped && mapped.metapolicy) || [],
         rooms: (mapped && mapped.rooms) || []
     };
 }

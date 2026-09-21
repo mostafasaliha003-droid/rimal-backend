@@ -450,7 +450,8 @@ app.post('/api/v1/hotels/:hotelId/rates', verifyAPIKey, securityService.searchLi
             hotel: {
                 hotelId: result.hotelId, hid: result.hid, name: result.name,
                 image: result.image, stars: result.stars,
-                latitude: result.latitude, longitude: result.longitude
+                latitude: result.latitude, longitude: result.longitude,
+                metapolicy: result.metapolicy || []
             },
             rooms: result.rooms
         });
