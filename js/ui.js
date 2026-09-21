@@ -117,14 +117,22 @@ const UI = {
         const dest = document.getElementById('destinationSelect');
         const adults = document.getElementById('adultsInput');
         if(dest && adults) {
-            document.getElementById('mobileSearchSummaryDest').innerText = dest.options[dest.selectedIndex].text;
-            document.getElementById('mobileSearchSummaryDetails').innerText = `البحث المخصص • ${adults.value} ضيوف`;
+            const destSummary = document.getElementById('mobileSearchSummaryDest');
+            // #destinationSelect is a hidden <input> (custom dropdown), not a <select>,
+            // so guard .options and fall back to data-name/value.
+            if (destSummary) {
+                destSummary.innerText = (dest.options && dest.selectedIndex >= 0 && dest.options[dest.selectedIndex])
+                    ? dest.options[dest.selectedIndex].text
+                    : ((dest.getAttribute && dest.getAttribute('data-name')) || dest.value || 'دبي');
+            }
+            const detailsSummary = document.getElementById('mobileSearchSummaryDetails');
+            if (detailsSummary) detailsSummary.innerText = `البحث المخصص • ${adults.value} ضيوف`;
         }
     },
 
     updateBoardText: function(selectEl) {
         const displayEl = document.getElementById('selectedBoardText');
-        if (selectEl && displayEl && selectEl.options[selectEl.selectedIndex]) {
+        if (selectEl && displayEl && selectEl.options && selectEl.options[selectEl.selectedIndex]) {
             displayEl.innerText = selectEl.options[selectEl.selectedIndex].text;
         }
     },

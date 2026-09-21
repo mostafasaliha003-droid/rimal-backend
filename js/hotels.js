@@ -94,10 +94,17 @@ const Hotels = {
             const query = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
             const destinationSelect = document.getElementById('destinationSelect');
             const destinationCode = destinationSelect ? destinationSelect.value : 'DXB';
-            // Send the human city name too, so the backend can resolve the RateHawk region
-            // via multicomplete when the code (e.g. DXB) isn't directly mappable.
-            const _destOpt = destinationSelect ? destinationSelect.options[destinationSelect.selectedIndex] : null;
-            const destinationName = _destOpt ? (_destOpt.getAttribute('data-name') || '') : '';
+            // Optional human city name (helps the backend resolve the RateHawk region).
+            // NOTE: #destinationSelect is a hidden <input> here (custom dropdown), NOT a
+            // native <select>, so we must NOT assume .options/.selectedIndex exist.
+            let destinationName = '';
+            if (destinationSelect) {
+                if (destinationSelect.options && destinationSelect.selectedIndex >= 0 && destinationSelect.options[destinationSelect.selectedIndex]) {
+                    destinationName = destinationSelect.options[destinationSelect.selectedIndex].getAttribute('data-name') || '';
+                } else if (typeof destinationSelect.getAttribute === 'function') {
+                    destinationName = destinationSelect.getAttribute('data-name') || '';
+                }
+            }
             const checkIn = document.getElementById('checkInDate') ? document.getElementById('checkInDate').value : '';
             const checkOut = document.getElementById('checkOutDate') ? document.getElementById('checkOutDate').value : '';
             const adults = document.getElementById('adultsInput') ? document.getElementById('adultsInput').value : 2;
