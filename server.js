@@ -364,6 +364,7 @@ app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.booking
     const { hotelId, oldPriceAED, provider, roomId } = req.body; 
     try {
         let finalValidatedPrice = oldPriceAED;
+        let validatedBookHash = null;
 
         if (provider === 'dubailink') {
             const dlResponse = await dubailinkService.checkHotelRate(roomId); 
@@ -372,32 +373,73 @@ app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.booking
                 finalValidatedPrice = mappingService.convertToAED(dlResponse.group_rooms[0].groupPrice.amount, dlResponse.group_rooms[0].groupPrice.currency);
             }
         } else if (provider === 'ratehawk') {
+            // 🔵 خطوة الـ Prebook: التحقق الحي من التوافر والسعر قبل توليد رابط الدفع
             const recheckResult = await ratehawkService.recheckHotel(req.body);
+            if (!recheckResult.success) {
+                // الغرفة لم تعد متاحة (sold out / rate expired)
+                return res.status(400).json({ success: false, error: 'SOLD_OUT', message: 'عذراً، لم تعد هذه الغرفة متاحة. يرجى إعادة البحث واختيار غرفة أخرى.' });
+            }
             finalValidatedPrice = recheckResult.finalPrice;
+            validatedBookHash = recheckResult.book_hash;
         }
         
+        // 🛡️ بوابة الـ 2%: ترفض أي زيادة سعر تتجاوز 2% (paymentService.validatePrice)
         const validation = await paymentService.validatePrice(oldPriceAED, finalValidatedPrice);
         if (!validation.success) return res.status(400).json(validation);
 
         const paymentUrl = await paymentService.createZiinaCheckout(req.body, validation.finalPrice);
-        return res.status(200).json({ success: true, payment_url: paymentUrl });
-    } catch (error) { res.status(500).json({ success: false, error: "فشل التحقق" }); }
+        return res.status(200).json({ success: true, payment_url: paymentUrl, book_hash: validatedBookHash, validatedPriceAED: validation.finalPrice });
+    } catch (error) { 
+        logger.error("Recheck/Prebook failed", { error: error.message });
+        res.status(500).json({ success: false, error: "فشل التحقق" }); 
+    }
 });
 
 app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
     const bookingDetails = req.body;
     try {
+        // 🛡️ لا يُنفَّذ الحجز إلا بعد دفع ناجح (visa) أو عند اختيار الدفع في الفندق (Pay at Hotel)
+        const method = String(bookingDetails.paymentMethod || '').toLowerCase();
+        const isPayAtHotel = !['visa', 'card', 'online', 'ziina'].includes(method);
+        const paymentConfirmed = bookingDetails.paymentStatus === 'success' || bookingDetails.paymentConfirmed === true;
+        if (!isPayAtHotel && !paymentConfirmed) {
+            return res.status(402).json({ success: false, error: 'PAYMENT_REQUIRED', message: 'لا يمكن تأكيد الحجز قبل إتمام عملية الدفع.' });
+        }
+
         let finalHCN;
+        let supplierReference = 'Pending';
+        let supplierStatus = 'Pending';
+
         if (bookingDetails.provider === 'dubailink') {
             finalHCN = (await dubailinkService.bookHotel(bookingDetails)).booking_reference; 
+            supplierReference = finalHCN || 'Pending';
+            supplierStatus = 'Confirmed';
         } else {
-            finalHCN = (await ratehawkService.bookHotel(bookingDetails)).hcn;
+            // 🔵 RateHawk: Create + Start + Check (polling) للحجز.
+            // - دفع بالبطاقة: نستخدم الـ book_hash المُثبَّت مسبقاً في مسار recheck-and-pay (لا نكرر الـ Prebook بعد الدفع).
+            // - الدفع في الفندق: لا يوجد Prebook سابق، لذا نُثبّت السعر الآن قبل الحجز.
+            let bookHashToUse = bookingDetails.book_hash;
+            if (!bookHashToUse) {
+                const pre = await ratehawkService.recheckHotel(bookingDetails);
+                if (!pre.success) {
+                    return res.status(400).json({ success: false, error: 'SOLD_OUT', message: 'عذراً، لم تعد هذه الغرفة متاحة للحجز.' });
+                }
+                bookHashToUse = pre.book_hash;
+            }
+            const booking = await ratehawkService.bookHotel({ ...bookingDetails, book_hash: bookHashToUse });
+            if (!booking.success) {
+                return res.status(400).json({ success: false, error: booking.status || 'BOOKING_FAILED', message: 'تعذر تأكيد الحجز لدى المورد. لم يتم خصم أي مبلغ من طرفنا.' });
+            }
+            finalHCN = booking.hcn;                               // partner_order_id (مرجعنا)
+            supplierReference = booking.hcn;
+            supplierStatus = booking.status === 'confirmed' ? 'CONFIRMED' : 'PROCESSING';
         }
 
         // 🔴 تحديث لحفظ كل بيانات الحجز لتوليد PDF لاحقاً بشكل سليم
         const newBooking = new Booking({ 
             bookingReference: finalHCN || ('RML-' + Date.now()), 
-            supplierReference: finalHCN || 'Pending', 
+            supplierReference: supplierReference || 'Pending', 
+            supplierStatus: supplierStatus,
             hotelName: bookingDetails.hotelName || 'Unknown Hotel', 
             customerName: bookingDetails.guestName || bookingDetails.customerName || "ضيفنا", 
             email: bookingDetails.email || bookingDetails.holderEmail || "customer@example.com", 
@@ -413,8 +455,11 @@ app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, as
         const pdfBuffer = await notificationService.generateVoucher(bookingDetails, finalHCN);
         await notificationService.sendEmailConfirmation(newBooking.email, newBooking.customerName, finalHCN, pdfBuffer);
 
-        return res.status(200).json({ success: true, hcn: finalHCN });
-    } catch (error) { res.status(500).json({ success: false, error: "Booking Failed" }); }
+        return res.status(200).json({ success: true, hcn: finalHCN, supplierStatus });
+    } catch (error) { 
+        logger.error("Booking Failed", { error: error.message });
+        res.status(500).json({ success: false, error: "Booking Failed" }); 
+    }
 });
 
 // ==========================================
