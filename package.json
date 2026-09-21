@@ -4,7 +4,8 @@
   "description": "Rimal International Booking System",
   "main": "server.js",
   "scripts": {
-    "start": "node server.js"
+    "start": "node server.js",
+    "sync:filtered-hotels": "node syncFilteredHotels.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.4",

@@ -289,6 +289,8 @@ const contractInfo = () => call('get', '/api/b2b/v3/general/contract/data/info/'
 // ---- Static / content data (Content API) -----------------------------------
 const hotelStatic = () => call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
 const filterValues = () => call('get', '/api/content/v1/filter_values/');
+const hotelIds = (data = {}) => call('get', '/api/content/v1/hotel/ids', { data, timeout: 60000 });
+const hotelContent = (data) => call('post', '/api/content/v1/hotel/content', { data, timeout: 60000 });
 const hotelIdsByFilter = (data) => call('get', '/api/content/v1/hotel_ids_by_filter/', { data });
 const hotelContentByIds = (data) => call('post', '/api/content/v1/hotel_content_by_ids/', { data, timeout: 60000 });
 const hotelInfo = (data) => call('post', '/api/b2b/v3/hotel/info/', { data });
@@ -323,6 +325,8 @@ module.exports = {
     contractInfo,
     hotelStatic,
     filterValues,
+    hotelIds,
+    hotelContent,
     hotelIdsByFilter,
     hotelContentByIds,
     hotelInfo,
