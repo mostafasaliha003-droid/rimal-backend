@@ -668,16 +668,26 @@ app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); }
 // ==========================================
 const PORT = process.env.PORT || 10000;
 
-mongoose.connect(MONGO_URI)
-    .then(() => {
-        console.log(`========================================`);
+// 🚀 ابدأ سيرفر HTTP فورًا حتى لا يسقط الموقع بالكامل إذا تأخّر اتصال قاعدة البيانات.
+// (سابقًا كان server.listen داخل mongoose.connect().then فيؤدي فشل الاتصال إلى توقّف الموقع كليًا.)
+server.listen(PORT, '0.0.0.0', () => {
+    console.log(`========================================`);
+    console.log(`🚀 السيرفر المدمج يعمل على المنفذ ${PORT} مع دعم Live Chat`);
+    console.log(`🌐 Multi-Supplier Engine (RateHawk + Dubai Link) is Active`);
+    console.log(`🛡️  API Security Guard & Rate Limiters are Armed`);
+});
+
+// 🔗 الاتصال بقاعدة البيانات في الخلفية مع إعادة محاولة تلقائية (لا يمنع تشغيل السيرفر).
+async function connectMongoWithRetry(attempt = 1) {
+    try {
+        await mongoose.connect(MONGO_URI);
         console.log(`✅ MongoDB Database Connected Successfully!`);
-        server.listen(PORT, '0.0.0.0', () => { 
-            console.log(`🚀 السيرفر المدمج يعمل على المنفذ ${PORT} مع دعم Live Chat`);
-            console.log(`🌐 Multi-Supplier Engine (RateHawk + Dubai Link) is Active`);
-            console.log(`🛡️  API Security Guard & Rate Limiters are Armed`); 
-        });
-    })
-    .catch((error) => {
-        console.error(`❌ CRITICAL ERROR: MongoDB Connection Failed!`, error.message);
-    });
+    } catch (error) {
+        const delay = Math.min(30000, 2000 * attempt);
+        console.error(`❌ MongoDB connection failed (attempt ${attempt}): ${error.message}. Retrying in ${delay / 1000}s...`);
+        setTimeout(() => connectMongoWithRetry(attempt + 1), delay);
+    }
+}
+mongoose.connection.on('disconnected', () => console.warn('⚠️ MongoDB disconnected.'));
+mongoose.connection.on('reconnected', () => console.log('✅ MongoDB reconnected.'));
+connectMongoWithRetry();
