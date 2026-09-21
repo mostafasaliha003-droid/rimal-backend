@@ -94,6 +94,10 @@ const Hotels = {
             const query = document.getElementById('searchInput') ? document.getElementById('searchInput').value : '';
             const destinationSelect = document.getElementById('destinationSelect');
             const destinationCode = destinationSelect ? destinationSelect.value : 'DXB';
+            // Send the human city name too, so the backend can resolve the RateHawk region
+            // via multicomplete when the code (e.g. DXB) isn't directly mappable.
+            const _destOpt = destinationSelect ? destinationSelect.options[destinationSelect.selectedIndex] : null;
+            const destinationName = _destOpt ? (_destOpt.getAttribute('data-name') || '') : '';
             const checkIn = document.getElementById('checkInDate') ? document.getElementById('checkInDate').value : '';
             const checkOut = document.getElementById('checkOutDate') ? document.getElementById('checkOutDate').value : '';
             const adults = document.getElementById('adultsInput') ? document.getElementById('adultsInput').value : 2;
@@ -117,7 +121,7 @@ const Hotels = {
                     'Content-Type': 'application/json',
                     'x-api-key': apiKey 
                 },
-                body: JSON.stringify({ checkIn, checkOut, checkInDate: checkIn, checkOutDate: checkOut, adults: adultsCount, children: childrenCount, childrenAges, boardBasis, destinationCode })
+                body: JSON.stringify({ checkIn, checkOut, checkInDate: checkIn, checkOutDate: checkOut, adults: adultsCount, children: childrenCount, childrenAges, boardBasis, destinationCode, destinationName, query })
             });
             const data = await res.json();
 

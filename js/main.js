@@ -45,7 +45,9 @@ window.fetchLiveDestinations = async function() {
                 select.innerHTML = '';
                 data.destinations.forEach(dest => {
                     let name = dest.name && dest.name.content ? dest.name.content : dest.code;
-                    select.innerHTML += `<option value="${dest.code}">${name} (${dest.code}) 📍</option>`;
+                    // data-name lets the search send the human city name so RateHawk can
+                    // resolve the region via multicomplete (the code alone, e.g. DXB, cannot).
+                    select.innerHTML += `<option value="${dest.code}" data-name="${name}">${name} (${dest.code}) 📍</option>`;
                 });
             }
         }

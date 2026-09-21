@@ -34,6 +34,24 @@ function buildReturnPath() {
     return `https://${host}${path}`;
 }
 
+// The frontend sends the app's `destinationCode` (e.g. "DXB"), which is NOT an ETG
+// region id and does NOT resolve via multicomplete (only city NAMES like "Dubai" do).
+// Map codes -> ETG region ids here. Region ids differ between sandbox and production,
+// so override via RATEHAWK_DESTINATION_REGION_MAP (JSON) and/or RATEHAWK_DEFAULT_REGION_ID.
+const DESTINATION_REGION_MAP = (() => {
+    const base = { DXB: 6053839 }; // Dubai (sandbox); set the production id via env
+    let merged = { ...base };
+    try {
+        if (process.env.RATEHAWK_DESTINATION_REGION_MAP) {
+            merged = { ...merged, ...JSON.parse(process.env.RATEHAWK_DESTINATION_REGION_MAP) };
+        }
+    } catch (e) { logger.warn('Invalid RATEHAWK_DESTINATION_REGION_MAP JSON; ignoring'); }
+    const out = {};
+    for (const k of Object.keys(merged)) out[String(k).toUpperCase()] = Number(merged[k]);
+    return out;
+})();
+const DEFAULT_REGION_ID = Number(process.env.RATEHAWK_DEFAULT_REGION_ID) || null;
+
 // Access the shared Hotel model (registered by server.js / syncRatehawkHotels.js).
 // Defined lazily so requiring this module never fails if the model isn't set up yet.
 function getHotelModel() {
@@ -88,6 +106,30 @@ async function resolveRegionId(query, language = 'en') {
     if (!res.ok) return null;
     const regions = (res.data && res.data.regions) || [];
     return regions.length ? regions[0].id : null;
+}
+
+// Resolve the ETG region id for a search request from whatever the app sends.
+// Order: explicit region_id -> numeric/mapped destinationCode -> name via multicomplete
+//        -> configured default region (RATEHAWK_DEFAULT_REGION_ID).
+async function resolveRegionForSearch(p = {}, language = 'en') {
+    const explicit = Number(p.region_id);
+    if (explicit) return explicit;
+
+    const code = String(p.destinationCode || p.destination_code || '').trim();
+    if (code) {
+        if (/^\d+$/.test(code)) return Number(code);                 // already a region id
+        if (DESTINATION_REGION_MAP[code.toUpperCase()]) return DESTINATION_REGION_MAP[code.toUpperCase()];
+    }
+
+    // Free-text destination name (avoid wasting a multicomplete on short codes like "DXB").
+    const looksLikeCode = /^[A-Za-z0-9]{2,4}$/.test(code);
+    const name = p.destination || p.destinationName || p.query || (code && !looksLikeCode ? code : '');
+    if (name) {
+        const viaName = await resolveRegionId(name, language);
+        if (viaName) return viaName;
+    }
+
+    return DEFAULT_REGION_ID || null;
 }
 
 // Run async tasks with bounded concurrency.
@@ -160,14 +202,13 @@ async function searchAvailability(rawParams = {}) {
     } else if (rawParams.latitude && rawParams.longitude) {
         res = await client.serpGeo({ ...params, latitude: Number(rawParams.latitude), longitude: Number(rawParams.longitude), radius: rawParams.radius || 5000, hotels_limit: rawParams.hotels_limit || 30 });
     } else {
-        // region search: accept a numeric region_id, a numeric destinationCode,
-        // or a free-text destination name (resolved via multicomplete).
-        let regionId = Number(rawParams.region_id) || Number(rawParams.destinationCode) || null;
+        // region search: resolve region_id from region_id / destinationCode (map) /
+        // destination name (multicomplete) / configured default region.
+        const regionId = await resolveRegionForSearch(rawParams, params.language);
         if (!regionId) {
-            regionId = await resolveRegionId(rawParams.destination || rawParams.destinationName || rawParams.query || rawParams.destinationCode, params.language);
-        }
-        if (!regionId) {
-            logger.warn('RateHawk search skipped: could not resolve a region (region_id / destination)');
+            logger.warn(`RateHawk search skipped: could not resolve a region ` +
+                `(region_id/destinationCode="${rawParams.destinationCode || ''}"). ` +
+                `Set RATEHAWK_DEFAULT_REGION_ID or RATEHAWK_DESTINATION_REGION_MAP, or send a destination name.`);
             return [];
         }
         res = await client.serpRegion({ ...params, region_id: regionId, hotels_limit: rawParams.hotels_limit || 30 });
