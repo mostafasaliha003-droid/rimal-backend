@@ -93,6 +93,7 @@ const bookingSchema = new mongoose.Schema({
     ziinaPaymentId: { type: String, default: '' }, 
     supplierReference: { type: String, default: 'Pending' }, 
     supplierStatus: { type: String, default: 'Pending' }, 
+    provider: { type: String, default: 'ratehawk' }, 
     email: { type: String, required: true, index: true },
     customerName: String, 
     phone: String, 
@@ -234,11 +235,62 @@ app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res)
 // 🔔 7. مسار الاستماع (Webhooks) لـ RateHawk
 // ==========================================
 app.post('/api/v1/webhooks/ratehawk', async (req, res) => {
-    res.status(200).send("Webhook Received"); 
-    try {
-        await webhookService.handleRateHawkWebhook(req.body);
-        logger.info("Webhook processed successfully"); 
-    } catch (error) { logger.error("Webhook error", { error: error.message }); }
+    // ✅ نرد فوراً بـ 200 حتى تعلم RateHawk أننا استلمنا الإشعار (المعالجة تتم لاحقاً)
+    res.status(200).json({ success: true, received: true });
+
+    const payload = req.body || {};
+    // نعالج بشكل غير متزامن بعد الرد
+    setImmediate(async () => {
+        try {
+            // 🔐 التحقق من توقيع الـ Webhook (HMAC-SHA256) — تنبيه فقط ما لم يُفعّل الوضع الصارم
+            const sig = ratehawkService.verifyWebhookSignature(payload);
+            if (!sig.verified) {
+                logger.warn(`⚠️ [WEBHOOK] Signature not verified (${sig.reason || 'mismatch'})`);
+                if (process.env.RATEHAWK_WEBHOOK_STRICT === 'true') return;
+            }
+
+            const { partnerOrderId, rawStatus, confirmed, failed } = ratehawkService.parseWebhook(payload);
+            if (!partnerOrderId) { logger.warn('⚠️ [WEBHOOK] Missing partner_order_id in payload'); return; }
+
+            const booking = await Booking.findOne({ $or: [{ supplierReference: partnerOrderId }, { bookingReference: partnerOrderId }] });
+            if (!booking) { logger.warn(`⚠️ [WEBHOOK] No matching booking for ${partnerOrderId}`); return; }
+
+            if (confirmed) {
+                booking.supplierStatus = 'CONFIRMED';
+                booking.status = 'active';
+                await booking.save();
+                logger.info(`✅ [WEBHOOK] Booking ${partnerOrderId} CONFIRMED. Issuing voucher + email...`);
+                try {
+                    const details = {
+                        hotelName: booking.hotelName,
+                        guestName: booking.customerName,
+                        customerName: booking.customerName,
+                        email: booking.email,
+                        phone: booking.phone,
+                        roomName: booking.roomType,
+                        board: booking.boardType,
+                        price: booking.price,
+                        cancellationPolicy: booking.cancellationPolicy
+                    };
+                    const pdfBuffer = await notificationService.generateVoucher(details, booking.bookingReference);
+                    await notificationService.sendEmailConfirmation(booking.email, booking.customerName, booking.bookingReference, pdfBuffer);
+                    logger.info(`📧 [WEBHOOK] Voucher emailed for ${booking.bookingReference}`);
+                } catch (mailErr) {
+                    logger.error(`❌ [WEBHOOK] Voucher/email failed for ${booking.bookingReference}`, { error: mailErr.message });
+                }
+            } else if (failed) {
+                booking.supplierStatus = 'FAILED';
+                booking.status = 'failed';
+                await booking.save();
+                // 🚨 سجل واضح لمعالجة استرداد الأموال عبر Ziina لاحقاً
+                logger.error(`🚨 [WEBHOOK][REFUND_REQUIRED] Booking ${partnerOrderId} FAILED (status="${rawStatus}"). ref=${booking.bookingReference} amount=${booking.price} AED email=${booking.email}`);
+            } else {
+                logger.info(`ℹ️ [WEBHOOK] Booking ${partnerOrderId} intermediate/unknown status: "${rawStatus}"`);
+            }
+        } catch (error) {
+            logger.error("❌ [WEBHOOK] Processing error", { error: error.message });
+        }
+    });
 });
 
 // ==========================================
@@ -440,6 +492,7 @@ app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, as
             bookingReference: finalHCN || ('RML-' + Date.now()), 
             supplierReference: supplierReference || 'Pending', 
             supplierStatus: supplierStatus,
+            provider: bookingDetails.provider || 'ratehawk',
             hotelName: bookingDetails.hotelName || 'Unknown Hotel', 
             customerName: bookingDetails.guestName || bookingDetails.customerName || "ضيفنا", 
             email: bookingDetails.email || bookingDetails.holderEmail || "customer@example.com", 
@@ -523,6 +576,52 @@ app.get('/api/v1/admin/stats', async (req, res) => {
         const activeBookings = await Booking.countDocuments({ status: 'active' });
         res.json({ success: true, stats: { totalBookings, activeBookings } });
     } catch (error) { res.status(500).json({ success: false }); }
+});
+
+// ==========================================
+// 🛑 مسار إلغاء الحجز (RateHawk order/cancel + تحديث قاعدة البيانات)
+// ==========================================
+app.post('/api/v1/bookings/cancel', async (req, res) => {
+    try {
+        const ref = req.body.bookingId || req.body.bookingReference || req.body.reference;
+        if (!ref) return res.status(400).json({ success: false, error: 'MISSING_REFERENCE', message: 'رقم مرجع الحجز مطلوب.' });
+
+        const booking = await Booking.findOne({ $or: [{ bookingReference: ref }, { supplierReference: ref }] });
+        if (!booking) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'الحجز غير موجود.' });
+        if (booking.status === 'cancelled') {
+            return res.status(200).json({ success: true, alreadyCancelled: true, message: 'الحجز ملغى مسبقاً.' });
+        }
+
+        const provider = booking.provider || 'ratehawk';
+        let amountRefunded = null;
+
+        if (provider === 'ratehawk') {
+            // partner_order_id هو مرجعنا المخزَّن في supplierReference/bookingReference
+            const partnerOrderId = booking.supplierReference || booking.bookingReference;
+            const result = await ratehawkService.cancelBooking(partnerOrderId, 0);
+            if (!result.success) {
+                logger.warn(`Cancellation rejected by RateHawk for ${partnerOrderId}: ${result.error}`);
+                return res.status(400).json({ success: false, error: result.error || 'CANCEL_FAILED', message: 'تعذّر إلغاء الحجز لدى المورد. قد تكون سياسة الإلغاء غير مسموحة.' });
+            }
+            amountRefunded = result.amountRefunded;
+        }
+        // ملاحظة: مورّدون آخرون (dubailink) يُحدَّثون في قاعدة البيانات فقط حالياً
+
+        booking.status = 'cancelled';
+        booking.supplierStatus = 'CANCELLED';
+        await booking.save();
+
+        logger.info(`🛑 Booking ${booking.bookingReference} cancelled (provider=${provider}).`);
+        return res.status(200).json({
+            success: true,
+            message: 'تم إلغاء الحجز بنجاح.',
+            bookingReference: booking.bookingReference,
+            amountRefunded
+        });
+    } catch (error) {
+        logger.error('Cancel booking failed', { error: error.message });
+        return res.status(500).json({ success: false, error: 'CANCEL_ERROR', message: 'حدث خطأ أثناء إلغاء الحجز.' });
+    }
 });
 
 app.get('/admin', (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
