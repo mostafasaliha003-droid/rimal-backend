@@ -181,7 +181,7 @@ function isTransient(envelope, err) {
  * Non-transient ETG errors (e.g. rate_not_found, soldout) are returned to the caller,
  * not thrown, so callers can branch on `envelope.error`.
  */
-async function call(method, path, { data, timeout, retries = 2, backoff = 800 } = {}) {
+async function call(method, path, { data, timeout, retries = 2, backoff = 800, rateLimitRetry = true } = {}) {
     let attempt = 0;
     let rlAttempt = 0; // separate budget for HTTP 429 (rate limit) retries
     // total attempts = retries + 1
@@ -191,7 +191,12 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800 } 
             const envelope = await callOnce(method, path, { data, timeout });
 
             // HTTP 429: honor the rate limit — sleep until X-RateLimit-Reset, then retry.
+            // Callers that must stay fast (e.g. best-effort search enrichment) pass
+            // rateLimitRetry:false to get the 429 envelope back immediately instead.
             if (envelope.httpStatus === 429) {
+                if (rateLimitRetry === false) {
+                    return envelope;
+                }
                 if (rlAttempt < MAX_429_RETRIES) {
                     rlAttempt += 1;
                     const waitMs = rateLimitWaitMs(envelope.rateLimit);
@@ -266,7 +271,7 @@ const multicomplete = (data) => call('post', '/api/b2b/v3/search/multicomplete/'
 const serpRegion = (data) => call('post', '/api/b2b/v3/search/serp/region/', { data, timeout: 30000 });
 const serpHotels = (data) => call('post', '/api/b2b/v3/search/serp/hotels/', { data, timeout: 30000 });
 const serpGeo = (data) => call('post', '/api/b2b/v3/search/serp/geo/', { data, timeout: 30000 });
-const hotelPage = (data) => call('post', '/api/b2b/v3/search/hp/', { data, timeout: 30000 });
+const hotelPage = (data, opts = {}) => call('post', '/api/b2b/v3/search/hp/', { data, timeout: 30000, ...opts });
 
 // ---- Prebook ----------------------------------------------------------------
 const prebook = (data) => call('post', '/api/b2b/v3/hotel/prebook/', { data, timeout: 30000, retries: 1 });

@@ -70,10 +70,20 @@ const BOOK_WAIT_MS = parseInt(process.env.RATEHAWK_BOOK_WAIT_MS || '90000', 10);
 const BOOK_POLL_INTERVAL_MS = parseInt(process.env.RATEHAWK_BOOK_POLL_MS || '3000', 10);
 
 // Hotelpage enrichment during search. SERP only returns match_hash; a bookable
-// book_hash requires a hotelpage (hp) call per hotel. hp is rate-limited
-// (~10/min), so we only enrich the top N hotels of a region result.
-const HP_LIMIT = parseInt(process.env.RATEHAWK_HP_LIMIT || '8', 10);
-const HP_CONCURRENCY = parseInt(process.env.RATEHAWK_HP_CONCURRENCY || '3', 10);
+// book_hash requires a hotelpage (hp) call per hotel. hp is strictly rate-limited
+// (~10/min), so per-search hp fan-out must be self-limiting to avoid 429 storms:
+//   - enrich at most HP_LIMIT hotels, sequentially;
+//   - never sleep on a 429 (rateLimitRetry:false) — fall back to serp rates;
+//   - stop as soon as the hp quota is exhausted;
+//   - cache hp results briefly so repeated searches don't re-hit hp.
+const HP_LIMIT = parseInt(process.env.RATEHAWK_HP_LIMIT || '6', 10);
+const HP_CACHE_TTL_MS = parseInt(process.env.RATEHAWK_HP_CACHE_TTL_MS || '600000', 10); // 10 min
+const HP_REMAINING_SAFETY = parseInt(process.env.RATEHAWK_HP_REMAINING_SAFETY || '1', 10);
+const hpCache = new Map(); // key -> { rates, expires }
+
+function hpCacheKey(hid, p) {
+    return `${hid}|${p.checkin}|${p.checkout}|${p.residency}|${p.currency}|${JSON.stringify(p.guests)}`;
+}
 
 // Booking status errors that are final (stop polling immediately).
 const FINAL_STATUS_ERRORS = new Set([
@@ -132,19 +142,6 @@ async function resolveRegionForSearch(p = {}, language = 'en') {
     return DEFAULT_REGION_ID || null;
 }
 
-// Run async tasks with bounded concurrency.
-async function mapWithConcurrency(items, limit, worker) {
-    const out = [];
-    let i = 0;
-    const runners = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
-        while (i < items.length) {
-            const idx = i++;
-            out[idx] = await worker(items[idx], idx);
-        }
-    });
-    await Promise.all(runners);
-    return out;
-}
 
 function rateToAED(rate) {
     const pt = rate && rate.payment_options && rate.payment_options.payment_types && rate.payment_options.payment_types[0];
@@ -223,20 +220,47 @@ async function searchAvailability(rawParams = {}) {
     if (!serpHotels.length) return [];
 
     // 2b. Hotelpage step — SERP rates only carry match_hash; a bookable book_hash
-    // requires hp per hotel. Enrich the top N hotels so returned rooms are bookable.
-    const enrichCount = Math.min(HP_LIMIT, serpHotels.length);
-    const targets = serpHotels.slice(0, enrichCount);
-
-    const hpResults = await mapWithConcurrency(targets, HP_CONCURRENCY, async (h) => {
-        try {
-            const page = await client.hotelPage({ ...params, hid: h.hid });
-            const hotel = page.ok && page.data && page.data.hotels && page.data.hotels[0];
-            const rates = (hotel && hotel.rates) || [];
-            return { hid: h.hid, id: h.id, rates: rates.length ? rates : (h.rates || []) };
-        } catch (e) {
-            return { hid: h.hid, id: h.id, rates: h.rates || [] };
+    // requires hp per hotel. Enrich the top N hotels SEQUENTIALLY, using a short-lived
+    // cache, never sleeping on 429, and bailing as soon as the hp quota is exhausted.
+    const targets = serpHotels.slice(0, Math.min(HP_LIMIT, serpHotels.length));
+    const hpResults = [];
+    let hpExhausted = false;
+    let enrichedCount = 0;
+    for (const h of targets) {
+        let rates = h.rates || [];
+        const key = hpCacheKey(h.hid, params);
+        const cached = hpCache.get(key);
+        if (cached && cached.expires > Date.now()) {
+            rates = cached.rates;
+            enrichedCount++;
+        } else if (!hpExhausted && h.hid) {
+            try {
+                // rateLimitRetry:false -> a 429 returns immediately (no 16s sleep).
+                const page = await client.hotelPage({ ...params, hid: h.hid }, { rateLimitRetry: false });
+                if (page.httpStatus === 429) {
+                    hpExhausted = true; // quota gone — stop firing hp for the rest of this search
+                } else if (page.ok && page.data && page.data.hotels && page.data.hotels[0]) {
+                    const hpRates = page.data.hotels[0].rates || [];
+                    if (hpRates.length) {
+                        rates = hpRates;
+                        enrichedCount++;
+                        hpCache.set(key, { rates, expires: Date.now() + HP_CACHE_TTL_MS });
+                    }
+                    // Proactively stop before we run the quota to zero.
+                    const remaining = page.rateLimit && page.rateLimit.remaining;
+                    if (remaining !== null && remaining !== undefined && remaining <= HP_REMAINING_SAFETY) {
+                        hpExhausted = true;
+                    }
+                }
+            } catch (e) {
+                // hp failed (e.g. transient/invalid) — keep serp rates for this hotel.
+            }
         }
-    });
+        hpResults.push({ hid: h.hid, id: h.id, rates });
+    }
+    if (hpExhausted) {
+        logger.warn(`RateHawk search: hotelpage quota reached — enriched ${enrichedCount}/${targets.length} hotels with book_hash; the rest use SERP rates (book on selection).`);
+    }
 
     // Hydrate static content (name / image / stars / lat / lng) from our local
     // MongoDB Hotel cache (populated by syncRatehawkHotels.js). SERP/HP return only
