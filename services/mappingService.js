@@ -66,6 +66,7 @@ function standardizeHotelData(rawHotel) {
         hotelId: "",
         name: "",
         city: rawHotel.city || rawHotel.destinationName || "دبي",
+        stars: rawHotel.stars || rawHotel.star_rating || "",
         lat: rawHotel.lat || rawHotel.latitude || 25.2048,
         lng: rawHotel.lng || rawHotel.longitude || 55.2708,
         image: rawHotel.image || rawHotel.img || "https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=600&q=80",

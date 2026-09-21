@@ -9,9 +9,26 @@
 //   fetchOrderDetails, cancelBooking
 
 const crypto = require('crypto');
+const mongoose = require('mongoose');
 const client = require('./ratehawkClient');
 const mappingService = require('./mappingService');
 const logger = require('./loggerService');
+
+// Fallback name for hotels not yet present in our local static-content cache.
+const FALLBACK_HOTEL_NAME = 'فندق شريك لرمال وفلّها';
+
+// Access the shared Hotel model (registered by server.js / syncRatehawkHotels.js).
+// Defined lazily so requiring this module never fails if the model isn't set up yet.
+function getHotelModel() {
+    if (mongoose.models.Hotel) return mongoose.models.Hotel;
+    const hotelSchema = new mongoose.Schema({
+        hotelId: { type: String, required: true, unique: true },
+        name: String, address: String, city: String, countryCode: String,
+        stars: String, latitude: String, longitude: String, image: String,
+        provider: { type: String, default: 'dubailink' }
+    });
+    return mongoose.model('Hotel', hotelSchema);
+}
 
 // How long bookHotel() will poll booking/finish/status before returning "processing".
 const BOOK_WAIT_MS = parseInt(process.env.RATEHAWK_BOOK_WAIT_MS || '90000', 10);
@@ -148,27 +165,31 @@ async function searchAvailability(rawParams = {}) {
         }
     });
 
-    // Names / images from Content API (best-effort; ideally cached on our side).
-    let contentMap = {};
+    // Hydrate static content (name / image / stars / lat / lng) from our local
+    // MongoDB Hotel cache (populated by syncRatehawkHotels.js). SERP/HP return only
+    // IDs + live pricing, so static data is blended in from our synced collection.
+    let dbMap = {};
     try {
-        const content = await getHotelsContent([], targets.map(h => h.hid).filter(Boolean), params.language);
-        content.forEach(c => {
-            const img = (c.images && c.images[0]) || (c.images_ext && c.images_ext[0] && c.images_ext[0].url) || '';
-            const entry = { name: c.name, image: img ? img.replace('{size}', '640x400') : '' };
-            if (c.id) contentMap[c.id] = entry;
-            if (c.hid) contentMap[c.hid] = entry;
-        });
+        const Hotel = getHotelModel();
+        const idList = hpResults.map(h => h.id).filter(Boolean);
+        const docs = await Hotel.find({ hotelId: { $in: idList } }).lean();
+        docs.forEach(d => { dbMap[d.hotelId] = d; });
+        logger.info(`RateHawk search: hydrated ${docs.length}/${idList.length} hotels from local DB cache`);
     } catch (e) {
-        logger.warn('RateHawk content enrichment skipped', { error: e.message });
+        logger.warn('RateHawk DB hydration skipped', { error: e.message });
     }
 
     return hpResults.map(h => {
-        const c = contentMap[h.id] || contentMap[h.hid] || {};
+        const d = dbMap[h.id] || {};
         return {
             id: h.id,
             hid: h.hid,
-            name: c.name || h.id,
-            image: c.image || '',
+            name: d.name || FALLBACK_HOTEL_NAME,
+            image: d.image || '',
+            stars: d.stars || '',
+            city: d.city || 'دبي',
+            latitude: d.latitude || '',
+            longitude: d.longitude || '',
             rates: h.rates || [],
             provider: 'ratehawk'
         };
