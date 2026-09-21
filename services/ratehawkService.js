@@ -99,10 +99,15 @@ function rateToAED(rate) {
 }
 
 // ---- Account / monitoring ---------------------------------------------------
-// Returns the current API key's rate-limit overview (allowed endpoints + limits),
-// via GET /overview/ using the configured BASE_URL and Basic auth headers.
+// GET /overview/ (via the configured BASE_URL + Basic auth) and parse the response
+// into the array of endpoint limits: { endpoint, is_active, is_limited,
+// requests_number, seconds_number }. Throws on API failure so callers can 502.
 async function getApiOverview() {
-    return client.overview();
+    const res = await client.overview();
+    if (!res.ok) {
+        throw new Error(`RateHawk overview failed: ${res.error || 'HTTP ' + res.httpStatus}`);
+    }
+    return Array.isArray(res.data) ? res.data : [];
 }
 
 // ---- Step 1: Static / content ----------------------------------------------

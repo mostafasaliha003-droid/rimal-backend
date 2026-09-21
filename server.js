@@ -581,18 +581,12 @@ app.get('/api/v1/admin/stats', async (req, res) => {
 // 📊 مراقبة حدود RateHawk API الحية (Rate Limits) — لفريق العمليات
 app.get('/api/v1/admin/ratehawk-limits', verifyAPIKey, async (req, res) => {
     try {
-        const overview = await ratehawkService.getApiOverview();
-        if (!overview.ok) {
-            return res.status(502).json({ success: false, error: overview.error || 'overview_failed' });
-        }
-        return res.json({
-            success: true,
-            keyId: overview.debug && overview.debug.key_id,
-            endpoints: overview.data
-        });
+        // Array of { endpoint, is_active, is_limited, requests_number, seconds_number }
+        const limits = await ratehawkService.getApiOverview();
+        return res.json({ success: true, count: limits.length, limits });
     } catch (error) {
         logger.error('RateHawk overview (rate limits) failed', { error: error.message });
-        return res.status(500).json({ success: false, error: 'overview_error' });
+        return res.status(502).json({ success: false, error: 'overview_failed', message: error.message });
     }
 });
 

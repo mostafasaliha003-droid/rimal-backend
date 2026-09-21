@@ -111,9 +111,13 @@ async function callOnce(method, path, { data, timeout } = {}) {
     };
 
     if (method.toLowerCase() === 'get') {
-        // ETG GET endpoints accept a JSON payload via the `data` query parameter.
-        if (data !== undefined) config.params = { data: JSON.stringify(data) };
+        // ETG rule: for GET requests, the payload MUST be JSON-stringified and appended
+        // to the URL as a single query parameter named `data`, e.g.
+        //   GET .../api/b2b/v3/hotel/info/?data={"id":"...","language":"en"}
+        // (axios URL-encodes the value.) GETs without a payload send no query string.
+        if (data !== undefined && data !== null) config.params = { data: JSON.stringify(data) };
     } else {
+        // POST: send the JSON payload naturally in the request body.
         config.data = data || {};
     }
 
