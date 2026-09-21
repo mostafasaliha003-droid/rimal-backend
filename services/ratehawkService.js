@@ -98,6 +98,13 @@ function rateToAED(rate) {
     return mappingService.convertToAED(amount, currency);
 }
 
+// ---- Account / monitoring ---------------------------------------------------
+// Returns the current API key's rate-limit overview (allowed endpoints + limits),
+// via GET /overview/ using the configured BASE_URL and Basic auth headers.
+async function getApiOverview() {
+    return client.overview();
+}
+
 // ---- Step 1: Static / content ----------------------------------------------
 const getHotelStatic = () => client.hotelStatic();
 const getFilterValues = () => client.filterValues();
@@ -464,6 +471,7 @@ module.exports = {
     // low-level client (exposed for advanced use / testing)
     client,
     RATEHAWK_TEST_HOTEL_ID,
+    getApiOverview,
     // Step 1 - static/content
     getHotelStatic,
     getFilterValues,

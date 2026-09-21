@@ -578,6 +578,24 @@ app.get('/api/v1/admin/stats', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false }); }
 });
 
+// 📊 مراقبة حدود RateHawk API الحية (Rate Limits) — لفريق العمليات
+app.get('/api/v1/admin/ratehawk-limits', verifyAPIKey, async (req, res) => {
+    try {
+        const overview = await ratehawkService.getApiOverview();
+        if (!overview.ok) {
+            return res.status(502).json({ success: false, error: overview.error || 'overview_failed' });
+        }
+        return res.json({
+            success: true,
+            keyId: overview.debug && overview.debug.key_id,
+            endpoints: overview.data
+        });
+    } catch (error) {
+        logger.error('RateHawk overview (rate limits) failed', { error: error.message });
+        return res.status(500).json({ success: false, error: 'overview_error' });
+    }
+});
+
 // ==========================================
 // 🛑 مسار إلغاء الحجز (RateHawk order/cancel + تحديث قاعدة البيانات)
 // ==========================================
