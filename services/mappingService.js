@@ -120,7 +120,7 @@ function standardizeHotelData(rawHotel) {
             const currencyCode = rate.payment_options?.payment_types?.[0]?.currency_code || rate.currency || 'AED';
 
             standardHotel.rooms.push({
-                roomId: rate.match_hash || rate.book_hash, // RateKey
+                roomId: rate.book_hash || rate.match_hash, // RateKey (book_hash is required for prebook/booking)
                 processKey: '', // RateHawk doesn't need processKey
                 name: rate.room_name || rate.name || "Standard Room",
                 board: normalizeMealType(rate.meal),
