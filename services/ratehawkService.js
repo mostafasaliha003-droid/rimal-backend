@@ -287,15 +287,36 @@ async function bookHotel(details = {}) {
     const bookHash = details.book_hash || details.hash || details.rateKey || details.roomId;
     if (!bookHash) throw new Error('RateHawk bookHotel: missing book_hash');
 
-    const partnerOrderId = details.partner_order_id || ('RML-' + Date.now() + '-' + Math.floor(Math.random() * 1000));
     const language = details.language || 'en';
     const userIp = details.user_ip || '203.0.113.10';
 
-    // 4a. Create booking process (booking form)
-    const form = await client.bookingForm({ book_hash: bookHash, language, partner_order_id: partnerOrderId, user_ip: userIp });
-    if (!form.ok) {
-        logger.error('RateHawk booking/form failed', { error: form.error });
-        throw new Error(`Booking form failed: ${form.error || 'unknown'}`);
+    const newOrderId = () => 'RML-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
+    // Errors that require retrying the booking form with a NEW partner_order_id (ETG retry logic).
+    const RETRYABLE_FORM = new Set(['double_booking_form', 'duplicate_reservation', 'unknown', 'timeout']);
+
+    // 4a. Create booking process (booking form) — retry with a new partner_order_id on transient errors (max 5).
+    let form = null;
+    let partnerOrderId = details.partner_order_id || newOrderId();
+    for (let attempt = 0; attempt < 5; attempt++) {
+        if (attempt > 0) partnerOrderId = newOrderId();
+        try {
+            form = await client.bookingForm({ book_hash: bookHash, language, partner_order_id: partnerOrderId, user_ip: userIp });
+        } catch (e) {
+            logger.warn(`RateHawk booking/form transient (${e.message}); retrying with a new partner_order_id`);
+            form = null;
+            continue;
+        }
+        if (form.ok) break;
+        if (RETRYABLE_FORM.has(form.error) && attempt < 4) {
+            logger.warn(`RateHawk booking/form error "${form.error}"; retrying with a new partner_order_id`);
+            continue;
+        }
+        break; // non-retryable error
+    }
+    if (!form || !form.ok) {
+        const err = (form && form.error) || 'timeout';
+        logger.error('RateHawk booking/form failed', { error: err });
+        throw new Error(`Booking form failed: ${err}`);
     }
     const paymentType = (form.data.payment_types || [])[0];
     if (!paymentType) throw new Error('RateHawk booking/form returned no payment types');

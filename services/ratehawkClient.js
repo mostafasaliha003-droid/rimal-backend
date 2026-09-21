@@ -133,7 +133,9 @@ const prebook = (data) => call('post', '/api/b2b/v3/hotel/prebook/', { data, tim
 const prebookFromSerp = (data) => call('post', '/api/b2b/v3/serp/prebook/', { data, timeout: 30000, retries: 1 });
 
 // ---- Booking ----------------------------------------------------------------
-const bookingForm = (data) => call('post', '/api/b2b/v3/hotel/order/booking/form/', { data, timeout: 30000 });
+// No blind retry: ETG requires retrying booking/form with a NEW partner_order_id
+// (handled by the service layer), otherwise you get double_booking_form.
+const bookingForm = (data) => call('post', '/api/b2b/v3/hotel/order/booking/form/', { data, timeout: 30000, retries: 0 });
 const bookingFinish = (data) => call('post', '/api/b2b/v3/hotel/order/booking/finish/', { data, timeout: 60000, retries: 0 });
 const bookingFinishStatus = (data) => call('post', '/api/b2b/v3/hotel/order/booking/finish/status/', { data, timeout: 30000, retries: 0 });
 
