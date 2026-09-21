@@ -98,6 +98,18 @@ function rateToAED(rate) {
     return mappingService.convertToAED(amount, currency);
 }
 
+// ---- Account / monitoring ---------------------------------------------------
+// GET /overview/ (via the configured BASE_URL + Basic auth) and parse the response
+// into the array of endpoint limits: { endpoint, is_active, is_limited,
+// requests_number, seconds_number }. Throws on API failure so callers can 502.
+async function getApiOverview() {
+    const res = await client.overview();
+    if (!res.ok) {
+        throw new Error(`RateHawk overview failed: ${res.error || 'HTTP ' + res.httpStatus}`);
+    }
+    return Array.isArray(res.data) ? res.data : [];
+}
+
 // ---- Step 1: Static / content ----------------------------------------------
 const getHotelStatic = () => client.hotelStatic();
 const getFilterValues = () => client.filterValues();
@@ -464,6 +476,7 @@ module.exports = {
     // low-level client (exposed for advanced use / testing)
     client,
     RATEHAWK_TEST_HOTEL_ID,
+    getApiOverview,
     // Step 1 - static/content
     getHotelStatic,
     getFilterValues,
