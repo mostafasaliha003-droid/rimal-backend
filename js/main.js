@@ -255,7 +255,7 @@ window.onload = function() {
                 const res = await fetch(`${baseApiUrl}/api/v1/hotels/book`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
-                    body: JSON.stringify(pendingData)
+                    body: JSON.stringify({ ...pendingData, paymentStatus: 'success', paymentRef: refCode })
                 });
                 
                 const data = await res.json();

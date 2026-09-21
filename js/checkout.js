@@ -178,6 +178,8 @@ const Checkout = {
                 const data = await res.json();
 
                 if (data.success && data.payment_url) {
+                    // احفظ الـ book_hash المُثبَّت من الـ Prebook لاستخدامه عند تأكيد الحجز بعد الدفع
+                    if (data.book_hash) pendingData.book_hash = data.book_hash;
                     localStorage.setItem('pending_reservation', JSON.stringify(pendingData)); 
                     btn.innerHTML = '<i class="fa-solid fa-lock text-sm md:text-lg"></i> <span class="text-xs md:text-sm">جاري تحويلك لصفحة الدفع...</span>';
                     window.location.href = data.payment_url;
