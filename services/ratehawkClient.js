@@ -138,7 +138,34 @@ async function callOnce(method, path, { data, timeout } = {}) {
         config.data = data || {};
     }
 
-    const res = await http.request(config);
+    const startedAt = Date.now();
+    let res;
+    try {
+        res = await http.request(config);
+    } catch (error) {
+        logger.logEtgExchange({
+            method: config.method,
+            url: http.getUri(config),
+            headers: config.headers,
+            auth: config.auth,
+            requestPayload: config.data !== undefined ? config.data : data,
+            responsePayload: error.response && error.response.data,
+            statusCode: error.response && error.response.status,
+            latencyMs: Date.now() - startedAt,
+            error
+        });
+        throw error;
+    }
+    logger.logEtgExchange({
+        method: config.method,
+        url: http.getUri(config),
+        headers: config.headers,
+        auth: config.auth,
+        requestPayload: config.data !== undefined ? config.data : data,
+        responsePayload: res.data,
+        statusCode: res.status,
+        latencyMs: Date.now() - startedAt
+    });
     const body = res.data || {};
     const rateLimit = readRateLimit(res.headers || {});
 

@@ -148,7 +148,7 @@ const verifyAPIKey = (req, res, next) => {
     const clientKey = req.headers['x-api-key'];
     const serverKey = process.env.REMAL_SECURE_KEY; 
     
-    if (clientKey !== serverKey) {
+    if (!serverKey || !clientKey || clientKey !== serverKey) {
         logger.warn(`Blocked unauthorized access attempt`, { ip: req.ip }); 
         return res.status(403).json({ success: false, error: "Access Denied: Invalid API Key" });
     }
@@ -636,6 +636,16 @@ app.get('/api/v1/admin/ratehawk-limits', verifyAPIKey, async (req, res) => {
         logger.error('RateHawk overview (rate limits) failed', { error: error.message });
         return res.status(502).json({ success: false, error: 'overview_failed', message: error.message });
     }
+});
+
+app.get('/api/v1/admin/logs/:partnerOrderId', verifyAPIKey, (req, res) => {
+    const partnerOrderId = String(req.params.partnerOrderId || '').trim();
+    if (!partnerOrderId || partnerOrderId.length > 200) {
+        return res.status(400).json({ success: false, error: 'invalid_partner_order_id' });
+    }
+
+    const logs = logger.readEtgLogsForPartnerOrderId(partnerOrderId);
+    return res.json({ success: true, partnerOrderId, count: logs.length, logs });
 });
 
 // ==========================================
