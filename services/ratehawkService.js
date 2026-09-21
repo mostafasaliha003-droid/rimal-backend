@@ -131,6 +131,11 @@ function normalizeSearchParams(p = {}) {
         residency: String(p.residency || process.env.RATEHAWK_RESIDENCY || 'ae').toLowerCase().slice(0, 2),
         language: p.language || 'en',
         currency: p.currency || process.env.RATEHAWK_CURRENCY || 'USD',
+        upsells: normalizeUpsells(
+            p.upsells,
+            p.checkin || p.checkIn || p.check_in || p.checkInDate,
+            p.checkout || p.checkOut || p.check_out || p.checkOutDate
+        ),
         guests
     };
 }
@@ -174,6 +179,135 @@ function rateToAED(rate) {
     const amount = parseFloat((pt && pt.amount) || rate.price || 0);
     const currency = (pt && pt.currency_code) || rate.currency || 'USD';
     return mappingService.convertToAED(amount, currency);
+}
+
+function invalidUpsells(message) {
+    const error = new Error(`Invalid RateHawk upsells: ${message}`);
+    error.code = 'invalid_upsells';
+    return error;
+}
+
+function validateDatePart(value, field) {
+    const date = String(value || '');
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+        throw invalidUpsells(`${field} must be YYYY-MM-DD`);
+    }
+    const parsed = new Date(`${date}T00:00:00Z`);
+    if (Number.isNaN(parsed.getTime()) || parsed.toISOString().slice(0, 10) !== date) {
+        throw invalidUpsells(`${field} is not a valid calendar date`);
+    }
+    return date;
+}
+
+function formatUpsellTime(value, expectedDate, field) {
+    const raw = String(value || '').trim();
+    const time = raw.match(/^(?:\d{4}-\d{2}-\d{2}T)?(\d{2}):(\d{2})$/);
+    if (!time || Number(time[1]) > 23 || Number(time[2]) > 59) {
+        throw invalidUpsells(`${field} must be HH:MM or YYYY-MM-DDTHH:MM`);
+    }
+    if (raw.includes('T') && raw.slice(0, 10) !== expectedDate) {
+        throw invalidUpsells(`${field} must use ${expectedDate}`);
+    }
+    return `${expectedDate}T${time[1]}:${time[2]}`;
+}
+
+function normalizeUpsells(upsells, checkin, checkout) {
+    if (upsells === undefined || upsells === null || upsells === '') return undefined;
+    if (typeof upsells !== 'object' || Array.isArray(upsells)) {
+        throw invalidUpsells('upsells must be an object');
+    }
+
+    const dates = {
+        early_checkin: validateDatePart(checkin, 'checkin'),
+        late_checkout: validateDatePart(checkout, 'checkout')
+    };
+    const normalized = {};
+
+    Object.keys(dates).forEach(key => {
+        let value = upsells[key];
+        if (value === undefined || value === null || value === '') return;
+        if (Array.isArray(value)) {
+            if (value.length > 1) throw invalidUpsells(`only one ${key} is allowed per order`);
+            if (!value.length) return;
+            value = value[0];
+        }
+        if (!value || typeof value !== 'object' || Array.isArray(value)) {
+            throw invalidUpsells(`${key} must be an object`);
+        }
+        normalized[key] = {
+            ...value,
+            time: formatUpsellTime(value.time, dates[key], `${key}.time`)
+        };
+    });
+
+    return Object.keys(normalized).length ? normalized : undefined;
+}
+
+function toBookingDateTime(time) {
+    if (!time || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}$/.test(time)) {
+        throw invalidUpsells('booking upsell times must be YYYY-MM-DDTHH:MM');
+    }
+    return `${time}:00Z`;
+}
+
+function collectUpsellOptions(value, result = []) {
+    if (!value || typeof value !== 'object') return result;
+    if (Array.isArray(value)) {
+        value.forEach(item => collectUpsellOptions(item, result));
+        return result;
+    }
+    if (value.uid !== undefined && (value.name !== undefined || value.rule_id !== undefined)) {
+        result.push(value);
+    }
+    Object.keys(value).forEach(key => {
+        if (key === 'upsells' || key === 'upsell_data' || key === 'options') {
+            collectUpsellOptions(value[key], result);
+        }
+    });
+    return result;
+}
+
+function buildUpsellData(details, bookingFormData) {
+    const selected = details.upsells || details.upsell_data;
+    if (!selected || typeof selected !== 'object' || Array.isArray(selected)) {
+        if (selected) throw invalidUpsells('booking upsells must be an object');
+        return undefined;
+    }
+
+    const keys = Object.keys(selected).filter(key => ['early_checkin', 'late_checkout'].includes(key));
+    if (keys.length > 2) throw invalidUpsells('only one early check-in and one late check-out are allowed per order');
+    keys.forEach(key => {
+        if (Array.isArray(selected[key]) && selected[key].length > 1) {
+            throw invalidUpsells(`only one ${key} is allowed per order`);
+        }
+    });
+    const normalized = normalizeUpsells(selected,
+        details.checkin || details.checkIn || details.checkinDate || details.checkInDate,
+        details.checkout || details.checkOut || details.checkoutDate || details.checkOutDate);
+    const available = collectUpsellOptions(bookingFormData);
+
+    return keys.map(key => {
+        const choice = normalized[key];
+        const match = available.find(option =>
+            (choice.uid !== undefined && String(option.uid) === String(choice.uid))
+            || (choice.rule_id !== undefined && String(option.rule_id) === String(choice.rule_id)
+                && (choice.name === undefined || String(option.name) === String(choice.name)))
+            || (choice.name !== undefined && String(option.name) === String(choice.name))
+        );
+        if (!match) throw invalidUpsells(`could not resolve ${key} uid from the booking response`);
+
+        const item = {
+            uid: match.uid,
+            name: choice.name || match.name,
+            rule_id: choice.rule_id !== undefined ? choice.rule_id : match.rule_id
+        };
+        if (!item.name || item.rule_id === undefined || item.rule_id === null) {
+            throw invalidUpsells(`${key} is missing name or rule_id`);
+        }
+        if (key === 'early_checkin') item.checkin_datetime = toBookingDateTime(choice.time);
+        if (key === 'late_checkout') item.checkout_datetime = toBookingDateTime(choice.time);
+        return item;
+    });
 }
 
 // ---- Account / monitoring ---------------------------------------------------
@@ -492,6 +626,7 @@ async function bookHotel(details = {}) {
     }
     const paymentType = (form.data.payment_types || [])[0];
     if (!paymentType) throw new Error('RateHawk booking/form returned no payment types');
+    const upsellData = buildUpsellData(details, form.data);
 
     // 4b. Start booking process (booking finish)
     const finishReq = {
@@ -510,6 +645,7 @@ async function bookHotel(details = {}) {
         },
         rooms: buildGuests(details),
         payment_type: { type: paymentType.type, amount: paymentType.amount, currency_code: paymentType.currency_code },
+        ...(upsellData ? { upsell_data: upsellData } : {}),
         // Security Feature: Must be HTTPS and match the Host URL registered in RateHawk account settings.
         return_path: buildReturnPath()
     };
@@ -677,6 +813,8 @@ module.exports = {
     client,
     RATEHAWK_TEST_HOTEL_ID,
     buildReturnPath,
+    normalizeUpsells,
+    buildUpsellData,
     getApiOverview,
     // Step 1 - static/content
     getHotelStatic,

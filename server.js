@@ -560,6 +560,9 @@ app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, as
         return res.status(200).json({ success: true, hcn: finalHCN, supplierStatus });
     } catch (error) { 
         logger.error("Booking Failed", { error: error.message });
+        if (error.code === 'invalid_upsells') {
+            return res.status(400).json({ success: false, error: 'INVALID_UPSELLS', message: error.message });
+        }
         res.status(500).json({ success: false, error: "Booking Failed" }); 
     }
 });
