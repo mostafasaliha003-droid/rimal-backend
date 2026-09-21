@@ -27,6 +27,23 @@ const DEFAULT_TIMEOUT = 20000;
 // ETG error codes that are safe to retry (transient / non-final).
 const RETRYABLE_ERRORS = new Set(['unknown', 'timeout']);
 
+// Fatal configuration/auth errors — almost always mean the IP isn't whitelisted
+// or the API key is wrong/disabled. Surfaced loudly for the ops team.
+const FATAL_ERRORS = new Set([
+    'not_allowed_host', 'incorrect_credentials', 'api_access_disabled',
+    'no_auth_header', 'invalid_auth_header', 'endpoint_not_active'
+]);
+
+// Build an informative Error that carries the ETG error code + validation reason.
+function ratehawkError(path, envelope) {
+    const reason = envelope.validationError ? ` — ${envelope.validationError}` : '';
+    const err = new Error(`RateHawk ${path} error: ${envelope.error}${reason}`);
+    err.ratehawkError = envelope.error;
+    err.validationError = envelope.validationError || null;
+    err.httpStatus = envelope.httpStatus;
+    return err;
+}
+
 // ---- Rate limiting (ETG X-RateLimit-* headers) ----
 const RATE_LIMIT_WARN_THRESHOLD = parseInt(process.env.RATEHAWK_RATE_LIMIT_WARN || '2', 10); // warn when remaining <= this
 const MAX_429_RETRIES = parseInt(process.env.RATEHAWK_MAX_429_RETRIES || '3', 10);
@@ -131,11 +148,16 @@ async function callOnce(method, path, { data, timeout } = {}) {
             `(window ${rateLimit.requestsNumber || '?'}/${rateLimit.secondsNumber || '?'}s, resets ${rateLimit.reset || '?'}).`);
     }
 
+    // Universal ETG envelope: { data, debug, error, status }. Treat an "error"
+    // status OR a non-null error string as a failure, and surface the precise
+    // reason from debug.validation_error when present.
+    const isError = body.status === 'error' || (body.error !== undefined && body.error !== null);
     const envelope = {
-        ok: body.status === 'ok',
+        ok: body.status === 'ok' && !isError,
         status: body.status,
         error: body.error || null,
-        data: body.data,
+        validationError: (body.debug && body.debug.validation_error) || null,
+        data: body.data !== undefined ? body.data : null, // graceful when empty
         debug: body.debug,
         httpStatus: res.status,
         rateLimit
@@ -181,6 +203,7 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800 } 
                 return envelope;
             }
 
+            // 5xx / unknown / timeout -> exponential backoff retry.
             if (!envelope.ok && isTransient(envelope) && attempt < retries) {
                 attempt += 1;
                 logger.warn(`RateHawk ${path} transient error "${envelope.error || envelope.httpStatus}". Retry ${attempt}/${retries} in ${backoff}ms`);
@@ -188,8 +211,28 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800 } 
                 backoff *= 2;
                 continue;
             }
-            if (!envelope.ok && envelope.error) {
-                logger.warn(`RateHawk ${path} returned error: ${envelope.error} (HTTP ${envelope.httpStatus})`);
+
+            // Strict error routing for non-transient failures.
+            if (!envelope.ok && (envelope.error || envelope.status === 'error')) {
+                const code = envelope.error;
+                const reason = envelope.validationError ? ` (${envelope.validationError})` : '';
+
+                // Fatal auth/config errors: IP not whitelisted or bad/disabled keys.
+                if (FATAL_ERRORS.has(code)) {
+                    logger.error(`🛑 [FATAL CONFIG ERROR] RateHawk ${path}: "${code}"${reason}. ` +
+                        `Check IP whitelisting and RATEHAWK_KEY_ID / RATEHAWK_API_KEY.`);
+                    throw ratehawkError(path, envelope);
+                }
+
+                // Bad request params: throw with the exact failing parameter reason.
+                if (code === 'invalid_params') {
+                    logger.error(`❌ RateHawk ${path} invalid_params${reason}`);
+                    throw ratehawkError(path, envelope);
+                }
+
+                // Soft/expected errors (rate_not_found, soldout, lock, order_not_found,
+                // contract_mismatch, ...) are returned so callers can branch on them.
+                logger.warn(`RateHawk ${path} returned error: "${code}"${reason} (HTTP ${envelope.httpStatus})`);
             }
             return envelope;
         } catch (err) {
@@ -200,7 +243,8 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800 } 
                 backoff *= 2;
                 continue;
             }
-            logger.error(`RateHawk ${path} request failed`, { error: err.message });
+            // Our own classified errors (invalid_params / fatal) are already logged.
+            if (!err.ratehawkError) logger.error(`RateHawk ${path} request failed`, { error: err.message });
             throw err;
         }
     }

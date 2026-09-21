@@ -332,7 +332,8 @@ async function bookHotel(details = {}) {
 
     const newOrderId = () => 'RML-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
     // Errors that require retrying the booking form with a NEW partner_order_id (ETG retry logic).
-    const RETRYABLE_FORM = new Set(['double_booking_form', 'duplicate_reservation', 'unknown', 'timeout']);
+    // `lock` = a duplicate partner_order_id was sent too quickly -> retry with a fresh id.
+    const RETRYABLE_FORM = new Set(['double_booking_form', 'duplicate_reservation', 'lock', 'unknown', 'timeout']);
 
     // 4a. Create booking process (booking form) — retry with a new partner_order_id on transient errors (max 5).
     let form = null;
@@ -342,6 +343,9 @@ async function bookHotel(details = {}) {
         try {
             form = await client.bookingForm({ book_hash: bookHash, language, partner_order_id: partnerOrderId, user_ip: userIp });
         } catch (e) {
+            // The client throws for hard errors (invalid_params / fatal auth). Only retry
+            // with a new partner_order_id for retryable/transient causes; surface the rest.
+            if (e.ratehawkError && !RETRYABLE_FORM.has(e.ratehawkError)) throw e;
             logger.warn(`RateHawk booking/form transient (${e.message}); retrying with a new partner_order_id`);
             form = null;
             continue;
