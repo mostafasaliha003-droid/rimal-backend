@@ -16,6 +16,12 @@ const logger = require('./loggerService');
 const BOOK_WAIT_MS = parseInt(process.env.RATEHAWK_BOOK_WAIT_MS || '90000', 10);
 const BOOK_POLL_INTERVAL_MS = parseInt(process.env.RATEHAWK_BOOK_POLL_MS || '3000', 10);
 
+// Hotelpage enrichment during search. SERP only returns match_hash; a bookable
+// book_hash requires a hotelpage (hp) call per hotel. hp is rate-limited
+// (~10/min), so we only enrich the top N hotels of a region result.
+const HP_LIMIT = parseInt(process.env.RATEHAWK_HP_LIMIT || '8', 10);
+const HP_CONCURRENCY = parseInt(process.env.RATEHAWK_HP_CONCURRENCY || '3', 10);
+
 // Booking status errors that are final (stop polling immediately).
 const FINAL_STATUS_ERRORS = new Set([
     'soldout', 'book_limit', 'provider', 'order_not_found', 'booking_finish_did_not_succeed'
@@ -23,18 +29,44 @@ const FINAL_STATUS_ERRORS = new Set([
 
 // ---- Input normalization ----------------------------------------------------
 function normalizeSearchParams(p = {}) {
+    // children ages: frontend sends `children` as a count and `childrenAges` as ages.
+    const ages = Array.isArray(p.childrenAges) ? p.childrenAges
+        : (Array.isArray(p.children) ? p.children : []);
     const guests = Array.isArray(p.guests) && p.guests.length
         ? p.guests.map(g => ({ adults: Number(g.adults) || 2, children: Array.isArray(g.children) ? g.children : [] }))
-        : [{ adults: Number(p.adults) || 2, children: Array.isArray(p.children) ? p.children : [] }];
+        : [{ adults: Number(p.adults) || 2, children: ages.map(a => Number(a)).filter(n => Number.isFinite(n)) }];
 
     return {
-        checkin: p.checkin || p.checkIn || p.check_in,
-        checkout: p.checkout || p.checkOut || p.check_out,
+        checkin: p.checkin || p.checkIn || p.check_in || p.checkInDate,
+        checkout: p.checkout || p.checkOut || p.check_out || p.checkOutDate,
         residency: String(p.residency || process.env.RATEHAWK_RESIDENCY || 'ae').toLowerCase().slice(0, 2),
         language: p.language || 'en',
         currency: p.currency || process.env.RATEHAWK_CURRENCY || 'USD',
         guests
     };
+}
+
+// Resolve a free-text destination (e.g. "Dubai") to an ETG region id via multicomplete.
+async function resolveRegionId(query, language = 'en') {
+    if (!query) return null;
+    const res = await client.multicomplete({ query: String(query), language });
+    if (!res.ok) return null;
+    const regions = (res.data && res.data.regions) || [];
+    return regions.length ? regions[0].id : null;
+}
+
+// Run async tasks with bounded concurrency.
+async function mapWithConcurrency(items, limit, worker) {
+    const out = [];
+    let i = 0;
+    const runners = new Array(Math.min(limit, items.length)).fill(0).map(async () => {
+        while (i < items.length) {
+            const idx = i++;
+            out[idx] = await worker(items[idx], idx);
+        }
+    });
+    await Promise.all(runners);
+    return out;
 }
 
 function rateToAED(rate) {
@@ -71,16 +103,24 @@ async function searchAvailability(rawParams = {}) {
         return [];
     }
 
+    // 2a. SERP step — get the candidate hotels for the destination.
     let res;
-    if (rawParams.region_id) {
-        res = await client.serpRegion({ ...params, region_id: Number(rawParams.region_id), hotels_limit: rawParams.hotels_limit || 30 });
-    } else if ((rawParams.hids && rawParams.hids.length) || (rawParams.ids && rawParams.ids.length)) {
+    if ((rawParams.hids && rawParams.hids.length) || (rawParams.ids && rawParams.ids.length)) {
         res = await client.serpHotels({ ...params, hids: rawParams.hids, ids: rawParams.ids });
     } else if (rawParams.latitude && rawParams.longitude) {
         res = await client.serpGeo({ ...params, latitude: Number(rawParams.latitude), longitude: Number(rawParams.longitude), radius: rawParams.radius || 5000, hotels_limit: rawParams.hotels_limit || 30 });
     } else {
-        logger.warn('RateHawk search skipped: provide region_id, hids/ids, or latitude+longitude');
-        return [];
+        // region search: accept a numeric region_id, a numeric destinationCode,
+        // or a free-text destination name (resolved via multicomplete).
+        let regionId = Number(rawParams.region_id) || Number(rawParams.destinationCode) || null;
+        if (!regionId) {
+            regionId = await resolveRegionId(rawParams.destination || rawParams.destinationName || rawParams.query || rawParams.destinationCode, params.language);
+        }
+        if (!regionId) {
+            logger.warn('RateHawk search skipped: could not resolve a region (region_id / destination)');
+            return [];
+        }
+        res = await client.serpRegion({ ...params, region_id: regionId, hotels_limit: rawParams.hotels_limit || 30 });
     }
 
     if (!res.ok) {
@@ -88,16 +128,29 @@ async function searchAvailability(rawParams = {}) {
         return [];
     }
 
-    const hotels = (res.data && res.data.hotels) || [];
-    if (!hotels.length) return [];
+    const serpHotels = (res.data && res.data.hotels) || [];
+    if (!serpHotels.length) return [];
 
-    // Enrich with names / images from Content API (best-effort; static data
-    // should ideally be cached on our side per ETG recommendations).
-    const hids = hotels.map(h => h.hid).filter(Boolean);
-    const ids = hotels.map(h => h.id).filter(Boolean);
+    // 2b. Hotelpage step — SERP rates only carry match_hash; a bookable book_hash
+    // requires hp per hotel. Enrich the top N hotels so returned rooms are bookable.
+    const enrichCount = Math.min(HP_LIMIT, serpHotels.length);
+    const targets = serpHotels.slice(0, enrichCount);
+
+    const hpResults = await mapWithConcurrency(targets, HP_CONCURRENCY, async (h) => {
+        try {
+            const page = await client.hotelPage({ ...params, hid: h.hid });
+            const hotel = page.ok && page.data && page.data.hotels && page.data.hotels[0];
+            const rates = (hotel && hotel.rates) || [];
+            return { hid: h.hid, id: h.id, rates: rates.length ? rates : (h.rates || []) };
+        } catch (e) {
+            return { hid: h.hid, id: h.id, rates: h.rates || [] };
+        }
+    });
+
+    // Names / images from Content API (best-effort; ideally cached on our side).
     let contentMap = {};
     try {
-        const content = await getHotelsContent(ids, hids, params.language);
+        const content = await getHotelsContent([], targets.map(h => h.hid).filter(Boolean), params.language);
         content.forEach(c => {
             const img = (c.images && c.images[0]) || (c.images_ext && c.images_ext[0] && c.images_ext[0].url) || '';
             const entry = { name: c.name, image: img ? img.replace('{size}', '640x400') : '' };
@@ -108,7 +161,7 @@ async function searchAvailability(rawParams = {}) {
         logger.warn('RateHawk content enrichment skipped', { error: e.message });
     }
 
-    return hotels.map(h => {
+    return hpResults.map(h => {
         const c = contentMap[h.id] || contentMap[h.hid] || {};
         return {
             id: h.id,

@@ -129,8 +129,8 @@ const serpGeo = (data) => call('post', '/api/b2b/v3/search/serp/geo/', { data, t
 const hotelPage = (data) => call('post', '/api/b2b/v3/search/hp/', { data, timeout: 30000 });
 
 // ---- Prebook ----------------------------------------------------------------
-const prebook = (data) => call('post', '/api/b2b/v3/hotel/prebook/', { data, timeout: 30000 });
-const prebookFromSerp = (data) => call('post', '/api/b2b/v3/serp/prebook/', { data, timeout: 30000 });
+const prebook = (data) => call('post', '/api/b2b/v3/hotel/prebook/', { data, timeout: 30000, retries: 1 });
+const prebookFromSerp = (data) => call('post', '/api/b2b/v3/serp/prebook/', { data, timeout: 30000, retries: 1 });
 
 // ---- Booking ----------------------------------------------------------------
 const bookingForm = (data) => call('post', '/api/b2b/v3/hotel/order/booking/form/', { data, timeout: 30000 });
