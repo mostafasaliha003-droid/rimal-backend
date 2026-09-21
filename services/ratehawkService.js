@@ -8,6 +8,7 @@
 //   fetchHotelsInChunks, fetchSingleHotelPage, recheckHotel, bookHotel,
 //   fetchOrderDetails, cancelBooking
 
+const crypto = require('crypto');
 const client = require('./ratehawkClient');
 const mappingService = require('./mappingService');
 const logger = require('./loggerService');
@@ -369,6 +370,35 @@ async function getOrderDetails(partnerOrderId) {
 // Backward-compatible name used by server.js
 const fetchOrderDetails = (hcn) => getOrderDetails(hcn);
 
+// ---- Webhook (Receive booking status webhook) ------------------------------
+// ETG payload: { data: { partner_order_id, status }, signature: { signature, timestamp, token } }
+// status is "completed" (=> confirmed) or "failed".
+function parseWebhook(payload = {}) {
+    const data = payload.data || payload;
+    const partnerOrderId = data.partner_order_id || data.order_id || payload.partner_order_id || payload.hcn || null;
+    const rawStatus = String(data.status || payload.status || '').toLowerCase();
+    const confirmed = ['completed', 'confirmed', 'ok', 'success', 'confirmed_live'].includes(rawStatus);
+    const failed = ['failed', 'error', 'soldout', 'provider', 'book_limit', 'cancelled', 'cancelled_by_hotel'].includes(rawStatus);
+    return { partnerOrderId, rawStatus, confirmed, failed };
+}
+
+// Verify the ETG webhook signature: HMAC-SHA256(timestamp + token) keyed with the API key.
+function verifyWebhookSignature(payload = {}) {
+    try {
+        const sig = payload.signature;
+        if (!sig || !sig.signature || sig.timestamp === undefined || !sig.token) {
+            return { verified: false, reason: 'missing_signature' };
+        }
+        const expected = crypto
+            .createHmac('sha256', String(process.env.RATEHAWK_API_KEY || ''))
+            .update(String(sig.timestamp) + String(sig.token))
+            .digest('hex');
+        return { verified: expected === sig.signature, expected };
+    } catch (e) {
+        return { verified: false, reason: e.message };
+    }
+}
+
 async function cancelBooking(partnerOrderId, amountCommission = 0) {
     const res = await client.cancelOrder({ partner_order_id: String(partnerOrderId), amount_commission: amountCommission });
     if (!res.ok) return { success: false, status: res.error, error: res.error };
@@ -403,5 +433,8 @@ module.exports = {
     // Step 5 - post-booking
     getOrderDetails,
     fetchOrderDetails,
-    cancelBooking
+    cancelBooking,
+    // Webhook helpers
+    parseWebhook,
+    verifyWebhookSignature
 };
