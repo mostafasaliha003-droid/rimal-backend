@@ -1,28 +1,15 @@
-// syncRatehawkHotels.js
-// Standalone static-data sync for RateHawk / Emerging Travel Group (ETG) API v3.
-//
-// RateHawk's live search (serp/hp) returns only hotel IDs + prices, so this script
-// pre-loads the static content (names, images, location) into our local MongoDB
-// `Hotel` collection so mappingService.js can enrich live results.
-//
-// Flow (per the ETG Integration Guide):
-//   1) POST /api/b2b/v3/search/serp/region/      -> active hotel IDs for a region
-//   2) POST /api/content/v1/hotel_content_by_ids/ -> static content for those IDs
-//   3) Upsert the mapped content into MongoDB (bulkWrite, upsert:true)
-//
-// Run:   node syncRatehawkHotels.js
-//        node syncRatehawkHotels.js <region_id>          (override region)
-// Env:   RATEHAWK_SYNC_REGION_ID, RATEHAWK_SYNC_CHECKIN, RATEHAWK_SYNC_CHECKOUT,
-//        RATEHAWK_SYNC_HOTELS_LIMIT, RATEHAWK_SYNC_LANGUAGE
+// Stream ETG / RateHawk static hotel data dumps into MongoDB.
 
 require('dotenv').config();
-const mongoose = require('mongoose');
-const axios = require('axios');
 
-// ==========================================
-// 1. Hotel model (matches hotelSchema in server.js / syncHotels.js)
-// ==========================================
+const fs = require('fs');
+const path = require('path');
+const https = require('https');
+const mongoose = require('mongoose');
+const { pipeline } = require('stream/promises');
+
 const hotelSchema = new mongoose.Schema({
+    hid: { type: String, required: true, index: true },
     hotelId: { type: String, required: true, unique: true },
     name: String,
     address: String,
@@ -32,154 +19,259 @@ const hotelSchema = new mongoose.Schema({
     latitude: String,
     longitude: String,
     image: String,
-    provider: { type: String, default: 'dubailink' }
+    provider: { type: String, default: 'ratehawk' },
+    staticData: mongoose.Schema.Types.Mixed
 });
 const Hotel = mongoose.models.Hotel || mongoose.model('Hotel', hotelSchema);
 
-// ==========================================
-// 2. Configuration
-// ==========================================
 const MONGO_URI = process.env.MONGO_URI;
-// Fully env-driven base URL (RATEHAWK_BASE_URL). Sandbox: https://api-sandbox.ratehawk.com,
-// Production: https://api.ratehawk.com. Legacy *.worldota.net hosts are deprecated.
-// Accepts a bare host or a trailing /api/b2b/v3 and normalizes to the host.
 const BASE_URL = String(process.env.RATEHAWK_BASE_URL || 'https://api-sandbox.ratehawk.com')
     .trim().replace(/\/+$/, '').replace(/\/api\/b2b\/v3$/, '');
-// HTTP Basic Auth. Accepts the requested names, falling back to the ones already in .env.
 const API_ID = process.env.RATEHAWK_API_ID || process.env.RATEHAWK_KEY_ID;
 const API_TOKEN = process.env.RATEHAWK_API_TOKEN || process.env.RATEHAWK_API_KEY;
+const BULK_BATCH_SIZE = 500;
+const REQUEST_TIMEOUT_MS = Number(process.env.RATEHAWK_DUMP_REQUEST_TIMEOUT_MS || 60000);
+const DOWNLOAD_TIMEOUT_MS = Number(process.env.RATEHAWK_DUMP_DOWNLOAD_TIMEOUT_MS || 30 * 60 * 1000);
+const DUMP_DIR = path.join(__dirname, '.ratehawk-dump');
+const DUMP_FILE = path.join(DUMP_DIR, 'hotel-static.json.zst');
+const JSON_FILE = path.join(DUMP_DIR, 'hotel-static.json');
 
-const REGION_ID = Number(process.argv[2] || process.env.RATEHAWK_SYNC_REGION_ID || 5317); // 5317 = Dubai (production)
-const CHECKIN = process.env.RATEHAWK_SYNC_CHECKIN || '2026-10-10';
-const CHECKOUT = process.env.RATEHAWK_SYNC_CHECKOUT || '2026-10-11';
-const HOTELS_LIMIT = Number(process.env.RATEHAWK_SYNC_HOTELS_LIMIT || 200);
-const LANGUAGE = process.env.RATEHAWK_SYNC_LANGUAGE || 'ar';
-const CURRENCY = process.env.RATEHAWK_CURRENCY || 'USD';
-const RESIDENCY = String(process.env.RATEHAWK_RESIDENCY || 'ae').toLowerCase().slice(0, 2);
-const CONTENT_BATCH = 100; // ids per content request
-
-const http = axios.create({
-    baseURL: BASE_URL,
-    auth: { username: String(API_ID), password: String(API_TOKEN) },
-    headers: { 'Content-Type': 'application/json' },
-    timeout: 60000,
-    // Resolve for any status so we can read ETG's error envelope (e.g. validation_error) on 4xx.
-    validateStatus: () => true
-});
-
-// Pick the first high-res image URL and expand a {size} template if present.
-function pickImage(hotel) {
-    const raw = (hotel.images && hotel.images[0])
-        || (hotel.images_ext && hotel.images_ext[0] && hotel.images_ext[0].url)
-        || '';
-    return raw ? raw.replace('{size}', '1024x768') : '';
+function basicAuthHeader() {
+    return `Basic ${Buffer.from(`${String(API_ID)}:${String(API_TOKEN)}`).toString('base64')}`;
 }
 
-// ==========================================
-// 3. Main sync routine
-// ==========================================
-async function syncRatehawkHotels() {
-    try {
-        if (!MONGO_URI) throw new Error('MONGO_URI is missing in environment variables!');
-        if (!API_ID || !API_TOKEN) throw new Error('RateHawk credentials missing (RATEHAWK_API_ID / RATEHAWK_API_TOKEN).');
-
-        console.log('🔗 Connecting to MongoDB...');
-        await mongoose.connect(MONGO_URI);
-        console.log('✅ Connected to MongoDB successfully.');
-        console.log(`🌐 RateHawk base URL: ${BASE_URL} (key id: ${API_ID})`);
-
-        // ---- Step 1: SERP region search -> active hotel IDs ----
-        console.log(`\n🌍 Step 1: Searching region ${REGION_ID} (${CHECKIN} → ${CHECKOUT}, limit ${HOTELS_LIMIT})...`);
-        const serpRes = await http.post('/api/b2b/v3/search/serp/region/', {
-            region_id: REGION_ID,
-            checkin: CHECKIN,
-            checkout: CHECKOUT,
-            guests: [{ adults: 2, children: [] }],
-            hotels_limit: HOTELS_LIMIT,
-            language: LANGUAGE,
-            currency: CURRENCY,
-            residency: RESIDENCY
+function requestJson(urlString, options = {}, body = null) {
+    return new Promise((resolve, reject) => {
+        const url = new URL(urlString);
+        const request = https.request(url, {
+            method: options.method || 'GET',
+            headers: {
+                Accept: 'application/json',
+                ...(body === null ? {} : { 'Content-Type': 'application/json', 'Content-Length': Buffer.byteLength(body) }),
+                ...options.headers
+            },
+            timeout: REQUEST_TIMEOUT_MS
+        }, response => {
+            const chunks = [];
+            response.on('data', chunk => chunks.push(chunk));
+            response.on('end', () => {
+                const text = Buffer.concat(chunks).toString('utf8');
+                let parsed;
+                try { parsed = text ? JSON.parse(text) : {}; } catch (error) {
+                    reject(new Error(`ETG returned invalid JSON (HTTP ${response.statusCode}): ${error.message}`));
+                    return;
+                }
+                if ((response.statusCode || 500) < 200 || (response.statusCode || 500) >= 300) {
+                    reject(new Error(`ETG request failed with HTTP ${response.statusCode}: ${JSON.stringify(parsed)}`));
+                    return;
+                }
+                resolve(parsed);
+            });
+            response.on('error', reject);
         });
+        request.on('timeout', () => request.destroy(new Error(`ETG request timed out after ${REQUEST_TIMEOUT_MS}ms`)));
+        request.on('error', reject);
+        if (body !== null) request.write(body);
+        request.end();
+    });
+}
 
-        if (!serpRes.data || serpRes.data.status !== 'ok') {
-            const detail = serpRes.data && serpRes.data.debug && serpRes.data.debug.validation_error;
-            throw new Error(`SERP region search failed: ${(serpRes.data && serpRes.data.error) || 'unknown'}${detail ? ' (' + detail + ')' : ''}`);
-        }
-        const serpHotels = (serpRes.data.data && serpRes.data.data.hotels) || [];
-        const ids = serpHotels.map(h => h.id).filter(Boolean);
-        console.log(`   ✅ Found ${ids.length} active hotel IDs in region ${REGION_ID}.`);
-        if (!ids.length) {
-            console.log('⚠️  No hotels returned — nothing to sync.');
-            await mongoose.connection.close();
-            return process.exit(0);
-        }
+async function requestDumpUrl() {
+    const response = await requestJson(
+        `${BASE_URL}/api/b2b/v3/hotel/info/dump/`,
+        { method: 'POST', headers: { Authorization: basicAuthHeader() } },
+        JSON.stringify({})
+    );
+    if (response.status !== 'ok') {
+        const detail = response.debug && response.debug.validation_error;
+        throw new Error(`ETG dump request failed: ${response.error || 'unknown'}${detail ? ` (${detail})` : ''}`);
+    }
+    const data = response.data || {};
+    const downloadUrl = typeof data === 'string' ? data : data.url || data.download_url || response.url;
+    if (!downloadUrl) throw new Error('ETG dump response did not contain a temporary download URL');
+    return downloadUrl;
+}
 
-        // ---- Step 2: Fetch static content for those IDs (batched) ----
-        console.log(`\n📚 Step 2: Fetching static content for ${ids.length} hotels (language: ${LANGUAGE})...`);
-        let content = [];
-        for (let i = 0; i < ids.length; i += CONTENT_BATCH) {
-            const batch = ids.slice(i, i + CONTENT_BATCH);
-            const cRes = await http.post('/api/content/v1/hotel_content_by_ids/', { ids: batch, language: LANGUAGE });
-            if (!cRes.data || cRes.data.status !== 'ok') {
-                console.warn(`   ⚠️ Content batch ${i}-${i + batch.length} failed: ${cRes.data && cRes.data.error}`);
+function downloadToFile(urlString, destination, redirects = 0) {
+    return new Promise((resolve, reject) => {
+        if (redirects > 5) {
+            reject(new Error('Too many redirects while downloading ETG dump'));
+            return;
+        }
+        const url = new URL(urlString);
+        if (url.protocol !== 'https:') {
+            reject(new Error(`Refusing non-HTTPS ETG dump URL: ${url.protocol}`));
+            return;
+        }
+        const output = fs.createWriteStream(destination);
+        const request = https.get(url, { timeout: DOWNLOAD_TIMEOUT_MS }, response => {
+            if ([301, 302, 303, 307, 308].includes(response.statusCode)) {
+                output.close();
+                fs.rmSync(destination, { force: true });
+                response.resume();
+                if (!response.headers.location) {
+                    reject(new Error(`ETG download redirect had no Location header (HTTP ${response.statusCode})`));
+                    return;
+                }
+                downloadToFile(new URL(response.headers.location, url).toString(), destination, redirects + 1)
+                    .then(resolve, reject);
+                return;
+            }
+            if (response.statusCode !== 200) {
+                response.resume();
+                output.close();
+                fs.rmSync(destination, { force: true });
+                reject(new Error(`ETG dump download failed with HTTP ${response.statusCode}`));
+                return;
+            }
+            response.pipe(output);
+            output.on('finish', () => output.close(resolve));
+            response.on('error', error => { output.destroy(); reject(error); });
+        });
+        request.on('timeout', () => request.destroy(new Error(`ETG dump download timed out after ${DOWNLOAD_TIMEOUT_MS}ms`)));
+        request.on('error', error => { output.destroy(); reject(error); });
+    });
+}
+
+async function decompressDump() {
+    let zstd;
+    try {
+        zstd = require('simple-zstd');
+    } catch (error) {
+        throw new Error(`simple-zstd could not load. Install the system zstd executable: ${error.message}`);
+    }
+    await pipeline(
+        fs.createReadStream(DUMP_FILE),
+        zstd.ZSTDDecompress(),
+        fs.createWriteStream(JSON_FILE)
+    );
+}
+
+function pickImage(hotel) {
+    const image = (hotel.images && hotel.images[0])
+        || (hotel.images_ext && hotel.images_ext[0] && (hotel.images_ext[0].url || hotel.images_ext[0]))
+        || '';
+    return typeof image === 'string' ? image.replace('{size}', '1024x768') : '';
+}
+
+function toHotelUpdate(hotel) {
+    const hid = hotel && (hotel.hid || hotel.hotel_id);
+    if (hid === undefined || hid === null || hid === '') return null;
+    const region = hotel.region || {};
+    const hotelId = hotel.id || hotel.hotel_id || hid;
+    return {
+        updateOne: {
+            filter: { hid: String(hid) },
+            update: {
+                $set: {
+                    hid: String(hid),
+                    hotelId: String(hotelId),
+                    name: hotel.name || '',
+                    address: hotel.address || '',
+                    city: hotel.city || region.name || '',
+                    countryCode: hotel.country_code || region.country_code || '',
+                    stars: String(hotel.star_rating != null ? hotel.star_rating : ''),
+                    latitude: String(hotel.latitude != null ? hotel.latitude : ''),
+                    longitude: String(hotel.longitude != null ? hotel.longitude : ''),
+                    image: pickImage(hotel),
+                    provider: 'ratehawk',
+                    staticData: hotel
+                }
+            },
+            upsert: true
+        }
+    };
+}
+
+async function flushBatch(batch, stats) {
+    if (!batch.length) return;
+    const result = await Hotel.bulkWrite(batch, { ordered: false });
+    stats.upserted += result.upsertedCount || 0;
+    stats.modified += result.modifiedCount || 0;
+    stats.batches += 1;
+    console.log(`   MongoDB batch ${stats.batches}: ${batch.length} hotels (read ${stats.read}, skipped ${stats.skipped})`);
+    batch.length = 0;
+}
+
+async function processDump() {
+    const batch = [];
+    const stats = { read: 0, skipped: 0, parsed: 0, upserted: 0, modified: 0, batches: 0 };
+    const stream = fs.createReadStream(JSON_FILE, { highWaterMark: 1024 * 1024 });
+    let buffer = '';
+
+    for await (const chunk of stream) {
+        buffer += chunk.toString('utf8');
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+            const trimmed = line.trim();
+            if (!trimmed) continue;
+            stats.read += 1;
+            let hotel;
+            try { hotel = JSON.parse(trimmed); } catch (error) {
+                throw new Error(`Invalid hotel JSON at line ${stats.read}: ${error.message}`);
+            }
+            const operation = toHotelUpdate(hotel);
+            if (!operation) {
+                stats.skipped += 1;
                 continue;
             }
-            const arr = cRes.data.data || [];
-            content = content.concat(arr);
-            console.log(`   Batch ${Math.floor(i / CONTENT_BATCH) + 1}: received ${arr.length} (total ${content.length}/${ids.length}).`);
+            stats.parsed += 1;
+            batch.push(operation);
+            if (batch.length === BULK_BATCH_SIZE) await flushBatch(batch, stats);
         }
-        if (!content.length) {
-            console.log('⚠️  No content returned — nothing to save.');
-            await mongoose.connection.close();
-            return process.exit(0);
+    }
+
+    const finalLine = buffer.trim();
+    if (finalLine) {
+        stats.read += 1;
+        let operation;
+        try { operation = toHotelUpdate(JSON.parse(finalLine)); } catch (error) {
+            throw new Error(`Invalid hotel JSON at line ${stats.read}: ${error.message}`);
         }
+        if (operation) {
+            stats.parsed += 1;
+            batch.push(operation);
+        } else stats.skipped += 1;
+    }
+    await flushBatch(batch, stats);
+    return stats;
+}
 
-        // ---- Step 3: Map to hotelSchema and bulk-upsert ----
-        console.log(`\n💾 Step 3: Mapping and upserting ${content.length} hotels into MongoDB...`);
-        const ops = [];
-        let withImages = 0;
-        for (const h of content) {
-            if (!h || !h.id) continue;
-            const image = pickImage(h);
-            if (image) withImages++;
-            ops.push({
-                updateOne: {
-                    filter: { hotelId: String(h.id) },
-                    update: {
-                        $set: {
-                            hotelId: String(h.id),
-                            name: h.name || '',
-                            address: h.address || '',
-                            city: (h.region && h.region.name) || 'دبي',
-                            countryCode: (h.region && h.region.country_code) || 'AE',
-                            stars: String(h.star_rating != null ? h.star_rating : ''),
-                            latitude: String(h.latitude != null ? h.latitude : ''),
-                            longitude: String(h.longitude != null ? h.longitude : ''),
-                            image: image,
-                            provider: 'ratehawk'
-                        }
-                    },
-                    upsert: true
-                }
-            });
-        }
+async function cleanupFiles() {
+    await Promise.all([
+        fs.promises.rm(DUMP_FILE, { force: true }),
+        fs.promises.rm(JSON_FILE, { force: true })
+    ]);
+}
 
-        const result = await Hotel.bulkWrite(ops, { ordered: false });
-        const upserted = result.upsertedCount || 0;
-        const modified = result.modifiedCount || 0;
-        console.log(`\n🎉 Sync complete! Inserted: ${upserted}, Updated: ${modified}, Processed: ${ops.length}.`);
-        console.log(`   🖼️  ${withImages}/${ops.length} hotels have an image URL (sandbox test hotels often have none).`);
+async function syncRatehawkHotels() {
+    if (!MONGO_URI) throw new Error('MONGO_URI is missing in environment variables');
+    if (!API_ID || !API_TOKEN) throw new Error('RateHawk credentials are missing');
 
+    await fs.promises.mkdir(DUMP_DIR, { recursive: true });
+    await cleanupFiles();
+    try {
+        console.log('Connecting to MongoDB...');
+        await mongoose.connect(MONGO_URI);
+        console.log('MongoDB connected.');
+        console.log('Requesting ETG hotel static dump URL...');
+        const downloadUrl = await requestDumpUrl();
+        console.log('Temporary dump URL received; downloading compressed dump...');
+        await downloadToFile(downloadUrl, DUMP_FILE);
+        console.log('Compressed dump downloaded; decompressing with simple-zstd...');
+        await decompressDump();
+        console.log('Dump decompressed; processing hotel records in 500-item batches...');
+        const stats = await processDump();
+        console.log(`Sync complete: ${stats.parsed} parsed, ${stats.upserted} inserted, ${stats.modified} updated, ${stats.skipped} skipped.`);
+    } finally {
+        await cleanupFiles();
         await mongoose.connection.close();
-        console.log('🔌 MongoDB connection closed.');
-        process.exit(0);
-
-    } catch (error) {
-        console.error('❌ RateHawk sync failed:', error.message);
-        try { await mongoose.connection.close(); } catch (e) { /* ignore */ }
-        // Non-zero exit so cron/CI can detect failures.
-        process.exit(1);
+        console.log('Temporary dump files removed; MongoDB connection closed.');
     }
 }
 
-syncRatehawkHotels();
+syncRatehawkHotels().catch(error => {
+    console.error(`RateHawk static dump sync failed: ${error.message}`);
+    process.exitCode = 1;
+});
