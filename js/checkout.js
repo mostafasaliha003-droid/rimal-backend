@@ -402,7 +402,7 @@ const Checkout = {
     cancelBookingAPI: async function(bookingReference, price, refundType, policyText) {
         Checkout.showPremiumCancelModal(bookingReference, price, refundType, policyText, async (overlay, innerBox) => {
             try {
-                const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingReference }) });
+                const res = await fetch(`${API_URL}/api/v1/bookings/cancel`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ bookingId: bookingReference, bookingReference }) });
                 const data = await res.json();
                 
                 overlay.style.opacity = '0';
@@ -410,11 +410,18 @@ const Checkout = {
                 innerBox.classList.add('scale-95');
                 setTimeout(() => overlay.remove(), 300);
 
-                if(data.success) { 
-                    UI.showToast('success', 'تم الإلغاء بنجاح', data.message); 
-                    Auth.fetchUserData(); 
-                } else { 
-                    UI.showToast('error', 'حدث خطأ', data.error); 
+                if(data.success) {
+                    // بناء رسالة واضحة تُظهر المبلغ المسترد من المورّد (إن وُجد)
+                    let msg = data.message || 'تم إلغاء الحجز بنجاح.';
+                    const refund = data.amountRefunded;
+                    if (refund && refund.amount !== undefined && refund.amount !== null) {
+                        const currency = refund.currency_code || 'AED';
+                        msg += ` المبلغ المسترد: ${refund.amount} ${currency}`;
+                    }
+                    UI.showToast('success', data.alreadyCancelled ? 'الحجز ملغى مسبقاً' : 'تم الإلغاء بنجاح', msg);
+                    if (typeof Auth !== 'undefined' && Auth.fetchUserData) Auth.fetchUserData();
+                } else {
+                    UI.showToast('error', 'تعذّر الإلغاء', data.message || data.error || 'حدث خطأ غير متوقع.');
                 }
             } catch(e) { 
                 overlay.style.opacity = '0';
