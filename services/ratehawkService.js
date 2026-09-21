@@ -21,6 +21,19 @@ const FALLBACK_HOTEL_NAME = 'فندق شريك لرمال وفلّها';
 // environment" (a bookable real property) before switching to Production keys.
 const RATEHAWK_TEST_HOTEL_ID = '8473727'; // Used for testing real financial bookings in the Test environment.
 
+// Frontend base URL used to build the booking return_path. ETG's security check
+// extracts the HTTPS host from return_path and fails the booking if it doesn't
+// match the host registered in the ETG account settings.
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://remalbookings.com';
+const RETURN_SUCCESS_PATH = process.env.RATEHAWK_RETURN_PATH || '/checkout/success';
+
+// Always emit an https:// URL regardless of how FRONTEND_URL was written.
+function buildReturnPath() {
+    const host = String(FRONTEND_URL).replace(/^https?:\/\//i, '').replace(/\/+$/, '');
+    const path = RETURN_SUCCESS_PATH.startsWith('/') ? RETURN_SUCCESS_PATH : `/${RETURN_SUCCESS_PATH}`;
+    return `https://${host}${path}`;
+}
+
 // Access the shared Hotel model (registered by server.js / syncRatehawkHotels.js).
 // Defined lazily so requiring this module never fails if the model isn't set up yet.
 function getHotelModel() {
@@ -381,7 +394,9 @@ async function bookHotel(details = {}) {
             phone: details.phone || details.holderPhone || '+10000000000'
         },
         rooms: buildGuests(details),
-        payment_type: { type: paymentType.type, amount: paymentType.amount, currency_code: paymentType.currency_code }
+        payment_type: { type: paymentType.type, amount: paymentType.amount, currency_code: paymentType.currency_code },
+        // Security Feature: Must be HTTPS and match the Host URL registered in RateHawk account settings.
+        return_path: buildReturnPath()
     };
     const finish = await client.bookingFinish(finishReq);
     if (!finish.ok) {
@@ -480,6 +495,7 @@ module.exports = {
     // low-level client (exposed for advanced use / testing)
     client,
     RATEHAWK_TEST_HOTEL_ID,
+    buildReturnPath,
     getApiOverview,
     // Step 1 - static/content
     getHotelStatic,
