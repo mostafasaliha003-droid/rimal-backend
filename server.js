@@ -300,6 +300,19 @@ app.get('/api/v1/health-check', async (req, res) => {
     res.json({ success: true, cloudServer: 'Render Backend Active with Live Chat & Multi-Supplier Engine 🚀', timestamp: new Date() });
 });
 
+// 🩺 Health/monitoring endpoint (uptime + MongoDB connection state).
+app.get('/api/v1/health', (req, res) => {
+    const DB_STATES = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting', 99: 'uninitialized' };
+    const readyState = mongoose.connection.readyState;
+    res.status(200).json({
+        status: 'ok',
+        uptime: process.uptime(),
+        timestamp: new Date().toISOString(),
+        database: DB_STATES[readyState] || 'unknown',
+        databaseState: readyState
+    });
+});
+
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
         const email = (req.body.email || '').toLowerCase().trim();

@@ -1,7 +1,21 @@
+const https = require('https');
+const axios = require('axios');
 const logger = require('./loggerService'); 
 
 const SHOPPING_URL = process.env.DUBAILINK_SHOPPING_URL;
 const BOOKING_URL = process.env.DUBAILINK_BOOKING_URL;
+
+// 🔒 TLS bypass is scoped EXCLUSIVELY to Dubai Link (Tripstick) — their endpoints use
+// a certificate Node rejects. This dedicated https.Agent is attached only to the
+// Dubai Link axios client, so RateHawk / Ziina / Mongo / SMTP keep STRICT default TLS.
+// (Replaces the dangerous global NODE_TLS_REJECT_UNAUTHORIZED=0.)
+const dubaiLinkAgent = new https.Agent({ rejectUnauthorized: false });
+const dubaiLinkClient = axios.create({
+    httpsAgent: dubaiLinkAgent,
+    timeout: 30000,
+    validateStatus: () => true,
+    headers: { 'Content-Type': 'application/json' }
+});
 
 /**
  * 🔐 توليد ترويسة المصادقة بنظام Base64 كما هو مطلوب في توثيق Tripstick
@@ -19,35 +33,30 @@ const getAuthHeader = () => {
 const fetchFromDubaiLink = async (endpoint, method = 'POST', body = null, isBookingApi = false) => {
     const baseUrl = isBookingApi ? BOOKING_URL : SHOPPING_URL;
     const url = `${baseUrl}${endpoint}`;
-    
-    const headers = {
-        'Content-Type': 'application/json',
-        'Authorization': getAuthHeader()
-    };
-
-    const options = {
-        method,
-        headers,
-        body: body ? JSON.stringify(body) : null
-    };
 
     try {
         // 🔴 طباعة الرابط النهائي بدقة قبل إرسال الطلب لكشف أي أخطاء مطبعية
         logger.info(`🌐 Sending request to DubaiLink: ${url}`); 
-        
-        const response = await fetch(url, options);
-        const data = await response.json();
+
+        // Uses the Dubai-Link-only axios client (scoped TLS bypass via dubaiLinkAgent).
+        const response = await dubaiLinkClient.request({
+            url,
+            method,
+            headers: { 'Authorization': getAuthHeader() },
+            data: body || undefined
+        });
+        const data = response.data;
 
         // معالجة أخطاء الـ API بناءً على رموز HTTP المذكورة في التوثيق
-        if (!response.ok) {
+        if (response.status < 200 || response.status >= 300) {
             logger.error(`DubaiLink API Error [${response.status}] at ${endpoint}`, { details: data });
-            throw new Error(data.error || data.message || `API Error: ${response.status}`);
+            throw new Error((data && (data.error || data.message)) || `API Error: ${response.status}`);
         }
 
         return data;
     } catch (error) {
         // 🔴 استخراج السبب الجذري للخطأ (الذي يخفيه Node.js عادة)
-        const rootCause = error.cause ? error.cause.message : 'Unknown cause';
+        const rootCause = error.cause ? error.cause.message : (error.response ? `HTTP ${error.response.status}` : 'Unknown cause');
         logger.error(`DubaiLink Connection Error at ${endpoint}`, { 
             message: error.message, 
             cause: rootCause,
