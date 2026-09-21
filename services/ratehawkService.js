@@ -178,7 +178,14 @@ function rateToAED(rate) {
     const pt = rate && rate.payment_options && rate.payment_options.payment_types && rate.payment_options.payment_types[0];
     const amount = parseFloat((pt && pt.amount) || rate.price || 0);
     const currency = (pt && pt.currency_code) || rate.currency || 'USD';
-    return mappingService.convertToAED(amount, currency);
+    const sellPriceLimits = rate && (rate.sell_price_limits || (pt && pt.sell_price_limits));
+    const sellPrice = mappingService.calculateSellPrice(
+        amount,
+        currency,
+        sellPriceLimits,
+        mappingService.getMarkupPercent(rate)
+    );
+    return mappingService.convertToAED(sellPrice, currency);
 }
 
 function invalidUpsells(message) {

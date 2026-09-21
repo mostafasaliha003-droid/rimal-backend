@@ -23,6 +23,62 @@ function convertToAED(amount, currency) {
     return amount * rate;
 }
 
+function convertCurrency(amount, fromCurrency, toCurrency) {
+    if (!Number.isFinite(Number(amount))) return 0;
+    const from = String(fromCurrency || 'AED').toUpperCase();
+    const to = String(toCurrency || 'AED').toUpperCase();
+    if (from === to) return Number(amount);
+    const fromRate = exchangeRatesToAED[from] || 1;
+    const toRate = exchangeRatesToAED[to] || 1;
+    return Number(amount) * fromRate / toRate;
+}
+
+function getMarkupPercent(rate = {}) {
+    const configured = rate.markup_percent ?? rate.markupPercent
+        ?? process.env.RATEHAWK_MARKUP_PERCENT
+        ?? process.env.B2C_MARKUP_PERCENT
+        ?? 0;
+    const markup = Number(configured);
+    return Number.isFinite(markup) ? markup : 0;
+}
+
+function limitDetails(value, fallbackCurrency) {
+    if (value && typeof value === 'object') {
+        return {
+            amount: value.amount ?? value.value,
+            currency: value.currency || value.currency_code || fallbackCurrency
+        };
+    }
+    return { amount: value, currency: fallbackCurrency };
+}
+
+function calculateSellPrice(amount, currency, sellPriceLimits = null, markupPercent = 0) {
+    const sourceAmount = Number(amount);
+    if (!Number.isFinite(sourceAmount)) return 0;
+
+    let sellPrice = sourceAmount * (1 + (Number(markupPercent) || 0) / 100);
+    const limits = sellPriceLimits && typeof sellPriceLimits === 'object' ? sellPriceLimits : null;
+    if (limits) {
+        const limitsCurrency = limits.currency || limits.currency_code || currency;
+        const minDetails = limitDetails(limits.min_price, limitsCurrency);
+        const maxDetails = limitDetails(limits.max_price, limitsCurrency);
+        const min = minDetails.amount === null || minDetails.amount === undefined || minDetails.amount === ''
+            ? null : convertCurrency(Number(minDetails.amount), minDetails.currency, currency);
+        const max = maxDetails.amount === null || maxDetails.amount === undefined || maxDetails.amount === ''
+            ? null : convertCurrency(Number(maxDetails.amount), maxDetails.currency, currency);
+
+        if ((min !== null && !Number.isFinite(min)) || (max !== null && !Number.isFinite(max))) {
+            logger.warn('Ignoring invalid RateHawk sell_price_limits values.');
+        } else if (min !== null && max !== null && min > max) {
+            logger.warn('Ignoring RateHawk sell_price_limits because min_price exceeds max_price.');
+        } else {
+            if (min !== null) sellPrice = Math.max(sellPrice, min);
+            if (max !== null) sellPrice = Math.min(sellPrice, max);
+        }
+    }
+    return sellPrice;
+}
+
 // ==========================================
 // 🧹 1. قواميس التنظيف والتوحيد (Normalization Dictionaries)
 // ==========================================
@@ -235,15 +291,17 @@ function standardizeHotelData(rawHotel) {
         
         rawHotel.rates.forEach(rate => {
             // استخراج السعر بأمان من هيكل RateHawk المعقد
-            const amount = rate.payment_options?.payment_types?.[0]?.amount || rate.price || 0;
-            const currencyCode = rate.payment_options?.payment_types?.[0]?.currency_code || rate.currency || 'AED';
+            const paymentType = rate.payment_options?.payment_types?.[0] || {};
+            const amount = paymentType.amount ?? rate.price ?? 0;
+            const currencyCode = paymentType.currency_code || rate.currency || 'AED';
+            const sellPriceLimits = rate.sell_price_limits ?? paymentType.sell_price_limits;
 
             standardHotel.rooms.push({
                 roomId: rate.book_hash || rate.match_hash, // RateKey (book_hash is required for prebook/booking)
                 processKey: '', // RateHawk doesn't need processKey
                 name: rate.room_name || rate.name || "Standard Room",
                 board: normalizeMealType(rate.meal),
-                price: convertToAED(amount, currencyCode),
+                price: convertToAED(calculateSellPrice(amount, currencyCode, sellPriceLimits, getMarkupPercent(rate)), currencyCode),
                 currency: 'AED',
                 isInstantConfirmation: true, 
                 freeCancellation: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before !== null,
@@ -349,6 +407,8 @@ function deduplicateHotels(hotelsList) {
 module.exports = {
     deduplicateHotels,
     convertToAED,
+    calculateSellPrice,
+    getMarkupPercent,
     normalizeHotelName,
     normalizeRoomName, 
     normalizeMealType,
