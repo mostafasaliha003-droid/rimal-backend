@@ -69,20 +69,15 @@ function getHotelModel() {
 const BOOK_WAIT_MS = parseInt(process.env.RATEHAWK_BOOK_WAIT_MS || '90000', 10);
 const BOOK_POLL_INTERVAL_MS = parseInt(process.env.RATEHAWK_BOOK_POLL_MS || '3000', 10);
 
-// Hotelpage enrichment during search. SERP only returns match_hash; a bookable
-// book_hash requires a hotelpage (hp) call per hotel. hp is strictly rate-limited
-// (~10/min), so per-search hp fan-out must be self-limiting to avoid 429 storms:
-//   - enrich at most HP_LIMIT hotels, sequentially;
-//   - never sleep on a 429 (rateLimitRetry:false) — fall back to serp rates;
-//   - stop as soon as the hp quota is exhausted;
-//   - cache hp results briefly so repeated searches don't re-hit hp.
-const HP_LIMIT = parseInt(process.env.RATEHAWK_HP_LIMIT || '6', 10);
+// Hotelpage (hp) is used EXCLUSIVELY on hotel selection (getHotelPricing), never
+// looped over search results — the ETG-recommended "HP on selection only" pattern.
+// hp is strictly rate-limited (~10/min); a short-lived cache lets repeated views of
+// the same hotel/dates reuse the result (ETG allows caching hotelpage rates ~1h).
 const HP_CACHE_TTL_MS = parseInt(process.env.RATEHAWK_HP_CACHE_TTL_MS || '600000', 10); // 10 min
-const HP_REMAINING_SAFETY = parseInt(process.env.RATEHAWK_HP_REMAINING_SAFETY || '1', 10);
-const hpCache = new Map(); // key -> { rates, expires }
+const hpCache = new Map(); // key -> { rates, id, hid, expires }
 
-function hpCacheKey(hid, p) {
-    return `${hid}|${p.checkin}|${p.checkout}|${p.residency}|${p.currency}|${JSON.stringify(p.guests)}`;
+function hpCacheKey(hotelKey, p) {
+    return `${hotelKey}|${p.checkin}|${p.checkout}|${p.residency}|${p.currency}|${JSON.stringify(p.guests)}`;
 }
 
 // Booking status errors that are final (stop polling immediately).
@@ -219,64 +214,24 @@ async function searchAvailability(rawParams = {}) {
     const serpHotels = (res.data && res.data.hotels) || [];
     if (!serpHotels.length) return [];
 
-    // 2b. Hotelpage step — SERP rates only carry match_hash; a bookable book_hash
-    // requires hp per hotel. Enrich the top N hotels SEQUENTIALLY, using a short-lived
-    // cache, never sleeping on 429, and bailing as soon as the hp quota is exhausted.
-    const targets = serpHotels.slice(0, Math.min(HP_LIMIT, serpHotels.length));
-    const hpResults = [];
-    let hpExhausted = false;
-    let enrichedCount = 0;
-    for (const h of targets) {
-        let rates = h.rates || [];
-        const key = hpCacheKey(h.hid, params);
-        const cached = hpCache.get(key);
-        if (cached && cached.expires > Date.now()) {
-            rates = cached.rates;
-            enrichedCount++;
-        } else if (!hpExhausted && h.hid) {
-            try {
-                // rateLimitRetry:false -> a 429 returns immediately (no 16s sleep).
-                const page = await client.hotelPage({ ...params, hid: h.hid }, { rateLimitRetry: false });
-                if (page.httpStatus === 429) {
-                    hpExhausted = true; // quota gone — stop firing hp for the rest of this search
-                } else if (page.ok && page.data && page.data.hotels && page.data.hotels[0]) {
-                    const hpRates = page.data.hotels[0].rates || [];
-                    if (hpRates.length) {
-                        rates = hpRates;
-                        enrichedCount++;
-                        hpCache.set(key, { rates, expires: Date.now() + HP_CACHE_TTL_MS });
-                    }
-                    // Proactively stop before we run the quota to zero.
-                    const remaining = page.rateLimit && page.rateLimit.remaining;
-                    if (remaining !== null && remaining !== undefined && remaining <= HP_REMAINING_SAFETY) {
-                        hpExhausted = true;
-                    }
-                }
-            } catch (e) {
-                // hp failed (e.g. transient/invalid) — keep serp rates for this hotel.
-            }
-        }
-        hpResults.push({ hid: h.hid, id: h.id, rates });
-    }
-    if (hpExhausted) {
-        logger.warn(`RateHawk search: hotelpage quota reached — enriched ${enrichedCount}/${targets.length} hotels with book_hash; the rest use SERP rates (book on selection).`);
-    }
-
-    // Hydrate static content (name / image / stars / lat / lng) from our local
-    // MongoDB Hotel cache (populated by syncRatehawkHotels.js). SERP/HP return only
-    // IDs + live pricing, so static data is blended in from our synced collection.
+    // SERP-only listing (fast). We do NOT call hotelpage per result — that is done
+    // lazily via getHotelPricing() when the user opens a specific hotel. The SERP
+    // rates (cheapest shown) are enough for the listing; full bookable rates with
+    // book_hash come from HP-on-selection.
+    // Hydrate static content (name/image/stars/lat/lng) from our local MongoDB
+    // Hotel cache (populated by syncRatehawkHotels.js).
     let dbMap = {};
     try {
         const Hotel = getHotelModel();
-        const idList = hpResults.map(h => h.id).filter(Boolean);
+        const idList = serpHotels.map(h => h.id).filter(Boolean);
         const docs = await Hotel.find({ hotelId: { $in: idList } }).lean();
         docs.forEach(d => { dbMap[d.hotelId] = d; });
-        logger.info(`RateHawk search: hydrated ${docs.length}/${idList.length} hotels from local DB cache`);
+        logger.info(`RateHawk search: ${serpHotels.length} hotels from SERP; hydrated ${docs.length}/${idList.length} from local DB cache`);
     } catch (e) {
         logger.warn('RateHawk DB hydration skipped', { error: e.message });
     }
 
-    return hpResults.map(h => {
+    return serpHotels.map(h => {
         const d = dbMap[h.id] || {};
         return {
             id: h.id,
@@ -291,6 +246,60 @@ async function searchAvailability(rawParams = {}) {
             provider: 'ratehawk'
         };
     });
+}
+
+// HP-on-selection: fetch full rooms/rates (with bookable book_hash) for a SINGLE
+// hotel the user opened. This is the only place we call /search/hp/.
+async function getHotelPricing(hotelId, searchParams = {}) {
+    const params = normalizeSearchParams(searchParams);
+    if (!hotelId) return { success: false, error: 'missing_hotel_id', rooms: [] };
+    if (!params.checkin || !params.checkout) return { success: false, error: 'missing_dates', rooms: [] };
+
+    const numeric = /^\d+$/.test(String(hotelId));
+    const key = hpCacheKey(hotelId, params);
+    let entry = hpCache.get(key);
+    if (!entry || entry.expires <= Date.now()) {
+        const body = { ...params };
+        if (numeric) body.hid = Number(hotelId); else body.id = String(hotelId);
+        const res = await client.hotelPage(body); // single user-facing call: 429 -> sleep+retry is fine
+        if (!res.ok) return { success: false, error: res.error || 'hp_failed', rooms: [] };
+        const hotel = res.data && res.data.hotels && res.data.hotels[0];
+        if (!hotel) return { success: false, error: 'not_found', rooms: [] };
+        entry = { rates: hotel.rates || [], id: hotel.id, hid: hotel.hid, expires: Date.now() + HP_CACHE_TTL_MS };
+        hpCache.set(key, entry);
+    }
+
+    // Hydrate static content from our local DB, then map to the unified room shape.
+    let doc = null;
+    try {
+        const Hotel = getHotelModel();
+        doc = await Hotel.findOne({ hotelId: String(entry.id || hotelId) }).lean();
+    } catch (e) { /* ignore */ }
+
+    const raw = {
+        id: entry.id || hotelId,
+        hid: entry.hid,
+        name: (doc && doc.name) || FALLBACK_HOTEL_NAME,
+        image: (doc && doc.image) || '',
+        stars: (doc && doc.stars) || '',
+        city: (doc && doc.city) || 'دبي',
+        latitude: (doc && doc.latitude) || '',
+        longitude: (doc && doc.longitude) || '',
+        rates: entry.rates || [],
+        provider: 'ratehawk'
+    };
+    const [mapped] = mappingService.deduplicateHotels([raw]);
+    return {
+        success: true,
+        hotelId: raw.id,
+        hid: raw.hid,
+        name: raw.name,
+        image: raw.image,
+        stars: raw.stars,
+        latitude: raw.latitude,
+        longitude: raw.longitude,
+        rooms: (mapped && mapped.rooms) || []
+    };
 }
 
 // Backward-compatible name used by server.js
@@ -571,6 +580,7 @@ module.exports = {
     searchAvailability,
     fetchHotelsInChunks,
     getHotelPage,
+    getHotelPricing,
     fetchSingleHotelPage,
     // Step 3 - prebook
     prebookRate,

@@ -412,6 +412,30 @@ app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, a
     }
 });
 
+// 🏨 HP-on-selection: full rooms/rates (bookable book_hash) for a single hotel the
+// user opened. SERP powers the listing; this powers the hotel details page.
+app.post('/api/v1/hotels/:hotelId/rates', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    try {
+        const { hotelId } = req.params;
+        const result = await ratehawkService.getHotelPricing(hotelId, req.body || {});
+        if (!result.success) {
+            return res.status(404).json({ success: false, error: result.error || 'not_found', message: 'تعذّر جلب أسعار الغرف لهذا الفندق.' });
+        }
+        return res.status(200).json({
+            success: true,
+            hotel: {
+                hotelId: result.hotelId, hid: result.hid, name: result.name,
+                image: result.image, stars: result.stars,
+                latitude: result.latitude, longitude: result.longitude
+            },
+            rooms: result.rooms
+        });
+    } catch (error) {
+        logger.error('Hotel rates (HP-on-selection) failed', { error: error.message });
+        return res.status(500).json({ success: false, error: 'rates_error', message: 'حدث خطأ أثناء جلب أسعار الغرف.' });
+    }
+});
+
 app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
     const { hotelId, oldPriceAED, provider, roomId } = req.body; 
     try {

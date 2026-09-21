@@ -344,6 +344,24 @@ const Hotels = {
 
         await Hotels.fetchAndDisplayHotelReviews(hotelName);
 
+        // 🏨 HP-on-selection: for RateHawk hotels, fetch full bookable rooms (book_hash)
+        // only now that the user opened this hotel (SERP powers the listing page).
+        let effectiveRooms = apiRooms;
+        if ((provider || 'ratehawk') === 'ratehawk' && hotelId && hotelId !== 'mock1' && hotelId !== '12345') {
+            try {
+                const ci = document.getElementById('checkInDate') ? document.getElementById('checkInDate').value : '';
+                const co = document.getElementById('checkOutDate') ? document.getElementById('checkOutDate').value : '';
+                const occ = (typeof window.lastSearchOccupancy !== 'undefined' && window.lastSearchOccupancy) ? window.lastSearchOccupancy : { adults: 2, childrenAges: [] };
+                const rr = await fetch(`${API_URL}/api/v1/hotels/${encodeURIComponent(hotelId)}/rates`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e' },
+                    body: JSON.stringify({ checkIn: ci, checkOut: co, adults: occ.adults, childrenAges: occ.childrenAges })
+                });
+                const rd = await rr.json();
+                if (rd.success && Array.isArray(rd.rooms) && rd.rooms.length) effectiveRooms = rd.rooms;
+            } catch (e) { /* fall back to SERP rooms from the listing */ }
+        }
+
         let stickyHeaderHTML = `
             <div id="smartStickyBar" class="sticky top-[60px] lg:top-[70px] z-[50] bg-white/95 backdrop-blur-xl border border-slate-200 shadow-[0_15px_40px_rgba(31,58,64,0.12)] p-2.5 md:p-3 mb-6 rounded-2xl flex justify-between items-center opacity-0 translate-y-[-20px] pointer-events-none transition-all duration-500 mx-1 lg:mx-0">
                 <div class="flex items-center gap-2 md:gap-3">
@@ -366,12 +384,12 @@ const Hotels = {
         `;
 
         let roomsList = [];
-        if (hotelName.includes('الفندق التجريبي') || !apiRooms || apiRooms.length === 0) {
+        if (hotelName.includes('الفندق التجريبي') || !effectiveRooms || effectiveRooms.length === 0) {
             roomsList = [
                 { provider: 'ratehawk', hotelId: 'mock1', roomId: 'MOCK-ROOM-ID', processKey: '', name: "غرفة قياسية (Standard Room)", bed: "سرير مزدوج مريح", board: "RO", price: basePrice, points: Math.floor(basePrice*10), policyText: "حجز اقتصادي - غير قابل للاسترداد", isFreeCancel: false, paymentType: "AT", refundType: "non_refundable", urgency: "🔥 حجز سريع • آخر غرفة متاحة" }
             ];
         } else {
-            apiRooms.forEach((room, rIdx) => {
+            effectiveRooms.forEach((room, rIdx) => {
                 let ratesArray = room.rates && room.rates.length > 0 ? room.rates : [room];
                 
                 ratesArray.forEach((rate, rateIdx) => {
