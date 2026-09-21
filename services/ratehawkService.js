@@ -17,6 +17,10 @@ const logger = require('./loggerService');
 // Fallback name for hotels not yet present in our local static-content cache.
 const FALLBACK_HOTEL_NAME = 'فندق شريك لرمال وفلّها';
 
+// Real hotel used to validate financial responsibilities in RateHawk's "Test
+// environment" (a bookable real property) before switching to Production keys.
+const RATEHAWK_TEST_HOTEL_ID = '8473727'; // Used for testing real financial bookings in the Test environment.
+
 // Access the shared Hotel model (registered by server.js / syncRatehawkHotels.js).
 // Defined lazily so requiring this module never fails if the model isn't set up yet.
 function getHotelModel() {
@@ -122,6 +126,9 @@ async function searchAvailability(rawParams = {}) {
     }
 
     // 2a. SERP step — get the candidate hotels for the destination.
+    // NOTE: When the account manager asks us to validate real billing in RateHawk's
+    // Test environment, run a search/hp/prebook/book flow against the real test hotel
+    // RATEHAWK_TEST_HOTEL_ID ('8473727') (e.g. pass hids:[RATEHAWK_TEST_HOTEL_ID]).
     let res;
     if ((rawParams.hids && rawParams.hids.length) || (rawParams.ids && rawParams.ids.length)) {
         res = await client.serpHotels({ ...params, hids: rawParams.hids, ids: rawParams.ids });
@@ -456,6 +463,7 @@ async function cancelBooking(partnerOrderId, amountCommission = 0) {
 module.exports = {
     // low-level client (exposed for advanced use / testing)
     client,
+    RATEHAWK_TEST_HOTEL_ID,
     // Step 1 - static/content
     getHotelStatic,
     getFilterValues,

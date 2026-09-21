@@ -40,7 +40,11 @@ const Hotel = mongoose.models.Hotel || mongoose.model('Hotel', hotelSchema);
 // 2. Configuration
 // ==========================================
 const MONGO_URI = process.env.MONGO_URI;
-const BASE_URL = (process.env.RATEHAWK_BASE_URL || 'https://api-sandbox.ratehawk.com').replace(/\/+$/, '');
+// Fully env-driven base URL (RATEHAWK_BASE_URL). Sandbox: https://api-sandbox.ratehawk.com,
+// Production: https://api.ratehawk.com. Legacy *.worldota.net hosts are deprecated.
+// Accepts a bare host or a trailing /api/b2b/v3 and normalizes to the host.
+const BASE_URL = String(process.env.RATEHAWK_BASE_URL || 'https://api-sandbox.ratehawk.com')
+    .trim().replace(/\/+$/, '').replace(/\/api\/b2b\/v3$/, '');
 // HTTP Basic Auth. Accepts the requested names, falling back to the ones already in .env.
 const API_ID = process.env.RATEHAWK_API_ID || process.env.RATEHAWK_KEY_ID;
 const API_TOKEN = process.env.RATEHAWK_API_TOKEN || process.env.RATEHAWK_API_KEY;

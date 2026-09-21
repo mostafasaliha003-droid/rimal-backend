@@ -5,7 +5,19 @@
 const axios = require('axios');
 const logger = require('./loggerService');
 
-const BASE_URL = (process.env.RATEHAWK_BASE_URL || 'https://api-sandbox.ratehawk.com').replace(/\/+$/, '');
+// Base URL is fully env-driven (RATEHAWK_BASE_URL). Hosts:
+//   Sandbox:    https://api-sandbox.ratehawk.com
+//   Production: https://api.ratehawk.com
+// (The legacy api.worldota.net / api-sandbox.worldota.net hosts are deprecated.)
+// The value may be given as the bare host or with a trailing /api/b2b/v3 — we
+// normalize to the host because endpoints hit both /api/b2b/v3/* and /api/content/v1/*.
+function normalizeBaseUrl(u) {
+    return String(u || 'https://api-sandbox.ratehawk.com')
+        .trim()
+        .replace(/\/+$/, '')
+        .replace(/\/api\/b2b\/v3$/, '');
+}
+const BASE_URL = normalizeBaseUrl(process.env.RATEHAWK_BASE_URL);
 const KEY_ID = process.env.RATEHAWK_KEY_ID || '';
 const API_KEY = process.env.RATEHAWK_API_KEY || '';
 
