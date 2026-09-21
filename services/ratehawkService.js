@@ -9,6 +9,8 @@
 //   fetchOrderDetails, cancelBooking
 
 const crypto = require('crypto');
+const fs = require('fs');
+const path = require('path');
 const mongoose = require('mongoose');
 const client = require('./ratehawkClient');
 const mappingService = require('./mappingService');
@@ -51,6 +53,9 @@ const DESTINATION_REGION_MAP = (() => {
     return out;
 })();
 const DEFAULT_REGION_ID = Number(process.env.RATEHAWK_DEFAULT_REGION_ID) || null;
+const FILTER_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
+const FILTER_CACHE_FILE = path.join(__dirname, '..', 'data', 'filters.json');
+const FILTER_KEYS = ['language', 'country', 'serp_filter', 'star_rating', 'kind'];
 
 // Access the shared Hotel model (registered by server.js / syncRatehawkHotels.js).
 // Defined lazily so requiring this module never fails if the model isn't set up yet.
@@ -331,8 +336,65 @@ async function getApiOverview() {
 
 // ---- Step 1: Static / content ----------------------------------------------
 const getHotelStatic = () => client.hotelStatic();
-const getFilterValues = () => client.filterValues();
+const fetchFilterValues = () => client.filterValues();
 const getHotelIdsByFilter = (data) => client.hotelIdsByFilter(data);
+
+function selectFilterValues(data) {
+    const source = data && data.filters && typeof data.filters === 'object' ? data.filters : data;
+    const filters = {};
+    FILTER_KEYS.forEach(key => {
+        if (source && Object.prototype.hasOwnProperty.call(source, key)) filters[key] = source[key];
+    });
+    return filters;
+}
+
+function readFilterCache() {
+    try {
+        if (!fs.existsSync(FILTER_CACHE_FILE)) return null;
+        const cached = JSON.parse(fs.readFileSync(FILTER_CACHE_FILE, 'utf8'));
+        if (!cached || !cached.fetchedAt || !cached.filters) return null;
+        const fetchedAt = new Date(cached.fetchedAt).getTime();
+        if (!Number.isFinite(fetchedAt)) return null;
+        return { filters: selectFilterValues(cached.filters), fetchedAt: new Date(fetchedAt).toISOString() };
+    } catch (error) {
+        logger.warn('RateHawk filter cache could not be read', { error: error.message });
+        return null;
+    }
+}
+
+function writeFilterCache(filters) {
+    const directory = path.dirname(FILTER_CACHE_FILE);
+    const temporaryFile = `${FILTER_CACHE_FILE}.tmp`;
+    fs.mkdirSync(directory, { recursive: true });
+    fs.writeFileSync(temporaryFile, JSON.stringify({ fetchedAt: new Date().toISOString(), filters }, null, 2), 'utf8');
+    fs.renameSync(temporaryFile, FILTER_CACHE_FILE);
+}
+
+async function getFilterValues({ forceRefresh = false } = {}) {
+    const cached = readFilterCache();
+    const cacheAge = cached ? Date.now() - new Date(cached.fetchedAt).getTime() : Infinity;
+    if (!forceRefresh && cached && cacheAge >= 0 && cacheAge < FILTER_CACHE_TTL_MS) {
+        logger.info('RateHawk filter values served from cache', { ageMs: cacheAge });
+        return { ...cached, source: 'cache', stale: false };
+    }
+
+    try {
+        const response = await fetchFilterValues();
+        if (!response.ok) throw new Error(response.error || 'filter_values request failed');
+        const filters = selectFilterValues(response.data);
+        writeFilterCache(filters);
+        logger.info('RateHawk filter values synchronized', { keys: Object.keys(filters) });
+        const fetchedAt = new Date().toISOString();
+        return { filters, fetchedAt, source: 'api', stale: false };
+    } catch (error) {
+        if (cached) {
+            logger.warn('RateHawk filter sync failed; serving stale cache', { error: error.message });
+            return { ...cached, source: 'stale-cache', stale: true };
+        }
+        logger.error('RateHawk filter sync failed with no cache available', { error: error.message });
+        throw error;
+    }
+}
 
 async function getHotelsContent(ids = [], hids = [], language = 'en') {
     // ETG expects either hids OR ids, not both (sending both -> invalid_params).

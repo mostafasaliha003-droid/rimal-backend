@@ -370,6 +370,31 @@ app.get('/api/v1/hotels/destinations', (req, res) => {
     });
 });
 
+app.get('/api/v1/hotels/filters', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    try {
+        const result = await ratehawkService.getFilterValues();
+        return res.status(200).json({
+            success: true,
+            filters: result.filters,
+            language: result.filters.language || [],
+            country: result.filters.country || [],
+            serp_filter: result.filters.serp_filter || [],
+            star_rating: result.filters.star_rating || [],
+            kind: result.filters.kind || [],
+            cachedAt: result.fetchedAt,
+            source: result.source,
+            stale: result.stale
+        });
+    } catch (error) {
+        logger.error('Hotel filter values endpoint failed', { error: error.message });
+        return res.status(502).json({
+            success: false,
+            error: 'FILTERS_UNAVAILABLE',
+            message: 'Hotel filter values are temporarily unavailable.'
+        });
+    }
+});
+
 // ==========================================
 // 🌟 9. المحرك الجديد الشامل (RateHawk + Dubai Link) مع دمج صور متعددة الخصائص
 // ==========================================
