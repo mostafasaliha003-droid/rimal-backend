@@ -359,6 +359,16 @@ app.get('/api/user/profile', async (req, res) => {
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
+// 🌍 قائمة الوجهات لقائمة البحث المنسدلة (كانت مفقودة وتُرجع 404)
+app.get('/api/v1/hotels/destinations', (req, res) => {
+    res.json({
+        success: true,
+        destinations: [
+            { code: 'DXB', name: { content: 'دبي — Dubai' } }
+        ]
+    });
+});
+
 // ==========================================
 // 🌟 9. المحرك الجديد الشامل (RateHawk + Dubai Link) مع دمج صور متعددة الخصائص
 // ==========================================

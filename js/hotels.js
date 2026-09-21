@@ -115,15 +115,33 @@ const Hotels = {
 
             const apiKey = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
 
-            const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
-                method: 'POST', 
-                headers: { 
-                    'Content-Type': 'application/json',
-                    'x-api-key': apiKey 
-                },
-                body: JSON.stringify({ checkIn, checkOut, checkInDate: checkIn, checkOutDate: checkOut, adults: adultsCount, children: childrenCount, childrenAges, boardBasis, destinationCode, destinationName, query })
-            });
-            const data = await res.json();
+            const reqBody = JSON.stringify({ checkIn, checkOut, checkInDate: checkIn, checkOutDate: checkOut, adults: adultsCount, children: childrenCount, childrenAges, boardBasis, destinationCode, destinationName, query });
+
+            // 🔁 مقاومة "البدء البارد" لسيرفر Render: أول طلب بعد الخمول قد يعيد 502 مؤقتًا،
+            // لذا نعيد المحاولة تلقائيًا قبل إظهار خطأ الاتصال.
+            const runSearch = async () => {
+                const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+                    body: reqBody
+                });
+                if (!res.ok) throw new Error('HTTP ' + res.status);
+                return await res.json();
+            };
+
+            // delays cover a Render free-tier cold start (~30-40s to wake).
+            const retryDelays = [4000, 7000, 10000, 14000];
+            let data;
+            for (let attempt = 0; attempt <= retryDelays.length; attempt++) {
+                try { data = await runSearch(); break; }
+                catch (err) {
+                    if (attempt === retryDelays.length) throw err;
+                    if (attempt === 0 && typeof UI !== 'undefined' && UI.showToast) {
+                        UI.showToast('info', 'جاري تجهيز الخادم ⏳', 'قد يستغرق أول طلب حتى 30 ثانية بعد فترة خمول، جارٍ إعادة المحاولة تلقائيًا...');
+                    }
+                    await new Promise(r => setTimeout(r, retryDelays[attempt]));
+                }
+            }
 
             let resultsArray = data.hotelsData?.hotels || data.hotelsData || [];
             
