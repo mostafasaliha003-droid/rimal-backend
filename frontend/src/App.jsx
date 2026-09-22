@@ -1,53 +1,118 @@
-import { useState } from 'react';
-import { ArrowLeft, ChevronLeft, Heart, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { BrowserRouter, Route, Routes, useLocation, useNavigate, useParams } from 'react-router-dom';
+import { ChevronLeft, LoaderCircle } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
-import { StarIcon } from './components/Icons';
+import SerpResultCard from './components/SerpResultCard';
+import BookingAPI from './services/bookingApi';
 
-const sampleRooms = [
-    { name: 'جونيور سويت بإطلالة على المدينة', price: '433.06' },
-    { name: 'غرفة ديلوكس بسرير كينج', price: '517.40' }
-];
+const searchPayload = (search) => ({
+    checkin: search.checkin,
+    checkout: search.checkout,
+    guests: search.guests,
+    residency: 'ae',
+    language: 'en',
+    currency: 'USD'
+});
+
+function Layout({ children }) {
+    return <div className="min-h-screen bg-remal-bg text-remal-dark"><TopNavigationBar /><main>{children}</main><footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl items-center justify-between px-5 py-7 text-xs font-bold text-slate-400 lg:px-10"><span>© 2026 رمال وفِلّها</span><button type="button" onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-1 text-remal-blue">العودة للأعلى <ChevronLeft size={14} /></button></div></footer></div>;
+}
+
+function Home() {
+    const navigate = useNavigate();
+    return <Layout><HeroSearchSection onSearch={(search) => navigate('/search', { state: { search } })} /></Layout>;
+}
+
+function SearchResults() {
+    const { state } = useLocation();
+    const navigate = useNavigate();
+    const search = state?.search;
+    const [hotels, setHotels] = useState([]);
+    const [error, setError] = useState('');
+    const [loading, setLoading] = useState(Boolean(search));
+
+    useEffect(() => {
+        if (!search) return;
+        let active = true;
+        const load = async () => {
+            setLoading(true);
+            setError('');
+            try {
+                const destination = search.destination || {};
+                const result = destination.regionId
+                    ? await BookingAPI.searchByRegion({ ...searchPayload(search), region_id: destination.regionId })
+                    : destination.hotelId
+                        ? await BookingAPI.searchByIds({ ...searchPayload(search), hids: [destination.hotelId] })
+                        : null;
+                if (!result) throw new Error('يرجى اختيار وجهة من الاقتراحات.');
+                if (active) setHotels(result.hotels || result.data?.hotels || []);
+            } catch (requestError) {
+                if (active) setError(requestError.response?.data?.message || requestError.message || 'تعذر جلب الفنادق.');
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        load();
+        return () => { active = false; };
+    }, [search]);
+
+    if (!search) return <Layout><section className="mx-auto max-w-7xl px-5 py-20 text-center"><p className="font-bold text-slate-500">ابدأ البحث من الصفحة الرئيسية.</p><button type="button" onClick={() => navigate('/')} className="mt-5 rounded-full bg-remal-red px-5 py-3 text-sm font-black text-white">العودة للرئيسية</button></section></Layout>;
+
+    return <Layout><section className="mx-auto max-w-5xl px-5 py-12 lg:px-10"><h1 className="text-3xl font-black">نتائج البحث</h1><p className="mt-2 text-sm font-bold text-slate-400">{search.destination?.label} · {search.checkin} إلى {search.checkout}</p>{loading && <div className="flex justify-center py-16 text-remal-blue"><LoaderCircle className="animate-spin" /></div>}{error && <p role="alert" className="mt-8 rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700">{error}</p>}{!loading && !error && <div className="mt-8 space-y-4">{hotels.length ? hotels.map((hotel, index) => <SerpResultCard key={hotel.hid || hotel.id || index} hotel={hotel} onSelect={(selectedHotel) => navigate(`/hotel/${selectedHotel.hid || selectedHotel.id}`, { state: { search, hotel: selectedHotel } })} />) : <p className="rounded-xl bg-white p-6 text-sm font-bold text-slate-500">لا توجد فنادق متاحة لهذه الوجهة.</p>}</div>}</section></Layout>;
+}
+
+function HotelPage() {
+    const { hotelId } = useParams();
+    const { state } = useLocation();
+    const navigate = useNavigate();
+    const search = state?.search;
+    const [hotel, setHotel] = useState(state?.hotel || null);
+    const [rooms, setRooms] = useState([]);
+    const [loading, setLoading] = useState(Boolean(search));
+    const [error, setError] = useState('');
+    const [bookingMessage, setBookingMessage] = useState('');
+
+    useEffect(() => {
+        if (!search) return;
+        let active = true;
+        const load = async () => {
+            setLoading(true);
+            try {
+                const result = await BookingAPI.getHotelPage({ ...searchPayload(search), hid: hotelId });
+                if (!active) return;
+                setHotel(result.hotel || state?.hotel);
+                setRooms(result.hotel?.rates || result.rates || []);
+            } catch (requestError) {
+                if (active) setError(requestError.response?.data?.message || 'تعذر جلب الغرف المتاحة.');
+            } finally {
+                if (active) setLoading(false);
+            }
+        };
+        load();
+        return () => { active = false; };
+    }, [hotelId, search, state?.hotel]);
+
+    const book = async (room) => {
+        const bookHash = room.book_hash || room.bookHash;
+        if (!bookHash) return setBookingMessage('تعذر تحديد سعر هذه الغرفة.');
+        setBookingMessage('');
+        try {
+            const result = await BookingAPI.prebook(bookHash, 2);
+            setBookingMessage(result.success === false ? 'تعذر تأكيد الغرفة.' : 'تم تأكيد السعر والتوفر بنجاح. يمكنك المتابعة إلى الدفع.');
+        } catch (requestError) {
+            setBookingMessage(requestError.response?.status === 409
+                ? 'عذراً، لقد تغير السعر أو التوفر، يرجى تحديث الصفحة'
+                : requestError.response?.data?.message || 'تعذر تأكيد الغرفة، يرجى المحاولة لاحقاً.');
+        }
+    };
+
+    if (!search) return <Layout><section className="mx-auto max-w-5xl px-5 py-20 text-center"><p className="font-bold text-slate-500">لا توجد بيانات بحث لهذه الصفحة.</p><button type="button" onClick={() => navigate('/')} className="mt-5 rounded-full bg-remal-red px-5 py-3 text-sm font-black text-white">ابدأ بحثاً جديداً</button></section></Layout>;
+
+    return <Layout><section className="mx-auto max-w-5xl px-5 py-12 lg:px-10"><button type="button" onClick={() => navigate(-1)} className="text-sm font-black text-remal-blue">العودة للنتائج</button><h1 className="mt-5 text-3xl font-black">{hotel?.name || hotel?.hotel_name || `فندق ${hotelId}`}</h1>{loading && <div className="flex justify-center py-16 text-remal-blue"><LoaderCircle className="animate-spin" /></div>}{error && <p role="alert" className="mt-6 rounded-xl bg-red-50 p-4 text-sm font-bold text-red-700">{error}</p>}{bookingMessage && <p role="alert" className="mt-6 rounded-xl bg-emerald-50 p-4 text-sm font-bold text-emerald-700">{bookingMessage}</p>}{!loading && !error && <div className="mt-8 space-y-5">{rooms.length ? rooms.map((room, index) => <HotelRoomCard key={room.book_hash || room.match_hash || index} room={room} onBook={() => book(room)} />) : <p className="rounded-xl bg-white p-6 text-sm font-bold text-slate-500">لا توجد غرف متاحة حالياً.</p>}</div>}</section></Layout>;
+}
 
 export default function App() {
-    const [searched, setSearched] = useState(false);
-    const [saved, setSaved] = useState(false);
-
-    return (
-        <div className="min-h-screen bg-remal-bg text-remal-dark">
-            <TopNavigationBar />
-            <main>
-                <HeroSearchSection onSearch={() => setSearched(true)} />
-                <section className="mx-auto max-w-7xl px-5 pb-20 pt-6 lg:px-10 lg:pt-0">
-                    <div className="mb-8 flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
-                        <div>
-                            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-remal-blue">{searched ? 'نتائج البحث' : 'اختيارات رمال'}</p>
-                            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">فنادق تحسّها على كيفك</h2>
-                            <p className="mt-2 text-sm font-bold text-slate-400">خيارات مرتبة بعناية عشان تلقى مكانك أسرع</p>
-                        </div>
-                        <button type="button" className="flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-600 transition hover:border-remal-blue hover:text-remal-blue"><SlidersHorizontal size={15} /> ترتيب وفلترة</button>
-                    </div>
-
-                    <div className="grid gap-8 lg:grid-cols-[1.1fr_2fr]">
-                        <aside className="hidden rounded-3xl border border-slate-100 bg-white p-6 lg:block">
-                            <div className="mb-6 flex items-center justify-between"><h3 className="font-black">اختياراتك</h3><button className="text-xs font-bold text-remal-blue">إعادة ضبط</button></div>
-                            <div className="space-y-6 text-sm">
-                                <div><div className="mb-3 flex justify-between font-black"><span>الميزانية</span><span className="text-remal-blue">AED 200 - 800</span></div><div className="relative h-1.5 rounded-full bg-slate-100"><div className="absolute inset-x-10 h-full rounded-full bg-remal-blue" /><span className="absolute right-9 -top-1.5 h-4 w-4 rounded-full border-2 border-remal-blue bg-white" /><span className="absolute left-9 -top-1.5 h-4 w-4 rounded-full border-2 border-remal-blue bg-white" /></div></div>
-                                <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">تصنيف الفندق</p><div className="flex gap-2">{[3, 4, 5].map((star) => <button key={star} className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-black transition hover:border-remal-gold hover:text-amber-700">{star} <StarIcon size={12} className="text-remal-gold" fill="currentColor" /></button>)}</div></div>
-                                <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">مزايا الإقامة</p>{['إلغاء مجاني', 'إفطار مشمول', 'واي فاي مجاني'].map((item) => <label key={item} className="mb-3 flex items-center gap-3 text-xs font-bold text-slate-500"><input type="checkbox" className="h-4 w-4 accent-remal-blue" /> {item}</label>)}</div>
-                            </div>
-                        </aside>
-
-                        <div className="space-y-5">
-                            <div className="flex items-center justify-between rounded-2xl bg-remal-dark px-5 py-4 text-white"><div><p className="text-xs font-bold text-white/60">اقتراح اليوم</p><p className="mt-1 text-sm font-black">فندق بارك حياة دبي</p></div><div className="flex items-center gap-2 text-sm font-black text-remal-gold">9.2 <StarIcon size={15} fill="currentColor" /></div></div>
-                            {sampleRooms.map((room) => <HotelRoomCard key={room.name} room={room} onBook={() => setSearched(true)} />)}
-                            <div className="flex items-center justify-between rounded-2xl border border-dashed border-slate-300 bg-white/60 p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-50 text-emerald-600"><ShieldCheck size={20} /></div><div><p className="text-sm font-black">حجزك محمي معنا</p><p className="mt-1 text-[11px] font-bold text-slate-400">دفع آمن ودعم حقيقي وقت تحتاجه</p></div></div><button onClick={() => setSaved(!saved)} className={`rounded-full p-2.5 transition ${saved ? 'bg-remal-red text-white' : 'bg-slate-100 text-slate-400 hover:text-remal-red'}`} aria-label="حفظ الفندق"><Heart size={18} fill={saved ? 'currentColor' : 'none'} /></button></div>
-                        </div>
-                    </div>
-                </section>
-            </main>
-            <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-col gap-4 px-5 py-7 text-xs font-bold text-slate-400 sm:flex-row sm:items-center sm:justify-between lg:px-10"><span>© 2026 رمال وفِلّها</span><div className="flex gap-5"><a href="#">مساعدة</a><a href="#">الشروط والأحكام</a><a href="#">تواصل معنا</a></div><button className="flex items-center gap-1 text-remal-blue">العودة للأعلى <ChevronLeft size={14} /></button></div></footer>
-        </div>
-    );
+    return <BrowserRouter><Routes><Route path="/" element={<Home />} /><Route path="/search" element={<SearchResults />} /><Route path="/hotel/:hotelId" element={<HotelPage />} /></Routes></BrowserRouter>;
 }
