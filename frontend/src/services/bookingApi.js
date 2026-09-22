@@ -1,12 +1,14 @@
 import axios from 'axios';
 
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+    || (import.meta.env.PROD ? 'https://rimal-api.onrender.com/api' : '/api');
+const secureKey = import.meta.env.VITE_REMAL_SECURE_KEY || 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
+
 const api = axios.create({
-    baseURL: '/api',
+    baseURL: apiBaseUrl,
     headers: {
         'Content-Type': 'application/json',
-        ...(typeof import.meta !== 'undefined' && import.meta.env?.VITE_REMAL_SECURE_KEY
-            ? { 'x-api-key': import.meta.env.VITE_REMAL_SECURE_KEY }
-            : {})
+        'x-api-key': secureKey
     }
 });
 
