@@ -1,19 +1,15 @@
 <!doctype html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="robots" content="noindex">
-    <title>Redirecting</title>
-</head>
-<body>
-    <script>
-        const params = new URLSearchParams(window.location.search);
-        const payment = params.get('payment');
-        const ref = params.get('ref');
-        const target = payment
-            ? `/?payment=${encodeURIComponent(payment)}${ref ? `&ref=${encodeURIComponent(ref)}` : ''}`
-            : '/';
-        window.location.replace(target);
-    </script>
-</body>
+<html lang="ar" dir="rtl">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com;">
+    <meta name="theme-color" content="#112331" />
+    <title>رمال وفِلّها | حجوزات الفنادق</title>
+    <script type="module" crossorigin src="/assets/index-CGmyBWgt.js"></script>
+    <link rel="stylesheet" crossorigin href="/assets/index-D6XD7vwY.css">
+  </head>
+  <body>
+    <div id="root"></div>
+  </body>
 </html>
