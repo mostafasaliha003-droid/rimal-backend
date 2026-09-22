@@ -617,6 +617,8 @@ async function prebookRate(bookHash, priceIncreasePercent = 0) {
 
 const validatePrebookRate = (hash, priceIncreasePercent = 0) =>
     client.prebookRate(hash, priceIncreasePercent);
+const validateSerpPrebookRate = (hash, priceIncreasePercent = 0) =>
+    client.prebookSerpRate(hash, priceIncreasePercent);
 
 /**
  * Backward-compatible recheck used by server.js recheck-and-pay.
@@ -927,6 +929,7 @@ module.exports = {
     // Step 3 - prebook
     prebookRate,
     validatePrebookRate,
+    validateSerpPrebookRate,
     recheckHotel,
     // Step 4 - booking
     bookHotel,
