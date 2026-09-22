@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rimal-pwa-cache-v6'; // 🚀 إجبار المتصفحات على استبدال نسخة عامل الخدمة القديمة
+const CACHE_NAME = 'rimal-pwa-cache-v5'; // 🚀 إجبار المتصفحات على استبدال نسخة عامل الخدمة القديمة
 const urlsToCache = [
     '/',
     '/index.html',
