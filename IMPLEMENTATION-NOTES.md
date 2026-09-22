@@ -2,7 +2,7 @@
 
 ## Verification
 
-- `node --test test-booking-safety.js test-frontend-serving.js frontend/src/services/offers.test.js` checks booking, payment, offer, autocomplete and HTTP behavior without supplier requests. Booking tests use mocked transport/storage and a controlled clock; they do not certify MongoDB durability, live Payota, bank challenges or supplier account capabilities.
+- `node --test test-booking-safety.js test-frontend-serving.js frontend/src/services/offers.test.js` checks booking, post-booking retrieval/cancellation, payment, offer, autocomplete and HTTP behavior without supplier requests. Booking tests use mocked transport/storage and a controlled clock; they do not certify MongoDB durability, live Payota, bank challenges or supplier account capabilities.
 - `node --test test-frontend-serving.js` checks HTTP routes with and without `frontend/dist`, including private-file protection, missing assets and CORS preflights for allowed and rejected origins.
 - `npm --prefix frontend run build`
 - After building, run `npm run prepare:site` to update the static-site root, then `npm run check:site` to verify that its files match the build.
@@ -62,6 +62,49 @@ Required deployment configuration: `MONGO_URI`, `RATEHAWK_BASE_URL`, `RATEHAWK_K
 Keep `RATEHAWK_BOOKING_ENABLED`, `RATEHAWK_CARD_TOKENIZATION_ENABLED` and `PAYMENT_CHECKOUT_ENABLED` unset or false for now. No flags or provider settings were enabled by this implementation. Disabling new bookings does not disable authenticated status checks or reconciliation of existing operations. Card tokenization requires explicit PCI approval for the entire environment, including proxies, APM, request-body tracing and crash reporting; code-level redaction alone does not make the service PCI compliant. PAN/CVC are neither persisted nor passed to the ETG exchange logger, and booking logs redact guest names/contact details, payment IDs, challenges and supplier debug echoes. Existing historical logs are not rewritten; restrict their access and follow the approved retention process.
 
 Use the true sandbox for certification; ETG's test-key hotel `8473727` can create a real financial obligation and must not be used as an automated test fixture. Sandbox responses have documented limitations, including missing card/3DS fields and payment/currency differences. Verify supported settlement currencies, supplier contract requirements, bank challenges, guest data, cancellation/refund handling and the verified customer-payment lifecycle before connecting the public checkout. These changes do not add FX conversion or turn USD offers into AED payments.
+
+## RateHawk Post Booking
+
+Implemented against [Retrieve bookings](https://docs.emergingtravel.com/docs/b2b-api/post-booking/retrieve-bookings/) and [Cancel booking](https://docs.emergingtravel.com/docs/b2b-api/post-booking/cancel-booking/). The ETG transports use POST `/api/b2b/v3/hotel/order/info/` and `/api/b2b/v3/hotel/order/cancel/` on `RATEHAWK_BASE_URL` with the existing Basic credentials. These calls do not use Payota or the customer's payment gateway.
+
+All routes below require the existing private `RATEHAWK_BOOKING_TOKEN` Bearer authentication, reject browser-origin requests and send `Cache-Control: no-store`. Neither the public search API key nor a booking reference alone authorizes access. The trusted caller must authenticate the customer/operator and verify their right to the order before invoking these server-to-server endpoints.
+
+| Backend endpoint | Contract |
+| --- | --- |
+| `POST /api/v1/bookings/retrieve` | JSON with optional `ordering`, `pagination`, `search` and `language`. Returns one page and ETG's `current_page_number`, `total_orders`, `total_pages`, `found_orders`, `found_pages` and `orders`. |
+| `GET /api/v1/bookings/:partnerOrderId/info` | Retrieves exactly the matching `partner_data.order_id`, preserves supplier prices/policies/upsells and includes `current_penalty` when it can be determined. |
+| `POST /api/v1/bookings/:partnerOrderId/cancel` | Requires explicit consent and the current penalty as described below. Records the request durably before any supplier cancellation. |
+| `GET /api/v1/bookings/:partnerOrderId/cancel/status` | Reads a saved cancellation and, when due, reconciles it using order information only. Never resends cancellation. |
+
+Retrieval defaults to `ordering: { ordering_type: "desc", ordering_by: "created_at" }`, `pagination: { page_number: 1, page_size: 10 }` and `language: "en"`. Page numbers start at 1; page size is 1-50. Sort direction is `asc` or `desc`; sort fields are `cancelled_at`, `checkin_at`, `checkout_at`, `created_at`, `free_cancellation_before`, `modified_at`, `payment_due` or `payment_pending`. Each of those dates, plus `paid_at`, can be filtered in `search` by an inclusive `{ from_date?, to_date? }` range. Other supported filters are integer `order_ids`, string `partner_order_ids`, `status` (`cancelled`, `completed`, `failed`, `noshow`, `rejected`) and the documented `source` values. Invalid or unknown filters are rejected before contacting ETG. `page_out_of_range` returns HTTP 400 rather than silently returning another page; HTTP 429 includes the supplier-derived `Retry-After` when available. There is no unbounded fetch-all loop or automatic transport retry.
+
+ETG recommends waiting 1-2 minutes after final booking confirmation before retrieving order details. A valid empty single-order result or `order_not_found` returns HTTP 202 with `pending: true`, `order: null` and `retry_after_ms: 60000`; it does not establish a failed or cancelled booking. Invalid or mismatched supplier responses are rejected. Lists retain both total and filtered counts without treating the account-wide total as the matching order count.
+
+The hotel confirmation number is `hotel_data.order_id`, not ETG's numeric `order_id`, our partner order ID or a supplier reference. When present, it is synchronized to the matching local RateHawk `Booking`. A missing HCN remains null and does not block cancellation or other post-booking operations. ETG says HCNs usually arrive within 48 hours, sometimes later, and recommends delayed retrieval every 24-48 hours within its stated 96-hour post-creation/pre-check-in windows. Retrieval here is on demand; no separate HCN scheduler was added. Keep the order confirmed while awaiting its HCN and arrange the recommended follow-up through the trusted operations workflow.
+
+Before requesting cancellation, retrieve the order and present its current penalty and currency. The request body is:
+
+```json
+{
+	"confirm_cancellation": true,
+	"expected_penalty": { "amount": "42.73", "currency_code": "EUR" },
+	"acknowledge_upsells": true
+}
+```
+
+The values above are illustrative, not a price or policy. Copy the actual `current_penalty`; the amount must be a nonnegative decimal string. The service refreshes order information, requires `status: completed` and `is_cancellable: true`, finds the single policy currently active in UTC, and compares amount/currency exactly without floating-point conversion. Missing/overlapping policies or changed penalties fail closed. The policy is checked again after the durable claim, immediately before submission, to catch a cancellation cutoff crossed while saving. ETG's cancellation request accepts only `partner_order_id`, with no atomic maximum-penalty parameter; a supplier policy change or cutoff during the network request cannot be guaranteed away. Obtain explicit authorization for the financial risk and use ETG support for time-critical cases.
+
+Non-refundable cancellation penalties are real outside the true sandbox. Upsells are NOT automatically cancelled; when the retrieved order includes them, `acknowledge_upsells: true` is required and the result keeps `upsells_require_manual_cancellation: true`. Contact `support@ratehawk.com` separately about cancelling those services. An already-cancelled order is recorded without another cancellation request.
+
+`BookingCancellation` uses the partner order ID as its unique `_id` and stores a fingerprint of consent, the accepted penalty and the upsell acknowledgement. The claim must persist before the request is sent. Identical concurrent/repeated requests return the saved operation; changed consent returns HTTP 409. Transport retries, including automatic HTTP 429 retries, are disabled. Unknown/5xx responses, timeouts, `lock`, rate limits or malformed responses remain `cancel_pending`; definitive supplier errors such as `order_not_cancellable`, `order_not_found` and `sandbox_restriction` are recorded as `cancel_failed`. Do not infer failure or resubmit from an HTTP error after sending.
+
+Pending cancellations are rechecked through order information by the existing MongoDB status worker, with leases across workers, a one-minute interval and respect for longer rate-limit delays. It resumes durable claims after restarts and never sends a second cancellation request. An unchanged `completed` order or temporarily empty order information remains pending. Monitor unresolved claims, database errors and `action_required`; operator reconciliation is required for definitive failures, interrupted requests or a policy change after the claim. This implementation deliberately does not offer an automatic retry/reset of a claimed cancellation.
+
+Only a valid successful cancellation response or a retrieved `status: cancelled` updates local booking/process state to `cancelled` / `CANCELLED`. Delayed booking webhooks cannot reactivate that state. `amountRefunded`, `amountPayable` and `amountSell` preserve ETG's decimal strings and original currencies. They describe the supplier's accounting, not a completed refund to the customer's card. The response explicitly says `customer_refund_status: "not_processed"` and records follow-up work; no charge, customer refund, currency conversion, email or voucher is triggered here.
+
+Keep `RATEHAWK_CANCELLATION_ENABLED` unset or false until authenticated ownership/consent handling, supplier permissions, cancellation penalties, MongoDB failover and customer-refund procedures are certified. Enabling cancellation is independent of enabling new bookings. Authenticated retrieval and reconciliation remain available when cancellation is disabled. The old `POST /api/v1/bookings/cancel` path is retired (410 after private authentication); it no longer accepts an unauthenticated reference or marks other suppliers cancelled without confirmation. Existing integrations using the formerly public order-info/cancel paths must migrate to private authentication; never put that Bearer token in the browser.
+
+Verification uses fixtures only, including concurrent requests, storage failure before send, delayed/mismatched orders, HCN mapping, UTC penalty cutoffs, original currencies, upsells, unknown outcomes, protected HTTP routes and late webhooks. No real bookings were retrieved or cancelled, no money was refunded, and no deployment/provider flags were enabled. Validate the new collection, index and restart behavior with an isolated MongoDB and the actual supplier sandbox before production; its EUR-only responses, omitted translated fields and unrealized cancellation penalties do not demonstrate production behavior.
 
 ## Frontend deployment
 

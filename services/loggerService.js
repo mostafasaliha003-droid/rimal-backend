@@ -38,7 +38,8 @@ const PRIVATE_FIELDS = new Set([
     'cvc', 'cvv', 'creditcarddatacore', 'cardnumber', 'cardholder', 'cardtoken',
     'inituuid', 'payuuid', 'data3ds', 'pareq', 'pares', 'md', 'termurl',
     'email', 'phone', 'firstname', 'lastname', 'firstnameoriginal', 'lastnameoriginal',
-    'guestname', 'customername', 'userip', 'comment', 'bookhash', 'debug'
+    'guestname', 'customername', 'userip', 'comment', 'bookhash', 'debug',
+    'userdata', 'guestdata', 'usercomment', 'ordercomment', 'voucherordercomment', 'arrivaldatetime'
 ]);
 
 function sanitizePayload(value) {

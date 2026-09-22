@@ -10,7 +10,7 @@ const bookingProcessSchema = new mongoose.Schema({
     state: {
         type: String,
         required: true,
-        enum: ['creating', 'form_ready', 'form_failed', 'card_pending', 'card_ready', 'card_failed', 'card_unknown', 'finishing', 'processing', '3ds', 'confirmed', 'failed', 'expired']
+        enum: ['creating', 'form_ready', 'form_failed', 'card_pending', 'card_ready', 'card_failed', 'card_unknown', 'finishing', 'processing', '3ds', 'confirmed', 'failed', 'expired', 'cancelled']
     },
     form: mongoose.Schema.Types.Mixed,
     form_expires_at: Date,

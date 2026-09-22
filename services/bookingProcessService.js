@@ -4,6 +4,7 @@ const mongoose = require('mongoose');
 const BookingProcess = require('../models/BookingProcess');
 const ratehawk = require('./ratehawkService');
 const logger = require('./loggerService');
+const postBooking = require('./postBookingService');
 
 const IN_FLIGHT = ['finishing', 'processing', '3ds'];
 const READY = ['form_ready', 'card_ready'];
@@ -33,7 +34,7 @@ function safeCode(error, fallback) {
 }
 
 function view(record) {
-    const final = ['confirmed', 'failed'].includes(record.state);
+    const final = ['confirmed', 'failed', 'cancelled'].includes(record.state);
     return {
         process_id: record._id,
         partner_order_id: record.partner_order_id,
@@ -260,6 +261,8 @@ function startBookingStatusWorker() {
         try {
             const result = await reconcilePendingProcesses();
             if (result.failed) logger.warn('RateHawk booking status reconciliation needs retry', { failed: result.failed });
+            const cancellations = await postBooking.reconcilePendingCancellations();
+            if (cancellations.failed) logger.warn('RateHawk cancellation reconciliation needs retry', { failed: cancellations.failed });
         } catch {
             logger.error('RateHawk booking status reconciliation unavailable');
         } finally {

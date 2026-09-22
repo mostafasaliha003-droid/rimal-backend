@@ -1105,70 +1105,7 @@ app.get('/api/v1/admin/logs/:partnerOrderId', verifyAPIKey, (req, res) => {
 // ==========================================
 // 🛑 مسار إلغاء الحجز (RateHawk order/cancel + تحديث قاعدة البيانات)
 // ==========================================
-app.get('/api/v1/bookings/:partnerOrderId/info', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
-    try {
-        const result = await ratehawkService.getOrderInfo(req.params.partnerOrderId);
-        if (!result.success) return res.status(502).json(result);
-        return res.status(200).json(result);
-    } catch (error) {
-        logger.error('Order info route failed', { error: error.message });
-        return res.status(500).json({ success: false, error: 'ORDER_INFO_ERROR' });
-    }
-});
-
-app.post('/api/v1/bookings/:partnerOrderId/cancel', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
-    try {
-        const result = await ratehawkService.cancelOrder(req.params.partnerOrderId);
-        if (!result.success) return res.status(400).json(result);
-        return res.status(200).json(result);
-    } catch (error) {
-        logger.error('Order cancellation route failed', { error: error.message });
-        return res.status(500).json({ success: false, error: 'CANCEL_ERROR' });
-    }
-});
-
-app.post('/api/v1/bookings/cancel', async (req, res) => {
-    try {
-        const ref = req.body.bookingId || req.body.bookingReference || req.body.reference;
-        if (!ref) return res.status(400).json({ success: false, error: 'MISSING_REFERENCE', message: 'رقم مرجع الحجز مطلوب.' });
-
-        const booking = await Booking.findOne({ $or: [{ bookingReference: ref }, { supplierReference: ref }] });
-        if (!booking) return res.status(404).json({ success: false, error: 'NOT_FOUND', message: 'الحجز غير موجود.' });
-        if (booking.status === 'cancelled') {
-            return res.status(200).json({ success: true, alreadyCancelled: true, message: 'الحجز ملغى مسبقاً.' });
-        }
-
-        const provider = booking.provider || 'ratehawk';
-        let amountRefunded = null;
-
-        if (provider === 'ratehawk') {
-            // partner_order_id هو مرجعنا المخزَّن في supplierReference/bookingReference
-            const partnerOrderId = booking.supplierReference || booking.bookingReference;
-            const result = await ratehawkService.cancelBooking(partnerOrderId, 0);
-            if (!result.success) {
-                logger.warn(`Cancellation rejected by RateHawk for ${partnerOrderId}: ${result.error}`);
-                return res.status(400).json({ success: false, error: result.error || 'CANCEL_FAILED', message: 'تعذّر إلغاء الحجز لدى المورد. قد تكون سياسة الإلغاء غير مسموحة.' });
-            }
-            amountRefunded = result.amountRefunded;
-        }
-        // ملاحظة: مورّدون آخرون (dubailink) يُحدَّثون في قاعدة البيانات فقط حالياً
-
-        booking.status = 'cancelled';
-        booking.supplierStatus = 'CANCELLED';
-        await booking.save();
-
-        logger.info(`🛑 Booking ${booking.bookingReference} cancelled (provider=${provider}).`);
-        return res.status(200).json({
-            success: true,
-            message: 'تم إلغاء الحجز بنجاح.',
-            bookingReference: booking.bookingReference,
-            amountRefunded
-        });
-    } catch (error) {
-        logger.error('Cancel booking failed', { error: error.message });
-        return res.status(500).json({ success: false, error: 'CANCEL_ERROR', message: 'حدث خطأ أثناء إلغاء الحجز.' });
-    }
-});
+app.use('/api/v1/bookings', createBookingRouter.createPostBookingRouter());
 
 app.get(['/admin', '/admin.html'], (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
 app.get('/style.css', (req, res) => { res.sendFile(path.join(__dirname, 'style.css')); });

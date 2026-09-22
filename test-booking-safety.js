@@ -5,6 +5,225 @@ const { resolveValidatedPayment } = require('./services/paymentService');
 const expected = { hid: 123, total: 250, currency: 'AED' };
 const result = () => ({ hotels: [{ hid: 123, rates: [{ book_hash: 'verified', payment_options: { payment_types: [{ type: 'deposit', amount: '250.00', currency_code: 'AED' }] } }] }] });
 
+test('cancellation sends only the documented order ID and preserves supplier financial currencies', async context => {
+    const service = require('./services/ratehawkService');
+    const amounts = {
+        amount_refunded: { amount: '50.00', currency_code: 'EUR' },
+        amount_payable: { amount: '42.73', currency_code: 'EUR' },
+        amount_sell: { amount: '92.73', currency_code: 'EUR' }
+    };
+    const cancel = context.mock.method(service.client, 'cancelOrder', async request => {
+        assert.deepEqual(request, { partner_order_id: 'fixture-order' });
+        return { ok: true, status: 'ok', httpStatus: 200, data: amounts };
+    });
+    const cancelled = await service.submitCancellation('fixture-order');
+    assert.deepEqual(cancelled.amountRefunded, amounts.amount_refunded);
+    assert.deepEqual(cancelled.amountPayable, amounts.amount_payable);
+    assert.deepEqual(cancelled.amountSell, amounts.amount_sell);
+    await assert.rejects(service.submitCancellation(undefined), /invalid_partner_order_id/);
+    assert.equal(cancel.mock.callCount(), 1);
+});
+
+test('retrieving bookings validates documented filters and preserves pagination, policy and amounts', async context => {
+    const service = require('./services/ratehawkService');
+    const request = { ordering: { ordering_type: 'asc', ordering_by: 'modified_at' }, pagination: { page_number: 2, page_size: 50 }, language: 'pt_PT', search: {
+        created_at: { from_date: '2026-09-01T00:00', to_date: '2026-09-30T23:59' },
+        paid_at: { from_date: '2026-09-01' }, order_ids: [42], partner_order_ids: ['fixture-order'], status: 'completed', source: 'b2b-api'
+    } };
+    const order = { order_id: 42, partner_data: { order_id: 'fixture-order' }, status: 'completed', is_cancellable: true,
+        amount_payable: { amount: '42.73', currency_code: 'EUR' }, cancellation_info: { free_cancellation_before: null, policies: [] }, upsells: [{ name: 'early_checkin' }] };
+    const response = { ok: true, httpStatus: 200, data: { current_page_number: 2, total_orders: 300, total_pages: 6, found_orders: 51, found_pages: 2, orders: [order] } };
+    const info = context.mock.method(service.client, 'orderInfo', async body => { assert.deepEqual(body, request); return response; });
+    const result = await service.retrieveBookings(request);
+    assert.deepEqual(result, { success: true, ...response.data });
+    for (const invalid of [
+        { ...request, pagination: { page_number: 0, page_size: 10 } },
+        { ...request, pagination: { page_number: 1, page_size: 51 } },
+        { ...request, ordering: { ordering_type: 'desc', ordering_by: 'order_id' } },
+        { ...request, search: { status: 'confirmed' } },
+        { ...request, search: { unsupported: true } },
+        { ...request, search: { order_ids: ['42'] } },
+        { ...request, search: { partner_order_ids: [] } },
+        { ...request, search: { created_at: { from_date: '2026-02-30' } } },
+        { ...request, search: { created_at: { from_date: '2026-09-30', to_date: '2026-09-01' } } }
+    ]) await assert.rejects(service.retrieveBookings(invalid));
+    assert.equal(info.mock.callCount(), 1);
+    info.mock.mockImplementation(async () => ({ ok: false, httpStatus: 200, error: 'page_out_of_range' }));
+    await assert.rejects(service.retrieveBookings(), error => error.code === 'page_out_of_range' && error.httpStatus === 400);
+});
+
+test('single booking retrieval distinguishes delayed data from an unrelated or malformed order', async context => {
+    const service = require('./services/ratehawkService');
+    let response = { ok: true, httpStatus: 200, data: { current_page_number: 1, total_orders: 100, total_pages: 10, found_orders: 0, found_pages: 0, orders: [] } };
+    context.mock.method(service.client, 'orderInfo', async request => {
+        assert.deepEqual(request.search, { partner_order_ids: ['fixture-order'] });
+        return response;
+    });
+    const pending = await service.getOrderInfo('fixture-order');
+    assert.equal(pending.pending, true);
+    assert.equal(pending.order, null);
+    assert.equal(pending.retry_after_ms, 60000);
+    response.data.orders = [{ partner_data: { order_id: 'other-order' }, status: 'completed' }];
+    assert.equal((await service.getOrderInfo('fixture-order')).error, 'order_info_mismatch');
+    response.data.orders[0].partner_data.order_id = 'fixture-order';
+    response.data.found_orders = 1;
+    const found = await service.getOrderInfo('fixture-order');
+    assert.equal(found.pending, false);
+    assert.equal(found.found, 1);
+    assert.equal(found.status, 'completed');
+    response = { ok: true, httpStatus: 200, data: null };
+    assert.equal((await service.getOrderInfo('fixture-order')).success, false);
+    response = { ok: false, httpStatus: 429 };
+    assert.equal((await service.getOrderInfo('fixture-order')).error, 'rate_limit');
+});
+
+test('single booking retrieval syncs the documented hotel confirmation number without inventing one', async context => {
+    const service = require('./services/ratehawkService');
+    const mongoose = require('mongoose');
+    let saves = 0;
+    const booking = { save: async () => { saves += 1; } };
+    context.mock.method(mongoose, 'model', name => {
+        assert.equal(name, 'Booking');
+        return { findOne: async filter => {
+            assert.equal(filter.provider, 'ratehawk');
+            assert.deepEqual(filter.$or, [{ supplierReference: 'fixture-order' }, { bookingReference: 'fixture-order' }]);
+            return booking;
+        } };
+    });
+    const order = { order_id: 42, partner_data: { order_id: 'fixture-order' }, hotel_data: { order_id: 'HOTEL-HCN-42' } };
+    context.mock.method(service.client, 'orderInfo', async () => ({ ok: true, httpStatus: 200, data: {
+        current_page_number: 1, total_orders: 10, total_pages: 1, found_orders: 1, found_pages: 1, orders: [order]
+    } }));
+    const found = await service.getOrderInfo('fixture-order');
+    assert.equal(found.hotelConfirmationNumber, 'HOTEL-HCN-42');
+    assert.equal(found.databaseUpdated, true);
+    assert.equal(booking.hotelConfirmationNumber, 'HOTEL-HCN-42');
+    order.hotel_data.order_id = null;
+    assert.equal((await service.getOrderInfo('fixture-order')).hotelConfirmationNumber, null);
+    assert.equal(saves, 1);
+});
+
+test('ambiguous cancellation results stay pending without retrying or claiming a refund', async context => {
+    const service = require('./services/ratehawkService');
+    let response;
+    const cancel = context.mock.method(service.client, 'cancelOrder', async () => {
+        if (response instanceof Error) throw response;
+        return response;
+    });
+    for (const value of [
+        { httpStatus: 503, status: 'error', error: 'unknown' }, { httpStatus: 429 },
+        { httpStatus: 200, status: 'error', error: 'lock' }, { httpStatus: 200, status: 'ok', ok: true, data: {} },
+        Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' })
+    ]) {
+        response = value;
+        assert.deepEqual(await service.submitCancellation('fixture-order'), { success: false, pending: true, status: 'cancel_pending' });
+    }
+    assert.equal(cancel.mock.callCount(), 5);
+    for (const code of ['order_not_found', 'order_not_cancellable', 'sandbox_restriction']) {
+        response = { httpStatus: 200, status: 'error', error: code };
+        assert.deepEqual(await service.submitCancellation('fixture-order'), { success: false, pending: false, status: 'cancel_failed', error: code });
+    }
+});
+
+test('durable cancellation requires the current penalty, claims once and recovers unknown outcomes by reading only', async context => {
+    const store = require('./models/BookingCancellation');
+    const processes = require('./models/BookingProcess');
+    const service = require('./services/ratehawkService');
+    const postBooking = require('./services/postBookingService');
+    const previous = process.env.RATEHAWK_CANCELLATION_ENABLED;
+    let record;
+    let time = Date.parse('2026-09-23T12:00:00Z');
+    context.mock.method(Date, 'now', () => time);
+    context.mock.method(store, 'findById', () => ({ lean: async () => record && structuredClone(record) }));
+    const create = context.mock.method(store, 'create', async value => {
+        if (record) throw Object.assign(new Error('duplicate'), { code: 11000 });
+        record = structuredClone(value);
+    });
+    context.mock.method(store, 'findOneAndUpdate', (filter, update) => ({ lean: async () => {
+        if (filter.state.$in ? !filter.state.$in.includes(record.state) : filter.state !== record.state) return null;
+        if (filter.check_lease_id && filter.check_lease_id !== record.check_lease_id) return null;
+        if (update.$set.check_lease_id && (Number(record.next_check_at) > time || Number(record.check_lease_until) > time)) return null;
+        Object.assign(record, update.$set);
+        for (const key of Object.keys(update.$unset || {})) delete record[key];
+        return structuredClone(record);
+    } }));
+    const synced = context.mock.method(processes, 'updateOne', async (filter, update) => {
+        assert.equal(filter.partner_order_id, 'fixture-order');
+        assert.equal(update.$set.state, 'cancelled');
+    });
+    let info = { success: true, pending: false, status: 'completed', isCancellable: true, upsells: [], order: { cancellation_info: { policies: [
+        { start_at: null, end_at: '2026-09-23T12:00:00', penalty: { amount: '0.00', currency_code: 'EUR' } },
+        { start_at: '2026-09-23T12:00:00', end_at: null, penalty: { amount: '42.73', currency_code: 'EUR' } }
+    ] } } };
+    context.mock.method(service, 'getOrderInfo', async () => info);
+    const submit = context.mock.method(service, 'submitCancellation', async () => {
+        assert.equal(record.state, 'cancelling');
+        return { success: false, pending: true, status: 'cancel_pending' };
+    });
+    const options = { confirm_cancellation: true, expected_penalty: { amount: '42.73', currency_code: 'EUR' } };
+    try {
+        delete process.env.RATEHAWK_CANCELLATION_ENABLED;
+        await assert.rejects(postBooking.cancelBooking('fixture-order', options), /cancellation_disabled/);
+        process.env.RATEHAWK_CANCELLATION_ENABLED = 'true';
+        await assert.rejects(postBooking.cancelBooking('fixture-order', { ...options, confirm_cancellation: false }), /cancellation_confirmation_required/);
+        await assert.rejects(postBooking.cancelBooking('fixture-order', { ...options, expected_penalty: { amount: '0.00', currency_code: 'EUR' } }), /cancellation_penalty_changed/);
+        await assert.rejects(postBooking.cancelBooking('fixture-order', { ...options, expected_penalty: { amount: '42.73', currency_code: 'USD' } }), /cancellation_penalty_changed/);
+        info.upsells = [{ name: 'early_checkin' }];
+        await assert.rejects(postBooking.cancelBooking('fixture-order', options), /upsells_acknowledgement_required/);
+        assert.equal(submit.mock.callCount(), 0);
+        options.acknowledge_upsells = true;
+        const results = await Promise.all([postBooking.cancelBooking('fixture-order', options), postBooking.cancelBooking('fixture-order', options)]);
+        assert.ok(results.every(result => result.pending && !result.success));
+        assert.equal(submit.mock.callCount(), 1);
+        assert.equal(synced.mock.callCount(), 0);
+        delete process.env.RATEHAWK_CANCELLATION_ENABLED;
+        assert.equal((await postBooking.cancelBooking('fixture-order', options)).status, 'cancel_pending');
+        time = Number(record.next_check_at);
+        const due = context.mock.method(store, 'find', filter => {
+            assert.deepEqual(filter.state.$in, ['cancelling', 'cancel_pending']);
+            return { select: () => ({ sort: () => ({ limit: limit => {
+                assert.equal(limit, 10);
+                return { lean: async () => [{ _id: 'fixture-order' }] };
+            } }) }) };
+        });
+        assert.deepEqual(await postBooking.reconcilePendingCancellations(), { checked: 1, failed: 0 });
+        assert.equal(due.mock.callCount(), 1);
+        assert.equal(record.state, 'cancel_pending');
+        assert.equal(submit.mock.callCount(), 1);
+        time = Number(record.next_check_at);
+        info = { ...info, status: 'cancelled', amountRefunded: { amount: '50.00', currency_code: 'EUR' }, amountPayable: { amount: '42.73', currency_code: 'EUR' }, amountSell: { amount: '92.73', currency_code: 'EUR' } };
+        const recovered = await postBooking.checkCancellation('fixture-order');
+        assert.equal(recovered.status, 'cancelled');
+        assert.equal(recovered.customer_refund_status, 'not_processed');
+        assert.equal(recovered.upsells_require_manual_cancellation, true);
+        assert.deepEqual(recovered.amountRefunded, info.amountRefunded);
+        assert.equal(submit.mock.callCount(), 1);
+        assert.equal(synced.mock.callCount(), 1);
+        assert.equal((await postBooking.cancelBooking('fixture-order', options)).success, true);
+        assert.equal(submit.mock.callCount(), 1);
+        record = undefined;
+        info.status = 'completed';
+        process.env.RATEHAWK_CANCELLATION_ENABLED = 'true';
+        create.mock.mockImplementation(async () => { throw new Error('database unavailable'); });
+        await assert.rejects(postBooking.cancelBooking('fixture-order', options), /database unavailable/);
+        assert.equal(submit.mock.callCount(), 1);
+        const boundary = time + 1;
+        info.order.cancellation_info.policies = [
+            { start_at: null, end_at: new Date(boundary).toISOString(), penalty: options.expected_penalty },
+            { start_at: new Date(boundary).toISOString(), end_at: null, penalty: { amount: '50.00', currency_code: 'EUR' } }
+        ];
+        create.mock.mockImplementation(async value => { record = structuredClone(value); time = boundary; });
+        const changed = await postBooking.cancelBooking('fixture-order', options);
+        assert.equal(changed.success, false);
+        assert.equal(changed.status, 'cancel_failed');
+        assert.equal(changed.error, 'cancellation_penalty_changed');
+        assert.equal(submit.mock.callCount(), 1);
+    } finally {
+        if (previous === undefined) delete process.env.RATEHAWK_CANCELLATION_ENABLED;
+        else process.env.RATEHAWK_CANCELLATION_ENABLED = previous;
+    }
+});
+
 test('payment uses the supplier amount and refreshed hash', () => {
     assert.deepEqual(resolveValidatedPayment(result(), expected), { amount: 250, currency: 'AED', book_hash: 'verified' });
 });
@@ -435,6 +654,12 @@ test('webhooks authenticate before storage, recheck supplier status, persist bef
         writeUnavailable = true;
         assert.equal((await invoke(payload)).statusCode, 503);
         assert.notEqual(receipt.state, 'processed');
+        writeUnavailable = false;
+        receipt = undefined;
+        supplierStatus = 'cancelled';
+        assert.equal((await invoke(payload)).statusCode, 200);
+        assert.equal(receipt.outcome, 'cancelled');
+        assert.equal(receipt.action_required, 'review_customer_refund_and_upsells');
     } finally {
         if (previous === undefined) delete process.env.RATEHAWK_API_KEY;
         else process.env.RATEHAWK_API_KEY = previous;
@@ -458,7 +683,15 @@ test('supplier exchange logs redact guest, card, challenge and echoed debug data
             payment_type: { type: 'now', amount: '100.00', currency_code: 'USD', init_uuid: 'private-init', pay_uuid: 'private-pay' },
             credit_card_data_core: { card_number: '4111111111111111' }, cvc: '123'
         },
-        responsePayload: { status: '3ds', data: { data_3ds: { action_url: 'https://bank.example?token=private-3ds', data: { PaReq: 'private-pareq' } } }, debug: { request: 'private-echo' } },
+        responsePayload: { status: '3ds', data: {
+            data_3ds: { action_url: 'https://bank.example?token=private-3ds', data: { PaReq: 'private-pareq' } },
+            orders: [{
+                user_data: { email: 'private-retrieved-email', user_comment: 'private-user-comment' },
+                rooms_data: [{ guest_data: { guests: [{ first_name: 'private-retrieved-name' }] } }],
+                partner_data: { order_id: 'fixture-order', order_comment: 'private-order-comment' },
+                meta_data: { voucher_order_comment: 'private-voucher-comment' }
+            }]
+        }, debug: { request: 'private-echo' } },
         error: { code: 'ETIMEDOUT', message: 'private-transport', config: { data: 'private-config' } },
         statusCode: 200, latencyMs: 10
     });
@@ -531,6 +764,12 @@ test('durable status checks serialize polling, preserve 3DS and recover due proc
     assert.equal((await booking.checkProcess(processId)).success, true);
     assert.equal(checks.mock.callCount(), count);
     assert.equal(finish.mock.callCount(), 0);
+    record.state = 'cancelled';
+    const cancelled = await booking.checkProcess(processId);
+    assert.equal(cancelled.status, 'cancelled');
+    assert.equal(cancelled.success, false);
+    assert.equal(cancelled.timed_out, false);
+    assert.equal(checks.mock.callCount(), count);
 });
 
 test('unknown finish responses stay pending and rate limits are respected', async context => {
@@ -594,5 +833,61 @@ test('expired or missing form expiry blocks finish before any supplier call', as
     } finally {
         if (previous === undefined) delete process.env.RATEHAWK_BOOKING_ENABLED;
         else process.env.RATEHAWK_BOOKING_ENABLED = previous;
+    }
+});
+
+test('post-booking HTTP routes protect order data and cancellation from browser keys and retire unauthenticated cancellation', async context => {
+    const express = require('express');
+    const { createPostBookingRouter } = require('./services/bookingRoutes');
+    const service = require('./services/ratehawkService');
+    const postBooking = require('./services/postBookingService');
+    const previous = Object.fromEntries(['RATEHAWK_BOOKING_TOKEN', 'REMAL_SECURE_KEY', 'RATEHAWK_BOOKING_ENABLED', 'RATEHAWK_CANCELLATION_ENABLED'].map(key => [key, process.env[key]]));
+    const token = 'fixture-private-post-booking-token-32-characters';
+    const retrieve = context.mock.method(service, 'retrieveBookings', async body => ({ success: true, orders: [], ...body }));
+    const info = context.mock.method(postBooking, 'getBookingInfo', async orderId => ({ success: true, pending: true, partner_order_id: orderId, order: null }));
+    const cancel = context.mock.method(postBooking, 'cancelBooking', async orderId => ({ success: false, pending: true, status: 'cancel_pending', partner_order_id: orderId }));
+    context.mock.method(postBooking, 'checkCancellation', async orderId => ({ success: true, pending: false, status: 'cancelled', partner_order_id: orderId, customer_refund_status: 'not_processed' }));
+    const app = express();
+    app.use(express.json());
+    app.use('/api/v1/bookings', createPostBookingRouter());
+    const server = await new Promise(resolve => {
+        const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+    });
+    context.after(() => new Promise(resolve => server.close(resolve)));
+    const send = (method, route, headers = {}, body = {}) => fetch(`http://127.0.0.1:${server.address().port}/api/v1/bookings/${route}`, {
+        method, headers: { 'Content-Type': 'application/json', ...headers }, ...(method === 'POST' ? { body: JSON.stringify(body) } : {})
+    });
+    try {
+        process.env.RATEHAWK_BOOKING_TOKEN = token;
+        process.env.REMAL_SECURE_KEY = 'public-fixture-key';
+        delete process.env.RATEHAWK_BOOKING_ENABLED;
+        delete process.env.RATEHAWK_CANCELLATION_ENABLED;
+        for (const [method, route] of [['POST', 'retrieve'], ['GET', 'fixture-order/info'], ['POST', 'fixture-order/cancel'], ['GET', 'fixture-order/cancel/status'], ['POST', 'cancel']]) {
+            assert.equal((await send(method, route)).status, 401);
+            assert.equal((await send(method, route, { 'x-api-key': process.env.REMAL_SECURE_KEY })).status, 401);
+            assert.equal((await send(method, route, { Authorization: `Bearer ${token}`, Origin: 'https://remalbookings.com' })).status, 403);
+        }
+        assert.equal(retrieve.mock.callCount(), 0);
+        assert.equal(info.mock.callCount(), 0);
+        assert.equal(cancel.mock.callCount(), 0);
+        const authorization = { Authorization: `Bearer ${token}` };
+        const list = await send('POST', 'retrieve', authorization);
+        assert.equal(list.status, 200);
+        assert.equal(list.headers.get('cache-control'), 'no-store');
+        assert.deepEqual(await list.json(), { success: true, orders: [] });
+        assert.equal((await send('GET', 'fixture-order/info', authorization)).status, 202);
+        assert.equal((await send('POST', 'fixture-order/cancel', authorization)).status, 202);
+        assert.equal((await send('GET', 'fixture-order/cancel/status', authorization)).status, 200);
+        assert.equal((await send('POST', 'cancel', authorization)).status, 410);
+        assert.equal(cancel.mock.callCount(), 1);
+        cancel.mock.mockImplementation(async () => ({ success: false, pending: false, status: 'cancel_failed', error: 'order_not_cancellable' }));
+        assert.equal((await send('POST', 'fixture-order/cancel', authorization)).status, 409);
+        retrieve.mock.mockImplementation(async () => { throw Object.assign(new Error('private transport body'), { config: { auth: 'private' } }); });
+        assert.deepEqual(await (await send('POST', 'retrieve', authorization)).json(), { success: false, error: 'booking_service_unavailable' });
+    } finally {
+        for (const [key, value] of Object.entries(previous)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
     }
 });

@@ -8,7 +8,7 @@ const bookingWebhookSchema = new mongoose.Schema({
     state: { type: String, enum: ['received', 'processing', 'processed'], required: true },
     lease_id: String,
     lease_until: Date,
-    outcome: { type: String, enum: ['confirmed', 'failed'] },
+    outcome: { type: String, enum: ['confirmed', 'failed', 'cancelled'] },
     action_required: String,
     processed_at: Date
 }, { timestamps: true, bufferCommands: false });

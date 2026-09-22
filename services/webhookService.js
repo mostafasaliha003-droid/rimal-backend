@@ -44,18 +44,20 @@ async function handleRateHawkWebhook(payload = {}) {
         } else {
             const booking = Booking && await Booking.findOne(bookingFilter).lean();
             if (!booking) throw fail('webhook_order_not_found', 503);
-            result = await ratehawk.checkBookingProcess(partnerOrderId);
+            result = ['cancelled', 'canceled'].includes(booking.status) || ['CANCELLED', 'CANCELED'].includes(booking.supplierStatus)
+                ? { status: 'cancelled' } : await ratehawk.checkBookingProcess(partnerOrderId);
         }
-        if (!['confirmed', 'failed'].includes(result.status)) throw fail('webhook_status_pending', 503);
-        if (Booking) {
-            await Booking.updateOne({ ...bookingFilter, status: { $ne: 'cancelled' }, supplierStatus: { $nin: ['CONFIRMED', 'CONFIRMED_LIVE', 'FAILED', 'CANCELLED_BY_HOTEL', 'CANCELLED'] } }, {
+        if (!['confirmed', 'failed', 'cancelled'].includes(result.status)) throw fail('webhook_status_pending', 503);
+        if (Booking && result.status !== 'cancelled') {
+            await Booking.updateOne({ ...bookingFilter, status: { $nin: ['cancelled', 'canceled'] }, supplierStatus: { $nin: ['CONFIRMED', 'CONFIRMED_LIVE', 'FAILED', 'CANCELLED_BY_HOTEL', 'CANCELLED', 'CANCELED'] } }, {
                 $set: { supplierStatus: result.status === 'confirmed' ? 'CONFIRMED' : 'FAILED', ...(result.status === 'failed' ? { status: 'failed' } : {}) }
             });
         }
         const saved = await BookingWebhook.updateOne({ _id: receiptId, lease_id: leaseId }, {
             $set: {
                 state: 'processed', outcome: result.status, processed_at: new Date(),
-                action_required: result.status === 'confirmed' ? 'verify_payment_before_customer_confirmation' : 'review_payment_and_refund'
+                action_required: result.status === 'cancelled' ? 'review_customer_refund_and_upsells'
+                    : result.status === 'confirmed' ? 'verify_payment_before_customer_confirmation' : 'review_payment_and_refund'
             },
             $unset: { lease_id: '', lease_until: '' }
         });

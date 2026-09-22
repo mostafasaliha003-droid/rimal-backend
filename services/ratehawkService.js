@@ -78,6 +78,7 @@ function getBookingModel() {
         supplierReference: String,
         status: String,
         supplierStatus: String,
+        provider: String,
         hotelConfirmationNumber: String
     });
     return mongoose.model('Booking', bookingSchema);
@@ -87,6 +88,7 @@ async function syncBookingByPartnerOrderId(partnerOrderId, update) {
     try {
         const Booking = getBookingModel();
         const booking = await Booking.findOne({
+            provider: 'ratehawk',
             $or: [
                 { supplierReference: String(partnerOrderId) },
                 { bookingReference: String(partnerOrderId) }
@@ -913,8 +915,79 @@ async function bookHotel(details = {}) {
 }
 
 // ---- Step 5: Post-booking ---------------------------------------------------
+const ORDER_SORT_FIELDS = new Set(['cancelled_at', 'checkin_at', 'checkout_at', 'created_at', 'free_cancellation_before', 'modified_at', 'payment_due', 'payment_pending']);
+const ORDER_DATE_FIELDS = new Set([...ORDER_SORT_FIELDS, 'paid_at']);
+const ORDER_STATUSES = new Set(['cancelled', 'completed', 'failed', 'noshow', 'rejected']);
+const ORDER_SOURCES = new Set(['b2b-site', 'b2b-api', 'b2b-card', 'b2b-handmade', 'b2b-mobile-app-andr', 'b2b-mobile-app-ios']);
+const ORDER_LANGUAGES = new Set('ar bg cs da de el en es fi fr he hu it ja kk ko nl no pl pt pt_PT ro ru sk sq sr sv th tr uk vi zh_CN zh_TW'.split(' '));
+
+function orderDate(value) {
+    if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}(?:T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:Z|[+-]\d{2}:\d{2})?)?$/.test(value)) throw bookingError('invalid_search_date');
+    const date = new Date(`${value.slice(0, 10)}T00:00:00Z`);
+    if (!Number.isFinite(date.getTime()) || date.toISOString().slice(0, 10) !== value.slice(0, 10)) throw bookingError('invalid_search_date');
+    const time = Date.parse(value.length > 10 && !/Z|[+-]\d{2}:\d{2}$/.test(value) ? `${value}Z` : value);
+    if (!Number.isFinite(time)) throw bookingError('invalid_search_date');
+    return time;
+}
+
+function validateOrderObject(value, allowed, field) {
+    if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !allowed.has(key))) throw bookingError(`invalid_${field}`);
+}
+
+async function retrieveBookings(options = {}) {
+    validateOrderObject(options, new Set(['ordering', 'pagination', 'search', 'language']), 'order_request');
+    const ordering = options.ordering === undefined ? { ordering_type: 'desc', ordering_by: 'created_at' } : options.ordering;
+    const pagination = options.pagination === undefined ? { page_number: 1, page_size: 10 } : options.pagination;
+    const search = options.search === undefined ? {} : options.search;
+    const language = options.language === undefined ? 'en' : options.language;
+    validateOrderObject(ordering, new Set(['ordering_type', 'ordering_by']), 'ordering');
+    validateOrderObject(pagination, new Set(['page_number', 'page_size']), 'pagination');
+    validateOrderObject(search, new Set([...ORDER_DATE_FIELDS, 'order_ids', 'partner_order_ids', 'status', 'source']), 'search');
+    if (!['asc', 'desc'].includes(ordering.ordering_type) || !ORDER_SORT_FIELDS.has(ordering.ordering_by)) throw bookingError('invalid_ordering');
+    if (!Number.isSafeInteger(pagination.page_number) || pagination.page_number < 1 || !Number.isInteger(pagination.page_size)
+        || pagination.page_size < 1 || pagination.page_size > 50) throw bookingError('invalid_pagination');
+    if (!ORDER_LANGUAGES.has(language)) throw bookingError('invalid_language');
+    const filters = {};
+    for (const [field, value] of Object.entries(search)) {
+        if (ORDER_DATE_FIELDS.has(field)) {
+            validateOrderObject(value, new Set(['from_date', 'to_date']), 'date_range');
+            if (!Object.keys(value).length) throw bookingError('invalid_date_range');
+            for (const date of Object.values(value)) orderDate(date);
+            if (value.from_date && value.to_date && orderDate(value.from_date) > orderDate(value.to_date)) throw bookingError('invalid_date_range');
+            filters[field] = { ...value };
+        } else if (field === 'order_ids') {
+            if (!Array.isArray(value) || !value.length || value.some(orderId => !Number.isSafeInteger(orderId) || orderId <= 0)) throw bookingError('invalid_order_ids');
+            filters[field] = [...value];
+        } else if (field === 'partner_order_ids') {
+            if (!Array.isArray(value) || !value.length) throw bookingError('invalid_partner_order_ids');
+            filters[field] = value.map(orderId => requiredText(orderId, 'partner_order_id'));
+        } else {
+            if (!(field === 'status' ? ORDER_STATUSES : ORDER_SOURCES).has(value)) throw bookingError(`invalid_${field}`);
+            filters[field] = value;
+        }
+    }
+    const response = await client.orderInfo({ ordering: { ...ordering }, pagination: { ...pagination }, search: filters, language });
+    if (response.httpStatus === 429) throw Object.assign(bookingError('rate_limit', 429), { retry_after_ms: retryAfterMs(response) });
+    if (!response.ok || response.httpStatus < 200 || response.httpStatus >= 300) {
+        const code = typeof response.error === 'string' && /^[a-z_]+$/.test(response.error) ? response.error : 'order_info_unavailable';
+        throw bookingError(code, code === 'page_out_of_range' ? 400 : 502);
+    }
+    const data = response.data;
+    if (!data || !Array.isArray(data.orders) || data.orders.some(order => !order || typeof order !== 'object' || Array.isArray(order))) throw bookingError('invalid_order_info_response', 502);
+    const result = { success: true, orders: data.orders };
+    for (const field of ['current_page_number', 'total_orders', 'total_pages', 'found_orders', 'found_pages']) {
+        if (!Number.isSafeInteger(data[field]) || data[field] < (field === 'current_page_number' ? 1 : 0)) throw bookingError('invalid_order_info_response', 502);
+        result[field] = data[field];
+    }
+    if (result.current_page_number !== pagination.page_number || data.orders.length > pagination.page_size) throw bookingError('invalid_order_info_response', 502);
+    if (filters.partner_order_ids && data.orders.some(order => !filters.partner_order_ids.includes(order.partner_data?.order_id))) throw bookingError('order_info_mismatch', 502);
+    if (filters.order_ids && data.orders.some(order => !filters.order_ids.includes(order.order_id))) throw bookingError('order_info_mismatch', 502);
+    return result;
+}
+
 function getHotelConfirmationNumber(order) {
     return order && (
+        (order.hotel_data && order.hotel_data.order_id) ||
         order.hotel_confirmation_number ||
         (order.hotel_data && order.hotel_data.hotel_confirmation_number) ||
         (order.supplier_data && order.supplier_data.hotel_confirmation_number)
@@ -925,27 +998,22 @@ async function getOrderInfo(partnerOrderId) {
     if (!partnerOrderId) return { success: false, error: 'missing_partner_order_id' };
 
     try {
-        const res = await client.orderInfo({
+        const orderId = requiredText(partnerOrderId, 'partner_order_id');
+        const result = await retrieveBookings({
             ordering: { ordering_type: 'desc', ordering_by: 'created_at' },
             pagination: { page_number: 1, page_size: 10 },
-            search: { partner_order_ids: [String(partnerOrderId)] },
+            search: { partner_order_ids: [orderId] },
             language: 'en'
         });
-
-        // ETG synchronizes booking data asynchronously. An empty result is a
-        // valid pending state, not an application error.
-        if (!res.ok && res.error !== 'order_not_found') {
-            return { success: false, pending: false, error: res.error || 'order_info_failed' };
-        }
-
-        const order = (res.data && res.data.orders && res.data.orders[0]) || null;
+        const order = result.orders[0] || null;
+        if (result.orders.length > 1) throw bookingError('order_info_mismatch', 502);
         if (!order) {
             return {
                 success: true,
                 pending: true,
                 found: 0,
                 order: null,
-                error: res.error || null
+                retry_after_ms: 60000
             };
         }
 
@@ -957,18 +1025,25 @@ async function getOrderInfo(partnerOrderId) {
         return {
             success: true,
             pending: false,
-            found: res.data.total_orders,
+            found: result.found_orders,
             order,
             hotelConfirmationNumber,
             databaseUpdated: synced,
             status: order.status,
             isCancellable: order.is_cancellable,
             supplierReference: order.supplier_data && (order.supplier_data.confirmation_id || order.supplier_data.order_id),
-            amountPayable: order.amount_payable
+            amountPayable: order.amount_payable,
+            amountRefunded: order.amount_refunded,
+            amountSell: order.amount_sell,
+            cancellationInfo: order.cancellation_info,
+            upsells: order.upsells
         };
     } catch (error) {
-        logger.error('RateHawk order info failed', { error: error.message, partnerOrderId });
-        return { success: false, pending: false, error: error.message };
+        const code = error.ratehawkError || error.code;
+        if (code === 'order_not_found') return { success: true, pending: true, found: 0, order: null, retry_after_ms: 60000 };
+        return { success: false, pending: false, error: typeof code === 'string' && /^[a-z_]+$/.test(code) ? code : 'order_info_unavailable',
+            httpStatus: [400, 429, 502].includes(error.httpStatus) ? error.httpStatus : 502,
+            ...(Number.isFinite(error.retry_after_ms) ? { retry_after_ms: error.retry_after_ms } : {}) };
     }
 }
 
@@ -1006,42 +1081,39 @@ function verifyWebhookSignature(payload = {}) {
     return { verified, ...(verified ? {} : { reason: 'signature_mismatch' }) };
 }
 
-async function cancelBooking(partnerOrderId, amountCommission = 0) {
-    const res = await client.cancelOrder({ partner_order_id: String(partnerOrderId), amount_commission: amountCommission });
-    if (!res.ok) return { success: false, status: res.error, error: res.error };
-    return {
-        success: true,
-        status: 'CANCELLED',
-        hcn: partnerOrderId,
-        amountRefunded: res.data && res.data.amount_refunded,
-        amountPayable: res.data && res.data.amount_payable
-    };
-}
-
-async function cancelOrder(partnerOrderId) {
-    if (!partnerOrderId) return { success: false, error: 'missing_partner_order_id' };
-
+async function submitCancellation(partnerOrderId) {
+    const orderId = requiredText(partnerOrderId, 'partner_order_id');
+    const pending = { success: false, pending: true, status: 'cancel_pending' };
     try {
-        const res = await client.cancelOrder({ partner_order_id: String(partnerOrderId) });
-        if (!res.ok) return { success: false, error: res.error || 'cancel_failed' };
-
-        const databaseUpdated = await syncBookingByPartnerOrderId(partnerOrderId, {
-            status: 'canceled',
-            supplierStatus: 'CANCELED'
-        });
-        return {
-            success: true,
-            status: 'canceled',
-            partner_order_id: String(partnerOrderId),
-            amountRefunded: res.data && res.data.amount_refunded,
-            amountPayable: res.data && res.data.amount_payable,
-            databaseUpdated
-        };
+        const response = await client.cancelOrder({ partner_order_id: orderId });
+        if (transientBookingFailure(response) || response.httpStatus === 429 || response.error === 'lock') return pending;
+        if (response.ok && response.status === 'ok' && response.httpStatus >= 200 && response.httpStatus < 300) {
+            const valid = value => value && typeof value.amount === 'string' && /^\d+(?:\.\d+)?$/.test(value.amount) && /^[A-Z]{3}$/.test(value.currency_code);
+            if (!['amount_refunded', 'amount_payable', 'amount_sell'].every(field => valid(response.data?.[field]))) return pending;
+            return {
+                success: true, pending: false, status: 'cancelled', partner_order_id: orderId,
+                amountRefunded: response.data.amount_refunded,
+                amountPayable: response.data.amount_payable,
+                amountSell: response.data.amount_sell
+            };
+        }
+        if (response.status === 'error' && typeof response.error === 'string' && /^[a-z_]+$/.test(response.error)) {
+            return { success: false, pending: false, status: 'cancel_failed', error: response.error };
+        }
+        return pending;
     } catch (error) {
-        logger.error('RateHawk order cancellation failed', { error: error.message, partnerOrderId });
-        return { success: false, error: error.message };
+        if (!transientBookingFailure(error) && typeof error.ratehawkError === 'string' && /^[a-z_]+$/.test(error.ratehawkError)) {
+            return { success: false, pending: false, status: 'cancel_failed', error: error.ratehawkError };
+        }
+        return pending;
     }
 }
+
+async function cancelBooking(partnerOrderId, options = {}) {
+    return require('./postBookingService').cancelBooking(partnerOrderId, options);
+}
+
+const cancelOrder = cancelBooking;
 
 module.exports = {
     // low-level client (exposed for advanced use / testing)
@@ -1085,9 +1157,11 @@ module.exports = {
     bookHotel,
     waitForBookingStatus,
     // Step 5 - post-booking
+    retrieveBookings,
     getOrderInfo,
     getOrderDetails,
     fetchOrderDetails,
+    submitCancellation,
     cancelOrder,
     cancelBooking,
     // Webhook helpers

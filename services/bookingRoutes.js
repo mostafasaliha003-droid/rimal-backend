@@ -1,6 +1,8 @@
 const express = require('express');
 const crypto = require('node:crypto');
 const booking = require('./bookingProcessService');
+const postBooking = require('./postBookingService');
+const ratehawk = require('./ratehawkService');
 const { bookingLimiter } = require('./securityService');
 
 function authorize(req, res, next) {
@@ -27,10 +29,13 @@ function handle(operation) {
     return async (req, res) => {
         try {
             const result = await operation(req);
-            res.status(['creating', 'card_pending', 'finishing', 'processing'].includes(result.status) ? 202 : 200).json(result);
+            const status = result.pending || ['creating', 'card_pending', 'finishing', 'processing', 'cancelling', 'cancel_pending'].includes(result.status)
+                ? 202 : result.status === 'cancel_failed' ? 409 : 200;
+            res.status(status).json(result);
         } catch (error) {
             const known = typeof error.code === 'string' && /^[a-z][a-z0-9_]{0,79}$/.test(error.code);
             const status = known && [400, 404, 409, 429, 502, 503].includes(error.httpStatus) ? error.httpStatus : 503;
+            if (status === 429 && Number.isFinite(error.retry_after_ms)) res.set('Retry-After', String(Math.ceil(error.retry_after_ms / 1000)));
             res.status(status).json({ success: false, error: known ? error.code : 'booking_service_unavailable' });
         }
     };
@@ -45,4 +50,16 @@ function createBookingRouter() {
     return router;
 }
 
+function createPostBookingRouter() {
+    const router = express.Router();
+    router.use(authorize);
+    router.post('/retrieve', handle(req => ratehawk.retrieveBookings(req.body || {})));
+    router.get('/:partnerOrderId/info', handle(req => postBooking.getBookingInfo(req.params.partnerOrderId)));
+    router.post('/:partnerOrderId/cancel', bookingLimiter, handle(req => postBooking.cancelBooking(req.params.partnerOrderId, req.body || {})));
+    router.get('/:partnerOrderId/cancel/status', handle(req => postBooking.checkCancellation(req.params.partnerOrderId)));
+    router.post('/cancel', (req, res) => res.status(410).json({ success: false, error: 'legacy_cancellation_disabled' }));
+    return router;
+}
+
 module.exports = createBookingRouter;
+module.exports.createPostBookingRouter = createPostBookingRouter;
