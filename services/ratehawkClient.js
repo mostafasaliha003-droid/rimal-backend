@@ -305,6 +305,41 @@ async function getHotelDumpUrl(language = 'en', inventory = 'all') {
     }
     return url;
 }
+function extractDumpUrl(response, label) {
+    if (!response.ok) {
+        throw new Error(response.error || `RateHawk ${label} request failed with HTTP ${response.httpStatus}`);
+    }
+    const url = response.data && response.data.url;
+    if (typeof url !== 'string' || !url) {
+        throw new Error(`RateHawk ${label} response did not contain data.url`);
+    }
+    return url;
+}
+
+async function getCustomDumpUrl(type, language = 'en') {
+    if (typeof type !== 'string' || !type.trim()) throw new TypeError('custom dump type is required');
+    const response = await call('post', '/api/b2b/v3/hotel/custom/dump/', {
+        data: { type, language },
+        timeout: 60000
+    });
+    return extractDumpUrl(response, 'custom hotel dump');
+}
+
+async function getIncrementalDumpUrl(language = 'en', inventory = 'all') {
+    const response = await call('post', '/api/b2b/v3/hotel/info/incremental_dump/', {
+        data: { language, inventory },
+        timeout: 60000
+    });
+    return extractDumpUrl(response, 'incremental hotel dump');
+}
+
+async function getReviewsDumpUrl(language = 'en') {
+    const response = await call('post', '/api/b2b/v3/hotel/reviews/dump/', {
+        data: { language },
+        timeout: 60000
+    });
+    return extractDumpUrl(response, 'hotel reviews dump');
+}
 const hotelContent = (data = {}) => call('post', '/api/content/v1/hotel_content_by_ids/', {
     data: { ...data, language: 'en' },
     timeout: 60000
@@ -477,6 +512,9 @@ module.exports = {
     overview,
     contractInfo,
     getHotelDumpUrl,
+    getCustomDumpUrl,
+    getIncrementalDumpUrl,
+    getReviewsDumpUrl,
     hotelStatic,
     filterValues,
     hotelIds,

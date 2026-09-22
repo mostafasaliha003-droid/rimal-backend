@@ -131,7 +131,8 @@ const hotelSchema = new mongoose.Schema({
     image: String,
     provider: { type: String, default: 'dubailink' },
     staticData: mongoose.Schema.Types.Mixed,
-    reviews: [{ type: mongoose.Schema.Types.Mixed }]
+    reviews: [{ type: mongoose.Schema.Types.Mixed }],
+    detailed_ratings: mongoose.Schema.Types.Mixed
 });
 
 const User = mongoose.model('User', userSchema);
@@ -425,7 +426,8 @@ app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, asyn
                 hid: hotel.hid || staticData.hid || hid,
                 hotelId: hotel.hotelId || staticData.hotelId,
                 image: hotel.image || staticData.image || '',
-                reviews: hotel.reviews || staticData.reviews || []
+                reviews: hotel.reviews || staticData.reviews || [],
+                detailed_ratings: hotel.detailed_ratings || staticData.detailed_ratings || {}
             }
         });
     } catch (error) {
