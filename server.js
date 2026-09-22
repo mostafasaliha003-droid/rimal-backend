@@ -119,6 +119,7 @@ const reviewSchema = new mongoose.Schema({
 
 // 🌟 تعريف هيكل الفنادق المخزنة لربطها بأسعار دبي لينك
 const hotelSchema = new mongoose.Schema({
+    hid: { type: String, index: true },
     hotelId: { type: String, required: true, unique: true },
     name: String,
     address: String,
@@ -128,7 +129,8 @@ const hotelSchema = new mongoose.Schema({
     latitude: String,
     longitude: String,
     image: String,
-    provider: { type: String, default: 'dubailink' }
+    provider: { type: String, default: 'dubailink' },
+    staticData: mongoose.Schema.Types.Mixed
 });
 
 const User = mongoose.model('User', userSchema);
@@ -392,6 +394,41 @@ app.get('/api/v1/hotels/filters', verifyAPIKey, securityService.searchLimiter, a
             error: 'FILTERS_UNAVAILABLE',
             message: 'Hotel filter values are temporarily unavailable.'
         });
+    }
+});
+
+app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    const hid = String(req.params.hid || '').trim();
+    if (!/^\d+$/.test(hid)) {
+        return res.status(404).json({ success: false, message: 'Hotel is no longer available.' });
+    }
+
+    try {
+        const hotel = await Hotel.findOne({ hid }).lean();
+        if (!hotel) {
+            return res.status(404).json({ success: false, message: 'Hotel is no longer available.' });
+        }
+
+        const staticData = hotel.staticData && typeof hotel.staticData === 'object'
+            ? hotel.staticData
+            : hotel;
+        if (hotel.is_closed === true || hotel.deleted === true
+            || staticData.is_closed === true || staticData.deleted === true) {
+            return res.status(404).json({ success: false, message: 'Hotel is no longer available.' });
+        }
+
+        return res.status(200).json({
+            success: true,
+            hotel: {
+                ...staticData,
+                hid: hotel.hid || staticData.hid || hid,
+                hotelId: hotel.hotelId || staticData.hotelId,
+                image: hotel.image || staticData.image || ''
+            }
+        });
+    } catch (error) {
+        logger.error('Hotel static detail lookup failed', { hid, error: error.message });
+        return res.status(500).json({ success: false, error: 'HOTEL_LOOKUP_FAILED' });
     }
 });
 
