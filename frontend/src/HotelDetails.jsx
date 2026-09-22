@@ -128,9 +128,11 @@ export default function HotelDetails({ hid, onBack }) {
     return <main className="min-h-screen bg-remal-bg px-5 py-8 lg:px-10">
         <div className="mx-auto max-w-7xl space-y-7">
             <button type="button" onClick={onBack} className="inline-flex items-center gap-2 text-sm font-black text-remal-blue"><ArrowRight size={17} /> العودة للنتائج</button>
-            <section className="grid gap-3 overflow-hidden rounded-3xl lg:grid-cols-[1.4fr_0.8fr] lg:grid-rows-2">
-                <img src={images[0] || DEFAULT_HOTEL_IMAGE} alt={hotel?.name || 'Hotel'} className="h-72 w-full object-cover lg:row-span-2 lg:h-full" />
-                <div className="grid grid-cols-2 gap-3">{images.slice(1, 3).map((image) => <img key={image} src={image} alt={hotel?.name || 'Hotel'} className="h-36 w-full object-cover lg:h-full" />)}</div>
+            <section className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr] lg:grid-rows-2">
+                <div className="overflow-hidden rounded-3xl shadow-lg lg:row-span-2">
+                    <img src={images[0] || DEFAULT_HOTEL_IMAGE} alt={hotel?.name || 'Hotel'} className="h-72 w-full object-cover transition duration-500 hover:scale-105 lg:h-full" />
+                </div>
+                <div className="grid grid-cols-2 gap-3">{images.slice(1, 3).map((image) => <div key={image} className="overflow-hidden rounded-3xl shadow-lg"><img src={image} alt={hotel?.name || 'Hotel'} className="h-36 w-full object-cover transition duration-500 hover:scale-105 lg:h-full" /></div>)}</div>
             </section>
 
             <section className="grid gap-6 lg:grid-cols-[1fr_20rem]">

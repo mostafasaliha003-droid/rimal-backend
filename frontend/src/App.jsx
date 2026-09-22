@@ -49,10 +49,10 @@ function SerpResultCard({ hotel, onSelect }) {
     const rate = hotel.rates?.[0] || {};
     const image = hotel.images?.[0] || hotel.image || DEFAULT_HOTEL_IMAGE;
     return (
-        <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
+        <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_10px_rgb(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
             <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
-                <div className="h-44 shrink-0 overflow-hidden rounded-xl sm:w-56">
-                    <img src={image} alt={hotel.name} className="h-full w-full object-cover" onError={(event) => { event.currentTarget.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80'; }} />
+                <div className="h-44 shrink-0 overflow-hidden rounded-3xl shadow-lg sm:w-56">
+                    <img src={image} alt={hotel.name} className="h-full w-full object-cover transition duration-500 hover:scale-105" onError={(event) => { event.currentTarget.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80'; }} />
                 </div>
                 <div className="min-w-0 text-right">
                     <div className="mb-2 flex items-center justify-end gap-2 text-remal-gold">{hotel.stars || 'فندق'} <StarIcon size={13} fill="currentColor" /></div>
@@ -64,7 +64,7 @@ function SerpResultCard({ hotel, onSelect }) {
                 </div>
                 <div className="flex items-center justify-between gap-5 border-t border-slate-100 pt-4 sm:border-t-0 sm:border-r sm:pr-5">
                     <div className="text-right"><span className="text-2xl font-black text-remal-dark">{getRatePrice(rate)}</span><span className="mr-1 text-xs font-black text-slate-400">USD</span><p className="mt-1 text-[10px] font-bold text-slate-400">السعر يبدأ من</p></div>
-                    <button type="button" onClick={() => onSelect(hotel)} className="flex items-center gap-2 rounded-full bg-remal-red px-5 py-3 text-xs font-black text-white transition hover:bg-[#a10b0b]"><span>تحديد الغرف</span><ArrowLeft size={16} /></button>
+                    <button type="button" onClick={() => onSelect(hotel)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-5 py-3 text-xs font-black text-white shadow-lg shadow-[#0F172A]/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0F172A]/40"><span>تحديد الغرف</span><ArrowLeft size={16} /></button>
                 </div>
             </div>
         </article>
@@ -226,7 +226,7 @@ export default function App() {
                     </div>
 
                     <div className="grid gap-8 lg:grid-cols-[1.1fr_2fr]">
-                        <aside className="hidden rounded-3xl border border-slate-100 bg-white p-6 lg:block">
+                        <aside className="hidden rounded-2xl border border-slate-100 bg-slate-50 p-6 lg:block">
                             <div className="mb-6 flex items-center justify-between"><h3 className="font-black">تصفية النتائج</h3><button type="button" onClick={clearFilters} className="flex items-center gap-1 text-xs font-bold text-remal-blue"><RotateCcw size={13} /> إعادة ضبط</button></div>
                             <div className="space-y-6 text-sm">
                                 <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">التصنيف الأدنى</p><div className="flex gap-2">{[3, 4, 5].map((star) => <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-black transition ${starFilter === star ? 'border-remal-gold bg-amber-50 text-amber-700' : 'border-slate-200 hover:border-remal-gold hover:text-amber-700'}`}>{star} <StarIcon size={12} className="text-remal-gold" fill="currentColor" /></button>)}</div></div>

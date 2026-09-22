@@ -108,9 +108,9 @@ export default function HeroSearchSection({ onSearch }) {
                 </div>
 
                 <form onSubmit={handleSearch} className="relative mt-10 w-full lg:mt-12" dir="rtl">
-                    <div className="flex flex-col divide-y divide-slate-200 rounded-[1.75rem] bg-white p-2 shadow-[0_20px_45px_-15px_rgba(2,6,23,0.35)] lg:flex-row lg:items-stretch lg:divide-y-0 lg:divide-x lg:divide-x-reverse lg:rounded-full">
-                        <label className="relative z-40 flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full" htmlFor="destination-search">
-                            <PinIcon className="shrink-0 text-slate-400" size={20} />
+                    <div className="flex flex-col divide-y divide-slate-200 rounded-[1.75rem] bg-white/95 p-2 shadow-2xl backdrop-blur-md lg:flex-row lg:items-stretch lg:rounded-full">
+                        <label className="relative z-40 flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full" htmlFor="destination-search">
+                            <PinIcon className="h-6 w-6 shrink-0 text-remal-blue" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">الوجهة</span>
                                 <input id="destination-search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 160); }} placeholder="ابحث عن وجهة أو فندق..." aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full border-0 bg-transparent p-0 pt-1 text-sm font-black text-slate-900 outline-none ring-0 placeholder:font-medium placeholder:text-slate-400 focus:outline-none focus:ring-0" />
@@ -120,8 +120,8 @@ export default function HeroSearchSection({ onSearch }) {
                                 {suggestions.map((item, index) => <button type="button" key={`${item.label}-${index}`} onMouseDown={() => { setQuery(item.label); setSelectedDestination(item); setShowSuggestions(false); }} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-right transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"><span className="text-sm font-black text-slate-900">{item.label}</span><span className="shrink-0 text-[10px] font-bold text-slate-500">{item.hint}</span></button>)}
                             </div>}
                         </label>
-                        <label className="relative flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
-                            <CalendarIcon className="pointer-events-none shrink-0 text-slate-400" size={19} />
+                        <label className="relative flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full lg:border-l">
+                            <CalendarIcon className="pointer-events-none h-6 w-6 shrink-0 text-remal-blue" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">تسجيل الوصول</span>
                                 <DatePicker
@@ -133,7 +133,7 @@ export default function HeroSearchSection({ onSearch }) {
                                     maxDate={checkoutDate || undefined}
                                     dateFormat="d MMM yyyy"
                                     placeholderText="أضف تاريخ"
-                                    className="w-full border-none bg-transparent p-0 pt-1 text-right text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
+                                    className="w-full border-none bg-transparent p-0 pt-1 text-right text-sm font-medium leading-5 text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
                                     wrapperClassName="date-picker-shell"
                                     calendarClassName="premium-datepicker"
                                     popperClassName="premium-datepicker-popper"
@@ -142,8 +142,8 @@ export default function HeroSearchSection({ onSearch }) {
                                 />
                             </span>
                         </label>
-                        <label className="relative flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
-                            <CalendarIcon className="pointer-events-none shrink-0 text-slate-400" size={19} />
+                        <label className="relative flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full lg:border-l">
+                            <CalendarIcon className="pointer-events-none h-6 w-6 shrink-0 text-remal-blue" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">تسجيل المغادرة</span>
                                 <DatePicker
@@ -155,7 +155,7 @@ export default function HeroSearchSection({ onSearch }) {
                                     minDate={checkinDate || undefined}
                                     dateFormat="d MMM yyyy"
                                     placeholderText="أضف تاريخ"
-                                    className="w-full border-none bg-transparent p-0 pt-1 text-right text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
+                                    className="w-full border-none bg-transparent p-0 pt-1 text-right text-sm font-medium leading-5 text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
                                     wrapperClassName="date-picker-shell"
                                     calendarClassName="premium-datepicker"
                                     popperClassName="premium-datepicker-popper"
@@ -164,8 +164,8 @@ export default function HeroSearchSection({ onSearch }) {
                                 />
                             </span>
                         </label>
-                        <label className="flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
-                            <UsersIcon className="shrink-0 text-slate-400" size={19} />
+                        <label className="flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full lg:border-l">
+                            <UsersIcon className="h-6 w-6 shrink-0 text-remal-blue" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">الضيوف</span>
                                 <span className="relative">
@@ -175,7 +175,7 @@ export default function HeroSearchSection({ onSearch }) {
                             </span>
                         </label>
                         <div className="p-1 lg:flex lg:items-center lg:py-1 lg:pl-1 lg:pr-2">
-                            <button type="button" onClick={handleSearch} className="group flex min-h-[60px] w-full items-center justify-center gap-2 rounded-[1.4rem] bg-slate-900 px-7 text-sm font-black text-white shadow-lg shadow-slate-900/20 transition-colors duration-200 hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:translate-y-px lg:w-auto lg:rounded-full"><span>ابحث الآن</span><ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" /></button>
+                            <button type="button" onClick={handleSearch} className="group flex min-h-[60px] w-full items-center justify-center gap-2 rounded-[1.4rem] bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-7 text-sm font-black text-white shadow-xl shadow-[#0F172A]/40 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-2xl hover:shadow-[#0F172A]/50 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:translate-y-px lg:w-auto lg:rounded-full"><span>ابحث الآن</span><ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" /></button>
                         </div>
                     </div>
                 </form>

@@ -1,5 +1,5 @@
 import { motion } from 'framer-motion';
-import { ArrowLeft, Check, LoaderCircle, Wifi } from 'lucide-react';
+import { ArrowLeft, BadgePercent, Check, LoaderCircle, Wifi } from 'lucide-react';
 import { BedIcon, StarIcon, UsersIcon } from './Icons';
 import { useState } from 'react';
 import BookingAPI from '../services/bookingApi';
@@ -36,16 +36,14 @@ export default function RoomCard({ room = {}, onBook }) {
 
     return (
         <motion.article
-            whileHover={{ y: -3 }}
-            transition={{ duration: 0.2 }}
             aria-labelledby={`room-${room.book_hash || room.roomId || room.name}`}
-            className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-sm transition-shadow duration-300 hover:shadow-md"
+            className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_10px_rgb(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         >
             <div className="grid lg:grid-cols-[15rem_1fr]">
                 <div className="relative min-h-52 overflow-hidden bg-slate-100 lg:min-h-full">
                     <img src={image} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" onError={(event) => { event.currentTarget.src = DEFAULT_IMAGE; }} />
                     <div className="absolute inset-x-4 top-4 flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1.5 rounded-full border border-amber-200 bg-gradient-to-l from-amber-300 to-yellow-100 px-3 py-1.5 text-[11px] font-black text-amber-950 shadow-sm"><StarIcon size={13} fill="currentColor" /> كاش باك حصري</span>
+                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 shadow-sm"><BadgePercent size={14} /> كاش باك حصري</span>
                         <span className="inline-flex items-center gap-1 rounded-full bg-slate-950/85 px-2.5 py-1.5 text-[10px] font-bold text-white backdrop-blur-sm"><Check size={12} /> متاح</span>
                     </div>
                 </div>
@@ -71,7 +69,7 @@ export default function RoomCard({ room = {}, onBook }) {
                         </div>
                         <div className="mt-4 flex flex-col gap-2">
                             {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-800">{error}</p>}
-                            <button type="button" onClick={handleBook} disabled={isLoading} aria-busy={isLoading} className="group/button inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-black text-white shadow-sm transition duration-200 hover:bg-blue-700 hover:shadow-md focus:outline-none focus:ring-2 focus:ring-blue-600 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-500">
+                            <button type="button" onClick={handleBook} disabled={isLoading} aria-busy={isLoading} className="group/button inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#0F172A]/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0F172A]/40 focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:bg-none">
                                 {isLoading ? <><LoaderCircle size={17} className="animate-spin" /> <span className="animate-pulse">جارٍ تثبيت السعر...</span></> : isLocked ? <><Check size={17} /> تم تثبيت السعر</> : <><span>تثبيت السعر والحجز</span><ArrowLeft size={17} className="transition-transform duration-200 group-hover/button:-translate-x-1" /></>}
                             </button>
                         </div>
