@@ -11,7 +11,9 @@
     "sync:hotel-dump": "node syncHotelDump.js",
     "sync:incremental-dump": "node syncIncrementalDump.js",
     "sync:custom-dump": "node syncCustomDump.js",
-    "sync:reviews-dump": "node syncReviewsDump.js"
+    "sync:reviews-dump": "node syncReviewsDump.js",
+    "sync:region-dump": "node syncRegionDump.js",
+    "sync:incremental-reviews-dump": "node syncIncrementalReviewsDump.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.4",

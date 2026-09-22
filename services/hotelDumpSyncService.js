@@ -118,7 +118,7 @@ async function decompressDump(archiveFile, jsonlFile, compression = 'zstd') {
     );
 }
 
-async function processJsonl(jsonlFile, operationFactory, label) {
+async function processJsonl(jsonlFile, operationFactory, label, model = Hotel) {
     const input = fs.createReadStream(jsonlFile, { encoding: 'utf8' });
     const lines = readline.createInterface({ input, crlfDelay: Infinity });
     const batch = [];
@@ -129,7 +129,7 @@ async function processJsonl(jsonlFile, operationFactory, label) {
         const operations = batch.map(operationFactory).filter(Boolean);
         stats.skipped += batch.length - operations.length;
         if (operations.length) {
-            const result = await Hotel.bulkWrite(operations, { ordered: false });
+            const result = await model.bulkWrite(operations, { ordered: false });
             stats.upserted += result.upsertedCount || 0;
             stats.modified += result.modifiedCount || 0;
         }
@@ -174,7 +174,7 @@ async function cleanupFiles(files) {
     await Promise.all(files.map(file => fs.promises.rm(file, { force: true })));
 }
 
-async function syncDump({ name, getUrl, operationFactory, compression = 'zstd' }) {
+async function syncDump({ name, getUrl, operationFactory, compression = 'zstd', model = Hotel }) {
     if (!process.env.MONGO_URI) throw new Error('MONGO_URI is missing in environment variables');
     if (!['zstd', 'gzip'].includes(compression)) throw new Error(`Unsupported dump compression: ${compression}`);
     const safeName = name.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
@@ -192,7 +192,7 @@ async function syncDump({ name, getUrl, operationFactory, compression = 'zstd' }
         logger.info(`Decompressing ETG ${name} dump`);
         await decompressDump(archiveFile, jsonlFile, compression);
         logger.info(`Processing ETG ${name} dump JSONL`);
-        const stats = await processJsonl(jsonlFile, operationFactory, name);
+        const stats = await processJsonl(jsonlFile, operationFactory, name, model);
         logger.info(`ETG ${name} dump synchronization complete`, stats);
         return stats;
     } finally {

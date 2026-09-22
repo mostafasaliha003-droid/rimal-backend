@@ -340,6 +340,19 @@ async function getReviewsDumpUrl(language = 'en') {
     });
     return extractDumpUrl(response, 'hotel reviews dump');
 }
+
+async function getRegionDumpUrl() {
+    const response = await call('get', '/api/b2b/v3/hotel/region/dump/', { timeout: 60000 });
+    return extractDumpUrl(response, 'region dump');
+}
+
+async function getIncrementalReviewsDumpUrl(language = 'en') {
+    const response = await call('post', '/api/b2b/v3/hotel/incremental_reviews/dump/', {
+        data: { language },
+        timeout: 60000
+    });
+    return extractDumpUrl(response, 'incremental hotel reviews dump');
+}
 const hotelContent = (data = {}) => call('post', '/api/content/v1/hotel_content_by_ids/', {
     data: { ...data, language: 'en' },
     timeout: 60000
@@ -515,6 +528,8 @@ module.exports = {
     getCustomDumpUrl,
     getIncrementalDumpUrl,
     getReviewsDumpUrl,
+    getRegionDumpUrl,
+    getIncrementalReviewsDumpUrl,
     hotelStatic,
     filterValues,
     hotelIds,
