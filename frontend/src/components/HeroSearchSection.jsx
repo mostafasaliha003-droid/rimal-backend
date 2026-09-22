@@ -1,5 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, ChevronDown, LoaderCircle, Sparkles } from 'lucide-react';
+import DatePicker from 'react-datepicker';
+import { format } from 'date-fns';
+import 'react-datepicker/dist/react-datepicker.css';
 import BookingAPI from '../services/bookingApi';
 import { CalendarIcon, PinIcon, UsersIcon } from './Icons';
 
@@ -9,8 +12,8 @@ export default function HeroSearchSection({ onSearch }) {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [loading, setLoading] = useState(false);
-    const [checkinDate, setCheckinDate] = useState('');
-    const [checkoutDate, setCheckoutDate] = useState('');
+    const [checkinDate, setCheckinDate] = useState(null);
+    const [checkoutDate, setCheckoutDate] = useState(null);
     const blurTimer = useRef(null);
 
     useEffect(() => {
@@ -68,23 +71,19 @@ export default function HeroSearchSection({ onSearch }) {
             event.currentTarget.querySelector('input')?.focus();
             return;
         }
-        if (!form.checkin.value || !form.checkout.value) {
-            form.checkin.focus();
+        if (!checkinDate || !checkoutDate) {
             form.checkin.focus();
             return;
         }
-        if (form.checkout.value <= form.checkin.value) {
-            form.checkout.setCustomValidity('يجب أن يكون تاريخ المغادرة بعد الوصول');
-            form.checkout.reportValidity();
-            form.checkout.focus();
+        if (checkoutDate <= checkinDate) {
             return;
         }
         const destination = selectedDestination;
         const search = {
             query,
             destination,
-            checkin: form.checkin.value,
-            checkout: form.checkout.value,
+            checkin: format(checkinDate, 'yyyy-MM-dd'),
+            checkout: format(checkoutDate, 'yyyy-MM-dd'),
             guests: [{ adults: Number(form.guests.value), children: [] }]
         };
         console.log('Search triggered with:', destination);
@@ -123,19 +122,47 @@ export default function HeroSearchSection({ onSearch }) {
                         </label>
                         <label className="relative flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
                             <CalendarIcon className="pointer-events-none shrink-0 text-slate-400" size={19} />
-                            <span className="pointer-events-none flex min-w-0 flex-1 flex-col text-right">
+                            <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">تسجيل الوصول</span>
-                                <span className={`pt-1 text-sm font-black ${checkinDate ? 'text-slate-900' : 'text-slate-400'}`}>{checkinDate || 'أضف تاريخ'}</span>
+                                <DatePicker
+                                    selected={checkinDate}
+                                    onChange={setCheckinDate}
+                                    selectsStart
+                                    startDate={checkinDate}
+                                    endDate={checkoutDate}
+                                    maxDate={checkoutDate || undefined}
+                                    dateFormat="d MMM yyyy"
+                                    placeholderText="أضف تاريخ"
+                                    className="w-full border-none bg-transparent p-0 pt-1 text-right text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
+                                    wrapperClassName="date-picker-shell"
+                                    calendarClassName="premium-datepicker"
+                                    popperClassName="premium-datepicker-popper"
+                                    popperPlacement="bottom-start"
+                                    name="checkin"
+                                />
                             </span>
-                            <input name="checkin" type="date" required value={checkinDate} onChange={(event) => setCheckinDate(event.target.value)} className="absolute inset-0 z-10 h-full w-full cursor-pointer border-0 bg-transparent p-0 opacity-0 outline-none ring-0 focus:outline-none focus:ring-0" />
                         </label>
                         <label className="relative flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
                             <CalendarIcon className="pointer-events-none shrink-0 text-slate-400" size={19} />
-                            <span className="pointer-events-none flex min-w-0 flex-1 flex-col text-right">
+                            <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">تسجيل المغادرة</span>
-                                <span className={`pt-1 text-sm font-black ${checkoutDate ? 'text-slate-900' : 'text-slate-400'}`}>{checkoutDate || 'أضف تاريخ'}</span>
+                                <DatePicker
+                                    selected={checkoutDate}
+                                    onChange={setCheckoutDate}
+                                    selectsEnd
+                                    startDate={checkinDate}
+                                    endDate={checkoutDate}
+                                    minDate={checkinDate || undefined}
+                                    dateFormat="d MMM yyyy"
+                                    placeholderText="أضف تاريخ"
+                                    className="w-full border-none bg-transparent p-0 pt-1 text-right text-sm font-medium text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
+                                    wrapperClassName="date-picker-shell"
+                                    calendarClassName="premium-datepicker"
+                                    popperClassName="premium-datepicker-popper"
+                                    popperPlacement="bottom-start"
+                                    name="checkout"
+                                />
                             </span>
-                            <input name="checkout" type="date" required value={checkoutDate} onChange={(event) => setCheckoutDate(event.target.value)} className="absolute inset-0 z-10 h-full w-full cursor-pointer border-0 bg-transparent p-0 opacity-0 outline-none ring-0 focus:outline-none focus:ring-0" />
                         </label>
                         <label className="flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
                             <UsersIcon className="shrink-0 text-slate-400" size={19} />

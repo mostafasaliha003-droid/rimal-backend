@@ -26,17 +26,6 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     outline-offset: 3px;
 }
 button:disabled { cursor: not-allowed; }
-/* Hide the native calendar glyph but stretch it to cover the field, so a single
-   custom icon shows while the whole segment stays clickable to open the picker. */
-input[type='date']::-webkit-calendar-picker-indicator {
-    position: absolute;
-    inset: 0;
-    width: 100%;
-    height: 100%;
-    margin: 0;
-    opacity: 0;
-    cursor: pointer;
-}
 
 ::selection { color: #fff; background: #17a2b8; }
 
@@ -45,6 +34,28 @@ input[type='date']::-webkit-calendar-picker-indicator {
 .custom-scrollbar::-webkit-scrollbar { width: 6px; }
 .custom-scrollbar::-webkit-scrollbar-track { background: transparent; }
 .custom-scrollbar::-webkit-scrollbar-thumb { background-color: #cbd5e1; border-radius: 9999px; }
+
+.premium-datepicker-popper { z-index: 70 !important; }
+.date-picker-shell { display: block; width: 100%; }
+.date-picker-shell input { direction: ltr; }
+.date-picker-shell input:focus-visible { outline: none; }
+.premium-datepicker {
+    border: 1px solid #e2e8f0;
+    border-radius: 1rem;
+    box-shadow: 0 20px 45px -15px rgba(2, 6, 23, 0.28);
+    direction: ltr;
+    font-family: inherit;
+    overflow: hidden;
+}
+.premium-datepicker .react-datepicker__header { border-bottom: 1px solid #e2e8f0; background: #f8fafc; padding-top: 1rem; }
+.premium-datepicker .react-datepicker__current-month,
+.premium-datepicker .react-datepicker__day-name { color: #0f172a; font-weight: 800; }
+.premium-datepicker .react-datepicker__day { border-radius: 0.5rem; color: #334155; font-weight: 700; }
+.premium-datepicker .react-datepicker__day:hover { background: #f1f5f9; }
+.premium-datepicker .react-datepicker__day--selected,
+.premium-datepicker .react-datepicker__day--keyboard-selected { background: #0f172a; color: #fff; }
+.premium-datepicker .react-datepicker__day--disabled { color: #cbd5e1; }
+.premium-datepicker .react-datepicker__navigation-icon::before { border-color: #64748b; }
 
 @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
