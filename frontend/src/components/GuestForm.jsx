@@ -1,28 +1,50 @@
-import { Mail, Phone } from 'lucide-react';
+export default function GuestForm({ guestDetails, onGuestDetailsChange, onSubmit, isSubmitting }) {
+  return (
+    <div className="bg-white rounded-2xl shadow-[0_2px_10px_rgb(0,0,0,0.04)] border border-slate-100 p-8">
+      {/* Secure Stepper Header */}
+      <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
+        <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
+          01
+        </div>
+        <div>
+          <h2 className="text-xl font-bold text-slate-900">بيانات الضيف الرئيسي</h2>
+          <p className="text-sm text-slate-500 mt-1">تُستخدم هذه البيانات لتأكيد الحجز والتواصل معك</p>
+        </div>
+      </div>
 
-export default function GuestForm({ guest, onChange, onSubmit, loading, error }) {
-    const fieldClass = 'peer h-11 w-full rounded-xl border border-slate-200 bg-white px-4 text-sm font-bold text-slate-900 shadow-sm outline-none transition-all placeholder:text-transparent hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10';
-    return (
-        <form onSubmit={onSubmit} className="rounded-2xl border border-slate-200 bg-white p-5 shadow-sm sm:p-7">
-            <div className="mb-7 flex items-start justify-between gap-4 border-b border-slate-200 pb-5">
-                <div className="text-right">
-                    <p className="text-xs font-black tracking-wide text-blue-700">الخطوة 1 من 2</p>
-                    <h2 className="mt-1 text-xl font-black text-slate-900">بيانات الضيف الرئيسي</h2>
-                    <p className="mt-1 text-xs font-semibold text-slate-500">تُستخدم هذه البيانات لتأكيد الحجز والتواصل معك</p>
-                </div>
-                <span className="grid h-10 w-10 shrink-0 place-items-center rounded-xl bg-blue-50 text-sm font-black text-blue-700">01</span>
-            </div>
-            <div className="grid gap-5 sm:grid-cols-2">
-                <div className="relative"><input id="guest-first-name" required name="firstName" value={guest.firstName} onChange={onChange} className={fieldClass} placeholder="الاسم الأول" autoComplete="given-name" /><label htmlFor="guest-first-name" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500 transition peer-focus:-top-1 peer-focus:translate-y-0 peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:text-slate-900 peer-valid:-top-1 peer-valid:translate-y-0 peer-valid:bg-white peer-valid:px-1 peer-valid:text-xs">الاسم الأول</label></div>
-                <div className="relative"><input id="guest-last-name" required name="lastName" value={guest.lastName} onChange={onChange} className={fieldClass} placeholder="اسم العائلة" autoComplete="family-name" /><label htmlFor="guest-last-name" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500 transition peer-focus:-top-1 peer-focus:translate-y-0 peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:text-slate-900 peer-valid:-top-1 peer-valid:translate-y-0 peer-valid:bg-white peer-valid:px-1 peer-valid:text-xs">اسم العائلة</label></div>
-                <div className="relative"><Mail aria-hidden="true" size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input id="guest-email" required type="email" name="email" value={guest.email} onChange={onChange} className={`${fieldClass} pl-11`} placeholder="البريد الإلكتروني" autoComplete="email" /><label htmlFor="guest-email" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500 transition peer-focus:-top-1 peer-focus:translate-y-0 peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:text-slate-900 peer-valid:-top-1 peer-valid:translate-y-0 peer-valid:bg-white peer-valid:px-1 peer-valid:text-xs">البريد الإلكتروني</label></div>
-                <div className="relative"><Phone aria-hidden="true" size={16} className="pointer-events-none absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" /><input id="guest-phone" required type="tel" name="phone" value={guest.phone} onChange={onChange} className={`${fieldClass} pl-11`} placeholder="رقم الهاتف" autoComplete="tel" /><label htmlFor="guest-phone" className="pointer-events-none absolute right-4 top-1/2 -translate-y-1/2 text-sm font-bold text-slate-500 transition peer-focus:-top-1 peer-focus:translate-y-0 peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:text-slate-900 peer-valid:-top-1 peer-valid:translate-y-0 peer-valid:bg-white peer-valid:px-1 peer-valid:text-xs">رقم الهاتف</label></div>
-            </div>
-            <div className="relative mt-5"><textarea id="guest-requests" name="specialRequests" value={guest.specialRequests} onChange={onChange} rows="4" className="peer w-full resize-none rounded-xl border border-slate-200 bg-white px-4 py-3 text-sm font-bold text-slate-900 shadow-sm outline-none transition-all placeholder:text-transparent hover:border-slate-300 focus:border-slate-900 focus:ring-2 focus:ring-slate-900/10" placeholder="طلبات خاصة" /><label htmlFor="guest-requests" className="pointer-events-none absolute right-4 top-3 text-sm font-bold text-slate-500 transition peer-focus:-top-2 peer-focus:bg-white peer-focus:px-1 peer-focus:text-xs peer-focus:text-slate-900 peer-valid:-top-2 peer-valid:bg-white peer-valid:px-1 peer-valid:text-xs">طلبات خاصة <span className="font-medium">(اختياري)</span></label><p className="mt-2 text-xs font-medium text-slate-500">مثال: سرير أطفال أو تسجيل وصول متأخر</p></div>
-            {error && <p role="alert" className="mt-5 rounded-xl border border-red-200 bg-red-50 px-4 py-3 text-sm font-bold text-red-800">{error}</p>}
-            <button type="submit" disabled={loading} aria-busy={loading} className="mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-slate-900 px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition-all duration-200 hover:-translate-y-0.5 hover:bg-slate-800 hover:shadow-xl focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-500">
-                {loading ? <span className="animate-pulse">جارٍ تجهيز الدفع الآمن...</span> : 'المتابعة إلى الدفع عبر Ziina'}
-            </button>
-        </form>
-    );
+      <form onSubmit={onSubmit} className="space-y-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">الاسم الأول</label>
+            <input required type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all text-sm" value={guestDetails.firstName} onChange={(e) => onGuestDetailsChange({ ...guestDetails, firstName: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">اسم العائلة</label>
+            <input required type="text" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all text-sm" value={guestDetails.lastName} onChange={(e) => onGuestDetailsChange({ ...guestDetails, lastName: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">البريد الإلكتروني</label>
+            <input required type="email" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all text-sm text-left" dir="ltr" value={guestDetails.email} onChange={(e) => onGuestDetailsChange({ ...guestDetails, email: e.target.value })} />
+          </div>
+          <div>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">رقم الهاتف</label>
+            <input required type="tel" className="w-full px-4 py-3 bg-slate-50 border border-slate-200 rounded-xl focus:bg-white focus:ring-2 focus:ring-blue-600/20 focus:border-blue-600 transition-all text-sm text-left" dir="ltr" value={guestDetails.phone} onChange={(e) => onGuestDetailsChange({ ...guestDetails, phone: e.target.value })} />
+          </div>
+        </div>
+
+        {/* Trust Signals & Button */}
+        <div className="pt-6 mt-8 border-t border-slate-100">
+          <div className="flex items-center justify-center gap-2 mb-4 text-slate-500 text-xs font-medium">
+            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
+            <span>دفع آمن ومشفر بواسطة بوابات Ziina</span>
+          </div>
+
+          <button type="submit" disabled={isSubmitting} className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-[#0F172A] to-[#1E293B] hover:shadow-xl hover:-translate-y-0.5 text-white rounded-xl py-4 transition-all duration-300 font-bold text-base disabled:opacity-50">
+            {isSubmitting ? 'جاري التحويل...' : 'المتابعة إلى الدفع'}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
 }
+

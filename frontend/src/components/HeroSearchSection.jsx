@@ -14,6 +14,7 @@ export default function HeroSearchSection({ onSearch }) {
     const [loading, setLoading] = useState(false);
     const [checkinDate, setCheckinDate] = useState(null);
     const [checkoutDate, setCheckoutDate] = useState(null);
+    const [activeField, setActiveField] = useState(null);
     const blurTimer = useRef(null);
 
     useEffect(() => {
@@ -53,6 +54,8 @@ export default function HeroSearchSection({ onSearch }) {
                     }).filter(Boolean)
                 ].filter((item) => item.label && (item.region_id || item.hotel_id));
                 setSuggestions(nextSuggestions);
+                const exactSuggestion = nextSuggestions.find((item) => item.label.trim().toLocaleLowerCase() === value.toLocaleLowerCase());
+                if (exactSuggestion) setSelectedDestination(exactSuggestion);
                 setShowSuggestions(nextSuggestions.length > 0);
             } catch {
                 setSuggestions([]);
@@ -67,8 +70,11 @@ export default function HeroSearchSection({ onSearch }) {
     const handleSearch = (event) => {
         event.preventDefault();
         const form = event.currentTarget.tagName === 'FORM' ? event.currentTarget : event.currentTarget.form;
-        if (!selectedDestination || (!selectedDestination.region_id && !selectedDestination.hotel_id)) {
-            event.currentTarget.querySelector('input')?.focus();
+        const normalizedQuery = query.trim().toLocaleLowerCase();
+        const exactSuggestion = suggestions.find((item) => item.label.trim().toLocaleLowerCase() === normalizedQuery);
+        const destination = selectedDestination || exactSuggestion;
+        if (!destination || (!destination.region_id && !destination.hotel_id)) {
+            form?.querySelector('#destination-search')?.focus();
             return;
         }
         if (!checkinDate || !checkoutDate) {
@@ -78,7 +84,6 @@ export default function HeroSearchSection({ onSearch }) {
         if (checkoutDate <= checkinDate) {
             return;
         }
-        const destination = selectedDestination;
         const search = {
             query,
             destination,
@@ -109,31 +114,33 @@ export default function HeroSearchSection({ onSearch }) {
 
                 <form onSubmit={handleSearch} className="relative mt-10 w-full lg:mt-12" dir="rtl">
                     <div className="flex flex-col divide-y divide-slate-200 rounded-[1.75rem] bg-white/95 p-2 shadow-2xl backdrop-blur-md lg:flex-row lg:items-stretch lg:rounded-full">
-                        <label className="relative z-40 flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full" htmlFor="destination-search">
-                            <PinIcon className="h-6 w-6 shrink-0 text-remal-blue" size={24} />
+                        <label className={`relative z-40 flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 py-4 transition-all duration-300 lg:rounded-full ${activeField === 'destination' ? 'bg-white shadow-md' : 'hover:bg-slate-50'}`} htmlFor="destination-search">
+                            <PinIcon className="h-6 w-6 shrink-0 text-blue-600" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">الوجهة</span>
-                                <input id="destination-search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 160); }} placeholder="ابحث عن وجهة أو فندق..." aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full border-0 bg-transparent p-0 pt-1 text-sm font-black text-slate-900 outline-none ring-0 placeholder:font-medium placeholder:text-slate-400 focus:outline-none focus:ring-0" />
+                                <input id="destination-search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setShowSuggestions(true); }} onFocus={() => { setActiveField('destination'); setShowSuggestions(true); }} onBlur={() => { setActiveField(null); blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 160); }} placeholder="ابحث عن وجهة أو فندق..." aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full border-0 bg-transparent p-0 pt-1 text-sm font-black text-slate-900 outline-none ring-0 placeholder:font-medium placeholder:text-slate-400 focus:outline-none focus:ring-0" />
                             </span>
                             {loading && <LoaderCircle size={17} className="animate-spin text-slate-400" />}
                             {showSuggestions && query.trim().length > 1 && suggestions.length > 0 && <div id="destination-suggestions" role="listbox" aria-label="اقتراحات الوجهات" className="custom-scrollbar absolute inset-x-2 top-[76px] z-50 max-h-72 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-2 text-right shadow-lg lg:inset-x-0">
                                 {suggestions.map((item, index) => <button type="button" key={`${item.label}-${index}`} onMouseDown={() => { setQuery(item.label); setSelectedDestination(item); setShowSuggestions(false); }} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-right transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"><span className="text-sm font-black text-slate-900">{item.label}</span><span className="shrink-0 text-[10px] font-bold text-slate-500">{item.hint}</span></button>)}
                             </div>}
                         </label>
-                        <label className="relative flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full lg:border-l">
-                            <CalendarIcon className="pointer-events-none h-6 w-6 shrink-0 text-remal-blue" size={24} />
+                        <label className={`relative flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-all duration-300 lg:rounded-full lg:border-l ${activeField === 'checkin' ? 'bg-white shadow-md' : 'hover:bg-slate-50'}`}>
+                            <CalendarIcon className="pointer-events-none h-6 w-6 shrink-0 text-blue-600" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">تسجيل الوصول</span>
                                 <DatePicker
                                     selected={checkinDate}
                                     onChange={setCheckinDate}
+                                    onFocus={() => setActiveField('checkin')}
+                                    onCalendarClose={() => setActiveField(null)}
                                     selectsStart
                                     startDate={checkinDate}
                                     endDate={checkoutDate}
                                     maxDate={checkoutDate || undefined}
-                                    dateFormat="d MMM yyyy"
+                                    dateFormat="dd MMM yyyy"
                                     placeholderText="أضف تاريخ"
-                                    className="w-full border-none bg-transparent p-0 pt-1 text-right text-sm font-medium leading-5 text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
+                                    className="w-full cursor-pointer border-none bg-transparent p-0 pt-1 text-right text-sm font-medium leading-5 text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
                                     wrapperClassName="date-picker-shell"
                                     calendarClassName="premium-datepicker"
                                     popperClassName="premium-datepicker-popper"
@@ -142,20 +149,22 @@ export default function HeroSearchSection({ onSearch }) {
                                 />
                             </span>
                         </label>
-                        <label className="relative flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full lg:border-l">
-                            <CalendarIcon className="pointer-events-none h-6 w-6 shrink-0 text-remal-blue" size={24} />
+                        <label className={`relative flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-all duration-300 lg:rounded-full lg:border-l ${activeField === 'checkout' ? 'bg-white shadow-md' : 'hover:bg-slate-50'}`}>
+                            <CalendarIcon className="pointer-events-none h-6 w-6 shrink-0 text-blue-600" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">تسجيل المغادرة</span>
                                 <DatePicker
                                     selected={checkoutDate}
                                     onChange={setCheckoutDate}
+                                    onFocus={() => setActiveField('checkout')}
+                                    onCalendarClose={() => setActiveField(null)}
                                     selectsEnd
                                     startDate={checkinDate}
                                     endDate={checkoutDate}
                                     minDate={checkinDate || undefined}
-                                    dateFormat="d MMM yyyy"
+                                    dateFormat="dd MMM yyyy"
                                     placeholderText="أضف تاريخ"
-                                    className="w-full border-none bg-transparent p-0 pt-1 text-right text-sm font-medium leading-5 text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
+                                    className="w-full cursor-pointer border-none bg-transparent p-0 pt-1 text-right text-sm font-medium leading-5 text-slate-900 outline-none placeholder:text-slate-400 focus:ring-0"
                                     wrapperClassName="date-picker-shell"
                                     calendarClassName="premium-datepicker"
                                     popperClassName="premium-datepicker-popper"
@@ -164,12 +173,12 @@ export default function HeroSearchSection({ onSearch }) {
                                 />
                             </span>
                         </label>
-                        <label className="flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full lg:border-l">
-                            <UsersIcon className="h-6 w-6 shrink-0 text-remal-blue" size={24} />
+                        <label className={`flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-all duration-300 lg:rounded-full lg:border-l ${activeField === 'guests' ? 'bg-white shadow-md' : 'hover:bg-slate-50'}`}>
+                            <UsersIcon className="h-6 w-6 shrink-0 text-blue-600" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">الضيوف</span>
                                 <span className="relative">
-                                    <select name="guests" defaultValue="2" className="w-full appearance-none border-0 bg-transparent p-0 pl-5 pt-1 text-sm font-black text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0"><option value="1">ضيف واحد</option><option value="2">ضيفان</option><option value="3">3 ضيوف</option><option value="4">4 ضيوف</option></select>
+                                    <select name="guests" defaultValue="2" onFocus={() => setActiveField('guests')} onBlur={() => setActiveField(null)} className="w-full appearance-none border-0 bg-transparent p-0 pl-5 pt-1 text-sm font-black text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0"><option value="1">ضيف واحد</option><option value="2">ضيفان</option><option value="3">3 ضيوف</option><option value="4">4 ضيوف</option></select>
                                     <ChevronDown size={14} className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-slate-400" />
                                 </span>
                             </span>
