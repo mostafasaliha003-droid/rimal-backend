@@ -70,7 +70,6 @@ app.use(cors({
     credentials: true 
 }));
 
-app.use(express.static(__dirname));
 app.use(express.static(path.join(__dirname, 'frontend', 'dist')));
 
 // ==========================================
@@ -79,12 +78,12 @@ app.use(express.static(path.join(__dirname, 'frontend', 'dist')));
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: 'management@remaltourismllc.com',
-        pass: 'tliy arac oiob deej'
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD
     }
 });
 
-const MONGO_URI = process.env.MONGO_URI || 'mongodb+srv://mostafasaliha003_db_user:RimalBooking2026@rimalbookingdb.vln37gw.mongodb.net/rimal_db?retryWrites=true&w=majority&appName=RimalBookingDB';
+const MONGO_URI = process.env.MONGO_URI;
 
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
@@ -152,7 +151,7 @@ const Hotel = mongoose.model('Hotel', hotelSchema); // تفعيل الموديل
 
 let verificationCodes = {}; let passwordResetCodes = {}; let updateEmailCodes = {}; let updatePasswordCodes = {};  
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
-const ADMIN_PASSWORD_HASH = bcrypt.hashSync('RimalAdmin2026!', 8);
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
 let activeChatRooms = new Set();
 
 // ==========================================
@@ -820,12 +819,20 @@ app.post('/api/booking/prebook-serp', verifyAPIKey, securityService.searchLimite
     }
 });
 
+app.get('/api/payment/availability', (req, res) => {
+    res.setHeader('Cache-Control', 'no-store');
+    res.json({ enabled: process.env.PAYMENT_CHECKOUT_ENABLED === 'true' && !!process.env.ZIINA_API_KEY });
+});
+
 app.post('/api/payment/ziina/intent', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    if (process.env.PAYMENT_CHECKOUT_ENABLED !== 'true') {
+        return res.status(503).json({ success: false, error: 'PAYMENTS_UNAVAILABLE', message: 'الدفع الإلكتروني غير متاح حالياً. لم يتم خصم أي مبلغ. يرجى التواصل مع فريق الحجوزات.' });
+    }
     const body = req.body || {};
     const sourceAmount = Number(body.total);
     const currency = String(body.currency || 'AED').toUpperCase();
-    const supportedCurrencies = new Set(['AED', 'USD', 'EUR', 'SAR', 'GBP']);
-    const amount = mappingService.convertToAED(sourceAmount, currency);
+    const supportedCurrencies = new Set(['AED']);
+    const amount = sourceAmount;
     if (!Number.isFinite(sourceAmount) || sourceAmount <= 0 || !supportedCurrencies.has(currency) || !Number.isFinite(amount) || amount <= 0) {
         return res.status(400).json({
             success: false,
@@ -842,12 +849,18 @@ app.post('/api/payment/ziina/intent', verifyAPIKey, securityService.bookingLimit
     }
 
     try {
+        const prebook = await ratehawkService.validatePrebookRate(body.book_hash, 0);
+        const validated = paymentService.resolveValidatedPayment(prebook, { ...body, currency });
         const paymentUrl = await paymentService.createZiinaCheckout({
             ...body,
+            book_hash: validated.book_hash,
             bookingReference: body.bookingReference || `RML-${Date.now()}`
-        }, amount);
-        return res.status(200).json({ success: true, payment_url: paymentUrl, amount, currency: 'AED', source_amount: sourceAmount, source_currency: currency });
+        }, validated.amount);
+        return res.status(200).json({ success: true, payment_url: paymentUrl, amount: validated.amount, currency: 'AED' });
     } catch (error) {
+        if (error.message === 'RATE_CHANGED' || error.ratehawkError === 'rate_not_found') {
+            return res.status(409).json({ success: false, error: 'RATE_CHANGED', message: 'تغير العرض أو لم يعد متاحاً. ارجع لاختيار الغرفة بالسعر الحالي بالدرهم.' });
+        }
         logger.error('Ziina payment intent failed', { error: error.message, hid: body.hid });
         return res.status(502).json({ success: false, error: 'PAYMENT_INTENT_FAILED', message: 'تعذر تجهيز رابط الدفع.' });
     }
@@ -970,6 +983,8 @@ app.post('/api/v1/hotels/:hotelId/rates', verifyAPIKey, securityService.searchLi
 });
 
 app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    return res.status(410).json({ success: false, error: 'LEGACY_CHECKOUT_DISABLED', message: 'يرجى استخدام تجربة الحجز الجديدة.' });
+    /*
     const { hotelId, oldPriceAED, provider, roomId } = req.body; 
     try {
         let finalValidatedPrice = oldPriceAED;
@@ -1002,9 +1017,12 @@ app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.booking
         logger.error("Recheck/Prebook failed", { error: error.message });
         res.status(500).json({ success: false, error: "فشل التحقق" }); 
     }
+    */
 });
 
 app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    return res.status(410).json({ success: false, error: 'SERVER_CONFIRMATION_REQUIRED', message: 'لا يمكن تأكيد الحجز من المتصفح. يرجى التواصل مع فريق الحجوزات.' });
+    /*
     const bookingDetails = req.body;
     try {
         // 🛡️ لا يُنفَّذ الحجز إلا بعد دفع ناجح (visa) أو عند اختيار الدفع في الفندق (Pay at Hotel)
@@ -1073,6 +1091,7 @@ app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, as
         }
         res.status(500).json({ success: false, error: "Booking Failed" }); 
     }
+    */
 });
 
 // ==========================================
@@ -1228,8 +1247,10 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
     }
 });
 
-app.get('/admin', (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
-app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
+app.get(['/admin', '/admin.html'], (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
+app.get('/style.css', (req, res) => { res.sendFile(path.join(__dirname, 'style.css')); });
+app.get('/logo.jpg', (req, res) => { res.sendFile(path.join(__dirname, 'logo.jpg')); });
+app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'frontend', 'dist', 'index.html')); });
 app.get('/checkout', (req, res) => {
     res.sendFile(path.join(__dirname, 'frontend', 'dist', 'index.html'));
 });

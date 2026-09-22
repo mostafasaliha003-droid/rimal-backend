@@ -2,6 +2,24 @@
 
 const logger = require('./loggerService'); 
 
+function resolveValidatedPayment(result, expected) {
+    const hotels = result?.hotels || (result?.hotel ? [result.hotel] : []);
+    const hotel = hotels.find(item => String(item.hid || item.id) === String(expected.hid));
+    const rates = hotel?.rates || [];
+    if (rates.length !== 1 || result?.changes?.price_changed) {
+        throw new Error('RATE_CHANGED');
+    }
+    const rate = rates[0];
+    const payment = rate.payment_options?.payment_types?.find(item => item.type === 'deposit');
+    const amount = Number(payment?.amount);
+    if (!payment || payment.currency_code !== 'AED' || expected.currency !== 'AED'
+        || !Number.isFinite(amount) || amount < 2 || !rate.book_hash
+        || Math.round(amount * 100) !== Math.round(Number(expected.total) * 100)) {
+        throw new Error('RATE_CHANGED');
+    }
+    return { amount, currency: 'AED', book_hash: rate.book_hash };
+}
+
 // 1. بوابة التحقق من السعر (Recheck Validation Gate)
 async function validatePrice(oldPriceAED, newPriceAED) {
     logger.info(`🔍 Rechecking prices: Old (AED ${oldPriceAED}) vs New (AED ${newPriceAED})`);
@@ -38,7 +56,7 @@ async function createZiinaCheckout(bookingDetails, finalPrice) {
         // 🔴 Ziina تتعامل بالعملات الصغرى (فلس)
         const amountInFils = Math.round(finalPrice * 100);
 
-        if (amountInFils < 200) {
+        if (!Number.isSafeInteger(amountInFils) || amountInFils < 200) {
             throw new Error('الحد الأدنى للمعاملة هو 2 درهم.');
         }
 
@@ -67,7 +85,7 @@ async function createZiinaCheckout(bookingDetails, finalPrice) {
             
             const data = await response.json();
 
-            if (data.redirect_url) {
+            if (response.ok && data.redirect_url) {
                 logger.info("Live Ziina Payment URL generated successfully.");
                 return data.redirect_url;
             } else {
@@ -79,9 +97,7 @@ async function createZiinaCheckout(bookingDetails, finalPrice) {
             // ==========================================
             // 🟡 وضع المحاكاة (Sandbox/Mock Mode)
             // ==========================================
-            logger.warn("ZIINA_API_KEY is missing in .env! Operating in Mock/Sandbox mode.");
-            const mockZiinaUrl = `https://pay.ziina.com/remal-test-checkout?amount=${finalPrice}&session=${Date.now()}&ref=${bookingReference}`;
-            return mockZiinaUrl;
+            throw new Error('Payment provider is not configured.');
         }
 
     } catch (error) {
@@ -91,6 +107,7 @@ async function createZiinaCheckout(bookingDetails, finalPrice) {
 }
 
 module.exports = {
+    resolveValidatedPayment,
     validatePrice,
     createZiinaCheckout
 };

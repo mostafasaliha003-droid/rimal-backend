@@ -17,6 +17,7 @@
 }
 
 * { box-sizing: border-box; }
+* { letter-spacing: 0 !important; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; background: #f4f6f9; }
 button, input, select { font: inherit; }
@@ -26,6 +27,11 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
     outline-offset: 3px;
 }
 button:disabled { cursor: not-allowed; }
+img { max-width: 100%; }
+h1, h2, h3, p, a { overflow-wrap: anywhere; }
+input, select, textarea { min-width: 0; }
+input[type="checkbox"] { accent-color: #146776; }
+.text-slate-400 { color: #526477; }
 
 ::selection { color: #fff; background: #17a2b8; }
 

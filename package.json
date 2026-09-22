@@ -5,6 +5,9 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
+    "build": "npm --prefix frontend run build",
+    "prepare:site": "node syncFrontendBuild.js",
+    "check:site": "node syncFrontendBuild.js --check",
     "sync:filtered-hotels": "node syncFilteredHotels.js",
     "sync:hotel-reviews": "node syncHotelReviews.js",
     "check:limits": "node checkApiLimits.js",

@@ -6,6 +6,7 @@ const secureKey = import.meta.env.VITE_REMAL_SECURE_KEY || 'rml_live_9f8b7c6d5e4
 
 const api = axios.create({
     baseURL: apiBaseUrl,
+    timeout: 45000,
     headers: {
         'Content-Type': 'application/json',
         'x-api-key': secureKey
@@ -105,6 +106,8 @@ export const prebookSerp = async (hash, priceIncreasePercent = 0) =>
 export const createZiinaIntent = async (paymentData) =>
     responseData(await api.post('/payment/ziina/intent', paymentData));
 
+export const paymentAvailability = async () => responseData(await api.get('/payment/availability'));
+
 /**
  * Look up rate details by ETG book hash.
  * @param {string} bookHash - ETG book hash to resolve.
@@ -119,6 +122,7 @@ export const lookupRate = async (bookHash, language = 'en') =>
 export { api };
 
 export default {
+    paymentAvailability,
     suggest,
     searchByIds,
     searchByGeo,

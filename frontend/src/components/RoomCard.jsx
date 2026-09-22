@@ -1,81 +1,52 @@
-import { motion } from 'framer-motion';
-import { ArrowLeft, BadgePercent, Check, LoaderCircle, Wifi } from 'lucide-react';
-import { BedIcon, StarIcon, UsersIcon } from './Icons';
-import { useState } from 'react';
-import BookingAPI from '../services/bookingApi';
+import { ArrowLeft, Wifi } from 'lucide-react';
+import { BedIcon, UsersIcon } from './Icons';
+import { formatMoney } from '../services/offers';
 
-const DEFAULT_IMAGE = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
+export function CancellationPolicy({ cancellation, currency }) {
+    const deadline = cancellation?.free_cancellation_before;
+    return <div className="text-sm leading-7">
+        <p className={deadline ? 'text-emerald-800' : 'text-slate-700'}>{deadline ? `إلغاء مجاني حتى ${deadline.replace('T', ' ')} (بتوقيت المورد)` : 'لا يوجد إلغاء مجاني مؤكد لهذا العرض'}</p>
+        {cancellation?.policies?.length > 0 && <details className="mt-2"><summary className="cursor-pointer text-remal-blue">رسوم الإلغاء</summary><ul>{cancellation.policies.map((policy, index) => <li key={index}>{policy.start_at ? `من ${policy.start_at.replace('T', ' ')}` : 'قبل الموعد التالي'}{policy.end_at ? ` حتى ${policy.end_at.replace('T', ' ')}` : ''}: {policy.amount} {policy.currency_code || currency}</li>)}</ul></details>}
+    </div>;
+}
 
 export default function RoomCard({ room = {}, onBook }) {
-    const [status, setStatus] = useState('idle');
-    const [error, setError] = useState('');
-    const [prebookResult, setPrebookResult] = useState(null);
-    const hotel = room.hotel || {};
-    const image = hotel.images?.[0] || hotel.image || DEFAULT_IMAGE;
-    const isLoading = status === 'loading';
-    const isLocked = status === 'success';
-
-    const handleBook = async () => {
-        if (isLocked) {
-            onBook?.(prebookResult);
-            return;
-        }
-        setStatus('loading');
-        setError('');
-        try {
-            const result = await BookingAPI.prebook(room.book_hash || room.roomId, 2);
-            setPrebookResult(result);
-            setStatus('success');
-        } catch (requestError) {
-            setStatus('error');
-            setError(requestError.response?.status === 409 || requestError.response?.data?.error === 'rate_not_found'
-                ? 'عذراً، لقد تغير السعر أو التوفر، يرجى تحديث الصفحة'
-                : 'تعذر تثبيت السعر، يرجى المحاولة مرة أخرى');
-        }
-    };
+    const payable = room.currency === 'AED' && room.paymentType === 'deposit' && Number.isFinite(room.price) && room.book_hash;
+    const additionalTaxes = (room.taxes || []).filter(tax => !tax.included_by_supplier);
 
     return (
-        <motion.article
+        <article
             aria-labelledby={`room-${room.book_hash || room.roomId || room.name}`}
             className="group overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_10px_rgb(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl"
         >
-            <div className="grid lg:grid-cols-[15rem_1fr]">
-                <div className="relative min-h-52 overflow-hidden bg-slate-100 lg:min-h-full">
-                    <img src={image} alt="" className="h-full w-full object-cover transition duration-500 group-hover:scale-105" onError={(event) => { event.currentTarget.src = DEFAULT_IMAGE; }} />
-                    <div className="absolute inset-x-4 top-4 flex items-center justify-between gap-2">
-                        <span className="inline-flex items-center gap-1 rounded-full border border-emerald-200 bg-emerald-50 px-3 py-1 text-[11px] font-bold text-emerald-700 shadow-sm"><BadgePercent size={14} /> كاش باك حصري</span>
-                        <span className="inline-flex items-center gap-1 rounded-full bg-slate-950/85 px-2.5 py-1.5 text-[10px] font-bold text-white backdrop-blur-sm"><Check size={12} /> متاح</span>
-                    </div>
-                </div>
+            <div className="min-w-0">
                 <div className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[minmax(0,1fr)_15rem] xl:items-center">
                     <div className="min-w-0 text-right">
-                        <div className="mb-3 flex items-center justify-end gap-2">
-                            <div className="flex gap-0.5 text-amber-500" aria-label="تصنيف خمس نجوم">{Array.from({ length: 5 }).map((_, index) => <StarIcon key={index} size={13} fill="currentColor" />)}</div>
-                            <span className="text-xs font-bold text-slate-500">اختيار مميز</span>
-                        </div>
                         <h3 id={`room-${room.book_hash || room.roomId || room.name}`} className="text-xl font-black leading-8 text-slate-900">{room.name || 'غرفة فندقية'}</h3>
                         <div className="mt-5 flex flex-wrap justify-end gap-x-5 gap-y-3 text-xs font-bold text-slate-600">
-                            <span className="inline-flex items-center gap-2"><BedIcon size={17} className="text-blue-700" /> {room.bed || 'سرير كينج'}</span>
-                            <span className="inline-flex items-center gap-2"><UsersIcon size={17} className="text-blue-700" /> حتى {room.adults || 2} بالغين</span>
+                            {typeof room.bed === 'string' && <span className="inline-flex items-center gap-2"><BedIcon size={17} />{room.bed}</span>}
+                            {room.guests && <span className="inline-flex items-center gap-2"><UsersIcon size={17} />{room.guests.reduce((total, group) => total + group.adults + group.children.length, 0)} ضيوف حسب البحث</span>}
                             {room.amenities?.slice(0, 1).map((amenity) => <span key={String(amenity)} className="inline-flex items-center gap-2"><Wifi size={17} className="text-blue-700" /> {amenity}</span>)}
                         </div>
-                        <p className="mt-5 inline-flex items-center gap-2 rounded-lg bg-emerald-50 px-3 py-2 text-xs font-bold text-emerald-800"><Check size={15} className="text-emerald-700" /> إلغاء مجاني حسب السياسة</p>
+                        <div className="mt-5"><CancellationPolicy cancellation={room.cancellation} currency={room.currency} /></div>
+                        {room.meal && <p className="mt-2 text-sm text-slate-600">{room.meal === 'nomeal' ? 'بدون وجبات' : room.meal === 'breakfast' ? 'الإفطار مشمول' : room.meal}</p>}
                     </div>
                     <div className="border-t border-slate-200 pt-5 text-right xl:border-r xl:border-t-0 xl:pr-6 xl:pt-0">
                         <div aria-live="polite" aria-atomic="true">
                             <p className="text-xs font-bold text-slate-500">السعر الإجمالي</p>
-                            <div className="mt-1 flex items-baseline justify-end gap-1"><span className="text-3xl font-black tracking-normal text-slate-900">{room.price ?? '-'}</span><span className="text-xs font-black text-slate-500">{room.currency || 'AED'}</span></div>
-                            <p className="mt-1 text-[11px] font-medium text-slate-500">شامل الضرائب والرسوم</p>
+                            <p className="mt-1 text-2xl font-bold text-slate-900">{formatMoney(room.price, room.currency || 'AED')}</p>
+                            <p className="mt-1 text-xs leading-6 text-slate-600">إجمالي الإقامة المحددة؛ قد تُطبق رسوم محلية.</p>
+                            {additionalTaxes.map((tax, index) => <p key={index} className="text-xs leading-6 text-slate-600">رسوم غير مشمولة: {tax.name} {tax.amount} {tax.currency_code}</p>)}
                         </div>
                         <div className="mt-4 flex flex-col gap-2">
-                            {error && <p role="alert" className="rounded-lg bg-red-50 px-3 py-2 text-xs font-bold text-red-800">{error}</p>}
-                            <button type="button" onClick={handleBook} disabled={isLoading} aria-busy={isLoading} className="group/button inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-5 py-3 text-sm font-black text-white shadow-lg shadow-[#0F172A]/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0F172A]/40 focus:outline-none focus:ring-2 focus:ring-slate-900/20 focus:ring-offset-2 disabled:cursor-not-allowed disabled:bg-slate-500 disabled:bg-none">
-                                {isLoading ? <><LoaderCircle size={17} className="animate-spin" /> <span className="animate-pulse">جارٍ تثبيت السعر...</span></> : isLocked ? <><Check size={17} /> تم تثبيت السعر</> : <><span>تثبيت السعر والحجز</span><ArrowLeft size={17} className="transition-transform duration-200 group-hover/button:-translate-x-1" /></>}
+                            <button type="button" onClick={() => onBook?.(room)} disabled={!payable} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-remal-dark px-5 py-3 font-bold text-white disabled:opacity-50">
+                                اختيار الغرفة <ArrowLeft size={17} />
                             </button>
+                            {!payable && <p className="text-xs leading-6 text-slate-600">هذا العرض غير متاح للدفع الإلكتروني بالدرهم.</p>}
                         </div>
                     </div>
                 </div>
             </div>
-        </motion.article>
+        </article>
     );
 }
