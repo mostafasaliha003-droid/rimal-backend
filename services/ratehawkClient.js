@@ -710,6 +710,36 @@ const serpGeo = (data) => call('post', '/api/b2b/v3/search/serp/geo/', { data, t
 const hotelPage = (data, opts = {}) => call('post', '/api/b2b/v3/search/hp/', { data, timeout: 30000, ...opts });
 
 // ---- Prebook ----------------------------------------------------------------
+async function prebookRate(hash, priceIncreasePercent = 0) {
+    let response;
+    try {
+        response = await call('post', '/api/b2b/v3/hotel/prebook/', {
+            data: { hash, price_increase_percent: priceIncreasePercent },
+            timeout: 30000,
+            retries: 1
+        });
+    } catch (error) {
+        if (['rate_not_found', 'invalid_params', 'prebook_disabled'].includes(error.ratehawkError)) {
+            logger.warn('RateHawk prebook failed', {
+                error: error.ratehawkError,
+                validationError: error.validationError || null
+            });
+        }
+        throw error;
+    }
+    if (!response.ok) {
+        if (['rate_not_found', 'invalid_params', 'prebook_disabled'].includes(response.error)) {
+            logger.warn('RateHawk prebook failed', {
+                error: response.error,
+                validationError: response.validationError || null
+            });
+        }
+        throw ratehawkError('/api/b2b/v3/hotel/prebook/', response);
+    }
+    return response.data && response.data.data !== undefined
+        ? response.data.data
+        : response.data;
+}
 const prebook = (data) => call('post', '/api/b2b/v3/hotel/prebook/', { data, timeout: 30000, retries: 1 });
 const prebookFromSerp = (data) => call('post', '/api/b2b/v3/serp/prebook/', { data, timeout: 30000, retries: 1 });
 
@@ -761,6 +791,7 @@ module.exports = {
     searchHotelsByRegion,
     sortHotelsInRegion,
     getHotelPageRates,
+    prebookRate,
     serpGeo,
     hotelPage,
     prebook,

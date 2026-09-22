@@ -647,6 +647,42 @@ app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, a
     }
 });
 
+app.post('/api/booking/prebook', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    const body = req.body || {};
+    const hash = body.hash;
+    if (typeof hash !== 'string' || !hash.trim()) {
+        return res.status(400).json({
+            success: false,
+            error: 'INVALID_PREBOOK_CRITERIA',
+            message: 'hash is required.'
+        });
+    }
+
+    try {
+        const result = await ratehawkService.validatePrebookRate(
+            hash,
+            body.price_increase_percent === undefined ? 0 : body.price_increase_percent
+        );
+        return res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        if (error.ratehawkError === 'rate_not_found') {
+            return res.status(409).json({
+                success: false,
+                error: 'RATE_NOT_FOUND',
+                message: 'The selected rate has expired or is no longer available.'
+            });
+        }
+        if (error.ratehawkError === 'invalid_params') {
+            return res.status(400).json({ success: false, error: 'INVALID_PREBOOK_CRITERIA', message: error.message });
+        }
+        if (error.ratehawkError === 'prebook_disabled') {
+            return res.status(502).json({ success: false, error: 'PREBOOK_DISABLED', message: error.message });
+        }
+        logger.error('Hotel rate prebook failed', { error: error.message });
+        return res.status(502).json({ success: false, error: 'PREBOOK_UNAVAILABLE' });
+    }
+});
+
 app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     logger.info("New live secure search request received");
     try {

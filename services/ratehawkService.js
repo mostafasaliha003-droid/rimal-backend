@@ -615,6 +615,9 @@ async function prebookRate(bookHash, priceIncreasePercent = 0) {
     };
 }
 
+const validatePrebookRate = (hash, priceIncreasePercent = 0) =>
+    client.prebookRate(hash, priceIncreasePercent);
+
 /**
  * Backward-compatible recheck used by server.js recheck-and-pay.
  * Accepts book_hash / hash / roomId / rateKey. Returns { success, finalPrice }.
@@ -923,6 +926,7 @@ module.exports = {
     fetchSingleHotelPage,
     // Step 3 - prebook
     prebookRate,
+    validatePrebookRate,
     recheckHotel,
     // Step 4 - booking
     bookHotel,
