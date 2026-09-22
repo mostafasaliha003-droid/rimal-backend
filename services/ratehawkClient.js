@@ -353,6 +353,22 @@ async function getIncrementalReviewsDumpUrl(language = 'en') {
     });
     return extractDumpUrl(response, 'incremental hotel reviews dump');
 }
+
+async function getPoiDumpUrl(language = 'en') {
+    const response = await call('post', '/api/b2b/v3/hotel/poi/dump/', {
+        data: { language },
+        timeout: 60000
+    });
+    return extractDumpUrl(response, 'hotel POI dump');
+}
+
+async function getHotelStaticData() {
+    const response = await call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
+    if (!response.ok) {
+        throw new Error(response.error || `RateHawk hotel static request failed with HTTP ${response.httpStatus}`);
+    }
+    return response.data;
+}
 const hotelContent = (data = {}) => call('post', '/api/content/v1/hotel_content_by_ids/', {
     data: { ...data, language: 'en' },
     timeout: 60000
@@ -530,6 +546,8 @@ module.exports = {
     getReviewsDumpUrl,
     getRegionDumpUrl,
     getIncrementalReviewsDumpUrl,
+    getPoiDumpUrl,
+    getHotelStaticData,
     hotelStatic,
     filterValues,
     hotelIds,

@@ -13,7 +13,9 @@
     "sync:custom-dump": "node syncCustomDump.js",
     "sync:reviews-dump": "node syncReviewsDump.js",
     "sync:region-dump": "node syncRegionDump.js",
-    "sync:incremental-reviews-dump": "node syncIncrementalReviewsDump.js"
+    "sync:incremental-reviews-dump": "node syncIncrementalReviewsDump.js",
+    "sync:poi-dump": "node syncPoiDump.js",
+    "sync:static-dictionary": "node syncStaticDictionary.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.4",
