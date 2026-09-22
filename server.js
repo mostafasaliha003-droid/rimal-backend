@@ -24,6 +24,8 @@ const mappingService = require('./services/mappingService');
 const securityService = require('./services/securityService'); 
 const createFrontendRouter = require('./services/frontendService');
 const corsPolicy = require('./services/corsPolicy');
+const createBookingRouter = require('./services/bookingRoutes');
+const bookingProcessService = require('./services/bookingProcessService');
 
 const app = express();
 
@@ -48,6 +50,7 @@ app.use(securityService.globalLimiter);
 // 🛡️ 2. إعدادات الحماية (CORS Policy)
 // ==========================================
 app.use(cors(corsPolicy));
+app.use('/api/booking', createBookingRouter());
 
 // ==========================================
 // 🚀 3. إعدادات البريد وقاعدة البيانات
@@ -225,64 +228,7 @@ app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res)
 // ==========================================
 // 🔔 7. مسار الاستماع (Webhooks) لـ RateHawk
 // ==========================================
-app.post('/api/v1/webhooks/ratehawk', async (req, res) => {
-    // ✅ نرد فوراً بـ 200 حتى تعلم RateHawk أننا استلمنا الإشعار (المعالجة تتم لاحقاً)
-    res.status(200).json({ success: true, received: true });
-
-    const payload = req.body || {};
-    // نعالج بشكل غير متزامن بعد الرد
-    setImmediate(async () => {
-        try {
-            // 🔐 التحقق من توقيع الـ Webhook (HMAC-SHA256) — تنبيه فقط ما لم يُفعّل الوضع الصارم
-            const sig = ratehawkService.verifyWebhookSignature(payload);
-            if (!sig.verified) {
-                logger.warn(`⚠️ [WEBHOOK] Signature not verified (${sig.reason || 'mismatch'})`);
-                if (process.env.RATEHAWK_WEBHOOK_STRICT === 'true') return;
-            }
-
-            const { partnerOrderId, rawStatus, confirmed, failed } = ratehawkService.parseWebhook(payload);
-            if (!partnerOrderId) { logger.warn('⚠️ [WEBHOOK] Missing partner_order_id in payload'); return; }
-
-            const booking = await Booking.findOne({ $or: [{ supplierReference: partnerOrderId }, { bookingReference: partnerOrderId }] });
-            if (!booking) { logger.warn(`⚠️ [WEBHOOK] No matching booking for ${partnerOrderId}`); return; }
-
-            if (confirmed) {
-                booking.supplierStatus = 'CONFIRMED';
-                booking.status = 'active';
-                await booking.save();
-                logger.info(`✅ [WEBHOOK] Booking ${partnerOrderId} CONFIRMED. Issuing voucher + email...`);
-                try {
-                    const details = {
-                        hotelName: booking.hotelName,
-                        guestName: booking.customerName,
-                        customerName: booking.customerName,
-                        email: booking.email,
-                        phone: booking.phone,
-                        roomName: booking.roomType,
-                        board: booking.boardType,
-                        price: booking.price,
-                        cancellationPolicy: booking.cancellationPolicy
-                    };
-                    const pdfBuffer = await notificationService.generateVoucher(details, booking.bookingReference);
-                    await notificationService.sendEmailConfirmation(booking.email, booking.customerName, booking.bookingReference, pdfBuffer);
-                    logger.info(`📧 [WEBHOOK] Voucher emailed for ${booking.bookingReference}`);
-                } catch (mailErr) {
-                    logger.error(`❌ [WEBHOOK] Voucher/email failed for ${booking.bookingReference}`, { error: mailErr.message });
-                }
-            } else if (failed) {
-                booking.supplierStatus = 'FAILED';
-                booking.status = 'failed';
-                await booking.save();
-                // 🚨 سجل واضح لمعالجة استرداد الأموال عبر Ziina لاحقاً
-                logger.error(`🚨 [WEBHOOK][REFUND_REQUIRED] Booking ${partnerOrderId} FAILED (status="${rawStatus}"). ref=${booking.bookingReference} amount=${booking.price} AED email=${booking.email}`);
-            } else {
-                logger.info(`ℹ️ [WEBHOOK] Booking ${partnerOrderId} intermediate/unknown status: "${rawStatus}"`);
-            }
-        } catch (error) {
-            logger.error("❌ [WEBHOOK] Processing error", { error: error.message });
-        }
-    });
-});
+app.post('/api/v1/webhooks/ratehawk', webhookService.receiveRateHawkWebhook);
 
 // ==========================================
 // 🚀 8. مسارات التوثيق (Auth) والمستخدمين
@@ -1256,4 +1202,9 @@ async function connectMongoWithRetry(attempt = 1) {
 }
 mongoose.connection.on('disconnected', () => console.warn('⚠️ MongoDB disconnected.'));
 mongoose.connection.on('reconnected', () => console.log('✅ MongoDB reconnected.'));
+let stopBookingStatusWorker = () => {};
+mongoose.connection.once('connected', () => {
+    stopBookingStatusWorker = bookingProcessService.startBookingStatusWorker();
+});
+server.once('close', () => stopBookingStatusWorker());
 connectMongoWithRetry();

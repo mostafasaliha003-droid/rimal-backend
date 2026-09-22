@@ -250,7 +250,7 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800, r
             // Strict error routing for non-transient failures.
             if (!envelope.ok && (envelope.error || envelope.status === 'error')) {
                 const code = envelope.error;
-                const reason = envelope.validationError ? ` (${envelope.validationError})` : '';
+                const reason = envelope.validationError && !path.includes('/hotel/order/') ? ` (${envelope.validationError})` : '';
 
                 // Fatal auth/config errors: IP not whitelisted or bad/disabled keys.
                 if (FATAL_ERRORS.has(code)) {
@@ -805,9 +805,36 @@ const prebookFromSerp = (data) => call('post', '/api/b2b/v3/serp/prebook/', { da
 // ---- Booking ----------------------------------------------------------------
 // No blind retry: ETG requires retrying booking/form with a NEW partner_order_id
 // (handled by the service layer), otherwise you get double_booking_form.
-const bookingForm = (data) => call('post', '/api/b2b/v3/hotel/order/booking/form/', { data, timeout: 30000, retries: 0 });
-const bookingFinish = (data) => call('post', '/api/b2b/v3/hotel/order/booking/finish/', { data, timeout: 60000, retries: 0 });
-const bookingFinishStatus = (data) => call('post', '/api/b2b/v3/hotel/order/booking/finish/status/', { data, timeout: 30000, retries: 0 });
+const bookingForm = (data) => call('post', '/api/b2b/v3/hotel/order/booking/form/', { data, timeout: 30000, retries: 0, rateLimitRetry: false });
+const bookingFinish = (data) => call('post', '/api/b2b/v3/hotel/order/booking/finish/', { data, timeout: 60000, retries: 0, rateLimitRetry: false });
+const bookingFinishStatus = (data, { timeout = 30000 } = {}) => call('post', '/api/b2b/v3/hotel/order/booking/finish/status/', { data, timeout, retries: 0, rateLimitRetry: false });
+
+async function createCreditCardToken(data) {
+    const keyId = process.env.RATEHAWK_KEY_ID;
+    const apiKey = process.env.RATEHAWK_API_KEY;
+    const fail = code => Object.assign(new Error(code), { code, httpStatus: 502 });
+    if (!keyId || !apiKey) throw fail('card_tokenization_not_configured');
+    let response;
+    try {
+        response = await axios.post('https://api.payota.net/api/public/v1/manage/init_partners', data, {
+            headers: { 'Content-Type': 'application/json' },
+            auth: { username: keyId, password: apiKey },
+            timeout: 30000,
+            maxRedirects: 0,
+            maxContentLength: 65536,
+            validateStatus: () => true
+        });
+    } catch {
+        throw fail('card_tokenization_unknown');
+    }
+    if (response.status >= 200 && response.status < 300 && response.data?.status === 'ok' && !response.data.error) return;
+    const validationErrors = new Set([
+        'body_error', 'validation_error', 'invalid_pay_uuid', 'invalid_init_uuid', 'invalid_month',
+        'invalid_year', 'invalid_cvc', 'invalid_card_number', 'invalid_card_holder',
+        'invalid_is_cvc_required', 'luhn_algorithm_error'
+    ]);
+    throw fail(validationErrors.has(response.data?.error) ? response.data.error : 'card_tokenization_unknown');
+}
 
 // ---- Post-booking -----------------------------------------------------------
 const orderInfo = (data) => call('post', '/api/b2b/v3/hotel/order/info/', { data, timeout: 30000 });
@@ -860,6 +887,7 @@ module.exports = {
     bookingForm,
     bookingFinish,
     bookingFinishStatus,
+    createCreditCardToken,
     orderInfo,
     cancelOrder
 };

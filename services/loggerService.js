@@ -29,8 +29,33 @@ function rotateEtgLogIfNeeded(nextEntryBytes) {
 }
 
 function redactHeaderValue(name, value) {
-    if (/authorization|api[-_]?key|token|secret|password/i.test(name)) return '[REDACTED]';
+    if (/authorization|api[-_]?key|token|secret|password|cookie/i.test(name)) return '[REDACTED]';
     return value;
+}
+
+const PRIVATE_FIELDS = new Set([
+    'authorization', 'apikey', 'token', 'secret', 'password', 'cookie', 'setcookie',
+    'cvc', 'cvv', 'creditcarddatacore', 'cardnumber', 'cardholder', 'cardtoken',
+    'inituuid', 'payuuid', 'data3ds', 'pareq', 'pares', 'md', 'termurl',
+    'email', 'phone', 'firstname', 'lastname', 'firstnameoriginal', 'lastnameoriginal',
+    'guestname', 'customername', 'userip', 'comment', 'bookhash', 'debug'
+]);
+
+function sanitizePayload(value) {
+    if (Array.isArray(value)) return value.map(sanitizePayload);
+    if (!value || typeof value !== 'object') return value;
+    return Object.fromEntries(Object.entries(value).map(([key, child]) => [key,
+        PRIVATE_FIELDS.has(key.replace(/[_-]/g, '').toLowerCase()) ? '[REDACTED]' : sanitizePayload(child)
+    ]));
+}
+
+function endpointUrl(value) {
+    try {
+        const parsed = new URL(value);
+        return `${parsed.origin}${parsed.pathname}`;
+    } catch {
+        return '[INVALID_URL]';
+    }
 }
 
 function sanitizeHeaders(headers = {}, auth) {
@@ -86,7 +111,7 @@ function readEtgLogsForPartnerOrderId(partnerOrderId) {
 
 const formatMessage = (level, icon, message, data) => {
     const timestamp = new Date().toISOString();
-    const dataString = Object.keys(data).length ? `\n   📦 Data: ${JSON.stringify(data)}` : '';
+    const dataString = Object.keys(data).length ? `\n   📦 Data: ${JSON.stringify(sanitizePayload(data))}` : '';
     return `[${timestamp}] [${level}] ${icon} ${message}${dataString}`;
 };
 
@@ -106,15 +131,15 @@ module.exports = {
     logEtgExchange: ({ method, url, headers, auth, requestPayload, responsePayload, statusCode, latencyMs, error }) => {
         const entry = {
             timestamp: new Date().toISOString(),
-            endpoint: { url, method: String(method || 'GET').toUpperCase() },
-            requestPayload: requestPayload === undefined ? null : requestPayload,
+            endpoint: { url: endpointUrl(url), method: String(method || 'GET').toUpperCase() },
+            requestPayload: requestPayload && typeof requestPayload === 'object' ? sanitizePayload(requestPayload) : null,
             requestHeaders: sanitizeHeaders(headers, auth),
-            responsePayload: responsePayload === undefined ? null : responsePayload,
+            responsePayload: responsePayload && typeof responsePayload === 'object' ? sanitizePayload(responsePayload) : null,
             statusCode: statusCode === undefined ? null : statusCode,
             latencyMs: Math.max(0, Math.round(latencyMs)),
             partnerOrderId: findPartnerOrderId(requestPayload) || findPartnerOrderId(responsePayload)
         };
-        if (error) entry.error = { code: error.code || null, message: error.message || String(error) };
+        if (error) entry.error = { code: /^[a-z_\d]+$/i.test(error.code || '') ? error.code : 'request_failed' };
         appendEtgRequestLog(entry);
     },
 

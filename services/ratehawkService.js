@@ -9,6 +9,7 @@
 //   fetchOrderDetails, cancelBooking
 
 const crypto = require('crypto');
+const { isIP } = require('node:net');
 const fs = require('fs');
 const path = require('path');
 const mongoose = require('mongoose');
@@ -103,7 +104,7 @@ async function syncBookingByPartnerOrderId(partnerOrderId, update) {
 
 // How long bookHotel() will poll booking/finish/status before returning "processing".
 const BOOK_WAIT_MS = parseInt(process.env.RATEHAWK_BOOK_WAIT_MS || '90000', 10);
-const BOOK_POLL_INTERVAL_MS = parseInt(process.env.RATEHAWK_BOOK_POLL_MS || '3000', 10);
+const BOOK_POLL_INTERVAL_MS = parseInt(process.env.RATEHAWK_BOOK_POLL_MS || '5000', 10);
 
 // Hotelpage (hp) is used EXCLUSIVELY on hotel selection (getHotelPricing), never
 // looped over search results — the ETG-recommended "HP on selection only" pattern.
@@ -118,7 +119,10 @@ function hpCacheKey(hotelKey, p) {
 
 // Booking status errors that are final (stop polling immediately).
 const FINAL_STATUS_ERRORS = new Set([
-    'soldout', 'book_limit', 'provider', 'order_not_found', 'booking_finish_did_not_succeed'
+    '3ds', 'block', 'book_limit', 'booking_finish_did_not_succeed', 'charge', 'decoding_json',
+    'endpoint_exceeded_limit', 'endpoint_not_active', 'endpoint_not_found', 'incorrect_credentials',
+    'invalid_auth_header', 'invalid_params', 'lock', 'no_auth_header', 'not_allowed',
+    'not_allowed_host', 'order_not_found', 'overdue_debt', 'provider', 'soldout', 'unexpected_method'
 ]);
 
 // ---- Input normalization ----------------------------------------------------
@@ -648,38 +652,247 @@ async function recheckHotel(details = {}) {
 }
 
 // ---- Step 4: Booking --------------------------------------------------------
-function buildGuests(details) {
-    if (Array.isArray(details.rooms) && details.rooms.length && details.rooms[0].guests) {
-        return details.rooms.map(room => ({
-            guests: room.guests.map(g => ({
-                first_name: g.first_name || g.firstName || 'Guest',
-                last_name: g.last_name || g.lastName || 'Traveler',
-                is_child: !!g.is_child,
-                ...(g.age !== undefined ? { age: g.age } : {})
-            }))
-        }));
+function bookingError(code, httpStatus = 400) {
+    const error = new Error(code);
+    error.code = code;
+    error.ratehawkError = code;
+    error.httpStatus = httpStatus;
+    return error;
+}
+
+function requiredText(value, field, maxLength = 256) {
+    if (typeof value !== 'string' || !value.trim() || value.length > maxLength) {
+        throw bookingError(`invalid_${field}`);
     }
-    // Fallback: single room, split a full name into first/last.
-    const full = (details.guestName || details.customerName || 'Guest Traveler').trim().split(/\s+/);
-    const first = full[0] || 'Guest';
-    const last = full.slice(1).join(' ') || 'Traveler';
-    return [{ guests: [{ first_name: first, last_name: last, is_child: false }] }];
+    return value.trim();
+}
+
+function transientBookingFailure(value) {
+    return value?.httpStatus >= 500 || value?.response?.status >= 500
+        || ['timeout', 'unknown'].includes(value?.ratehawkError || value?.error)
+        || ['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(value?.code);
+}
+
+function retryAfterMs(response) {
+    if (response?.httpStatus !== 429) return 5000;
+    const limit = response.rateLimit || {};
+    const reset = String(limit.reset || '').trim();
+    const resetTime = /^\d+$/.test(reset) ? Number(reset) * (Number(reset) < 1e12 ? 1000 : 1)
+        : Date.parse(/[zZ]|[+-]\d\d:?\d\d$/.test(reset) ? reset : `${reset}Z`);
+    const windowSeconds = Number(limit.secondsNumber);
+    return Math.max(5000, Number.isFinite(windowSeconds) && windowSeconds > 0 ? windowSeconds * 1000 : 60000,
+        Number.isFinite(resetTime) ? resetTime - Date.now() : 0);
+}
+
+async function createBookingProcess(details = {}, { beforeAttempt = async () => {}, maxAttempts = 10 } = {}) {
+    const bookHash = requiredText(details.book_hash, 'book_hash', 1024);
+    const language = requiredText(details.language || 'en', 'language', 5);
+    const userIp = requiredText(details.user_ip, 'user_ip', 45);
+    if (!isIP(userIp)) throw bookingError('invalid_user_ip');
+    let partnerOrderId = details.partner_order_id
+        ? requiredText(details.partner_order_id, 'partner_order_id') : crypto.randomUUID();
+    const attempts = Math.min(10, Math.max(1, Math.floor(Number(maxAttempts)) || 1));
+    for (let attempt = 0; attempt < attempts; attempt += 1) {
+        if (attempt > 0) partnerOrderId = crypto.randomUUID();
+        await beforeAttempt(partnerOrderId);
+        let response;
+        try {
+            response = await client.bookingForm({ book_hash: bookHash, partner_order_id: partnerOrderId, language, user_ip: userIp });
+        } catch (error) {
+            if (!transientBookingFailure(error) || attempt === attempts - 1) throw error;
+            continue;
+        }
+        if (response.ok && response.httpStatus < 300) {
+            const data = response.data;
+            if (!data || !data.order_id || (data.partner_order_id && data.partner_order_id !== partnerOrderId)
+                || !Array.isArray(data.payment_types) || !data.payment_types.length) {
+                throw bookingError('invalid_booking_form_response', 502);
+            }
+            return {
+                partner_order_id: partnerOrderId,
+                order_id: data.order_id,
+                item_id: data.item_id,
+                payment_types: data.payment_types,
+                is_gender_specification_required: data.is_gender_specification_required === true,
+                upsell_data: data.upsell_data || []
+            };
+        }
+        const retryable = transientBookingFailure(response) || ['double_booking_form', 'duplicate_reservation'].includes(response.error);
+        if (!retryable || attempt === attempts - 1) {
+            throw bookingError(response.httpStatus === 429 ? 'rate_limit' : response.error || 'booking_form_unavailable', response.httpStatus === 429 ? 429 : 502);
+        }
+    }
+}
+
+function buildGuests(details) {
+    if (!Array.isArray(details.rooms) || !details.rooms.length || details.rooms.length > 9) throw bookingError('invalid_rooms');
+    return details.rooms.map(room => {
+        if (!room || !Array.isArray(room.guests) || !room.guests.length || room.guests.length > 20) throw bookingError('invalid_guests');
+        return { guests: room.guests.map(guest => {
+            if (!guest || typeof guest !== 'object') throw bookingError('invalid_guest');
+            if (guest.is_child !== undefined && typeof guest.is_child !== 'boolean') throw bookingError('invalid_is_child');
+            if (guest.is_child && (!Number.isInteger(guest.age) || guest.age < 0 || guest.age > 17)) throw bookingError('invalid_child_age');
+            if (guest.gender !== undefined && !['male', 'female'].includes(guest.gender)) throw bookingError('invalid_gender');
+            return {
+                first_name: requiredText(guest.first_name || guest.firstName, 'guest_first_name', 100),
+                last_name: requiredText(guest.last_name || guest.lastName, 'guest_last_name', 100),
+                is_child: guest.is_child === true,
+                ...(guest.is_child ? { age: guest.age } : {}),
+                ...(guest.gender ? { gender: guest.gender } : {})
+            };
+        }) };
+    });
+}
+
+function selectBookingPayment(form, selection) {
+    const payments = form.payment_types || [];
+    const canonicalAmount = value => {
+        const text = String(value);
+        if (!/^\d+(?:\.\d+)?$/.test(text)) return null;
+        const [whole, fraction = ''] = text.split('.');
+        return `${whole.replace(/^0+(?=\d)/, '')}.${fraction.replace(/0+$/, '')}`;
+    };
+    const payment = selection ? payments.find(option => option.type === selection.type
+        && option.currency_code === selection.currency_code && canonicalAmount(option.amount) !== null
+        && canonicalAmount(option.amount) === canonicalAmount(selection.amount)) : payments.length === 1 ? payments[0] : null;
+    if (!payment || !['deposit', 'hotel', 'now'].includes(payment.type) || canonicalAmount(payment.amount) === null
+        || !/^[A-Z]{3}$/.test(payment.currency_code)) throw bookingError('incorrect_chosen_payment_type');
+    return payment;
+}
+
+async function createBookingCardToken(details, form, tokens = { init_uuid: crypto.randomUUID(), pay_uuid: crypto.randomUUID() }) {
+    if (process.env.RATEHAWK_CARD_TOKENIZATION_ENABLED !== 'true') throw bookingError('card_tokenization_disabled', 503);
+    const payment = selectBookingPayment(form, details.payment_type);
+    if (!payment.is_need_credit_card_data) throw bookingError('credit_card_not_required');
+    const objectId = String(form.item_id ?? '');
+    if (!objectId || objectId.length > 20) throw bookingError('missing_booking_item_id', 502);
+    const card = details.credit_card_data_core || {};
+    if (!/^\d{13,19}$/.test(card.card_number) || typeof card.card_number !== 'string') throw bookingError('invalid_card_number');
+    if (!/^(0[1-9]|1[0-2])$/.test(card.month) || typeof card.month !== 'string') throw bookingError('invalid_month');
+    if (!/^\d{2}$/.test(card.year) || typeof card.year !== 'string') throw bookingError('invalid_year');
+    if ((payment.is_need_cvc || details.cvc !== undefined) && (typeof details.cvc !== 'string' || !/^\d{3}$/.test(details.cvc))) throw bookingError('invalid_cvc');
+    const request = {
+        object_id: objectId,
+        init_uuid: tokens.init_uuid,
+        pay_uuid: tokens.pay_uuid,
+        user_first_name: requiredText(details.user_first_name, 'user_first_name', 100),
+        user_last_name: requiredText(details.user_last_name, 'user_last_name', 100),
+        is_cvc_required: payment.is_need_cvc === true,
+        ...(details.cvc !== undefined ? { cvc: details.cvc } : {}),
+        credit_card_data_core: {
+            card_number: card.card_number, month: card.month, year: card.year,
+            card_holder: requiredText(card.card_holder, 'card_holder', 150)
+        }
+    };
+    await client.createCreditCardToken(request);
+    return { init_uuid: request.init_uuid, pay_uuid: request.pay_uuid };
+}
+
+function buildBookingFinish(details, form) {
+    const payment = selectBookingPayment(form, details.payment_type);
+    const rooms = buildGuests(details);
+    if (form.is_gender_specification_required && rooms.some(room => room.guests.some(guest => !guest.gender))) throw bookingError('gender_required');
+    const contact = details.user || { email: details.email || details.holderEmail, phone: details.phone || details.holderPhone, comment: details.comment };
+    const email = requiredText(contact.email, 'email');
+    const phone = requiredText(contact.phone, 'phone', 40);
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw bookingError('invalid_email');
+    const request = {
+        language: details.language || 'en',
+        partner: { partner_order_id: requiredText(form.partner_order_id, 'partner_order_id') },
+        user: { email, phone, ...(contact.comment ? { comment: requiredText(contact.comment, 'comment', 2000) } : {}) },
+        rooms,
+        payment_type: { type: payment.type, amount: payment.amount, currency_code: payment.currency_code }
+    };
+    if (details.supplier_data) {
+        request.supplier_data = Object.fromEntries(['first_name_original', 'last_name_original', 'email', 'phone']
+            .map(field => [field, requiredText(details.supplier_data[field], `supplier_${field}`)]));
+    }
+    if (payment.is_need_credit_card_data) {
+        const token = details.card_token || {};
+        const uuidPattern = /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i;
+        if (!uuidPattern.test(token.init_uuid) || !uuidPattern.test(token.pay_uuid)) throw bookingError('credit_card_required');
+        Object.assign(request.payment_type, { init_uuid: token.init_uuid, pay_uuid: token.pay_uuid });
+    }
+    if (payment.type === 'now') {
+        const returnUrl = new URL(buildReturnPath());
+        if (returnUrl.protocol !== 'https:' || returnUrl.username || returnUrl.password) throw bookingError('invalid_return_path');
+        request.return_path = returnUrl.href;
+    }
+    if (details.upsell_data) {
+        if (!Array.isArray(details.upsell_data) || details.upsell_data.length > 2) throw bookingError('invalid_upsell_data');
+        const names = new Set();
+        request.upsell_data = details.upsell_data.map(choice => {
+            if (!['early_checkin', 'late_checkout'].includes(choice.name) || names.has(choice.name)
+                || !collectUpsellOptions(form).some(option => option.name === choice.name && option.uid === choice.uid)) throw bookingError('invalid_upsell_uid');
+            names.add(choice.name);
+            return { name: choice.name, uid: choice.uid };
+        });
+    }
+    if (details.arrival_datetime !== undefined) {
+        if (typeof details.arrival_datetime !== 'string' || !Number.isFinite(Date.parse(details.arrival_datetime))) throw bookingError('invalid_arrival_datetime');
+        request.arrival_datetime = details.arrival_datetime;
+    }
+    return request;
+}
+
+async function startBookingProcess(details, form) {
+    const request = buildBookingFinish(details, form);
+    try {
+        const response = await client.bookingFinish(request);
+        if (response.ok || transientBookingFailure(response) || response.error === 'double_booking_finish' || response.httpStatus === 429
+            || response.status !== 'error' || typeof response.error !== 'string' || !response.error) {
+            return { success: false, status: 'processing', retry_after_ms: retryAfterMs(response) };
+        }
+        return { success: false, status: 'failed', error: response.error || 'booking_finish_failed' };
+    } catch (error) {
+        if (transientBookingFailure(error)) return { success: false, status: 'processing', retry_after_ms: 5000 };
+        throw error;
+    }
+}
+
+async function checkBookingProcess(partnerOrderId, options = {}) {
+    requiredText(partnerOrderId, 'partner_order_id');
+    let response;
+    try {
+        response = await client.bookingFinishStatus({ partner_order_id: partnerOrderId }, options);
+    } catch (error) {
+        if (transientBookingFailure(error)) return { success: false, status: 'processing', retry_after_ms: 5000 };
+        if (FINAL_STATUS_ERRORS.has(error.ratehawkError)) return { success: false, status: 'failed', error: error.ratehawkError };
+        throw error;
+    }
+    if (transientBookingFailure(response) || response.httpStatus === 429) return { success: false, status: 'processing', retry_after_ms: retryAfterMs(response) };
+    if (response.data?.partner_order_id && response.data.partner_order_id !== partnerOrderId) throw bookingError('booking_status_order_mismatch', 502);
+    if (response.status === 'ok' && !response.error && response.httpStatus >= 200 && response.httpStatus < 300) return { success: true, status: 'confirmed' };
+    if (response.status === '3ds' && !response.error && response.httpStatus >= 200 && response.httpStatus < 300 && response.data?.data_3ds) {
+        const challenge = response.data.data_3ds;
+        let actionUrl;
+        try { actionUrl = new URL(challenge.action_url); }
+        catch { throw bookingError('invalid_3ds_challenge', 502); }
+        if (actionUrl.protocol !== 'https:' || actionUrl.username || actionUrl.password
+            || !['get', 'post'].includes(challenge.method) || !challenge.data || typeof challenge.data !== 'object' || Array.isArray(challenge.data)
+            || Object.values(challenge.data).some(value => typeof value !== 'string')) throw bookingError('invalid_3ds_challenge', 502);
+        return { success: false, status: '3ds', data_3ds: { action_url: actionUrl.href, method: challenge.method, data: challenge.data } };
+    }
+    if (FINAL_STATUS_ERRORS.has(response.error)) return { success: false, status: 'failed', error: response.error };
+    return { success: false, status: 'processing', retry_after_ms: 5000 };
 }
 
 /**
  * Poll booking/finish/status until confirmed, final error, or timeout.
  */
-async function waitForBookingStatus(partnerOrderId, { maxWaitMs = BOOK_WAIT_MS, intervalMs = BOOK_POLL_INTERVAL_MS } = {}) {
-    const deadline = Date.now() + maxWaitMs;
-    let last = null;
-    while (Date.now() < deadline) {
-        const st = await client.bookingFinishStatus({ partner_order_id: partnerOrderId });
-        last = st;
-        if (st.status === 'ok') return { success: true, status: 'confirmed' };
-        if (st.error && FINAL_STATUS_ERRORS.has(st.error)) return { success: false, status: st.error };
-        await new Promise(r => setTimeout(r, intervalMs));
+async function waitForBookingStatus(partnerOrderId, { maxWaitMs = BOOK_WAIT_MS, intervalMs = BOOK_POLL_INTERVAL_MS, now = Date.now, sleep = delay => new Promise(resolve => setTimeout(resolve, delay)) } = {}) {
+    const deadline = now() + Math.max(1000, Number.isFinite(maxWaitMs) ? maxWaitMs : 90000);
+    const finalCheckAt = deadline - 1000;
+    while (true) {
+        const checkedAt = now();
+        const requestDeadline = checkedAt < finalCheckAt ? finalCheckAt : deadline;
+        const result = await checkBookingProcess(partnerOrderId, { timeout: Math.max(1, Math.min(30000, requestDeadline - checkedAt)) });
+        if (result.status !== 'processing') return result;
+        if (checkedAt >= finalCheckAt || now() >= deadline) return { ...result, timed_out: true };
+        const delay = Math.max(5000, Number.isFinite(intervalMs) ? intervalMs : 5000, result.retry_after_ms || 0);
+        if (result.retry_after_ms > 5000 && now() + delay > finalCheckAt) return { ...result, timed_out: true };
+        if (now() < finalCheckAt) await sleep(Math.min(delay, finalCheckAt - now()));
     }
-    return { success: false, status: 'processing', last };
 }
 
 /**
@@ -687,95 +900,16 @@ async function waitForBookingStatus(partnerOrderId, { maxWaitMs = BOOK_WAIT_MS, 
  * (or book_hash/hash/rateKey/roomId). Returns { success, hcn, order_id, ... }.
  */
 async function bookHotel(details = {}) {
-    const bookHash = details.book_hash || details.hash || details.rateKey || details.roomId;
-    if (!bookHash) throw new Error('RateHawk bookHotel: missing book_hash');
-
-    const language = details.language || 'en';
-    const userIp = details.user_ip || '203.0.113.10';
-
-    const newOrderId = () => 'RML-' + Date.now() + '-' + Math.floor(Math.random() * 100000);
-    // Errors that require retrying the booking form with a NEW partner_order_id (ETG retry logic).
-    // `lock` = a duplicate partner_order_id was sent too quickly -> retry with a fresh id.
-    const RETRYABLE_FORM = new Set(['double_booking_form', 'duplicate_reservation', 'lock', 'unknown', 'timeout']);
-
-    // 4a. Create booking process (booking form) — retry with a new partner_order_id on transient errors (max 5).
-    let form = null;
-    let partnerOrderId = details.partner_order_id || newOrderId();
-    for (let attempt = 0; attempt < 5; attempt++) {
-        if (attempt > 0) partnerOrderId = newOrderId();
-        try {
-            form = await client.bookingForm({ book_hash: bookHash, language, partner_order_id: partnerOrderId, user_ip: userIp });
-        } catch (e) {
-            // The client throws for hard errors (invalid_params / fatal auth). Only retry
-            // with a new partner_order_id for retryable/transient causes; surface the rest.
-            if (e.ratehawkError && !RETRYABLE_FORM.has(e.ratehawkError)) throw e;
-            logger.warn(`RateHawk booking/form transient (${e.message}); retrying with a new partner_order_id`);
-            form = null;
-            continue;
-        }
-        if (form.ok) break;
-        if (RETRYABLE_FORM.has(form.error) && attempt < 4) {
-            logger.warn(`RateHawk booking/form error "${form.error}"; retrying with a new partner_order_id`);
-            continue;
-        }
-        break; // non-retryable error
-    }
-    if (!form || !form.ok) {
-        const err = (form && form.error) || 'timeout';
-        logger.error('RateHawk booking/form failed', { error: err });
-        throw new Error(`Booking form failed: ${err}`);
-    }
-    const paymentType = (form.data.payment_types || [])[0];
-    if (!paymentType) throw new Error('RateHawk booking/form returned no payment types');
-    const upsellData = buildUpsellData(details, form.data);
-
-    // 4b. Start booking process (booking finish)
-    const finishReq = {
-        language,
-        partner: { partner_order_id: partnerOrderId },
-        user: {
-            email: details.email || details.holderEmail || 'guest@example.com',
-            phone: details.phone || details.holderPhone || '+10000000000',
-            comment: details.comment || ''
-        },
-        supplier_data: {
-            first_name_original: details.firstName || (details.guestName || 'Guest').split(' ')[0] || 'Guest',
-            last_name_original: details.lastName || (details.guestName || 'Guest Traveler').split(' ').slice(1).join(' ') || 'Traveler',
-            email: details.email || details.holderEmail || 'guest@example.com',
-            phone: details.phone || details.holderPhone || '+10000000000'
-        },
-        rooms: buildGuests(details),
-        payment_type: { type: paymentType.type, amount: paymentType.amount, currency_code: paymentType.currency_code },
-        ...(upsellData ? { upsell_data: upsellData } : {}),
-        // Security Feature: Must be HTTPS and match the Host URL registered in RateHawk account settings.
-        return_path: buildReturnPath()
-    };
-    const finish = await client.bookingFinish(finishReq);
-    if (!finish.ok) {
-        logger.error('RateHawk booking/finish failed', { error: finish.error });
-        throw new Error(`Booking finish failed: ${finish.error || 'unknown'}`);
-    }
-
-    // 4c. Poll for the final status
-    const result = await waitForBookingStatus(partnerOrderId);
-
-    // 5. Best-effort order info for the supplier reference
-    let supplierReference = '';
-    try {
-        const info = await getOrderDetails(partnerOrderId);
-        supplierReference = info.supplierReference || '';
-    } catch (e) { /* order data may sync with delay */ }
-
-    return {
-        success: result.success || result.status === 'processing',
-        hcn: partnerOrderId,
-        partner_order_id: partnerOrderId,
-        order_id: form.data.order_id,
-        status: result.status,
-        supplierReference,
-        amount: paymentType.amount,
-        currency: paymentType.currency_code
-    };
+    const processes = require('./bookingProcessService');
+    const process = await processes.createProcess({
+        book_hash: details.book_hash || details.hash || details.rateKey || details.roomId,
+        language: details.language,
+        user_ip: details.user_ip,
+        guests: details.guests
+    }, details.idempotency_key);
+    if (!['form_ready', 'card_ready', 'finishing', 'processing', '3ds', 'confirmed', 'failed'].includes(process.status)) return process;
+    const result = await processes.finishProcess(process.process_id, details);
+    return { ...result, ...(result.success ? { hcn: result.partner_order_id } : {}) };
 }
 
 // ---- Step 5: Post-booking ---------------------------------------------------
@@ -847,29 +981,29 @@ const fetchOrderDetails = (hcn) => getOrderDetails(hcn);
 // ETG payload: { data: { partner_order_id, status }, signature: { signature, timestamp, token } }
 // status is "completed" (=> confirmed) or "failed".
 function parseWebhook(payload = {}) {
-    const data = payload.data || payload;
-    const partnerOrderId = data.partner_order_id || data.order_id || payload.partner_order_id || payload.hcn || null;
-    const rawStatus = String(data.status || payload.status || '').toLowerCase();
-    const confirmed = ['completed', 'confirmed', 'ok', 'success', 'confirmed_live'].includes(rawStatus);
-    const failed = ['failed', 'error', 'soldout', 'provider', 'book_limit', 'cancelled', 'cancelled_by_hotel'].includes(rawStatus);
+    const data = payload?.data || {};
+    const partnerOrderId = typeof data.partner_order_id === 'string' && data.partner_order_id.length <= 256
+        ? data.partner_order_id : null;
+    const rawStatus = data.status;
+    const confirmed = rawStatus === 'completed';
+    const failed = rawStatus === 'failed';
     return { partnerOrderId, rawStatus, confirmed, failed };
 }
 
 // Verify the ETG webhook signature: HMAC-SHA256(timestamp + token) keyed with the API key.
 function verifyWebhookSignature(payload = {}) {
-    try {
-        const sig = payload.signature;
-        if (!sig || !sig.signature || sig.timestamp === undefined || !sig.token) {
-            return { verified: false, reason: 'missing_signature' };
-        }
-        const expected = crypto
-            .createHmac('sha256', String(process.env.RATEHAWK_API_KEY || ''))
-            .update(String(sig.timestamp) + String(sig.token))
-            .digest('hex');
-        return { verified: expected === sig.signature, expected };
-    } catch (e) {
-        return { verified: false, reason: e.message };
+    const apiKey = process.env.RATEHAWK_API_KEY;
+    if (!apiKey) return { verified: false, reason: 'missing_api_key' };
+    const signature = payload?.signature;
+    if (!signature || !Number.isSafeInteger(signature.timestamp) || signature.timestamp <= 0
+        || typeof signature.token !== 'string' || !signature.token || signature.token.length > 256
+        || typeof signature.signature !== 'string' || !/^[a-f\d]{64}$/i.test(signature.signature)) {
+        return { verified: false, reason: 'invalid_signature' };
     }
+    const expected = crypto.createHmac('sha256', apiKey)
+        .update(`${signature.timestamp}${signature.token}`).digest();
+    const verified = crypto.timingSafeEqual(expected, Buffer.from(signature.signature, 'hex'));
+    return { verified, ...(verified ? {} : { reason: 'signature_mismatch' }) };
 }
 
 async function cancelBooking(partnerOrderId, amountCommission = 0) {
@@ -942,6 +1076,12 @@ module.exports = {
     validateSerpPrebookRate,
     recheckHotel,
     // Step 4 - booking
+    createBookingProcess,
+    selectBookingPayment,
+    createBookingCardToken,
+    buildBookingFinish,
+    startBookingProcess,
+    checkBookingProcess,
     bookHotel,
     waitForBookingStatus,
     // Step 5 - post-booking
