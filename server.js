@@ -719,6 +719,34 @@ app.post('/api/booking/prebook-serp', verifyAPIKey, securityService.searchLimite
     }
 });
 
+app.get('/api/search/rate/:book_hash', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    const bookHash = String(req.params.book_hash || '').trim();
+    const language = req.query.language || 'en';
+    if (!bookHash) {
+        return res.status(400).json({ success: false, error: 'INVALID_RATE_HASH', message: 'book_hash is required.' });
+    }
+
+    try {
+        const result = await ratehawkService.getRateDetailsByHash(bookHash, language);
+        return res.status(200).json({ success: true, rate: result });
+    } catch (error) {
+        if (error.ratehawkError === 'rate_not_found') {
+            return res.status(404).json({ success: false, error: 'RATE_NOT_FOUND', message: error.message });
+        }
+        if (error.ratehawkError === 'invalid_params') {
+            return res.status(400).json({ success: false, error: 'INVALID_RATE_HASH', message: error.message });
+        }
+        if (error.ratehawkError === 'contract_mismatch') {
+            return res.status(502).json({ success: false, error: 'CONTRACT_MISMATCH', message: error.message });
+        }
+        if (error.ratehawkError === 'core_search_error') {
+            return res.status(502).json({ success: false, error: 'CORE_SEARCH_ERROR', message: error.message });
+        }
+        logger.error('Rate lookup failed', { bookHash, error: error.message });
+        return res.status(502).json({ success: false, error: 'RATE_LOOKUP_UNAVAILABLE' });
+    }
+});
+
 app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     logger.info("New live secure search request received");
     try {

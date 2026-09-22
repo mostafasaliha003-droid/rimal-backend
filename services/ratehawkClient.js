@@ -706,6 +706,35 @@ async function getHotelPageRates(params = {}) {
         ? response.data.data
         : response.data;
 }
+async function lookupRateInfo(bookHash, language = 'en') {
+    let response;
+    try {
+        response = await call('post', '/api/b2b/v3/search/lookuprate/', {
+            data: { book_hash: bookHash, language },
+            timeout: 30000
+        });
+    } catch (error) {
+        if (['rate_not_found', 'invalid_params', 'contract_mismatch', 'core_search_error'].includes(error.ratehawkError)) {
+            logger.warn('RateHawk rate lookup failed', {
+                error: error.ratehawkError,
+                validationError: error.validationError || null
+            });
+        }
+        throw error;
+    }
+    if (!response.ok) {
+        if (['rate_not_found', 'invalid_params', 'contract_mismatch', 'core_search_error'].includes(response.error)) {
+            logger.warn('RateHawk rate lookup failed', {
+                error: response.error,
+                validationError: response.validationError || null
+            });
+        }
+        throw ratehawkError('/api/b2b/v3/search/lookuprate/', response);
+    }
+    return response.data && response.data.data !== undefined
+        ? response.data.data
+        : response.data;
+}
 const serpGeo = (data) => call('post', '/api/b2b/v3/search/serp/geo/', { data, timeout: 30000 });
 const hotelPage = (data, opts = {}) => call('post', '/api/b2b/v3/search/hp/', { data, timeout: 30000, ...opts });
 
@@ -821,6 +850,7 @@ module.exports = {
     searchHotelsByRegion,
     sortHotelsInRegion,
     getHotelPageRates,
+    lookupRateInfo,
     prebookRate,
     prebookSerpRate,
     serpGeo,

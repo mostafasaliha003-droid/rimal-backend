@@ -424,6 +424,7 @@ const getRegionHotelSort = (regionId, limit = 250) => {
     });
 };
 const getHotelPageRates = (searchCriteria = {}) => client.getHotelPageRates(searchCriteria);
+const getRateDetailsByHash = (bookHash, language = 'en') => client.lookupRateInfo(bookHash, language);
 
 /**
  * Search availability by region / hotel ids / geo. Returns an array of hotels
@@ -921,6 +922,7 @@ module.exports = {
     searchLiveRatesByRegion,
     getRegionHotelSort,
     getHotelPageRates,
+    getRateDetailsByHash,
     searchAvailability,
     fetchHotelsInChunks,
     getHotelPage,
