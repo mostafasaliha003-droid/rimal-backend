@@ -3,6 +3,8 @@ import { ArrowLeft, ChevronLeft, Heart, LoaderCircle, ShieldCheck, SlidersHorizo
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
+import HotelDetails from './HotelDetails';
+import Checkout from './Checkout';
 import { StarIcon } from './components/Icons';
 import BookingAPI from './services/bookingApi';
 
@@ -70,6 +72,7 @@ function SerpResultCard({ hotel, onSelect }) {
 }
 
 export default function App() {
+    const [pathname, setPathname] = useState(() => window.location.pathname);
     const [searched, setSearched] = useState(false);
     const [saved, setSaved] = useState(false);
     const [searchParams, setSearchParams] = useState(null);
@@ -78,6 +81,12 @@ export default function App() {
     const [hotelPage, setHotelPage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+
+    useEffect(() => {
+        const handleLocationChange = () => setPathname(window.location.pathname);
+        window.addEventListener('popstate', handleLocationChange);
+        return () => window.removeEventListener('popstate', handleLocationChange);
+    }, []);
 
     const handleSearch = (params) => {
         setSearchParams(params);
@@ -138,6 +147,17 @@ export default function App() {
         }
     };
 
+    const openHotelDetails = (hotel) => {
+        const hid = hotel.hid || hotel.id;
+        const params = new URLSearchParams({
+            checkin: searchParams?.checkin || '',
+            checkout: searchParams?.checkout || '',
+            guests: JSON.stringify(searchParams?.guests || [{ adults: 2, children: [] }])
+        });
+        window.history.pushState({}, '', `/hotel/${encodeURIComponent(hid)}?${params.toString()}`);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+    };
+
     const rooms = (hotelPage?.rates || hotelPage?.hotel?.rates || []).map((rate) => ({
         name: rate.room_name || rate.name,
         hotel: selectedHotel,
@@ -147,6 +167,32 @@ export default function App() {
         amenities: getAmenities(rate),
         freeCancellation: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before
     }));
+
+    const hotelRoute = pathname.match(/^\/hotel\/([^/]+)$/);
+    const checkoutRoute = pathname === '/checkout';
+    if (checkoutRoute) {
+        return <>
+            <TopNavigationBar />
+            <Checkout
+                booking={window.history.state?.checkout}
+                onBack={() => {
+                    window.history.back();
+                }}
+            />
+        </>;
+    }
+    if (hotelRoute) {
+        return <>
+            <TopNavigationBar />
+            <HotelDetails
+                hid={decodeURIComponent(hotelRoute[1])}
+                onBack={() => {
+                    window.history.pushState({}, '', '/');
+                    window.dispatchEvent(new PopStateEvent('popstate'));
+                }}
+            />
+        </>;
+    }
 
     return (
         <div className="min-h-screen bg-remal-bg text-remal-dark">
@@ -181,7 +227,7 @@ export default function App() {
                                 {!hotelPage && !error && <div className="flex items-center justify-center rounded-2xl bg-white p-10"><LoaderCircle className="animate-spin text-remal-blue" /></div>}
                                 {error && <p role="alert" className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-remal-red">{error}</p>}
                                 {rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} />)}
-                            </> : loading ? <div className="flex items-center justify-center rounded-2xl bg-white p-12"><LoaderCircle className="animate-spin text-remal-blue" /></div> : error ? <p role="alert" className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-remal-red">{error}</p> : hotels.length ? hotels.map((hotel) => <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotel} />) : searched ? <p className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-400">لا توجد نتائج متاحة لهذه الوجهة</p> : <p className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-400">اختر وجهة وتواريخ لعرض الأسعار الحية</p>}
+                            </> : loading ? <div className="flex items-center justify-center rounded-2xl bg-white p-12"><LoaderCircle className="animate-spin text-remal-blue" /></div> : error ? <p role="alert" className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-remal-red">{error}</p> : hotels.length ? hotels.map((hotel) => <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotelDetails} />) : searched ? <p className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-400">لا توجد نتائج متاحة لهذه الوجهة</p> : <p className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-400">اختر وجهة وتواريخ لعرض الأسعار الحية</p>}
                             <div className="flex items-center justify-between rounded-2xl border border-dashed border-slate-300 bg-white/60 p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-50 text-emerald-600"><ShieldCheck size={20} /></div><div><p className="text-sm font-black">حجزك محمي معنا</p><p className="mt-1 text-[11px] font-bold text-slate-400">دفع آمن ودعم حقيقي وقت تحتاجه</p></div></div><button onClick={() => setSaved(!saved)} className={`rounded-full p-2.5 transition ${saved ? 'bg-remal-red text-white' : 'bg-slate-100 text-slate-400 hover:text-remal-red'}`} aria-label="حفظ الفندق"><Heart size={18} fill={saved ? 'currentColor' : 'none'} /></button></div>
                         </div>
                     </div>

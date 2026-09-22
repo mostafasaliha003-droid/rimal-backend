@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="robots" content="noindex">
+    <title>Redirecting</title>
+</head>
+<body>
+    <script>
+        const params = new URLSearchParams(window.location.search);
+        const payment = params.get('payment');
+        const ref = params.get('ref');
+        const target = payment
+            ? `/?payment=${encodeURIComponent(payment)}${ref ? `&ref=${encodeURIComponent(ref)}` : ''}`
+            : '/';
+        window.location.replace(target);
+    </script>
+</body>
+</html>

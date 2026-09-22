@@ -63,6 +63,15 @@ export const getHotelPage = async (hotelData) =>
     responseData(await api.post('/search/hotelpage', hotelData));
 
 /**
+ * Retrieve static hotel content and live room rates for the details page.
+ * @param {string|number} hid - RateHawk hotel identifier.
+ * @param {object} searchData - Dates, guests, and search options.
+ * @returns {Promise<{staticData: object, liveData: object}>}
+ */
+export const getHotelStatic = async (hid) =>
+    responseData(await api.get(`/v1/hotels/${encodeURIComponent(hid)}`));
+
+/**
  * Validate a hotel rate through the standard ETG prebook endpoint.
  * @param {string} hash - ETG book hash.
  * @param {number} [priceIncreasePercent=0] - Allowed price increase percentage.
@@ -87,6 +96,14 @@ export const prebookSerp = async (hash, priceIncreasePercent = 0) =>
     }));
 
 /**
+ * Create a Ziina payment intent for a validated room selection.
+ * @param {object} paymentData - Booking and guest details with the exact total.
+ * @returns {Promise<object>} Ziina payment URL response.
+ */
+export const createZiinaIntent = async (paymentData) =>
+    responseData(await api.post('/payment/ziina/intent', paymentData));
+
+/**
  * Look up rate details by ETG book hash.
  * @param {string} bookHash - ETG book hash to resolve.
  * @param {string} [language='en'] - ETG response language.
@@ -106,7 +123,9 @@ export default {
     searchByRegion,
     sortRegionHotels,
     getHotelPage,
+    getHotelStatic,
     prebook,
     prebookSerp,
+    createZiinaIntent,
     lookupRate
 };

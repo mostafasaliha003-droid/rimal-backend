@@ -7,6 +7,7 @@ import BookingAPI from '../services/bookingApi';
 export default function HotelRoomCard({ room = {}, onBook }) {
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState('');
+    const [prebookResult, setPrebookResult] = useState(null);
     const hotel = room.hotel || {};
     const name = room.name || 'غرفة فندقية';
     const image = hotel.images?.[0] || hotel.image;
@@ -14,12 +15,16 @@ export default function HotelRoomCard({ room = {}, onBook }) {
     const amenities = room.amenities || [];
 
     const handleBook = async () => {
+        if (status === 'success') {
+            onBook?.(prebookResult);
+            return;
+        }
         setStatus('loading');
         setError('');
         try {
             const result = await BookingAPI.prebook(room.book_hash || room.roomId, 2);
+            setPrebookResult(result);
             setStatus('success');
-            onBook?.(result);
         } catch (requestError) {
             setStatus('error');
             setError(requestError.response?.status === 409 || requestError.response?.data?.error === 'rate_not_found'
@@ -47,11 +52,11 @@ export default function HotelRoomCard({ room = {}, onBook }) {
                 <div className="flex flex-col items-stretch gap-3 border-t border-slate-100 pt-5 text-right sm:flex-row sm:items-center sm:gap-5 lg:border-r lg:border-t-0 lg:pr-7 lg:pt-0">
                     <div className="text-right">
                         <div className="mb-2 inline-flex rounded-full bg-remal-gold/15 px-3 py-1 text-[10px] font-black text-amber-700">كاش باك 43 AED</div>
-                        <div className="flex items-baseline gap-1"><span className="text-3xl font-black tracking-tight text-remal-dark">{price}</span><span className="text-xs font-black text-slate-400">AED</span></div>
+                        <div className="flex items-baseline gap-1"><span className="text-3xl font-black tracking-tight text-remal-dark">{price}</span><span className="text-xs font-black text-slate-400">{room.currency || 'AED'}</span></div>
                         <p className="mt-1 text-[10px] font-bold text-slate-400">شامل الضرائب والرسوم</p>
                     </div>
                     {error && <p role="alert" className="max-w-[220px] text-xs font-bold text-remal-red">{error}</p>}
-                    <button onClick={handleBook} disabled={status === 'loading' || status === 'success'} className="flex items-center justify-center gap-2 rounded-full bg-remal-red px-6 py-3.5 text-xs font-black text-white transition hover:bg-[#a10b0b] hover:shadow-luxe disabled:cursor-not-allowed disabled:bg-emerald-600"><span>{status === 'loading' ? 'جارٍ التحقق...' : status === 'success' ? 'تم تثبيت السعر' : 'احجز الغرفة'}</span>{status === 'success' ? <Check size={16} /> : <ArrowLeft size={16} />}</button>
+                    <button onClick={handleBook} disabled={status === 'loading'} className="flex items-center justify-center gap-2 rounded-full bg-remal-red px-6 py-3.5 text-xs font-black text-white transition hover:bg-[#a10b0b] hover:shadow-luxe disabled:cursor-not-allowed disabled:bg-emerald-600"><span>{status === 'loading' ? 'جارٍ التحقق...' : status === 'success' ? 'تم تثبيت السعر' : 'احجز الغرفة'}</span>{status === 'success' ? <Check size={16} /> : <ArrowLeft size={16} />}</button>
                 </div>
             </div>
         </motion.article>

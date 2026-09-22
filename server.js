@@ -25,6 +25,12 @@ const securityService = require('./services/securityService');
 
 const app = express();
 
+const frontendContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: blob: https:; connect-src 'self' https: wss: https://pay.google.com;";
+app.use((req, res, next) => {
+    res.setHeader('Content-Security-Policy', frontendContentSecurityPolicy);
+    next();
+});
+
 // 🔴 السطر السحري لحل مشكلة الـ IP الوهمي على منصة Render (مهم جداً لجدار الحماية)
 app.set('trust proxy', 1);
 
@@ -65,6 +71,7 @@ app.use(cors({
 }));
 
 app.use(express.static(__dirname));
+app.use(express.static(path.join(__dirname, 'frontend', 'dist')));
 
 // ==========================================
 // 🚀 3. إعدادات البريد وقاعدة البيانات
@@ -428,7 +435,8 @@ app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, asyn
                 ...staticData,
                 hid: hotel.hid || staticData.hid || hid,
                 hotelId: hotel.hotelId || staticData.hotelId,
-                image: hotel.image || staticData.image || '',
+                image: formatHotelImage(hotel.image || staticData.image) || DEFAULT_HOTEL_IMAGE,
+                images: hotelImageStrings(hotel.images, staticData.images, staticData.images_ext, hotel.image, staticData.image),
                 reviews: hotel.reviews || staticData.reviews || [],
                 detailed_ratings: hotel.detailed_ratings || staticData.detailed_ratings || {}
             }
@@ -531,6 +539,15 @@ app.post('/api/search/rates/geo', verifyAPIKey, securityService.searchLimiter, a
 
 const DEFAULT_HOTEL_IMAGE = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
 
+function formatHotelImage(value) {
+    const raw = typeof value === 'string' ? value : value?.url || value?.src || '';
+    if (!raw.trim()) return '';
+    const image = raw.trim().replace(/\{size\}/gi, '1024x768');
+    if (image.startsWith('//')) return `https:${image}`;
+    if (/^https?:\/\//i.test(image)) return image;
+    return `https://cdn.worldota.net/2048x1536/${image.replace(/^\/+/, '')}`;
+}
+
 function firstHotelString(...values) {
     return values.find(value => typeof value === 'string' && value.trim())?.trim() || '';
 }
@@ -538,9 +555,7 @@ function firstHotelString(...values) {
 function hotelImageStrings(...values) {
     return values.flatMap(value => {
         const items = Array.isArray(value) ? value : [value];
-        return items.map(item => typeof item === 'string' ? item : item?.url || item?.src || '')
-            .filter(image => typeof image === 'string' && image.trim())
-            .map(image => image.trim());
+        return items.map(formatHotelImage).filter(Boolean);
     }).filter((image, index, images) => images.indexOf(image) === index);
 }
 
@@ -691,7 +706,9 @@ app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, asyn
 app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     const body = req.body || {};
     const { checkin, checkout, hid, guests, match_hash: matchHash } = body;
-    if (hid === undefined || hid === null || guests === undefined || guests === null) {
+    const numericHid = Number(hid);
+    if (hid === undefined || hid === null || !Number.isSafeInteger(numericHid) || numericHid < 0 || numericHid > 0xFFFFFFFF
+        || guests === undefined || guests === null) {
         return res.status(400).json({
             success: false,
             error: 'INVALID_HOTELPAGE_CRITERIA',
@@ -703,14 +720,22 @@ app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, a
         const result = await ratehawkService.getHotelPageRates({
             checkin,
             checkout,
-            hid,
+            hid: numericHid,
             residency: body.residency || 'ae',
             language: body.language || 'en',
             currency: body.currency || 'USD',
             guests,
             ...(matchHash ? { match_hash: matchHash } : {})
         });
-        return res.status(200).json({ success: true, ...result });
+        const hotels = Array.isArray(result)
+            ? result
+            : (result?.hotels || result?.data?.hotels || []);
+        return res.status(200).json({
+            success: true,
+            hotels,
+            hotel: hotels[0] || null,
+            rates: hotels[0]?.rates || []
+        });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: error.message });
@@ -792,6 +817,39 @@ app.post('/api/booking/prebook-serp', verifyAPIKey, securityService.searchLimite
         }
         logger.error('SERP hotel rate prebook failed', { error: error.message });
         return res.status(502).json({ success: false, error: 'PREBOOK_UNAVAILABLE' });
+    }
+});
+
+app.post('/api/payment/ziina/intent', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    const body = req.body || {};
+    const sourceAmount = Number(body.total);
+    const currency = String(body.currency || 'AED').toUpperCase();
+    const supportedCurrencies = new Set(['AED', 'USD', 'EUR', 'SAR', 'GBP']);
+    const amount = mappingService.convertToAED(sourceAmount, currency);
+    if (!Number.isFinite(sourceAmount) || sourceAmount <= 0 || !supportedCurrencies.has(currency) || !Number.isFinite(amount) || amount <= 0) {
+        return res.status(400).json({
+            success: false,
+            error: 'INVALID_PAYMENT_AMOUNT',
+            message: 'A positive supported-currency booking total is required.'
+        });
+    }
+    if (!body.hid || !body.book_hash || !body.guest?.email) {
+        return res.status(400).json({
+            success: false,
+            error: 'INVALID_PAYMENT_CONTEXT',
+            message: 'Hotel, room, and guest details are required.'
+        });
+    }
+
+    try {
+        const paymentUrl = await paymentService.createZiinaCheckout({
+            ...body,
+            bookingReference: body.bookingReference || `RML-${Date.now()}`
+        }, amount);
+        return res.status(200).json({ success: true, payment_url: paymentUrl, amount, currency: 'AED', source_amount: sourceAmount, source_currency: currency });
+    } catch (error) {
+        logger.error('Ziina payment intent failed', { error: error.message, hid: body.hid });
+        return res.status(502).json({ success: false, error: 'PAYMENT_INTENT_FAILED', message: 'تعذر تجهيز رابط الدفع.' });
     }
 });
 
@@ -1172,6 +1230,13 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
 
 app.get('/admin', (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
 app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'index.html')); });
+app.get('/checkout', (req, res) => {
+    res.sendFile(path.join(__dirname, 'frontend', 'dist', 'index.html'));
+});
+app.get('*', (req, res) => {
+    if (req.path.startsWith('/api/')) return res.status(404).json({ success: false, error: 'NOT_FOUND' });
+    return res.sendFile(path.join(__dirname, 'frontend', 'dist', 'index.html'));
+});
 
 // ==========================================
 // 🚀 11. تشغيل السيرفر المدمج

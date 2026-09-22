@@ -42,6 +42,8 @@ async function createZiinaCheckout(bookingDetails, finalPrice) {
             throw new Error('الحد الأدنى للمعاملة هو 2 درهم.');
         }
 
+        const frontendUrl = String(process.env.FRONTEND_URL || 'https://remalbookings.com').replace(/\/+$/, '');
+
         if (ziinaApiKey && ziinaApiKey !== '') {
             // ==========================================
             // 🔴 الربط الفعلي مع Ziina API (Live Mode)
@@ -58,8 +60,8 @@ async function createZiinaCheckout(bookingDetails, finalPrice) {
                     amount: amountInFils,
                     currency_code: 'AED',
                     // تم التعديل هنا: توجيه العميل بعد الدفع لواجهة الموقع الأمامية
-                    success_url: `https://remalbookings.com/index.html?payment=success&ref=${bookingReference}`,
-                    cancel_url: `https://remalbookings.com/payment-cancel?ref=${bookingReference}`
+                    success_url: `${frontendUrl}/checkout?payment=success&ref=${bookingReference}`,
+                    cancel_url: `${frontendUrl}/checkout?payment=cancel&ref=${bookingReference}`
                 })
             });
             

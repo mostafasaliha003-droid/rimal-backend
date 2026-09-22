@@ -1,12 +1,22 @@
 import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
+import { copyFileSync } from 'node:fs';
+import { resolve } from 'node:path';
+
+const githubPagesFallbackPlugin = () => ({
+    name: 'github-pages-fallback',
+    closeBundle() {
+        const dist = resolve(process.cwd(), 'dist');
+        copyFileSync(resolve(dist, 'index.html'), resolve(dist, '404.html'));
+    }
+});
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '..', '');
 
     return {
         envDir: '..',
-        plugins: [react()],
+        plugins: [react(), githubPagesFallbackPlugin()],
         server: {
             port: 5173,
             proxy: {
