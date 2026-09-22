@@ -408,6 +408,7 @@ async function getHotelsContent(ids = [], hids = [], language = 'en') {
 }
 
 // ---- Step 2: Search ---------------------------------------------------------
+const getAutocompleteSuggestions = (query, language = 'en') => client.suggestHotelAndRegion(query, language);
 const searchLiveRates = (searchCriteria = {}) => client.searchHotels(searchCriteria);
 const searchLiveRatesByGeo = (searchCriteria = {}) => client.searchHotelsByGeo(searchCriteria);
 const searchLiveRatesByRegion = (searchCriteria = {}) => client.searchHotelsByRegion(searchCriteria);
@@ -908,6 +909,7 @@ module.exports = {
     getHotelIdsByFilter,
     getHotelsContent,
     // Step 2 - search
+    getAutocompleteSuggestions,
     searchLiveRates,
     searchLiveRatesByGeo,
     searchLiveRatesByRegion,

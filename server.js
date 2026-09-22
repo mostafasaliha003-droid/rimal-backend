@@ -586,6 +586,32 @@ app.get('/api/search/sort/:region_id', verifyAPIKey, securityService.searchLimit
     }
 });
 
+app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    const query = req.query.query;
+    const language = req.query.language || 'en';
+    if (typeof query !== 'string' || !query.trim()) {
+        return res.status(400).json({
+            success: false,
+            error: 'INVALID_QUERY',
+            message: 'query is required and must be a string.'
+        });
+    }
+
+    try {
+        const result = await ratehawkService.getAutocompleteSuggestions(query, language);
+        return res.status(200).json({ success: true, suggestions: result });
+    } catch (error) {
+        if (error.ratehawkError === 'invalid_params') {
+            return res.status(400).json({ success: false, error: 'INVALID_QUERY', message: error.message });
+        }
+        if (error.ratehawkError === 'core_search_error') {
+            return res.status(502).json({ success: false, error: 'CORE_SEARCH_ERROR', message: error.message });
+        }
+        logger.error('Hotel autocomplete failed', { error: error.message });
+        return res.status(502).json({ success: false, error: 'SUGGESTIONS_UNAVAILABLE' });
+    }
+});
+
 app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     logger.info("New live secure search request received");
     try {

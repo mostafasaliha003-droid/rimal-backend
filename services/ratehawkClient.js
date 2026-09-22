@@ -529,6 +529,35 @@ const hotelInfo = (data) => call('post', '/api/b2b/v3/hotel/info/', { data });
 
 // ---- Search -----------------------------------------------------------------
 const multicomplete = (data) => call('post', '/api/b2b/v3/search/multicomplete/', { data });
+async function suggestHotelAndRegion(query, language = 'en') {
+    let response;
+    try {
+        response = await call('post', '/api/b2b/v3/search/multicomplete/', {
+            data: { query, language },
+            timeout: 30000
+        });
+    } catch (error) {
+        if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {
+            logger.warn('RateHawk autocomplete failed', {
+                error: error.ratehawkError,
+                validationError: error.validationError || null
+            });
+        }
+        throw error;
+    }
+    if (!response.ok) {
+        if (response.error === 'invalid_params' || response.error === 'core_search_error') {
+            logger.warn('RateHawk autocomplete failed', {
+                error: response.error,
+                validationError: response.validationError || null
+            });
+        }
+        throw ratehawkError('/api/b2b/v3/search/multicomplete/', response);
+    }
+    return response.data && response.data.data !== undefined
+        ? response.data.data
+        : response.data;
+}
 const serpRegion = (data) => call('post', '/api/b2b/v3/search/serp/region/', { data, timeout: 30000 });
 const serpHotels = (data) => call('post', '/api/b2b/v3/search/serp/hotels/', { data, timeout: 30000 });
 async function searchHotels(params = {}) {
@@ -695,6 +724,7 @@ module.exports = {
     hotelContentByIds,
     hotelInfo,
     multicomplete,
+    suggestHotelAndRegion,
     serpRegion,
     serpHotels,
     searchHotels,
