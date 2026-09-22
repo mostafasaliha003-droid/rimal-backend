@@ -44,6 +44,8 @@ const allowedOrigins = [
     'https://www.remalbookings.com',
     'http://localhost:10000',
     'http://127.0.0.1:10000',
+    'http://localhost:5173',
+    'http://127.0.0.1:5173',
     'https://rimal-api.onrender.com',
     'https://mostafasaliha003-droid.github.io' 
 ];
@@ -58,6 +60,7 @@ app.use(cors({
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
+    allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization'],
     credentials: true 
 }));
 
@@ -526,6 +529,69 @@ app.post('/api/search/rates/geo', verifyAPIKey, securityService.searchLimiter, a
     }
 });
 
+const DEFAULT_HOTEL_IMAGE = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
+
+function firstHotelString(...values) {
+    return values.find(value => typeof value === 'string' && value.trim())?.trim() || '';
+}
+
+function hotelImageStrings(...values) {
+    return values.flatMap(value => {
+        const items = Array.isArray(value) ? value : [value];
+        return items.map(item => typeof item === 'string' ? item : item?.url || item?.src || '')
+            .filter(image => typeof image === 'string' && image.trim())
+            .map(image => image.trim());
+    }).filter((image, index, images) => images.indexOf(image) === index);
+}
+
+async function enrichRateHotels(hotels) {
+    if (!Array.isArray(hotels) || !hotels.length) return [];
+
+    const ids = hotels.map(hotel => hotel?.id || hotel?.hotel_id).filter(Boolean).map(String);
+    const hids = hotels.map(hotel => hotel?.hid || hotel?.hotel_id || hotel?.id).filter(Boolean).map(String);
+    let staticById = new Map();
+
+    try {
+        const staticHotels = await Hotel.find({
+            $or: [
+                ...(hids.length ? [{ hid: { $in: hids } }] : []),
+                ...(ids.length ? [{ hotelId: { $in: ids } }] : [])
+            ]
+        }).lean();
+        staticHotels.forEach(hotel => {
+            [hotel.hid, hotel.hotelId].filter(Boolean).forEach(id => staticById.set(String(id), hotel));
+        });
+    } catch (error) {
+        logger.warn('Static hotel enrichment skipped', { error: error.message });
+    }
+
+    return hotels.map(hotel => {
+        const hid = hotel?.hid || hotel?.hotel_id || hotel?.id;
+        const staticHotel = staticById.get(String(hid)) || {};
+        const staticData = staticHotel.staticData && typeof staticHotel.staticData === 'object'
+            ? staticHotel.staticData
+            : {};
+        const images = hotelImageStrings(
+            hotel?.images,
+            hotel?.image,
+            staticHotel.images,
+            staticHotel.image,
+            staticData.images,
+            staticData.images_ext,
+            staticData.image
+        );
+
+        return {
+            ...hotel,
+            hid,
+            name: firstHotelString(hotel?.name, staticHotel.name, staticData.name, staticData.hotel_name) || 'Hotel',
+            images: images.length ? images : [DEFAULT_HOTEL_IMAGE],
+            image: images[0] || DEFAULT_HOTEL_IMAGE,
+            stars: firstHotelString(hotel?.stars, hotel?.star_rating, staticHotel.stars, staticData.stars, staticData.star_rating)
+        };
+    });
+}
+
 app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     const body = req.body || {};
     const { checkin, checkout, region_id: regionId, guests } = body;
@@ -549,7 +615,11 @@ app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter
             currency: body.currency || 'USD',
             guests
         });
-        return res.status(200).json({ success: true, ...result });
+        const hotels = Array.isArray(result)
+            ? result
+            : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
+        const enrichedHotels = await enrichRateHotels(hotels);
+        return res.status(200).json({ success: true, hotels: enrichedHotels });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
@@ -560,7 +630,13 @@ app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter
         if (error.ratehawkError === 'core_search_error') {
             return res.status(502).json({ success: false, error: 'CORE_SEARCH_ERROR', message: error.message });
         }
-        logger.error('Live region hotel search failed', { error: error.message });
+        logger.error('Live region hotel search failed', {
+            error: error.message,
+            stack: error.stack,
+            regionId: numericRegionId,
+            checkin,
+            checkout
+        });
         return res.status(502).json({ success: false, error: 'SEARCH_UNAVAILABLE' });
     }
 });
