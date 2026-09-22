@@ -526,6 +526,45 @@ app.post('/api/search/rates/geo', verifyAPIKey, securityService.searchLimiter, a
     }
 });
 
+app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    const body = req.body || {};
+    const { checkin, checkout, region_id: regionId, guests } = body;
+    const numericRegionId = Number(regionId);
+    if (regionId === undefined || regionId === null || !Number.isInteger(numericRegionId)
+        || guests === undefined || guests === null) {
+        return res.status(400).json({
+            success: false,
+            error: 'INVALID_SEARCH_CRITERIA',
+            message: 'region_id and guests are required.'
+        });
+    }
+
+    try {
+        const result = await ratehawkService.searchLiveRatesByRegion({
+            checkin,
+            checkout,
+            region_id: numericRegionId,
+            residency: body.residency || 'ae',
+            language: body.language || 'en',
+            currency: body.currency || 'USD',
+            guests
+        });
+        return res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        if (error.ratehawkError === 'invalid_params') {
+            return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
+        }
+        if (error.ratehawkError === 'hotels_not_found') {
+            return res.status(404).json({ success: false, error: 'HOTELS_NOT_FOUND', message: error.message });
+        }
+        if (error.ratehawkError === 'core_search_error') {
+            return res.status(502).json({ success: false, error: 'CORE_SEARCH_ERROR', message: error.message });
+        }
+        logger.error('Live region hotel search failed', { error: error.message });
+        return res.status(502).json({ success: false, error: 'SEARCH_UNAVAILABLE' });
+    }
+});
+
 app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     logger.info("New live secure search request received");
     try {

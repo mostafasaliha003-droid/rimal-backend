@@ -410,6 +410,7 @@ async function getHotelsContent(ids = [], hids = [], language = 'en') {
 // ---- Step 2: Search ---------------------------------------------------------
 const searchLiveRates = (searchCriteria = {}) => client.searchHotels(searchCriteria);
 const searchLiveRatesByGeo = (searchCriteria = {}) => client.searchHotelsByGeo(searchCriteria);
+const searchLiveRatesByRegion = (searchCriteria = {}) => client.searchHotelsByRegion(searchCriteria);
 
 /**
  * Search availability by region / hotel ids / geo. Returns an array of hotels
@@ -898,6 +899,7 @@ module.exports = {
     // Step 2 - search
     searchLiveRates,
     searchLiveRatesByGeo,
+    searchLiveRatesByRegion,
     searchAvailability,
     fetchHotelsInChunks,
     getHotelPage,
