@@ -7,6 +7,11 @@
     font-family: 'Tajawal', 'Cairo', sans-serif;
     color: #112331;
     background: #f4f6f9;
+    --remal-ink: #112331;
+    --remal-surface: #ffffff;
+    --remal-border: #dbe4ea;
+    --remal-focus: #17a2b8;
+    --remal-danger: #8b0000;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
 }
@@ -16,6 +21,20 @@ html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; background: #f4f6f9; }
 button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
+button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
+    outline: 3px solid var(--remal-focus);
+    outline-offset: 3px;
+}
+button:disabled { cursor: not-allowed; }
 input[type='date']::-webkit-calendar-picker-indicator { opacity: .45; cursor: pointer; }
 
 ::selection { color: #fff; background: #17a2b8; }
+
+@media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+        animation-duration: 0.01ms !important;
+        animation-iteration-count: 1 !important;
+        scroll-behavior: auto !important;
+        transition-duration: 0.01ms !important;
+    }
+}

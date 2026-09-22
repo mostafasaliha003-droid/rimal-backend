@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { ArrowLeft, ChevronLeft, Heart, LoaderCircle, ShieldCheck, SlidersHorizontal } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, Heart, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
@@ -49,14 +49,14 @@ function SerpResultCard({ hotel, onSelect }) {
     const rate = hotel.rates?.[0] || {};
     const image = hotel.images?.[0] || hotel.image || DEFAULT_HOTEL_IMAGE;
     return (
-        <article className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm">
+        <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="overflow-hidden rounded-2xl border border-slate-100 bg-white shadow-sm transition hover:-translate-y-0.5 hover:shadow-lg">
             <div className="flex flex-col gap-5 p-5 sm:flex-row sm:items-center sm:justify-between">
                 <div className="h-44 shrink-0 overflow-hidden rounded-xl sm:w-56">
                     <img src={image} alt={hotel.name} className="h-full w-full object-cover" onError={(event) => { event.currentTarget.src = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80'; }} />
                 </div>
                 <div className="min-w-0 text-right">
                     <div className="mb-2 flex items-center justify-end gap-2 text-remal-gold">{hotel.stars || 'فندق'} <StarIcon size={13} fill="currentColor" /></div>
-                    <h3 className="text-xl font-black text-remal-dark">{hotel.name || 'فندق بدون اسم'}</h3>
+                    <h3 id={`hotel-${hotel.hid || hotel.id}`} className="text-xl font-black text-remal-dark">{hotel.name || 'فندق'}</h3>
                     <p className="mt-2 text-xs font-bold text-slate-400">{hotel.city || 'الوجهة المختارة'}</p>
                     <div className="mt-4 flex flex-wrap justify-end gap-2 text-[11px] font-bold text-slate-500">
                         {getAmenities(rate).slice(0, 3).map((amenity) => <span key={String(amenity)} className="rounded-full bg-remal-bg px-3 py-1">{amenity}</span>)}
@@ -81,6 +81,8 @@ export default function App() {
     const [hotelPage, setHotelPage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [starFilter, setStarFilter] = useState(0);
+    const [amenityFilter, setAmenityFilter] = useState(false);
 
     useEffect(() => {
         const handleLocationChange = () => setPathname(window.location.pathname);
@@ -95,6 +97,7 @@ export default function App() {
         setHotelPage(null);
         setSearched(true);
         window.history.pushState({}, '', '#search');
+        window.requestAnimationFrame(() => document.getElementById('results-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
     };
 
     useEffect(() => {
@@ -109,9 +112,7 @@ export default function App() {
                 const response = destination.type === 'hotel' || destination.hotel_id
                     ? await BookingAPI.searchByIds({ ...request, hids: [Number(destination.hotel_id)] })
                     : await BookingAPI.searchByRegion({ ...request, region_id: destination.region_id });
-                console.log('Full API Response:', response);
                 const nextHotels = getHotels(response);
-                console.log('Hotels extracted for SERP:', nextHotels);
                 if (active) {
                     setHotels(nextHotels);
                     setError('');
@@ -168,6 +169,16 @@ export default function App() {
         freeCancellation: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before
     }));
 
+    const visibleHotels = hotels.filter((hotel) => {
+        const stars = Number(hotel.stars || hotel.star_rating || 0);
+        const amenities = getAmenities(hotel.rates?.[0] || hotel);
+        return (!starFilter || stars >= starFilter) && (!amenityFilter || amenities.length > 0);
+    });
+    const clearFilters = () => {
+        setStarFilter(0);
+        setAmenityFilter(false);
+    };
+
     const hotelRoute = pathname.match(/^\/hotel\/([^/]+)$/);
     const checkoutRoute = pathname === '/checkout';
     if (checkoutRoute) {
@@ -199,36 +210,35 @@ export default function App() {
             <TopNavigationBar />
             <main>
                 <HeroSearchSection onSearch={handleSearch} />
-                <section className="mx-auto max-w-7xl px-5 pb-20 pt-6 lg:px-10 lg:pt-0">
+                <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-20 pt-6 lg:px-10 lg:pt-0">
                     <div className="mb-8 flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-remal-blue">{searched ? 'نتائج البحث' : 'اختيارات رمال'}</p>
                             <h2 className="text-2xl font-black tracking-tight sm:text-3xl">فنادق تحسّها على كيفك</h2>
-                            <p className="mt-2 text-sm font-bold text-slate-400">خيارات مرتبة بعناية عشان تلقى مكانك أسرع</p>
+                            <p className="mt-2 text-sm font-bold text-slate-400">{searched ? `${visibleHotels.length} فندق متاح حسب بحثك` : 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية'}</p>
                         </div>
-                        <button type="button" className="flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-600 transition hover:border-remal-blue hover:text-remal-blue"><SlidersHorizontal size={15} /> ترتيب وفلترة</button>
+                        <button type="button" onClick={() => document.querySelector('aside')?.scrollIntoView({ behavior: 'smooth', block: 'center' })} className="flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white px-4 py-2.5 text-xs font-black text-slate-600 transition hover:border-remal-blue hover:text-remal-blue"><SlidersHorizontal size={15} /> الفلاتر</button>
                     </div>
 
                     <div className="grid gap-8 lg:grid-cols-[1.1fr_2fr]">
                         <aside className="hidden rounded-3xl border border-slate-100 bg-white p-6 lg:block">
-                            <div className="mb-6 flex items-center justify-between"><h3 className="font-black">اختياراتك</h3><button className="text-xs font-bold text-remal-blue">إعادة ضبط</button></div>
+                            <div className="mb-6 flex items-center justify-between"><h3 className="font-black">تصفية النتائج</h3><button type="button" onClick={clearFilters} className="flex items-center gap-1 text-xs font-bold text-remal-blue"><RotateCcw size={13} /> إعادة ضبط</button></div>
                             <div className="space-y-6 text-sm">
-                                <div><div className="mb-3 flex justify-between font-black"><span>الميزانية</span><span className="text-remal-blue">AED 200 - 800</span></div><div className="relative h-1.5 rounded-full bg-slate-100"><div className="absolute inset-x-10 h-full rounded-full bg-remal-blue" /><span className="absolute right-9 -top-1.5 h-4 w-4 rounded-full border-2 border-remal-blue bg-white" /><span className="absolute left-9 -top-1.5 h-4 w-4 rounded-full border-2 border-remal-blue bg-white" /></div></div>
-                                <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">تصنيف الفندق</p><div className="flex gap-2">{[3, 4, 5].map((star) => <button key={star} className="flex items-center gap-1 rounded-lg border border-slate-200 px-3 py-2 text-xs font-black transition hover:border-remal-gold hover:text-amber-700">{star} <StarIcon size={12} className="text-remal-gold" fill="currentColor" /></button>)}</div></div>
-                                <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">مزايا الإقامة</p>{['إلغاء مجاني', 'إفطار مشمول', 'واي فاي مجاني'].map((item) => <label key={item} className="mb-3 flex items-center gap-3 text-xs font-bold text-slate-500"><input type="checkbox" className="h-4 w-4 accent-remal-blue" /> {item}</label>)}</div>
+                                <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">التصنيف الأدنى</p><div className="flex gap-2">{[3, 4, 5].map((star) => <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-black transition ${starFilter === star ? 'border-remal-gold bg-amber-50 text-amber-700' : 'border-slate-200 hover:border-remal-gold hover:text-amber-700'}`}>{star} <StarIcon size={12} className="text-remal-gold" fill="currentColor" /></button>)}</div></div>
+                                <div className="border-t border-slate-100 pt-5"><label className="flex items-center gap-3 text-xs font-bold text-slate-500"><input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="h-4 w-4 accent-remal-blue" /> يحتوي على مزايا للغرفة</label></div>
                             </div>
                         </aside>
 
                         <div className="space-y-5">
-                            <div className="flex items-center justify-between rounded-2xl bg-remal-dark px-5 py-4 text-white"><div><p className="text-xs font-bold text-white/60">اقتراح اليوم</p><p className="mt-1 text-sm font-black">فندق بارك حياة دبي</p></div><div className="flex items-center gap-2 text-sm font-black text-remal-gold">9.2 <StarIcon size={15} fill="currentColor" /></div></div>
+                            {hotels.length > 0 && <div className="flex items-center justify-between rounded-2xl bg-remal-dark px-5 py-4 text-white"><div><p className="text-xs font-bold text-white/60">أقل سعر ظاهر</p><p className="mt-1 text-sm font-black">{hotels[0].name}</p></div><div className="text-left"><p className="text-xs font-bold text-white/60">يبدأ من</p><p className="text-sm font-black text-remal-gold">{getRatePrice(hotels[0].rates?.[0] || {})} USD</p></div></div>}
                             {selectedHotel ? <>
                                 <button type="button" onClick={() => setSelectedHotel(null)} className="flex items-center gap-2 text-xs font-black text-remal-blue"><ChevronLeft size={16} /> العودة للنتائج</button>
                                 <h2 className="text-2xl font-black">{selectedHotel.name}</h2>
                                 {!hotelPage && !error && <div className="flex items-center justify-center rounded-2xl bg-white p-10"><LoaderCircle className="animate-spin text-remal-blue" /></div>}
                                 {error && <p role="alert" className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-remal-red">{error}</p>}
                                 {rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} />)}
-                            </> : loading ? <div className="flex items-center justify-center rounded-2xl bg-white p-12"><LoaderCircle className="animate-spin text-remal-blue" /></div> : error ? <p role="alert" className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-remal-red">{error}</p> : hotels.length ? hotels.map((hotel) => <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotelDetails} />) : searched ? <p className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-400">لا توجد نتائج متاحة لهذه الوجهة</p> : <p className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-400">اختر وجهة وتواريخ لعرض الأسعار الحية</p>}
-                            <div className="flex items-center justify-between rounded-2xl border border-dashed border-slate-300 bg-white/60 p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-50 text-emerald-600"><ShieldCheck size={20} /></div><div><p className="text-sm font-black">حجزك محمي معنا</p><p className="mt-1 text-[11px] font-bold text-slate-400">دفع آمن ودعم حقيقي وقت تحتاجه</p></div></div><button onClick={() => setSaved(!saved)} className={`rounded-full p-2.5 transition ${saved ? 'bg-remal-red text-white' : 'bg-slate-100 text-slate-400 hover:text-remal-red'}`} aria-label="حفظ الفندق"><Heart size={18} fill={saved ? 'currentColor' : 'none'} /></button></div>
+                            </> : loading ? <div role="status" className="flex items-center justify-center rounded-2xl bg-white p-12"><LoaderCircle className="animate-spin text-remal-blue" /><span className="sr-only">جار تحميل النتائج</span></div> : error ? <p role="alert" className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-remal-red">{error}</p> : visibleHotels.length ? visibleHotels.map((hotel) => <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotelDetails} />) : searched ? <p className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-400">لا توجد نتائج مطابقة. جرّب إزالة الفلاتر أو تغيير التواريخ.</p> : <p className="rounded-2xl bg-white p-8 text-center text-sm font-bold text-slate-400">اختر وجهة وتواريخ لعرض الأسعار الحية</p>}
+                            <div id="security" className="flex items-center justify-between rounded-2xl border border-dashed border-slate-300 bg-white/60 p-5"><div className="flex items-center gap-3"><div className="grid h-10 w-10 place-items-center rounded-full bg-emerald-50 text-emerald-600"><ShieldCheck size={20} /></div><div><p className="text-sm font-black">حجزك محمي معنا</p><p className="mt-1 text-[11px] font-bold text-slate-400">تثبيت السعر ثم الدفع الآمن عبر Ziina</p></div></div><button onClick={() => setSaved(!saved)} className={`rounded-full p-2.5 transition ${saved ? 'bg-remal-red text-white' : 'bg-slate-100 text-slate-400 hover:text-remal-red'}`} aria-label={saved ? 'إزالة الحفظ' : 'حفظ الفندق'}><Heart size={18} fill={saved ? 'currentColor' : 'none'} /></button></div>
                         </div>
                     </div>
                 </section>

@@ -12,10 +12,6 @@ export default function HeroSearchSection({ onSearch }) {
     const blurTimer = useRef(null);
 
     useEffect(() => {
-        console.log('Current suggestions state:', suggestions);
-    }, [suggestions]);
-
-    useEffect(() => {
         const value = query.trim();
         if (value.length < 2) {
             setSuggestions([]);
@@ -25,7 +21,6 @@ export default function HeroSearchSection({ onSearch }) {
             setLoading(true);
             try {
                 const data = await BookingAPI.suggest(value);
-                console.log('Suggestions fetched:', data);
                 const payload = data?.data || data;
                 const suggestionData = Array.isArray(payload)
                     ? { regions: payload }
@@ -59,16 +54,17 @@ export default function HeroSearchSection({ onSearch }) {
         event.preventDefault();
         const form = event.currentTarget.tagName === 'FORM' ? event.currentTarget : event.currentTarget.form;
         if (!selectedDestination || (!selectedDestination.region_id && !selectedDestination.hotel_id)) {
-            alert('يرجى اختيار وجهة من القائمة أولاً');
+            event.currentTarget.querySelector('input')?.focus();
             return;
         }
         if (!form.checkin.value || !form.checkout.value) {
-            alert('يرجى اختيار تاريخ الوصول والمغادرة أولاً');
+            form.checkin.focus();
             form.checkin.focus();
             return;
         }
         if (form.checkout.value <= form.checkin.value) {
-            alert('يرجى اختيار تاريخ مغادرة بعد تاريخ الوصول');
+            form.checkout.setCustomValidity('يجب أن يكون تاريخ المغادرة بعد الوصول');
+            form.checkout.reportValidity();
             form.checkout.focus();
             return;
         }
@@ -103,14 +99,14 @@ export default function HeroSearchSection({ onSearch }) {
 
                 <form onSubmit={handleSearch} className="relative mt-16 rounded-[28px] border border-white/70 bg-white/95 p-2 shadow-float backdrop-blur-xl lg:mt-20 lg:rounded-full lg:p-2.5">
                     <div className="grid gap-1 lg:grid-cols-[1.5fr_1fr_1fr_1fr_auto] lg:items-center">
-                        <label className="relative z-40 flex min-h-[66px] items-center gap-3 rounded-full px-5 transition hover:bg-remal-bg">
+                        <label className="relative z-40 flex min-h-[66px] items-center gap-3 rounded-full px-5 transition hover:bg-remal-bg" htmlFor="destination-search">
                             <PinIcon className="shrink-0 text-remal-blue" size={22} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[10px] font-black uppercase tracking-wide text-slate-400">الوجهة</span>
-                                <input value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 160); }} placeholder="إلى أين تذهب؟" className="w-full bg-transparent pt-1 text-sm font-black text-remal-dark outline-none placeholder:text-slate-400" />
+                                <input id="destination-search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 160); }} placeholder="إلى أين تذهب؟" aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full bg-transparent pt-1 text-sm font-black text-remal-dark outline-none placeholder:text-slate-400" />
                             </span>
                             {loading && <LoaderCircle size={17} className="animate-spin text-remal-blue" />}
-                            {showSuggestions && query.trim().length > 1 && suggestions.length > 0 && <div role="listbox" aria-label="اقتراحات الوجهات" className="absolute inset-x-3 top-[74px] z-50 max-h-72 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-2 text-right shadow-xl lg:top-[78px]">
+                            {showSuggestions && query.trim().length > 1 && suggestions.length > 0 && <div id="destination-suggestions" role="listbox" aria-label="اقتراحات الوجهات" className="absolute inset-x-3 top-[74px] z-50 max-h-72 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-2 text-right shadow-xl lg:top-[78px]">
                                 {suggestions.map((item, index) => <button type="button" key={`${item.label}-${index}`} onMouseDown={() => { setQuery(item.label); setSelectedDestination(item); setShowSuggestions(false); }} className="flex w-full items-center justify-between rounded-xl px-3 py-3 text-right transition hover:bg-remal-bg"><span className="text-sm font-black text-remal-dark">{item.label}</span><span className="text-[10px] font-bold text-slate-400">{item.hint}</span></button>)}
                             </div>}
                         </label>
