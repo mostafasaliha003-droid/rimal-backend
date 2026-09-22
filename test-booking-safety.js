@@ -5,6 +5,151 @@ const { resolveValidatedPayment } = require('./services/paymentService');
 const expected = { hid: 123, total: 250, currency: 'AED' };
 const result = () => ({ hotels: [{ hid: 123, rates: [{ book_hash: 'verified', payment_options: { payment_types: [{ type: 'deposit', amount: '250.00', currency_code: 'AED' }] } }] }] });
 
+test('contract transports use private single-attempt GET requests without payload logging or redirects', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+    });
+    let response;
+    const request = context.mock.fn(async config => {
+        assert.equal(config.method, 'get');
+        assert.equal(config.data, undefined);
+        assert.equal(config.params, undefined);
+        assert.equal(config.maxRedirects, 0);
+        assert.equal(config.auth.username, 'fixture-id');
+        assert.equal(config.auth.password, 'fixture-key');
+        if (response instanceof Error) throw response;
+        return response;
+    });
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => config.url }));
+    const exchange = context.mock.method(logger, 'logEtgExchange', entry => {
+        assert.equal(entry.requestPayload, null);
+        assert.equal(entry.responsePayload, null);
+        assert.doesNotMatch(JSON.stringify(entry), /private-/);
+    });
+    context.mock.method(logger, 'warn', (...args) => assert.doesNotMatch(JSON.stringify(args), /private-/));
+    context.mock.method(logger, 'error', (...args) => assert.doesNotMatch(JSON.stringify(args), /private-/));
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    delete require.cache[modulePath];
+    const client = require('./services/ratehawkClient');
+    for (const [method, endpoint] of [
+        ['contractInfo', '/api/b2b/v3/general/contract/data/info/'],
+        ['financialInfo', '/api/b2b/v3/general/financial/info/']
+    ]) {
+        for (const value of [
+            { status: 200, data: { status: 'ok', error: null, data: { contract_datas: [{ legal_entity: 'private-company' }], contract: 'private-balance' } } },
+            { status: 429, data: { status: 'error', error: 'rate_limit' } },
+            { status: 503, data: { status: 'error', error: 'unknown' } },
+            { status: 200, data: { status: 'error', error: 'private-error', debug: { validation_error: 'private-debug' } } },
+            Object.assign(new Error('private-timeout'), { code: 'ETIMEDOUT', config: { auth: 'private-credentials' }, response: { status: 503, data: 'private-response' } })
+        ]) {
+            response = value;
+            const callsBefore = request.mock.callCount();
+            if (response instanceof Error) await assert.rejects(client[method](), /private-timeout/);
+            else assert.equal((await client[method]()).httpStatus, response.status);
+            assert.equal(request.mock.callCount(), callsBefore + 1);
+            assert.equal(request.mock.calls.at(-1).arguments[0].url, endpoint);
+        }
+    }
+    assert.equal(exchange.mock.callCount(), request.mock.callCount());
+});
+
+test('contract retrieval preserves agreement and legal entity data without treating termination as an error', async context => {
+    const service = require('./services/ratehawkService');
+    const contract = {
+        active_from: '2018-07-02', agreement_date: '2018-06-29', agreement_number: 'B2B-FIXTURE',
+        closing_documents_issuance_type: 'monthly', kind: 'agency',
+        legal_entity: { address_actual: 'Fixture actual address', address_legal: 'Fixture legal address', name: 'Fixture Company', taxpayer_id: '00123' },
+        terminated_at: null
+    };
+    const data = { contract_datas: [contract, { ...contract, agreement_number: 'B2B-ENDED', terminated_at: '2025-01-01' }] };
+    let response = { ok: true, status: 'ok', error: null, httpStatus: 200, data, debug: { private: 'not returned' } };
+    const retrieve = context.mock.method(service.client, 'contractInfo', async (...args) => { assert.equal(args.length, 0); return response; });
+    assert.deepEqual(await service.retrieveContract(), { success: true, ...data });
+    response.data = { contract_datas: [] };
+    assert.deepEqual(await service.retrieveContract(), { success: true, contract_datas: [] });
+    for (const invalid of [null, {}, { contract_datas: {} }, { contract_datas: [null] }, { contract_datas: [{ ...contract, legal_entity: null }] }]) {
+        response.data = invalid;
+        await assert.rejects(service.retrieveContract(), error => error.code === 'invalid_contract_response' && error.httpStatus === 502);
+    }
+    assert.equal(retrieve.mock.callCount(), 7);
+});
+
+test('financial details preserve decimal precision, numeric values, original currencies and per-agreement balances', async context => {
+    const service = require('./services/ratehawkService');
+    const data = {
+        contract: { contract_overpay: '9007199254740993.98', credit_limit: '1451.00', deposit: '1000.00', max_booking_price: '0',
+            overdue_debt: '7762.48', reporting_currency: 'EUR', unpaid_non_ref_orders_sum: '9454.93', unpaid_orders_sum: '9507.93', unpaid_ref_orders_sum: '53.00' },
+        contract_datas: [{ agreement_number: 'B2B-FIXTURE', overdue_debt: '187.12', overpay: '-130.31',
+            unpaid_non_ref_orders_sum: '187.12', unpaid_orders_sum: '204.12', unpaid_ref_orders_sum: '17.00' }]
+    };
+    let response = { ok: true, status: 'ok', error: null, httpStatus: 200, data, debug: { private: 'not returned' } };
+    context.mock.method(service.client, 'financialInfo', async (...args) => { assert.equal(args.length, 0); return response; });
+    assert.deepEqual(await service.retrieveFinancialDetails(), { success: true, ...data });
+    const numeric = structuredClone(data);
+    numeric.contract.deposit = 1000.25;
+    numeric.contract.reporting_currency = 'USD';
+    numeric.contract_datas[0].overpay = 0;
+    response.data = numeric;
+    assert.deepEqual(await service.retrieveFinancialDetails(), { success: true, ...numeric });
+    for (const invalid of [
+        null, {}, { ...data, contract: null }, { ...data, contract_datas: {} }, { ...data, contract_datas: [null] },
+        { ...data, contract: { ...data.contract, deposit: undefined } },
+        { ...data, contract: { ...data.contract, reporting_currency: '' } },
+        { ...data, contract: { ...data.contract, credit_limit: Infinity } },
+        { ...data, contract_datas: [{ ...data.contract_datas[0], overpay: 'NaN' }] }
+    ]) {
+        response.data = invalid;
+        await assert.rejects(service.retrieveFinancialDetails(), error => error.code === 'invalid_financial_details_response' && error.httpStatus === 502);
+    }
+});
+
+test('contract and financial errors fail closed without exposing upstream credentials or debug data', async context => {
+    const service = require('./services/ratehawkService');
+    for (const [method, transport, kind] of [
+        ['retrieveContract', 'contractInfo', 'contract'], ['retrieveFinancialDetails', 'financialInfo', 'financial_details']
+    ]) {
+        let response;
+        const retrieve = context.mock.method(service.client, transport, async () => {
+            if (response instanceof Error) throw response;
+            return response;
+        });
+        for (const [value, code, status] of [
+            [{ ok: false, status: 'error', error: 'unauthorized', httpStatus: 200 }, 'supplier_unauthorized', 502],
+            [{ ok: false, status: 'error', error: 'unknown', httpStatus: 503 }, 'supplier_unknown', 502],
+            [{ ok: false, httpStatus: 429, rateLimit: { secondsNumber: 120 } }, 'rate_limit', 429],
+            [{ ok: true, status: 'ok', httpStatus: 500, data: {} }, `${kind}_unavailable`, 502],
+            [{ ok: true, status: 'ok', httpStatus: 200, error: 'private-error', data: {} }, `${kind}_unavailable`, 502],
+            [undefined, `${kind}_unavailable`, 502],
+            [Object.assign(new Error('private-transport'), { config: { auth: 'private-key' }, code: 'ETIMEDOUT' }), `${kind}_unavailable`, 502],
+            [Object.assign(new Error('private-credentials'), { ratehawkError: 'incorrect_credentials', httpStatus: 401 }), 'supplier_unauthorized', 502]
+        ]) {
+            response = value;
+            await assert.rejects(service[method](), error => {
+                assert.equal(error.code, code);
+                assert.equal(error.httpStatus, status);
+                assert.equal(error.config, undefined);
+                assert.equal(error.cause, undefined);
+                assert.doesNotMatch(error.message + JSON.stringify(error), /private-/);
+                if (status === 429) assert.equal(error.retry_after_ms, 120000);
+                return true;
+            });
+        }
+        assert.equal(retrieve.mock.callCount(), 8);
+    }
+});
+
 test('cancellation sends only the documented order ID and preserves supplier financial currencies', async context => {
     const service = require('./services/ratehawkService');
     const amounts = {
@@ -834,6 +979,81 @@ test('expired or missing form expiry blocks finish before any supplier call', as
         if (previous === undefined) delete process.env.RATEHAWK_BOOKING_ENABLED;
         else process.env.RATEHAWK_BOOKING_ENABLED = previous;
     }
+});
+
+test('contract HTTP routes require private server authentication and preserve no-store and rate-limit responses', async context => {
+    const express = require('express');
+    const { createContractRouter } = require('./services/bookingRoutes');
+    const service = require('./services/ratehawkService');
+    const previous = Object.fromEntries(['RATEHAWK_BOOKING_TOKEN', 'REMAL_SECURE_KEY', 'RATEHAWK_BOOKING_ENABLED', 'RATEHAWK_CANCELLATION_ENABLED'].map(key => [key, process.env[key]]));
+    context.after(() => {
+        for (const [key, value] of Object.entries(previous)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
+    });
+    const token = 'fixture-private-contract-token-32-characters';
+    const contracts = { success: true, contract_datas: [{ agreement_number: 'B2B-FIXTURE', terminated_at: null }] };
+    const financials = { success: true, contract: { reporting_currency: 'EUR', deposit: '1234.56' }, contract_datas: [] };
+    const retrieve = context.mock.method(service, 'retrieveContract', async (...args) => { assert.equal(args.length, 0); return contracts; });
+    const financial = context.mock.method(service, 'retrieveFinancialDetails', async (...args) => { assert.equal(args.length, 0); return financials; });
+    const app = express();
+    app.use(express.json());
+    app.use('/api/v1/contracts', createContractRouter());
+    const server = await new Promise(resolve => {
+        const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+    });
+    context.after(() => new Promise(resolve => server.close(resolve)));
+    const send = (route = '', headers = {}, method = 'GET') => fetch(`http://127.0.0.1:${server.address().port}/api/v1/contracts${route}`, { method, headers });
+    process.env.REMAL_SECURE_KEY = 'public-fixture-key';
+    delete process.env.RATEHAWK_BOOKING_ENABLED;
+    delete process.env.RATEHAWK_CANCELLATION_ENABLED;
+    for (const route of ['', '/financial-details']) {
+        delete process.env.RATEHAWK_BOOKING_TOKEN;
+        const unconfigured = await send(route);
+        assert.equal(unconfigured.status, 503);
+        assert.equal(unconfigured.headers.get('cache-control'), 'no-store');
+        for (const invalid of ['short', 'public-fixture-key'.repeat(3)]) {
+            process.env.RATEHAWK_BOOKING_TOKEN = invalid;
+            process.env.REMAL_SECURE_KEY = invalid;
+            assert.equal((await send(route, { Authorization: `Bearer ${invalid}` })).status, 503);
+        }
+        process.env.REMAL_SECURE_KEY = 'public-fixture-key';
+        process.env.RATEHAWK_BOOKING_TOKEN = token;
+        for (const headers of [{}, { 'x-api-key': process.env.REMAL_SECURE_KEY }, { Authorization: 'Bearer wrong-token' }]) {
+            const denied = await send(route, headers);
+            assert.equal(denied.status, 401);
+            assert.equal(denied.headers.get('cache-control'), 'no-store');
+        }
+        assert.equal((await send(route, { Authorization: `Bearer ${token}`, Origin: 'https://remalbookings.com' })).status, 403);
+        assert.equal((await send(`${route}?contract_id=42`, { Authorization: `Bearer ${token}` })).status, 400);
+    }
+    assert.equal(retrieve.mock.callCount(), 0);
+    assert.equal(financial.mock.callCount(), 0);
+    const authorization = { Authorization: `Bearer ${token}` };
+    for (const [route, expected] of [['', contracts], ['/financial-details', financials]]) {
+        const response = await send(route, authorization);
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        assert.deepEqual(await response.json(), expected);
+        assert.equal((await send(route, authorization, 'POST')).status, 404);
+    }
+    assert.equal(retrieve.mock.callCount(), 1);
+    assert.equal(financial.mock.callCount(), 1);
+    financial.mock.mockImplementation(async () => { throw Object.assign(new Error('rate_limit'), { code: 'rate_limit', httpStatus: 429, retry_after_ms: 120001 }); });
+    const limited = await send('/financial-details', authorization);
+    assert.equal(limited.status, 429);
+    assert.equal(limited.headers.get('retry-after'), '121');
+    assert.equal(limited.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await limited.json(), { success: false, error: 'rate_limit' });
+    retrieve.mock.mockImplementation(async () => { throw Object.assign(new Error('private upstream error'), { config: { auth: 'private-key' } }); });
+    const failure = await send('', authorization);
+    assert.equal(failure.status, 503);
+    assert.deepEqual(await failure.json(), { success: false, error: 'contract_service_unavailable' });
+    retrieve.mock.mockImplementation(async () => { throw Object.assign(new Error('private supplier auth'), { code: 'supplier_unauthorized', httpStatus: 502 }); });
+    const supplierAuth = await send('', authorization);
+    assert.equal(supplierAuth.status, 502);
+    assert.deepEqual(await supplierAuth.json(), { success: false, error: 'supplier_unauthorized' });
 });
 
 test('post-booking HTTP routes protect order data and cancellation from browser keys and retire unauthenticated cancellation', async context => {

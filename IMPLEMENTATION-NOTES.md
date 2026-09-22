@@ -2,7 +2,7 @@
 
 ## Verification
 
-- `node --test test-booking-safety.js test-frontend-serving.js frontend/src/services/offers.test.js` checks booking, post-booking retrieval/cancellation, payment, offer, autocomplete and HTTP behavior without supplier requests. Booking tests use mocked transport/storage and a controlled clock; they do not certify MongoDB durability, live Payota, bank challenges or supplier account capabilities.
+- `node --test test-booking-safety.js test-frontend-serving.js frontend/src/services/offers.test.js` checks booking, post-booking retrieval/cancellation, contracts/financial details, payment, offer, autocomplete and HTTP behavior without supplier requests. Booking tests use mocked transport/storage and a controlled clock; they do not certify MongoDB durability, live Payota, bank challenges or supplier account capabilities.
 - `node --test test-frontend-serving.js` checks HTTP routes with and without `frontend/dist`, including private-file protection, missing assets and CORS preflights for allowed and rejected origins.
 - `npm --prefix frontend run build`
 - After building, run `npm run prepare:site` to update the static-site root, then `npm run check:site` to verify that its files match the build.
@@ -105,6 +105,29 @@ Only a valid successful cancellation response or a retrieved `status: cancelled`
 Keep `RATEHAWK_CANCELLATION_ENABLED` unset or false until authenticated ownership/consent handling, supplier permissions, cancellation penalties, MongoDB failover and customer-refund procedures are certified. Enabling cancellation is independent of enabling new bookings. Authenticated retrieval and reconciliation remain available when cancellation is disabled. The old `POST /api/v1/bookings/cancel` path is retired (410 after private authentication); it no longer accepts an unauthenticated reference or marks other suppliers cancelled without confirmation. Existing integrations using the formerly public order-info/cancel paths must migrate to private authentication; never put that Bearer token in the browser.
 
 Verification uses fixtures only, including concurrent requests, storage failure before send, delayed/mismatched orders, HCN mapping, UTC penalty cutoffs, original currencies, upsells, unknown outcomes, protected HTTP routes and late webhooks. No real bookings were retrieved or cancelled, no money was refunded, and no deployment/provider flags were enabled. Validate the new collection, index and restart behavior with an isolated MongoDB and the actual supplier sandbox before production; its EUR-only responses, omitted translated fields and unrealized cancellation penalties do not demonstrate production behavior.
+
+## RateHawk Contracts
+
+Implemented against the [Contracts call list](https://docs.emergingtravel.com/docs/b2b-api/contracts/), including [Retrieve contract](https://docs.emergingtravel.com/docs/b2b-api/contracts/retrieve-contract/) and [Retrieve financial details](https://docs.emergingtravel.com/docs/b2b-api/contracts/retrieve-financial-details/).
+
+| Backend endpoint | ETG endpoint | Successful response |
+| --- | --- | --- |
+| `GET /api/v1/contracts` | `GET /api/b2b/v3/general/contract/data/info/` | `{ success: true, contract_datas: [...] }` |
+| `GET /api/v1/contracts/financial-details` | `GET /api/b2b/v3/general/financial/info/` | `{ success: true, contract: {...}, contract_datas: [...] }` |
+
+Both are read-only, server-to-server requests for the account configured by `RATEHAWK_BASE_URL`, `RATEHAWK_KEY_ID` and `RATEHAWK_API_KEY`. No request body, contract ID, language or currency parameter is required or forwarded. Nonempty query/body fields return HTTP 400. The existing `contractInfo()` client method remains available; `financialInfo()` and the high-level `retrieveContract()` / `retrieveFinancialDetails()` methods provide the added integration.
+
+Use `Authorization: Bearer <RATEHAWK_BOOKING_TOKEN>` on the backend routes, with a securely generated token of at least 32 characters that differs from the public `REMAL_SECURE_KEY`. Missing/invalid caller credentials return 401; missing/unsafe private-token configuration returns 503; browser-origin requests return 403. These endpoints expose account-wide business and financial information: only a trusted operations backend should hold this token. Do not put it in frontend configuration, browser code, URLs or logs. Authenticate and authorize the operator in that trusted backend before calling these endpoints; no customer-facing contract dashboard or per-user access model is added here.
+
+Contract responses preserve the supplier's agreements, commencement/agreement/termination dates, document issuance type, contract kind and legal entity fields. `terminated_at: null` stays null; terminated contracts remain visible. A documented empty `contract_datas` array is valid, but missing or malformed data produces HTTP 502 rather than a fabricated agreement.
+
+Financial responses retain the summary `contract` and all per-agreement `contract_datas`. The documentation labels some amounts as floats while its JSON example uses decimal strings; both finite numeric values and decimal strings are accepted without conversion, rounding or summing. `reporting_currency`, `max_booking_price`, overpayments, deposit, credit limit, debts and unpaid-order totals remain as returned. No currency conversion, inferred spendable balance or zero fallback is introduced. These values are a supplier snapshot, not proof of customer payment, a refund, or permission to create a booking; the verified booking/payment lifecycle remains separate.
+
+Responses use `Cache-Control: no-store`; this integration does not persist or cache contract payloads. The two ETG GET requests use the configured Basic credentials, the existing 20-second timeout, no redirects and no automatic retries, including HTTP 429 retries. Their exchange logs omit request/response bodies and raw transport error messages; only operational metadata is retained. Existing historical logs are not rewritten. Ensure reverse proxies and APM also avoid capturing confidential account responses.
+
+ETG `unauthorized` (including upstream HTTP 401/403) is reported as HTTP 502 `supplier_unauthorized`, distinct from caller authentication. ETG `unknown` becomes HTTP 502 `supplier_unknown`; network failures, malformed envelopes and invalid payloads fail closed with safe error codes, never raw Axios configuration or supplier debug data. HTTP 429 returns `rate_limit` and a `Retry-After` based on ETG rate-limit metadata (60 seconds when absent). Honor that delay; this implementation does not poll or retry automatically.
+
+These read-only routes do not require or change the booking, card-tokenization, cancellation or payment activation flags. Keep those flags disabled until their existing release blockers are resolved. Verification uses mocked transport and local HTTP requests to cover endpoint methods/paths, privacy, decimal preservation, response validation, account errors, private authorization and rate limits. No actual contracts or financial balances were fetched. Supplier permissions and real response compatibility still need verification in the configured sandbox/account before operational use. Deployment is a separate step.
 
 ## Frontend deployment
 

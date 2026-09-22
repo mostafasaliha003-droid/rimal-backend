@@ -51,6 +51,7 @@ app.use(securityService.globalLimiter);
 // ==========================================
 app.use(cors(corsPolicy));
 app.use('/api/booking', createBookingRouter());
+app.use('/api/v1/contracts', createBookingRouter.createContractRouter());
 
 // ==========================================
 // 🚀 3. إعدادات البريد وقاعدة البيانات

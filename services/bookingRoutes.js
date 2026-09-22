@@ -25,7 +25,7 @@ function enabled(req, res, next) {
     next();
 }
 
-function handle(operation) {
+function handle(operation, unavailableCode = 'booking_service_unavailable') {
     return async (req, res) => {
         try {
             const result = await operation(req);
@@ -36,7 +36,7 @@ function handle(operation) {
             const known = typeof error.code === 'string' && /^[a-z][a-z0-9_]{0,79}$/.test(error.code);
             const status = known && [400, 404, 409, 429, 502, 503].includes(error.httpStatus) ? error.httpStatus : 503;
             if (status === 429 && Number.isFinite(error.retry_after_ms)) res.set('Retry-After', String(Math.ceil(error.retry_after_ms / 1000)));
-            res.status(status).json({ success: false, error: known ? error.code : 'booking_service_unavailable' });
+            res.status(status).json({ success: false, error: known ? error.code : unavailableCode });
         }
     };
 }
@@ -61,5 +61,20 @@ function createPostBookingRouter() {
     return router;
 }
 
+function createContractRouter() {
+    const router = express.Router();
+    router.use(authorize);
+    router.use((req, res, next) => {
+        if (Object.keys(req.query).length || (req.body && Object.keys(req.body).length)) {
+            return res.status(400).json({ success: false, error: 'invalid_contract_request' });
+        }
+        next();
+    });
+    router.get('/', handle(() => ratehawk.retrieveContract(), 'contract_service_unavailable'));
+    router.get('/financial-details', handle(() => ratehawk.retrieveFinancialDetails(), 'contract_service_unavailable'));
+    return router;
+}
+
 module.exports = createBookingRouter;
 module.exports.createPostBookingRouter = createPostBookingRouter;
+module.exports.createContractRouter = createContractRouter;

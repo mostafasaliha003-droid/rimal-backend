@@ -1115,6 +1115,63 @@ async function cancelBooking(partnerOrderId, options = {}) {
 
 const cancelOrder = cancelBooking;
 
+function contractObject(value) {
+    return value !== null && typeof value === 'object' && !Array.isArray(value);
+}
+
+function contractAmount(value) {
+    return typeof value === 'string' ? /^-?\d+(?:\.\d+)?$/.test(value) : typeof value === 'number' && Number.isFinite(value);
+}
+
+async function retrieveContractData(operation, kind) {
+    let response;
+    try {
+        response = await operation();
+    } catch (error) {
+        response = { error: error?.ratehawkError, httpStatus: error?.httpStatus || error?.response?.status };
+    }
+    if (response?.httpStatus === 429) throw Object.assign(bookingError('rate_limit', 429), { retry_after_ms: retryAfterMs(response) });
+    if ([401, 403].includes(response?.httpStatus)
+        || ['unauthorized', 'incorrect_credentials', 'no_auth_header', 'invalid_auth_header', 'not_allowed_host', 'api_access_disabled'].includes(response?.error)) {
+        throw bookingError('supplier_unauthorized', 502);
+    }
+    if (response?.error === 'unknown') throw bookingError('supplier_unknown', 502);
+    if (response?.ok !== true || response.status !== 'ok' || response.error != null
+        || !Number.isInteger(response.httpStatus) || response.httpStatus < 200 || response.httpStatus >= 300) {
+        throw bookingError(`${kind}_unavailable`, 502);
+    }
+    if (!contractObject(response.data)) throw bookingError(`invalid_${kind}_response`, 502);
+    return response.data;
+}
+
+async function retrieveContract() {
+    const data = await retrieveContractData(() => client.contractInfo(), 'contract');
+    const textFields = ['active_from', 'agreement_date', 'agreement_number', 'closing_documents_issuance_type', 'kind'];
+    const entityFields = ['address_actual', 'address_legal', 'name', 'taxpayer_id'];
+    if (!Array.isArray(data.contract_datas) || data.contract_datas.some(contract => !contractObject(contract)
+        || textFields.some(field => typeof contract[field] !== 'string') || !contract.agreement_number.trim()
+        || (contract.terminated_at !== null && typeof contract.terminated_at !== 'string')
+        || !contractObject(contract.legal_entity) || entityFields.some(field => typeof contract.legal_entity[field] !== 'string'))) {
+        throw bookingError('invalid_contract_response', 502);
+    }
+    return { success: true, contract_datas: data.contract_datas };
+}
+
+async function retrieveFinancialDetails() {
+    const data = await retrieveContractData(() => client.financialInfo(), 'financial_details');
+    const commonAmounts = ['overdue_debt', 'unpaid_non_ref_orders_sum', 'unpaid_orders_sum', 'unpaid_ref_orders_sum'];
+    const summaryAmounts = ['contract_overpay', 'credit_limit', 'deposit', 'max_booking_price', ...commonAmounts];
+    const agreementAmounts = ['overpay', ...commonAmounts];
+    if (!contractObject(data.contract) || summaryAmounts.some(field => !contractAmount(data.contract[field]))
+        || typeof data.contract.reporting_currency !== 'string' || !/^[A-Z]{3}$/.test(data.contract.reporting_currency)
+        || !Array.isArray(data.contract_datas) || data.contract_datas.some(contract => !contractObject(contract)
+            || typeof contract.agreement_number !== 'string' || !contract.agreement_number.trim()
+            || agreementAmounts.some(field => !contractAmount(contract[field])))) {
+        throw bookingError('invalid_financial_details_response', 502);
+    }
+    return { success: true, contract: data.contract, contract_datas: data.contract_datas };
+}
+
 module.exports = {
     // low-level client (exposed for advanced use / testing)
     client,
@@ -1123,6 +1180,8 @@ module.exports = {
     normalizeUpsells,
     buildUpsellData,
     getApiOverview,
+    retrieveContract,
+    retrieveFinancialDetails,
     // Step 1 - static/content
     getHotelStatic,
     getSingleHotelInfo,

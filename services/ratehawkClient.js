@@ -121,12 +121,13 @@ function getAuthHeaders() {
  * ETG always answers with { status, error, data, debug }.
  * Returns: { ok, status, error, data, debug, httpStatus }
  */
-async function callOnce(method, path, { data, timeout } = {}) {
+async function callOnce(method, path, { data, timeout, redactPayload = false } = {}) {
     assertCredentials();
     const config = {
         method,
         url: path,
         timeout: timeout || DEFAULT_TIMEOUT,
+        ...(redactPayload ? { maxRedirects: 0 } : {}),
         auth: { username: String(KEY_ID), password: String(API_KEY) }
     };
 
@@ -151,11 +152,11 @@ async function callOnce(method, path, { data, timeout } = {}) {
             url: http.getUri(config),
             headers: config.headers,
             auth: config.auth,
-            requestPayload: config.data !== undefined ? config.data : data,
-            responsePayload: error.response && error.response.data,
+            requestPayload: redactPayload ? null : config.data !== undefined ? config.data : data,
+            responsePayload: redactPayload ? null : error.response && error.response.data,
             statusCode: error.response && error.response.status,
             latencyMs: Date.now() - startedAt,
-            error
+            error: redactPayload ? { code: 'request_failed' } : error
         });
         throw error;
     }
@@ -164,8 +165,8 @@ async function callOnce(method, path, { data, timeout } = {}) {
         url: http.getUri(config),
         headers: config.headers,
         auth: config.auth,
-        requestPayload: config.data !== undefined ? config.data : data,
-        responsePayload: res.data,
+        requestPayload: redactPayload ? null : config.data !== undefined ? config.data : data,
+        responsePayload: redactPayload ? null : res.data,
         statusCode: res.status,
         latencyMs: Date.now() - startedAt
     });
@@ -211,14 +212,14 @@ function isTransient(envelope, err) {
  * Non-transient ETG errors (e.g. rate_not_found, soldout) are returned to the caller,
  * not thrown, so callers can branch on `envelope.error`.
  */
-async function call(method, path, { data, timeout, retries = 2, backoff = 800, rateLimitRetry = true } = {}) {
+async function call(method, path, { data, timeout, retries = 2, backoff = 800, rateLimitRetry = true, redactPayload = false } = {}) {
     let attempt = 0;
     let rlAttempt = 0; // separate budget for HTTP 429 (rate limit) retries
     // total attempts = retries + 1
     // eslint-disable-next-line no-constant-condition
     while (true) {
         try {
-            const envelope = await callOnce(method, path, { data, timeout });
+            const envelope = await callOnce(method, path, { data, timeout, redactPayload });
 
             // HTTP 429: honor the rate limit — sleep until X-RateLimit-Reset, then retry.
             // Callers that must stay fast (e.g. best-effort search enrichment) pass
@@ -241,7 +242,7 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800, r
             // 5xx / unknown / timeout -> exponential backoff retry.
             if (!envelope.ok && isTransient(envelope) && attempt < retries) {
                 attempt += 1;
-                logger.warn(`RateHawk ${path} transient error "${envelope.error || envelope.httpStatus}". Retry ${attempt}/${retries} in ${backoff}ms`);
+                logger.warn(`RateHawk ${path} transient error "${redactPayload ? 'supplier_unavailable' : envelope.error || envelope.httpStatus}". Retry ${attempt}/${retries} in ${backoff}ms`);
                 await new Promise(r => setTimeout(r, backoff));
                 backoff *= 2;
                 continue;
@@ -250,7 +251,7 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800, r
             // Strict error routing for non-transient failures.
             if (!envelope.ok && (envelope.error || envelope.status === 'error')) {
                 const code = envelope.error;
-                const reason = envelope.validationError && !path.includes('/hotel/order/') ? ` (${envelope.validationError})` : '';
+                const reason = envelope.validationError && !redactPayload && !path.includes('/hotel/order/') ? ` (${envelope.validationError})` : '';
 
                 // Fatal auth/config errors: IP not whitelisted or bad/disabled keys.
                 if (FATAL_ERRORS.has(code)) {
@@ -267,19 +268,19 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800, r
 
                 // Soft/expected errors (rate_not_found, soldout, lock, order_not_found,
                 // contract_mismatch, ...) are returned so callers can branch on them.
-                logger.warn(`RateHawk ${path} returned error: "${code}"${reason} (HTTP ${envelope.httpStatus})`);
+                logger.warn(`RateHawk ${path} returned error: "${redactPayload ? 'supplier_error' : code}"${reason} (HTTP ${envelope.httpStatus})`);
             }
             return envelope;
         } catch (err) {
             if (isTransient(null, err) && attempt < retries) {
                 attempt += 1;
-                logger.warn(`RateHawk ${path} network error "${err.code || err.message}". Retry ${attempt}/${retries} in ${backoff}ms`);
+                logger.warn(`RateHawk ${path} network error "${redactPayload ? 'request_failed' : err.code || err.message}". Retry ${attempt}/${retries} in ${backoff}ms`);
                 await new Promise(r => setTimeout(r, backoff));
                 backoff *= 2;
                 continue;
             }
             // Our own classified errors (invalid_params / fatal) are already logged.
-            if (!err.ratehawkError) logger.error(`RateHawk ${path} request failed`, { error: err.message });
+            if (!err.ratehawkError) logger.error(`RateHawk ${path} request failed`, { error: redactPayload ? 'request_failed' : err.message });
             throw err;
         }
     }
@@ -288,7 +289,8 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800, r
 // ---- Connectivity / account -------------------------------------------------
 const getApiOverview = () => call('get', '/api/b2b/v3/overview/');
 const overview = getApiOverview;
-const contractInfo = () => call('get', '/api/b2b/v3/general/contract/data/info/');
+const contractInfo = () => call('get', '/api/b2b/v3/general/contract/data/info/', { retries: 0, rateLimitRetry: false, redactPayload: true });
+const financialInfo = () => call('get', '/api/b2b/v3/general/financial/info/', { retries: 0, rateLimitRetry: false, redactPayload: true });
 
 // ---- Static / content data (Content API) -----------------------------------
 const hotelStatic = () => call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
@@ -847,6 +849,7 @@ module.exports = {
     getApiOverview,
     overview,
     contractInfo,
+    financialInfo,
     getHotelDumpUrl,
     getCustomDumpUrl,
     getIncrementalDumpUrl,
