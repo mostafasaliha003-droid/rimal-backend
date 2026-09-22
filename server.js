@@ -612,6 +612,41 @@ app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, asyn
     }
 });
 
+app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    const body = req.body || {};
+    const { checkin, checkout, hid, guests, match_hash: matchHash } = body;
+    if (hid === undefined || hid === null || guests === undefined || guests === null) {
+        return res.status(400).json({
+            success: false,
+            error: 'INVALID_HOTELPAGE_CRITERIA',
+            message: 'hid and guests are required.'
+        });
+    }
+
+    try {
+        const result = await ratehawkService.getHotelPageRates({
+            checkin,
+            checkout,
+            hid,
+            residency: body.residency || 'ae',
+            language: body.language || 'en',
+            currency: body.currency || 'USD',
+            guests,
+            ...(matchHash ? { match_hash: matchHash } : {})
+        });
+        return res.status(200).json({ success: true, ...result });
+    } catch (error) {
+        if (error.ratehawkError === 'invalid_params') {
+            return res.status(400).json({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: error.message });
+        }
+        if (error.ratehawkError === 'core_search_error') {
+            return res.status(502).json({ success: false, error: 'CORE_SEARCH_ERROR', message: error.message });
+        }
+        logger.error('Hotelpage rates lookup failed', { hid, error: error.message });
+        return res.status(502).json({ success: false, error: 'HOTELPAGE_UNAVAILABLE' });
+    }
+});
+
 app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     logger.info("New live secure search request received");
     try {

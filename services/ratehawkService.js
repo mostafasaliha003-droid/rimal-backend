@@ -423,6 +423,7 @@ const getRegionHotelSort = (regionId, limit = 250) => {
         hotels_limit: hotelsLimit
     });
 };
+const getHotelPageRates = (searchCriteria = {}) => client.getHotelPageRates(searchCriteria);
 
 /**
  * Search availability by region / hotel ids / geo. Returns an array of hotels
@@ -914,6 +915,7 @@ module.exports = {
     searchLiveRatesByGeo,
     searchLiveRatesByRegion,
     getRegionHotelSort,
+    getHotelPageRates,
     searchAvailability,
     fetchHotelsInChunks,
     getHotelPage,

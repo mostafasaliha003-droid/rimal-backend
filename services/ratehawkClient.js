@@ -677,6 +677,35 @@ async function sortHotelsInRegion(params = {}) {
         : response.data;
     return data && Array.isArray(data.hotels) ? data.hotels : [];
 }
+async function getHotelPageRates(params = {}) {
+    let response;
+    try {
+        response = await call('post', '/api/b2b/v3/search/hp/', {
+            data: params,
+            timeout: 30000
+        });
+    } catch (error) {
+        if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {
+            logger.warn('RateHawk hotelpage rates lookup failed', {
+                error: error.ratehawkError,
+                validationError: error.validationError || null
+            });
+        }
+        throw error;
+    }
+    if (!response.ok) {
+        if (response.error === 'invalid_params' || response.error === 'core_search_error') {
+            logger.warn('RateHawk hotelpage rates lookup failed', {
+                error: response.error,
+                validationError: response.validationError || null
+            });
+        }
+        throw ratehawkError('/api/b2b/v3/search/hp/', response);
+    }
+    return response.data && response.data.data !== undefined
+        ? response.data.data
+        : response.data;
+}
 const serpGeo = (data) => call('post', '/api/b2b/v3/search/serp/geo/', { data, timeout: 30000 });
 const hotelPage = (data, opts = {}) => call('post', '/api/b2b/v3/search/hp/', { data, timeout: 30000, ...opts });
 
@@ -731,6 +760,7 @@ module.exports = {
     searchHotelsByGeo,
     searchHotelsByRegion,
     sortHotelsInRegion,
+    getHotelPageRates,
     serpGeo,
     hotelPage,
     prebook,
