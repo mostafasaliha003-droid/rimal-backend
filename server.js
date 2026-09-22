@@ -22,6 +22,7 @@ const webhookService = require('./services/webhookService');
 const logger = require('./services/loggerService'); 
 const mappingService = require('./services/mappingService'); 
 const securityService = require('./services/securityService'); 
+const createFrontendRouter = require('./services/frontendService');
 
 const app = express();
 
@@ -69,8 +70,6 @@ app.use(cors({
     allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization'],
     credentials: true 
 }));
-
-app.use(express.static(path.join(__dirname, 'frontend', 'dist')));
 
 // ==========================================
 // 🚀 3. إعدادات البريد وقاعدة البيانات
@@ -1250,14 +1249,7 @@ app.post('/api/v1/bookings/cancel', async (req, res) => {
 app.get(['/admin', '/admin.html'], (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
 app.get('/style.css', (req, res) => { res.sendFile(path.join(__dirname, 'style.css')); });
 app.get('/logo.jpg', (req, res) => { res.sendFile(path.join(__dirname, 'logo.jpg')); });
-app.get('/', (req, res) => { res.sendFile(path.join(__dirname, 'frontend', 'dist', 'index.html')); });
-app.get('/checkout', (req, res) => {
-    res.sendFile(path.join(__dirname, 'frontend', 'dist', 'index.html'));
-});
-app.get('*', (req, res) => {
-    if (req.path.startsWith('/api/')) return res.status(404).json({ success: false, error: 'NOT_FOUND' });
-    return res.sendFile(path.join(__dirname, 'frontend', 'dist', 'index.html'));
-});
+app.use(createFrontendRouter(__dirname));
 
 // ==========================================
 // 🚀 11. تشغيل السيرفر المدمج

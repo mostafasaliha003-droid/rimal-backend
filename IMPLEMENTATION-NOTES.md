@@ -3,6 +3,7 @@
 ## Verification
 
 - `node --test test-booking-safety.js frontend/src/services/offers.test.js`
+- `node --test test-frontend-serving.js` checks HTTP routes with and without `frontend/dist`, including private-file protection and missing assets.
 - `npm --prefix frontend run build`
 - After building, run `npm run prepare:site` to update the static-site root, then `npm run check:site` to verify that its files match the build.
 - Start `npm --prefix frontend run preview -- --host 127.0.0.1 --port 5178 --strictPort`, then `node test-ui.cjs`.
@@ -19,7 +20,9 @@
 
 ## Frontend deployment
 
-`frontend/src` is the source of truth. The Express server now serves `frontend/dist` instead of exposing the entire repository. Run `npm run build` before starting the server. For a static host, publish the contents of `frontend/dist`, including manifest, icons, offline page and service worker.
+`frontend/src` is the source of truth. Express prefers `frontend/dist` when its `index.html` exists. Otherwise it serves only allowlisted public files and the `assets` directory from the committed repository-root site. Both modes support frontend routes without exposing server code, package files or private configuration. Missing API endpoints and assets return 404 rather than the application HTML.
+
+The existing Render build command installs backend packages and Chrome, but does not build the nested frontend project. It can remain unchanged: the committed root site is the tested fallback when `frontend/dist` is absent. To build the frontend on the host instead, install the frontend's dependencies including dev dependencies, then run `npm run build` before starting the server. For a static host, publish the contents of `frontend/dist`, including manifest, icons, offline page and service worker.
 
 For the existing repository-root static site, run `npm run build`, then `npm run prepare:site`. The preparation script copies only the built HTML, application assets, service worker, manifest, offline page and application icons into the root. It leaves `CNAME`, backend files and previous hashed assets untouched. `npm run check:site` verifies byte-for-byte agreement with the current build. These commands prepare local files only: they do not commit, push, deploy or enable payment collection. Backend changes must be deployed separately through the backend host after resolving the release blockers above.
 
