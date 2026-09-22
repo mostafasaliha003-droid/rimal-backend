@@ -28,15 +28,24 @@ export default function HeroSearchSection({ onSearch }) {
                 const hotels = Array.isArray(suggestionData?.hotels) ? suggestionData.hotels : [];
                 const regions = Array.isArray(suggestionData?.regions) ? suggestionData.regions : [];
                 const getLabel = (item) => item.name?.content || item.name?.value || item.name || item.title || item.label || value;
+                const getHotelId = (item) => {
+                    const hotelId = Number(item.hid ?? item.hotel_id);
+                    return Number.isInteger(hotelId) && hotelId >= 0 && hotelId <= 0xFFFFFFFF
+                        ? hotelId
+                        : null;
+                };
                 const nextSuggestions = [
                     ...regions.slice(0, 5).map((item) => ({ label: getLabel(item), hint: 'وجهة سفر', type: 'region', region_id: item.id || item.region_id })),
-                    ...hotels.slice(0, 5).map((item) => ({
-                        label: getLabel(item),
-                        hint: 'فندق',
-                        type: 'hotel',
-                        hotel_id: item.hid || item.hotel_id,
-                        hotel_key: item.id || item.hotel_id
-                    }))
+                    ...hotels.slice(0, 5).map((item) => {
+                        const hotelId = getHotelId(item);
+                        return hotelId === null ? null : {
+                            label: getLabel(item),
+                            hint: 'فندق',
+                            type: 'hotel',
+                            hotel_id: hotelId,
+                            hotel_key: item.id || hotelId
+                        };
+                    }).filter(Boolean)
                 ].filter((item) => item.label && (item.region_id || item.hotel_id));
                 setSuggestions(nextSuggestions);
                 setShowSuggestions(nextSuggestions.length > 0);

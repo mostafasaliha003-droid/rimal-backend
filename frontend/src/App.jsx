@@ -109,8 +109,13 @@ export default function App() {
             try {
                 const { destination, checkin, checkout, guests } = searchParams;
                 const request = { checkin, checkout, guests, language: 'en', currency: 'USD' };
-                const response = destination.type === 'hotel' || destination.hotel_id
-                    ? await BookingAPI.searchByIds({ ...request, hids: [Number(destination.hotel_id)] })
+                const hotelId = Number(destination.hotel_id);
+                const isHotelSearch = destination.type === 'hotel' || destination.hotel_id;
+                if (isHotelSearch && (!Number.isInteger(hotelId) || hotelId < 0 || hotelId > 0xFFFFFFFF)) {
+                    throw new Error('The selected hotel does not have a valid RateHawk hotel ID.');
+                }
+                const response = isHotelSearch
+                    ? await BookingAPI.searchByIds({ ...request, hids: [hotelId] })
                     : await BookingAPI.searchByRegion({ ...request, region_id: destination.region_id });
                 const nextHotels = getHotels(response);
                 if (active) {
