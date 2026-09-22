@@ -4,6 +4,8 @@ const fs = require('node:fs/promises');
 const os = require('node:os');
 const path = require('node:path');
 const express = require('express');
+const cors = require('cors');
+const corsPolicy = require('./services/corsPolicy');
 const createFrontendRouter = require('./services/frontendService');
 
 async function startSite(context, withBuild) {
@@ -37,6 +39,7 @@ async function startSite(context, withBuild) {
         }
     }
     const app = express();
+    app.use(cors(corsPolicy));
     app.use(createFrontendRouter(root));
     app.use((error, req, res, next) => res.status(error.status || 500).send('Request failed'));
     const server = await new Promise(resolve => {
@@ -82,5 +85,34 @@ test('root fallback never exposes server files or returns HTML for missing asset
         const response = await fetch(`${base}${route}`);
         assert.equal(response.status, 404, route);
         assert.deepEqual(await response.json(), { success: false, error: 'NOT_FOUND' });
+    }
+});
+
+test('CORS preflight permits the public site and known local preview origins', async context => {
+    const base = await startSite(context, false);
+    for (const origin of ['https://remalbookings.com', 'https://www.remalbookings.com', 'http://127.0.0.1:5178', 'http://localhost:5178', 'http://localhost:5173']) {
+        const response = await fetch(`${base}/api/search/suggest?query=DUBAI&language=ar`, {
+            method: 'OPTIONS',
+            headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'content-type,x-api-key' }
+        });
+        assert.equal(response.status, 204, origin);
+        assert.equal(response.headers.get('access-control-allow-origin'), origin);
+        assert.equal(response.headers.get('access-control-allow-credentials'), 'true');
+        assert.match(response.headers.get('access-control-allow-headers'), /x-api-key/i);
+        assert.match(response.headers.get('vary'), /origin/i);
+        const actual = await fetch(`${base}/api/missing`, { headers: { Origin: origin } });
+        assert.equal(actual.headers.get('access-control-allow-origin'), origin);
+    }
+});
+
+test('CORS rejects untrusted domains, misleading hostnames and unapproved ports', async context => {
+    const base = await startSite(context, false);
+    for (const origin of ['https://untrusted.example', 'https://www.remalbookings.com.untrusted.example', 'http://127.0.0.1:9999', 'http://localhost.untrusted.example:5178']) {
+        const response = await fetch(`${base}/api/search/suggest`, {
+            method: 'OPTIONS',
+            headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'x-api-key' }
+        });
+        assert.equal(response.status, 403, origin);
+        assert.equal(response.headers.get('access-control-allow-origin'), null);
     }
 });

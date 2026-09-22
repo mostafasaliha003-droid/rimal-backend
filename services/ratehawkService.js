@@ -408,7 +408,15 @@ async function getHotelsContent(ids = [], hids = [], language = 'en') {
 }
 
 // ---- Step 2: Search ---------------------------------------------------------
-const getAutocompleteSuggestions = (query, language = 'en') => client.suggestHotelAndRegion(query, language);
+async function getAutocompleteSuggestions(query, language = 'en') {
+    const suggestions = await client.suggestHotelAndRegion(query, language);
+    const hasHotels = Array.isArray(suggestions?.hotels) && suggestions.hotels.length > 0;
+    const hasRegions = Array.isArray(suggestions?.regions) && suggestions.regions.length > 0;
+    if (language !== 'en' && !hasHotels && !hasRegions) {
+        return client.suggestHotelAndRegion(query, 'en');
+    }
+    return suggestions;
+}
 const searchLiveRates = (searchCriteria = {}) => client.searchHotels(searchCriteria);
 const searchLiveRatesByGeo = (searchCriteria = {}) => client.searchHotelsByGeo(searchCriteria);
 const searchLiveRatesByRegion = (searchCriteria = {}) => client.searchHotelsByRegion(searchCriteria);

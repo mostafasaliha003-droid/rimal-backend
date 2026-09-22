@@ -2,12 +2,13 @@
 
 ## Verification
 
-- `node --test test-booking-safety.js frontend/src/services/offers.test.js`
-- `node --test test-frontend-serving.js` checks HTTP routes with and without `frontend/dist`, including private-file protection and missing assets.
+- `node --test test-booking-safety.js frontend/src/services/offers.test.js` checks payment validation, offer normalization and autocomplete language fallback without supplier requests.
+- `node --test test-frontend-serving.js` checks HTTP routes with and without `frontend/dist`, including private-file protection, missing assets and CORS preflights for allowed and rejected origins.
 - `npm --prefix frontend run build`
 - After building, run `npm run prepare:site` to update the static-site root, then `npm run check:site` to verify that its files match the build.
 - Start `npm --prefix frontend run preview -- --host 127.0.0.1 --port 5178 --strictPort`, then `node test-ui.cjs`.
 - Browser tests intercept all supplier/payment API requests. No real booking or payment is created. Screenshots in `frontend/dist/test-*.png` are test artifacts, not production hotel data. Run a fresh build before publishing to remove them.
+- Destination tests start without a saved search and cover selection, empty results, failed requests and recovery. Mocked browser tests do not verify the deployed backend's CORS policy or live supplier inventory.
 
 ## Release blockers
 
@@ -26,7 +27,13 @@ The existing Render build command installs backend packages and Chrome, but does
 
 For the existing repository-root static site, run `npm run build`, then `npm run prepare:site`. The preparation script copies only the built HTML, application assets, service worker, manifest, offline page and application icons into the root. It leaves `CNAME`, backend files and previous hashed assets untouched. `npm run check:site` verifies byte-for-byte agreement with the current build. These commands prepare local files only: they do not commit, push, deploy or enable payment collection. Backend changes must be deployed separately through the backend host after resolving the release blockers above.
 
+The production preview uses the production API, not Vite's development proxy. The backend's exact CORS allowlist includes HTTP `localhost` and `127.0.0.1` on ports 10000, 5173 and 5178, in addition to the existing production origins. Deploy the backend change for these preview requests to work; rebuilding the frontend alone does not update CORS.
+
+Autocomplete requests the chosen language first, then tries English once only when both hotel and region lists are empty. Existing localized results and supplier errors are preserved. The fallback returns actual supplier names and IDs; it does not translate the query or guarantee matches for Arabic spelling. The interface distinguishes empty results from connection failures and suggests trying another spelling or an English name.
+
 PWA cache v6 stores the offline page, app icons and same-origin hashed JS/CSS/fonts only. It does not cache API responses, checkout documents, guest information or external hotel photos. Offline mode cannot make reservations. Updates are user initiated outside checkout. Notification subscriptions and offline vouchers are not implemented.
+
+The install control deliberately defers the browser's native banner with `beforeinstallprompt.preventDefault()` and calls `prompt()` after the user clicks install. Chrome's banner-suppression message is expected for this custom-install flow and is unrelated to destination requests.
 
 ## Measurement and experiments
 

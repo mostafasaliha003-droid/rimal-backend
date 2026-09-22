@@ -23,6 +23,7 @@ const logger = require('./services/loggerService');
 const mappingService = require('./services/mappingService'); 
 const securityService = require('./services/securityService'); 
 const createFrontendRouter = require('./services/frontendService');
+const corsPolicy = require('./services/corsPolicy');
 
 const app = express();
 
@@ -46,30 +47,7 @@ app.use(securityService.globalLimiter);
 // ==========================================
 // 🛡️ 2. إعدادات الحماية (CORS Policy)
 // ==========================================
-const allowedOrigins = [
-    'https://remalbookings.com',
-    'https://www.remalbookings.com',
-    'http://localhost:10000',
-    'http://127.0.0.1:10000',
-    'http://localhost:5173',
-    'http://127.0.0.1:5173',
-    'https://rimal-api.onrender.com',
-    'https://mostafasaliha003-droid.github.io' 
-];
-
-app.use(cors({
-    origin: function (origin, callback) {
-        if (!origin || allowedOrigins.includes(origin) || origin === 'null') {
-            callback(null, true);
-        } else {
-            console.warn(`محاولة اتصال مرفوضة من النطاق: ${origin}`);
-            callback(new Error('CORS Policy: Access Denied. هذا السيرفر مخصص حصرياً لمنصة شركة الرمال الدولية.'));
-        }
-    },
-    methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization'],
-    credentials: true 
-}));
+app.use(cors(corsPolicy));
 
 // ==========================================
 // 🚀 3. إعدادات البريد وقاعدة البيانات

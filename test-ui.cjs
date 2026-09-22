@@ -22,6 +22,7 @@ async function run() {
     const errors = [];
     let lastSearch;
     let paymentRequests = 0;
+    const suggestionRequests = [];
     page.on('pageerror', error => errors.push(error.message));
     try {
         await page.setBypassServiceWorker(true);
@@ -32,7 +33,12 @@ async function run() {
                 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
                 if (request.method() === 'OPTIONS') return request.respond({ status: 204, headers });
                 let body;
-                if (url.pathname.endsWith('/search/suggest')) body = { regions: [{ id: 6053839, name: 'Dubai' }] };
+                if (url.pathname.endsWith('/search/suggest')) {
+                    suggestionRequests.push(url.searchParams.get('language'));
+                    const query = url.searchParams.get('query');
+                    if (query === 'Unavailable') return request.respond({ status: 503, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'SUGGESTIONS_UNAVAILABLE' }) });
+                    body = { success: true, suggestions: { hotels: [], regions: query === 'No matches' ? [] : [{ id: 6053839, name: 'Dubai' }] } };
+                }
                 else if (url.pathname.endsWith('/search/rates/region')) { lastSearch = JSON.parse(request.postData()); body = { hotels }; }
                 else if (url.pathname.endsWith('/search/hotelpage')) body = { hotel: hotels[1], rates: hotels[1].rates };
                 else if (url.pathname.includes('/v1/hotels/')) body = { hotel: hotels[1] };
@@ -45,6 +51,31 @@ async function run() {
         });
         await page.setViewport({ width: 1440, height: 1000 });
         await page.goto(base, { waitUntil: 'networkidle0' });
+        const destinationInput = await page.$('#destination-search');
+        const fillDestination = async value => {
+            await destinationInput.click({ clickCount: 3 });
+            await destinationInput.press('Backspace');
+            await destinationInput.type(value);
+        };
+        await fillDestination('No matches');
+        await page.waitForFunction(() => document.querySelector('#search-error')?.textContent.includes('لا توجد وجهات'));
+        await page.click('form button[type="submit"]');
+        assert.match(await page.$eval('#search-error', element => element.textContent), /لا توجد وجهات/);
+        assert.equal(await page.$('#destination-suggestions'), null);
+        await fillDestination('Unavailable');
+        await page.waitForFunction(() => document.querySelector('#search-error')?.textContent.includes('تعذر تحميل اقتراحات'));
+        await page.click('form button[type="submit"]');
+        assert.match(await page.$eval('#search-error', element => element.textContent), /تعذر تحميل اقتراحات/);
+        await fillDestination('Du');
+        await page.waitForSelector('#destination-suggestions button', { visible: true });
+        assert.equal(await page.$('#search-error'), null);
+        await page.click('#destination-suggestions button');
+        assert.equal(await page.$eval('#destination-search', element => element.value), 'Dubai');
+        await page.click('form button[type="submit"]');
+        assert.match(await page.$eval('#search-error', element => element.textContent), /حدد تاريخ الوصول والمغادرة/);
+        assert(suggestionRequests.length >= 3);
+        assert(suggestionRequests.every(language => language === 'ar'));
+        console.log('PASS: fresh destination suggestions, real response envelope, selection, empty results, network errors and recovery.');
         await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), search);
         await page.reload({ waitUntil: 'networkidle0' });
         await page.waitForSelector('article');

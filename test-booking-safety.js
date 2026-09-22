@@ -24,3 +24,38 @@ test('rejects pay-at-hotel rates and ambiguous supplier responses', () => {
     response.hotels[0].rates.push(response.hotels[0].rates[0]);
     assert.throws(() => resolveValidatedPayment(response, expected), /RATE_CHANGED/);
 });
+
+test('autocomplete falls back to English only for empty localized results', async context => {
+    const client = require('./services/ratehawkClient');
+    const { getAutocompleteSuggestions } = require('./services/ratehawkService');
+    const empty = { hotels: [], regions: [] };
+    const english = { hotels: [], regions: [{ id: 6053839, name: 'Dubai' }] };
+    const localized = { hotels: [], regions: [{ id: 6053839, name: 'دبي' }] };
+    const calls = [];
+    let localResponse = empty;
+    context.mock.method(client, 'suggestHotelAndRegion', async (query, language) => {
+        calls.push({ query, language });
+        return language === 'en' ? english : localResponse;
+    });
+    assert.deepEqual(await getAutocompleteSuggestions('DUBAI', 'ar'), english);
+    assert.deepEqual(calls, [{ query: 'DUBAI', language: 'ar' }, { query: 'DUBAI', language: 'en' }]);
+    calls.length = 0;
+    localResponse = localized;
+    assert.deepEqual(await getAutocompleteSuggestions('دبي', 'ar'), localized);
+    assert.deepEqual(calls, [{ query: 'دبي', language: 'ar' }]);
+    calls.length = 0;
+    assert.deepEqual(await getAutocompleteSuggestions('Dubai', 'en'), english);
+    assert.deepEqual(calls, [{ query: 'Dubai', language: 'en' }]);
+});
+
+test('autocomplete does not mask supplier errors or loop on empty English results', async context => {
+    const client = require('./services/ratehawkClient');
+    const { getAutocompleteSuggestions } = require('./services/ratehawkService');
+    const failure = new Error('supplier unavailable');
+    const suggest = context.mock.method(client, 'suggestHotelAndRegion', async () => { throw failure; });
+    await assert.rejects(getAutocompleteSuggestions('Dubai', 'ar'), failure);
+    assert.equal(suggest.mock.callCount(), 1);
+    suggest.mock.mockImplementation(async () => ({ hotels: [], regions: [] }));
+    assert.deepEqual(await getAutocompleteSuggestions('Unknown', 'ar'), { hotels: [], regions: [] });
+    assert.equal(suggest.mock.callCount(), 3);
+});

@@ -17,6 +17,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
     const [checkoutDate, setCheckoutDate] = useState(initialSearch?.checkout ? parseISO(initialSearch.checkout) : null);
     const [guests, setGuests] = useState(initialSearch?.guests || [{ adults: 2, children: [] }]);
     const [error, setError] = useState('');
+    const [suggestionError, setSuggestionError] = useState('');
     const [activeField, setActiveField] = useState(null);
     const blurTimer = useRef(null);
 
@@ -33,8 +34,8 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
             setSuggestions([]);
             return undefined;
         }
+        setLoading(true);
         const timer = window.setTimeout(async () => {
-            setLoading(true);
             try {
                 const data = await BookingAPI.suggest(value, 'ar');
                 if (!active) return;
@@ -65,6 +66,8 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                     }).filter(Boolean)
                 ].filter((item) => item.label && (item.region_id || item.hotel_id));
                 setSuggestions(nextSuggestions);
+                setError('');
+                setSuggestionError(nextSuggestions.length > 0 ? '' : 'لا توجد وجهات أو فنادق مطابقة. جرّب الاسم بالإنجليزية أو اسماً آخر.');
                 const exactSuggestion = nextSuggestions.find((item) => item.label.trim().toLocaleLowerCase() === value.toLocaleLowerCase());
                 if (exactSuggestion) setSelectedDestination(exactSuggestion);
                 setShowSuggestions(nextSuggestions.length > 0);
@@ -72,7 +75,8 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                 if (!active) return;
                 setSuggestions([]);
                 setShowSuggestions(false);
-                setError('تعذر تحميل اقتراحات الوجهة. تحقق من الاتصال وأعد كتابة الوجهة.');
+                setError('');
+                setSuggestionError('تعذر تحميل اقتراحات الوجهة. تحقق من الاتصال وأعد كتابة الوجهة.');
             } finally {
                 if (active) setLoading(false);
             }
@@ -88,7 +92,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
         const exactSuggestion = suggestions.find((item) => item.label.trim().toLocaleLowerCase() === normalizedQuery);
         const destination = selectedDestination || exactSuggestion;
         if (!destination || (!destination.region_id && !destination.hotel_id)) {
-            setError('اختر وجهة أو فندقاً من قائمة الاقتراحات.');
+            setError(suggestionError || (loading ? 'جارٍ تحميل اقتراحات الوجهة.' : 'اختر وجهة أو فندقاً من قائمة الاقتراحات.'));
             form?.querySelector('#destination-search')?.focus();
             return;
         }
@@ -135,11 +139,11 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                             <PinIcon className="h-6 w-6 shrink-0 text-blue-600" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
                                 <span className="text-[11px] font-bold text-slate-800">الوجهة</span>
-                                <input id="destination-search" role="combobox" aria-expanded={showSuggestions && suggestions.length > 0} value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setShowSuggestions(true); setError(''); }} onFocus={() => { setActiveField('destination'); setShowSuggestions(true); }} onBlur={() => { setActiveField(null); blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 200); }} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#destination-suggestions button')?.focus(); } if (event.key === 'Escape') setShowSuggestions(false); }} placeholder="ابحث عن وجهة أو فندق..." aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full border-0 bg-transparent p-0 pt-1 text-sm font-bold text-slate-900 placeholder:text-slate-500" />
+                                <input id="destination-search" role="combobox" aria-expanded={showSuggestions && suggestions.length > 0} aria-busy={loading} aria-describedby={error || suggestionError ? 'search-error' : undefined} value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setSuggestions([]); setShowSuggestions(false); setSuggestionError(''); setError(''); }} onFocus={() => { setActiveField('destination'); setShowSuggestions(true); }} onBlur={() => { setActiveField(null); blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 200); }} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#destination-suggestions button')?.focus(); } if (event.key === 'Escape') setShowSuggestions(false); }} placeholder="ابحث عن وجهة أو فندق..." aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full border-0 bg-transparent p-0 pt-1 text-sm font-bold text-slate-900 placeholder:text-slate-500" />
                             </span>
                             {loading && <LoaderCircle size={17} className="animate-spin text-slate-400" />}
                             {showSuggestions && query.trim().length > 1 && suggestions.length > 0 && <div id="destination-suggestions" role="listbox" aria-label="اقتراحات الوجهات" className="custom-scrollbar absolute inset-x-2 top-[76px] z-50 max-h-72 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-2 text-right shadow-lg lg:inset-x-0">
-                                {suggestions.map((item, index) => <button type="button" role="option" aria-selected={selectedDestination?.label === item.label} key={`${item.label}-${index}`} onFocus={() => window.clearTimeout(blurTimer.current)} onMouseDown={event => event.preventDefault()} onClick={() => { setQuery(item.label); setSelectedDestination(item); setShowSuggestions(false); }} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); event.currentTarget.nextElementSibling?.focus(); } if (event.key === 'ArrowUp') { event.preventDefault(); event.currentTarget.previousElementSibling?.focus(); } if (event.key === 'Escape') { setShowSuggestions(false); document.getElementById('destination-search')?.focus(); } }} className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-3 text-right hover:bg-slate-50"><span className="break-words text-sm font-bold text-slate-900">{item.label}</span><span className="shrink-0 text-xs text-slate-600">{item.hint}</span></button>)}
+                                {suggestions.map((item, index) => <button type="button" role="option" aria-selected={selectedDestination?.label === item.label} key={`${item.label}-${index}`} onFocus={() => window.clearTimeout(blurTimer.current)} onMouseDown={event => event.preventDefault()} onClick={() => { setQuery(item.label); setSelectedDestination(item); setShowSuggestions(false); setSuggestionError(''); setError(''); }} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); event.currentTarget.nextElementSibling?.focus(); } if (event.key === 'ArrowUp') { event.preventDefault(); event.currentTarget.previousElementSibling?.focus(); } if (event.key === 'Escape') { setShowSuggestions(false); document.getElementById('destination-search')?.focus(); } }} className="flex w-full items-center justify-between gap-3 rounded-lg px-3 py-3 text-right hover:bg-slate-50"><span className="break-words text-sm font-bold text-slate-900">{item.label}</span><span className="shrink-0 text-xs text-slate-600">{item.hint}</span></button>)}
                             </div>}
                         </label>
                         <label className={`relative flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] border-slate-200 px-5 py-4 transition-all duration-300 lg:rounded-full lg:border-l ${activeField === 'checkin' ? 'bg-white shadow-md' : 'hover:bg-slate-50'}`}>
@@ -208,10 +212,10 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                             </details>
                         </div>
                         <div className="p-1 lg:flex lg:items-center lg:py-1 lg:pl-1 lg:pr-2">
-                            <button type="submit" className="flex min-h-[60px] w-full items-center justify-center gap-2 rounded-lg bg-remal-dark px-7 text-sm font-bold text-white lg:w-auto"><span>ابحث الآن</span><ArrowLeft size={18} /></button>
+                            <button type="submit" disabled={loading} className="flex min-h-[60px] w-full items-center justify-center gap-2 rounded-lg bg-remal-dark px-7 text-sm font-bold text-white disabled:cursor-wait disabled:opacity-60 lg:w-auto"><span>ابحث الآن</span><ArrowLeft size={18} /></button>
                         </div>
                     </div>
-                    {error && <p role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-900">{error}</p>}
+                    {(error || suggestionError) && <p id="search-error" role="alert" className="mt-3 rounded-lg bg-red-50 p-3 text-sm text-red-900">{error || suggestionError}</p>}
                 </form>
             </div>
         </section>
