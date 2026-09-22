@@ -23,7 +23,7 @@ const hotelSchema = new mongoose.Schema({
 const Hotel = mongoose.models.Hotel || mongoose.model('Hotel', hotelSchema);
 
 const MONGO_URI = process.env.MONGO_URI;
-const CHUNK_SIZE = clamp(Number(process.env.RATEHAWK_CONTENT_CHUNK_SIZE || 200), 100, 250);
+const CHUNK_SIZE = 100;
 const DELAY_MS = Math.max(1000, Number(process.env.RATEHAWK_CONTENT_DELAY_MS || 1500));
 
 function clamp(value, minimum, maximum) {
@@ -35,16 +35,71 @@ function sleep(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-function getUpdatedSince() {
-    const argument = process.argv.slice(2).find(value => !value.startsWith('--'));
-    const flagIndex = process.argv.indexOf('--updated_since');
-    const flagValue = flagIndex >= 0 ? process.argv[flagIndex + 1] : null;
-    const value = process.env.RATEHAWK_UPDATED_SINCE || flagValue || argument || '';
-    if (!value) return undefined;
-    if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(value)) {
-        throw new Error('updated_since must use YYYY-MM-DD HH:MM:SS');
+function getOptionValue(name) {
+    const index = process.argv.indexOf(name);
+    return index >= 0 ? process.argv[index + 1] : undefined;
+}
+
+function parseList(value, field, parseItem) {
+    if (value === undefined || value === '') return undefined;
+    let values;
+    try {
+        values = String(value).trim().startsWith('[')
+            ? JSON.parse(value)
+            : String(value).split(',').map(item => item.trim()).filter(Boolean);
+    } catch (error) {
+        throw new Error(`${field} must be a comma-separated list or JSON array`);
     }
-    return value;
+    if (!Array.isArray(values)) throw new Error(`${field} must be an array`);
+    try {
+        return values.map(parseItem);
+    } catch (error) {
+        throw new Error(`${field} contains an invalid value`);
+    }
+}
+
+function getSyncFilters() {
+    const rawFilters = process.env.RATEHAWK_FILTERS_JSON || getOptionValue('--filters');
+    let filters = {};
+    if (rawFilters) {
+        try {
+            filters = JSON.parse(rawFilters);
+        } catch (error) {
+            throw new Error('--filters must be valid JSON');
+        }
+        if (!filters || typeof filters !== 'object' || Array.isArray(filters)) {
+            throw new Error('--filters must be a JSON object');
+        }
+    }
+
+    const country = parseList(process.env.RATEHAWK_FILTER_COUNTRY || getOptionValue('--country'), 'country', value => {
+        const number = Number(value);
+        if (!Number.isInteger(number)) throw new Error('not an integer');
+        return number;
+    });
+    const starRating = parseList(process.env.RATEHAWK_FILTER_STAR_RATING || getOptionValue('--star_rating'), 'star_rating', value => {
+        const number = Number(value);
+        if (!Number.isInteger(number)) throw new Error('not an integer');
+        return number;
+    });
+    const kind = parseList(process.env.RATEHAWK_FILTER_KIND || getOptionValue('--kind'), 'kind', String);
+    const serpFilter = parseList(process.env.RATEHAWK_FILTER_SERP_FILTER || getOptionValue('--serp_filter'), 'serp_filter', String);
+    if (country !== undefined) filters.country = country;
+    if (starRating !== undefined) filters.star_rating = starRating;
+    if (kind !== undefined) filters.kind = kind;
+    if (serpFilter !== undefined) filters.serp_filter = serpFilter;
+
+    const positional = process.argv[2] && !process.argv[2].startsWith('--') ? process.argv[2] : undefined;
+    const updatedSince = process.env.RATEHAWK_UPDATED_SINCE
+        || getOptionValue('--updated_since')
+        || positional;
+    if (updatedSince !== undefined) {
+        if (!/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(updatedSince)) {
+            throw new Error('updated_since must use YYYY-MM-DD HH:MM:SS');
+        }
+        filters.updated_since = updatedSince;
+    }
+    return filters;
 }
 
 function asArray(value) {
@@ -57,10 +112,14 @@ function extractHotelIds(payload) {
     const data = payload && payload.data !== undefined ? payload.data : payload;
     const candidates = [data && data.hids, data && data.hotel_ids, data && data.ids, data && data.hotelIds];
     const source = candidates.find(Array.isArray) || (Array.isArray(data) ? data : []);
-    return source
+    const ids = source
         .map(item => item && typeof item === 'object' ? (item.hid || item.hotel_id || item.id) : item)
         .filter(value => value !== undefined && value !== null && value !== '')
-        .map(value => String(value));
+        .map(value => Number(value));
+    if (ids.some(value => !Number.isInteger(value) || value < 0 || value > 0xFFFFFFFF)) {
+        throw new Error('ETG hotel IDs must be uint32 integers');
+    }
+    return ids;
 }
 
 function extractHotels(payload) {
@@ -110,10 +169,14 @@ function toHotelOperation(hotel) {
     };
 }
 
-async function fetchHotelIds(updatedSince) {
-    const response = await client.hotelIds(updatedSince ? { updated_since: updatedSince } : {});
-    if (!response.ok) throw new Error(response.error || 'ETG hotel IDs request failed');
-    return extractHotelIds(response.data);
+async function fetchHotelIds(filters) {
+    return (await client.fetchHotelIdsByFilter(filters)).map(value => {
+        const hid = Number(value);
+        if (!Number.isInteger(hid) || hid < 0 || hid > 0xFFFFFFFF) {
+            throw new Error('ETG hotel IDs must be uint32 integers');
+        }
+        return hid;
+    });
 }
 
 async function fetchHotelContent(ids) {
@@ -125,15 +188,15 @@ async function fetchHotelContent(ids) {
 async function syncFilteredHotels() {
     if (!MONGO_URI) throw new Error('MONGO_URI is missing in environment variables');
 
-    const updatedSince = getUpdatedSince();
+    const filters = getSyncFilters();
     logger.info('Starting ETG filtered hotel content synchronization', {
-        updatedSince: updatedSince || 'all hotels',
+        filters: Object.keys(filters).length ? filters : 'all hotels',
         chunkSize: CHUNK_SIZE,
         delayMs: DELAY_MS
     });
 
-    const ids = await fetchHotelIds(updatedSince);
-    logger.info('Fetched ETG hotel IDs', { count: ids.length, updatedSince: updatedSince || null });
+    const ids = await fetchHotelIds(filters);
+    logger.info('Fetched ETG hotel IDs', { count: ids.length, filters });
     if (!ids.length) return { ids: 0, chunks: 0, upserted: 0, modified: 0, skipped: 0 };
 
     await mongoose.connect(MONGO_URI);
@@ -178,6 +241,7 @@ if (require.main === module) {
 module.exports = {
     CHUNK_SIZE,
     DELAY_MS,
+    getSyncFilters,
     extractHotelIds,
     extractHotels,
     toHotelOperation,

@@ -290,8 +290,78 @@ const contractInfo = () => call('get', '/api/b2b/v3/general/contract/data/info/'
 const hotelStatic = () => call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
 const filterValues = () => call('get', '/api/content/v1/filter_values/');
 const hotelIds = (data = {}) => call('get', '/api/content/v1/hotel/ids', { data, timeout: 60000 });
-const hotelContent = (data) => call('post', '/api/content/v1/hotel/content', { data, timeout: 60000 });
-const hotelIdsByFilter = (data) => call('get', '/api/content/v1/hotel_ids_by_filter/', { data });
+const hotelContent = (data = {}) => call('post', '/api/content/v1/hotel_content_by_ids/', {
+    data: { ...data, language: 'en' },
+    timeout: 60000
+});
+function normalizeHotelIdFilters(filters = {}) {
+    if (!filters || typeof filters !== 'object' || Array.isArray(filters)) {
+        throw new TypeError('Hotel ID filters must be an object');
+    }
+    const payload = {};
+    const integerArrays = ['country', 'star_rating'];
+    const stringArrays = ['kind', 'serp_filter'];
+
+    integerArrays.forEach(key => {
+        if (filters[key] === undefined) return;
+        if (!Array.isArray(filters[key]) || filters[key].some(value => !Number.isInteger(value))) {
+            throw new TypeError(`${key} must be an array of integers`);
+        }
+        payload[key] = filters[key];
+    });
+    stringArrays.forEach(key => {
+        if (filters[key] === undefined) return;
+        if (!Array.isArray(filters[key]) || filters[key].some(value => typeof value !== 'string')) {
+            throw new TypeError(`${key} must be an array of strings`);
+        }
+        payload[key] = filters[key];
+    });
+    if (filters.updated_since !== undefined) {
+        if (typeof filters.updated_since !== 'string') throw new TypeError('updated_since must be a string');
+        payload.updated_since = filters.updated_since;
+    }
+    return payload;
+}
+
+async function fetchHotelIdsByFilter(filters = {}) {
+    const payload = normalizeHotelIdFilters(filters);
+    let response;
+    try {
+        response = await call('post', '/api/content/v1/hotel_ids_by_filter/', {
+            data: payload,
+            timeout: 60000
+        });
+    } catch (error) {
+        if (error.ratehawkError === 'invalid_params') {
+            logger.warn('ETG hotel IDs by filter rejected parameters', {
+                validationError: error.validationError || error.message
+            });
+            return [];
+        }
+        if (error.ratehawkError === 'no_hotel_ids' || error.httpStatus === 500) {
+            logger.warn('ETG hotel IDs by filter returned no hotel IDs', { error: error.message });
+            return [];
+        }
+        throw error;
+    }
+
+    if (response.error === 'invalid_params') {
+        logger.warn('ETG hotel IDs by filter rejected parameters', {
+            validationError: response.validationError || 'unknown validation error'
+        });
+        return [];
+    }
+    if (response.error === 'no_hotel_ids' || response.httpStatus === 500) {
+        logger.warn('ETG hotel IDs by filter returned no hotel IDs', { error: response.error || response.httpStatus });
+        return [];
+    }
+    if (!response.ok) throw new Error(response.error || 'ETG hotel IDs by filter request failed');
+
+    const hids = response.data && response.data.hids;
+    return Array.isArray(hids) ? hids : [];
+}
+
+const hotelIdsByFilter = fetchHotelIdsByFilter;
 const hotelContentByIds = (data) => call('post', '/api/content/v1/hotel_content_by_ids/', { data, timeout: 60000 });
 const hotelInfo = (data) => call('post', '/api/b2b/v3/hotel/info/', { data });
 
@@ -327,6 +397,8 @@ module.exports = {
     filterValues,
     hotelIds,
     hotelContent,
+    normalizeHotelIdFilters,
+    fetchHotelIdsByFilter,
     hotelIdsByFilter,
     hotelContentByIds,
     hotelInfo,
