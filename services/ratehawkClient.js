@@ -23,6 +23,7 @@ const API_KEY = process.env.RATEHAWK_API_KEY || '';
 
 // Default per-endpoint timeouts (ms). Booking/cancel need longer windows.
 const DEFAULT_TIMEOUT = 20000;
+const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
 
 // ETG error codes that are safe to retry (transient / non-final).
 const RETRYABLE_ERRORS = new Set(['unknown', 'timeout']);
@@ -151,7 +152,7 @@ async function callOnce(method, path, { data, timeout, redactPayload = false } =
     } catch (error) {
         logger.logEtgExchange({
             method: config.method,
-            url: http.getUri(config),
+            url: redactPayload ? new URL(path, BASE_URL).toString() : http.getUri(config),
             headers: config.headers,
             auth: config.auth,
             requestPayload: redactPayload ? null : config.data !== undefined ? config.data : data,
@@ -164,7 +165,7 @@ async function callOnce(method, path, { data, timeout, redactPayload = false } =
     }
     logger.logEtgExchange({
         method: config.method,
-        url: http.getUri(config),
+        url: redactPayload ? new URL(path, BASE_URL).toString() : http.getUri(config),
         headers: config.headers,
         auth: config.auth,
         requestPayload: redactPayload ? null : config.data !== undefined ? config.data : data,
@@ -288,11 +289,67 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800, r
     }
 }
 
+async function downloadDocument(path, data) {
+    assertCredentials();
+    const config = {
+        method: 'get',
+        url: path,
+        params: { data: JSON.stringify(data) },
+        auth: { username: String(KEY_ID), password: String(API_KEY) },
+        responseType: 'arraybuffer',
+        timeout: DEFAULT_TIMEOUT,
+        maxRedirects: 0,
+        maxContentLength: MAX_DOCUMENT_BYTES,
+        validateStatus: () => true
+    };
+    const startedAt = Date.now();
+    let response;
+    try {
+        response = await http.request(config);
+    } catch (error) {
+        logger.logEtgExchange({ method: 'get', url: new URL(path, BASE_URL).toString(), requestPayload: null, responsePayload: null,
+            statusCode: error.response && error.response.status, latencyMs: Date.now() - startedAt,
+            error: { code: 'request_failed' } });
+        throw error;
+    }
+    logger.logEtgExchange({ method: 'get', url: new URL(path, BASE_URL).toString(), requestPayload: null, responsePayload: null,
+        statusCode: response.status, latencyMs: Date.now() - startedAt });
+    const buffer = response.data;
+    const contentType = String((response.headers || {})['content-type'] || '').split(';', 1)[0].trim().toLowerCase();
+    const rateLimit = readRateLimit(response.headers || {});
+    if (!Buffer.isBuffer(buffer) || buffer.length > MAX_DOCUMENT_BYTES) {
+        return { ok: false, error: 'invalid_document_response', httpStatus: response.status, rateLimit };
+    }
+    if (response.status >= 200 && response.status < 300 && contentType === 'application/pdf' &&
+        buffer.subarray(0, 5).toString('ascii') === '%PDF-') {
+        return { ok: true, buffer, httpStatus: response.status };
+    }
+    if ((response.status < 300 || response.status >= 400) && contentType === 'application/json' && buffer.length <= 65536) {
+        try {
+            const body = JSON.parse(buffer.toString('utf8'));
+            if (body && body.status === 'error' && typeof body.error === 'string') {
+                return { ok: false, error: body.error, httpStatus: response.status, rateLimit };
+            }
+        } catch {
+            // Malformed supplier responses are never returned to callers.
+        }
+    }
+    return { ok: false, error: 'invalid_document_response', httpStatus: response.status, rateLimit };
+}
+
 // ---- Connectivity / account -------------------------------------------------
 const getApiOverview = () => call('get', '/api/b2b/v3/overview/');
 const overview = getApiOverview;
 const contractInfo = () => call('get', '/api/b2b/v3/general/contract/data/info/', { retries: 0, rateLimitRetry: false, redactPayload: true });
 const financialInfo = () => call('get', '/api/b2b/v3/general/financial/info/', { retries: 0, rateLimitRetry: false, redactPayload: true });
+const closingDocumentsInfo = data => call('get', '/api/b2b/v3/general/document/closing_documents/info/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const closingDocuments = data => downloadDocument('/api/b2b/v3/general/document/closing_documents/download/', data);
+const voucher = data => downloadDocument('/api/b2b/v3/hotel/order/document/voucher/download/', data);
+const invoiceInfo = data => downloadDocument('/api/b2b/v3/hotel/order/document/info_invoice/download/', data);
+const invoice = data => downloadDocument('/api/b2b/v3/ordergroup/document/invoice/download/', data);
+const singleAct = data => downloadDocument('/api/b2b/v3/hotel/order/document/single_act/download/', data);
 
 // ---- Static / content data (Content API) -----------------------------------
 const hotelStatic = () => call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
@@ -848,10 +905,17 @@ module.exports = {
     BASE_URL,
     getAuthHeaders,
     call,
+    downloadDocument,
     getApiOverview,
     overview,
     contractInfo,
     financialInfo,
+    closingDocuments,
+    closingDocumentsInfo,
+    voucher,
+    invoiceInfo,
+    invoice,
+    singleAct,
     getHotelDumpUrl,
     getCustomDumpUrl,
     getIncrementalDumpUrl,

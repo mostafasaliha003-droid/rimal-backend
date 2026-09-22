@@ -5,6 +5,135 @@ const { resolveValidatedPayment } = require('./services/paymentService');
 const expected = { hid: 123, total: 250, currency: 'AED' };
 const result = () => ({ hotels: [{ hid: 123, rates: [{ book_hash: 'verified', payment_options: { payment_types: [{ type: 'deposit', amount: '250.00', currency_code: 'AED' }] } }] }] });
 
+test('document transport downloads bounded PDFs and handles pending JSON without logging private data', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+    });
+    let response = { status: 200, headers: { 'content-type': 'application/pdf' }, data: Buffer.from('%PDF-1.7\nprivate-document') };
+    let expectedPath;
+    let expectedData;
+    const request = context.mock.fn(async config => {
+        assert.equal(config.method, 'get');
+        assert.equal(config.url, expectedPath);
+        assert.equal(config.responseType, 'arraybuffer');
+        assert.equal(config.maxRedirects, 0);
+        assert.equal(config.maxContentLength, 8 * 1024 * 1024);
+        assert.deepEqual(JSON.parse(config.params.data), expectedData);
+        assert.equal(config.auth.username, 'fixture-id');
+        assert.equal(config.auth.password, 'fixture-key');
+        if (response instanceof Error) throw response;
+        return response;
+    });
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => `${config.url}?data=private-order` }));
+    const exchange = context.mock.method(logger, 'logEtgExchange', entry => {
+        assert.equal(entry.requestPayload, null);
+        assert.equal(entry.responsePayload, null);
+        assert.match(entry.url, /^https:\/\/[^/?]+\/api\/b2b\/v3\//);
+        assert.doesNotMatch(entry.url, /\?/);
+        assert.doesNotMatch(JSON.stringify(entry), /private-/);
+    });
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    delete require.cache[modulePath];
+    const client = require('./services/ratehawkClient');
+    for (const [method, path, data] of [
+        ['closingDocuments', '/api/b2b/v3/general/document/closing_documents/download/', { package_id: 55225, seal: true }],
+        ['voucher', '/api/b2b/v3/hotel/order/document/voucher/download/', { partner_order_id: 'private-order', language: 'en' }],
+        ['invoiceInfo', '/api/b2b/v3/hotel/order/document/info_invoice/download/', { partner_order_id: 'private-order' }],
+        ['invoice', '/api/b2b/v3/ordergroup/document/invoice/download/', { invoice_id: 'private-invoice' }],
+        ['singleAct', '/api/b2b/v3/hotel/order/document/single_act/download/', { partner_order_id: 'private-order', seal: false, add_commission: true, show_b2b2c_price: false }]
+    ]) {
+        expectedPath = path;
+        expectedData = data;
+        const pdf = await client[method](data);
+        assert.equal(pdf.ok, true);
+        assert.deepEqual(pdf.buffer, response.data);
+    }
+    response = { status: 200, headers: { 'content-type': 'application/json' }, data: Buffer.from('{"status":"error","error":"pending","debug":{"validation_error":"private-debug"}}') };
+    expectedPath = '/api/b2b/v3/hotel/order/document/voucher/download/';
+    expectedData = { partner_order_id: 'private-order', language: 'en' };
+    const pending = await client.voucher(expectedData);
+    assert.equal(pending.ok, false);
+    assert.equal(pending.error, 'pending');
+    assert.equal(pending.buffer, undefined);
+    for (const invalid of [
+        { status: 200, headers: { 'content-type': 'text/html' }, data: Buffer.from('%PDF-1.7\nprivate-document') },
+        { status: 200, headers: { 'content-type': 'application/pdfx' }, data: Buffer.from('%PDF-1.7\nprivate-document') },
+        { status: 200, headers: { 'content-type': 'application/pdf' }, data: Buffer.from('private-html') },
+        { status: 200, headers: { 'content-type': 'application/pdf' }, data: Buffer.alloc(8 * 1024 * 1024 + 1) },
+        { status: 302, headers: { 'content-type': 'application/pdf' }, data: Buffer.from('%PDF-1.7\nprivate-document') },
+        { status: 302, headers: { 'content-type': 'application/json' }, data: Buffer.from('{"status":"error","error":"pending"}') },
+        { status: 200, headers: { 'content-type': 'application/json' }, data: Buffer.from('private-json') }
+    ]) {
+        response = invalid;
+        const rejected = await client.voucher(expectedData);
+        assert.equal(rejected.ok, false);
+        assert.equal(rejected.error, 'invalid_document_response');
+        assert.equal(rejected.buffer, undefined);
+    }
+    response = { status: 429, headers: { 'content-type': 'application/json', 'x-ratelimit-secondsnumber': '120' },
+        data: Buffer.from('{"status":"error","error":"rate_limit"}') };
+    const limited = await client.voucher(expectedData);
+    assert.equal(limited.httpStatus, 429);
+    assert.equal(limited.rateLimit.secondsNumber, 120);
+    response = Object.assign(new Error('private-timeout'), {
+        code: 'ETIMEDOUT', config: { auth: 'private-key' }, response: { status: 503, data: 'private-response' }
+    });
+    await assert.rejects(client.voucher(expectedData), /private-timeout/);
+    assert.equal(request.mock.callCount(), 15);
+    assert.equal(exchange.mock.callCount(), 15);
+});
+
+test('closing document details use private single-attempt JSON GET', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+    });
+    const request = context.mock.fn(async config => {
+        assert.equal(config.method, 'get');
+        assert.equal(config.url, '/api/b2b/v3/general/document/closing_documents/info/');
+        assert.equal(config.maxRedirects, 0);
+        assert.deepEqual(JSON.parse(config.params.data), { order_ids: 55225 });
+        return { status: 200, headers: {}, data: { status: 'ok', error: null, data: { packages: [] } } };
+    });
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => `${config.url}?data=private-order` }));
+    context.mock.method(logger, 'logEtgExchange', entry => {
+        assert.equal(entry.requestPayload, null);
+        assert.equal(entry.responsePayload, null);
+        assert.match(entry.url, /^https:\/\/[^/?]+\/api\/b2b\/v3\//);
+        assert.doesNotMatch(entry.url, /\?/);
+        assert.doesNotMatch(JSON.stringify(entry), /private-/);
+    });
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    delete require.cache[modulePath];
+    const response = await require('./services/ratehawkClient').closingDocumentsInfo({ order_ids: 55225 });
+    assert.equal(response.ok, true);
+    assert.deepEqual(response.data, { packages: [] });
+    assert.equal(request.mock.callCount(), 1);
+});
+
 test('contract transports use private single-attempt GET requests without payload logging or redirects', async context => {
     const axios = require('axios');
     const logger = require('./services/loggerService');
@@ -152,6 +281,122 @@ test('contract and financial errors fail closed without exposing upstream creden
         }
         assert.equal(retrieve.mock.callCount(), 12);
     }
+});
+
+test('document services validate requests and return supplier PDFs without guessing eligibility', async context => {
+    const service = require('./services/ratehawkService');
+    const pdf = Buffer.from('%PDF-1.7\nprivate-document');
+    const cases = [
+        ['retrieveClosingDocuments', 'closingDocuments', { package_id: '55225', seal: false }, { package_id: 55225, seal: false }],
+        ['retrieveVoucher', 'voucher', { partner_order_id: 'private-order', language: 'pt_PT' }, { partner_order_id: 'private-order', language: 'pt_PT' }],
+        ['retrieveInvoiceInfo', 'invoiceInfo', { partner_order_id: 'private-order' }, { partner_order_id: 'private-order' }],
+        ['retrieveInvoice', 'invoice', { invoice_id: 'private-invoice' }, { invoice_id: 'private-invoice' }],
+        ['retrieveSingleAct', 'singleAct', { partner_order_id: 'private-order', seal: true, add_commission: false, show_b2b2c_price: true },
+            { partner_order_id: 'private-order', seal: true, add_commission: false, show_b2b2c_price: true }]
+    ];
+    for (const [method, transport, input, normalized] of cases) {
+        const request = context.mock.method(service.client, transport, async data => {
+            assert.deepEqual(data, normalized);
+            return { ok: true, httpStatus: 200, buffer: pdf };
+        });
+        assert.deepEqual(await service[method](input), pdf);
+        assert.equal(request.mock.callCount(), 1);
+        request.mock.restore();
+    }
+    const noCall = context.mock.method(service.client, 'voucher', async () => { throw new Error('unexpected supplier call'); });
+    for (const invalid of [
+        {}, { partner_order_id: '', language: 'en' }, { partner_order_id: 'private-order', language: 'xx' },
+        { partner_order_id: 'private-order', language: 'en', extra: true },
+        { partner_order_id: ['private-order'], language: 'en' }
+    ]) {
+        await assert.rejects(service.retrieveVoucher(invalid), error => error.httpStatus === 400);
+    }
+    assert.equal(noCall.mock.callCount(), 0);
+    noCall.mock.restore();
+    for (const [method, invalid] of [
+        ['retrieveClosingDocuments', { package_id: 55225, seal: 'true' }],
+        ['retrieveClosingDocuments', { package_id: 0, seal: true }],
+        ['retrieveInvoiceInfo', { partner_order_id: '' }],
+        ['retrieveInvoice', { invoice_id: 1 }],
+        ['retrieveSingleAct', { partner_order_id: 'private-order', add_commission: 'false' }]
+    ]) {
+        await assert.rejects(service[method](invalid), error => error.httpStatus === 400);
+    }
+});
+
+test('closing document info validates exclusive lookup modes and the returned packages', async context => {
+    const service = require('./services/ratehawkService');
+    const packages = [{ agreement_number: 'B2B-FIXTURE', package_id: 55225, package_issue_date: '2025-01-31',
+        order_ids: [314159], package_number: 'ACT-123', reporting_month: 1, reporting_year: 2025,
+        total_commission: '5.05', total_sum: '100.00', total_vat: '0.00' }];
+    let result = { ok: true, status: 'ok', error: null, httpStatus: 200, data: { packages } };
+    const request = context.mock.method(service.client, 'closingDocumentsInfo', async data => {
+        assert.deepEqual(data, { order_ids: 55225 });
+        return result;
+    });
+    assert.deepEqual(await service.retrieveClosingDocumentsInfo({ order_ids: '55225' }), { success: true, packages });
+    result = { ...result, data: { packages: [] } };
+    assert.deepEqual(await service.retrieveClosingDocumentsInfo({ order_ids: 55225 }), { success: true, packages: [] });
+    for (const data of [null, {}, { packages: {} }, { packages: [{ package_id: 'bad' }] }]) {
+        result = { ...result, data };
+        await assert.rejects(service.retrieveClosingDocumentsInfo({ order_ids: 55225 }), error =>
+            error.code === 'invalid_closing_documents_info_response' && error.httpStatus === 502);
+    }
+    assert.equal(request.mock.callCount(), 6);
+    request.mock.restore();
+    const byAgreement = context.mock.method(service.client, 'closingDocumentsInfo', async data => {
+        assert.deepEqual(data, { agreement_numbers: 'B2B-FIXTURE', issue_date: '2025-01-31' });
+        return { ok: true, status: 'ok', error: null, httpStatus: 200, data: { packages: [] } };
+    });
+    await service.retrieveClosingDocumentsInfo({ agreement_numbers: 'B2B-FIXTURE', issue_date: '2025-01-31' });
+    byAgreement.mock.restore();
+    for (const invalid of [{}, { order_ids: 0 }, { order_ids: 55225, seal: true },
+        { agreement_numbers: 'B2B-FIXTURE' }, { issue_date: '2025-01-31' },
+        { agreement_numbers: 'B2B-FIXTURE', issue_date: '2025-02-31' },
+        { agreement_numbers: 'B2B-FIXTURE', issue_date: '2025-13-01' },
+        { order_ids: 55225, agreement_numbers: 'B2B-FIXTURE', issue_date: '2025-01-31' }]) {
+        await assert.rejects(service.retrieveClosingDocumentsInfo(invalid), error => error.httpStatus === 400);
+    }
+});
+
+test('document services classify supplier errors without returning private debug or a false PDF', async context => {
+    const service = require('./services/ratehawkService');
+    let result;
+    const request = context.mock.method(service.client, 'voucher', async () => {
+        if (result instanceof Error) throw result;
+        return result;
+    });
+    for (const [value, code, status] of [
+        [{ ok: false, error: 'failed_to_generate_document', httpStatus: 400 }, 'failed_to_generate_document', 202],
+        [{ ok: false, error: 'pending', httpStatus: 200 }, 'pending', 202],
+        [{ ok: false, error: 'voucher_is_not_downloadable', httpStatus: 200 }, 'voucher_is_not_downloadable', 409],
+        [{ ok: false, error: 'single_act_is_not_downloadable', httpStatus: 200 }, 'single_act_is_not_downloadable', 409],
+        [{ ok: false, error: 'invoice_not_available', httpStatus: 200 }, 'invoice_not_available', 409],
+        [{ ok: false, error: 'terminal_invoice', httpStatus: 200 }, 'terminal_invoice', 409],
+        [{ ok: false, error: 'order_not_assigned', httpStatus: 200 }, 'order_not_assigned', 409],
+        [{ ok: false, error: 'order_not_found', httpStatus: 404 }, 'order_not_found', 404],
+        [{ ok: false, error: 'invoice_not_found', httpStatus: 200 }, 'invoice_not_found', 404],
+        [{ ok: false, error: 'endpoint_not_active', httpStatus: 404 }, 'supplier_endpoint_unavailable', 502],
+        [{ ok: false, error: 'invalid_params', httpStatus: 400 }, 'supplier_request_rejected', 502],
+        [{ ok: false, error: 'unauthorized', httpStatus: 200 }, 'supplier_unauthorized', 502],
+        [{ ok: false, error: 'unknown', httpStatus: 503 }, 'supplier_unknown', 502],
+        [{ ok: false, error: 'invalid_document_response', httpStatus: 200 }, 'invalid_document_response', 502],
+        [{ ok: false, error: 'private-debug', httpStatus: 200, debug: 'private-debug' }, 'document_unavailable', 502],
+        [{ ok: false, httpStatus: 429, rateLimit: { secondsNumber: 120 } }, 'rate_limit', 429],
+        [Object.assign(new Error('private-transport'), { config: { auth: 'private-key' }, code: 'ETIMEDOUT' }), 'supplier_connection_failed', 502],
+        [Object.assign(new Error('private-credentials'), { code: 'ratehawk_credentials_missing' }), 'supplier_credentials_missing', 503]
+    ]) {
+        result = value;
+        await assert.rejects(service.retrieveVoucher({ partner_order_id: 'private-order', language: 'en' }), error => {
+            assert.equal(error.code, code);
+            assert.equal(error.httpStatus, status);
+            assert.equal(error.config, undefined);
+            assert.doesNotMatch(JSON.stringify(error), /private-/);
+            if (status === 429) assert.equal(error.retry_after_ms, 120000);
+            return true;
+        });
+    }
+    assert.equal(request.mock.callCount(), 18);
 });
 
 test('cancellation sends only the documented order ID and preserves supplier financial currencies', async context => {
@@ -1067,6 +1312,113 @@ test('contract HTTP routes require private server authentication and preserve no
         assert.equal(response.headers.get('cache-control'), 'no-store');
         assert.deepEqual(await response.json(), { success: false, error: code });
     }
+});
+
+test('document HTTP routes require private authorization and send only PDF or validated metadata', async context => {
+    const express = require('express');
+    const { createDocumentRouter } = require('./services/bookingRoutes');
+    const service = require('./services/ratehawkService');
+    const previous = Object.fromEntries(['RATEHAWK_BOOKING_TOKEN', 'REMAL_SECURE_KEY', 'RATEHAWK_BOOKING_ENABLED'].map(key => [key, process.env[key]]));
+    context.after(() => {
+        for (const [key, value] of Object.entries(previous)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
+    });
+    const token = 'fixture-private-document-token-32-characters';
+    const pdf = Buffer.from('%PDF-1.7\nprivate-document');
+    const cases = [
+        ['closing-documents', 'retrieveClosingDocuments', { package_id: 55225, seal: true }, 'closing-documents.pdf'],
+        ['closing-documents/info', 'retrieveClosingDocumentsInfo', { order_ids: 55225 }, null],
+        ['voucher', 'retrieveVoucher', { partner_order_id: 'private-order', language: 'en' }, 'voucher.pdf'],
+        ['invoice-info', 'retrieveInvoiceInfo', { partner_order_id: 'private-order' }, 'invoice-info.pdf'],
+        ['invoice', 'retrieveInvoice', { invoice_id: 'private-invoice' }, 'invoice.pdf'],
+        ['single-act', 'retrieveSingleAct', { partner_order_id: 'private-order' }, 'single-act.pdf']
+    ];
+    const methods = cases.map(([, method, , filename]) => context.mock.method(service, method, async () =>
+        filename ? pdf : { success: true, packages: [] }));
+    const app = express();
+    app.use('/api/v1/documents', createDocumentRouter());
+    const server = await new Promise(resolve => {
+        const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+    });
+    context.after(() => new Promise(resolve => server.close(resolve)));
+    const send = (route, body, headers = {}, method = 'POST') => fetch(`http://127.0.0.1:${server.address().port}/api/v1/documents/${route}`, {
+        method, headers: { 'Content-Type': 'application/json', ...headers }, body: method === 'POST' ? JSON.stringify(body) : undefined
+    });
+    process.env.REMAL_SECURE_KEY = 'public-fixture-key';
+    delete process.env.RATEHAWK_BOOKING_ENABLED;
+    delete process.env.RATEHAWK_BOOKING_TOKEN;
+    const unconfigured = await send('voucher', cases[2][2]);
+    assert.equal(unconfigured.status, 503);
+    assert.equal(unconfigured.headers.get('cache-control'), 'no-store');
+    process.env.RATEHAWK_BOOKING_TOKEN = token;
+    const invalidBody = '{"partner_order_id":"private-order",';
+    const sendMalformed = headers => fetch(`http://127.0.0.1:${server.address().port}/api/v1/documents/voucher`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body: invalidBody
+    });
+    const malformedUnauthorized = await sendMalformed({});
+    assert.equal(malformedUnauthorized.status, 401);
+    assert.equal(malformedUnauthorized.headers.get('cache-control'), 'no-store');
+    const malformedAuthorized = await sendMalformed({ Authorization: `Bearer ${token}` });
+    assert.equal(malformedAuthorized.status, 400);
+    assert.equal(malformedAuthorized.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await malformedAuthorized.json(), { success: false, error: 'invalid_document_request' });
+    for (const headers of [{}, { 'x-api-key': 'public-fixture-key' }, { Authorization: 'Bearer wrong-token' }]) {
+        const denied = await send('voucher', cases[2][2], headers);
+        assert.equal(denied.status, 401);
+        assert.equal(denied.headers.get('cache-control'), 'no-store');
+    }
+    const authorization = { Authorization: `Bearer ${token}` };
+    assert.equal((await send('voucher', cases[2][2], { ...authorization, Origin: 'https://remalbookings.com' })).status, 403);
+    assert.equal((await send('voucher?partner_order_id=private-order', cases[2][2], authorization)).status, 400);
+    assert.equal((await send('voucher', { ...cases[2][2], extra: true }, authorization)).status, 400);
+    assert.equal((await send('voucher', cases[2][2], authorization, 'GET')).status, 404);
+    const oversized = await send('voucher', { partner_order_id: 'private-order'.repeat(1024), language: 'en' }, authorization);
+    assert.equal(oversized.status, 400);
+    assert.equal(oversized.headers.get('cache-control'), 'no-store');
+    assert.deepEqual(await oversized.json(), { success: false, error: 'invalid_document_request' });
+    for (const [index, [route, , data, filename]] of cases.entries()) {
+        const response = await send(route, data, authorization);
+        assert.equal(response.status, 200);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        assert.equal(response.headers.get('etag'), null);
+        if (filename) {
+            assert.match(response.headers.get('content-type'), /^application\/pdf/);
+            assert.equal(response.headers.get('content-disposition'), `attachment; filename="${filename}"`);
+            assert.equal(response.headers.get('x-content-type-options'), 'nosniff');
+            assert.deepEqual(Buffer.from(await response.arrayBuffer()), pdf);
+        } else {
+            assert.deepEqual(await response.json(), { success: true, packages: [] });
+        }
+        assert.equal(methods[index].mock.callCount(), 1);
+        assert.deepEqual(methods[index].mock.calls[0].arguments[0], data);
+    }
+    methods[5].mock.restore();
+    const invalidFlag = await send('single-act', { partner_order_id: 'private-order', show_b2b2c_price: 'false' }, authorization);
+    assert.equal(invalidFlag.status, 400);
+    assert.deepEqual(await invalidFlag.json(), { success: false, error: 'invalid_show_b2b2c_price' });
+    methods[2].mock.mockImplementation(async () => { throw Object.assign(new Error('private-error'), { code: 'pending', httpStatus: 202 }); });
+    const pending = await send('voucher', cases[2][2], authorization);
+    assert.equal(pending.status, 202);
+    assert.equal(pending.headers.get('cache-control'), 'no-store');
+    assert.equal(pending.headers.get('retry-after'), '5');
+    assert.deepEqual(await pending.json(), { success: false, pending: true, error: 'pending' });
+    methods[2].mock.mockImplementation(async () => { throw Object.assign(new Error('private-error'), { code: 'supplier_endpoint_unavailable', httpStatus: 502 }); });
+    const supplier = await send('voucher', cases[2][2], authorization);
+    assert.equal(supplier.status, 502);
+    assert.deepEqual(await supplier.json(), { success: false, error: 'supplier_endpoint_unavailable' });
+    methods[2].mock.mockImplementation(async () => {
+        throw Object.assign(new Error('private-error'), { code: 'rate_limit', httpStatus: 429, retry_after_ms: 120001 });
+    });
+    const limited = await send('voucher', cases[2][2], authorization);
+    assert.equal(limited.status, 429);
+    assert.equal(limited.headers.get('retry-after'), '121');
+    assert.deepEqual(await limited.json(), { success: false, error: 'rate_limit' });
+    methods[2].mock.mockImplementation(async () => { throw Object.assign(new Error('private-error'), { code: 'private_debug', httpStatus: 502 }); });
+    const unknown = await send('voucher', cases[2][2], authorization);
+    assert.equal(unknown.status, 503);
+    assert.deepEqual(await unknown.json(), { success: false, error: 'document_service_unavailable' });
 });
 
 test('post-booking HTTP routes protect order data and cancellation from browser keys and retire unauthenticated cancellation', async context => {

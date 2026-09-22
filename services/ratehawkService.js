@@ -1181,6 +1181,147 @@ async function retrieveFinancialDetails() {
     return { success: true, contract: data.contract, contract_datas: data.contract_datas };
 }
 
+const DOCUMENT_LANGUAGES = new Set('ar bg cs da de el en es fi fr he hu it ja kk ko nl no pl pt pt_PT ro ru sq sr sv th tr uk vi zh_CN zh_TW'.split(' '));
+
+function documentFields(input, required, optional = []) {
+    if (!contractObject(input) || Object.keys(input).some(field => ![...required, ...optional].includes(field))) {
+        throw bookingError('invalid_document_request');
+    }
+    for (const field of required) {
+        if (!Object.hasOwn(input, field)) throw bookingError('invalid_document_request');
+    }
+    return input;
+}
+
+function documentId(value, field) {
+    return requiredText(value, field);
+}
+
+function documentNumber(value, field) {
+    if (!(typeof value === 'number' || typeof value === 'string' && /^\d+$/.test(value))
+        || !Number.isSafeInteger(Number(value)) || Number(value) <= 0) {
+        throw bookingError(`invalid_${field}`);
+    }
+    return Number(value);
+}
+
+function documentFlag(value, field) {
+    if (typeof value !== 'boolean') throw bookingError(`invalid_${field}`);
+    return value;
+}
+
+function documentFailure(response) {
+    if (response?.credentialsMissing) throw bookingError('supplier_credentials_missing', 503);
+    if (response?.httpStatus === 429) throw Object.assign(bookingError('rate_limit', 429), { retry_after_ms: retryAfterMs(response) });
+    if ([401, 403].includes(response?.httpStatus)
+        || ['unauthorized', 'incorrect_credentials', 'no_auth_header', 'invalid_auth_header', 'not_allowed_host', 'api_access_disabled'].includes(response?.error)) {
+        throw bookingError('supplier_unauthorized', 502);
+    }
+    if (response?.error === 'failed_to_generate_document' || response?.error === 'pending') {
+        throw bookingError(response.error, 202);
+    }
+    if (['order_not_found', 'invoice_not_found'].includes(response?.error)) throw bookingError(response.error, 404);
+    if (['voucher_is_not_downloadable', 'invoice_not_available', 'terminal_invoice',
+        'order_not_assigned', 'single_act_is_not_downloadable'].includes(response?.error)) {
+        throw bookingError(response.error, 409);
+    }
+    if (response?.httpStatus === 404 || response?.error === 'endpoint_not_active') throw bookingError('supplier_endpoint_unavailable', 502);
+    if (response?.httpStatus === 400 || response?.error === 'invalid_params') throw bookingError('supplier_request_rejected', 502);
+    if (response?.connectionFailed) throw bookingError('supplier_connection_failed', 502);
+    if (response?.error === 'unknown') throw bookingError('supplier_unknown', 502);
+    if (response?.error === 'invalid_document_response') throw bookingError('invalid_document_response', 502);
+    throw bookingError('document_unavailable', 502);
+}
+
+async function documentResult(operation, metadata = false) {
+    let response;
+    try {
+        response = await operation();
+    } catch (error) {
+        response = {
+            error: error?.ratehawkError,
+            httpStatus: error?.httpStatus || error?.response?.status,
+            credentialsMissing: error?.code === 'ratehawk_credentials_missing',
+            connectionFailed: ['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(error?.code)
+        };
+    }
+    if (response?.ok !== true || !Number.isInteger(response.httpStatus)
+        || response.httpStatus < 200 || response.httpStatus >= 300
+        || (metadata && (response.status !== 'ok' || response.error != null))) {
+        documentFailure(response);
+    }
+    if (metadata) return response.data;
+    if (!Buffer.isBuffer(response.buffer) || response.buffer.length > 8 * 1024 * 1024
+        || response.buffer.subarray(0, 5).toString('ascii') !== '%PDF-') {
+        throw bookingError('invalid_document_response', 502);
+    }
+    return response.buffer;
+}
+
+async function retrieveClosingDocumentsInfo(input) {
+    const data = documentFields(input, [], ['order_ids', 'agreement_numbers', 'issue_date']);
+    let query;
+    if (Object.hasOwn(data, 'order_ids') && Object.keys(data).length === 1) {
+        query = { order_ids: documentNumber(data.order_ids, 'order_ids') };
+    } else if (Object.hasOwn(data, 'agreement_numbers') && Object.hasOwn(data, 'issue_date') && Object.keys(data).length === 2) {
+        const issueDate = requiredText(data.issue_date, 'issue_date', 10);
+        const parsedDate = /^\d{4}-\d{2}-\d{2}$/.test(issueDate) ? new Date(`${issueDate}T00:00:00Z`) : null;
+        if (!parsedDate || Number.isNaN(parsedDate.getTime()) || parsedDate.toISOString().slice(0, 10) !== issueDate) {
+            throw bookingError('invalid_issue_date');
+        }
+        query = { agreement_numbers: documentId(data.agreement_numbers, 'agreement_numbers'), issue_date: issueDate };
+    } else {
+        throw bookingError('invalid_document_request');
+    }
+    const result = await documentResult(() => client.closingDocumentsInfo(query), true);
+    if (!contractObject(result) || !Array.isArray(result.packages) || result.packages.some(pkg =>
+        !contractObject(pkg) || typeof pkg.agreement_number !== 'string'
+        || !Number.isSafeInteger(pkg.package_id) || pkg.package_id <= 0
+        || !Array.isArray(pkg.order_ids) || pkg.order_ids.some(id => !Number.isSafeInteger(id) || id <= 0)
+        || typeof pkg.package_issue_date !== 'string' || typeof pkg.package_number !== 'string'
+        || !Number.isInteger(pkg.reporting_month) || pkg.reporting_month < 1 || pkg.reporting_month > 12
+        || !Number.isInteger(pkg.reporting_year)
+        || ['total_commission', 'total_sum', 'total_vat'].some(field => !contractAmount(pkg[field])))) {
+        throw bookingError('invalid_closing_documents_info_response', 502);
+    }
+    return { success: true, packages: result.packages };
+}
+
+async function retrieveClosingDocuments(input) {
+    const data = documentFields(input, ['package_id', 'seal']);
+    const query = { package_id: documentNumber(data.package_id, 'package_id'), seal: documentFlag(data.seal, 'seal') };
+    return documentResult(() => client.closingDocuments(query));
+}
+
+async function retrieveVoucher(input) {
+    const data = documentFields(input, ['partner_order_id', 'language']);
+    const language = documentId(data.language, 'language');
+    if (!DOCUMENT_LANGUAGES.has(language)) throw bookingError('invalid_language');
+    const query = { partner_order_id: documentId(data.partner_order_id, 'partner_order_id'), language };
+    return documentResult(() => client.voucher(query));
+}
+
+async function retrieveInvoiceInfo(input) {
+    const data = documentFields(input, ['partner_order_id']);
+    const query = { partner_order_id: documentId(data.partner_order_id, 'partner_order_id') };
+    return documentResult(() => client.invoiceInfo(query));
+}
+
+async function retrieveInvoice(input) {
+    const data = documentFields(input, ['invoice_id']);
+    const query = { invoice_id: documentId(data.invoice_id, 'invoice_id') };
+    return documentResult(() => client.invoice(query));
+}
+
+async function retrieveSingleAct(input) {
+    const data = documentFields(input, ['partner_order_id'], ['add_commission', 'seal', 'show_b2b2c_price']);
+    const query = { partner_order_id: documentId(data.partner_order_id, 'partner_order_id') };
+    for (const field of ['add_commission', 'seal', 'show_b2b2c_price']) {
+        if (Object.hasOwn(data, field)) query[field] = documentFlag(data[field], field);
+    }
+    return documentResult(() => client.singleAct(query));
+}
+
 module.exports = {
     // low-level client (exposed for advanced use / testing)
     client,
@@ -1191,6 +1332,12 @@ module.exports = {
     getApiOverview,
     retrieveContract,
     retrieveFinancialDetails,
+    retrieveClosingDocuments,
+    retrieveClosingDocumentsInfo,
+    retrieveVoucher,
+    retrieveInvoiceInfo,
+    retrieveInvoice,
+    retrieveSingleAct,
     // Step 1 - static/content
     getHotelStatic,
     getSingleHotelInfo,

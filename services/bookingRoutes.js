@@ -75,6 +75,85 @@ function createContractRouter() {
     return router;
 }
 
+function createDocumentRouter() {
+    const router = express.Router();
+    const errorStatuses = {
+        failed_to_generate_document: 202, pending: 202,
+        order_not_found: 404, invoice_not_found: 404,
+        voucher_is_not_downloadable: 409, invoice_not_available: 409,
+        terminal_invoice: 409, order_not_assigned: 409, single_act_is_not_downloadable: 409,
+        rate_limit: 429,
+        supplier_unauthorized: 502, supplier_endpoint_unavailable: 502,
+        supplier_request_rejected: 502, supplier_connection_failed: 502, supplier_unknown: 502,
+        invalid_document_response: 502, invalid_closing_documents_info_response: 502, document_unavailable: 502,
+        supplier_credentials_missing: 503
+    };
+    router.use((req, res, next) => {
+        res.set('Cache-Control', 'no-store');
+        const end = res.end;
+        res.end = function (...args) {
+            res.removeHeader('ETag');
+            return end.apply(this, args);
+        };
+        next();
+    });
+    router.use(authorize);
+    router.use(express.json({ limit: '8kb' }));
+    router.use((error, req, res, next) => {
+        if (error?.status >= 400 && error?.status < 500) {
+            return res.status(400).json({ success: false, error: 'invalid_document_request' });
+        }
+        next(error);
+    });
+
+    function documentRoute(path, method, fields, filename) {
+        router.post(path, async (req, res) => {
+            if (Object.keys(req.query).length || !req.is('application/json') || !req.body
+                || typeof req.body !== 'object' || Array.isArray(req.body)
+                || Object.keys(req.body).some(field => !fields.includes(field))) {
+                return res.status(400).json({ success: false, error: 'invalid_document_request' });
+            }
+            try {
+                const result = await ratehawk[method](req.body);
+                if (!filename) return res.json(result);
+                if (!Buffer.isBuffer(result)) throw new Error('Unexpected document response');
+                res.set({
+                    'Content-Type': 'application/pdf',
+                    'Content-Disposition': `attachment; filename="${filename}"`,
+                    'X-Content-Type-Options': 'nosniff'
+                });
+                return res.send(result);
+            } catch (error) {
+                const code = error?.code;
+                const status = errorStatuses[code];
+                if (status === error?.httpStatus) {
+                    if (status === 202) {
+                        res.set('Retry-After', '5');
+                        return res.status(202).json({ success: false, pending: true, error: code });
+                    }
+                    if (status === 429 && Number.isFinite(error.retry_after_ms)) {
+                        res.set('Retry-After', String(Math.ceil(error.retry_after_ms / 1000)));
+                    }
+                    return res.status(status).json({ success: false, error: code });
+                }
+                if (error?.httpStatus === 400 && typeof code === 'string' && /^invalid_[a-z0-9_]+$/.test(code)) {
+                    return res.status(400).json({ success: false, error: code });
+                }
+                return res.status(503).json({ success: false, error: 'document_service_unavailable' });
+            }
+        });
+    }
+
+    documentRoute('/closing-documents', 'retrieveClosingDocuments', ['package_id', 'seal'], 'closing-documents.pdf');
+    documentRoute('/closing-documents/info', 'retrieveClosingDocumentsInfo', ['order_ids', 'agreement_numbers', 'issue_date']);
+    documentRoute('/voucher', 'retrieveVoucher', ['partner_order_id', 'language'], 'voucher.pdf');
+    documentRoute('/invoice-info', 'retrieveInvoiceInfo', ['partner_order_id'], 'invoice-info.pdf');
+    documentRoute('/invoice', 'retrieveInvoice', ['invoice_id'], 'invoice.pdf');
+    documentRoute('/single-act', 'retrieveSingleAct', ['partner_order_id', 'add_commission', 'seal', 'show_b2b2c_price'], 'single-act.pdf');
+    return router;
+}
+
 module.exports = createBookingRouter;
 module.exports.createPostBookingRouter = createPostBookingRouter;
 module.exports.createContractRouter = createContractRouter;
+module.exports.createDocumentRouter = createDocumentRouter;
