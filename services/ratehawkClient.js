@@ -283,7 +283,8 @@ async function call(method, path, { data, timeout, retries = 2, backoff = 800, r
 }
 
 // ---- Connectivity / account -------------------------------------------------
-const overview = () => call('get', '/api/b2b/v3/overview/');
+const getApiOverview = () => call('get', '/api/b2b/v3/overview/');
+const overview = getApiOverview;
 const contractInfo = () => call('get', '/api/b2b/v3/general/contract/data/info/');
 
 // ---- Static / content data (Content API) -----------------------------------
@@ -458,6 +459,7 @@ module.exports = {
     BASE_URL,
     getAuthHeaders,
     call,
+    getApiOverview,
     overview,
     contractInfo,
     hotelStatic,
