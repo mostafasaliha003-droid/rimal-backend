@@ -1,9 +1,6 @@
-import { motion } from 'framer-motion';
-import { ArrowLeft, Check, Wifi } from 'lucide-react';
-import { BedIcon, StarIcon, UsersIcon } from './Icons';
-import { useState } from 'react';
-import BookingAPI from '../services/bookingApi';
+export { default } from './RoomCard';
 
+/*
 export default function HotelRoomCard({ room = {}, onBook }) {
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState('');
@@ -62,3 +59,4 @@ export default function HotelRoomCard({ room = {}, onBook }) {
         </motion.article>
     );
 }
+*/
