@@ -291,6 +291,20 @@ const contractInfo = () => call('get', '/api/b2b/v3/general/contract/data/info/'
 const hotelStatic = () => call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
 const filterValues = () => call('get', '/api/content/v1/filter_values/');
 const hotelIds = (data = {}) => call('get', '/api/content/v1/hotel/ids', { data, timeout: 60000 });
+async function getHotelDumpUrl(language = 'en', inventory = 'all') {
+    const response = await call('post', '/api/b2b/v3/hotel/info/dump/', {
+        data: { language, inventory },
+        timeout: 60000
+    });
+    if (!response.ok) {
+        throw new Error(response.error || `RateHawk hotel dump request failed with HTTP ${response.httpStatus}`);
+    }
+    const url = response.data && response.data.url;
+    if (typeof url !== 'string' || !url) {
+        throw new Error('RateHawk hotel dump response did not contain data.url');
+    }
+    return url;
+}
 const hotelContent = (data = {}) => call('post', '/api/content/v1/hotel_content_by_ids/', {
     data: { ...data, language: 'en' },
     timeout: 60000
@@ -462,6 +476,7 @@ module.exports = {
     getApiOverview,
     overview,
     contractInfo,
+    getHotelDumpUrl,
     hotelStatic,
     filterValues,
     hotelIds,
