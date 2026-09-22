@@ -9,6 +9,8 @@ export default function HeroSearchSection({ onSearch }) {
     const [suggestions, setSuggestions] = useState([]);
     const [showSuggestions, setShowSuggestions] = useState(false);
     const [loading, setLoading] = useState(false);
+    const [checkinDate, setCheckinDate] = useState('');
+    const [checkoutDate, setCheckoutDate] = useState('');
     const blurTimer = useRef(null);
 
     useEffect(() => {
@@ -106,41 +108,48 @@ export default function HeroSearchSection({ onSearch }) {
                     <p className="mt-5 max-w-lg text-sm font-semibold leading-8 text-slate-200 sm:text-base">خلّ سفرتك تبدأ من المكان الصح. أسعار خاصة، فنادق أصدق، وتجربة حجز على مزاجك.</p>
                 </div>
 
-                <form onSubmit={handleSearch} className="relative mt-10 w-full rounded-[2rem] bg-white p-2.5 shadow-2xl lg:mt-12 lg:rounded-full" dir="rtl">
-                    <div className="flex flex-col lg:min-h-[76px] lg:flex-row lg:items-center">
-                        <label className="relative z-40 flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.5rem] px-5 transition-colors hover:bg-slate-50 focus-within:bg-slate-50 lg:rounded-full" htmlFor="destination-search">
-                            <PinIcon className="shrink-0 text-slate-500" size={20} />
+                <form onSubmit={handleSearch} className="relative mt-10 w-full lg:mt-12" dir="rtl">
+                    <div className="flex flex-col divide-y divide-slate-200 rounded-[1.75rem] bg-white p-2 shadow-[0_20px_45px_-15px_rgba(2,6,23,0.35)] lg:flex-row lg:items-stretch lg:divide-y-0 lg:divide-x lg:divide-x-reverse lg:rounded-full">
+                        <label className="relative z-40 flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full" htmlFor="destination-search">
+                            <PinIcon className="shrink-0 text-slate-400" size={20} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
-                                <span className="text-[11px] font-bold text-slate-500">الوجهة</span>
-                                <input id="destination-search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 160); }} placeholder="إلى أين تذهب؟" aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full bg-transparent pt-1 text-sm font-black text-slate-900 outline-none placeholder:font-bold placeholder:text-slate-400" />
+                                <span className="text-[11px] font-bold text-slate-800">الوجهة</span>
+                                <input id="destination-search" value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setShowSuggestions(true); }} onFocus={() => setShowSuggestions(true)} onBlur={() => { blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 160); }} placeholder="ابحث عن وجهة أو فندق..." aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full border-0 bg-transparent p-0 pt-1 text-sm font-black text-slate-900 outline-none ring-0 placeholder:font-medium placeholder:text-slate-400 focus:outline-none focus:ring-0" />
                             </span>
-                            {loading && <LoaderCircle size={17} className="animate-spin text-slate-600" />}
-                            {showSuggestions && query.trim().length > 1 && suggestions.length > 0 && <div id="destination-suggestions" role="listbox" aria-label="اقتراحات الوجهات" className="absolute inset-x-2 top-[76px] z-50 max-h-72 overflow-y-auto rounded-xl border border-slate-100 bg-white p-2 text-right shadow-lg lg:inset-x-0">
-                                {suggestions.map((item, index) => <button type="button" key={`${item.label}-${index}`} onMouseDown={() => { setQuery(item.label); setSelectedDestination(item); setShowSuggestions(false); }} className="flex w-full items-center justify-between rounded-lg px-3 py-3 text-right transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"><span className="text-sm font-black text-slate-900">{item.label}</span><span className="text-[10px] font-bold text-slate-500">{item.hint}</span></button>)}
+                            {loading && <LoaderCircle size={17} className="animate-spin text-slate-400" />}
+                            {showSuggestions && query.trim().length > 1 && suggestions.length > 0 && <div id="destination-suggestions" role="listbox" aria-label="اقتراحات الوجهات" className="custom-scrollbar absolute inset-x-2 top-[76px] z-50 max-h-72 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-2 text-right shadow-lg lg:inset-x-0">
+                                {suggestions.map((item, index) => <button type="button" key={`${item.label}-${index}`} onMouseDown={() => { setQuery(item.label); setSelectedDestination(item); setShowSuggestions(false); }} className="flex w-full items-center justify-between gap-3 rounded-xl px-3 py-3 text-right transition-colors hover:bg-slate-50 focus:bg-slate-50 focus:outline-none"><span className="text-sm font-black text-slate-900">{item.label}</span><span className="shrink-0 text-[10px] font-bold text-slate-500">{item.hint}</span></button>)}
                             </div>}
                         </label>
-                        <div className="mx-3 hidden h-10 border-r border-slate-200 lg:block" />
-                        <label className="flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.5rem] px-5 transition-colors hover:bg-slate-50 focus-within:bg-slate-50 lg:rounded-full">
-                            <CalendarIcon className="pointer-events-none shrink-0 text-slate-500" size={19} />
-                            <span className="flex min-w-0 flex-1 flex-col text-right"><span className="text-[11px] font-bold text-slate-500">تسجيل الوصول</span><input name="checkin" type="date" required className="w-full bg-transparent pt-1 text-sm font-black text-slate-900 outline-none" /></span>
+                        <label className="relative flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
+                            <CalendarIcon className="pointer-events-none shrink-0 text-slate-400" size={19} />
+                            <span className="pointer-events-none flex min-w-0 flex-1 flex-col text-right">
+                                <span className="text-[11px] font-bold text-slate-800">تسجيل الوصول</span>
+                                <span className={`pt-1 text-sm font-black ${checkinDate ? 'text-slate-900' : 'text-slate-400'}`}>{checkinDate || 'أضف تاريخ'}</span>
+                            </span>
+                            <input name="checkin" type="date" required value={checkinDate} onChange={(event) => setCheckinDate(event.target.value)} className="absolute inset-0 z-10 h-full w-full cursor-pointer border-0 bg-transparent p-0 opacity-0 outline-none ring-0 focus:outline-none focus:ring-0" />
                         </label>
-                        <div className="mx-3 hidden h-10 border-r border-slate-200 lg:block" />
-                        <label className="flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.5rem] px-5 transition-colors hover:bg-slate-50 focus-within:bg-slate-50 lg:rounded-full">
-                            <CalendarIcon className="pointer-events-none shrink-0 text-slate-500" size={19} />
-                            <span className="flex min-w-0 flex-1 flex-col text-right"><span className="text-[11px] font-bold text-slate-500">تسجيل المغادرة</span><input name="checkout" type="date" required className="w-full bg-transparent pt-1 text-sm font-black text-slate-900 outline-none" /></span>
+                        <label className="relative flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
+                            <CalendarIcon className="pointer-events-none shrink-0 text-slate-400" size={19} />
+                            <span className="pointer-events-none flex min-w-0 flex-1 flex-col text-right">
+                                <span className="text-[11px] font-bold text-slate-800">تسجيل المغادرة</span>
+                                <span className={`pt-1 text-sm font-black ${checkoutDate ? 'text-slate-900' : 'text-slate-400'}`}>{checkoutDate || 'أضف تاريخ'}</span>
+                            </span>
+                            <input name="checkout" type="date" required value={checkoutDate} onChange={(event) => setCheckoutDate(event.target.value)} className="absolute inset-0 z-10 h-full w-full cursor-pointer border-0 bg-transparent p-0 opacity-0 outline-none ring-0 focus:outline-none focus:ring-0" />
                         </label>
-                        <div className="mx-3 hidden h-10 border-r border-slate-200 lg:block" />
-                        <label className="flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.5rem] px-5 transition-colors hover:bg-slate-50 focus-within:bg-slate-50 lg:rounded-full">
-                            <UsersIcon className="pointer-events-none shrink-0 text-slate-500" size={19} />
+                        <label className="flex min-h-[68px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 transition-colors duration-200 hover:bg-slate-50 focus-within:bg-white focus-within:shadow-sm lg:rounded-full">
+                            <UsersIcon className="shrink-0 text-slate-400" size={19} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
-                                <span className="text-[11px] font-bold text-slate-500">الضيوف</span>
+                                <span className="text-[11px] font-bold text-slate-800">الضيوف</span>
                                 <span className="relative">
-                                    <select name="guests" defaultValue="2" className="w-full appearance-none bg-transparent pt-1 pl-5 text-sm font-black text-slate-900 outline-none"><option value="1">ضيف واحد</option><option value="2">ضيفان</option><option value="3">3 ضيوف</option><option value="4">4 ضيوف</option></select>
+                                    <select name="guests" defaultValue="2" className="w-full appearance-none border-0 bg-transparent p-0 pl-5 pt-1 text-sm font-black text-slate-900 outline-none ring-0 focus:outline-none focus:ring-0"><option value="1">ضيف واحد</option><option value="2">ضيفان</option><option value="3">3 ضيوف</option><option value="4">4 ضيوف</option></select>
                                     <ChevronDown size={14} className="pointer-events-none absolute left-0 top-1/2 -translate-y-1/2 text-slate-400" />
                                 </span>
                             </span>
                         </label>
-                        <button type="button" onClick={handleSearch} className="group mt-2 inline-flex min-h-[60px] shrink-0 items-center justify-center gap-2 rounded-[1.45rem] bg-slate-900 px-7 text-sm font-black text-white shadow-lg shadow-slate-900/20 transition duration-200 hover:bg-slate-800 hover:shadow-xl focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:translate-y-px lg:mt-0 lg:rounded-full"><span>ابحث الآن</span><ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" /></button>
+                        <div className="p-1 lg:flex lg:items-center lg:py-1 lg:pl-1 lg:pr-2">
+                            <button type="button" onClick={handleSearch} className="group flex min-h-[60px] w-full items-center justify-center gap-2 rounded-[1.4rem] bg-slate-900 px-7 text-sm font-black text-white shadow-lg shadow-slate-900/20 transition-colors duration-200 hover:bg-slate-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-slate-900 active:translate-y-px lg:w-auto lg:rounded-full"><span>ابحث الآن</span><ArrowLeft size={18} className="transition-transform group-hover:-translate-x-1" /></button>
+                        </div>
                     </div>
                 </form>
             </div>
