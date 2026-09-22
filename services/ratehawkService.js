@@ -411,6 +411,17 @@ async function getHotelsContent(ids = [], hids = [], language = 'en') {
 const searchLiveRates = (searchCriteria = {}) => client.searchHotels(searchCriteria);
 const searchLiveRatesByGeo = (searchCriteria = {}) => client.searchHotelsByGeo(searchCriteria);
 const searchLiveRatesByRegion = (searchCriteria = {}) => client.searchHotelsByRegion(searchCriteria);
+const getRegionHotelSort = (regionId, limit = 250) => {
+    const parsedRegionId = parseInt(regionId, 10);
+    if (!Number.isInteger(parsedRegionId)) throw new TypeError('regionId must be an integer');
+    const parsedLimit = parseInt(limit, 10);
+    const hotelsLimit = Number.isInteger(parsedLimit) ? Math.min(250, Math.max(1, parsedLimit)) : 250;
+    return client.sortHotelsInRegion({
+        region_id: parsedRegionId,
+        sort_type: 'b2b',
+        hotels_limit: hotelsLimit
+    });
+};
 
 /**
  * Search availability by region / hotel ids / geo. Returns an array of hotels
@@ -900,6 +911,7 @@ module.exports = {
     searchLiveRates,
     searchLiveRatesByGeo,
     searchLiveRatesByRegion,
+    getRegionHotelSort,
     searchAvailability,
     fetchHotelsInChunks,
     getHotelPage,

@@ -565,6 +565,27 @@ app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter
     }
 });
 
+app.get('/api/search/sort/:region_id', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    const parsedLimit = parseInt(req.query.limit, 10);
+    const limit = Number.isInteger(parsedLimit) ? Math.min(250, Math.max(1, parsedLimit)) : 250;
+    try {
+        const result = await ratehawkService.getRegionHotelSort(req.params.region_id, limit);
+        return res.status(200).json({ success: true, hotels: result });
+    } catch (error) {
+        if (error.ratehawkError === 'hotels_not_found') {
+            return res.status(404).json({ success: false, error: 'HOTELS_NOT_FOUND', message: error.message });
+        }
+        if (error.ratehawkError === 'invalid_params' || error instanceof TypeError) {
+            return res.status(400).json({ success: false, error: 'INVALID_SORT_CRITERIA', message: error.message });
+        }
+        logger.error('Hotel region sort failed', {
+            regionId: req.params.region_id,
+            error: error.message
+        });
+        return res.status(502).json({ success: false, error: 'SORT_UNAVAILABLE' });
+    }
+});
+
 app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     logger.info("New live secure search request received");
     try {
