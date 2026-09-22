@@ -23,7 +23,7 @@ export default function TopNavigationBar() {
                 </div>
 
                 <nav className="hidden items-center gap-8 lg:flex">
-                    {links.map(({ label, active, icon: Icon }) => (
+                    {links.map(({ label, href, active, icon: Icon }) => (
                         <a key={label} href={href} className={`group flex items-center gap-2 border-b-2 py-7 text-[13px] font-bold transition ${active ? 'border-remal-blue text-white' : 'border-transparent text-white/55 hover:border-white/30 hover:text-white'}`}>
                             {Icon && <Icon size={15} className={active ? 'text-remal-blue' : 'text-white/40'} />}
                             {label}
