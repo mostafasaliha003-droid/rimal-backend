@@ -1,0 +1,21 @@
+@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap');
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+    font-family: 'Tajawal', 'Cairo', sans-serif;
+    color: #112331;
+    background: #f4f6f9;
+    font-synthesis: none;
+    text-rendering: optimizeLegibility;
+}
+
+* { box-sizing: border-box; }
+html { scroll-behavior: smooth; }
+body { margin: 0; min-width: 320px; background: #f4f6f9; }
+button, input, select { font: inherit; }
+button, a { -webkit-tap-highlight-color: transparent; }
+input[type='date']::-webkit-calendar-picker-indicator { opacity: .45; cursor: pointer; }
+
+::selection { color: #fff; background: #17a2b8; }
