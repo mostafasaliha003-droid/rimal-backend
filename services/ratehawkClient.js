@@ -294,6 +294,73 @@ const hotelContent = (data = {}) => call('post', '/api/content/v1/hotel_content_
     data: { ...data, language: 'en' },
     timeout: 60000
 });
+function validateHotelReviewHids(hids) {
+    if (!Array.isArray(hids) || hids.length > 100) {
+        throw new TypeError('hids must be an array of no more than 100 uint32 integers');
+    }
+    if (hids.some(hid => !Number.isInteger(hid) || hid < 0 || hid > 0xFFFFFFFF)) {
+        throw new TypeError('hids must contain only uint32 integers');
+    }
+}
+
+function extractHotelReviewRecords(data) {
+    const source = data && data.data !== undefined ? data.data : data;
+    const records = Array.isArray(source)
+        ? source
+        : (source && (source.hotels || source.reviews || source.items));
+    if (!Array.isArray(records)) return [];
+    return records
+        .map(record => {
+            if (!record || typeof record !== 'object') return null;
+            const hid = record.hid ?? record.hotel_id ?? record.id;
+            const reviews = Array.isArray(record.reviews)
+                ? record.reviews
+                : (Array.isArray(record.review) ? record.review : []);
+            if (hid === undefined || hid === null) return null;
+            return { hid: Number(hid), reviews };
+        })
+        .filter(record => Number.isInteger(record.hid) && record.hid >= 0 && record.hid <= 0xFFFFFFFF);
+}
+
+async function fetchHotelReviews(hids, language = 'en') {
+    validateHotelReviewHids(hids);
+    if (typeof language !== 'string' || !language.trim()) {
+        throw new TypeError('language must be a non-empty string');
+    }
+    let response;
+    try {
+        response = await call('post', '/api/content/v1/hotel_reviews_by_ids/', {
+            data: { hids, language },
+            timeout: 60000
+        });
+    } catch (error) {
+        if (error.ratehawkError === 'invalid_params') {
+            logger.warn('ETG hotel reviews rejected parameters', {
+                validationError: error.validationError || error.message
+            });
+            return [];
+        }
+        if (error.ratehawkError === 'no_hotel_reviews' || error.httpStatus === 500) {
+            logger.warn('ETG hotel reviews are unavailable for these hotels', { error: error.message });
+            return [];
+        }
+        throw error;
+    }
+    if (response.error === 'invalid_params') {
+        logger.warn('ETG hotel reviews rejected parameters', {
+            validationError: response.validationError || 'unknown validation error'
+        });
+        return [];
+    }
+    if (response.error === 'no_hotel_reviews' || response.httpStatus === 500) {
+        logger.warn('ETG hotel reviews are unavailable for these hotels', {
+            error: response.error || response.httpStatus
+        });
+        return [];
+    }
+    if (!response.ok) throw new Error(response.error || 'ETG hotel reviews request failed');
+    return extractHotelReviewRecords(response.data);
+}
 function normalizeHotelIdFilters(filters = {}) {
     if (!filters || typeof filters !== 'object' || Array.isArray(filters)) {
         throw new TypeError('Hotel ID filters must be an object');
@@ -397,6 +464,9 @@ module.exports = {
     filterValues,
     hotelIds,
     hotelContent,
+    validateHotelReviewHids,
+    extractHotelReviewRecords,
+    fetchHotelReviews,
     normalizeHotelIdFilters,
     fetchHotelIdsByFilter,
     hotelIdsByFilter,

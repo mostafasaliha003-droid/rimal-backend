@@ -5,7 +5,8 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "sync:filtered-hotels": "node syncFilteredHotels.js"
+    "sync:filtered-hotels": "node syncFilteredHotels.js",
+    "sync:hotel-reviews": "node syncHotelReviews.js"
   },
   "dependencies": {
     "@sendgrid/mail": "^8.1.4",
