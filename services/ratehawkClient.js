@@ -95,7 +95,10 @@ const sleep = (ms) => new Promise(r => setTimeout(r, ms));
 
 const http = axios.create({
     baseURL: BASE_URL,
-    headers: { 'Content-Type': 'application/json' },
+    headers: {
+        'Content-Type': 'application/json',
+        'User-Agent': process.env.RATEHAWK_USER_AGENT || 'RatehawkPartner/1.0 (RimalBackend/1.0)'
+    },
     // We resolve for any status code and inspect the ETG envelope ourselves.
     validateStatus: () => true
 });
@@ -369,6 +372,19 @@ async function getHotelStaticData() {
     }
     return response.data;
 }
+
+async function getSingleHotelInfo(hid, language = 'en') {
+    const numericHid = Number(hid);
+    if (!Number.isInteger(numericHid) || numericHid < 0 || numericHid > 0xFFFFFFFF) {
+        throw new TypeError('hid must be a uint32 integer');
+    }
+    const response = await call('post', '/api/b2b/v3/hotel/info/', {
+        data: { hid: numericHid, language },
+        timeout: 30000
+    });
+    if (!response.ok) throw ratehawkError('/api/b2b/v3/hotel/info/', response);
+    return response.data;
+}
 const hotelContent = (data = {}) => call('post', '/api/content/v1/hotel_content_by_ids/', {
     data: { ...data, language: 'en' },
     timeout: 60000
@@ -548,6 +564,7 @@ module.exports = {
     getIncrementalReviewsDumpUrl,
     getPoiDumpUrl,
     getHotelStaticData,
+    getSingleHotelInfo,
     hotelStatic,
     filterValues,
     hotelIds,

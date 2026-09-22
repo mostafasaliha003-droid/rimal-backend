@@ -436,6 +436,22 @@ app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, asyn
     }
 });
 
+app.get('/api/hotels/:hid/live', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    try {
+        const hotel = await ratehawkService.getSingleHotelInfo(req.params.hid);
+        return res.status(200).json({ success: true, hotel });
+    } catch (error) {
+        if (error.ratehawkError === 'hotel_not_found') {
+            return res.status(404).json({ success: false, error: 'hotel_not_found' });
+        }
+        logger.error('Live hotel info lookup failed', {
+            hid: req.params.hid,
+            error: error.message
+        });
+        return res.status(502).json({ success: false, error: 'HOTEL_INFO_UNAVAILABLE' });
+    }
+});
+
 // ==========================================
 // 🌟 9. المحرك الجديد الشامل (RateHawk + Dubai Link) مع دمج صور متعددة الخصائص
 // ==========================================

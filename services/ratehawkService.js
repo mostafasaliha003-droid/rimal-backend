@@ -336,6 +336,7 @@ async function getApiOverview() {
 
 // ---- Step 1: Static / content ----------------------------------------------
 const getHotelStatic = () => client.hotelStatic();
+const getSingleHotelInfo = (hid, language = 'en') => client.getSingleHotelInfo(hid, language);
 const fetchFilterValues = () => client.filterValues();
 const getHotelIdsByFilter = (data) => client.hotelIdsByFilter(data);
 
@@ -887,6 +888,7 @@ module.exports = {
     getApiOverview,
     // Step 1 - static/content
     getHotelStatic,
+    getSingleHotelInfo,
     getFilterValues,
     getHotelIdsByFilter,
     getHotelsContent,
