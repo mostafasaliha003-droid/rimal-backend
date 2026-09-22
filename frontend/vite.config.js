@@ -15,6 +15,7 @@ export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '..', '');
 
     return {
+        base: '/',
         envDir: '..',
         plugins: [react(), githubPagesFallbackPlugin()],
         server: {
