@@ -128,11 +128,15 @@ test('contract and financial errors fail closed without exposing upstream creden
         for (const [value, code, status] of [
             [{ ok: false, status: 'error', error: 'unauthorized', httpStatus: 200 }, 'supplier_unauthorized', 502],
             [{ ok: false, status: 'error', error: 'unknown', httpStatus: 503 }, 'supplier_unknown', 502],
+            [{ ok: false, status: 'error', error: 'endpoint_not_active', httpStatus: 200 }, 'supplier_endpoint_unavailable', 502],
+            [{ ok: false, status: 'error', error: 'invalid_params', httpStatus: 400, validationError: 'private-validation' }, 'supplier_request_rejected', 502],
+            [{ ok: false, status: 'error', httpStatus: 404 }, 'supplier_endpoint_unavailable', 502],
             [{ ok: false, httpStatus: 429, rateLimit: { secondsNumber: 120 } }, 'rate_limit', 429],
             [{ ok: true, status: 'ok', httpStatus: 500, data: {} }, `${kind}_unavailable`, 502],
             [{ ok: true, status: 'ok', httpStatus: 200, error: 'private-error', data: {} }, `${kind}_unavailable`, 502],
             [undefined, `${kind}_unavailable`, 502],
-            [Object.assign(new Error('private-transport'), { config: { auth: 'private-key' }, code: 'ETIMEDOUT' }), `${kind}_unavailable`, 502],
+            [Object.assign(new Error('private-transport'), { config: { auth: 'private-key' }, code: 'ETIMEDOUT' }), 'supplier_connection_failed', 502],
+            [Object.assign(new Error('private-credentials'), { code: 'ratehawk_credentials_missing' }), 'supplier_credentials_missing', 503],
             [Object.assign(new Error('private-credentials'), { ratehawkError: 'incorrect_credentials', httpStatus: 401 }), 'supplier_unauthorized', 502]
         ]) {
             response = value;
@@ -146,7 +150,7 @@ test('contract and financial errors fail closed without exposing upstream creden
                 return true;
             });
         }
-        assert.equal(retrieve.mock.callCount(), 8);
+        assert.equal(retrieve.mock.callCount(), 12);
     }
 });
 
@@ -1054,6 +1058,15 @@ test('contract HTTP routes require private server authentication and preserve no
     const supplierAuth = await send('', authorization);
     assert.equal(supplierAuth.status, 502);
     assert.deepEqual(await supplierAuth.json(), { success: false, error: 'supplier_unauthorized' });
+    for (const [code, status] of [['supplier_endpoint_unavailable', 502], ['supplier_credentials_missing', 503]]) {
+        financial.mock.mockImplementation(async () => {
+            throw Object.assign(new Error('private supplier response'), { code, httpStatus: status, config: { auth: 'private-key' } });
+        });
+        const response = await send('/financial-details', authorization);
+        assert.equal(response.status, status);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        assert.deepEqual(await response.json(), { success: false, error: code });
+    }
 });
 
 test('post-booking HTTP routes protect order data and cancellation from browser keys and retire unauthenticated cancellation', async context => {

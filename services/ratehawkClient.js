@@ -105,7 +105,9 @@ const http = axios.create({
 
 function assertCredentials() {
     if (!KEY_ID || !API_KEY) {
-        throw new Error('RateHawk credentials missing: set RATEHAWK_KEY_ID and RATEHAWK_API_KEY');
+        const error = new Error('RateHawk credentials missing: set RATEHAWK_KEY_ID and RATEHAWK_API_KEY');
+        error.code = 'ratehawk_credentials_missing';
+        throw error;
     }
 }
 

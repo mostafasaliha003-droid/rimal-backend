@@ -1128,13 +1128,22 @@ async function retrieveContractData(operation, kind) {
     try {
         response = await operation();
     } catch (error) {
-        response = { error: error?.ratehawkError, httpStatus: error?.httpStatus || error?.response?.status };
+        response = {
+            error: error?.ratehawkError,
+            httpStatus: error?.httpStatus || error?.response?.status,
+            credentialsMissing: error?.code === 'ratehawk_credentials_missing',
+            connectionFailed: ['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET', 'ECONNREFUSED', 'ENOTFOUND', 'EAI_AGAIN'].includes(error?.code)
+        };
     }
+    if (response?.credentialsMissing) throw bookingError('supplier_credentials_missing', 503);
     if (response?.httpStatus === 429) throw Object.assign(bookingError('rate_limit', 429), { retry_after_ms: retryAfterMs(response) });
     if ([401, 403].includes(response?.httpStatus)
         || ['unauthorized', 'incorrect_credentials', 'no_auth_header', 'invalid_auth_header', 'not_allowed_host', 'api_access_disabled'].includes(response?.error)) {
         throw bookingError('supplier_unauthorized', 502);
     }
+    if (response?.httpStatus === 404 || response?.error === 'endpoint_not_active') throw bookingError('supplier_endpoint_unavailable', 502);
+    if (response?.httpStatus === 400 || response?.error === 'invalid_params') throw bookingError('supplier_request_rejected', 502);
+    if (response?.connectionFailed) throw bookingError('supplier_connection_failed', 502);
     if (response?.error === 'unknown') throw bookingError('supplier_unknown', 502);
     if (response?.ok !== true || response.status !== 'ok' || response.error != null
         || !Number.isInteger(response.httpStatus) || response.httpStatus < 200 || response.httpStatus >= 300) {
