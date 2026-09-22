@@ -531,6 +531,35 @@ const hotelInfo = (data) => call('post', '/api/b2b/v3/hotel/info/', { data });
 const multicomplete = (data) => call('post', '/api/b2b/v3/search/multicomplete/', { data });
 const serpRegion = (data) => call('post', '/api/b2b/v3/search/serp/region/', { data, timeout: 30000 });
 const serpHotels = (data) => call('post', '/api/b2b/v3/search/serp/hotels/', { data, timeout: 30000 });
+async function searchHotels(params = {}) {
+    let response;
+    try {
+        response = await call('post', '/api/b2b/v3/search/serp/hotels/', {
+            data: params,
+            timeout: 30000
+        });
+    } catch (error) {
+        if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {
+            logger.warn('RateHawk hotel ID search failed', {
+                error: error.ratehawkError,
+                validationError: error.validationError || null
+            });
+        }
+        throw error;
+    }
+    if (!response.ok) {
+        if (response.error === 'invalid_params' || response.error === 'core_search_error') {
+            logger.warn('RateHawk hotel ID search failed', {
+                error: response.error,
+                validationError: response.validationError || null
+            });
+        }
+        throw ratehawkError('/api/b2b/v3/search/serp/hotels/', response);
+    }
+    return response.data && response.data.data !== undefined
+        ? response.data.data
+        : response.data;
+}
 const serpGeo = (data) => call('post', '/api/b2b/v3/search/serp/geo/', { data, timeout: 30000 });
 const hotelPage = (data, opts = {}) => call('post', '/api/b2b/v3/search/hp/', { data, timeout: 30000, ...opts });
 
@@ -580,6 +609,7 @@ module.exports = {
     multicomplete,
     serpRegion,
     serpHotels,
+    searchHotels,
     serpGeo,
     hotelPage,
     prebook,

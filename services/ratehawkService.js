@@ -408,6 +408,8 @@ async function getHotelsContent(ids = [], hids = [], language = 'en') {
 }
 
 // ---- Step 2: Search ---------------------------------------------------------
+const searchLiveRates = (searchCriteria = {}) => client.searchHotels(searchCriteria);
+
 /**
  * Search availability by region / hotel ids / geo. Returns an array of hotels
  * shaped for mappingService (id, hid, name, image, rates, provider:'ratehawk').
@@ -893,6 +895,7 @@ module.exports = {
     getHotelIdsByFilter,
     getHotelsContent,
     // Step 2 - search
+    searchLiveRates,
     searchAvailability,
     fetchHotelsInChunks,
     getHotelPage,
