@@ -7,7 +7,7 @@ const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
 import { StarIcon } from './components/Icons';
 import BookingAPI from './services/bookingApi';
-import { cheapestRate, rateAmount, rateCurrency, formatMoney, paymentFor } from './services/offers';
+import { SEARCH_CURRENCY, cheapestRate, rateAmount, rateCurrency, formatMoney, paymentFor } from './services/offers';
 import { trackBookingEvent } from './services/analytics';
 
 function storedSearch() {
@@ -41,7 +41,7 @@ const getHotels = (response) => {
             ...hotel,
             name: name?.trim() || 'Hotel',
             images: [...new Set(images)].map(image => image.replace(/\{size\}/gi, '640x400')),
-            rates: (hotel.rates || []).filter(rate => rateCurrency(rate) === 'AED').sort((first, second) => rateAmount(first) - rateAmount(second)),
+            rates: (hotel.rates || []).filter(rate => rateCurrency(rate) === SEARCH_CURRENCY).sort((first, second) => rateAmount(first) - rateAmount(second)),
             stars: hotel.stars || hotel.star_rating || staticData.stars || staticData.star_rating || ''
         };
     });
@@ -70,7 +70,7 @@ function SerpResultCard({ hotel, onSelect }) {
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-4 md:col-span-2 xl:col-span-1 xl:flex-col xl:items-stretch xl:justify-center xl:border-r xl:border-t-0 xl:pr-4">
-                    <div className="text-right"><span className="text-xl font-bold text-remal-dark">{formatMoney(rateAmount(rate))}</span><p className="mt-1 text-xs text-slate-600">إجمالي الإقامة يبدأ من؛ قد تُطبق رسوم محلية</p></div>
+                    <div className="text-right"><span className="text-xl font-bold text-remal-dark">{formatMoney(rateAmount(rate), rateCurrency(rate))}</span><p className="mt-1 text-xs text-slate-600">إجمالي الإقامة يبدأ من؛ قد تُطبق رسوم محلية</p></div>
                     <button type="button" onClick={() => onSelect(hotel)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-5 py-3 text-xs font-black text-white shadow-lg shadow-[#0F172A]/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0F172A]/40"><span>تحديد الغرف</span><ArrowLeft size={16} /></button>
                 </div>
             </div>
@@ -123,7 +123,7 @@ export default function App() {
             setError('');
             try {
                 const { destination, checkin, checkout, guests } = searchParams;
-                const request = { checkin, checkout, guests, language: 'ar', currency: 'AED' };
+                const request = { checkin, checkout, guests, language: 'ar', currency: SEARCH_CURRENCY };
                 const hotelId = Number(destination.hotel_id);
                 const isHotelSearch = destination.type === 'hotel' || destination.hotel_id;
                 if (isHotelSearch && (!Number.isInteger(hotelId) || hotelId < 0 || hotelId > 0xFFFFFFFF)) {
@@ -162,7 +162,7 @@ export default function App() {
                 checkout: searchParams.checkout,
                 guests: searchParams.guests,
                 language: 'ar',
-                currency: 'AED'
+                currency: SEARCH_CURRENCY
             });
             setHotelPage(response);
         } catch {
@@ -211,7 +211,7 @@ export default function App() {
     const checkoutRoute = pathname === '/checkout';
     if (checkoutRoute) {
         return <>
-            <TopNavigationBar />
+            <TopNavigationBar currency={null} />
             <Checkout
                 booking={window.history.state?.checkout}
                 onBack={() => {
@@ -252,7 +252,7 @@ export default function App() {
                         <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 border-b border-slate-200 py-5 lg:block`}>
                             <div className="mb-6 flex items-center justify-between"><h3 className="font-black">تصفية النتائج</h3><button type="button" onClick={clearFilters} className="flex items-center gap-1 text-xs font-bold text-remal-blue"><RotateCcw size={13} /> إعادة ضبط</button></div>
                             <div className="space-y-6 text-sm">
-                                <label className="block">الحد الأعلى للإقامة بالدرهم<input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 p-3" /></label>
+                                <label className="block">الحد الأعلى للإقامة ({SEARCH_CURRENCY})<input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 p-3" /></label>
                                 <label className="flex items-center gap-2"><input type="checkbox" checked={freeCancellation} onChange={event => setFreeCancellation(event.target.checked)} />إلغاء مجاني في أقل عرض ظاهر</label>
                                 <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">التصنيف الأدنى</p><div className="flex gap-2">{[3, 4, 5].map((star) => <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-black transition ${starFilter === star ? 'border-remal-gold bg-amber-50 text-amber-700' : 'border-slate-200 hover:border-remal-gold hover:text-amber-700'}`}>{star} <StarIcon size={12} className="text-remal-gold" fill="currentColor" /></button>)}</div></div>
                                 <div className="border-t border-slate-100 pt-5"><label className="flex items-center gap-3 text-xs font-bold text-slate-500"><input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="h-4 w-4 accent-remal-blue" /> يحتوي على مزايا للغرفة</label></div>
@@ -260,7 +260,7 @@ export default function App() {
                         </aside>
 
                         <div className="min-w-0 space-y-5">
-                            {lowestHotel && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 py-4"><div className="min-w-0"><p className="text-sm text-slate-600">أقل إجمالي مطابق للفلاتر</p><p className="mt-1 break-words font-bold">{lowestHotel.name}</p></div><p className="text-lg font-bold text-emerald-800">{formatMoney(rateAmount(cheapestRate(lowestHotel.rates)))}</p></div>}
+                            {lowestHotel && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 py-4"><div className="min-w-0"><p className="text-sm text-slate-600">أقل إجمالي مطابق للفلاتر</p><p className="mt-1 break-words font-bold">{lowestHotel.name}</p></div><p className="text-lg font-bold text-emerald-800">{formatMoney(rateAmount(cheapestRate(lowestHotel.rates)), SEARCH_CURRENCY)}</p></div>}
                             {selectedHotel ? <>
                                 <button type="button" onClick={() => setSelectedHotel(null)} className="flex items-center gap-2 text-xs font-black text-remal-blue"><ChevronLeft size={16} /> العودة للنتائج</button>
                                 <h2 className="text-2xl font-black">{selectedHotel.name}</h2>

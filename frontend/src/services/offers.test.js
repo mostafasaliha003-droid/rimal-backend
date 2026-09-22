@@ -1,13 +1,17 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { cheapestRate, normalizeRoom, rateAmount } from './offers.js';
+import { SEARCH_CURRENCY, cheapestRate, normalizeRoom, rateAmount, formatMoney } from './offers.js';
 import { trackBookingEvent } from './analytics.js';
 
-const rate = (amount, currency = 'AED') => ({ book_hash: 'rate', payment_options: { payment_types: [{ amount, currency_code: currency, type: 'deposit' }] } });
+const rate = (amount, currency = 'USD') => ({ book_hash: 'rate', payment_options: { payment_types: [{ amount, currency_code: currency, type: 'deposit' }] } });
 
 test('compares valid offers in one currency, not supplier order', () => {
     const low = rate('60');
-    assert.equal(cheapestRate([rate(312), rate(68), low, rate(1, 'USD'), rate('invalid')]), low);
+    const dirhamRate = rate(1, 'AED');
+    assert.equal(SEARCH_CURRENCY, 'USD');
+    assert.equal(cheapestRate([rate(312), rate(68), low, dirhamRate, rate('invalid')]), low);
+    assert.equal(cheapestRate([low, dirhamRate], 'AED'), dirhamRate);
+    assert.equal(cheapestRate([dirhamRate]), null);
     assert.equal(cheapestRate([]), null);
     assert.equal(rateAmount({}), Infinity);
 });
@@ -17,6 +21,8 @@ test('missing policy and bed do not become free cancellation or king bed', () =>
     assert.equal(room.cancellation, undefined);
     assert.equal(room.bed, undefined);
     assert.equal(room.price, 60);
+    assert.equal(room.currency, 'USD');
+    assert.equal(formatMoney(room.price, room.currency), new Intl.NumberFormat('ar-AE', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(60));
 });
 
 test('analytics contract excludes personal data and unknown events', () => {

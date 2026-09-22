@@ -9,6 +9,7 @@
 - Start `npm --prefix frontend run preview -- --host 127.0.0.1 --port 5178 --strictPort`, then `node test-ui.cjs`.
 - Browser tests intercept all supplier/payment API requests. No real booking or payment is created. Screenshots in `frontend/dist/test-*.png` are test artifacts, not production hotel data. Run a fresh build before publishing to remove them.
 - Destination tests start without a saved search and cover selection, empty results, failed requests and recovery. Mocked browser tests do not verify the deployed backend's CORS policy or live supplier inventory.
+- Currency tests reject non-USD hotel, region and hotelpage searches, preserve supplier amounts and original tax currencies, and block USD payment even when payment availability is enabled in the fixture.
 
 ## Release blockers
 
@@ -17,7 +18,9 @@
 - A payment return URL is never proof of payment. The frontend shows a pending-verification message and retains its session draft. It does not claim a confirmed booking or automatically retry a charge.
 - Credentials previously embedded in server source must be rotated at the providers, including email, database and any reused admin credential. Removing source values does not erase Git history. Set `SMTP_USER`, `SMTP_PASSWORD`, `MONGO_URI`, and an appropriate `ADMIN_PASSWORD_HASH` securely in the deployment environment. Never put secrets in `VITE_*`: those values are public browser configuration. The existing frontend API key is not user authentication.
 - Have the business approve and publish legal terms, privacy policy, refund rules and support contacts. No invented legal policy, ratings, cashback, room amenities or cancellation promise has been added.
-- Validate AED/Arabic supplier responses and multi-room/child occupancy against the supplier sandbox. Unit/browser tests use fixtures, not live inventory certification.
+- The deployed supplier rejected AED rate searches with `invalid_params: unknown currency`; a controlled USD search returned HTTP 200 with USD rates. Search and room details therefore request USD through `SEARCH_CURRENCY` in `frontend/src/services/offers.js`. Comparisons and budget filters use USD, and prices retain the supplier's currency without conversion. Enable AED searches only after confirming support for the configured supplier account.
+- USD offers cannot enter the AED-only payment flow. Room selection remains disabled for these offers, and checkout rejects non-AED currencies even for restored bookings or an enabled payment service. Supported settlement, verified conversion and the payment lifecycle above must be implemented before enabling collection.
+- Validate Arabic responses and multi-room/child occupancy against the supplier sandbox. Unit/browser tests use fixtures, not live inventory certification.
 
 ## Frontend deployment
 
@@ -45,4 +48,4 @@ Before A/B rollout, establish baseline confirmed-booking conversion per eligible
 
 ## Deliberate limitations
 
-Arabic and AED are the currently supported experience. Nonfunctional language/currency/login buttons have been removed, not replaced with fake controls. Multi-currency settlement, local wallets, cross-supplier entity/room matching, maps and verified review aggregation require provider data and separate tested integrations. Duplicate hotel IDs in one response are collapsed; this is not cross-supplier identity resolution.
+The interface is Arabic and live searches currently use USD, which the configured supplier accepts. Online payments remain unavailable; the retained payment integration accepts AED only. Nonfunctional language/currency/login buttons have been removed, not replaced with fake controls. Multi-currency settlement, local wallets, cross-supplier entity/room matching, maps and verified review aggregation require provider data and separate tested integrations. Duplicate hotel IDs in one response are collapsed; this is not cross-supplier identity resolution.

@@ -2,7 +2,7 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BedDouble, MapPin, ShieldCheck, Star } from 'lucide-react';
 import HotelRoomCard from './components/HotelRoomCard';
 import BookingAPI from './services/bookingApi';
-import { normalizeRoom } from './services/offers';
+import { SEARCH_CURRENCY, normalizeRoom } from './services/offers';
 import { trackBookingEvent } from './services/analytics';
 
 const formatImageUrl = (value) => {
@@ -72,7 +72,7 @@ export default function HotelDetails({ hid, onBack }) {
                     checkout: searchParams.checkout,
                     guests: searchParams.guests,
                     language: 'ar',
-                    currency: 'AED'
+                    currency: SEARCH_CURRENCY
                 })
             ]);
             if (!active) return;

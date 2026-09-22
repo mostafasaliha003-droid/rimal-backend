@@ -1,3 +1,5 @@
+export const SEARCH_CURRENCY = 'USD';
+
 export const paymentFor = (rate) => rate?.payment_options?.payment_types?.find(payment => payment.type === 'deposit')
     || rate?.payment_options?.payment_types?.[0];
 
@@ -8,8 +10,8 @@ export function rateAmount(rate) {
 
 export const rateCurrency = (rate) => paymentFor(rate)?.currency_code || rate?.currency || '';
 
-export function cheapestRate(rates = []) {
-    return rates.filter(rate => rateCurrency(rate) === 'AED' && Number.isFinite(rateAmount(rate)))
+export function cheapestRate(rates = [], currency = SEARCH_CURRENCY) {
+    return rates.filter(rate => rateCurrency(rate) === currency && Number.isFinite(rateAmount(rate)))
         .reduce((best, rate) => !best || rateAmount(rate) < rateAmount(best) ? rate : best, null);
 }
 

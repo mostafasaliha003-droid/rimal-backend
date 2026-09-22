@@ -1,13 +1,14 @@
 import { Menu, Search, Mail, X } from 'lucide-react';
 import { useState } from 'react';
 import PwaStatus from './PwaStatus';
+import { SEARCH_CURRENCY } from '../services/offers';
 
 const links = [
     { label: 'استكشاف الفنادق', href: '/#search', active: true, icon: Search },
     { label: 'تواصل معنا', href: 'mailto:management@remaltourismllc.com', active: false, icon: Mail }
 ];
 
-export default function TopNavigationBar() {
+export default function TopNavigationBar({ currency = SEARCH_CURRENCY }) {
     const [open, setOpen] = useState(false);
     return (
         <header className="relative z-20 border-b border-white/10 bg-remal-dark text-white">
@@ -35,7 +36,7 @@ export default function TopNavigationBar() {
                 </nav>
 
                 <div className="flex items-center gap-2.5 text-xs font-bold">
-                    <span className="text-sm text-white">AED · العربية</span>
+                    <span className="text-sm text-white">{currency && `${currency} · `}العربية</span>
                 </div>
             </div>
             {open && <nav id="mobile-navigation" aria-label="القائمة الرئيسية" className="border-t border-white/20 px-5 py-3 lg:hidden">{links.map(({ label, href, icon: Icon }) => <a key={label} href={href} onClick={() => setOpen(false)} className="flex min-h-12 items-center gap-3"><Icon size={18} />{label}</a>)}</nav>}
