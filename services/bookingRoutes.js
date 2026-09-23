@@ -4,6 +4,7 @@ const booking = require('./bookingProcessService');
 const postBooking = require('./postBookingService');
 const ratehawk = require('./ratehawkService');
 const orderGroups = require('./orderGroupService');
+const profiles = require('./profileService');
 const { bookingLimiter } = require('./securityService');
 
 function authorize(req, res, next) {
@@ -227,8 +228,90 @@ function createOrderGroupRouter() {
     return router;
 }
 
+function createProfileRouter() {
+    const router = express.Router();
+    const errorStatuses = {
+        invalid_profile_request: 400,
+        users_profile_not_found: 404,
+        user_already_exists: 409, profile_is_already_disabled: 409, profile_is_already_restored: 409,
+        rate_limit: 429,
+        supplier_unauthorized: 502, supplier_endpoint_unavailable: 502,
+        supplier_request_rejected: 502, supplier_connection_failed: 502,
+        supplier_unknown: 502, invalid_profile_response: 502, profile_unavailable: 502,
+        supplier_credentials_missing: 503,
+        profile_mutations_disabled: 503, profile_master_disabled: 503, profile_delete_disabled: 503
+    };
+    router.use((req, res, next) => {
+        res.set('Cache-Control', 'no-store');
+        const end = res.end;
+        res.end = function (...args) {
+            res.removeHeader('ETag');
+            return end.apply(this, args);
+        };
+        next();
+    });
+    router.use(authorize);
+    router.use(express.json({ limit: '8kb' }));
+    router.use((error, req, res, next) => {
+        if (error?.status >= 400 && error?.status < 500) {
+            return res.status(400).json({ success: false, error: 'invalid_profile_request' });
+        }
+        next(error);
+    });
+
+    async function respond(req, res, method) {
+        try {
+            return res.json(await profiles[method](req.body));
+        } catch (error) {
+            const code = error?.code;
+            const status = Object.hasOwn(errorStatuses, code) ? errorStatuses[code] : undefined;
+            if (status === error?.httpStatus) {
+                if (status === 429 && Number.isFinite(error.retry_after_ms)) {
+                    res.set('Retry-After', String(Math.ceil(error.retry_after_ms / 1000)));
+                }
+                return res.status(status).json({ success: false, error: code });
+            }
+            return res.status(503).json({ success: false, error: 'profile_service_unavailable' });
+        }
+    }
+
+    router.get('/', (req, res) => {
+        if (Object.keys(req.query).length || Number(req.get('Content-Length')) > 0
+            || req.get('Transfer-Encoding') || (req.body && Object.keys(req.body).length)) {
+            return res.status(400).json({ success: false, error: 'invalid_profile_request' });
+        }
+        return respond(req, res, 'retrieveProfiles');
+    });
+
+    function route(path, method, allowedFields, deleteOperation = false) {
+        router.post(path, (req, res) => {
+            if (Object.keys(req.query).length || !req.is('application/json') || !req.body
+                || typeof req.body !== 'object' || Array.isArray(req.body)
+                || Object.keys(req.body).some(field => !allowedFields.includes(field))) {
+                return res.status(400).json({ success: false, error: 'invalid_profile_request' });
+            }
+            if (process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED !== 'true') {
+                return res.status(503).json({ success: false, error: 'profile_mutations_disabled' });
+            }
+            if (deleteOperation && process.env.RATEHAWK_PROFILE_DELETE_ENABLED !== 'true') {
+                return res.status(503).json({ success: false, error: 'profile_delete_disabled' });
+            }
+            return respond(req, res, method);
+        });
+    }
+
+    const profileFields = ['email', 'first_name', 'last_name', 'middle_name', 'phone', 'type'];
+    route('/create', 'createProfile', profileFields);
+    route('/edit', 'editProfile', profileFields);
+    route('/disable', 'disableProfile', ['email', 'confirm']);
+    route('/restore', 'restoreProfile', ['email', 'confirm']);
+    route('/delete', 'deleteProfile', ['email', 'confirm'], true);
+    return router;
+}
+
 module.exports = createBookingRouter;
 module.exports.createPostBookingRouter = createPostBookingRouter;
 module.exports.createContractRouter = createContractRouter;
 module.exports.createDocumentRouter = createDocumentRouter;
 module.exports.createOrderGroupRouter = createOrderGroupRouter;
+module.exports.createProfileRouter = createProfileRouter;

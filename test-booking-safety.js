@@ -5,6 +5,268 @@ const { resolveValidatedPayment } = require('./services/paymentService');
 const expected = { hid: 123, total: 250, currency: 'AED' };
 const result = () => ({ hotels: [{ hid: 123, rates: [{ book_hash: 'verified', payment_options: { payment_types: [{ type: 'deposit', amount: '250.00', currency_code: 'AED' }] } }] }] });
 
+test('profile transports use documented paths without retries or personal-data logging', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+    });
+    let expected;
+    let response;
+    const request = context.mock.fn(async config => {
+        assert.equal(config.method, expected.verb);
+        assert.equal(config.url, expected.path);
+        assert.equal(config.maxRedirects, 0);
+        assert.deepEqual(config.auth, { username: 'fixture-id', password: 'fixture-key' });
+        if (expected.verb === 'get') {
+            assert.equal(config.data, undefined);
+            assert.equal(config.params, undefined);
+        } else {
+            assert.deepEqual(config.data, expected.data);
+            assert.equal(config.params, undefined);
+        }
+        if (response instanceof Error) throw response;
+        return response;
+    });
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => config.url }));
+    const exchange = context.mock.method(logger, 'logEtgExchange', entry => {
+        assert.equal(entry.requestPayload, null);
+        assert.equal(entry.responsePayload, null);
+        assert.doesNotMatch(JSON.stringify(entry), /private-person|private@example\.com/);
+    });
+    context.mock.method(logger, 'warn', (...args) => assert.doesNotMatch(JSON.stringify(args), /private-person|private@example\.com/));
+    context.mock.method(logger, 'error', (...args) => assert.doesNotMatch(JSON.stringify(args), /private-person|private@example\.com/));
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    delete require.cache[modulePath];
+    const client = require('./services/ratehawkClient');
+    const profile = { email: 'private@example.com', first_name: 'private-person', last_name: 'Smith',
+        phone: '+441234567890', type: 'employee' };
+    const cases = [
+        ['listProfiles', 'get', '/api/b2b/v3/profiles/list/'],
+        ['createProfile', 'post', '/api/b2b/v3/profiles/create/', profile],
+        ['editProfile', 'post', '/api/b2b/v3/profiles/edit/', profile],
+        ['disableProfile', 'post', '/api/b2b/v3/profiles/disable/', { email: profile.email }],
+        ['restoreProfile', 'post', '/api/b2b/v3/profiles/restore/', { email: profile.email }],
+        ['deleteProfile', 'post', '/api/b2b/v3/profiles/delete/', { email: profile.email }]
+    ];
+    for (const [method, verb, path, data] of cases) {
+        expected = { verb, path, data };
+        for (const value of [
+            { status: 200, headers: {}, data: { status: 'ok', error: null, data: null } },
+            { status: 429, headers: { 'x-ratelimit-secondsnumber': '60' }, data: { status: 'error', error: 'rate_limit' } },
+            { status: 503, headers: {}, data: { status: 'error', error: 'unknown' } },
+            Object.assign(new Error('private-timeout'), { code: 'ETIMEDOUT', response: { status: 503, data: 'private-person' } })
+        ]) {
+            response = value;
+            const before = request.mock.callCount();
+            if (value instanceof Error) await assert.rejects(client[method](data), /private-timeout/);
+            else assert.equal((await client[method](data)).httpStatus, value.status);
+            assert.equal(request.mock.callCount(), before + 1);
+        }
+    }
+    assert.equal(exchange.mock.callCount(), request.mock.callCount());
+});
+
+test('profile retrieval preserves roles and contact fields without inventing missing data', async context => {
+    const service = require('./services/profileService');
+    const user = {
+        email: 'private@example.com', first_name: 'Eliot', last_name: 'White', middle_name: null,
+        phone: '+441234567890', status: 'awaiting_confirmation', type: 'manager'
+    };
+    let response = { ok: true, status: 'ok', error: null, httpStatus: 200, data: { users: [user] } };
+    const request = context.mock.method(service.client, 'listProfiles', async (...args) => {
+        assert.equal(args.length, 0);
+        return response;
+    });
+    assert.deepEqual(await service.retrieveProfiles(), { success: true, users: [user] });
+    response = { ...response, data: { users: [] } };
+    assert.deepEqual(await service.retrieveProfiles(), { success: true, users: [] });
+    for (const data of [null, {}, { users: null }, { users: {} }, { users: [{ ...user, type: 'root' }] },
+        { users: [{ ...user, status: 'invalid' }] }, { users: [{ ...user, email: null }] },
+        { users: [{ ...user, middle_name: 42 }] }]) {
+        response = { ...response, data };
+        await assert.rejects(service.retrieveProfiles(), error =>
+            error.code === 'invalid_profile_response' && error.httpStatus === 502);
+    }
+    assert.equal(request.mock.callCount(), 10);
+});
+
+test('profile creation and editing are disabled by default and validate personal data locally', async context => {
+    const service = require('./services/profileService');
+    const previous = process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED;
+    context.after(() => {
+        if (previous === undefined) delete process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED;
+        else process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED = previous;
+    });
+    delete process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED;
+    const profile = { email: 'private@example.com', first_name: 'John', last_name: 'Smith',
+        phone: '+441234567890', type: 'employee' };
+    const edited = { ...profile, middle_name: 'Paul' };
+    const user = { ...edited, status: 'active' };
+    const create = context.mock.method(service.client, 'createProfile', async data => {
+        assert.deepEqual(data, profile);
+        return { ok: true, status: 'ok', httpStatus: 200, error: null, data: null };
+    });
+    const edit = context.mock.method(service.client, 'editProfile', async data => {
+        assert.deepEqual(data, edited);
+        return { ok: true, status: 'ok', httpStatus: 200, error: null, data: { user } };
+    });
+    for (const [method, input] of [['createProfile', profile], ['editProfile', edited]]) {
+        await assert.rejects(service[method](input), error =>
+            error.code === 'profile_mutations_disabled' && error.httpStatus === 503);
+    }
+    assert.equal(create.mock.callCount(), 0);
+    assert.equal(edit.mock.callCount(), 0);
+    process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED = 'true';
+    assert.deepEqual(await service.createProfile(profile), { success: true });
+    assert.deepEqual(await service.editProfile(edited), { success: true, user });
+    for (const invalid of [
+        {}, { ...profile, email: 'not-an-email' }, { ...profile, first_name: '123' },
+        { ...profile, last_name: '' }, { ...profile, type: 'root' },
+        { ...profile, phone: '12' }, { ...profile, extra: 'private' },
+        { ...profile, middle_name: null }
+    ]) {
+        await assert.rejects(service.createProfile(invalid), error => error.httpStatus === 400);
+    }
+    await assert.rejects(service.editProfile({ ...edited, middle_name: '123' }), error => error.httpStatus === 400);
+    assert.equal(create.mock.callCount(), 1);
+    assert.equal(edit.mock.callCount(), 1);
+});
+
+test('profile lifecycle changes require confirmation and deleting requires a separate opt-in', async context => {
+    const service = require('./services/profileService');
+    const previousMutations = process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED;
+    const previousDeletion = process.env.RATEHAWK_PROFILE_DELETE_ENABLED;
+    context.after(() => {
+        if (previousMutations === undefined) delete process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED;
+        else process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED = previousMutations;
+        if (previousDeletion === undefined) delete process.env.RATEHAWK_PROFILE_DELETE_ENABLED;
+        else process.env.RATEHAWK_PROFILE_DELETE_ENABLED = previousDeletion;
+    });
+    delete process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED;
+    delete process.env.RATEHAWK_PROFILE_DELETE_ENABLED;
+    const email = 'private@example.com';
+    const input = { email, confirm: true };
+    const methods = [
+        ['disableProfile', 'disableProfile'],
+        ['restoreProfile', 'restoreProfile'],
+        ['deleteProfile', 'deleteProfile']
+    ];
+    const calls = methods.map(([, transport]) => context.mock.method(service.client, transport, async data => {
+        assert.deepEqual(data, { email });
+        return { ok: true, status: 'ok', error: null, httpStatus: 200, data: null };
+    }));
+    for (const [method] of methods) {
+        await assert.rejects(service[method](input), error =>
+            error.code === 'profile_mutations_disabled' && error.httpStatus === 503);
+    }
+    assert.ok(calls.every(call => call.mock.callCount() === 0));
+    process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED = 'true';
+    await assert.rejects(service.deleteProfile(input), error =>
+        error.code === 'profile_delete_disabled' && error.httpStatus === 503);
+    assert.deepEqual(await service.disableProfile(input), { success: true });
+    assert.deepEqual(await service.restoreProfile(input), { success: true });
+    assert.equal(calls[0].mock.callCount(), 1);
+    assert.equal(calls[1].mock.callCount(), 1);
+    assert.equal(calls[2].mock.callCount(), 0);
+    process.env.RATEHAWK_PROFILE_DELETE_ENABLED = 'true';
+    assert.deepEqual(await service.deleteProfile(input), { success: true });
+    assert.equal(calls[2].mock.callCount(), 1);
+    for (const [method] of methods) {
+        for (const invalid of [{ email }, { email, confirm: false }, { ...input, email: 'invalid' },
+            { ...input, extra: true }, { email: ['private@example.com'], confirm: true }]) {
+            await assert.rejects(service[method](invalid), error => error.code === 'invalid_profile_request' && error.httpStatus === 400);
+        }
+    }
+    assert.deepEqual(calls.map(call => call.mock.callCount()), [1, 1, 1]);
+});
+
+test('profile service classifies supplier failures and rejects unexpected responses safely', async context => {
+    const service = require('./services/profileService');
+    const previousMutations = process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED;
+    const previousDeletion = process.env.RATEHAWK_PROFILE_DELETE_ENABLED;
+    const previousMaster = process.env.RATEHAWK_PROFILE_MASTER_ENABLED;
+    context.after(() => {
+        for (const [key, value] of [
+            ['RATEHAWK_PROFILE_MUTATIONS_ENABLED', previousMutations],
+            ['RATEHAWK_PROFILE_DELETE_ENABLED', previousDeletion],
+            ['RATEHAWK_PROFILE_MASTER_ENABLED', previousMaster]
+        ]) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
+    });
+    let upstream;
+    const list = context.mock.method(service.client, 'listProfiles', async () => {
+        if (upstream instanceof Error) throw upstream;
+        return upstream;
+    });
+    for (const [response, code, httpStatus] of [
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'users_profile_not_found' }, 'users_profile_not_found', 404],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'user_already_exists' }, 'user_already_exists', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'profile_is_already_disabled' }, 'profile_is_already_disabled', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'profile_is_already_restored' }, 'profile_is_already_restored', 409],
+        [{ ok: false, status: 'error', httpStatus: 429, rateLimit: { secondsNumber: 120 } }, 'rate_limit', 429],
+        [{ ok: false, status: 'error', httpStatus: 403, error: 'private-debug' }, 'supplier_unauthorized', 502],
+        [{ ok: false, status: 'error', httpStatus: 404, error: 'endpoint_not_active' }, 'supplier_endpoint_unavailable', 502],
+        [{ ok: false, status: 'error', httpStatus: 400, error: 'invalid_params', debug: 'private-debug' }, 'supplier_request_rejected', 502],
+        [{ ok: false, status: 'error', httpStatus: 503, error: 'unknown' }, 'supplier_unknown', 502],
+        [{ ok: false, status: 'error', httpStatus: 500, error: 'private-debug' }, 'profile_unavailable', 502],
+        [Object.assign(new Error('private-debug'), { code: 'ETIMEDOUT', config: { auth: 'private-credentials' } }), 'supplier_connection_failed', 502],
+        [Object.assign(new Error('private-credentials'), { code: 'ratehawk_credentials_missing' }), 'supplier_credentials_missing', 503]
+    ]) {
+        upstream = response;
+        await assert.rejects(service.retrieveProfiles(), error => {
+            assert.equal(error.code, code);
+            assert.equal(error.httpStatus, httpStatus);
+            assert.equal(error.config, undefined);
+            assert.doesNotMatch(error.message + JSON.stringify(error), /private-/);
+            if (httpStatus === 429) assert.equal(error.retry_after_ms, 120000);
+            return true;
+        });
+    }
+    assert.equal(list.mock.callCount(), 12);
+    list.mock.restore();
+
+    process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED = 'true';
+    process.env.RATEHAWK_PROFILE_DELETE_ENABLED = 'true';
+    delete process.env.RATEHAWK_PROFILE_MASTER_ENABLED;
+    const input = { email: 'private@example.com', first_name: 'Jane', last_name: 'Smith', type: 'master' };
+    const create = context.mock.method(service.client, 'createProfile', async () =>
+        ({ ok: true, status: 'ok', httpStatus: 200, error: null, data: { debug: 'private-debug' } }));
+    const edit = context.mock.method(service.client, 'editProfile', async () =>
+        ({ ok: true, status: 'ok', httpStatus: 200, error: null, data: { user: { ...input, status: 'active', email: 'different@example.com' } } }));
+    for (const method of ['createProfile', 'editProfile']) {
+        await assert.rejects(service[method](input), error => error.code === 'profile_master_disabled' && error.httpStatus === 503);
+    }
+    assert.equal(create.mock.callCount(), 0);
+    assert.equal(edit.mock.callCount(), 0);
+    process.env.RATEHAWK_PROFILE_MASTER_ENABLED = 'true';
+    await assert.rejects(service.createProfile(input), error => error.code === 'invalid_profile_response' && error.httpStatus === 502);
+    await assert.rejects(service.editProfile(input), error => error.code === 'invalid_profile_response' && error.httpStatus === 502);
+    create.mock.restore();
+    edit.mock.restore();
+
+    for (const method of ['disableProfile', 'restoreProfile', 'deleteProfile']) {
+        const request = context.mock.method(service.client, method, async () =>
+            ({ ok: true, status: 'ok', httpStatus: 200, error: null, data: { debug: 'private-debug' } }));
+        await assert.rejects(service[method]({ email: input.email, confirm: true }), error =>
+            error.code === 'invalid_profile_response' && error.httpStatus === 502);
+        assert.equal(request.mock.callCount(), 1);
+        request.mock.restore();
+    }
+});
+
 test('order group transports use documented methods and paths without retries or private logs', async context => {
     const axios = require('axios');
     const logger = require('./services/loggerService');
@@ -1664,6 +1926,134 @@ test('contract HTTP routes require private server authentication and preserve no
         assert.equal(response.headers.get('cache-control'), 'no-store');
         assert.deepEqual(await response.json(), { success: false, error: code });
     }
+});
+
+test('profile HTTP routes authorize before parsing, validate input and gate mutations', async context => {
+    const express = require('express');
+    const { createProfileRouter } = require('./services/bookingRoutes');
+    const service = require('./services/profileService');
+    const keys = ['RATEHAWK_BOOKING_TOKEN', 'REMAL_SECURE_KEY', 'RATEHAWK_PROFILE_MUTATIONS_ENABLED', 'RATEHAWK_PROFILE_DELETE_ENABLED'];
+    const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    context.after(() => {
+        for (const [key, value] of Object.entries(previous)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
+    });
+    const list = context.mock.method(service, 'retrieveProfiles', async () => ({ success: true, users: [] }));
+    const methods = ['createProfile', 'editProfile', 'disableProfile', 'restoreProfile', 'deleteProfile'];
+    const calls = methods.map(method => context.mock.method(service, method, async () => ({ success: true })));
+    const app = express();
+    app.use('/api/v1/profiles', createProfileRouter());
+    const server = await new Promise(resolve => {
+        const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+    });
+    context.after(() => new Promise(resolve => server.close(resolve)));
+    const url = `http://127.0.0.1:${server.address().port}/api/v1/profiles`;
+    const token = 'fixture-private-profile-token-32-characters';
+    const authorization = { Authorization: `Bearer ${token}` };
+    const send = (path, body, headers = {}, method = 'POST') => fetch(`${url}${path}`, {
+        method, headers: { 'Content-Type': 'application/json', ...headers },
+        body: method === 'POST' ? JSON.stringify(body) : undefined
+    });
+    process.env.REMAL_SECURE_KEY = 'public-fixture-key';
+    delete process.env.RATEHAWK_BOOKING_TOKEN;
+    delete process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED;
+    delete process.env.RATEHAWK_PROFILE_DELETE_ENABLED;
+    const unconfigured = await send('/', undefined, {}, 'GET');
+    assert.equal(unconfigured.status, 503);
+    assert.equal(unconfigured.headers.get('cache-control'), 'no-store');
+    process.env.RATEHAWK_BOOKING_TOKEN = token;
+    for (const headers of [{}, { 'x-api-key': 'public-fixture-key' }, { Authorization: 'Bearer wrong-token' }]) {
+        const response = await send('/', undefined, headers, 'GET');
+        assert.equal(response.status, 401);
+        assert.equal(response.headers.get('etag'), null);
+    }
+    const malformedUnauthorized = await fetch(`${url}/create`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{'
+    });
+    assert.equal(malformedUnauthorized.status, 401);
+    assert.equal((await send('/', undefined, { ...authorization, Origin: 'https://remalbookings.com' }, 'GET')).status, 403);
+    const listResponse = await send('/', undefined, authorization, 'GET');
+    assert.equal(listResponse.status, 200);
+    assert.equal(listResponse.headers.get('cache-control'), 'no-store');
+    assert.equal(listResponse.headers.get('etag'), null);
+    assert.deepEqual(await listResponse.json(), { success: true, users: [] });
+    assert.equal((await send('/?email=private@example.com', undefined, authorization, 'GET')).status, 400);
+    for (const path of ['create', 'edit', 'disable', 'restore', 'delete']) {
+        const response = await send(`/${path}`, { email: 'private@example.com' }, authorization);
+        assert.equal(response.status, 503);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        assert.equal(response.headers.get('etag'), null);
+        assert.deepEqual(await response.json(), { success: false, error: 'profile_mutations_disabled' });
+    }
+    assert.equal(list.mock.callCount(), 1);
+    assert.ok(calls.every(call => call.mock.callCount() === 0));
+
+    process.env.RATEHAWK_PROFILE_MUTATIONS_ENABLED = 'true';
+    const details = { email: 'private@example.com', first_name: 'Jane', last_name: 'Smith', type: 'employee' };
+    const actions = [
+        ['create', details], ['edit', details], ['disable', { email: details.email, confirm: true }],
+        ['restore', { email: details.email, confirm: true }], ['delete', { email: details.email, confirm: true }]
+    ];
+    for (const [index, [path, body]] of actions.entries()) {
+        const response = await send(`/${path}`, body, authorization);
+        assert.equal(response.status, index === 4 ? 503 : 200);
+        assert.equal(response.headers.get('cache-control'), 'no-store');
+        assert.equal(response.headers.get('etag'), null);
+        assert.deepEqual(await response.json(), index === 4 ? { success: false, error: 'profile_delete_disabled' } : { success: true });
+    }
+    assert.deepEqual(calls.map(call => call.mock.callCount()), [1, 1, 1, 1, 0]);
+    process.env.RATEHAWK_PROFILE_DELETE_ENABLED = 'true';
+    const deleted = await send('/delete', actions[4][1], authorization);
+    assert.equal(deleted.status, 200);
+    assert.deepEqual(await deleted.json(), { success: true });
+    assert.equal(calls[4].mock.callCount(), 1);
+
+    for (const [path, body] of [
+        ['/create?email=private@example.com', details],
+        ['/create', { ...details, private_debug: 'secret' }],
+        ['/delete', { ...actions[4][1], private_debug: 'secret' }],
+        ['/create', []]
+    ]) {
+        const response = await send(path, body, authorization);
+        assert.equal(response.status, 400);
+        assert.deepEqual(await response.json(), { success: false, error: 'invalid_profile_request' });
+    }
+    const malformed = await fetch(`${url}/create`, {
+        method: 'POST', headers: { ...authorization, 'Content-Type': 'application/json' }, body: '{'
+    });
+    assert.equal(malformed.status, 400);
+    assert.equal(malformed.headers.get('cache-control'), 'no-store');
+    assert.equal(malformed.headers.get('etag'), null);
+    const oversized = await send('/create', { ...details, first_name: 'x'.repeat(9000) }, authorization);
+    assert.equal(oversized.status, 400);
+    const wrongType = await fetch(`${url}/create`, {
+        method: 'POST', headers: { ...authorization, 'Content-Type': 'text/plain' }, body: JSON.stringify(details)
+    });
+    assert.equal(wrongType.status, 400);
+    assert.deepEqual(calls.map(call => call.mock.callCount()), [1, 1, 1, 1, 1]);
+
+    calls[0].mock.mockImplementation(async () => {
+        throw Object.assign(new Error('private-upstream'), { code: 'user_already_exists', httpStatus: 409 });
+    });
+    const conflict = await send('/create', details, authorization);
+    assert.equal(conflict.status, 409);
+    assert.equal(conflict.headers.get('etag'), null);
+    assert.deepEqual(await conflict.json(), { success: false, error: 'user_already_exists' });
+    calls[0].mock.mockImplementation(async () => {
+        throw Object.assign(new Error('private-upstream'), { code: 'rate_limit', httpStatus: 429, retry_after_ms: 120001 });
+    });
+    const limited = await send('/create', details, authorization);
+    assert.equal(limited.status, 429);
+    assert.equal(limited.headers.get('retry-after'), '121');
+    assert.deepEqual(await limited.json(), { success: false, error: 'rate_limit' });
+    calls[0].mock.mockImplementation(async () => {
+        throw Object.assign(new Error('private-upstream'), { code: 'private_debug', httpStatus: 502 });
+    });
+    const unknown = await send('/create', details, authorization);
+    assert.equal(unknown.status, 503);
+    assert.deepEqual(await unknown.json(), { success: false, error: 'profile_service_unavailable' });
 });
 
 test('order group HTTP routes protect account data and gate every mutation', async context => {

@@ -368,6 +368,24 @@ const disbandOrderGroup = data => call('get', '/api/b2b/v3/ordergroup/disband/',
 const payOrderGroupOverpay = data => call('get', '/api/b2b/v3/ordergroup/pay/overpay/', {
     data, retries: 0, rateLimitRetry: false, redactPayload: true
 });
+const listProfiles = () => call('get', '/api/b2b/v3/profiles/list/', {
+    retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const createProfile = data => call('post', '/api/b2b/v3/profiles/create/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const editProfile = data => call('post', '/api/b2b/v3/profiles/edit/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const disableProfile = data => call('post', '/api/b2b/v3/profiles/disable/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const restoreProfile = data => call('post', '/api/b2b/v3/profiles/restore/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const deleteProfile = data => call('post', '/api/b2b/v3/profiles/delete/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
 
 // ---- Static / content data (Content API) -----------------------------------
 const hotelStatic = () => call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
@@ -940,6 +958,12 @@ module.exports = {
     removeFromOrderGroup,
     disbandOrderGroup,
     payOrderGroupOverpay,
+    listProfiles,
+    createProfile,
+    editProfile,
+    disableProfile,
+    restoreProfile,
+    deleteProfile,
     getHotelDumpUrl,
     getCustomDumpUrl,
     getIncrementalDumpUrl,

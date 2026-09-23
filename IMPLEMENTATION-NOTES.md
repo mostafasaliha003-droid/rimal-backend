@@ -171,6 +171,25 @@ These routes reject browser `Origin` and public search keys; only a trusted oper
 
 Verification uses mocked supplier transport and local HTTP requests only. No live group was created, changed, disbanded or paid. Sandbox/key support and actual response shape still need verification against the configured supplier account before operational use; implementation does not enable flags, deploy or grant production payment authorization.
 
+## RateHawk Profiles
+
+Implemented against the six methods in the [ETG Profiles call list](https://docs.emergingtravel.com/docs/b2b-api/profiles/). All backend routes under `/api/v1/profiles` require the private `Authorization: Bearer <RATEHAWK_BOOKING_TOKEN>` token (at least 32 characters, distinct from `REMAL_SECURE_KEY`); the public `x-api-key` and browser requests with an `Origin` header are rejected. The trusted caller must authorize its own operator before accessing account users or changing roles. GET requests must not include query parameters or a body; POST requests require `Content-Type: application/json` and an object body.
+
+| Backend route | JSON request (POST only) | ETG method and path | Success |
+| --- | --- | --- | --- |
+| `GET /api/v1/profiles` | None | `GET /api/b2b/v3/profiles/list/` | `{ "success": true, "users": [...] }` |
+| `POST /api/v1/profiles/create` | `{ "email": "user@example.com", "first_name": "Jane", "last_name": "Smith", "type": "employee" }` | `POST /api/b2b/v3/profiles/create/` | `{ "success": true }` |
+| `POST /api/v1/profiles/edit` | Same required fields as create; optional `middle_name` and `phone` | `POST /api/b2b/v3/profiles/edit/` | `{ "success": true, "user": {...} }` |
+| `POST /api/v1/profiles/disable` | `{ "email": "user@example.com", "confirm": true }` | `POST /api/b2b/v3/profiles/disable/` | `{ "success": true }` |
+| `POST /api/v1/profiles/restore` | `{ "email": "user@example.com", "confirm": true }` | `POST /api/b2b/v3/profiles/restore/` | `{ "success": true }` |
+| `POST /api/v1/profiles/delete` | `{ "email": "user@example.com", "confirm": true }` | `POST /api/b2b/v3/profiles/delete/` | `{ "success": true }` |
+
+Create and edit accept `email`, `first_name`, `last_name`, and `type`, with optional `middle_name` and `phone`. `type` must be one of `csbt_admin`, `employee`, `finance`, `manager`, `master`, `self_booker`, `sub_agent_supervisor`, `supervisor`, or `travel_manager`. No unrecognized fields are forwarded. The list and edit results preserve the supplier's email, names, contact information, status, and role without fabricating missing values. Create, disable, restore, and delete require the documented `data: null` success response; edit requires a matching `data.user`. The local `confirm` safeguard is required for disable, restore, and delete, but only `email` is forwarded to ETG.
+
+Listing is available with the private token independently of booking activation. **All five mutations remain disabled by default:** only `RATEHAWK_PROFILE_MUTATIONS_ENABLED=true` enables them. Assigning the privileged `master` role also requires `RATEHAWK_PROFILE_MASTER_ENABLED=true`; deletion also requires `RATEHAWK_PROFILE_DELETE_ENABLED=true`. These flags are independent of booking, payment, and order-group flags. Never put profile data or the private token in URLs or browser configuration. Before enabling any mutation, establish operator permissions, durable auditing and reconciliation of ambiguous timeouts, review role escalation with the account owner, and obtain supplier account approval. Deletion is irreversible; require a separate authorization decision. There are no automatic retries, including on HTTP 429 or timeouts, so an uncertain outcome must be verified through listing before considering another mutation.
+
+The routes apply the global rate limiter and an 8 KiB JSON limit after authentication; responses use `Cache-Control: no-store` without ETags. ETG requests disable redirects and redact payloads and supplier debug from local logs. Configure reverse proxies and APM to exclude personal data and credentials too. Known not-found and conflict supplier states map to 404/409, rate limits to 429 with `Retry-After`, and malformed/unknown supplier responses to safe 502/503 errors. Offline tests exercise all six transports, validation, privacy, error mapping, authorization, and activation gates with mocks only. No live profile was listed or changed; verify endpoint availability, roles, and response shapes with the configured ETG account before using this in operations. These changes do not enable flags, deploy, or commit anything.
+
 ## Frontend deployment
 
 `frontend/src` is the source of truth. Express prefers `frontend/dist` when its `index.html` exists. Otherwise it serves only allowlisted public files and the `assets` directory from the committed repository-root site. Both modes support frontend routes without exposing server code, package files or private configuration. Missing API endpoints and assets return 404 rather than the application HTML.
