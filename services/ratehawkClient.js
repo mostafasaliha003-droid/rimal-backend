@@ -20,6 +20,7 @@ function normalizeBaseUrl(u) {
 const BASE_URL = normalizeBaseUrl(process.env.RATEHAWK_BASE_URL);
 const KEY_ID = process.env.RATEHAWK_KEY_ID || '';
 const API_KEY = process.env.RATEHAWK_API_KEY || '';
+const CONTENT_SANDBOX = new URL(BASE_URL).hostname === 'api-sandbox.ratehawk.com';
 
 // Default per-endpoint timeouts (ms). Booking/cancel need longer windows.
 const DEFAULT_TIMEOUT = 20000;
@@ -389,8 +390,10 @@ const deleteProfile = data => call('post', '/api/b2b/v3/profiles/delete/', {
 
 // ---- Static / content data (Content API) -----------------------------------
 const hotelStatic = () => call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
-const filterValues = () => call('get', '/api/content/v1/filter_values/');
-const hotelIds = (data = {}) => call('get', '/api/content/v1/hotel/ids', { data, timeout: 60000 });
+const filterValues = () => call('get', '/api/content/v1/filter_values', { redactPayload: true });
+const hotelIds = (data = {}) => call('post', '/api/content/v1/hotel_ids_by_filter/', {
+    data: normalizeHotelIdFilters(data), timeout: 60000, redactPayload: true
+});
 async function getHotelDumpUrl(language = 'en', inventory = 'all') {
     const response = await call('post', '/api/b2b/v3/hotel/info/dump/', {
         data: { language, inventory },
@@ -482,16 +485,38 @@ async function getSingleHotelInfo(hid, language = 'en') {
     if (!response.ok) throw ratehawkError('/api/b2b/v3/hotel/info/', response);
     return response.data;
 }
-const hotelContent = (data = {}) => call('post', '/api/content/v1/hotel_content_by_ids/', {
-    data: { ...data, language: 'en' },
-    timeout: 60000
-});
+function validateHotelContentRequest(data) {
+    if (!data || typeof data !== 'object' || Array.isArray(data)) {
+        throw new TypeError('hotel content request must be an object');
+    }
+    if (typeof data.language !== 'string' || !data.language.trim()) {
+        throw new TypeError('language must be a non-empty string');
+    }
+    if (CONTENT_SANDBOX && data.language !== 'en') throw new TypeError('Sandbox Content language must be en');
+    const hasHids = Object.prototype.hasOwnProperty.call(data, 'hids');
+    const hasIds = Object.prototype.hasOwnProperty.call(data, 'ids');
+    if (hasHids === hasIds) throw new TypeError('provide either hids or ids, not both');
+    const field = hasHids ? 'hids' : 'ids';
+    const values = data[field];
+    if (!Array.isArray(values) || values.length < 1 || values.length > 100) {
+        throw new TypeError(`${field} must contain 1 to 100 hotel IDs`);
+    }
+    if (hasHids && values.some(hid => !Number.isInteger(hid) || hid < 0 || hid > 9999999999)) {
+        throw new TypeError('hids must contain only ten-digit integers');
+    }
+    if (hasIds && values.some(id => typeof id !== 'string' || !id.trim())) {
+        throw new TypeError('ids must contain non-empty strings');
+    }
+    return { [field]: values, language: data.language };
+}
+
+const hotelContent = (data = {}) => hotelContentByIds({ language: 'en', ...data });
 function validateHotelReviewHids(hids) {
     if (!Array.isArray(hids) || hids.length > 100) {
-        throw new TypeError('hids must be an array of no more than 100 uint32 integers');
+        throw new TypeError('hids must be an array of no more than 100 ten-digit integers');
     }
-    if (hids.some(hid => !Number.isInteger(hid) || hid < 0 || hid > 0xFFFFFFFF)) {
-        throw new TypeError('hids must contain only uint32 integers');
+    if (hids.some(hid => !Number.isInteger(hid) || hid < 0 || hid > 9999999999)) {
+        throw new TypeError('hids must contain only ten-digit integers');
     }
 }
 
@@ -503,15 +528,16 @@ function extractHotelReviewRecords(data) {
     if (!Array.isArray(records)) return [];
     return records
         .map(record => {
-            if (!record || typeof record !== 'object') return null;
-            const hid = record.hid ?? record.hotel_id ?? record.id;
+            if (!record || typeof record !== 'object'
+                || !Number.isInteger(record.hid) || record.hid < 0 || record.hid > 9999999999) {
+                throw new Error('ETG hotel reviews response missing valid numeric hid');
+            }
             const reviews = Array.isArray(record.reviews)
                 ? record.reviews
-                : (Array.isArray(record.review) ? record.review : []);
-            if (hid === undefined || hid === null) return null;
-            return { hid: Number(hid), reviews };
-        })
-        .filter(record => Number.isInteger(record.hid) && record.hid >= 0 && record.hid <= 0xFFFFFFFF);
+                : (Array.isArray(record.review) ? record.review : null);
+            if (!reviews) throw new Error('ETG hotel reviews response missing reviews array');
+            return { hid: record.hid, reviews };
+        });
 }
 
 async function fetchHotelReviews(hids, language = 'en') {
@@ -519,38 +545,14 @@ async function fetchHotelReviews(hids, language = 'en') {
     if (typeof language !== 'string' || !language.trim()) {
         throw new TypeError('language must be a non-empty string');
     }
-    let response;
-    try {
-        response = await call('post', '/api/content/v1/hotel_reviews_by_ids/', {
-            data: { hids, language },
-            timeout: 60000
-        });
-    } catch (error) {
-        if (error.ratehawkError === 'invalid_params') {
-            logger.warn('ETG hotel reviews rejected parameters', {
-                validationError: error.validationError || error.message
-            });
-            return [];
-        }
-        if (error.ratehawkError === 'no_hotel_reviews' || error.httpStatus === 500) {
-            logger.warn('ETG hotel reviews are unavailable for these hotels', { error: error.message });
-            return [];
-        }
-        throw error;
-    }
-    if (response.error === 'invalid_params') {
-        logger.warn('ETG hotel reviews rejected parameters', {
-            validationError: response.validationError || 'unknown validation error'
-        });
-        return [];
-    }
-    if (response.error === 'no_hotel_reviews' || response.httpStatus === 500) {
-        logger.warn('ETG hotel reviews are unavailable for these hotels', {
-            error: response.error || response.httpStatus
-        });
-        return [];
-    }
-    if (!response.ok) throw new Error(response.error || 'ETG hotel reviews request failed');
+    if (CONTENT_SANDBOX && language !== 'en') throw new TypeError('Sandbox Content language must be en');
+    const response = await call('post', '/api/content/v1/hotel_reviews_by_ids/', {
+        data: { hids, language },
+        timeout: 60000,
+        redactPayload: true
+    });
+    if (!response.ok) throw ratehawkError('/api/content/v1/hotel_reviews_by_ids/', response);
+    if (!Array.isArray(response.data)) throw new Error('ETG hotel reviews response must contain a data array');
     return extractHotelReviewRecords(response.data);
 }
 function normalizeHotelIdFilters(filters = {}) {
@@ -560,68 +562,65 @@ function normalizeHotelIdFilters(filters = {}) {
     const payload = {};
     const integerArrays = ['country', 'star_rating'];
     const stringArrays = ['kind', 'serp_filter'];
+    const allowed = new Set([...integerArrays, ...stringArrays, 'updated_since', 'supplier_type', 'preferable', 'top']);
+    for (const key of Object.keys(filters)) {
+        if (!allowed.has(key)) throw new TypeError(`Unknown hotel ID filter: ${key}`);
+    }
 
     integerArrays.forEach(key => {
         if (filters[key] === undefined) return;
-        if (!Array.isArray(filters[key]) || filters[key].some(value => !Number.isInteger(value))) {
-            throw new TypeError(`${key} must be an array of integers`);
+        if (!Array.isArray(filters[key]) || !filters[key].length || filters[key].some(value => !Number.isInteger(value))) {
+            throw new TypeError(`${key} must be a non-empty array of integers`);
+        }
+        if (key === 'country' && CONTENT_SANDBOX && filters.country.some(value => ![59, 189, 201].includes(value))) {
+            throw new TypeError('Sandbox Content country must be 59, 189 or 201');
         }
         payload[key] = filters[key];
     });
     stringArrays.forEach(key => {
         if (filters[key] === undefined) return;
-        if (!Array.isArray(filters[key]) || filters[key].some(value => typeof value !== 'string')) {
-            throw new TypeError(`${key} must be an array of strings`);
+        if (!Array.isArray(filters[key]) || !filters[key].length || filters[key].some(value => typeof value !== 'string')) {
+            throw new TypeError(`${key} must be a non-empty array of strings`);
         }
         payload[key] = filters[key];
     });
     if (filters.updated_since !== undefined) {
-        if (typeof filters.updated_since !== 'string') throw new TypeError('updated_since must be a string');
+        if (typeof filters.updated_since !== 'string' || !/^\d{4}-\d{2}-\d{2} \d{2}:\d{2}:\d{2}$/.test(filters.updated_since)) {
+            throw new TypeError('updated_since must use YYYY-MM-DD HH:MM:SS');
+        }
         payload.updated_since = filters.updated_since;
+    }
+    if (filters.supplier_type !== undefined) {
+        if (!['all', 'direct', 'direct_fast', 'direct_fast_extended'].includes(filters.supplier_type)) {
+            throw new TypeError('supplier_type must be all, direct, direct_fast or direct_fast_extended');
+        }
+        payload.supplier_type = filters.supplier_type;
+    }
+    for (const key of ['preferable', 'top']) {
+        if (filters[key] === undefined) continue;
+        if (typeof filters[key] !== 'boolean') throw new TypeError(`${key} must be a boolean`);
+        payload[key] = filters[key];
     }
     return payload;
 }
 
 async function fetchHotelIdsByFilter(filters = {}) {
     const payload = normalizeHotelIdFilters(filters);
-    let response;
-    try {
-        response = await call('post', '/api/content/v1/hotel_ids_by_filter/', {
-            data: payload,
-            timeout: 60000
-        });
-    } catch (error) {
-        if (error.ratehawkError === 'invalid_params') {
-            logger.warn('ETG hotel IDs by filter rejected parameters', {
-                validationError: error.validationError || error.message
-            });
-            return [];
-        }
-        if (error.ratehawkError === 'no_hotel_ids' || error.httpStatus === 500) {
-            logger.warn('ETG hotel IDs by filter returned no hotel IDs', { error: error.message });
-            return [];
-        }
-        throw error;
-    }
-
-    if (response.error === 'invalid_params') {
-        logger.warn('ETG hotel IDs by filter rejected parameters', {
-            validationError: response.validationError || 'unknown validation error'
-        });
-        return [];
-    }
-    if (response.error === 'no_hotel_ids' || response.httpStatus === 500) {
-        logger.warn('ETG hotel IDs by filter returned no hotel IDs', { error: response.error || response.httpStatus });
-        return [];
-    }
-    if (!response.ok) throw new Error(response.error || 'ETG hotel IDs by filter request failed');
-
+    const response = await call('post', '/api/content/v1/hotel_ids_by_filter/', {
+        data: payload,
+        timeout: 60000,
+        redactPayload: true
+    });
+    if (!response.ok) throw ratehawkError('/api/content/v1/hotel_ids_by_filter/', response);
     const hids = response.data && response.data.hids;
-    return Array.isArray(hids) ? hids : [];
+    if (!Array.isArray(hids)) throw new Error('ETG hotel IDs by filter response missing data.hids');
+    return hids;
 }
 
 const hotelIdsByFilter = fetchHotelIdsByFilter;
-const hotelContentByIds = (data) => call('post', '/api/content/v1/hotel_content_by_ids/', { data, timeout: 60000 });
+const hotelContentByIds = async (data) => call('post', '/api/content/v1/hotel_content_by_ids/', {
+    data: validateHotelContentRequest(data), timeout: 60000, redactPayload: true
+});
 const hotelInfo = (data) => call('post', '/api/b2b/v3/hotel/info/', { data });
 
 // ---- Search -----------------------------------------------------------------

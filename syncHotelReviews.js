@@ -21,9 +21,9 @@ function sleep(milliseconds) {
     return new Promise(resolve => setTimeout(resolve, milliseconds));
 }
 
-function toUint32(value) {
+function toHotelHid(value) {
     const hid = Number(value);
-    if (!Number.isInteger(hid) || hid < 0 || hid > 0xFFFFFFFF) return null;
+    if (!Number.isInteger(hid) || hid < 0 || hid > 9999999999) return null;
     return hid;
 }
 
@@ -39,7 +39,7 @@ function getReviewOperations(records) {
     return records
         .filter(record => record && Array.isArray(record.reviews))
         .map(record => {
-            const hid = toUint32(record.hid);
+            const hid = toHotelHid(record.hid);
             if (hid === null) return null;
             return {
                 updateOne: {
@@ -53,10 +53,10 @@ function getReviewOperations(records) {
 }
 
 async function loadHotelHids() {
-    const hotels = await Hotel.find({ hid: { $exists: true, $ne: null } })
+    const hotels = await Hotel.find({ provider: 'ratehawk', hid: { $exists: true, $ne: null } })
         .select({ hid: 1, _id: 0 })
         .lean();
-    return [...new Set(hotels.map(hotel => toUint32(hotel.hid)).filter(hid => hid !== null))];
+    return [...new Set(hotels.map(hotel => toHotelHid(hotel.hid)).filter(hid => hid !== null))];
 }
 
 async function syncHotelReviews() {

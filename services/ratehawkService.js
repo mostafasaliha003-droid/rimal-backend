@@ -57,6 +57,9 @@ const DEFAULT_REGION_ID = Number(process.env.RATEHAWK_DEFAULT_REGION_ID) || null
 const FILTER_CACHE_TTL_MS = 24 * 60 * 60 * 1000;
 const FILTER_CACHE_FILE = path.join(__dirname, '..', 'data', 'filters.json');
 const FILTER_KEYS = ['language', 'country', 'serp_filter', 'star_rating', 'kind'];
+const FILTER_CACHE_SCOPE = crypto.createHash('sha256')
+    .update(JSON.stringify([client.BASE_URL, process.env.RATEHAWK_KEY_ID || '']))
+    .digest('hex');
 
 // Access the shared Hotel model (registered by server.js / syncRatehawkHotels.js).
 // Defined lazily so requiring this module never fails if the model isn't set up yet.
@@ -69,6 +72,10 @@ function getHotelModel() {
         provider: { type: String, default: 'dubailink' }
     });
     return mongoose.model('Hotel', hotelSchema);
+}
+
+function isDeletedHotel(hotel) {
+    return hotel?.deleted === true || hotel?.staticData?.deleted === true;
 }
 
 function getBookingModel() {
@@ -359,7 +366,7 @@ function readFilterCache() {
     try {
         if (!fs.existsSync(FILTER_CACHE_FILE)) return null;
         const cached = JSON.parse(fs.readFileSync(FILTER_CACHE_FILE, 'utf8'));
-        if (!cached || !cached.fetchedAt || !cached.filters) return null;
+        if (!cached || cached.scope !== FILTER_CACHE_SCOPE || !cached.fetchedAt || !cached.filters) return null;
         const fetchedAt = new Date(cached.fetchedAt).getTime();
         if (!Number.isFinite(fetchedAt)) return null;
         return { filters: selectFilterValues(cached.filters), fetchedAt: new Date(fetchedAt).toISOString() };
@@ -373,34 +380,28 @@ function writeFilterCache(filters) {
     const directory = path.dirname(FILTER_CACHE_FILE);
     const temporaryFile = `${FILTER_CACHE_FILE}.tmp`;
     fs.mkdirSync(directory, { recursive: true });
-    fs.writeFileSync(temporaryFile, JSON.stringify({ fetchedAt: new Date().toISOString(), filters }, null, 2), 'utf8');
+    fs.writeFileSync(temporaryFile, JSON.stringify({ scope: FILTER_CACHE_SCOPE, fetchedAt: new Date().toISOString(), filters }, null, 2), 'utf8');
     fs.renameSync(temporaryFile, FILTER_CACHE_FILE);
 }
 
 async function getFilterValues({ forceRefresh = false } = {}) {
     const cached = readFilterCache();
     const cacheAge = cached ? Date.now() - new Date(cached.fetchedAt).getTime() : Infinity;
-    if (!forceRefresh && cached && cacheAge >= 0 && cacheAge < FILTER_CACHE_TTL_MS) {
-        logger.info('RateHawk filter values served from cache', { ageMs: cacheAge });
-        return { ...cached, source: 'cache', stale: false };
+    if (!forceRefresh) {
+        if (!cached) throw new Error('ETG filter cache is unavailable; run offline Content synchronization');
+        const stale = cacheAge < 0 || cacheAge >= FILTER_CACHE_TTL_MS;
+        return { ...cached, source: stale ? 'stale-cache' : 'cache', stale };
     }
 
-    try {
-        const response = await fetchFilterValues();
-        if (!response.ok) throw new Error(response.error || 'filter_values request failed');
-        const filters = selectFilterValues(response.data);
-        writeFilterCache(filters);
-        logger.info('RateHawk filter values synchronized', { keys: Object.keys(filters) });
-        const fetchedAt = new Date().toISOString();
-        return { filters, fetchedAt, source: 'api', stale: false };
-    } catch (error) {
-        if (cached) {
-            logger.warn('RateHawk filter sync failed; serving stale cache', { error: error.message });
-            return { ...cached, source: 'stale-cache', stale: true };
-        }
-        logger.error('RateHawk filter sync failed with no cache available', { error: error.message });
-        throw error;
+    const response = await fetchFilterValues();
+    if (!response.ok) throw new Error(response.error || 'filter_values request failed');
+    const filters = selectFilterValues(response.data);
+    if (FILTER_KEYS.some(key => !Array.isArray(filters[key]))) {
+        throw new Error('ETG filter_values response is missing documented filter arrays');
     }
+    writeFilterCache(filters);
+    logger.info('RateHawk filter values synchronized', { keys: Object.keys(filters) });
+    return { filters, fetchedAt: new Date().toISOString(), source: 'api', stale: false };
 }
 
 async function getHotelsContent(ids = [], hids = [], language = 'en') {
@@ -410,7 +411,9 @@ async function getHotelsContent(ids = [], hids = [], language = 'en') {
     else if (ids && ids.length) body.ids = ids;
     else return [];
     const res = await client.hotelContentByIds(body);
-    return res.ok ? (res.data || []) : [];
+    if (!res.ok) throw new Error(res.error || 'ETG hotel content request failed');
+    if (!Array.isArray(res.data)) throw new Error('ETG hotel content response must contain a data array');
+    return res.data;
 }
 
 // ---- Step 2: Search ---------------------------------------------------------
@@ -490,16 +493,22 @@ async function searchAvailability(rawParams = {}) {
     let dbMap = {};
     try {
         const Hotel = getHotelModel();
-        const idList = serpHotels.map(h => h.id).filter(Boolean);
-        const docs = await Hotel.find({ hotelId: { $in: idList } }).lean();
-        docs.forEach(d => { dbMap[d.hotelId] = d; });
+        const idList = serpHotels.map(h => h.id).filter(Boolean).map(String);
+        const hidList = serpHotels.map(h => h.hid).filter(Boolean).map(String);
+        const docs = await Hotel.find({
+            $or: [
+                ...(idList.length ? [{ hotelId: { $in: idList } }] : []),
+                ...(hidList.length ? [{ hid: { $in: hidList } }] : [])
+            ]
+        }).lean();
+        docs.forEach(d => { [d.hotelId, d.hid].filter(Boolean).forEach(id => { dbMap[String(id)] = d; }); });
         logger.info(`RateHawk search: ${serpHotels.length} hotels from SERP; hydrated ${docs.length}/${idList.length} from local DB cache`);
     } catch (e) {
         logger.warn('RateHawk DB hydration skipped', { error: e.message });
     }
 
-    return serpHotels.map(h => {
-        const d = dbMap[h.id] || {};
+    return serpHotels.filter(h => !isDeletedHotel(dbMap[h.hid] || dbMap[h.id])).map(h => {
+        const d = dbMap[h.hid] || dbMap[h.id] || {};
         return {
             id: h.id,
             hid: h.hid,
@@ -1340,6 +1349,7 @@ module.exports = {
     // Step 1 - static/content
     getHotelStatic,
     getSingleHotelInfo,
+    isDeletedHotel,
     getFilterValues,
     getHotelIdsByFilter,
     getHotelsContent,

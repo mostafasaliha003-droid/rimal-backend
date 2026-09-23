@@ -508,7 +508,10 @@ async function enrichRateHotels(hotels) {
         logger.warn('Static hotel enrichment skipped', { error: error.message });
     }
 
-    return hotels.map(hotel => {
+    return hotels.filter(hotel => {
+        const staticHotel = staticById.get(String(hotel?.hid || hotel?.hotel_id || hotel?.id));
+        return !ratehawkService.isDeletedHotel(staticHotel);
+    }).map(hotel => {
         const hid = hotel?.hid || hotel?.hotel_id || hotel?.id;
         const staticHotel = staticById.get(String(hid)) || {};
         const staticData = staticHotel.staticData && typeof staticHotel.staticData === 'object'

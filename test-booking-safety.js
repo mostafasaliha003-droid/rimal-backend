@@ -5,6 +5,421 @@ const { resolveValidatedPayment } = require('./services/paymentService');
 const expected = { hid: 123, total: 250, currency: 'AED' };
 const result = () => ({ hotels: [{ hid: 123, rates: [{ book_hash: 'verified', payment_options: { payment_types: [{ type: 'deposit', amount: '250.00', currency_code: 'AED' }] } }] }] });
 
+test('Content sync fails closed on supplier errors and malformed ID responses', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+    });
+    let verb = 'post';
+    let path = '/api/content/v1/hotel_ids_by_filter/';
+    let data = { country: [201] };
+    let response = { status: 400, headers: {}, data: { status: 'error', error: 'invalid_params', debug: { validation_error: 'unsupported country' } } };
+    const request = context.mock.fn(async config => {
+        assert.equal(config.method, verb);
+        assert.equal(config.url, path);
+        if (verb === 'get') {
+            assert.equal(config.data, undefined);
+            assert.equal(config.params, undefined);
+        } else assert.deepEqual(config.data, data);
+        return response;
+    });
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => config.url }));
+    context.mock.method(logger, 'logEtgExchange', () => {});
+    context.mock.method(logger, 'warn', () => {});
+    context.mock.method(logger, 'error', () => {});
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    delete require.cache[modulePath];
+    const client = require('./services/ratehawkClient');
+    await assert.rejects(client.fetchHotelIdsByFilter({ country: [201] }), /invalid_params/);
+    response = { status: 200, headers: {}, data: { status: 'ok', error: null, data: {} } };
+    await assert.rejects(client.fetchHotelIdsByFilter({ country: [201] }), /data\.hids/);
+    path = '/api/content/v1/hotel_reviews_by_ids/';
+    data = { hids: [123], language: 'en' };
+    response = { status: 400, headers: {}, data: { status: 'error', error: 'invalid_params' } };
+    await assert.rejects(client.fetchHotelReviews([123]), /invalid_params/);
+    path = '/api/content/v1/hotel_ids_by_filter/';
+    data = { country: [201] };
+    response = { status: 200, headers: {}, data: { status: 'ok', error: null, data: { hids: [123], ids: ['legacy'] } } };
+    assert.deepEqual((await client.hotelIds({ country: [201] })).data.hids, [123]);
+    verb = 'get';
+    path = '/api/content/v1/filter_values';
+    response = { status: 200, headers: {}, data: { status: 'ok', error: null, data: { kind: ['Hotel'] } } };
+    assert.deepEqual((await client.filterValues()).data.kind, ['Hotel']);
+    assert.equal(request.mock.callCount(), 5);
+});
+
+test('Content API transport does not log hotel or review bodies', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+    });
+    const request = context.mock.fn(async config => ({
+        status: 200, headers: {}, data: { status: 'ok', error: null, data: config.url.includes('reviews')
+            ? [{ hid: 123, reviews: [{ author: 'private-review-author' }] }]
+            : [{ hid: 123, name: 'private-hotel-name' }] }
+    }));
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => config.url }));
+    const exchange = context.mock.method(logger, 'logEtgExchange', entry => {
+        assert.equal(entry.requestPayload, null);
+        assert.equal(entry.responsePayload, null);
+        assert.doesNotMatch(JSON.stringify(entry), /private-review-author|private-hotel-name/);
+    });
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    delete require.cache[modulePath];
+    const client = require('./services/ratehawkClient');
+    await client.hotelContentByIds({ hids: [123], language: 'en' });
+    await client.fetchHotelReviews([123]);
+    assert.equal(exchange.mock.callCount(), 2);
+});
+
+test('Content hotel ID filters retain documented supplier selection options', () => {
+    const client = require('./services/ratehawkClient');
+    assert.deepEqual(client.normalizeHotelIdFilters({
+        country: [201], supplier_type: 'direct_fast', preferable: true, top: false
+    }), { country: [201], supplier_type: 'direct_fast', preferable: true, top: false });
+    assert.throws(() => client.normalizeHotelIdFilters({ country: [] }), /country/);
+    assert.throws(() => client.normalizeHotelIdFilters({ supplier_type: 'unknown' }), /supplier_type/);
+    assert.throws(() => client.normalizeHotelIdFilters({ top: 'false' }), /top/);
+    assert.throws(() => client.normalizeHotelIdFilters({ county: [201] }), /county/);
+    assert.throws(() => client.normalizeHotelIdFilters({ updated_since: 'yesterday' }), /updated_since/);
+});
+
+test('Content accepts ten-digit hids without inventing missing reviews', context => {
+    const dotenv = require('dotenv');
+    context.mock.method(dotenv, 'config', () => ({}));
+    const client = require('./services/ratehawkClient');
+    const { getReviewOperations } = require('./syncHotelReviews');
+    client.validateHotelReviewHids([9999999999]);
+    assert.deepEqual(client.extractHotelReviewRecords([{ hid: 9999999999, reviews: [] }]), [
+        { hid: 9999999999, reviews: [] }
+    ]);
+    assert.equal(getReviewOperations([{ hid: 9999999999, reviews: [] }])[0].updateOne.filter.hid, '9999999999');
+    assert.throws(() => client.extractHotelReviewRecords([{ hid: 9999999999 }]), /reviews/);
+    assert.throws(() => client.extractHotelReviewRecords([{ id: 'legacy-hotel', reviews: [] }]), /hid/);
+    assert.throws(() => client.validateHotelReviewHids([10000000000]), /hids/);
+});
+
+test('Content request respects batch size, required language and sandbox limits', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    const previousBase = process.env.RATEHAWK_BASE_URL;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+        if (previousBase === undefined) delete process.env.RATEHAWK_BASE_URL;
+        else process.env.RATEHAWK_BASE_URL = previousBase;
+    });
+    const request = context.mock.fn(async () => ({ status: 200, headers: {}, data: { status: 'ok', error: null, data: [] } }));
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => config.url }));
+    context.mock.method(logger, 'logEtgExchange', () => {});
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    process.env.RATEHAWK_BASE_URL = 'https://api-sandbox.ratehawk.com';
+    delete require.cache[modulePath];
+    const client = require('./services/ratehawkClient');
+    await assert.rejects(client.hotelContentByIds({ hids: Array.from({ length: 101 }, (_, index) => index + 1), language: 'en' }), /100/);
+    await assert.rejects(client.hotelContentByIds({ hids: [123] }), /language/);
+    await assert.rejects(client.hotelContentByIds({ hids: [123], ids: ['old-id'], language: 'en' }), /hids|ids/);
+    await assert.rejects(client.hotelContent({ hids: Array.from({ length: 101 }, (_, index) => index + 1) }), /100/);
+    await assert.rejects(client.hotelContentByIds({ hids: [123], language: 'ru' }), /language/);
+    await assert.rejects(client.fetchHotelReviews([123], 'ru'), /language/);
+    assert.throws(() => client.normalizeHotelIdFilters({ country: [999] }), /country/);
+    assert.deepEqual(client.normalizeHotelIdFilters({ country: [59, 189, 201] }), { country: [59, 189, 201] });
+    assert.equal(request.mock.callCount(), 0);
+    process.env.RATEHAWK_BASE_URL = 'https://api.ratehawk.com';
+    delete require.cache[modulePath];
+    const productionClient = require('./services/ratehawkClient');
+    await productionClient.hotelContent({ hids: [123], language: 'de' });
+    assert.deepEqual(request.mock.calls[0].arguments[0].data, { hids: [123], language: 'de' });
+});
+
+test('high-level hotel Content retrieval does not hide supplier failures', async context => {
+    const service = require('./services/ratehawkService');
+    context.mock.method(service.client, 'hotelContentByIds', async body => {
+        assert.deepEqual(body, { hids: [123], language: 'en' });
+        return { ok: false, error: 'no_content', httpStatus: 500 };
+    });
+    await assert.rejects(service.getHotelsContent([], [123]), /no_content/);
+});
+
+test('search excludes hotels marked deleted in locally synchronized Content', async context => {
+    const mongoose = require('mongoose');
+    const service = require('./services/ratehawkService');
+    const Hotel = mongoose.models.Hotel || mongoose.model('Hotel', new mongoose.Schema({
+        hotelId: String, staticData: mongoose.Schema.Types.Mixed
+    }));
+    context.mock.method(service.client, 'serpRegion', async () => ({
+        ok: true,
+        data: { hotels: [
+            { id: 'removed', hid: 123, rates: [] },
+            { id: 'available', hid: 124, rates: [] }
+        ] }
+    }));
+    context.mock.method(Hotel, 'find', () => ({ lean: async () => [
+        { hotelId: 'removed', staticData: { deleted: true } },
+        { hotelId: 'available', name: 'Available Hotel', staticData: { deleted: false } }
+    ] }));
+    assert.equal(service.isDeletedHotel({ staticData: { deleted: true } }), true);
+    const hotels = await service.searchAvailability({ checkin: '2026-12-01', checkout: '2026-12-02', region_id: 12 });
+    assert.deepEqual(hotels.map(hotel => hotel.id), ['available']);
+});
+
+test('public Content filters never fetch ETG during a visitor request', async context => {
+    const fs = require('fs');
+    const service = require('./services/ratehawkService');
+    const fetch = context.mock.method(service.client, 'filterValues', async () => {
+        throw new Error('unexpected live Content request');
+    });
+    context.mock.method(fs, 'existsSync', () => false);
+    await assert.rejects(service.getFilterValues(), /cache is unavailable/);
+    assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('public Content filters reject cache from another ETG environment', async context => {
+    const fs = require('fs');
+    const service = require('./services/ratehawkService');
+    const fetch = context.mock.method(service.client, 'filterValues', async () => {
+        throw new Error('unexpected live Content request');
+    });
+    context.mock.method(fs, 'existsSync', () => true);
+    context.mock.method(fs, 'readFileSync', () => JSON.stringify({
+        fetchedAt: new Date().toISOString(),
+        scope: 'another-etg-environment',
+        filters: { kind: ['Hotel'] }
+    }));
+    await assert.rejects(service.getFilterValues(), /cache is unavailable/);
+    assert.equal(fetch.mock.callCount(), 0);
+});
+
+test('offline filter refresh makes a scoped cache available without live visitor calls', async context => {
+    const fs = require('fs');
+    const service = require('./services/ratehawkService');
+    let contents;
+    context.mock.method(fs, 'existsSync', () => contents !== undefined);
+    context.mock.method(fs, 'readFileSync', () => contents);
+    context.mock.method(fs, 'mkdirSync', () => {});
+    context.mock.method(fs, 'writeFileSync', (path, value) => { contents = value; });
+    context.mock.method(fs, 'renameSync', () => {});
+    const fetch = context.mock.method(service.client, 'filterValues', async () => ({ ok: true, data: {
+        language: [{ value: 'en', desc: 'English' }], country: [{ value: '201', desc: 'UAE' }],
+        serp_filter: [], star_rating: [0, 1], kind: ['Hotel']
+    } }));
+    assert.equal((await service.getFilterValues({ forceRefresh: true })).source, 'api');
+    assert.equal((await service.getFilterValues()).source, 'cache');
+    assert.equal(fetch.mock.callCount(), 1);
+    assert.match(contents, /"scope":/);
+});
+
+test('offline Content sync retrieves filter values before hotel IDs', async context => {
+    const dotenv = require('dotenv');
+    const service = require('./services/ratehawkService');
+    const client = require('./services/ratehawkClient');
+    const modulePath = require.resolve('./syncFilteredHotels');
+    const previousModule = require.cache[modulePath];
+    const previousMongo = process.env.MONGO_URI;
+    const previousFilters = process.env.RATEHAWK_FILTERS_JSON;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousMongo === undefined) delete process.env.MONGO_URI;
+        else process.env.MONGO_URI = previousMongo;
+        if (previousFilters === undefined) delete process.env.RATEHAWK_FILTERS_JSON;
+        else process.env.RATEHAWK_FILTERS_JSON = previousFilters;
+    });
+    context.mock.method(dotenv, 'config', () => ({}));
+    const order = [];
+    context.mock.method(service, 'getFilterValues', async () => {
+        order.push('filters');
+        return { filters: { country: [{ value: '201', desc: 'UAE' }] }, source: 'api' };
+    });
+    context.mock.method(client, 'fetchHotelIdsByFilter', async () => {
+        order.push('ids');
+        return [];
+    });
+    process.env.MONGO_URI = 'mongodb://localhost/never-connected';
+    process.env.RATEHAWK_FILTERS_JSON = JSON.stringify({ country: [201] });
+    delete require.cache[modulePath];
+    const sync = require('./syncFilteredHotels');
+    await sync.syncFilteredHotels();
+    assert.deepEqual(order, ['filters', 'ids']);
+});
+
+test('offline Content sync does not start an unfiltered full-inventory request', async context => {
+    const dotenv = require('dotenv');
+    const service = require('./services/ratehawkService');
+    const client = require('./services/ratehawkClient');
+    const modulePath = require.resolve('./syncFilteredHotels');
+    const previousModule = require.cache[modulePath];
+    const previousMongo = process.env.MONGO_URI;
+    const previousFilters = process.env.RATEHAWK_FILTERS_JSON;
+    const previousFull = process.env.RATEHAWK_CONTENT_FULL_SYNC;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousMongo === undefined) delete process.env.MONGO_URI;
+        else process.env.MONGO_URI = previousMongo;
+        if (previousFilters === undefined) delete process.env.RATEHAWK_FILTERS_JSON;
+        else process.env.RATEHAWK_FILTERS_JSON = previousFilters;
+        if (previousFull === undefined) delete process.env.RATEHAWK_CONTENT_FULL_SYNC;
+        else process.env.RATEHAWK_CONTENT_FULL_SYNC = previousFull;
+    });
+    context.mock.method(dotenv, 'config', () => ({}));
+    const fetchFilters = context.mock.method(service, 'getFilterValues', async () => {
+        throw new Error('unexpected filter request');
+    });
+    const fetchIds = context.mock.method(client, 'fetchHotelIdsByFilter', async () => {
+        throw new Error('unexpected ID request');
+    });
+    process.env.MONGO_URI = 'mongodb://localhost/never-connected';
+    process.env.RATEHAWK_FILTERS_JSON = '{}';
+    delete process.env.RATEHAWK_CONTENT_FULL_SYNC;
+    delete require.cache[modulePath];
+    const sync = require('./syncFilteredHotels');
+    await assert.rejects(sync.syncFilteredHotels(), /full.*sync|filter/i);
+    process.env.RATEHAWK_FILTERS_JSON = JSON.stringify({ country: [] });
+    await assert.rejects(sync.syncFilteredHotels(), /country must be a non-empty array/);
+    assert.equal(fetchFilters.mock.callCount(), 0);
+    assert.equal(fetchIds.mock.callCount(), 0);
+});
+
+test('offline Content sync rejects filters absent from retrieved values', async context => {
+    const dotenv = require('dotenv');
+    const service = require('./services/ratehawkService');
+    const client = require('./services/ratehawkClient');
+    const modulePath = require.resolve('./syncFilteredHotels');
+    const previousModule = require.cache[modulePath];
+    const previousMongo = process.env.MONGO_URI;
+    const previousFilters = process.env.RATEHAWK_FILTERS_JSON;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousMongo === undefined) delete process.env.MONGO_URI;
+        else process.env.MONGO_URI = previousMongo;
+        if (previousFilters === undefined) delete process.env.RATEHAWK_FILTERS_JSON;
+        else process.env.RATEHAWK_FILTERS_JSON = previousFilters;
+    });
+    context.mock.method(dotenv, 'config', () => ({}));
+    context.mock.method(service, 'getFilterValues', async () => ({
+        filters: { country: [{ value: '59', desc: 'France' }] }, source: 'api'
+    }));
+    const fetchIds = context.mock.method(client, 'fetchHotelIdsByFilter', async () => {
+        throw new Error('hotel IDs requested before filter validation');
+    });
+    process.env.MONGO_URI = 'mongodb://localhost/never-connected';
+    process.env.RATEHAWK_FILTERS_JSON = JSON.stringify({ country: [201] });
+    delete require.cache[modulePath];
+    const sync = require('./syncFilteredHotels');
+    await assert.rejects(sync.syncFilteredHotels(), /country/);
+    assert.equal(fetchIds.mock.callCount(), 0);
+});
+
+test('offline Content sync rejects malformed content before writing hotels', async context => {
+    const dotenv = require('dotenv');
+    const mongoose = require('mongoose');
+    const service = require('./services/ratehawkService');
+    const client = require('./services/ratehawkClient');
+    const modulePath = require.resolve('./syncFilteredHotels');
+    const previousModule = require.cache[modulePath];
+    const previousMongo = process.env.MONGO_URI;
+    const previousFilters = process.env.RATEHAWK_FILTERS_JSON;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousMongo === undefined) delete process.env.MONGO_URI;
+        else process.env.MONGO_URI = previousMongo;
+        if (previousFilters === undefined) delete process.env.RATEHAWK_FILTERS_JSON;
+        else process.env.RATEHAWK_FILTERS_JSON = previousFilters;
+    });
+    context.mock.method(dotenv, 'config', () => ({}));
+    context.mock.method(service, 'getFilterValues', async () => ({
+        filters: { country: [{ value: '201', desc: 'UAE' }] }, source: 'api'
+    }));
+    context.mock.method(client, 'fetchHotelIdsByFilter', async () => [123]);
+    context.mock.method(client, 'hotelContent', async () => ({ ok: true, data: null }));
+    context.mock.method(mongoose, 'connect', async () => {});
+    context.mock.method(mongoose.connection, 'close', async () => {});
+    process.env.MONGO_URI = 'mongodb://localhost/never-connected';
+    process.env.RATEHAWK_FILTERS_JSON = JSON.stringify({ country: [201] });
+    delete require.cache[modulePath];
+    const sync = require('./syncFilteredHotels');
+    const write = context.mock.method(mongoose.models.Hotel, 'bulkWrite', async () => {
+        throw new Error('unexpected write');
+    });
+    await assert.rejects(sync.syncFilteredHotels(), /data array/);
+    assert.equal(write.mock.callCount(), 0);
+});
+
+test('offline Content does not write a legacy hotel ID as numeric hid', context => {
+    const dotenv = require('dotenv');
+    context.mock.method(dotenv, 'config', () => ({}));
+    const { toHotelOperation } = require('./syncFilteredHotels');
+    assert.throws(() => toHotelOperation({ id: 'legacy-hotel', name: 'Legacy Hotel' }), /hid/);
+    assert.equal(toHotelOperation({ hid: 9999999999, id: 'legacy-hotel' }).updateOne.filter.hid, '9999999999');
+});
+
+test('offline Content reviews select only synchronized RateHawk hotels', async context => {
+    const dotenv = require('dotenv');
+    const mongoose = require('mongoose');
+    const client = require('./services/ratehawkClient');
+    const modulePath = require.resolve('./syncHotelReviews');
+    const previousModule = require.cache[modulePath];
+    const previousMongo = process.env.MONGO_URI;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousMongo === undefined) delete process.env.MONGO_URI;
+        else process.env.MONGO_URI = previousMongo;
+    });
+    context.mock.method(dotenv, 'config', () => ({}));
+    process.env.MONGO_URI = 'mongodb://localhost/never-connected';
+    delete require.cache[modulePath];
+    const sync = require('./syncHotelReviews');
+    context.mock.method(mongoose, 'connect', async () => {});
+    context.mock.method(mongoose.connection, 'close', async () => {});
+    const lookup = context.mock.method(mongoose.models.Hotel, 'find', query => ({
+        select: () => ({ lean: async () => {
+            assert.equal(query.provider, 'ratehawk');
+            return [];
+        } })
+    }));
+    const fetchReviews = context.mock.method(client, 'fetchHotelReviews', async () => {
+        throw new Error('unexpected review request');
+    });
+    await sync.syncHotelReviews();
+    assert.equal(lookup.mock.callCount(), 1);
+    assert.equal(fetchReviews.mock.callCount(), 0);
+});
+
 test('profile transports use documented paths without retries or personal-data logging', async context => {
     const axios = require('axios');
     const logger = require('./services/loggerService');

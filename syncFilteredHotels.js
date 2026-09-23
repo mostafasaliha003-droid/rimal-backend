@@ -4,6 +4,7 @@ require('dotenv').config();
 
 const mongoose = require('mongoose');
 const client = require('./services/ratehawkClient');
+const ratehawkService = require('./services/ratehawkService');
 const logger = require('./services/loggerService');
 
 const hotelSchema = new mongoose.Schema({
@@ -102,6 +103,17 @@ function getSyncFilters() {
     return filters;
 }
 
+function validateSelectedFilters(filters, available) {
+    for (const key of ['country', 'kind', 'star_rating', 'serp_filter']) {
+        if (!filters[key]) continue;
+        if (!Array.isArray(available?.[key])) throw new Error(`ETG ${key} filter values are unavailable`);
+        const choices = new Set(available[key].map(item => String(item && typeof item === 'object' ? item.value : item)));
+        if (filters[key].some(value => !choices.has(String(value)))) {
+            throw new Error(`ETG ${key} filter includes a value not returned by filter_values`);
+        }
+    }
+}
+
 function asArray(value) {
     if (Array.isArray(value)) return value;
     if (value && typeof value === 'object') return Object.values(value);
@@ -116,8 +128,8 @@ function extractHotelIds(payload) {
         .map(item => item && typeof item === 'object' ? (item.hid || item.hotel_id || item.id) : item)
         .filter(value => value !== undefined && value !== null && value !== '')
         .map(value => Number(value));
-    if (ids.some(value => !Number.isInteger(value) || value < 0 || value > 0xFFFFFFFF)) {
-        throw new Error('ETG hotel IDs must be uint32 integers');
+    if (ids.some(value => !Number.isInteger(value) || value < 0 || value > 9999999999)) {
+        throw new Error('ETG hotel IDs must be at most ten-digit integers');
     }
     return ids;
 }
@@ -141,8 +153,10 @@ function pickImage(hotel) {
 
 function toHotelOperation(hotel) {
     if (!hotel || typeof hotel !== 'object') return null;
-    const hid = hotel.hid || hotel.hotel_id || hotel.id;
-    if (hid === undefined || hid === null || hid === '') return null;
+    const hid = hotel.hid;
+    if (!Number.isInteger(hid) || hid < 0 || hid > 9999999999) {
+        throw new Error('ETG hotel content missing valid numeric hid');
+    }
     const region = hotel.region || {};
     const hotelId = hotel.id || hotel.hotel_id || hid;
     return {
@@ -172,8 +186,8 @@ function toHotelOperation(hotel) {
 async function fetchHotelIds(filters) {
     return (await client.fetchHotelIdsByFilter(filters)).map(value => {
         const hid = Number(value);
-        if (!Number.isInteger(hid) || hid < 0 || hid > 0xFFFFFFFF) {
-            throw new Error('ETG hotel IDs must be uint32 integers');
+        if (!Number.isInteger(hid) || hid < 0 || hid > 9999999999) {
+            throw new Error('ETG hotel IDs must be at most ten-digit integers');
         }
         return hid;
     });
@@ -182,6 +196,7 @@ async function fetchHotelIds(filters) {
 async function fetchHotelContent(ids) {
     const response = await client.hotelContent({ hids: ids });
     if (!response.ok) throw new Error(response.error || 'ETG hotel content request failed');
+    if (!Array.isArray(response.data)) throw new Error('ETG hotel content response must contain a data array');
     return extractHotels(response.data);
 }
 
@@ -189,12 +204,18 @@ async function syncFilteredHotels() {
     if (!MONGO_URI) throw new Error('MONGO_URI is missing in environment variables');
 
     const filters = getSyncFilters();
+    if (!Object.keys(filters).length && process.env.RATEHAWK_CONTENT_FULL_SYNC !== 'true') {
+        throw new Error('Unfiltered Content full sync requires RATEHAWK_CONTENT_FULL_SYNC=true');
+    }
+    client.normalizeHotelIdFilters(filters);
     logger.info('Starting ETG filtered hotel content synchronization', {
         filters: Object.keys(filters).length ? filters : 'all hotels',
         chunkSize: CHUNK_SIZE,
         delayMs: DELAY_MS
     });
 
+    const filterResult = await ratehawkService.getFilterValues({ forceRefresh: true });
+    validateSelectedFilters(filters, filterResult.filters);
     const ids = await fetchHotelIds(filters);
     logger.info('Fetched ETG hotel IDs', { count: ids.length, filters });
     if (!ids.length) return { ids: 0, chunks: 0, upserted: 0, modified: 0, skipped: 0 };
