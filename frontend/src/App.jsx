@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState } from 'react';
-import { ArrowLeft, ChevronLeft, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
@@ -59,28 +59,100 @@ const getRatePrice = (rate) => rate?.payment_options?.payment_types?.[0]?.amount
 const getRateHash = (rate) => rate?.book_hash || rate?.match_hash;
 const getAmenities = (rate) => Array.isArray(rate?.amenities) ? rate.amenities : (Array.isArray(rate?.room_amenities) ? rate.room_amenities : []);
 
+// Masterstroke UI: SerpResultCard
 function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     const rate = cheapestRate(hotel.rates) || {};
     const image = hotel.images?.[0];
     const [imageFailed, setImageFailed] = useState(false);
+    const hasFreeCancellation = paymentFor(rate)?.cancellation_penalties?.free_cancellation_before;
+
     return (
-        <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="overflow-hidden rounded-2xl border border-slate-200 bg-white shadow-[0_2px_10px_rgb(0,0,0,0.04)] transition-all duration-300 hover:-translate-y-1 hover:shadow-xl">
-            <div className="grid min-w-0 gap-5 p-4 md:grid-cols-[10rem_minmax(0,1fr)] xl:grid-cols-[12rem_minmax(0,1fr)_12rem]">
-                <div className="flex h-44 items-center justify-center overflow-hidden rounded-lg bg-slate-100 text-slate-500">
-                    {image && !imageFailed ? <img src={image} alt={hotel.name} loading="lazy" className="h-full w-full object-cover" onError={() => setImageFailed(true)} /> : <span className="flex items-center gap-2 text-sm"><ImageOff size={20} />الصورة غير متاحة</span>}
+        <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-blue-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+            <div className="flex flex-col md:flex-row h-full">
+                
+                {/* Image Section (Right in RTL) */}
+                <div className="relative w-full md:w-[280px] shrink-0 overflow-hidden bg-slate-100 h-56 md:h-auto">
+                    {image && !imageFailed ? (
+                        <img 
+                            src={image} 
+                            alt={hotel.name} 
+                            loading="lazy" 
+                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" 
+                            onError={() => setImageFailed(true)} 
+                        />
+                    ) : (
+                        <div className="flex h-full w-full flex-col items-center justify-center text-slate-400 gap-2">
+                            <ImageOff size={32} />
+                            <span className="text-sm font-medium">الصورة غير متاحة</span>
+                        </div>
+                    )}
+                    {/* Floating Star Badge on Image */}
+                    {Number(hotel.stars) > 0 && (
+                        <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-lg bg-black/50 backdrop-blur-md px-2.5 py-1 text-sm font-bold text-white shadow-sm">
+                            <span>{hotel.stars}</span>
+                            <StarIcon size={14} className="text-amber-400" fill="currentColor" />
+                        </div>
+                    )}
                 </div>
-                <div className="min-w-0 text-right">
-                    {Number(hotel.stars) > 0 && <div className="mb-2 flex items-center gap-2 text-amber-700">{hotel.stars} <StarIcon size={13} fill="currentColor" /></div>}
-                    <h3 id={`hotel-${hotel.hid || hotel.id}`} className="text-xl font-black text-remal-dark">{hotel.name || 'فندق'}</h3>
-                    {hotel.city && <p className="mt-2 text-sm text-slate-600">{hotel.city}</p>}
-                    <p className="mt-3 text-sm text-slate-600">{paymentFor(rate)?.cancellation_penalties?.free_cancellation_before ? 'يتوفر إلغاء مجاني قبل الموعد المحدد في العرض' : 'راجع شروط الإلغاء قبل اختيار الغرفة'}</p>
-                    <div className="mt-4 flex flex-wrap justify-end gap-2 text-[11px] font-bold text-slate-500">
-                        {getAmenities(rate).slice(0, 3).map((amenity) => <span key={String(amenity)} className="rounded-full bg-remal-bg px-3 py-1">{amenity}</span>)}
+
+                {/* Content Section */}
+                <div className="flex flex-1 flex-col justify-between p-5 sm:p-6 lg:p-7 min-w-0">
+                    <div>
+                        <div className="flex justify-between items-start gap-4">
+                            <div className="min-w-0 flex-1">
+                                <h3 id={`hotel-${hotel.hid || hotel.id}`} className="text-2xl font-black text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2">
+                                    {hotel.name || 'فندق'}
+                                </h3>
+                                {hotel.city && (
+                                    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-slate-500">
+                                        <MapPin size={16} className="text-blue-500 shrink-0" />
+                                        <span className="truncate">{hotel.city}</span>
+                                    </p>
+                                )}
+                            </div>
+                        </div>
+
+                        {/* Badges Area */}
+                        <div className="mt-4 flex flex-col gap-3">
+                            {hasFreeCancellation ? (
+                                <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-100">
+                                    <Check size={14} className="shrink-0 text-emerald-500" /> يتوفر إلغاء مجاني
+                                </div>
+                            ) : (
+                                <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 border border-slate-200">
+                                    <AlertCircle size={14} className="shrink-0 text-slate-400" /> راجع شروط الإلغاء
+                                </div>
+                            )}
+
+                            {getAmenities(rate).length > 0 && (
+                                <div className="flex flex-wrap gap-1.5">
+                                    {getAmenities(rate).slice(0, 4).map((amenity) => (
+                                        <span key={String(amenity)} className="rounded-lg bg-blue-50/50 border border-blue-100 px-2 py-1 text-[11px] font-bold text-blue-800">
+                                            {amenity}
+                                        </span>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
                     </div>
-                </div>
-                <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-4 md:col-span-2 xl:col-span-1 xl:flex-col xl:items-stretch xl:justify-center xl:border-r xl:border-t-0 xl:pr-4">
-                    <div className="text-right"><PriceDisplay amount={rateAmount(rate)} currency={rateCurrency(rate)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-xl font-bold text-remal-dark" /><p className="mt-1 text-xs text-slate-600">إجمالي الإقامة يبدأ من؛ قد تُطبق رسوم محلية</p></div>
-                    <button type="button" onClick={() => onSelect(hotel)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-5 py-3 text-xs font-black text-white shadow-lg shadow-[#0F172A]/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0F172A]/40"><span>تحديد الغرف</span><ArrowLeft size={16} /></button>
+
+                    {/* Pricing & CTA Divider */}
+                    <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-5">
+                        <div className="text-right">
+                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">إجمالي الإقامة يبدأ من</p>
+                            <PriceDisplay amount={rateAmount(rate)} currency={rateCurrency(rate)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900" />
+                            <p className="mt-0.5 text-xs font-medium text-slate-500">قد تُطبق رسوم محلية إضافية</p>
+                        </div>
+                        
+                        <button 
+                            type="button" 
+                            onClick={() => onSelect(hotel)} 
+                            className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-black text-white shadow-[0_4px_14px_0_rgb(37,99,235,0.39)] transition-all duration-300 hover:bg-blue-700 hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
+                        >
+                            <span>تحديد الغرف</span>
+                            <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />
+                        </button>
+                    </div>
                 </div>
             </div>
         </article>
@@ -262,47 +334,177 @@ export default function App() {
     }
 
     return (
-        <div className="min-h-screen bg-remal-bg text-remal-dark">
+        <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} />
             <main>
                 <HeroSearchSection onSearch={handleSearch} initialSearch={searchParams} />
-                <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-20 pt-6 lg:px-10 lg:pt-0">
-                    <div className="mb-8 flex flex-col gap-4 border-b border-slate-200 pb-6 sm:flex-row sm:items-end sm:justify-between">
+                <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-24 pt-10 lg:px-10 lg:pt-12">
+                    
+                    {/* Header Section */}
+                    <div className="mb-10 flex flex-col gap-5 border-b border-slate-200 pb-8 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <p className="mb-2 text-[11px] font-black uppercase tracking-[0.2em] text-remal-blue">{searched ? 'نتائج البحث' : 'اختيارات رمال'}</p>
-                            <h2 className="text-2xl font-black tracking-tight sm:text-3xl">فنادق تحسّها على كيفك</h2>
-                            <p className="mt-2 text-sm font-bold text-slate-400">{searched ? `${visibleHotels.length} فندق متاح حسب بحثك` : 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية'}</p>
+                            <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-blue-600">{searched ? 'نتائج البحث' : 'اختيارات رمال'}</p>
+                            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">فنادق تحسّها على كيفك</h2>
+                            <p className="mt-2 text-sm font-semibold text-slate-500">{searched ? `${visibleHotels.length} فندق متاح حسب بحثك` : 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية'}</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-3"><label className="text-sm">الترتيب <select value={sort} onChange={event => setSort(event.target.value)} className="rounded-lg border border-slate-300 p-2"><option value="recommended">ترتيب المورد</option><option value="price">الأقل سعراً</option><option value="stars">الأعلى تصنيفاً</option></select></label><button type="button" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} className="flex min-h-11 items-center gap-2 rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm lg:hidden"><SlidersHorizontal size={16} /> الفلاتر</button></div>
+                        <div className="flex flex-wrap items-center gap-4">
+                            <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
+                                الترتيب 
+                                <select value={sort} onChange={event => setSort(event.target.value)} className="rounded-xl border border-slate-200 p-2.5 font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white">
+                                    <option value="recommended">ترتيب المورد</option>
+                                    <option value="price">الأقل سعراً</option>
+                                    <option value="stars">الأعلى تصنيفاً</option>
+                                </select>
+                            </label>
+                            <button type="button" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} className="flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-bold shadow-sm lg:hidden hover:bg-slate-50">
+                                <SlidersHorizontal size={18} /> الفلاتر
+                            </button>
+                        </div>
                     </div>
 
-                    <div className="grid min-w-0 items-start gap-6 lg:grid-cols-[15rem_minmax(0,1fr)]">
-                        <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 border-b border-slate-200 py-5 lg:block`}>
-                            <div className="mb-6 flex items-center justify-between"><h3 className="font-black">تصفية النتائج</h3><button type="button" onClick={clearFilters} className="flex items-center gap-1 text-xs font-bold text-remal-blue"><RotateCcw size={13} /> إعادة ضبط</button></div>
-                            <div className="space-y-6 text-sm">
-                                <label className="block">الحد الأعلى للإقامة بعملة المورد ({SEARCH_CURRENCY})<input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 p-3" /></label>
-                                <label className="flex items-center gap-2"><input type="checkbox" checked={freeCancellation} onChange={event => setFreeCancellation(event.target.checked)} />إلغاء مجاني في أقل عرض ظاهر</label>
-                                <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">التصنيف الأدنى</p><div className="flex gap-2">{[3, 4, 5].map((star) => <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-black transition ${starFilter === star ? 'border-remal-gold bg-amber-50 text-amber-700' : 'border-slate-200 hover:border-remal-gold hover:text-amber-700'}`}>{star} <StarIcon size={12} className="text-remal-gold" fill="currentColor" /></button>)}</div></div>
-                                <div className="border-t border-slate-100 pt-5"><label className="flex items-center gap-3 text-xs font-bold text-slate-500"><input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="h-4 w-4 accent-remal-blue" /> يحتوي على مزايا للغرفة</label></div>
+                    <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
+                        
+                        {/* Filters Sidebar (Masterstroke UI) */}
+                        <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
+                            <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-100">
+                                <div className="mb-6 flex items-center justify-between">
+                                    <h3 className="text-lg font-black text-slate-900">تصفية النتائج</h3>
+                                    <button type="button" onClick={clearFilters} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700">
+                                        <RotateCcw size={14} /> إعادة ضبط
+                                    </button>
+                                </div>
+                                <div className="space-y-8 text-sm">
+                                    
+                                    <div className="space-y-3">
+                                        <label className="block text-sm font-bold text-slate-700">الحد الأعلى للسعر ({SEARCH_CURRENCY})</label>
+                                        <input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 p-3.5 font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 bg-slate-50" />
+                                    </div>
+
+                                    <label className="flex items-center gap-3 cursor-pointer group">
+                                        <div className={`relative flex h-6 w-11 items-center rounded-full transition-colors ${freeCancellation ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                                            <input type="checkbox" className="peer sr-only" checked={freeCancellation} onChange={event => setFreeCancellation(event.target.checked)} />
+                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${freeCancellation ? 'translate-x-1' : '-translate-x-6'}`} />
+                                        </div>
+                                        <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">إلغاء مجاني فقط</span>
+                                    </label>
+
+                                    <div className="border-t border-slate-100 pt-6">
+                                        <p className="mb-4 text-sm font-bold text-slate-700">التصنيف الأدنى (نجوم)</p>
+                                        <div className="flex gap-2">
+                                            {[3, 4, 5].map((star) => (
+                                                <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-sm font-black transition-all ${starFilter === star ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-amber-300 hover:text-amber-700'}`}>
+                                                    {star} <StarIcon size={14} className={starFilter === star ? 'text-amber-500' : 'text-slate-300'} fill="currentColor" />
+                                                </button>
+                                            ))}
+                                        </div>
+                                    </div>
+
+                                    <div className="border-t border-slate-100 pt-6">
+                                        <label className="flex items-center gap-3 cursor-pointer group">
+                                            <div className="relative flex items-center justify-center">
+                                                <input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="peer sr-only" />
+                                                <div className={`h-5 w-5 rounded border-2 transition-colors ${amenityFilter ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white group-hover:border-blue-500'}`}></div>
+                                                <Check size={14} className={`absolute text-white transition-opacity ${amenityFilter ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
+                                            </div>
+                                            <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">يحتوي على مزايا للغرفة</span>
+                                        </label>
+                                    </div>
+
+                                </div>
                             </div>
                         </aside>
 
-                        <div className="min-w-0 space-y-5">
-                            {lowestHotel && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 py-4"><div className="min-w-0"><p className="text-sm text-slate-600">أقل إجمالي مطابق للفلاتر</p><p className="mt-1 break-words font-bold">{lowestHotel.name}</p></div><PriceDisplay amount={rateAmount(cheapestRate(lowestHotel.rates))} currency={SEARCH_CURRENCY} displayCurrency={displayCurrency} displayRates={displayRates} className="text-lg font-bold text-emerald-800" /></div>}
-                            {selectedHotel ? <>
-                                <button type="button" onClick={() => setSelectedHotel(null)} className="flex items-center gap-2 text-xs font-black text-remal-blue"><ChevronLeft size={16} /> العودة للنتائج</button>
-                                <h2 className="text-2xl font-black">{selectedHotel.name}</h2>
-                                {!hotelPage && !error && <div className="flex items-center justify-center rounded-2xl bg-white p-10"><LoaderCircle className="animate-spin text-remal-blue" /></div>}
-                                {error && <p role="alert" className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-remal-red">{error}</p>}
-                                {rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} displayCurrency={displayCurrency} displayRates={displayRates} />)}
-                            </> : loading ? <div role="status" className="flex items-center justify-center gap-3 bg-white p-12"><LoaderCircle className="animate-spin text-remal-blue" /><span>جار تحميل النتائج</span></div> : error ? <div role="alert" className="bg-red-50 p-5 text-sm text-remal-red"><p>{error}</p><button onClick={() => setSearchParams({ ...searchParams })} className="mt-3 underline">إعادة المحاولة</button></div> : visibleHotels.length ? visibleHotels.slice(0, limit).map((hotel) => <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotelDetails} displayCurrency={displayCurrency} displayRates={displayRates} />) : searched ? <p className="p-8 text-center text-sm text-slate-600">لا توجد نتائج مطابقة. جرّب إزالة الفلاتر أو تغيير التواريخ.</p> : <p className="p-8 text-center text-sm text-slate-600">اختر وجهة وتواريخ لعرض الأسعار الحية</p>}
-                            {visibleHotels.length > limit && <button onClick={() => setLimit(limit + 20)} className="min-h-12 w-full rounded-lg border border-slate-300 bg-white p-3">عرض المزيد ({visibleHotels.length - limit})</button>}
-                            <div id="security" className="flex items-start gap-3 border-t border-slate-200 py-5"><ShieldCheck size={22} className="shrink-0 text-emerald-700" /><div><p className="font-bold">السعر والتوفر يخضعان للتحقق</p><p className="mt-1 text-sm leading-7 text-slate-600">تأكيد الدفع لا يعني تأكيد الحجز؛ انتظر مرجع التأكيد من المورد.</p></div></div>
+                        {/* Search Results Area */}
+                        <div className="min-w-0 space-y-6">
+                            
+                            {/* Best Price Highlight Banner */}
+                            {lowestHotel && visibleHotels.length > 1 && (
+                                <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-5 border border-emerald-100/50 shadow-sm">
+                                    <div className="min-w-0">
+                                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-600">أرخص خيار مطابق لبحثك</p>
+                                        <p className="mt-1 break-words text-lg font-black text-emerald-900">{lowestHotel.name}</p>
+                                    </div>
+                                    <PriceDisplay amount={rateAmount(cheapestRate(lowestHotel.rates))} currency={SEARCH_CURRENCY} displayCurrency={displayCurrency} displayRates={displayRates} className="text-2xl font-black text-emerald-700 tracking-tight" />
+                                </div>
+                            )}
+
+                            {selectedHotel ? (
+                                <>
+                                    <button type="button" onClick={() => setSelectedHotel(null)} className="flex items-center gap-2 text-sm font-black text-blue-600 hover:text-blue-800 transition-colors">
+                                        <ChevronLeft size={18} /> العودة للنتائج
+                                    </button>
+                                    <h2 className="text-3xl font-black text-slate-900">{selectedHotel.name}</h2>
+                                    {!hotelPage && !error && (
+                                        <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-20 shadow-sm border border-slate-100 gap-4">
+                                            <LoaderCircle size={40} className="animate-spin text-blue-600" />
+                                            <span className="font-bold text-slate-500">جارٍ تحميل الغرف المتاحة...</span>
+                                        </div>
+                                    )}
+                                    {error && <p role="alert" className="rounded-2xl bg-red-50 p-6 text-sm font-bold text-red-600 border border-red-100">{error}</p>}
+                                    {rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} displayCurrency={displayCurrency} displayRates={displayRates} />)}
+                                </>
+                            ) : loading ? (
+                                <div role="status" className="flex flex-col items-center justify-center gap-4 rounded-3xl bg-white p-24 shadow-sm border border-slate-100">
+                                    <LoaderCircle size={48} className="animate-spin text-blue-600" />
+                                    <span className="font-black text-slate-600 text-lg">جارٍ البحث عن أفضل العروض...</span>
+                                </div>
+                            ) : error ? (
+                                <div role="alert" className="rounded-3xl bg-red-50 p-10 text-center border border-red-100">
+                                    <AlertCircle size={40} className="mx-auto text-red-500 mb-4" />
+                                    <p className="font-bold text-red-900 text-lg">{error}</p>
+                                    <button onClick={() => setSearchParams({ ...searchParams })} className="mt-6 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 transition-colors">إعادة المحاولة</button>
+                                </div>
+                            ) : visibleHotels.length ? (
+                                <div className="space-y-6">
+                                    {visibleHotels.slice(0, limit).map((hotel) => (
+                                        <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotelDetails} displayCurrency={displayCurrency} displayRates={displayRates} />
+                                    ))}
+                                    {visibleHotels.length > limit && (
+                                        <button onClick={() => setLimit(limit + 20)} className="min-h-[60px] w-full rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 font-bold text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                            عرض المزيد ({visibleHotels.length - limit} فندق)
+                                        </button>
+                                    )}
+                                </div>
+                            ) : searched ? (
+                                <div className="rounded-3xl bg-white p-20 text-center shadow-sm border border-slate-100">
+                                    <MapPin size={48} className="mx-auto text-slate-300 mb-4" />
+                                    <p className="font-black text-xl text-slate-700">لا توجد نتائج مطابقة</p>
+                                    <p className="mt-2 text-slate-500 font-medium">جرّب إزالة بعض الفلاتر أو تغيير تواريخ البحث.</p>
+                                </div>
+                            ) : (
+                                <div className="rounded-3xl bg-white p-20 text-center shadow-sm border border-slate-100">
+                                    <Search size={48} className="mx-auto text-slate-300 mb-4" />
+                                    <p className="font-black text-xl text-slate-700">مستعد لرحلتك القادمة؟</p>
+                                    <p className="mt-2 text-slate-500 font-medium">اختر وجهة وتواريخ لعرض العروض الحية.</p>
+                                </div>
+                            )}
+
+                            <div id="security" className="mt-12 flex items-start gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
+                                <ShieldCheck size={28} className="shrink-0 text-emerald-600 mt-1" />
+                                <div>
+                                    <p className="font-black text-slate-900 text-lg">الأسعار والتوفر يخضعان للتحقق المباشر</p>
+                                    <p className="mt-2 text-sm font-medium leading-relaxed text-slate-500">
+                                        تأكيد الدفع لا يعني تأكيد الحجز فوراً؛ يرجى الانتظار حتى يصلك مرجع التأكيد النهائي من المورد الخاص بنا لضمان إقامتك.
+                                    </p>
+                                </div>
+                            </div>
                         </div>
+
                     </div>
                 </section>
             </main>
-            <footer className="border-t border-slate-200 bg-white"><div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-4 px-5 py-7 text-sm text-slate-600"><span>© 2026 رمال وفِلّها</span><a href="mailto:management@remaltourismllc.com">المساعدة والتواصل</a><a href="/#security">معلومات التأكيد والدفع</a><button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-1 text-remal-blue">العودة للأعلى <ChevronLeft size={14} /></button></div></footer>
+            <footer className="border-t border-slate-200 bg-white">
+                <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-8 text-sm font-bold text-slate-500">
+                    <span className="text-slate-800">© 2026 رمال وفِلّها</span>
+                    <div className="flex items-center gap-6">
+                        <a href="mailto:management@remaltourismllc.com" className="hover:text-blue-600 transition-colors">المساعدة والتواصل</a>
+                        <a href="/#security" className="hover:text-blue-600 transition-colors">معلومات الحجز</a>
+                    </div>
+                    <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-1.5 rounded-full bg-slate-50 px-4 py-2 text-slate-700 hover:bg-slate-100 transition-colors">
+                        العودة للأعلى <ChevronLeft size={16} className="rotate-90" />
+                    </button>
+                </div>
+            </footer>
         </div>
     );
 }
