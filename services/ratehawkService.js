@@ -934,7 +934,7 @@ function validateOrderObject(value, allowed, field) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !allowed.has(key))) throw bookingError(`invalid_${field}`);
 }
 
-async function retrieveBookings(options = {}) {
+async function retrieveBookings(options = {}, { redactPayload = false } = {}) {
     validateOrderObject(options, new Set(['ordering', 'pagination', 'search', 'language']), 'order_request');
     const ordering = options.ordering === undefined ? { ordering_type: 'desc', ordering_by: 'created_at' } : options.ordering;
     const pagination = options.pagination === undefined ? { page_number: 1, page_size: 10 } : options.pagination;
@@ -966,7 +966,7 @@ async function retrieveBookings(options = {}) {
             filters[field] = value;
         }
     }
-    const response = await client.orderInfo({ ordering: { ...ordering }, pagination: { ...pagination }, search: filters, language });
+    const response = await client.orderInfo({ ordering: { ...ordering }, pagination: { ...pagination }, search: filters, language }, { redactPayload });
     if (response.httpStatus === 429) throw Object.assign(bookingError('rate_limit', 429), { retry_after_ms: retryAfterMs(response) });
     if (!response.ok || response.httpStatus < 200 || response.httpStatus >= 300) {
         const code = typeof response.error === 'string' && /^[a-z_]+$/.test(response.error) ? response.error : 'order_info_unavailable';
@@ -1066,8 +1066,7 @@ function parseWebhook(payload = {}) {
 }
 
 // Verify the ETG webhook signature: HMAC-SHA256(timestamp + token) keyed with the API key.
-function verifyWebhookSignature(payload = {}) {
-    const apiKey = process.env.RATEHAWK_API_KEY;
+function verifyWebhookSignature(payload = {}, apiKey = process.env.RATEHAWK_API_KEY) {
     if (!apiKey) return { verified: false, reason: 'missing_api_key' };
     const signature = payload?.signature;
     if (!signature || !Number.isSafeInteger(signature.timestamp) || signature.timestamp <= 0

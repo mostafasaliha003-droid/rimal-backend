@@ -1314,6 +1314,31 @@ test('RateHawk webhook signature fails closed and never returns the expected dig
     }
 });
 
+test('Midoffice booking changes parse only documented event types, not booking outcomes', () => {
+    const { parseMidofficeWebhook } = require('./services/midofficeWebhookService');
+    const { parseWebhook } = require('./services/ratehawkService');
+    const data = { partner_order_id: 'fixture-mid-order', agreement_number: 'B2B-fixture', type: 'updated' };
+    const longAgreement = 'A'.repeat(300);
+    assert.equal(parseMidofficeWebhook({ data: { ...data, agreement_number: longAgreement } }).agreementNumber, longAgreement);
+    assert.equal(parseMidofficeWebhook({ data: { ...data, agreement_number: '' } }).agreementNumber, '');
+    for (const eventType of ['created', 'updated', 'cancelled']) {
+        const payload = { data: { ...data, type: eventType } };
+        assert.deepEqual(parseMidofficeWebhook(payload), {
+            partnerOrderId: data.partner_order_id, agreementNumber: data.agreement_number, eventType
+        });
+        assert.equal(parseWebhook(payload).confirmed, false);
+        assert.equal(parseWebhook(payload).failed, false);
+    }
+    for (const invalid of [
+        {}, { data: { ...data, type: 'completed' } }, { data: { ...data, type: 'unknown' } },
+        { data: { ...data, partner_order_id: '' } }, { data: { ...data, partner_order_id: 123 } },
+        { data: { ...data, agreement_number: null } }
+    ]) {
+        assert.throws(() => parseMidofficeWebhook(invalid), error =>
+            error.code === 'invalid_midoffice_payload');
+    }
+});
+
 test('booking form retries use fresh persisted IDs and stop after ten calls', async context => {
     const service = require('./services/ratehawkService');
     const recorded = [];
@@ -1672,6 +1697,322 @@ test('webhooks authenticate before storage, recheck supplier status, persist bef
         if (previous === undefined) delete process.env.RATEHAWK_API_KEY;
         else process.env.RATEHAWK_API_KEY = previous;
     }
+});
+
+test('Midoffice webhooks require their own key and persist events before acknowledging', async context => {
+    const crypto = require('node:crypto');
+    const service = require('./services/midofficeWebhookService');
+    const receipts = require('./models/MidofficeWebhook');
+    const previousKey = process.env.ETG_MIDOFFICE_API_KEY;
+    const previousBookingKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousKey === undefined) delete process.env.ETG_MIDOFFICE_API_KEY;
+        else process.env.ETG_MIDOFFICE_API_KEY = previousKey;
+        if (previousBookingKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousBookingKey;
+    });
+    process.env.RATEHAWK_API_KEY = 'different-b2b-fixture-key';
+    process.env.ETG_MIDOFFICE_API_KEY = 'fixture-midoffice-key';
+    let stored;
+    let unavailable = false;
+    const created = context.mock.method(receipts, 'create', async value => {
+        if (unavailable) throw new Error('private-storage-error');
+        if (stored) throw Object.assign(new Error('duplicate'), { code: 11000 });
+        stored = structuredClone(value);
+        return stored;
+    });
+    const read = context.mock.method(receipts, 'findById', () => ({ lean: async () => stored && structuredClone(stored) }));
+    const signed = (data, timestamp = Math.floor(Date.now() / 1000) - 7 * 86400) => {
+        const signature = { timestamp, token: 'fixture-midoffice-token' };
+        signature.signature = crypto.createHmac('sha256', process.env.ETG_MIDOFFICE_API_KEY)
+            .update(`${timestamp}${signature.token}`).digest('hex');
+        return { data, signature };
+    };
+    const data = { type: 'updated', partner_order_id: 'fixture-midoffice-order', agreement_number: 'B2B-fixture' };
+    const payload = signed(data);
+    delete process.env.ETG_MIDOFFICE_API_KEY;
+    await assert.rejects(service.handleMidofficeWebhook(payload), error => error.code === 'midoffice_not_configured');
+    assert.equal(created.mock.callCount(), 0);
+    process.env.ETG_MIDOFFICE_API_KEY = 'fixture-midoffice-key';
+    await assert.rejects(service.handleMidofficeWebhook({ ...payload, signature: { ...payload.signature, signature: '0'.repeat(64) } }),
+        error => error.code === 'invalid_midoffice_signature');
+    await assert.rejects(service.handleMidofficeWebhook(signed(data, Math.floor(Date.now() / 1000) + 3600)),
+        error => error.code === 'invalid_midoffice_timestamp');
+    assert.equal(created.mock.callCount(), 0);
+    assert.deepEqual(await service.handleMidofficeWebhook(payload), { success: true, received: true });
+    assert.equal(stored._id, crypto.createHash('sha256').update(payload.signature.token).digest('hex'));
+    assert.equal(stored.partner_order_id, data.partner_order_id);
+    assert.equal(stored.event_type, data.type);
+    assert.equal(stored.agreement_number, data.agreement_number);
+    assert.equal(stored.action_required, 'reconcile_supplier_booking');
+    assert.equal(stored.state, 'pending');
+    assert.ok(new Date(stored.next_check_at).getTime() <= Date.now());
+    assert.doesNotMatch(JSON.stringify(stored), /fixture-midoffice-token|fixture-midoffice-key|"signature"/);
+    assert.deepEqual(await service.handleMidofficeWebhook(payload), { success: true, received: true, duplicate: true });
+    assert.equal(read.mock.callCount(), 1);
+    await assert.rejects(service.handleMidofficeWebhook({ ...payload, data: { ...data, type: 'cancelled' } }),
+        error => error.code === 'midoffice_replay_conflict');
+    stored = undefined;
+    unavailable = true;
+    await assert.rejects(service.handleMidofficeWebhook(payload), /private-storage-error/);
+});
+
+test('Midoffice HTTP callback acknowledges durable receipts and requests retries on storage failure', async context => {
+    const express = require('express');
+    const crypto = require('node:crypto');
+    const { createMidofficeWebhookRouter } = require('./services/midofficeWebhookService');
+    const receipts = require('./models/MidofficeWebhook');
+    const previousKey = process.env.ETG_MIDOFFICE_API_KEY;
+    context.after(() => {
+        if (previousKey === undefined) delete process.env.ETG_MIDOFFICE_API_KEY;
+        else process.env.ETG_MIDOFFICE_API_KEY = previousKey;
+    });
+    process.env.ETG_MIDOFFICE_API_KEY = 'fixture-midoffice-key';
+    let storageUnavailable = false;
+    let stored;
+    const create = context.mock.method(receipts, 'create', async value => {
+        if (storageUnavailable) throw new Error('private-storage-error');
+        if (stored) throw Object.assign(new Error('duplicate'), { code: 11000 });
+        stored = structuredClone(value);
+        return stored;
+    });
+    context.mock.method(receipts, 'findById', () => ({ lean: async () => stored && structuredClone(stored) }));
+    const app = express();
+    app.use('/api/v1/webhooks/midoffice', createMidofficeWebhookRouter());
+    app.use(express.json());
+    const server = await new Promise(resolve => {
+        const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+    });
+    context.after(() => new Promise(resolve => server.close(resolve)));
+    const url = `http://127.0.0.1:${server.address().port}/api/v1/webhooks/midoffice`;
+    const signature = { timestamp: Math.floor(Date.now() / 1000), token: 'fixture-http-token' };
+    signature.signature = crypto.createHmac('sha256', process.env.ETG_MIDOFFICE_API_KEY)
+        .update(`${signature.timestamp}${signature.token}`).digest('hex');
+    const payload = { data: { type: 'created', partner_order_id: 'fixture-http-order' }, signature };
+    const send = (body, headers = {}, path = '') => fetch(`${url}${path}`, {
+        method: 'POST', headers: { 'Content-Type': 'application/json', ...headers }, body
+    });
+    const denied = await send(JSON.stringify(payload), { Origin: 'https://example.com' });
+    assert.equal(denied.status, 403);
+    assert.equal(create.mock.callCount(), 0);
+    const noSignature = await send(JSON.stringify({ data: payload.data }));
+    assert.equal(noSignature.status, 401);
+    assert.deepEqual(await noSignature.json(), { success: false, error: 'invalid_midoffice_signature' });
+    assert.equal(create.mock.callCount(), 0);
+    const unsigned = await send(JSON.stringify({ ...payload, signature: { ...signature, signature: '0'.repeat(64) } }));
+    assert.equal(unsigned.status, 401);
+    assert.equal(create.mock.callCount(), 0);
+    const badJson = await send('{');
+    assert.equal(badJson.status, 400);
+    const oversized = await send(JSON.stringify({ ...payload, padding: 'x'.repeat(9000) }));
+    assert.equal(oversized.status, 400);
+    assert.equal((await send(JSON.stringify(payload), {}, '?order=private-order')).status, 400);
+    const wrongEnvelope = await send(JSON.stringify({ data: { partner_order_id: 'fixture-http-order', status: 'completed' }, signature }));
+    assert.equal(wrongEnvelope.status, 400);
+    assert.equal(create.mock.callCount(), 0);
+    const received = await send(JSON.stringify(payload));
+    assert.equal(received.status, 200);
+    assert.deepEqual(await received.json(), { success: true, received: true });
+    assert.equal(received.headers.get('cache-control'), 'no-store');
+    assert.equal(received.headers.get('etag'), null);
+    assert.equal(create.mock.callCount(), 1);
+    const duplicate = await send(JSON.stringify(payload));
+    assert.equal(duplicate.status, 200);
+    assert.deepEqual(await duplicate.json(), { success: true, received: true, duplicate: true });
+    const changed = await send(JSON.stringify({ ...payload, data: { ...payload.data, type: 'cancelled' } }));
+    assert.equal(changed.status, 409);
+    assert.deepEqual(await changed.json(), { success: false, error: 'midoffice_replay_conflict' });
+    delete process.env.ETG_MIDOFFICE_API_KEY;
+    const unconfigured = await send(JSON.stringify(payload));
+    assert.equal(unconfigured.status, 500);
+    assert.deepEqual(await unconfigured.json(), { success: false, error: 'midoffice_unavailable' });
+    process.env.ETG_MIDOFFICE_API_KEY = 'fixture-midoffice-key';
+    storageUnavailable = true;
+    const retry = await send(JSON.stringify(payload));
+    assert.equal(retry.status, 500);
+    assert.equal(retry.headers.get('cache-control'), 'no-store');
+    assert.equal(retry.headers.get('etag'), null);
+    const retryBody = await retry.text();
+    assert.deepEqual(JSON.parse(retryBody), { success: false, error: 'midoffice_unavailable' });
+    assert.doesNotMatch(retryBody, /private-storage-error/);
+});
+
+test('Midoffice receipts reconcile only when enabled and never confirm or refund a booking', async context => {
+    const service = require('./services/midofficeWebhookService');
+    const receipts = require('./models/MidofficeWebhook');
+    const processes = require('./models/BookingProcess');
+    const ratehawk = require('./services/ratehawkService');
+    const previousFlag = process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED;
+    context.after(() => {
+        if (previousFlag === undefined) delete process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED;
+        else process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED = previousFlag;
+    });
+    delete process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED;
+    const receipt = { _id: 'receipt-fixture', partner_order_id: 'fixture-order', event_type: 'cancelled',
+        state: 'pending', next_check_at: new Date(0) };
+    const due = context.mock.method(receipts, 'find', () => ({ select: () => ({ sort: () => ({ limit: () => ({ lean: async () => [receipt] }) }) }) }));
+    const claimed = context.mock.method(receipts, 'findOneAndUpdate', (filter, update) => ({ lean: async () => {
+        assert.equal(filter._id, receipt._id);
+        Object.assign(receipt, update.$set);
+        return receipt;
+    } }));
+    const saved = context.mock.method(receipts, 'updateOne', (filter, update) => {
+        assert.equal(filter._id, receipt._id);
+        assert.equal(filter.check_lease_id, receipt.check_lease_id);
+        Object.assign(receipt, update.$set);
+        return { matchedCount: 1 };
+    });
+    context.mock.method(processes, 'findOne', () => ({ lean: async () => ({ _id: 'local-process' }) }));
+    const lookup = context.mock.method(ratehawk, 'retrieveBookings', async (options, settings) => {
+        assert.deepEqual(options.search, { partner_order_ids: ['fixture-order'] });
+        assert.deepEqual(settings, { redactPayload: true });
+        return { success: true, found_orders: 1, orders: [{ status: 'cancelled', partner_data: { order_id: 'fixture-order' } }] };
+    });
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 0, failed: 0 });
+    assert.equal(due.mock.callCount(), 0);
+    assert.equal(lookup.mock.callCount(), 0);
+    process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED = 'true';
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
+    assert.equal(claimed.mock.callCount(), 1);
+    assert.equal(saved.mock.callCount(), 1);
+    assert.equal(lookup.mock.callCount(), 1);
+    assert.equal(receipt.state, 'review_required');
+    assert.equal(receipt.supplier_status, 'cancelled');
+    assert.equal(receipt.action_required, 'review_customer_refund_and_upsells');
+});
+
+test('Midoffice reconciliation leaves unknown orders for review and bounds supplier retries', async context => {
+    const mongoose = require('mongoose');
+    const service = require('./services/midofficeWebhookService');
+    const receipts = require('./models/MidofficeWebhook');
+    const processes = require('./models/BookingProcess');
+    const ratehawk = require('./services/ratehawkService');
+    const previousFlag = process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED;
+    context.after(() => {
+        if (previousFlag === undefined) delete process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED;
+        else process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED = previousFlag;
+    });
+    process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED = 'true';
+    let known = false;
+    let supplier = { success: true, found_orders: 0, orders: [] };
+    const receipt = { _id: 'fixture-receipt', partner_order_id: 'fixture-order', event_type: 'created',
+        state: 'pending', next_check_at: new Date(0), reconciliation_attempts: 0 };
+    context.mock.method(receipts, 'find', () => ({ select: () => ({ sort: () => ({ limit: () => ({ lean: async () => [receipt] }) }) }) }));
+    context.mock.method(receipts, 'findOneAndUpdate', (filter, update) => ({ lean: async () => {
+        assert.equal(filter.state, 'pending');
+        if (receipt.state !== 'pending') return null;
+        Object.assign(receipt, update.$set);
+        return { ...receipt };
+    } }));
+    context.mock.method(receipts, 'updateOne', (filter, update) => {
+        assert.equal(filter.check_lease_id, receipt.check_lease_id);
+        Object.assign(receipt, update.$set);
+        for (const key of Object.keys(update.$unset)) delete receipt[key];
+        return { matchedCount: 1 };
+    });
+    const localProcess = context.mock.method(processes, 'findOne', () => ({ lean: async () => known ? { _id: 'local-process' } : null }));
+    if (mongoose.models.Booking) context.mock.method(mongoose.models.Booking, 'findOne', () => ({ lean: async () => null }));
+    const lookup = context.mock.method(ratehawk, 'retrieveBookings', async () => {
+        if (supplier instanceof Error) throw supplier;
+        return supplier;
+    });
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
+    assert.equal(lookup.mock.callCount(), 0);
+    assert.equal(receipt.state, 'review_required');
+    assert.equal(receipt.action_required, 'verify_midoffice_order_ownership');
+    known = true;
+    receipt.state = 'pending';
+    receipt.reconciliation_attempts = 0;
+    const started = Date.now();
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
+    assert.equal(receipt.state, 'pending');
+    assert.equal(receipt.reconciliation_attempts, 1);
+    assert.ok(Number(receipt.next_check_at) >= started + 59000);
+    assert.equal(lookup.mock.callCount(), 1);
+    supplier = Object.assign(new Error('private-upstream'), { retry_after_ms: 120000 });
+    receipt.next_check_at = new Date(0);
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
+    assert.equal(receipt.reconciliation_attempts, 2);
+    assert.ok(Number(receipt.next_check_at) >= Date.now() + 119000);
+    receipt.reconciliation_attempts = 9;
+    receipt.next_check_at = new Date(0);
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
+    assert.equal(receipt.state, 'review_required');
+    assert.equal(receipt.action_required, 'verify_supplier_order_manually');
+    assert.equal(receipt.reconciliation_attempts, 10);
+    receipt.state = 'pending';
+    receipt.reconciliation_attempts = 0;
+    receipt.next_check_at = new Date(0);
+    supplier = { success: true, found_orders: 1,
+        orders: [{ status: 'private-supplier-state', partner_data: { order_id: 'fixture-order' } }] };
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
+    assert.equal(receipt.state, 'review_required');
+    assert.equal(receipt.supplier_status, 'unknown');
+    assert.equal(receipt.action_required, 'review_supplier_booking_status');
+    receipt.state = 'pending';
+    receipt.reconciliation_attempts = 0;
+    receipt.next_check_at = new Date(0);
+    supplier.orders[0].status = 'constructor';
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
+    assert.equal(receipt.supplier_status, 'unknown');
+    assert.equal(receipt.action_required, 'review_supplier_booking_status');
+    receipt.state = 'pending';
+    receipt.reconciliation_attempts = 9;
+    receipt.next_check_at = new Date(0);
+    const calls = lookup.mock.callCount();
+    localProcess.mock.mockImplementation(() => ({ lean: async () => { throw new Error('private-local-storage'); } }));
+    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
+    assert.equal(receipt.state, 'review_required');
+    assert.equal(receipt.action_required, 'verify_supplier_order_manually');
+    assert.equal(receipt.reconciliation_attempts, 10);
+    assert.equal(lookup.mock.callCount(), calls);
+});
+
+test('Midoffice order lookup redacts order identifiers and supplier data from ETG logs', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+    });
+    let upstream = { status: 200, headers: {}, data: { status: 'ok', error: null,
+        data: { orders: [{ partner_data: { order_id: 'private-midoffice-order' }, email: 'private@example.com' }] } } };
+    const request = context.mock.fn(async config => {
+        assert.equal(config.url, '/api/b2b/v3/hotel/order/info/');
+        assert.equal(config.method, 'post');
+        assert.equal(config.maxRedirects, 0);
+        assert.deepEqual(config.data.search, { partner_order_ids: ['private-midoffice-order'] });
+        if (upstream instanceof Error) throw upstream;
+        return upstream;
+    });
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => config.url }));
+    const exchange = context.mock.method(logger, 'logEtgExchange', entry => {
+        assert.equal(entry.requestPayload, null);
+        assert.equal(entry.responsePayload, null);
+        assert.doesNotMatch(JSON.stringify(entry), /private-midoffice-order|private@example\.com/);
+    });
+    context.mock.method(logger, 'warn', (...args) => assert.doesNotMatch(JSON.stringify(args), /private-/));
+    context.mock.method(logger, 'error', (...args) => assert.doesNotMatch(JSON.stringify(args), /private-/));
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    delete require.cache[modulePath];
+    const client = require('./services/ratehawkClient');
+    const data = { search: { partner_order_ids: ['private-midoffice-order'] } };
+    assert.equal((await client.orderInfo(data, { redactPayload: true })).httpStatus, 200);
+    upstream = { status: 429, headers: {}, data: { status: 'error', error: 'rate_limit' } };
+    assert.equal((await client.orderInfo(data, { redactPayload: true })).httpStatus, 429);
+    upstream = Object.assign(new Error('private-transport'), { code: 'ETIMEDOUT' });
+    await assert.rejects(client.orderInfo(data, { redactPayload: true }), /private-transport/);
+    assert.equal(request.mock.callCount(), 3);
+    assert.equal(exchange.mock.callCount(), 3);
 });
 
 test('supplier exchange logs redact guest, card, challenge and echoed debug data', context => {

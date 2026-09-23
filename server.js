@@ -19,6 +19,7 @@ const dubailinkService = require('./services/dubailinkService');
 const paymentService = require('./services/paymentService');
 const notificationService = require('./services/notificationService'); 
 const webhookService = require('./services/webhookService'); 
+const { createMidofficeWebhookRouter } = require('./services/midofficeWebhookService');
 const logger = require('./services/loggerService'); 
 const mappingService = require('./services/mappingService'); 
 const securityService = require('./services/securityService'); 
@@ -44,6 +45,7 @@ const io = new Server(server, { cors: { origin: "*" } });
 app.use('/api/v1/documents', securityService.globalLimiter, createBookingRouter.createDocumentRouter());
 app.use('/api/v1/order-groups', securityService.globalLimiter, createBookingRouter.createOrderGroupRouter());
 app.use('/api/v1/profiles', securityService.globalLimiter, createBookingRouter.createProfileRouter());
+app.use('/api/v1/webhooks/midoffice', createMidofficeWebhookRouter());
 app.use(express.json());
 
 // 🛡️ تطبيق جدار الحماية العام على كل السيرفر

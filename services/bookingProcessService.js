@@ -5,6 +5,7 @@ const BookingProcess = require('../models/BookingProcess');
 const ratehawk = require('./ratehawkService');
 const logger = require('./loggerService');
 const postBooking = require('./postBookingService');
+const midoffice = require('./midofficeWebhookService');
 
 const IN_FLIGHT = ['finishing', 'processing', '3ds'];
 const READY = ['form_ready', 'card_ready'];
@@ -263,6 +264,8 @@ function startBookingStatusWorker() {
             if (result.failed) logger.warn('RateHawk booking status reconciliation needs retry', { failed: result.failed });
             const cancellations = await postBooking.reconcilePendingCancellations();
             if (cancellations.failed) logger.warn('RateHawk cancellation reconciliation needs retry', { failed: cancellations.failed });
+            const receipts = await midoffice.reconcilePendingMidofficeWebhooks();
+            if (receipts.failed) logger.warn('ETG Midoffice receipt reconciliation needs retry', { failed: receipts.failed });
         } catch {
             logger.error('RateHawk booking status reconciliation unavailable');
         } finally {

@@ -934,7 +934,9 @@ async function createCreditCardToken(data) {
 }
 
 // ---- Post-booking -----------------------------------------------------------
-const orderInfo = (data) => call('post', '/api/b2b/v3/hotel/order/info/', { data, timeout: 30000, retries: 0, rateLimitRetry: false });
+const orderInfo = (data, { redactPayload = false } = {}) => call('post', '/api/b2b/v3/hotel/order/info/', {
+    data, timeout: 30000, retries: 0, rateLimitRetry: false, redactPayload
+});
 const cancelOrder = (data) => call('post', '/api/b2b/v3/hotel/order/cancel/', { data, timeout: 60000, retries: 0, rateLimitRetry: false });
 
 module.exports = {
