@@ -1651,8 +1651,26 @@ test('payment uses the supplier amount and refreshed hash', () => {
     assert.deepEqual(resolveValidatedPayment(result(), expected), { amount: 250, currency: 'AED', book_hash: 'verified' });
 });
 
+test('a provider key and checkout flag alone do not make collection ready', () => {
+    const { isCheckoutReady } = require('./services/paymentService');
+    assert.equal(isCheckoutReady({ PAYMENT_CHECKOUT_ENABLED: 'true', ZIINA_API_KEY: 'test-key' }), false);
+    const sandbox = {
+        PAYMENT_CHECKOUT_ENABLED: 'true', RATEHAWK_BOOKING_ENABLED: 'true', ZIINA_REFUNDS_ENABLED: 'true',
+        ZIINA_WEBHOOK_CONFIGURED: 'true', PAYMENT_ETG_SANDBOX_ISOLATED: 'true', MONGO_URI: 'fixture-mongo',
+        ZIINA_API_KEY: 'fixture-key', ZIINA_ACCOUNT_ID: 'fixture-account', ZIINA_WEBHOOK_SECRET: 's'.repeat(32),
+        PAYMENT_BOOKING_ENCRYPTION_KEY: 'ab'.repeat(32), ZIINA_TEST_MODE: 'true', PAYMENT_SANDBOX_ENABLED: 'true',
+        RATEHAWK_BASE_URL: 'https://api-sandbox.ratehawk.com', FRONTEND_URL: 'http://127.0.0.1:5178'
+    };
+    assert.equal(isCheckoutReady(sandbox), false);
+    assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true' }), true);
+    assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', PAYMENT_LIFECYCLE_CERTIFIED: 'true', ZIINA_TEST_MODE: 'false',
+        RATEHAWK_BASE_URL: 'https://api.ratehawk.com', FRONTEND_URL: 'https://remalbookings.com' }), false);
+    assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', FRONTEND_URL: 'https://remalbookings.com' }), false);
+    assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', PAYMENT_ETG_SANDBOX_ISOLATED: 'false' }), false);
+});
+
 test('rejects tampered amounts, currencies, hotel IDs and unavailable rates', () => {
-    for (const override of [{ total: 2 }, { total: NaN }, { currency: 'USD' }, { hid: 456 }]) {
+    for (const override of [{ total: 2 }, { total: NaN }, { currency: 'USD' }, { currency: 'SAR' }, { currency: 'EUR' }, { hid: 456 }]) {
         assert.throws(() => resolveValidatedPayment(result(), { ...expected, ...override }), /RATE_CHANGED/);
     }
     assert.throws(() => resolveValidatedPayment({}, expected), /RATE_CHANGED/);

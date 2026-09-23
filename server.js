@@ -27,6 +27,9 @@ const createFrontendRouter = require('./services/frontendService');
 const corsPolicy = require('./services/corsPolicy');
 const createBookingRouter = require('./services/bookingRoutes');
 const bookingProcessService = require('./services/bookingProcessService');
+const checkoutProcessService = require('./services/checkoutProcessService');
+const checkoutReconciliationService = require('./services/checkoutReconciliationService');
+const ziinaWebhookService = require('./services/ziinaWebhookService');
 
 const app = express();
 
@@ -46,6 +49,7 @@ app.use('/api/v1/documents', securityService.globalLimiter, createBookingRouter.
 app.use('/api/v1/order-groups', securityService.globalLimiter, createBookingRouter.createOrderGroupRouter());
 app.use('/api/v1/profiles', securityService.globalLimiter, createBookingRouter.createProfileRouter());
 app.use('/api/v1/webhooks/midoffice', createMidofficeWebhookRouter());
+app.post('/api/payment/ziina/webhook', express.raw({ type: 'application/json', limit: '256kb' }), ziinaWebhookService.receiveZiinaWebhook);
 app.use(express.json());
 
 // 🛡️ تطبيق جدار الحماية العام على كل السيرفر
@@ -753,49 +757,31 @@ app.post('/api/booking/prebook-serp', verifyAPIKey, securityService.searchLimite
 
 app.get('/api/payment/availability', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ enabled: process.env.PAYMENT_CHECKOUT_ENABLED === 'true' && !!process.env.ZIINA_API_KEY });
+    res.json({ enabled: mongoose.connection.readyState === 1 && paymentService.isCheckoutReady() });
 });
 
 app.post('/api/payment/ziina/intent', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
-    if (process.env.PAYMENT_CHECKOUT_ENABLED !== 'true') {
-        return res.status(503).json({ success: false, error: 'PAYMENTS_UNAVAILABLE', message: 'الدفع الإلكتروني غير متاح حالياً. لم يتم خصم أي مبلغ. يرجى التواصل مع فريق الحجوزات.' });
-    }
-    const body = req.body || {};
-    const sourceAmount = Number(body.total);
-    const currency = String(body.currency || 'AED').toUpperCase();
-    const supportedCurrencies = new Set(['AED']);
-    const amount = sourceAmount;
-    if (!Number.isFinite(sourceAmount) || sourceAmount <= 0 || !supportedCurrencies.has(currency) || !Number.isFinite(amount) || amount <= 0) {
-        return res.status(400).json({
-            success: false,
-            error: 'INVALID_PAYMENT_AMOUNT',
-            message: 'A positive supported-currency booking total is required.'
-        });
-    }
-    if (!body.hid || !body.book_hash || !body.guest?.email) {
-        return res.status(400).json({
-            success: false,
-            error: 'INVALID_PAYMENT_CONTEXT',
-            message: 'Hotel, room, and guest details are required.'
-        });
-    }
-
+    res.set('Cache-Control', 'no-store');
     try {
-        const prebook = await ratehawkService.validatePrebookRate(body.book_hash, 0);
-        const validated = paymentService.resolveValidatedPayment(prebook, { ...body, currency });
-        const paymentUrl = await paymentService.createZiinaCheckout({
-            ...body,
-            book_hash: validated.book_hash,
-            bookingReference: body.bookingReference || `RML-${Date.now()}`
-        }, validated.amount);
-        return res.status(200).json({ success: true, payment_url: paymentUrl, amount: validated.amount, currency: 'AED' });
+        const result = await checkoutProcessService.createCheckout(req.body, req.get('Idempotency-Key'), req.ip);
+        return res.status(result.payment_url ? 200 : 202).json(result);
     } catch (error) {
-        if (error.message === 'RATE_CHANGED' || error.ratehawkError === 'rate_not_found') {
-            return res.status(409).json({ success: false, error: 'RATE_CHANGED', message: 'تغير العرض أو لم يعد متاحاً. ارجع لاختيار الغرفة بالسعر الحالي بالدرهم.' });
-        }
-        logger.error('Ziina payment intent failed', { error: error.message, hid: body.hid });
-        return res.status(502).json({ success: false, error: 'PAYMENT_INTENT_FAILED', message: 'تعذر تجهيز رابط الدفع.' });
+        const status = [400, 409, 502, 503].includes(error.httpStatus) ? error.httpStatus : 503;
+        if (status >= 500) logger.error('Checkout preparation unavailable', { code: error.code || 'checkout_error' });
+        return res.status(status).json({ success: false, error: /^[a-z_]+$/.test(error.code) ? error.code : 'checkout_unavailable',
+            message: status === 409 ? 'تغير العرض أو لم يعد متاحاً. اختر عرضاً جديداً.'
+                : 'تعذر تجهيز الدفع. لا تعاود الدفع قبل التحقق من حالة المحاولة مع فريق الحجوزات.' });
     }
+});
+
+app.get('/api/payment/ziina/:reference/status', (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    res.set('Vary', 'Authorization');
+    const token = /^Bearer ([a-f\d]{64})$/i.exec(req.get('Authorization') || '')?.[1];
+    checkoutProcessService.getCheckout(req.params.reference, token).then(result => res.json(result)).catch(error => {
+        const status = error.httpStatus === 503 ? 503 : 404;
+        res.status(status).json({ success: false, error: status === 503 ? 'checkout_unavailable' : 'checkout_not_found' });
+    });
 });
 
 app.get('/api/search/rate/:book_hash', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
@@ -1149,8 +1135,10 @@ async function connectMongoWithRetry(attempt = 1) {
 mongoose.connection.on('disconnected', () => console.warn('⚠️ MongoDB disconnected.'));
 mongoose.connection.on('reconnected', () => console.log('✅ MongoDB reconnected.'));
 let stopBookingStatusWorker = () => {};
+let stopCheckoutWorker = () => {};
 mongoose.connection.once('connected', () => {
     stopBookingStatusWorker = bookingProcessService.startBookingStatusWorker();
+    stopCheckoutWorker = checkoutReconciliationService.startCheckoutWorker();
 });
-server.once('close', () => stopBookingStatusWorker());
+server.once('close', () => { stopBookingStatusWorker(); stopCheckoutWorker(); });
 connectMongoWithRetry();

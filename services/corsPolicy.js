@@ -22,6 +22,6 @@ module.exports = {
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization'],
+    allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'Idempotency-Key'],
     credentials: true
 };

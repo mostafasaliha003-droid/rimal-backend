@@ -1,113 +1,58 @@
 // services/paymentService.js
 
-const logger = require('./loggerService'); 
+const { SUPPORTED_CURRENCIES, minorUnits } = require('./ziinaClient');
+
+function isCheckoutReady(environment = process.env) {
+    const required = environment.PAYMENT_ROLLOUT_APPROVED === 'true'
+        && environment.PAYMENT_CHECKOUT_ENABLED === 'true'
+        && environment.RATEHAWK_BOOKING_ENABLED === 'true'
+        && environment.ZIINA_REFUNDS_ENABLED === 'true'
+        && environment.ZIINA_WEBHOOK_CONFIGURED === 'true'
+        && environment.PAYMENT_ETG_SANDBOX_ISOLATED === 'true'
+        && typeof environment.MONGO_URI === 'string' && environment.MONGO_URI.length > 0
+        && typeof environment.ZIINA_API_KEY === 'string' && environment.ZIINA_API_KEY.length > 0
+        && typeof environment.ZIINA_ACCOUNT_ID === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(environment.ZIINA_ACCOUNT_ID)
+        && typeof environment.ZIINA_WEBHOOK_SECRET === 'string' && environment.ZIINA_WEBHOOK_SECRET.length >= 32
+        && /^[a-f\d]{64}$/i.test(environment.PAYMENT_BOOKING_ENCRYPTION_KEY || '');
+    if (!required || environment.ZIINA_TEST_MODE !== 'true' || environment.PAYMENT_SANDBOX_ENABLED !== 'true') return false;
+    let frontend;
+    try { frontend = new URL(environment.FRONTEND_URL); } catch { return false; }
+    return /^https:\/\/api-sandbox\.ratehawk\.com\/?(?:api\/b2b\/v3\/?)*$/.test(environment.RATEHAWK_BASE_URL || '')
+        && (frontend.protocol === 'https:' || frontend.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(frontend.hostname))
+        && !frontend.username && !frontend.password
+        && !['remalbookings.com', 'www.remalbookings.com'].includes(frontend.hostname);
+}
+
+function isRefundReady(environment = process.env) {
+    return environment.ZIINA_REFUNDS_ENABLED === 'true'
+        && environment.ZIINA_TEST_MODE === 'true'
+        && typeof environment.ZIINA_API_KEY === 'string' && environment.ZIINA_API_KEY.length > 0
+        && typeof environment.ZIINA_ACCOUNT_ID === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(environment.ZIINA_ACCOUNT_ID);
+}
 
 function resolveValidatedPayment(result, expected) {
     const hotels = result?.hotels || (result?.hotel ? [result.hotel] : []);
     const hotel = hotels.find(item => String(item.hid || item.id) === String(expected.hid));
     const rates = hotel?.rates || [];
-    if (rates.length !== 1 || result?.changes?.price_changed) {
+    if (rates.length !== 1 || result?.changes?.price_changed
+        || (expected.roomName && rates[0]?.room_name && rates[0].room_name !== expected.roomName)) {
         throw new Error('RATE_CHANGED');
     }
     const rate = rates[0];
     const payment = rate.payment_options?.payment_types?.find(item => item.type === 'deposit');
     const amount = Number(payment?.amount);
-    if (!payment || payment.currency_code !== 'AED' || expected.currency !== 'AED'
-        || !Number.isFinite(amount) || amount < 2 || !rate.book_hash
+    if (!payment || !SUPPORTED_CURRENCIES.has(payment.currency_code) || payment.currency_code !== expected.currency
+        || !Number.isFinite(amount) || amount <= 0 || !rate.book_hash
         || Math.round(amount * 100) !== Math.round(Number(expected.total) * 100)) {
         throw new Error('RATE_CHANGED');
     }
-    return { amount, currency: 'AED', book_hash: rate.book_hash };
-}
-
-// 1. بوابة التحقق من السعر (Recheck Validation Gate)
-async function validatePrice(oldPriceAED, newPriceAED) {
-    logger.info(`🔍 Rechecking prices: Old (AED ${oldPriceAED}) vs New (AED ${newPriceAED})`);
-    
-    // حساب نسبة التغير
-    const variancePercentage = ((newPriceAED - oldPriceAED) / oldPriceAED) * 100;
-    
-    // 🔴 تطبيق قاعدة الـ 2% لحماية العميل من أي تلاعب
-    if (variancePercentage > 2.0) {
-        logger.warn(`❌ Price rejected! Variance is ${variancePercentage.toFixed(2)}% (Max allowed is 2%)`);
-        return { 
-            success: false, 
-            error: "PRICE_CHANGED", 
-            message: "تغير سعر الفندق بنسبة تتجاوز الحد المسموح. يرجى إعادة البحث لتحديث السعر.",
-            variance: variancePercentage
-        };
-    }
-
-    logger.info(`✅ Price validated successfully. Variance: ${variancePercentage.toFixed(2)}%`);
-    return { success: true, finalPrice: newPriceAED, variance: variancePercentage };
-}
-
-// 2. تجهيز رابط الدفع عبر Ziina
-async function createZiinaCheckout(bookingDetails, finalPrice) {
-    logger.info(`💳 Preparing Ziina checkout session for AED ${finalPrice}...`);
-    
-    try {
-        // سحب مفتاح Ziina من الملف السري لحماية بيانات الشركة
-        const ziinaApiKey = process.env.ZIINA_API_KEY;
-        
-        // جلب رقم المرجع لربطه بالبوابة المالية
-        const bookingReference = bookingDetails.bookingReference || `RML-${Date.now()}`;
-        
-        // 🔴 Ziina تتعامل بالعملات الصغرى (فلس)
-        const amountInFils = Math.round(finalPrice * 100);
-
-        if (!Number.isSafeInteger(amountInFils) || amountInFils < 200) {
-            throw new Error('الحد الأدنى للمعاملة هو 2 درهم.');
-        }
-
-        const frontendUrl = String(process.env.FRONTEND_URL || 'https://remalbookings.com').replace(/\/+$/, '');
-
-        if (ziinaApiKey && ziinaApiKey !== '') {
-            // ==========================================
-            // 🔴 الربط الفعلي مع Ziina API (Live Mode)
-            // ==========================================
-            logger.info("Initiating Live Transaction with Ziina API...");
-            
-            const response = await fetch('https://api-v2.ziina.com/api/payment_intent', {
-                method: 'POST',
-                headers: {
-                    'Authorization': `Bearer ${ziinaApiKey}`,
-                    'Content-Type': 'application/json'
-                },
-                body: JSON.stringify({
-                    amount: amountInFils,
-                    currency_code: 'AED',
-                    // تم التعديل هنا: توجيه العميل بعد الدفع لواجهة الموقع الأمامية
-                    success_url: `${frontendUrl}/checkout?payment=success&ref=${bookingReference}`,
-                    cancel_url: `${frontendUrl}/checkout?payment=cancel&ref=${bookingReference}`
-                })
-            });
-            
-            const data = await response.json();
-
-            if (response.ok && data.redirect_url) {
-                logger.info("Live Ziina Payment URL generated successfully.");
-                return data.redirect_url;
-            } else {
-                logger.error("Ziina Error Details:", data);
-                throw new Error("فشل في توليد رابط الدفع من Ziina.");
-            }
-            
-        } else {
-            // ==========================================
-            // 🟡 وضع المحاكاة (Sandbox/Mock Mode)
-            // ==========================================
-            throw new Error('Payment provider is not configured.');
-        }
-
-    } catch (error) {
-        logger.error("❌ Ziina Checkout Error", { error: error.message });
-        throw new Error("فشل في تهيئة بوابة الدفع: " + error.message);
-    }
+    try { minorUnits(amount); } catch { throw new Error('RATE_CHANGED'); }
+    if (payment.currency_code === 'AED' && amount < 2) throw new Error('RATE_CHANGED');
+    return { amount, currency: payment.currency_code, book_hash: rate.book_hash };
 }
 
 module.exports = {
-    resolveValidatedPayment,
-    validatePrice,
-    createZiinaCheckout
+    isCheckoutReady,
+    isRefundReady,
+    resolveValidatedPayment
 };
