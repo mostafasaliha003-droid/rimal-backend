@@ -137,7 +137,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         <div className="mx-auto max-w-6xl">
             <button type="button" onClick={onBack} className="mb-7 inline-flex items-center gap-2 text-sm font-black text-remal-blue"><ArrowRight size={17} /> العودة لاختيار الغرفة</button>
             <div className="mb-8"><p className="text-xs font-black uppercase tracking-[0.2em] text-remal-blue">إتمام الحجز</p><h1 className="mt-2 text-3xl font-black text-remal-dark">بيانات الضيف والدفع</h1><p className="mt-2 text-sm font-bold text-slate-400">أدخل بيانات الضيف لإتمام الدفع الآمن عبر Ziina</p></div>
-            {!canPay && <p role="status" className="mb-6 rounded-lg border border-amber-300 bg-amber-50 p-4 leading-7 text-amber-950">الدفع الإلكتروني غير متاح لهذا العرض حالياً. لم يتم إنشاء عملية دفع. <a className="underline" href="mailto:management@remaltourismllc.com">تواصل مع فريق الحجوزات</a></p>}
+            {!canPay && <p role="status" className="mb-6 rounded-e-lg border-s-4 border-amber-500 bg-amber-50 p-4 leading-7 text-amber-800">الدفع الإلكتروني غير متاح لهذا العرض حالياً. لم يتم إنشاء عملية دفع. <a className="underline" href="mailto:management@remaltourismllc.com">تواصل مع فريق الحجوزات</a></p>}
             <div className="grid min-w-0 gap-7 lg:grid-cols-[minmax(0,1fr)_22rem]">
                 <div className="order-2 lg:order-1">
                     {error && <p role="alert" className="mb-5 rounded-xl bg-red-50 p-4 text-sm font-bold text-remal-red">{error}</p>}
@@ -149,13 +149,13 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                         paymentAvailable={canPay}
                     />
                 </div>
-                <aside className="order-1 h-fit rounded-2xl bg-remal-dark p-6 text-white shadow-sm lg:order-2 lg:sticky lg:top-6">
-                    <p className="text-xs font-bold text-white/60">ملخص الحجز</p><h2 className="mt-3 text-xl font-black">{selectedBooking.hotelName || 'Hotel'}</h2><p className="mt-2 text-sm font-bold text-white/60">{room.name || 'Room'}</p>
-                    <div className="my-6 space-y-3 border-y border-white/10 py-5 text-sm font-bold"><p className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-white/60"><CalendarDays size={15} /> الوصول</span><span>{selectedBooking.checkin || '-'}</span></p><p className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-white/60"><CalendarDays size={15} /> المغادرة</span><span>{selectedBooking.checkout || '-'}</span></p></div>
-                    <div className="flex flex-wrap items-end justify-between gap-3"><span className="text-sm text-white/80">الإجمالي</span><span className="text-end text-2xl font-bold">{currency ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} /> : 'العملة غير متاحة'}</span></div>
+                <aside className="order-1 h-fit rounded-2xl border border-slate-200 bg-white p-6 text-slate-900 shadow-sm lg:order-2 lg:sticky lg:top-6">
+                    <p className="text-xs font-bold text-slate-500">ملخص الحجز</p><h2 className="mt-3 text-xl font-black">{selectedBooking.hotelName || 'Hotel'}</h2><p className="mt-2 text-sm font-bold text-slate-500">{room.name || 'Room'}</p>
+                    <div className="my-6 space-y-3 border-y border-slate-200 py-5 text-sm font-bold"><p className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-500"><CalendarDays size={15} /> الوصول</span><span>{selectedBooking.checkin || '-'}</span></p><p className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-slate-500"><CalendarDays size={15} /> المغادرة</span><span>{selectedBooking.checkout || '-'}</span></p></div>
+                    <div className="flex flex-wrap items-end justify-between gap-3"><span className="text-sm text-slate-500">الإجمالي</span><span className="text-end text-2xl font-bold">{currency ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} /> : 'العملة غير متاحة'}</span></div>
                     <p className="mt-3 text-sm leading-7">{canPay ? `عملة الدفع: ${currency}، بسعر المورد الأصلي.` : `عملة العرض: ${currency || 'غير محددة'}. الدفع الإلكتروني لهذا العرض غير متاح.`} قد تُطبق رسوم محلية غير مشمولة.</p>
                     {(room.taxes || []).filter(tax => !tax.included_by_supplier).map((tax, index) => <p key={index} className="mt-2 text-sm">{tax.name}: {tax.amount} {tax.currency_code}</p>)}
-                    <div className="mt-5 rounded-lg bg-white p-3 text-slate-900"><CancellationPolicy cancellation={room.cancellation} currency={currency} /></div>
+                    <div className="mt-5 border-t border-slate-200 pt-4"><CancellationPolicy cancellation={room.cancellation} currency={currency} /></div>
                 </aside>
             </div>
         </div>

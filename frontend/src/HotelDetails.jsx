@@ -118,21 +118,24 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
     return <main className="min-h-screen bg-remal-bg px-5 py-8 lg:px-10">
         <div className="mx-auto max-w-7xl space-y-7">
             <button type="button" onClick={onBack} className="inline-flex items-center gap-2 text-sm font-black text-remal-blue"><ArrowRight size={17} /> العودة للنتائج</button>
+            <div className="rounded-2xl bg-white p-6 shadow-sm">
+                <div className="mb-3 flex flex-wrap items-center gap-3 text-sm font-bold text-amber-700">{Number(hotel?.stars || hotel?.star_rating) > 0 && <span className="inline-flex items-center gap-1"><Star size={16} />{hotel.stars || hotel.star_rating}</span>}{hotel?.city && <span className="inline-flex items-center gap-1 text-slate-600"><MapPin size={15} />{hotel.city}</span>}</div>
+                <h1 className="text-3xl font-black text-remal-dark">{hotel?.name || 'Hotel'}</h1>
+            </div>
+
             <section className="grid gap-3 lg:grid-cols-[1.4fr_0.8fr] lg:grid-rows-2">
-                <div className="overflow-hidden rounded-3xl shadow-lg lg:row-span-2">
+                <div className="overflow-hidden rounded-2xl shadow-lg lg:row-span-2">
                     {images[0] ? <img src={images[0]} alt={hotel?.name || 'الفندق'} className="h-72 w-full object-cover lg:h-full" /> : <div className="flex h-48 items-center justify-center bg-slate-100 text-slate-600">لا توجد صورة موثقة للفندق</div>}
                 </div>
-                <div className="grid grid-cols-2 gap-3">{images.slice(1, 3).map((image) => <div key={image} className="overflow-hidden rounded-3xl shadow-lg"><img src={image} alt={hotel?.name || 'Hotel'} className="h-36 w-full object-cover transition duration-500 hover:scale-105 lg:h-full" /></div>)}</div>
+                <div className="grid grid-cols-2 grid-rows-2 gap-3">{images.slice(1, 5).map((image) => <div key={image} className="overflow-hidden rounded-2xl shadow-lg"><img src={image} alt={hotel?.name || 'Hotel'} className="h-36 w-full object-cover transition duration-500 hover:scale-105 lg:h-full" /></div>)}</div>
             </section>
 
             <section className="grid gap-6 lg:grid-cols-[1fr_20rem]">
                 <article className="rounded-2xl bg-white p-6 shadow-sm">
-                    <div className="mb-3 flex flex-wrap items-center gap-3 text-sm font-bold text-amber-700">{Number(hotel?.stars || hotel?.star_rating) > 0 && <span className="inline-flex items-center gap-1"><Star size={16} />{hotel.stars || hotel.star_rating}</span>}{hotel?.city && <span className="inline-flex items-center gap-1 text-slate-600"><MapPin size={15} />{hotel.city}</span>}</div>
-                    <h1 className="text-3xl font-black text-remal-dark">{hotel?.name || 'Hotel'}</h1>
-                    {typeof hotel?.description === 'string' && <p className="mt-4 leading-8 text-slate-600">{hotel.description}</p>}
+                    {typeof hotel?.description === 'string' && <p className="leading-8 text-slate-600">{hotel.description}</p>}
                     <div className="mt-6 flex flex-wrap gap-2">{(hotel?.amenities || hotel?.staticData?.amenities || []).slice(0, 6).map((amenity) => <span key={String(amenity)} className="rounded-lg bg-remal-bg px-3 py-2 text-xs font-bold text-slate-600">{typeof amenity === 'string' ? amenity : amenity.name || amenity.title}</span>)}</div>
                 </article>
-                <aside className="rounded-lg bg-remal-dark p-6 text-white"><p className="text-sm text-white/80">ملخص الإقامة</p><p className="mt-3 text-2xl font-bold">{rooms.length ? `${rooms.length} عروض إقامة` : 'لا توجد عروض متاحة'}</p><p className="mt-2 text-sm text-white/80">{searchParams.checkin || 'تاريخ الوصول'} إلى {searchParams.checkout || 'تاريخ المغادرة'}</p><div className="mt-6 flex items-center gap-2 text-sm text-emerald-200"><ShieldCheck size={18} /> التحقق من العرض قبل الدفع</div></aside>
+                <aside className="h-fit rounded-lg bg-remal-dark p-6 text-white lg:sticky lg:top-24"><p className="text-sm text-white/80">ملخص الإقامة</p><p className="mt-3 text-2xl font-bold">{rooms.length ? `${rooms.length} عروض إقامة` : 'لا توجد عروض متاحة'}</p><p className="mt-2 text-sm text-white/80">{searchParams.checkin || 'تاريخ الوصول'} إلى {searchParams.checkout || 'تاريخ المغادرة'}</p><div className="mt-6 flex items-center gap-2 text-sm text-emerald-200"><ShieldCheck size={18} /> التحقق من العرض قبل الدفع</div></aside>
             </section>
 
             <section className="space-y-4"><div><h2 className="text-2xl font-bold">عروض الإقامة</h2><p className="mt-1 text-sm text-slate-600">سيُعاد التحقق من السعر والتوفر قبل الدفع</p></div>{rooms.length ? rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />) : <div className="bg-white p-10 text-center"><BedDouble className="mx-auto text-slate-500" size={36} /><p className="mt-3 font-bold text-slate-600">لا توجد عروض متاحة لهذه التواريخ</p><button onClick={onBack} className="mt-3 underline">تغيير البحث</button></div>}</section>

@@ -18,6 +18,7 @@ const ratehawkService = require('./services/ratehawkService');
 const dubailinkService = require('./services/dubailinkService'); 
 const paymentService = require('./services/paymentService');
 const notificationService = require('./services/notificationService'); 
+const { smtpPassword } = require('./services/smtpConfig');
 const webhookService = require('./services/webhookService'); 
 const { createMidofficeWebhookRouter } = require('./services/midofficeWebhookService');
 const logger = require('./services/loggerService'); 
@@ -69,7 +70,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD
+        pass: smtpPassword()
     }
 });
 

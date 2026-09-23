@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer'); 
 const logger = require('./loggerService'); 
+const { smtpPassword } = require('./smtpConfig');
 
 // 🌟 فلتر ذكي لتنظيف النصوص من الإيموجيز قبل حقنها في الـ PDF
 const sanitizeText = (str) => {
@@ -17,7 +18,7 @@ const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
         user: process.env.SMTP_USER,
-        pass: process.env.SMTP_PASSWORD
+        pass: smtpPassword()
     }
 });
 
@@ -28,7 +29,7 @@ function escapeHtml(value) {
 }
 
 async function sendVoucherConfirmation({ email, guestName, checkin, reference, amountMinor, currency, pdfBuffer }) {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Buffer.isBuffer(pdfBuffer)
+    if (!process.env.SMTP_USER || !smtpPassword() || !Buffer.isBuffer(pdfBuffer)
         || pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') throw new Error('confirmation_email_unavailable');
     const amount = (amountMinor / 100).toFixed(2);
     const text = `Your reservation is confirmed. Reference: ${reference}. Check-in: ${checkin}. Payment: ${amount} ${currency}. Your supplier voucher is attached.`;
@@ -44,7 +45,7 @@ async function sendVoucherConfirmation({ email, guestName, checkin, reference, a
 }
 
 async function sendRefundConfirmation({ email, guestName, reference, amountMinor, currency }) {
-    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Number.isSafeInteger(amountMinor)
+    if (!process.env.SMTP_USER || !smtpPassword() || !Number.isSafeInteger(amountMinor)
         || amountMinor <= 0 || !/^[A-Z]{3}$/.test(currency)) throw new Error('refund_email_unavailable');
     const amount = (amountMinor / 100).toFixed(2);
     const text = `Your refund has been confirmed. Reference: ${reference}. Refunded amount: ${amount} ${currency}.`;

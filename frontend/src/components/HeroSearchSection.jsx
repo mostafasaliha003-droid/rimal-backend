@@ -124,6 +124,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
             <div className="absolute inset-0 -z-10 bg-[url('https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=2200&q=85')] bg-cover bg-center" />
             <div className="absolute inset-0 -z-10 bg-[linear-gradient(90deg,rgba(2,6,23,.96)_0%,rgba(2,6,23,.78)_48%,rgba(2,6,23,.18)_100%)]" />
             <div className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-slate-50 to-transparent" />
+            <div className="absolute inset-x-0 top-0 -z-10 h-32 bg-gradient-to-b from-[#0F172A] to-transparent md:h-40" />
 
             <div className="mx-auto flex max-w-7xl flex-col px-5 lg:px-10">
                 <div className="max-w-2xl text-right text-white">
@@ -134,7 +135,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                 </div>
 
                 <form onSubmit={handleSearch} className="relative mt-6 w-full" dir="rtl">
-                    <div className="flex flex-col divide-y divide-slate-200 rounded-[1.75rem] bg-white/95 p-2 shadow-2xl backdrop-blur-md lg:flex-row lg:items-stretch lg:rounded-full">
+                    <div className="flex flex-col divide-y divide-slate-200 rounded-[1.75rem] border border-white/50 bg-white/90 p-2 shadow-2xl shadow-blue-900/20 backdrop-blur-xl lg:flex-row lg:items-stretch lg:rounded-full">
                         <label className={`relative z-40 flex min-h-[76px] flex-1 items-center gap-3 rounded-[1.4rem] px-5 py-4 transition-all duration-300 lg:rounded-full ${activeField === 'destination' ? 'bg-white shadow-md' : 'hover:bg-slate-50'}`} htmlFor="destination-search">
                             <PinIcon className="h-6 w-6 shrink-0 text-blue-600" size={24} />
                             <span className="flex min-w-0 flex-1 flex-col text-right">
