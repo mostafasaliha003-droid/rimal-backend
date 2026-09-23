@@ -350,6 +350,24 @@ const voucher = data => downloadDocument('/api/b2b/v3/hotel/order/document/vouch
 const invoiceInfo = data => downloadDocument('/api/b2b/v3/hotel/order/document/info_invoice/download/', data);
 const invoice = data => downloadDocument('/api/b2b/v3/ordergroup/document/invoice/download/', data);
 const singleAct = data => downloadDocument('/api/b2b/v3/hotel/order/document/single_act/download/', data);
+const orderGroupsInfo = data => call('post', '/api/b2b/v3/ordergroup/info/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const createOrderGroup = data => call('get', '/api/b2b/v3/ordergroup/create/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const addToOrderGroup = data => call('get', '/api/b2b/v3/ordergroup/order/add/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const removeFromOrderGroup = data => call('get', '/api/b2b/v3/ordergroup/order/remove/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const disbandOrderGroup = data => call('get', '/api/b2b/v3/ordergroup/disband/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
+const payOrderGroupOverpay = data => call('get', '/api/b2b/v3/ordergroup/pay/overpay/', {
+    data, retries: 0, rateLimitRetry: false, redactPayload: true
+});
 
 // ---- Static / content data (Content API) -----------------------------------
 const hotelStatic = () => call('get', '/api/b2b/v3/hotel/static/', { timeout: 60000 });
@@ -916,6 +934,12 @@ module.exports = {
     invoiceInfo,
     invoice,
     singleAct,
+    orderGroupsInfo,
+    createOrderGroup,
+    addToOrderGroup,
+    removeFromOrderGroup,
+    disbandOrderGroup,
+    payOrderGroupOverpay,
     getHotelDumpUrl,
     getCustomDumpUrl,
     getIncrementalDumpUrl,

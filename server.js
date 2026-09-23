@@ -42,6 +42,7 @@ const server = http.createServer(app);
 const io = new Server(server, { cors: { origin: "*" } });
 
 app.use('/api/v1/documents', securityService.globalLimiter, createBookingRouter.createDocumentRouter());
+app.use('/api/v1/order-groups', securityService.globalLimiter, createBookingRouter.createOrderGroupRouter());
 app.use(express.json());
 
 // 🛡️ تطبيق جدار الحماية العام على كل السيرفر

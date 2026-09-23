@@ -5,6 +5,358 @@ const { resolveValidatedPayment } = require('./services/paymentService');
 const expected = { hid: 123, total: 250, currency: 'AED' };
 const result = () => ({ hotels: [{ hid: 123, rates: [{ book_hash: 'verified', payment_options: { payment_types: [{ type: 'deposit', amount: '250.00', currency_code: 'AED' }] } }] }] });
 
+test('order group transports use documented methods and paths without retries or private logs', async context => {
+    const axios = require('axios');
+    const logger = require('./services/loggerService');
+    const modulePath = require.resolve('./services/ratehawkClient');
+    const previousModule = require.cache[modulePath];
+    const previousId = process.env.RATEHAWK_KEY_ID;
+    const previousKey = process.env.RATEHAWK_API_KEY;
+    context.after(() => {
+        if (previousModule) require.cache[modulePath] = previousModule;
+        else delete require.cache[modulePath];
+        if (previousId === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = previousId;
+        if (previousKey === undefined) delete process.env.RATEHAWK_API_KEY;
+        else process.env.RATEHAWK_API_KEY = previousKey;
+    });
+    let expected;
+    let response;
+    const request = context.mock.fn(async config => {
+        assert.equal(config.method, expected.verb);
+        assert.equal(config.url, expected.path);
+        assert.equal(config.maxRedirects, 0);
+        assert.deepEqual(config.auth, { username: 'fixture-id', password: 'fixture-key' });
+        if (expected.verb === 'get') {
+            assert.equal(config.data, undefined);
+            assert.deepEqual(JSON.parse(config.params.data), expected.data);
+        } else {
+            assert.equal(config.params, undefined);
+            assert.deepEqual(config.data, expected.data);
+        }
+        if (response instanceof Error) throw response;
+        return response;
+    });
+    context.mock.method(axios, 'create', () => ({ request, getUri: config => `${config.url}?data=private-invoice` }));
+    const exchange = context.mock.method(logger, 'logEtgExchange', entry => {
+        assert.equal(entry.requestPayload, null);
+        assert.equal(entry.responsePayload, null);
+        assert.doesNotMatch(entry.url, /\?/);
+        assert.doesNotMatch(JSON.stringify(entry), /private-/);
+    });
+    context.mock.method(logger, 'warn', (...args) => assert.doesNotMatch(JSON.stringify(args), /private-/));
+    context.mock.method(logger, 'error', (...args) => assert.doesNotMatch(JSON.stringify(args), /private-/));
+    process.env.RATEHAWK_KEY_ID = 'fixture-id';
+    process.env.RATEHAWK_API_KEY = 'fixture-key';
+    delete require.cache[modulePath];
+    const client = require('./services/ratehawkClient');
+    const orders = [{ order_id: 197205577, order_type: 'hotel' }];
+    const cases = [
+        ['orderGroupsInfo', 'post', '/api/b2b/v3/ordergroup/info/', {
+            pagination: { page_number: 1, page_size: 1 }, ordering: { ordering_type: 'asc', ordering_by: 'created_at' },
+            search: { invoice_id: 'private-invoice' }
+        }],
+        ['createOrderGroup', 'get', '/api/b2b/v3/ordergroup/create/', { orders }],
+        ['addToOrderGroup', 'get', '/api/b2b/v3/ordergroup/order/add/', { invoice_id: 'private-invoice', orders }],
+        ['removeFromOrderGroup', 'get', '/api/b2b/v3/ordergroup/order/remove/', { invoice_id: 'private-invoice', orders }],
+        ['disbandOrderGroup', 'get', '/api/b2b/v3/ordergroup/disband/', { invoice_id: 'private-invoice' }],
+        ['payOrderGroupOverpay', 'get', '/api/b2b/v3/ordergroup/pay/overpay/', { invoice_id: 'private-invoice', amount: '314.15' }]
+    ];
+    for (const [method, verb, path, data] of cases) {
+        expected = { verb, path, data };
+        for (const value of [
+            { status: 200, data: { status: 'ok', error: null, data: { invoice_id: 'private-invoice' } } },
+            { status: 429, headers: { 'x-ratelimit-secondsnumber': '60' }, data: { status: 'error', error: 'rate_limit' } },
+            { status: 503, data: { status: 'error', error: 'unknown' } },
+            Object.assign(new Error('private-timeout'), { code: 'ETIMEDOUT', response: { status: 503, data: 'private-response' } })
+        ]) {
+            response = value;
+            const before = request.mock.callCount();
+            if (value instanceof Error) await assert.rejects(client[method](data), /private-timeout/);
+            else assert.equal((await client[method](data)).httpStatus, value.status);
+            assert.equal(request.mock.callCount(), before + 1);
+        }
+    }
+    assert.equal(exchange.mock.callCount(), request.mock.callCount());
+});
+
+test('order group retrieval validates filters, preserves account amounts, and fails closed', async context => {
+    const service = require('./services/orderGroupService');
+    const input = {
+        pagination: { page_size: 1, page_number: 1 },
+        ordering: { ordering_type: 'asc', ordering_by: 'created_at' },
+        search: { invoice_id: 'private-invoice' }
+    };
+    const group = { agreement_number: 'B2B-FIXTURE', invoice_id: 'private-invoice',
+        amount_payable: { amount: '314.15', currency_code: 'EUR' },
+        orders: [{ order_id: 197205577, order_type: 'hotel' }] };
+    const payload = { current_page_number: 1, total_pages: 1, total_groups: 1, groups: [group] };
+    let upstream = { ok: true, status: 'ok', httpStatus: 200, error: null, data: payload };
+    const request = context.mock.method(service.client, 'orderGroupsInfo', async data => {
+        assert.deepEqual(data, input);
+        return upstream;
+    });
+    assert.deepEqual(await service.retrieveOrderGroups(input), { success: true, ...payload });
+    upstream = { ...upstream, data: { current_page_number: 1, total_pages: 0, total_groups: 0, groups: [] } };
+    assert.deepEqual(await service.retrieveOrderGroups(input), { success: true, ...upstream.data });
+    for (const invalid of [null, {}, { groups: {} }, { ...payload, total_groups: '1' },
+        { ...payload, groups: [{ invoice_id: 'private-invoice', orders: [] }] }]) {
+        upstream = { ...upstream, data: invalid };
+        await assert.rejects(service.retrieveOrderGroups(input), error =>
+            error.code === 'invalid_order_group_response' && error.httpStatus === 502);
+    }
+    assert.equal(request.mock.callCount(), 7);
+    request.mock.restore();
+    const noCall = context.mock.method(service.client, 'orderGroupsInfo', async () => { throw new Error('unexpected request'); });
+    for (const invalid of [
+        {}, { ...input, pagination: { page_size: 51, page_number: 1 } },
+        { ...input, ordering: { ordering_type: 'sideways', ordering_by: 'created_at' } },
+        { ...input, search: { invoice_id: '' } }, { ...input, search: { invoice_id: 'private-invoice', extra: true } },
+        { ...input, extra: 'private-data' }
+    ]) {
+        await assert.rejects(service.retrieveOrderGroups(invalid), error => error.httpStatus === 400);
+    }
+    assert.equal(noCall.mock.callCount(), 0);
+    noCall.mock.restore();
+    const extended = { pagination: { page_number: 2, page_size: 50 },
+        ordering: { ordering_type: 'desc', ordering_by: 'invoice_id' },
+        search: { agreement_number: 'B2B-FIXTURE',
+            created_at: { from_date: '2025-01-01', to_date: '2025-01-31' },
+            paid_at: { from_date: '2025-02-01' } } };
+    const extendedCall = context.mock.method(service.client, 'orderGroupsInfo', async data => {
+        assert.deepEqual(data, extended);
+        return { ok: true, status: 'ok', httpStatus: 200, error: null,
+            data: { current_page_number: 2, total_pages: 2, total_groups: 51, groups: [] } };
+    });
+    assert.equal((await service.retrieveOrderGroups(extended)).total_groups, 51);
+    assert.equal(extendedCall.mock.callCount(), 1);
+    extendedCall.mock.restore();
+});
+
+test('order group mutations require explicit enablement and validated order IDs', async context => {
+    const service = require('./services/orderGroupService');
+    const previous = process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+    const previousOverpay = process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+    context.after(() => {
+        if (previous === undefined) delete process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+        else process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = previous;
+        if (previousOverpay === undefined) delete process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+        else process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED = previousOverpay;
+    });
+    delete process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+    delete process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+    const orders = [{ order_id: 197205577, order_type: 'hotel' }, { order_id: 197205578, order_type: 'upsell' }];
+    const checks = [
+        ['createOrderGroup', 'createOrderGroup', { orders }, { success: true, invoice_id: 'private-invoice' }],
+        ['addToOrderGroup', 'addToOrderGroup', { invoice_id: 'private-invoice', orders }, { success: true }],
+        ['removeFromOrderGroup', 'removeFromOrderGroup', { invoice_id: 'private-invoice', orders }, { success: true }],
+        ['disbandOrderGroup', 'disbandOrderGroup', { invoice_id: 'private-invoice', confirm: true }, { success: true }]
+    ];
+    const calls = checks.map(([, transport]) => context.mock.method(service.client, transport, async () =>
+        ({ ok: true, status: 'ok', error: null, httpStatus: 200, data: transport === 'createOrderGroup' ? { invoice_id: 'private-invoice' } : null })));
+    for (const [method, , input] of checks) {
+        await assert.rejects(service[method](input), error =>
+            error.code === 'order_group_mutations_disabled' && error.httpStatus === 503);
+    }
+    assert.ok(calls.every(call => call.mock.callCount() === 0));
+    process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = 'true';
+    for (const [index, [method, , input, output]] of checks.entries()) {
+        assert.deepEqual(await service[method](input), output);
+        assert.equal(calls[index].mock.callCount(), 1);
+        assert.deepEqual(calls[index].mock.calls[0].arguments[0], method === 'disbandOrderGroup'
+            ? { invoice_id: 'private-invoice' } : input);
+    }
+    const invalidOrders = [[], [{ order_id: '197205577', order_type: 'hotel' }],
+        [{ order_id: 0, order_type: 'hotel' }], [{ order_id: 1, order_type: 'flight' }],
+        [{ order_id: 1, order_type: 'hotel', partner_order_id: 'private-order' }],
+        [{ order_id: 1, order_type: 'hotel' }, { order_id: 1, order_type: 'hotel' }]];
+    for (const invalid of invalidOrders) {
+        await assert.rejects(service.createOrderGroup({ orders: invalid }), error => error.httpStatus === 400);
+    }
+    for (const [method, input] of [
+        ['createOrderGroup', { orders, invoice_id: 'private-invoice' }],
+        ['addToOrderGroup', { invoice_id: '', orders }],
+        ['removeFromOrderGroup', { invoice_id: 'private-invoice', orders: [] }],
+        ['disbandOrderGroup', { invoice_id: 'private-invoice', confirm: false }]
+    ]) {
+        await assert.rejects(service[method](input), error => error.httpStatus === 400);
+    }
+    assert.ok(calls.every(call => call.mock.callCount() === 1));
+});
+
+test('order group overpay checks current payable amount before making a single payment request', async context => {
+    const service = require('./services/orderGroupService');
+    const previous = process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+    const previousOverpay = process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+    context.after(() => {
+        if (previous === undefined) delete process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+        else process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = previous;
+        if (previousOverpay === undefined) delete process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+        else process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED = previousOverpay;
+    });
+    const input = { invoice_id: 'private-invoice', amount: '314.15', currency_code: 'EUR', confirm: true };
+    const group = { agreement_number: 'B2B-FIXTURE', invoice_id: 'private-invoice',
+        amount_payable: { amount: '314.15', currency_code: 'EUR' }, orders: [] };
+    let upstream = { ok: true, status: 'ok', error: null, httpStatus: 200,
+        data: { current_page_number: 1, total_pages: 1, total_groups: 1, groups: [group] } };
+    let preflightFinished = false;
+    let expectedPaymentAmount = '314.15';
+    const preflight = context.mock.method(service.client, 'orderGroupsInfo', async data => {
+        assert.deepEqual(data, { pagination: { page_number: 1, page_size: 1 },
+            ordering: { ordering_type: 'asc', ordering_by: 'created_at' }, search: { invoice_id: 'private-invoice' } });
+        preflightFinished = true;
+        return upstream;
+    });
+    const pay = context.mock.method(service.client, 'payOrderGroupOverpay', async data => {
+        assert.equal(preflightFinished, true);
+        assert.deepEqual(data, { invoice_id: 'private-invoice', amount: expectedPaymentAmount });
+        return { ok: true, status: 'ok', error: null, httpStatus: 200, data: null };
+    });
+    delete process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+    delete process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+    await assert.rejects(service.makeOrderGroupOverpay(input), error =>
+        error.code === 'order_group_mutations_disabled' && error.httpStatus === 503);
+    process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = 'true';
+    await assert.rejects(service.makeOrderGroupOverpay(input), error =>
+        error.code === 'order_group_overpay_disabled' && error.httpStatus === 503);
+    assert.equal(preflight.mock.callCount(), 0);
+    assert.equal(pay.mock.callCount(), 0);
+    process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED = 'true';
+    for (const invalid of [
+        { ...input, amount: 314.15 }, { ...input, amount: '0.00' },
+        { ...input, amount: '-1.00' }, { ...input, amount: '314.15', confirm: false },
+        { ...input, currency_code: 'eur' }, { invoice_id: input.invoice_id, amount: input.amount, confirm: true },
+        { ...input, extra: 'private-data' }
+    ]) {
+        await assert.rejects(service.makeOrderGroupOverpay(invalid), error => error.httpStatus === 400);
+    }
+    assert.equal(preflight.mock.callCount(), 0);
+    upstream = { ...upstream, data: { ...upstream.data, groups: [{ ...group, amount_payable: { ...group.amount_payable, amount: '314.16' } }] } };
+    await assert.rejects(service.makeOrderGroupOverpay(input), error =>
+        error.code === 'payment_amount_mismatch' && error.httpStatus === 409);
+    upstream = { ...upstream, data: { ...upstream.data, groups: [{ ...group, amount_payable: { ...group.amount_payable, currency_code: 'USD' } }] } };
+    await assert.rejects(service.makeOrderGroupOverpay(input), error =>
+        error.code === 'payment_currency_mismatch' && error.httpStatus === 409);
+    upstream = { ...upstream, data: { ...upstream.data, groups: [] } };
+    await assert.rejects(service.makeOrderGroupOverpay(input), error =>
+        error.code === 'invoice_not_found' && error.httpStatus === 404);
+    upstream = { ...upstream, data: { ...upstream.data, groups: [group] } };
+    preflightFinished = false;
+    assert.deepEqual(await service.makeOrderGroupOverpay(input), { success: true });
+    assert.equal(pay.mock.callCount(), 1);
+    assert.equal(preflight.mock.callCount(), 4);
+    upstream = { ...upstream, data: { ...upstream.data, groups: [
+        { ...group, amount_payable: { ...group.amount_payable, amount: '0.15' } }
+    ] } };
+    expectedPaymentAmount = '0.15';
+    assert.deepEqual(await service.makeOrderGroupOverpay({ ...input, amount: '000.1500' }), { success: true });
+    upstream = { ...upstream, data: { ...upstream.data, groups: [
+        { ...group, amount_payable: { ...group.amount_payable, amount: '9007199254740993.98' } }
+    ] } };
+    expectedPaymentAmount = '9007199254740993.98';
+    assert.deepEqual(await service.makeOrderGroupOverpay({ ...input, amount: '09007199254740993.9800' }), { success: true });
+    assert.equal(pay.mock.callCount(), 3);
+    assert.equal(preflight.mock.callCount(), 6);
+});
+
+test('order group supplier failures and malformed mutation responses never expose upstream details', async context => {
+    const service = require('./services/orderGroupService');
+    const input = { pagination: { page_number: 1, page_size: 1 },
+        ordering: { ordering_type: 'asc', ordering_by: 'created_at' } };
+    let upstream;
+    const list = context.mock.method(service.client, 'orderGroupsInfo', async () => {
+        if (upstream instanceof Error) throw upstream;
+        return upstream;
+    });
+    for (const [value, code, status] of [
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'page_out_of_range' }, 'page_out_of_range', 400],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'invoice_not_found' }, 'invoice_not_found', 404],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'orders_not_found' }, 'orders_not_found', 404],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'orders_already_added' }, 'orders_already_added', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'orders_are_blocked' }, 'orders_are_blocked', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'order_not_white_b2b_invoiceable' }, 'order_not_white_b2b_invoiceable', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'different_contract_data' }, 'different_contract_data', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'invoice_not_disbandable' }, 'invoice_not_disbandable', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'invoice_already_paid' }, 'invoice_already_paid', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'overpay_not_enough' }, 'overpay_not_enough', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'payment_amount_discrepancy' }, 'payment_amount_discrepancy', 409],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'ordergroup_is_being_paid' }, 'ordergroup_is_being_paid', 409],
+        [{ ok: false, status: 'error', httpStatus: 429, error: 'rate_limit', rateLimit: { secondsNumber: 120 } }, 'rate_limit', 429],
+        [{ ok: false, status: 'error', httpStatus: 401, error: 'private-error' }, 'supplier_unauthorized', 502],
+        [{ ok: false, status: 'error', httpStatus: 404, error: 'endpoint_not_active' }, 'supplier_endpoint_unavailable', 502],
+        [{ ok: false, status: 'error', httpStatus: 400, error: 'invalid_params', debug: 'private-debug' }, 'supplier_request_rejected', 502],
+        [{ ok: false, status: 'error', httpStatus: 503, error: 'unknown' }, 'supplier_unknown', 502],
+        [{ ok: false, status: 'error', httpStatus: 200, error: 'private-error', debug: 'private-debug' }, 'order_group_unavailable', 502],
+        [{ ok: true, status: 'ok', httpStatus: 500, error: null, data: {} }, 'order_group_unavailable', 502],
+        [Object.assign(new Error('private-timeout'), { code: 'ETIMEDOUT', config: { auth: 'private-credentials' } }), 'supplier_connection_failed', 502],
+        [Object.assign(new Error('private-credentials'), { code: 'ratehawk_credentials_missing' }), 'supplier_credentials_missing', 503]
+    ]) {
+        upstream = value;
+        await assert.rejects(service.retrieveOrderGroups(input), error => {
+            assert.equal(error.code, code);
+            assert.equal(error.httpStatus, status);
+            assert.equal(error.config, undefined);
+            assert.doesNotMatch(error.message + JSON.stringify(error), /private-/);
+            if (status === 429) assert.equal(error.retry_after_ms, 120000);
+            return true;
+        });
+    }
+    assert.equal(list.mock.callCount(), 21);
+    list.mock.restore();
+    const previousFlag = process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+    context.after(() => {
+        if (previousFlag === undefined) delete process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+        else process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = previousFlag;
+    });
+    process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = 'true';
+    const create = context.mock.method(service.client, 'createOrderGroup', async () =>
+        ({ ok: true, status: 'ok', httpStatus: 200, error: null, data: { invoice_id: '' } }));
+    await assert.rejects(service.createOrderGroup({ orders: [{ order_id: 197205577, order_type: 'hotel' }] }),
+        error => error.code === 'invalid_order_group_response' && error.httpStatus === 502);
+    create.mock.restore();
+    const add = context.mock.method(service.client, 'addToOrderGroup', async () =>
+        ({ ok: true, status: 'ok', httpStatus: 200, error: null, data: { private_debug: 'private-error' } }));
+    await assert.rejects(service.addToOrderGroup({ invoice_id: 'private-invoice', orders: [{ order_id: 197205577, order_type: 'hotel' }] }),
+        error => error.code === 'invalid_order_group_response' && error.httpStatus === 502);
+    add.mock.restore();
+});
+
+test('order group overpay does not retry an ambiguous supplier outcome', async context => {
+    const service = require('./services/orderGroupService');
+    const previousFlag = process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+    const previousOverpay = process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+    context.after(() => {
+        if (previousFlag === undefined) delete process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+        else process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = previousFlag;
+        if (previousOverpay === undefined) delete process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+        else process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED = previousOverpay;
+    });
+    process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = 'true';
+    process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED = 'true';
+    const input = { invoice_id: 'private-invoice', amount: '314.15', currency_code: 'EUR', confirm: true };
+    const list = context.mock.method(service.client, 'orderGroupsInfo', async () => ({
+        ok: true, status: 'ok', error: null, httpStatus: 200,
+        data: { current_page_number: 1, total_pages: 1, total_groups: 1, groups: [{
+            invoice_id: 'private-invoice', agreement_number: 'B2B-FIXTURE',
+            amount_payable: { amount: '314.15', currency_code: 'EUR' }, orders: []
+        }] }
+    }));
+    let outcome = { ok: false, status: 'error', httpStatus: 200, error: 'ordergroup_is_being_paid' };
+    const pay = context.mock.method(service.client, 'payOrderGroupOverpay', async () => {
+        if (outcome instanceof Error) throw outcome;
+        return outcome;
+    });
+    await assert.rejects(service.makeOrderGroupOverpay(input), error =>
+        error.code === 'ordergroup_is_being_paid' && error.httpStatus === 409);
+    assert.equal(pay.mock.callCount(), 1);
+    outcome = Object.assign(new Error('private-timeout'), { code: 'ETIMEDOUT', config: { auth: 'private-key' } });
+    await assert.rejects(service.makeOrderGroupOverpay(input), error =>
+        error.code === 'supplier_connection_failed' && error.httpStatus === 502
+        && !JSON.stringify(error).includes('private-'));
+    assert.equal(pay.mock.callCount(), 2);
+    assert.equal(list.mock.callCount(), 2);
+});
+
 test('document transport downloads bounded PDFs and handles pending JSON without logging private data', async context => {
     const axios = require('axios');
     const logger = require('./services/loggerService');
@@ -1312,6 +1664,98 @@ test('contract HTTP routes require private server authentication and preserve no
         assert.equal(response.headers.get('cache-control'), 'no-store');
         assert.deepEqual(await response.json(), { success: false, error: code });
     }
+});
+
+test('order group HTTP routes protect account data and gate every mutation', async context => {
+    const express = require('express');
+    const createBookingRouter = require('./services/bookingRoutes');
+    const service = require('./services/orderGroupService');
+    const keys = ['RATEHAWK_BOOKING_TOKEN', 'REMAL_SECURE_KEY', 'RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED', 'RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED'];
+    const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    context.after(() => {
+        for (const [key, value] of Object.entries(previous)) {
+            if (value === undefined) delete process.env[key];
+            else process.env[key] = value;
+        }
+    });
+    const token = 'fixture-private-group-token-32-characters';
+    const bodies = [
+        ['retrieve', 'retrieveOrderGroups', { pagination: { page_size: 1, page_number: 1 },
+            ordering: { ordering_type: 'asc', ordering_by: 'created_at' } }, { success: true, groups: [], total_groups: 0, total_pages: 0, current_page_number: 1 }],
+        ['create', 'createOrderGroup', { orders: [{ order_id: 197205577, order_type: 'hotel' }] }, { success: true, invoice_id: 'private-invoice' }],
+        ['add', 'addToOrderGroup', { invoice_id: 'private-invoice', orders: [{ order_id: 197205577, order_type: 'hotel' }] }, { success: true }],
+        ['remove', 'removeFromOrderGroup', { invoice_id: 'private-invoice', orders: [{ order_id: 197205577, order_type: 'hotel' }] }, { success: true }],
+        ['disband', 'disbandOrderGroup', { invoice_id: 'private-invoice', confirm: true }, { success: true }],
+        ['overpay', 'makeOrderGroupOverpay', { invoice_id: 'private-invoice', amount: '314.15', currency_code: 'EUR', confirm: true }, { success: true }]
+    ];
+    const calls = bodies.map(([, method, , output]) => context.mock.method(service, method, async () => output));
+    const app = express();
+    app.use('/api/v1/order-groups', createBookingRouter.createOrderGroupRouter());
+    const server = await new Promise(resolve => {
+        const instance = app.listen(0, '127.0.0.1', () => resolve(instance));
+    });
+    context.after(() => new Promise(resolve => server.close(resolve)));
+    const send = (path, body, headers = {}, method = 'POST') => fetch(`http://127.0.0.1:${server.address().port}/api/v1/order-groups/${path}`, {
+        method, headers: { 'Content-Type': 'application/json', ...headers }, body: method === 'POST' ? JSON.stringify(body) : undefined
+    });
+    process.env.REMAL_SECURE_KEY = 'public-fixture-key';
+    delete process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED;
+    delete process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED;
+    delete process.env.RATEHAWK_BOOKING_TOKEN;
+    const unconfigured = await send('retrieve', bodies[0][2]);
+    assert.equal(unconfigured.status, 503);
+    assert.equal(unconfigured.headers.get('cache-control'), 'no-store');
+    process.env.RATEHAWK_BOOKING_TOKEN = token;
+    for (const headers of [{}, { 'x-api-key': 'public-fixture-key' }, { Authorization: 'Bearer wrong-token' }]) {
+        const denied = await send('create', bodies[1][2], headers);
+        assert.equal(denied.status, 401);
+        assert.equal(denied.headers.get('cache-control'), 'no-store');
+    }
+    const authorization = { Authorization: `Bearer ${token}` };
+    assert.equal((await send('create', bodies[1][2], { ...authorization, Origin: 'https://remalbookings.com' })).status, 403);
+    assert.equal((await send('create?invoice_id=private-invoice', bodies[1][2], authorization)).status, 400);
+    assert.equal((await send('create', { ...bodies[1][2], extra: true }, authorization)).status, 400);
+    assert.equal((await send('create', bodies[1][2], authorization, 'GET')).status, 404);
+    const malformed = await fetch(`http://127.0.0.1:${server.address().port}/api/v1/order-groups/create`, {
+        method: 'POST', headers: { ...authorization, 'Content-Type': 'application/json' }, body: '{"orders":'
+    });
+    assert.equal(malformed.status, 400);
+    assert.equal(malformed.headers.get('cache-control'), 'no-store');
+    for (const [index, [path, , body, output]] of bodies.entries()) {
+        const disabled = await send(path, body, authorization);
+        assert.equal(disabled.status, index === 0 ? 200 : 503);
+        assert.equal(disabled.headers.get('cache-control'), 'no-store');
+        assert.equal(disabled.headers.get('etag'), null);
+        assert.deepEqual(await disabled.json(), index === 0 ? output : { success: false,
+            error: 'order_group_mutations_disabled' });
+    }
+    assert.equal(calls[0].mock.callCount(), 1);
+    assert.ok(calls.slice(1).every(call => call.mock.callCount() === 0));
+    process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED = 'true';
+    for (const [index, [path, , body, output]] of bodies.entries()) {
+        const response = await send(path, body, authorization);
+        assert.equal(response.status, index === 5 ? 503 : 200);
+        assert.deepEqual(await response.json(), index === 5 ? { success: false, error: 'order_group_overpay_disabled' } : output);
+    }
+    assert.ok(calls.slice(1, 5).every(call => call.mock.callCount() === 1));
+    assert.equal(calls[5].mock.callCount(), 0);
+    process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED = 'true';
+    const paid = await send('overpay', bodies[5][2], authorization);
+    assert.equal(paid.status, 200);
+    assert.deepEqual(await paid.json(), bodies[5][3]);
+    assert.equal(calls[5].mock.callCount(), 1);
+    calls[3].mock.mockImplementation(async () => {
+        throw Object.assign(new Error('private-upstream'), { code: 'orders_are_blocked', httpStatus: 409 });
+    });
+    const blocked = await send('remove', bodies[3][2], authorization);
+    assert.equal(blocked.status, 409);
+    assert.deepEqual(await blocked.json(), { success: false, error: 'orders_are_blocked' });
+    calls[3].mock.mockImplementation(async () => {
+        throw Object.assign(new Error('private-upstream'), { code: 'private_debug', httpStatus: 502 });
+    });
+    const unknown = await send('remove', bodies[3][2], authorization);
+    assert.equal(unknown.status, 503);
+    assert.deepEqual(await unknown.json(), { success: false, error: 'order_group_service_unavailable' });
 });
 
 test('document HTTP routes require private authorization and send only PDF or validated metadata', async context => {

@@ -3,6 +3,7 @@ const crypto = require('node:crypto');
 const booking = require('./bookingProcessService');
 const postBooking = require('./postBookingService');
 const ratehawk = require('./ratehawkService');
+const orderGroups = require('./orderGroupService');
 const { bookingLimiter } = require('./securityService');
 
 function authorize(req, res, next) {
@@ -153,7 +154,81 @@ function createDocumentRouter() {
     return router;
 }
 
+function createOrderGroupRouter() {
+    const router = express.Router();
+    const errorStatuses = {
+        invalid_order_group_request: 400, page_out_of_range: 400,
+        invoice_not_found: 404, orders_not_found: 404,
+        orders_already_added: 409, orders_are_blocked: 409,
+        order_not_white_b2b_invoiceable: 409, different_contract_data: 409,
+        invoice_not_disbandable: 409, invoice_already_paid: 409,
+        overpay_not_enough: 409, payment_amount_discrepancy: 409,
+        ordergroup_is_being_paid: 409, payment_amount_mismatch: 409, payment_currency_mismatch: 409,
+        rate_limit: 429,
+        supplier_unauthorized: 502, supplier_endpoint_unavailable: 502,
+        supplier_request_rejected: 502, supplier_connection_failed: 502,
+        supplier_unknown: 502, invalid_order_group_response: 502, order_group_unavailable: 502,
+        supplier_credentials_missing: 503,
+        order_group_mutations_disabled: 503, order_group_overpay_disabled: 503
+    };
+    router.use((req, res, next) => {
+        res.set('Cache-Control', 'no-store');
+        const end = res.end;
+        res.end = function (...args) {
+            res.removeHeader('ETag');
+            return end.apply(this, args);
+        };
+        next();
+    });
+    router.use(authorize);
+    router.use(express.json({ limit: '8kb' }));
+    router.use((error, req, res, next) => {
+        if (error?.status >= 400 && error?.status < 500) {
+            return res.status(400).json({ success: false, error: 'invalid_order_group_request' });
+        }
+        next(error);
+    });
+
+    function route(path, method, allowedFields, { mutation = false, overpay = false } = {}) {
+        router.post(path, async (req, res) => {
+            if (Object.keys(req.query).length || !req.is('application/json') || !req.body
+                || typeof req.body !== 'object' || Array.isArray(req.body)
+                || Object.keys(req.body).some(field => !allowedFields.includes(field))) {
+                return res.status(400).json({ success: false, error: 'invalid_order_group_request' });
+            }
+            if (mutation && process.env.RATEHAWK_ORDER_GROUP_MUTATIONS_ENABLED !== 'true') {
+                return res.status(503).json({ success: false, error: 'order_group_mutations_disabled' });
+            }
+            if (overpay && process.env.RATEHAWK_ORDER_GROUP_OVERPAY_ENABLED !== 'true') {
+                return res.status(503).json({ success: false, error: 'order_group_overpay_disabled' });
+            }
+            try {
+                return res.json(await orderGroups[method](req.body));
+            } catch (error) {
+                const code = error?.code;
+                const status = Object.hasOwn(errorStatuses, code) ? errorStatuses[code] : undefined;
+                if (status === error?.httpStatus) {
+                    if (status === 429 && Number.isFinite(error.retry_after_ms)) {
+                        res.set('Retry-After', String(Math.ceil(error.retry_after_ms / 1000)));
+                    }
+                    return res.status(status).json({ success: false, error: code });
+                }
+                return res.status(503).json({ success: false, error: 'order_group_service_unavailable' });
+            }
+        });
+    }
+
+    route('/retrieve', 'retrieveOrderGroups', ['pagination', 'ordering', 'search']);
+    route('/create', 'createOrderGroup', ['orders'], { mutation: true });
+    route('/add', 'addToOrderGroup', ['invoice_id', 'orders'], { mutation: true });
+    route('/remove', 'removeFromOrderGroup', ['invoice_id', 'orders'], { mutation: true });
+    route('/disband', 'disbandOrderGroup', ['invoice_id', 'confirm'], { mutation: true });
+    route('/overpay', 'makeOrderGroupOverpay', ['invoice_id', 'amount', 'currency_code', 'confirm'], { mutation: true, overpay: true });
+    return router;
+}
+
 module.exports = createBookingRouter;
 module.exports.createPostBookingRouter = createPostBookingRouter;
 module.exports.createContractRouter = createContractRouter;
 module.exports.createDocumentRouter = createDocumentRouter;
+module.exports.createOrderGroupRouter = createOrderGroupRouter;
