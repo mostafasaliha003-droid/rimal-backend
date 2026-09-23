@@ -1,9 +1,27 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { SEARCH_CURRENCY, cheapestRate, normalizeRoom, rateAmount, formatMoney } from './offers.js';
+import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, displayAmount, cheapestRate, normalizeRoom, rateAmount, formatMoney } from './offers.js';
 import { trackBookingEvent } from './analytics.js';
 
 const rate = (amount, currency = 'USD') => ({ book_hash: 'rate', payment_options: { payment_types: [{ amount, currency_code: currency, type: 'deposit' }] } });
+
+test('display conversion requires a valid quote and preserves the supplier price', () => {
+    const supplierRate = rate('60');
+    const quotes = { AED: 3.6725, SAR: 3.75, EUR: 0.87088 };
+    assert.deepEqual(DISPLAY_CURRENCIES, ['USD', 'AED', 'SAR', 'EUR']);
+    assert.equal(displayAmount(rateAmount(supplierRate), 'USD', 'USD', null), 60);
+    assert.equal(displayAmount(rateAmount(supplierRate), 'USD', 'AED', quotes), 220.35);
+    assert.equal(displayAmount(rateAmount(supplierRate), 'USD', 'SAR', quotes), 225);
+    assert.equal(displayAmount(rateAmount(supplierRate), 'USD', 'EUR', quotes), 52.2528);
+    assert.equal(displayAmount(60, 'USD', 'AED', { AED: 0 }), null);
+    assert.equal(displayAmount(60, 'USD', 'EUR', {}), null);
+    assert.equal(displayAmount(60, 'AED', 'EUR', quotes), 60 / 3.6725 * 0.87088);
+    assert.equal(displayAmount(60, 'AED', 'USD', quotes), 60 / 3.6725);
+    assert.equal(displayAmount(60, 'AED', 'SAR', { SAR: 3.75 }), null);
+    assert.equal(displayAmount(60, 'GBP', 'EUR', quotes), null);
+    assert.equal(displayAmount(Infinity, 'USD', 'AED', quotes), null);
+    assert.equal(rateAmount(supplierRate), 60);
+});
 
 test('compares valid offers in one currency, not supplier order', () => {
     const low = rate('60');

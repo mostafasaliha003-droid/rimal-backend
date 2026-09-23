@@ -16,10 +16,46 @@ const sanitizeText = (str) => {
 const transporter = nodemailer.createTransport({
     service: 'gmail',
     auth: {
-        user: process.env.SMTP_USER || 'management@remaltourismllc.com',
-        pass: process.env.SMTP_PASS || 'tliy arac oiob deej'
+        user: process.env.SMTP_USER,
+        pass: process.env.SMTP_PASSWORD
     }
 });
+
+function escapeHtml(value) {
+    return String(value).replace(/[&<>"']/g, character => ({
+        '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    })[character]);
+}
+
+async function sendVoucherConfirmation({ email, guestName, checkin, reference, amountMinor, currency, pdfBuffer }) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Buffer.isBuffer(pdfBuffer)
+        || pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') throw new Error('confirmation_email_unavailable');
+    const amount = (amountMinor / 100).toFixed(2);
+    const text = `Your reservation is confirmed. Reference: ${reference}. Check-in: ${checkin}. Payment: ${amount} ${currency}. Your supplier voucher is attached.`;
+    const html = `<p>Dear ${escapeHtml(guestName)},</p><p>Your reservation is confirmed. Reference: ${escapeHtml(reference)}.</p>`
+        + `<p>Check-in: ${escapeHtml(checkin)}. Payment: ${escapeHtml(amount)} ${escapeHtml(currency)}.</p>`
+        + '<p>Your supplier voucher is attached.</p>';
+    const result = await transporter.sendMail({
+        from: process.env.SMTP_USER, to: email, subject: 'Reservation confirmation', text, html,
+        attachments: [{ filename: 'voucher.pdf', content: pdfBuffer, contentType: 'application/pdf' }]
+    });
+    if (!result.messageId || !result.accepted?.includes(email)) throw new Error('confirmation_email_outcome_unknown');
+    return { messageId: result.messageId };
+}
+
+async function sendRefundConfirmation({ email, guestName, reference, amountMinor, currency }) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Number.isSafeInteger(amountMinor)
+        || amountMinor <= 0 || !/^[A-Z]{3}$/.test(currency)) throw new Error('refund_email_unavailable');
+    const amount = (amountMinor / 100).toFixed(2);
+    const text = `Your refund has been confirmed. Reference: ${reference}. Refunded amount: ${amount} ${currency}.`;
+    const html = `<p>Dear ${escapeHtml(guestName)},</p><p>Your refund has been confirmed for reservation ${escapeHtml(reference)}.</p>`
+        + `<p>Refunded amount: ${escapeHtml(amount)} ${escapeHtml(currency)}.</p>`;
+    const result = await transporter.sendMail({
+        from: process.env.SMTP_USER, to: email, subject: 'Reservation refund confirmation', text, html
+    });
+    if (!result.messageId || !result.accepted?.includes(email)) throw new Error('refund_email_outcome_unknown');
+    return { messageId: result.messageId };
+}
 
 // 1. توليد قسيمة الحجز الفاخرة باستخدام Puppeteer (في الذاكرة - Buffer)
 async function generateVoucher(bookingDetails, hcn) {
@@ -116,7 +152,7 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
         }
 
         let info = await transporter.sendMail({
-            from: '"شركة الرمال الدولية" <management@remaltourismllc.com>',
+            from: process.env.SMTP_USER,
             to: customerEmail,
             subject: `تأكيد حجزك الفندقي من الرمال | المرجع: ${hcn}`,
             html: emailHtml,
@@ -139,5 +175,7 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
 
 module.exports = {
     generateVoucher,
-    sendEmailConfirmation
+    sendEmailConfirmation,
+    sendVoucherConfirmation,
+    sendRefundConfirmation
 };

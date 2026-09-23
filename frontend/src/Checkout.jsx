@@ -3,10 +3,12 @@ import { ArrowRight, CalendarDays, Info } from 'lucide-react';
 import GuestForm from './components/GuestForm';
 import BookingAPI from './services/bookingApi';
 import { CancellationPolicy } from './components/RoomCard';
-import { formatMoney } from './services/offers';
+import PriceDisplay from './components/PriceDisplay';
 import { trackBookingEvent } from './services/analytics';
 
 const initialGuest = { firstName: '', lastName: '', email: '', phone: '', specialRequests: '' };
+const pendingStatuses = new Set(['preparing', 'intent_creating', 'awaiting_payment', 'payment_verified', 'booking_pending',
+    'booking_failed', 'refund_creating', 'refund_unknown', 'refund_pending']);
 
 function readStoredBooking(booking) {
     if (booking) return booking;
@@ -18,9 +20,11 @@ function readStoredBooking(booking) {
     }
 }
 
-export default function Checkout({ booking, onBack }) {
+export default function Checkout({ booking, onBack, displayCurrency, displayRates }) {
     const [selectedBooking] = useState(() => readStoredBooking(booking));
-    const paymentReturn = new URLSearchParams(window.location.search).get('payment');
+    const query = new URLSearchParams(window.location.search);
+    const paymentReturn = query.get('payment');
+    const paymentReference = query.get('ref');
     const [guest, setGuest] = useState(() => {
         try { const draft = JSON.parse(sessionStorage.getItem('remal_guest_draft') || 'null'); if (draft?.hash === selectedBooking?.room?.book_hash) return draft.guest; } catch {}
         return { ...initialGuest, rooms: (selectedBooking?.guests || [{ adults: 2, children: [] }]).map(room => ({ guests: [...Array.from({ length: room.adults }, () => ({ firstName: '', lastName: '', is_child: false })), ...room.children.map(age => ({ firstName: '', lastName: '', is_child: true, age }))] })) };
@@ -28,6 +32,7 @@ export default function Checkout({ booking, onBack }) {
     const [paymentAvailable, setPaymentAvailable] = useState(false);
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState('');
+    const [checkoutStatus, setCheckoutStatus] = useState(null);
 
     useEffect(() => {
         let active = true;
@@ -40,8 +45,43 @@ export default function Checkout({ booking, onBack }) {
         try { sessionStorage.setItem('remal_guest_draft', JSON.stringify({ hash: selectedBooking.room.book_hash, guest })); } catch {}
     }, [guest, selectedBooking]);
 
+    useEffect(() => {
+        if (!paymentReturn || !paymentReference) return undefined;
+        let active = true;
+        let timer;
+        const read = async () => {
+            let credentials;
+            try { credentials = JSON.parse(sessionStorage.getItem('remal_payment_attempt') || 'null'); } catch {}
+            if (credentials?.reference !== paymentReference || !credentials?.accessToken) {
+                if (active) setCheckoutStatus({ status: 'unavailable' });
+                return;
+            }
+            try {
+                const current = await BookingAPI.getCheckoutStatus(credentials.reference, credentials.accessToken);
+                if (!active) return;
+                setCheckoutStatus(current);
+                if (pendingStatuses.has(current.status)) timer = window.setTimeout(read, 7000);
+            } catch {
+                if (!active) return;
+                setCheckoutStatus({ status: 'unavailable' });
+                timer = window.setTimeout(read, 15000);
+            }
+        };
+        void read();
+        return () => { active = false; window.clearTimeout(timer); };
+    }, [paymentReturn, paymentReference]);
+
     if (paymentReturn) {
-        return <main className="mx-auto min-h-screen max-w-2xl px-5 py-12"><Info size={32} className="text-amber-700" /><h1 className="mt-5 text-2xl font-bold">{paymentReturn === 'cancel' ? 'لم يكتمل مسار الدفع' : 'بانتظار التحقق من الدفع والحجز'}</h1><p className="mt-4 leading-8">العودة من بوابة الدفع ليست تأكيداً للدفع أو الحجز. لا تعاود الدفع قبل التحقق من حالة العملية مع فريق الحجوزات.</p><a className="mt-6 inline-block text-remal-blue underline" href="mailto:management@remaltourismllc.com">التواصل مع فريق الحجوزات</a><a href="/" className="mx-4 inline-block underline">العودة للرئيسية</a></main>;
+        const state = checkoutStatus?.status;
+        const title = state === 'booking_confirmed' ? 'تم تأكيد الحجز لدى المورد'
+            : state === 'payment_failed' ? 'لم يكتمل الدفع'
+                : state === 'refund_completed' ? 'تم تأكيد الاسترداد'
+                    : state === 'refund_review' || state === 'manual_review' || state === 'intent_unknown' ? 'تحتاج العملية إلى مراجعة'
+                        : 'بانتظار التحقق من الدفع والحجز';
+        const details = state === 'booking_confirmed' ? `مرجع المورد: ${checkoutStatus.supplier_reference}`
+            : state === 'refund_completed' ? 'أكدت بوابة الدفع اكتمال الاسترداد.'
+                : 'العودة من بوابة الدفع ليست تأكيداً للدفع أو الحجز. لا تعاود الدفع قبل التحقق من حالة العملية مع فريق الحجوزات.';
+        return <main className="mx-auto min-h-screen max-w-2xl px-5 py-12"><Info size={32} className="text-amber-700" /><h1 className="mt-5 text-2xl font-bold">{title}</h1><p className="mt-4 leading-8">{details}</p>{paymentReference && <p className="mt-3 break-all text-sm text-slate-600">مرجع المتابعة: {paymentReference}</p>}<a className="mt-6 inline-block text-remal-blue underline" href="mailto:management@remaltourismllc.com">التواصل مع فريق الحجوزات</a><a href="/" className="mx-4 inline-block underline">العودة للرئيسية</a></main>;
     }
 
     if (!selectedBooking) {
@@ -51,7 +91,8 @@ export default function Checkout({ booking, onBack }) {
     const room = selectedBooking.room || {};
     const total = Number(room.price);
     const currency = room.currency || '';
-    const canPay = paymentAvailable && currency === 'AED';
+    const canPay = paymentAvailable && ['AED', 'USD', 'SAR', 'EUR'].includes(currency)
+        && room.paymentType === 'deposit' && room.book_hash && Number.isFinite(total) && total > 0;
     const submitPayment = async (event) => {
         event.preventDefault();
         if (!canPay) return;
@@ -59,6 +100,11 @@ export default function Checkout({ booking, onBack }) {
         setStatus('loading');
         setError('');
         try {
+            let idempotencyKey = sessionStorage.getItem('remal_checkout_idempotency_key');
+            if (!idempotencyKey) {
+                idempotencyKey = window.crypto.randomUUID();
+                sessionStorage.setItem('remal_checkout_idempotency_key', idempotencyKey);
+            }
             const response = await BookingAPI.createZiinaIntent({
                 total,
                 currency,
@@ -68,10 +114,16 @@ export default function Checkout({ booking, onBack }) {
                 roomName: room.name,
                 checkin: selectedBooking.checkin,
                 checkout: selectedBooking.checkout,
+                guests: selectedBooking.guests,
                 guest,
                 rooms: guest.rooms.map((room, index) => ({ guests: room.guests.map((traveler, position) => index === 0 && position === 0 ? { ...traveler, firstName: guest.firstName, lastName: guest.lastName } : traveler) }))
-            });
-            if (!response.payment_url) throw new Error('Missing payment URL');
+            }, idempotencyKey);
+            if (!response.reference || !response.access_token) throw new Error('Missing checkout reference');
+            sessionStorage.setItem('remal_payment_attempt', JSON.stringify({ reference: response.reference, accessToken: response.access_token }));
+            if (!response.payment_url) {
+                window.location.assign(`/checkout?payment=pending&ref=${encodeURIComponent(response.reference)}`);
+                return;
+            }
             setStatus('success');
             window.location.assign(response.payment_url);
         } catch (requestError) {
@@ -100,8 +152,8 @@ export default function Checkout({ booking, onBack }) {
                 <aside className="order-1 h-fit rounded-2xl bg-remal-dark p-6 text-white shadow-sm lg:order-2 lg:sticky lg:top-6">
                     <p className="text-xs font-bold text-white/60">ملخص الحجز</p><h2 className="mt-3 text-xl font-black">{selectedBooking.hotelName || 'Hotel'}</h2><p className="mt-2 text-sm font-bold text-white/60">{room.name || 'Room'}</p>
                     <div className="my-6 space-y-3 border-y border-white/10 py-5 text-sm font-bold"><p className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-white/60"><CalendarDays size={15} /> الوصول</span><span>{selectedBooking.checkin || '-'}</span></p><p className="flex items-center justify-between gap-3"><span className="flex items-center gap-2 text-white/60"><CalendarDays size={15} /> المغادرة</span><span>{selectedBooking.checkout || '-'}</span></p></div>
-                    <div className="flex flex-wrap items-end justify-between gap-3"><span className="text-sm text-white/80">الإجمالي</span><span className="text-2xl font-bold">{currency ? formatMoney(total, currency) : 'العملة غير متاحة'}</span></div>
-                    <p className="mt-3 text-sm leading-7">{currency === 'AED' ? 'عملة الخصم: الدرهم الإماراتي (AED).' : `عملة العرض: ${currency || 'غير محددة'}. الدفع الإلكتروني لهذا العرض غير متاح.`} قد تُطبق رسوم محلية غير مشمولة.</p>
+                    <div className="flex flex-wrap items-end justify-between gap-3"><span className="text-sm text-white/80">الإجمالي</span><span className="text-end text-2xl font-bold">{currency ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} /> : 'العملة غير متاحة'}</span></div>
+                    <p className="mt-3 text-sm leading-7">{canPay ? `عملة الدفع: ${currency}، بسعر المورد الأصلي.` : `عملة العرض: ${currency || 'غير محددة'}. الدفع الإلكتروني لهذا العرض غير متاح.`} قد تُطبق رسوم محلية غير مشمولة.</p>
                     {(room.taxes || []).filter(tax => !tax.included_by_supplier).map((tax, index) => <p key={index} className="mt-2 text-sm">{tax.name}: {tax.amount} {tax.currency_code}</p>)}
                     <div className="mt-5 rounded-lg bg-white p-3 text-slate-900"><CancellationPolicy cancellation={room.cancellation} currency={currency} /></div>
                 </aside>

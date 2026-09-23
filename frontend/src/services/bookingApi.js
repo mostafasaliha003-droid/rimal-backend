@@ -103,10 +103,15 @@ export const prebookSerp = async (hash, priceIncreasePercent = 0) =>
  * @param {object} paymentData - Booking and guest details with the exact total.
  * @returns {Promise<object>} Ziina payment URL response.
  */
-export const createZiinaIntent = async (paymentData) =>
-    responseData(await api.post('/payment/ziina/intent', paymentData));
+export const createZiinaIntent = async (paymentData, idempotencyKey) =>
+    responseData(await api.post('/payment/ziina/intent', paymentData, { headers: { 'Idempotency-Key': idempotencyKey } }));
 
 export const paymentAvailability = async () => responseData(await api.get('/payment/availability'));
+
+export const getCheckoutStatus = async (reference, accessToken) =>
+    responseData(await api.get(`/payment/ziina/${encodeURIComponent(reference)}/status`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+    }));
 
 /**
  * Look up rate details by ETG book hash.
@@ -133,5 +138,6 @@ export default {
     prebook,
     prebookSerp,
     createZiinaIntent,
+    getCheckoutStatus,
     lookupRate
 };

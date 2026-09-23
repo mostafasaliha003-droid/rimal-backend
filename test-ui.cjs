@@ -2,6 +2,8 @@ const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
 
 const base = 'http://127.0.0.1:5178';
+const checkoutReference = '11111111-1111-4111-8111-111111111111';
+const accessToken = 'a'.repeat(64);
 const rate = (amount, currency = 'USD') => ({
     book_hash: `test-${currency}-${amount}`, room_name: 'Test Double Room', meal: 'breakfast',
     payment_options: { payment_types: [{ type: 'deposit', amount: String(amount), currency_code: currency,
@@ -25,6 +27,11 @@ async function run() {
     let lastHotelPage;
     let paymentEnabled = false;
     let paymentRequests = 0;
+    let paymentPayload;
+    let checkoutStatus = 'booking_pending';
+    let statusRequests = 0;
+    let exchangeAvailable = true;
+    let exchangeRequests = 0;
     const suggestionRequests = [];
     page.on('pageerror', error => errors.push(error.message));
     try {
@@ -32,8 +39,15 @@ async function run() {
         await page.setRequestInterception(true);
         page.on('request', request => {
             const url = new URL(request.url());
+            if (url.origin === 'https://api.frankfurter.dev' && url.pathname === '/v2/rates') {
+                exchangeRequests++;
+                if (!exchangeAvailable) return request.respond({ status: 503, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: '{}' });
+                const date = new Date().toISOString().slice(0, 10);
+                const rows = [['AED', 3.6725], ['SAR', 3.75], ['EUR', 0.87088]].map(([quote, value]) => ({ date, base: 'USD', quote, rate: value }));
+                return request.respond({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(rows) });
+            }
             if (url.pathname.includes('/api/')) {
-                const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
+                const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key,authorization,idempotency-key', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
                 if (request.method() === 'OPTIONS') return request.respond({ status: 204, headers });
                 let body;
                 if (url.pathname.endsWith('/search/suggest')) {
@@ -54,6 +68,20 @@ async function run() {
                 }
                 else if (url.pathname.includes('/v1/hotels/')) body = { hotel: hotels[1] };
                 else if (url.pathname.endsWith('/payment/availability')) body = { enabled: paymentEnabled };
+                else if (url.pathname.endsWith(`/payment/ziina/${checkoutReference}/status`)) {
+                    statusRequests++;
+                    assert.equal(request.headers().authorization, `Bearer ${accessToken}`);
+                    body = { reference: checkoutReference, status: checkoutStatus, confirmed: checkoutStatus === 'booking_confirmed',
+                        ...(checkoutStatus === 'booking_confirmed' ? { supplier_reference: 'TEST-SUPPLIER-ORDER' } : {}) };
+                }
+                else if (url.pathname.endsWith('/payment/ziina/intent')) {
+                    paymentRequests++;
+                    paymentPayload = JSON.parse(request.postData());
+                    assert.match(request.headers()['idempotency-key'], /^[a-f\d-]{36}$/);
+                    if (!paymentEnabled || !['AED', 'USD'].includes(paymentPayload.currency)) return request.respond({ status: 400, contentType: 'application/json', headers, body: JSON.stringify({ error: 'UNSUPPORTED_PAYMENT' }) });
+                    body = { reference: checkoutReference, access_token: accessToken,
+                        payment_url: `${base}/checkout?payment=success&ref=${checkoutReference}` };
+                }
                 else { paymentRequests++; return request.abort(); }
                 return request.respond({ status: 200, contentType: 'application/json', headers, body: JSON.stringify(body) });
             }
@@ -101,6 +129,26 @@ async function run() {
         assert.match(await page.$eval('article', element => element.innerText), /Test Hotel 60/);
         assert((await page.$eval('article', element => element.textContent)).includes(formatMoney(60, 'USD')));
         assert(!(await page.$eval('article', element => element.textContent)).includes(formatMoney(60, 'AED')));
+        for (const [currency, multiplier] of [['AED', 3.6725], ['SAR', 3.75], ['EUR', 0.87088]]) {
+            await page.select('select[aria-label="عملة عرض السعر"]', currency);
+            await page.waitForFunction(value => document.querySelector('article')?.textContent.includes(value), {}, formatMoney(60 * multiplier, currency));
+            const card = await page.$eval('article', element => element.textContent);
+            assert(card.includes(formatMoney(60, 'USD')));
+            assert.match(card, /تقديري.*سعر المورد/);
+            assert.equal(lastSearch.currency, 'USD');
+            assert.match(await page.$eval('#search-filters label', element => element.textContent), /USD/);
+        }
+        await page.reload({ waitUntil: 'networkidle0' });
+        assert.equal(await page.$eval('select[aria-label="عملة عرض السعر"]', element => element.value), 'EUR');
+        assert(exchangeRequests > 0);
+        exchangeAvailable = false;
+        await page.evaluate(() => localStorage.removeItem('remal_usd_display_rates'));
+        await page.select('select[aria-label="عملة عرض السعر"]', 'USD');
+        await page.select('select[aria-label="عملة عرض السعر"]', 'AED');
+        await page.waitForFunction(() => document.querySelector('article')?.textContent.includes('سعر الصرف غير متاح'));
+        assert((await page.$$eval('article', cards => cards.find(card => card.textContent.includes('Test Hotel 60'))?.textContent)).includes(formatMoney(60, 'USD')));
+        exchangeAvailable = true;
+        await page.select('select[aria-label="عملة عرض السعر"]', 'USD');
         await page.screenshot({ path: 'frontend/dist/test-desktop.png', fullPage: true });
 
         for (const width of [390, 320]) {
@@ -133,11 +181,16 @@ async function run() {
         await page.waitForSelector('article[aria-labelledby^="room-"] button', { visible: true });
         assert.equal(await page.$eval('main', element => element.innerText.includes('كاش باك')), false);
         assert.equal(lastHotelPage.currency, 'USD');
-        assert.equal(await page.$eval('article[aria-labelledby^="room-"] button', element => element.disabled), true);
+        assert.equal(await page.$eval('article[aria-labelledby^="room-"] button', element => element.disabled), false);
         assert((await page.$eval('article[aria-labelledby^="room-"]', element => element.textContent)).includes(formatMoney(60, 'USD')));
         assert.match(await page.$eval('article[aria-labelledby^="room-"]', element => element.textContent), /Local tax 15 AED/);
+        await page.select('select[aria-label="عملة عرض السعر"]', 'SAR');
+        await page.waitForFunction(value => document.querySelector('article[aria-labelledby^="room-"]')?.textContent.includes(value), {}, formatMoney(225, 'SAR'));
+        assert.equal(await page.$eval('article[aria-labelledby^="room-"] button', element => element.disabled), false);
+        assert.match(await page.$eval('article[aria-labelledby^="room-"]', element => element.textContent), /Local tax 15 AED/);
+        await page.select('select[aria-label="عملة عرض السعر"]', 'USD');
         const booking = { hid: 2, hotelName: hotels[1].name, checkin: search.checkin, checkout: search.checkout, guests: hotelSearch.guests, room: normalizeRoom(rate(60), hotels[1], hotelSearch.guests) };
-        paymentEnabled = true;
+        paymentEnabled = false;
         await page.evaluate(value => sessionStorage.setItem('remal_checkout', JSON.stringify(value)), booking);
         await page.goto(`${base}/checkout`, { waitUntil: 'networkidle0' });
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), true);
@@ -158,13 +211,78 @@ async function run() {
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), true);
         assert.match(await page.$eval('main', element => element.innerText), /طفل، 5 سنوات/);
         await page.screenshot({ path: 'frontend/dist/test-checkout.png', fullPage: true });
+        paymentEnabled = true;
+        const mockGuestCount = [{ adults: 1, children: [] }];
+        booking.guests = mockGuestCount;
+        booking.room = normalizeRoom(rate(60, 'AED'), hotels[1], mockGuestCount);
+        await page.evaluate(value => {
+            sessionStorage.setItem('remal_checkout', JSON.stringify(value));
+            sessionStorage.removeItem('remal_guest_draft');
+        }, booking);
+        await page.reload({ waitUntil: 'networkidle0' });
+        await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(60 / 3.6725, 'USD'));
+        assert((await page.$eval('aside', element => element.textContent)).includes(formatMoney(60, 'AED')));
+        await page.select('select[aria-label="عملة عرض السعر"]', 'EUR');
+        await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(60 / 3.6725 * 0.87088, 'EUR'));
+        assert((await page.$eval('aside', element => element.textContent)).includes(formatMoney(60, 'AED')));
+        await page.type('#guest-first-name', 'Local');
+        await page.type('#guest-last-name', 'Test');
+        await page.type('#guest-email', 'local@example.test');
+        await page.type('#guest-phone', '+971501234567');
+        await page.click('form input[type="checkbox"]');
+        assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), false);
+        await page.click('button[type="submit"]');
+        await page.waitForFunction(() => location.search.includes('payment=success'));
+        assert.equal(paymentRequests, 1);
+        assert.equal(paymentPayload.currency, 'AED');
+        assert.equal(paymentPayload.total, 60);
+        assert.equal(paymentPayload.book_hash, 'test-AED-60');
+        assert.deepEqual(paymentPayload.guests, mockGuestCount);
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('بانتظار التحقق من الدفع والحجز'));
+        assert.match(await page.$eval('main', element => element.innerText), /بانتظار التحقق من الدفع والحجز/);
+        assert.doesNotMatch(await page.$eval('main', element => element.innerText), /تم تأكيد الحجز/);
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('مرجع المتابعة:'));
+        assert(statusRequests > 0);
+        checkoutStatus = 'booking_confirmed';
+        await page.reload({ waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('تم تأكيد الحجز لدى المورد'));
+        assert.match(await page.$eval('main', element => element.innerText), /TEST-SUPPLIER-ORDER/);
+        assert.equal(paymentRequests, 1);
+        paymentEnabled = false;
         await page.goto(`${base}/checkout?payment=success`, { waitUntil: 'networkidle0' });
         const returned = await page.$eval('main', element => element.innerText);
         assert.match(returned, /بانتظار التحقق/);
         assert.doesNotMatch(returned, /تم الدفع بنجاح/);
-        assert.equal(paymentRequests, 0);
+        assert.equal(paymentRequests, 1);
+        paymentEnabled = true;
+        checkoutStatus = 'booking_pending';
+        booking.room = normalizeRoom(rate(60), hotels[1], mockGuestCount);
+        await page.evaluate(value => {
+            sessionStorage.setItem('remal_checkout', JSON.stringify(value));
+            sessionStorage.removeItem('remal_guest_draft');
+            sessionStorage.removeItem('remal_checkout_idempotency_key');
+            sessionStorage.removeItem('remal_payment_attempt');
+        }, booking);
+        await page.goto(`${base}/checkout`, { waitUntil: 'networkidle0' });
+        await page.select('select[aria-label="عملة عرض السعر"]', 'AED');
+        assert((await page.$eval('aside', element => element.textContent)).includes(formatMoney(60, 'USD')));
+        await page.type('#guest-first-name', 'Local');
+        await page.type('#guest-last-name', 'Test');
+        await page.type('#guest-email', 'local@example.test');
+        await page.type('#guest-phone', '+971501234567');
+        await page.click('form input[type="checkbox"]');
+        await page.click('button[type="submit"]');
+        await page.waitForFunction(() => location.search.includes('payment=success'));
+        assert.equal(paymentRequests, 2);
+        assert.equal(paymentPayload.currency, 'USD');
+        assert.equal(paymentPayload.total, 60);
+        checkoutStatus = 'refund_completed';
+        await page.reload({ waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('تم تأكيد الاسترداد'));
+        assert.doesNotMatch(await page.$eval('main', element => element.innerText), /تم تأكيد الحجز/);
+        assert.equal(paymentRequests, 2);
         assert.deepEqual(errors, []);
-        console.log('PASS: USD region/hotel/room search, same-currency lowest price, original tax currency, sorting, mobile filters, 320/390px layout, child ages, blocked USD payment, AED checkout recovery, unverified return and no browser errors.');
+        console.log('PASS: USD supplier search, four display currencies, FX fallback, original tax currency, mobile layout, disabled checkout availability, simulated AED and USD supplier-currency intents, private pending/confirmed/refunded statuses and no browser errors.');
         await page.evaluate(() => sessionStorage.clear());
         await page.setBypassServiceWorker(false);
         await page.goto(base, { waitUntil: 'networkidle0' });

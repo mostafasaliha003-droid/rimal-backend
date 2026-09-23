@@ -175,13 +175,15 @@ async function createCheckout(input, idempotencyKey, userIp) {
             is_gender_specification_required: form.is_gender_specification_required
         });
         if (new Date(form.form_expires_at).getTime() <= Date.now() + 25 * 60 * 1000) throw fail('booking_form_expired', 409);
-        const updated = await CheckoutAttempt.findOneAndUpdate({ _id: processId, state: 'preparing' }, { $set: {
+        record = await CheckoutAttempt.findOneAndUpdate({ _id: processId, state: 'preparing' }, { $set: {
             state: 'intent_creating', amount_minor: details.amount_minor, currency: details.currency,
             ziina_test: process.env.ZIINA_TEST_MODE === 'true', booking_process_id: form.process_id,
+            partner_order_id: form.partner_order_id,
+            supplier_identity: payment.supplierIdentity(),
             supplier_payment: paymentType, form_expires_at: form.form_expires_at,
             payment_expires_at: new Date(Date.now() + 20 * 60 * 1000)
         } }, { new: true }).lean();
-        if (!updated) throw fail('checkout_state_conflict', 409);
+        if (!record) throw fail('checkout_state_conflict', 409);
     } catch (error) {
         await CheckoutAttempt.updateOne({ _id: processId, state: 'preparing' }, {
             $set: { state: 'preflight_failed', error: 'supplier_preflight_failed' }, $unset: { encrypted_details: '' }
@@ -190,7 +192,7 @@ async function createCheckout(input, idempotencyKey, userIp) {
     }
     try {
         const intent = await ziina.createIntent({ amount: details.amount_minor / 100, currency: details.currency, reference,
-            test: true, frontendUrl: process.env.FRONTEND_URL, accountId: process.env.ZIINA_ACCOUNT_ID });
+            test: record.ziina_test, frontendUrl: process.env.FRONTEND_URL, accountId: process.env.ZIINA_ACCOUNT_ID });
         const updated = await CheckoutAttempt.findOneAndUpdate({ _id: processId, state: 'intent_creating' }, { $set: {
             ziina_intent_id: intent.id, ziina_account_id: intent.accountId, ziina_operation_id: intent.operationId,
             redirect_url: intent.redirectUrl, state: 'awaiting_payment',

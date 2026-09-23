@@ -5,6 +5,8 @@ const bookingCancellationSchema = new mongoose.Schema({
     request_hash: { type: String, required: true },
     state: { type: String, required: true, enum: ['cancelling', 'cancel_pending', 'cancelled', 'cancel_failed'] },
     accepted_penalty: mongoose.Schema.Types.Mixed,
+    checkout_attempt_id: String,
+    customer_refund_amount_minor: Number,
     amount_refunded: mongoose.Schema.Types.Mixed,
     amount_payable: mongoose.Schema.Types.Mixed,
     amount_sell: mongoose.Schema.Types.Mixed,

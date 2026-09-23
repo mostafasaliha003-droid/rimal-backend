@@ -2,7 +2,9 @@ const crypto = require('node:crypto');
 const mongoose = require('mongoose');
 const BookingCancellation = require('../models/BookingCancellation');
 const BookingProcess = require('../models/BookingProcess');
+const CheckoutAttempt = require('../models/CheckoutAttempt');
 const ratehawk = require('./ratehawkService');
+const payment = require('./paymentService');
 
 const PENDING = ['cancelling', 'cancel_pending'];
 
@@ -46,7 +48,16 @@ function currentPenalty(order) {
     return { amount, currency_code };
 }
 
-function view(record) {
+async function view(record) {
+    let customerRefundStatus = 'not_processed';
+    if (record.checkout_attempt_id && record.state === 'cancelled') {
+        const checkout = await CheckoutAttempt.findById(record.checkout_attempt_id).lean();
+        customerRefundStatus = !checkout || checkout.partner_order_id !== record._id
+            ? 'review' : checkout.state === 'refund_completed' && checkout.refund_verified_at
+                ? 'completed' : checkout.state === 'refund_review' || checkout.state === 'manual_review'
+                    ? 'review' : checkout.state === 'booking_cancelled' || ['refund_creating', 'refund_unknown', 'refund_pending'].includes(checkout.state)
+                        ? 'pending' : 'review';
+    }
     return {
         partner_order_id: record._id,
         success: record.state === 'cancelled',
@@ -55,7 +66,7 @@ function view(record) {
         amountRefunded: record.amount_refunded || null,
         amountPayable: record.amount_payable || null,
         amountSell: record.amount_sell || null,
-        customer_refund_status: 'not_processed',
+        customer_refund_status: customerRefundStatus,
         upsells_require_manual_cancellation: record.upsells_require_manual_cancellation === true,
         action_required: record.action_required,
         ...(record.error ? { error: record.error } : {}),
@@ -76,7 +87,28 @@ async function getBookingInfo(partnerOrderId) {
     };
 }
 
-async function syncCancelled(partnerOrderId) {
+async function syncCancelled(partnerOrderId, cancellation) {
+    if (cancellation.checkout_attempt_id) {
+        const checkout = await CheckoutAttempt.findById(cancellation.checkout_attempt_id).lean();
+        if (!checkout || checkout.partner_order_id !== partnerOrderId || !checkout.payment_verified_at
+            || !Number.isSafeInteger(cancellation.customer_refund_amount_minor)
+            || cancellation.customer_refund_amount_minor <= 0 || cancellation.customer_refund_amount_minor > checkout.amount_minor
+            || checkout.cancellation_request_hash !== cancellation.request_hash) {
+            throw fail('customer_refund_link_mismatch', 503);
+        }
+        if (!checkout.supplier_identity || checkout.supplier_identity !== payment.supplierIdentity()) {
+            throw fail('supplier_environment_mismatch', 503);
+        }
+        if (checkout.state === 'booking_confirmed') {
+            const updated = await CheckoutAttempt.updateOne({ _id: checkout._id, state: 'booking_confirmed', partner_order_id: partnerOrderId,
+                cancellation_request_hash: cancellation.request_hash, refund_id: { $exists: false } }, { $set: { state: 'booking_cancelled',
+                refund_amount_minor: cancellation.customer_refund_amount_minor, refund_status: 'pending', next_check_at: new Date() } });
+            if (updated.matchedCount !== 1) throw fail('customer_refund_link_mismatch', 503);
+        } else if (checkout.cancellation_request_hash !== cancellation.request_hash
+            || !['booking_cancelled', 'refund_creating', 'refund_unknown', 'refund_pending', 'refund_completed', 'refund_review'].includes(checkout.state)) {
+            throw fail('customer_refund_link_mismatch', 503);
+        }
+    }
     const Booking = mongoose.models.Booking;
     if (Booking) {
         await Booking.updateOne({ provider: 'ratehawk', $or: [{ supplierReference: partnerOrderId }, { bookingReference: partnerOrderId }] }, {
@@ -96,14 +128,43 @@ async function cancelBooking(partnerOrderId, options = {}) {
     const partnerId = orderId(partnerOrderId);
     if (options.confirm_cancellation !== true) throw fail('cancellation_confirmation_required');
     const penaltyKey = moneyKey(options.expected_penalty);
-    const requestHash = crypto.createHash('sha256').update(JSON.stringify([partnerId, penaltyKey, options.acknowledge_upsells === true])).digest('hex');
+    const customerRefund = options.customer_refund;
+    const refundKey = customerRefund && moneyKey(customerRefund);
+    const requestHash = crypto.createHash('sha256').update(JSON.stringify([partnerId, penaltyKey, options.acknowledge_upsells === true,
+        options.confirm_customer_refund === true, refundKey])).digest('hex');
     const existing = await BookingCancellation.findById(partnerId).lean();
     if (existing) {
         if (existing.request_hash !== requestHash) throw fail('cancellation_request_conflict', 409);
-        if (existing.state === 'cancelled') await syncCancelled(partnerId);
+        if (existing.state === 'cancelled') await syncCancelled(partnerId, existing);
         return view(existing);
     }
     if (process.env.RATEHAWK_CANCELLATION_ENABLED !== 'true') throw fail('cancellation_disabled', 503);
+    const attempts = await CheckoutAttempt.find({ partner_order_id: partnerId }).limit(2).lean();
+    if (attempts.length > 1) throw fail('customer_refund_link_mismatch', 503);
+    const checkout = attempts[0];
+    let refundAmountMinor;
+    if (checkout) {
+        if (checkout.state !== 'booking_confirmed' || !checkout.payment_verified_at || !checkout.ziina_intent_id
+            || !Number.isSafeInteger(checkout.amount_minor) || checkout.amount_minor <= 0
+            || !payment.isRefundReady() || checkout.ziina_account_id !== process.env.ZIINA_ACCOUNT_ID
+            || process.env.ZIINA_TEST_MODE !== String(checkout.ziina_test)) throw fail('customer_refund_unavailable', 503);
+        if (!checkout.supplier_identity || checkout.supplier_identity !== payment.supplierIdentity()) {
+            throw fail('supplier_environment_mismatch', 503);
+        }
+        if (checkout.notification_status === 'sending' || checkout.lease_until && new Date(checkout.lease_until) > Date.now()) {
+            throw fail('confirmation_delivery_pending', 409);
+        }
+        if (options.confirm_customer_refund !== true || !customerRefund) throw fail('customer_refund_authorization_required');
+        if (customerRefund.currency_code !== checkout.currency || !/^\d+(?:\.\d{1,2})?$/.test(customerRefund.amount)) {
+            throw fail('invalid_customer_refund_amount');
+        }
+        refundAmountMinor = Math.round(Number(customerRefund.amount) * 100);
+        if (!Number.isSafeInteger(refundAmountMinor) || refundAmountMinor <= 0 || refundAmountMinor > checkout.amount_minor) {
+            throw fail('invalid_customer_refund_amount');
+        }
+    } else if (customerRefund || options.confirm_customer_refund !== undefined) {
+        throw fail('customer_refund_unavailable', 409);
+    }
     const info = await getBookingInfo(partnerId);
     if (info.pending) throw fail('order_information_pending', 409);
     const alreadyCancelled = info.status === 'cancelled';
@@ -114,6 +175,7 @@ async function cancelBooking(partnerOrderId, options = {}) {
         _id: partnerId,
         request_hash: requestHash,
         state: 'cancelling',
+        ...(checkout ? { checkout_attempt_id: checkout._id, customer_refund_amount_minor: refundAmountMinor } : {}),
         accepted_penalty: info.current_penalty || { amount: options.expected_penalty.amount, currency_code: options.expected_penalty.currency_code },
         upsells_require_manual_cancellation: info.upsells_require_manual_cancellation,
         action_required: 'verify_supplier_cancellation',
@@ -127,6 +189,18 @@ async function cancelBooking(partnerOrderId, options = {}) {
         if (!duplicate || duplicate.request_hash !== requestHash) throw fail('cancellation_request_conflict', 409);
         return view(duplicate);
     }
+    if (checkout) {
+        const claimed = await CheckoutAttempt.findOneAndUpdate({ _id: checkout._id, partner_order_id: partnerId,
+            state: 'booking_confirmed', cancellation_request_hash: { $exists: false }, notification_status: { $ne: 'sending' },
+            $or: [{ lease_until: { $exists: false } }, { lease_until: { $lte: new Date() } }] },
+        { $set: { cancellation_request_hash: requestHash, next_check_at: null } }, { new: true }).lean();
+        if (!claimed) {
+            await BookingCancellation.updateOne({ _id: partnerId, state: 'cancelling' }, {
+                $set: { state: 'cancel_failed', action_required: 'review_confirmation_delivery', next_check_at: null }
+            });
+            throw fail('confirmation_delivery_pending', 409);
+        }
+    }
     let result;
     if (alreadyCancelled) {
         result = { ...info, status: 'cancelled', success: true };
@@ -138,7 +212,7 @@ async function cancelBooking(partnerOrderId, options = {}) {
         }
         if (!result) result = await ratehawk.submitCancellation(partnerId);
     }
-    if (result.success) await syncCancelled(partnerId);
+    if (result.success) await syncCancelled(partnerId, record);
     const update = {
         state: result.success ? 'cancelled' : result.pending ? 'cancel_pending' : 'cancel_failed',
         ...cancellationAmounts(result),
@@ -155,7 +229,14 @@ async function checkCancellation(partnerOrderId) {
     const partnerId = orderId(partnerOrderId);
     const record = await BookingCancellation.findById(partnerId).lean();
     if (!record) throw fail('cancellation_not_found', 404);
-    if (record.state === 'cancelled') await syncCancelled(partnerId);
+    if (record.checkout_attempt_id) {
+        const checkout = await CheckoutAttempt.findById(record.checkout_attempt_id).lean();
+        if (!checkout || checkout.partner_order_id !== partnerId
+            || !checkout.supplier_identity || checkout.supplier_identity !== payment.supplierIdentity()) {
+            throw fail('supplier_environment_mismatch', 503);
+        }
+    }
+    if (record.state === 'cancelled') await syncCancelled(partnerId, record);
     if (!PENDING.includes(record.state) || Number(record.next_check_at) > Date.now()) return view(record);
     const leaseId = crypto.randomUUID();
     const now = new Date(Date.now());
@@ -168,7 +249,7 @@ async function checkCancellation(partnerOrderId) {
     try { info = await getBookingInfo(partnerId); }
     catch (error) { info = { success: false, error: 'order_info_unavailable', retry_after_ms: error.retry_after_ms }; }
     const cancelled = info.success && !info.pending && info.status === 'cancelled';
-    if (cancelled) await syncCancelled(partnerId);
+    if (cancelled) await syncCancelled(partnerId, claimed);
     const update = {
         $set: {
             state: cancelled ? 'cancelled' : 'cancel_pending',

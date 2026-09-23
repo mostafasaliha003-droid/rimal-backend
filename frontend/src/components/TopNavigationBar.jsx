@@ -1,14 +1,14 @@
 import { Menu, Search, Mail, X } from 'lucide-react';
 import { useState } from 'react';
 import PwaStatus from './PwaStatus';
-import { SEARCH_CURRENCY } from '../services/offers';
+import { DISPLAY_CURRENCIES, SEARCH_CURRENCY } from '../services/offers';
 
 const links = [
     { label: 'استكشاف الفنادق', href: '/#search', active: true, icon: Search },
     { label: 'تواصل معنا', href: 'mailto:management@remaltourismllc.com', active: false, icon: Mail }
 ];
 
-export default function TopNavigationBar({ currency = SEARCH_CURRENCY }) {
+export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrencyChange }) {
     const [open, setOpen] = useState(false);
     return (
         <header className="relative z-20 border-b border-white/10 bg-remal-dark text-white">
@@ -35,8 +35,11 @@ export default function TopNavigationBar({ currency = SEARCH_CURRENCY }) {
                     ))}
                 </nav>
 
-                <div className="flex items-center gap-2.5 text-xs font-bold">
-                    <span className="text-sm text-white">{currency && `${currency} · `}العربية</span>
+                <div className="flex shrink-0 items-center gap-2 text-xs font-bold">
+                    <select aria-label="عملة عرض السعر" title="عملة عرض السعر" value={currency} onChange={event => onCurrencyChange?.(event.target.value)} className="min-h-10 rounded border border-white/30 bg-remal-dark px-2 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+                        {DISPLAY_CURRENCIES.map(code => <option key={code} value={code}>{code}</option>)}
+                    </select>
+                    <span className="hidden text-sm text-white sm:inline">العربية</span>
                 </div>
             </div>
             {open && <nav id="mobile-navigation" aria-label="القائمة الرئيسية" className="border-t border-white/20 px-5 py-3 lg:hidden">{links.map(({ label, href, icon: Icon }) => <a key={label} href={href} onClick={() => setOpen(false)} className="flex min-h-12 items-center gap-3"><Icon size={18} />{label}</a>)}</nav>}

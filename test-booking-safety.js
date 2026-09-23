@@ -1550,9 +1550,11 @@ test('ambiguous cancellation results stay pending without retrying or claiming a
 
 test('durable cancellation requires the current penalty, claims once and recovers unknown outcomes by reading only', async context => {
     const store = require('./models/BookingCancellation');
+    const checkoutAttempts = require('./models/CheckoutAttempt');
     const processes = require('./models/BookingProcess');
     const service = require('./services/ratehawkService');
     const postBooking = require('./services/postBookingService');
+    context.mock.method(checkoutAttempts, 'find', () => ({ limit: () => ({ lean: async () => [] }) }));
     const previous = process.env.RATEHAWK_CANCELLATION_ENABLED;
     let record;
     let time = Date.parse('2026-09-23T12:00:00Z');
@@ -1658,6 +1660,7 @@ test('a provider key and checkout flag alone do not make collection ready', () =
         PAYMENT_CHECKOUT_ENABLED: 'true', RATEHAWK_BOOKING_ENABLED: 'true', ZIINA_REFUNDS_ENABLED: 'true',
         ZIINA_WEBHOOK_CONFIGURED: 'true', PAYMENT_ETG_SANDBOX_ISOLATED: 'true', MONGO_URI: 'fixture-mongo',
         ZIINA_API_KEY: 'fixture-key', ZIINA_ACCOUNT_ID: 'fixture-account', ZIINA_WEBHOOK_SECRET: 's'.repeat(32),
+        RATEHAWK_KEY_ID: 'supplier-fixture', RATEHAWK_API_KEY: 'supplier-secret-fixture',
         PAYMENT_BOOKING_ENCRYPTION_KEY: 'ab'.repeat(32), ZIINA_TEST_MODE: 'true', PAYMENT_SANDBOX_ENABLED: 'true',
         RATEHAWK_BASE_URL: 'https://api-sandbox.ratehawk.com', FRONTEND_URL: 'http://127.0.0.1:5178'
     };
@@ -1665,6 +1668,25 @@ test('a provider key and checkout flag alone do not make collection ready', () =
     assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true' }), true);
     assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', PAYMENT_LIFECYCLE_CERTIFIED: 'true', ZIINA_TEST_MODE: 'false',
         RATEHAWK_BASE_URL: 'https://api.ratehawk.com', FRONTEND_URL: 'https://remalbookings.com' }), false);
+    const production = {
+        ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', PAYMENT_PRODUCTION_APPROVED: 'true',
+        ZIINA_TEST_MODE: 'false', PAYMENT_SANDBOX_ENABLED: 'false', PAYMENT_ETG_SANDBOX_ISOLATED: 'false',
+        RATEHAWK_BASE_URL: 'https://api.ratehawk.com', FRONTEND_URL: 'https://remalbookings.com',
+        RATEHAWK_KEY_ID: 'supplier-fixture', RATEHAWK_API_KEY: 'supplier-secret-fixture',
+        RATEHAWK_BOOKING_TOKEN: 'private-fixture-token-32-characters', REMAL_SECURE_KEY: 'public-fixture',
+        RATEHAWK_CANCELLATION_ENABLED: 'true', SMTP_USER: 'fixture-sender', SMTP_PASSWORD: 'fixture-password'
+    };
+    assert.equal(isCheckoutReady(production), true);
+    assert.equal(isCheckoutReady({ ...production, RATEHAWK_BOOKING_TOKEN: '' }), false);
+    assert.equal(isCheckoutReady({ ...production, RATEHAWK_BOOKING_TOKEN: production.REMAL_SECURE_KEY }), false);
+    assert.equal(isCheckoutReady({ ...production, RATEHAWK_KEY_ID: '' }), false);
+    assert.equal(isCheckoutReady({ ...production, RATEHAWK_API_KEY: '' }), false);
+    assert.equal(isCheckoutReady({ ...production, PAYMENT_PRODUCTION_APPROVED: 'false' }), false);
+    assert.equal(isCheckoutReady({ ...production, SMTP_PASSWORD: '' }), false);
+    assert.equal(isCheckoutReady({ ...production, RATEHAWK_BASE_URL: 'https://api.ratehawk.comapi/b2b/v3' }), false);
+    assert.equal(isCheckoutReady({ ...production, RATEHAWK_BASE_URL: 'https://api.ratehawk.com/api/b2b/v3?debug=1' }), false);
+    assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true',
+        RATEHAWK_BASE_URL: 'https://api-sandbox.ratehawk.comapi/b2b/v3' }), false);
     assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', FRONTEND_URL: 'https://remalbookings.com' }), false);
     assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', PAYMENT_ETG_SANDBOX_ISOLATED: 'false' }), false);
 });

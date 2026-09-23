@@ -23,13 +23,21 @@ const details = () => ({
 function fixture(context) {
     const previous = process.env.PAYMENT_BOOKING_ENCRYPTION_KEY;
     const testMode = process.env.ZIINA_TEST_MODE;
+    const originalSupplier = process.env.RATEHAWK_BASE_URL;
+    const originalKey = process.env.RATEHAWK_KEY_ID;
     process.env.PAYMENT_BOOKING_ENCRYPTION_KEY = 'ab'.repeat(32);
     process.env.ZIINA_TEST_MODE = 'true';
+    process.env.RATEHAWK_BASE_URL = 'https://api-sandbox.ratehawk.com';
+    process.env.RATEHAWK_KEY_ID = 'supplier-fixture';
     context.after(() => {
         if (previous === undefined) delete process.env.PAYMENT_BOOKING_ENCRYPTION_KEY;
         else process.env.PAYMENT_BOOKING_ENCRYPTION_KEY = previous;
         if (testMode === undefined) delete process.env.ZIINA_TEST_MODE;
         else process.env.ZIINA_TEST_MODE = testMode;
+        if (originalSupplier === undefined) delete process.env.RATEHAWK_BASE_URL;
+        else process.env.RATEHAWK_BASE_URL = originalSupplier;
+        if (originalKey === undefined) delete process.env.RATEHAWK_KEY_ID;
+        else process.env.RATEHAWK_KEY_ID = originalKey;
     });
     const descriptor = Object.getOwnPropertyDescriptor(mongoose.connection, 'readyState');
     Object.defineProperty(mongoose.connection, 'readyState', { configurable: true, get: () => 1 });
@@ -79,7 +87,7 @@ function fixture(context) {
             form_expires_at: new Date(Date.now() + 60 * 60 * 1000) };
     });
     const createIntent = context.mock.method(ziina, 'createIntent', async data => {
-        assert.equal(data.test, true);
+        assert.equal(data.test, process.env.ZIINA_TEST_MODE === 'true');
         assert.equal(data.currency, 'USD');
         assert.equal(data.amount, 100);
         return { id: 'fixture-intent', accountId: 'fixture-account', operationId: crypto.randomUUID(),
@@ -112,6 +120,8 @@ test('preflight persists an encrypted, idempotent checkout and refuses changed r
     await assert.rejects(checkout.getCheckout('invalid', first.access_token), /checkout_not_found/);
     assert.equal(form.mock.callCount(), 1);
     assert.equal(createIntent.mock.callCount(), 1);
+    assert.equal(scenario.record.partner_order_id, 'partner-1');
+    assert.equal(scenario.record.supplier_identity, payment.supplierIdentity());
     assert.equal(JSON.stringify(scenario.record).includes('test@example.com'), false);
     assert.equal(checkout.decryptDetails(scenario.record).user.email, 'test@example.com');
     await assert.rejects(checkout.createCheckout({ ...details(), total: 200 }, key, '192.0.2.10'), /checkout_conflict/);
@@ -154,4 +164,13 @@ test('offer identity refuses changed dates, occupancy or a mismatched room befor
     await assert.rejects(checkout.createCheckout({ ...details(), checkout: '2099-10-18' }, crypto.randomUUID(), '192.0.2.10'), /offer_identity_mismatch/);
     assert.equal(scenario.createIntent.mock.callCount(), 0);
     assert.equal(scenario.form.mock.callCount(), 0);
+});
+
+test('production preflight persists live mode before submitting an intent', async context => {
+    const scenario = fixture(context);
+    process.env.ZIINA_TEST_MODE = 'false';
+    const result = await checkout.createCheckout(details(), crypto.randomUUID(), '192.0.2.10');
+    assert.equal(result.status, 'awaiting_payment');
+    assert.equal(scenario.record.ziina_test, false);
+    assert.equal(scenario.createIntent.mock.callCount(), 1);
 });

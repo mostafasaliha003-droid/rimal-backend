@@ -1,4 +1,16 @@
 export const SEARCH_CURRENCY = 'USD';
+export const DISPLAY_CURRENCIES = ['USD', 'AED', 'SAR', 'EUR'];
+
+export function displayAmount(amount, sourceCurrency, displayCurrency, usdRates) {
+    const value = Number(amount);
+    if (!Number.isFinite(value) || value < 0) return null;
+    if (sourceCurrency === displayCurrency) return value;
+    if (!DISPLAY_CURRENCIES.includes(sourceCurrency) || !DISPLAY_CURRENCIES.includes(displayCurrency)) return null;
+    const sourceRate = sourceCurrency === SEARCH_CURRENCY ? 1 : Number(usdRates?.[sourceCurrency]);
+    const targetRate = displayCurrency === SEARCH_CURRENCY ? 1 : Number(usdRates?.[displayCurrency]);
+    return Number.isFinite(sourceRate) && sourceRate > 0 && Number.isFinite(targetRate) && targetRate > 0
+        ? value / sourceRate * targetRate : null;
+}
 
 export const paymentFor = (rate) => rate?.payment_options?.payment_types?.find(payment => payment.type === 'deposit')
     || rate?.payment_options?.payment_types?.[0];

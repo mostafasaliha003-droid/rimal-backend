@@ -1,6 +1,6 @@
 import { ArrowLeft, Wifi } from 'lucide-react';
 import { BedIcon, UsersIcon } from './Icons';
-import { formatMoney } from '../services/offers';
+import PriceDisplay from './PriceDisplay';
 
 export function CancellationPolicy({ cancellation, currency }) {
     const deadline = cancellation?.free_cancellation_before;
@@ -10,8 +10,9 @@ export function CancellationPolicy({ cancellation, currency }) {
     </div>;
 }
 
-export default function RoomCard({ room = {}, onBook }) {
-    const payable = room.currency === 'AED' && room.paymentType === 'deposit' && Number.isFinite(room.price) && room.book_hash;
+export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', displayRates = null }) {
+    const payable = ['AED', 'USD', 'SAR', 'EUR'].includes(room.currency) && room.paymentType === 'deposit'
+        && Number.isFinite(room.price) && room.price > 0 && room.book_hash;
     const additionalTaxes = (room.taxes || []).filter(tax => !tax.included_by_supplier);
 
     return (
@@ -34,7 +35,7 @@ export default function RoomCard({ room = {}, onBook }) {
                     <div className="border-t border-slate-200 pt-5 text-right xl:border-r xl:border-t-0 xl:pr-6 xl:pt-0">
                         <div aria-live="polite" aria-atomic="true">
                             <p className="text-xs font-bold text-slate-500">السعر الإجمالي</p>
-                            <p className="mt-1 text-2xl font-bold text-slate-900">{formatMoney(room.price, room.currency || 'AED')}</p>
+                            <PriceDisplay amount={room.price} currency={room.currency || 'USD'} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-2xl font-bold text-slate-900" />
                             <p className="mt-1 text-xs leading-6 text-slate-600">إجمالي الإقامة المحددة؛ قد تُطبق رسوم محلية.</p>
                             {additionalTaxes.map((tax, index) => <p key={index} className="text-xs leading-6 text-slate-600">رسوم غير مشمولة: {tax.name} {tax.amount} {tax.currency_code}</p>)}
                         </div>
@@ -42,7 +43,7 @@ export default function RoomCard({ room = {}, onBook }) {
                             <button type="button" onClick={() => onBook?.(room)} disabled={!payable} className="inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-lg bg-remal-dark px-5 py-3 font-bold text-white disabled:opacity-50">
                                 اختيار الغرفة <ArrowLeft size={17} />
                             </button>
-                            {!payable && <p className="text-xs leading-6 text-slate-600">هذا العرض غير متاح للدفع الإلكتروني بالدرهم.</p>}
+                            {!payable && <p className="text-xs leading-6 text-slate-600">هذا العرض غير متاح للدفع الإلكتروني.</p>}
                         </div>
                     </div>
                 </div>

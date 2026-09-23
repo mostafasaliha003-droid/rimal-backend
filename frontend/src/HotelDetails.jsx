@@ -51,7 +51,7 @@ function LoadingSkeleton() {
     </div>;
 }
 
-export default function HotelDetails({ hid, onBack }) {
+export default function HotelDetails({ hid, onBack, displayCurrency, displayRates }) {
     const [hotel, setHotel] = useState(null);
     const [rates, setRates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -106,6 +106,8 @@ export default function HotelDetails({ hid, onBack }) {
             room
         };
         sessionStorage.setItem('remal_checkout', JSON.stringify(booking));
+        sessionStorage.removeItem('remal_checkout_idempotency_key');
+        sessionStorage.removeItem('remal_payment_attempt');
         window.history.pushState({ checkout: booking }, '', '/checkout');
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
@@ -133,7 +135,7 @@ export default function HotelDetails({ hid, onBack }) {
                 <aside className="rounded-lg bg-remal-dark p-6 text-white"><p className="text-sm text-white/80">ملخص الإقامة</p><p className="mt-3 text-2xl font-bold">{rooms.length ? `${rooms.length} عروض إقامة` : 'لا توجد عروض متاحة'}</p><p className="mt-2 text-sm text-white/80">{searchParams.checkin || 'تاريخ الوصول'} إلى {searchParams.checkout || 'تاريخ المغادرة'}</p><div className="mt-6 flex items-center gap-2 text-sm text-emerald-200"><ShieldCheck size={18} /> التحقق من العرض قبل الدفع</div></aside>
             </section>
 
-            <section className="space-y-4"><div><h2 className="text-2xl font-bold">عروض الإقامة</h2><p className="mt-1 text-sm text-slate-600">سيُعاد التحقق من السعر والتوفر قبل الدفع</p></div>{rooms.length ? rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} onBook={navigateToCheckout} />) : <div className="bg-white p-10 text-center"><BedDouble className="mx-auto text-slate-500" size={36} /><p className="mt-3 font-bold text-slate-600">لا توجد عروض متاحة لهذه التواريخ</p><button onClick={onBack} className="mt-3 underline">تغيير البحث</button></div>}</section>
+            <section className="space-y-4"><div><h2 className="text-2xl font-bold">عروض الإقامة</h2><p className="mt-1 text-sm text-slate-600">سيُعاد التحقق من السعر والتوفر قبل الدفع</p></div>{rooms.length ? rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />) : <div className="bg-white p-10 text-center"><BedDouble className="mx-auto text-slate-500" size={36} /><p className="mt-3 font-bold text-slate-600">لا توجد عروض متاحة لهذه التواريخ</p><button onClick={onBack} className="mt-3 underline">تغيير البحث</button></div>}</section>
         </div>
     </main>;
 }

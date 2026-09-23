@@ -3,15 +3,24 @@ import { ArrowLeft, ChevronLeft, LoaderCircle, RotateCcw, ShieldCheck, SlidersHo
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
+import PriceDisplay from './components/PriceDisplay';
 const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
 import { StarIcon } from './components/Icons';
 import BookingAPI from './services/bookingApi';
-import { SEARCH_CURRENCY, cheapestRate, rateAmount, rateCurrency, formatMoney, paymentFor } from './services/offers';
+import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, cheapestRate, rateAmount, rateCurrency, paymentFor } from './services/offers';
+import { loadUsdDisplayRates } from './services/displayCurrency';
 import { trackBookingEvent } from './services/analytics';
 
 function storedSearch() {
     try { return JSON.parse(sessionStorage.getItem('remal_search') || 'null'); } catch { return null; }
+}
+
+function storedDisplayCurrency() {
+    try {
+        const currency = localStorage.getItem('remal_display_currency');
+        return DISPLAY_CURRENCIES.includes(currency) ? currency : SEARCH_CURRENCY;
+    } catch { return SEARCH_CURRENCY; }
 }
 
 const getHotels = (response) => {
@@ -50,7 +59,7 @@ const getRatePrice = (rate) => rate?.payment_options?.payment_types?.[0]?.amount
 const getRateHash = (rate) => rate?.book_hash || rate?.match_hash;
 const getAmenities = (rate) => Array.isArray(rate?.amenities) ? rate.amenities : (Array.isArray(rate?.room_amenities) ? rate.room_amenities : []);
 
-function SerpResultCard({ hotel, onSelect }) {
+function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     const rate = cheapestRate(hotel.rates) || {};
     const image = hotel.images?.[0];
     const [imageFailed, setImageFailed] = useState(false);
@@ -70,7 +79,7 @@ function SerpResultCard({ hotel, onSelect }) {
                     </div>
                 </div>
                 <div className="flex flex-wrap items-center justify-between gap-4 border-t border-slate-200 pt-4 md:col-span-2 xl:col-span-1 xl:flex-col xl:items-stretch xl:justify-center xl:border-r xl:border-t-0 xl:pr-4">
-                    <div className="text-right"><span className="text-xl font-bold text-remal-dark">{formatMoney(rateAmount(rate), rateCurrency(rate))}</span><p className="mt-1 text-xs text-slate-600">إجمالي الإقامة يبدأ من؛ قد تُطبق رسوم محلية</p></div>
+                    <div className="text-right"><PriceDisplay amount={rateAmount(rate)} currency={rateCurrency(rate)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-xl font-bold text-remal-dark" /><p className="mt-1 text-xs text-slate-600">إجمالي الإقامة يبدأ من؛ قد تُطبق رسوم محلية</p></div>
                     <button type="button" onClick={() => onSelect(hotel)} className="flex items-center gap-2 rounded-xl bg-gradient-to-r from-[#0F172A] to-[#1E293B] px-5 py-3 text-xs font-black text-white shadow-lg shadow-[#0F172A]/30 transition-all duration-200 hover:-translate-y-0.5 hover:shadow-xl hover:shadow-[#0F172A]/40"><span>تحديد الغرف</span><ArrowLeft size={16} /></button>
                 </div>
             </div>
@@ -80,6 +89,8 @@ function SerpResultCard({ hotel, onSelect }) {
 
 export default function App() {
     const [pathname, setPathname] = useState(() => window.location.pathname);
+    const [displayCurrency, setDisplayCurrency] = useState(storedDisplayCurrency);
+    const [displayRates, setDisplayRates] = useState(null);
     const [searched, setSearched] = useState(() => !!storedSearch());
     const [searchParams, setSearchParams] = useState(storedSearch);
     const [hotels, setHotels] = useState([]);
@@ -94,6 +105,19 @@ export default function App() {
     const [maxPrice, setMaxPrice] = useState('');
     const [freeCancellation, setFreeCancellation] = useState(false);
     const [limit, setLimit] = useState(20);
+
+    useEffect(() => {
+        try { localStorage.setItem('remal_display_currency', displayCurrency); } catch {}
+        setDisplayRates(null);
+        let active = true;
+        const controller = new AbortController();
+        loadUsdDisplayRates({ signal: controller.signal }).then(rates => {
+            if (active) setDisplayRates(rates);
+        }).catch(() => {
+            if (active) setDisplayRates(null);
+        });
+        return () => { active = false; controller.abort(); };
+    }, [displayCurrency]);
 
     useEffect(() => {
         const handleLocationChange = () => setPathname(window.location.pathname);
@@ -211,9 +235,11 @@ export default function App() {
     const checkoutRoute = pathname === '/checkout';
     if (checkoutRoute) {
         return <>
-            <TopNavigationBar currency={null} />
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} />
             <Checkout
                 booking={window.history.state?.checkout}
+                displayCurrency={displayCurrency}
+                displayRates={displayRates}
                 onBack={() => {
                     window.history.back();
                 }}
@@ -222,9 +248,11 @@ export default function App() {
     }
     if (hotelRoute) {
         return <>
-            <TopNavigationBar />
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} />
             <HotelDetails
                 hid={decodeURIComponent(hotelRoute[1])}
+                displayCurrency={displayCurrency}
+                displayRates={displayRates}
                 onBack={() => {
                     window.history.pushState({}, '', '/');
                     window.dispatchEvent(new PopStateEvent('popstate'));
@@ -235,7 +263,7 @@ export default function App() {
 
     return (
         <div className="min-h-screen bg-remal-bg text-remal-dark">
-            <TopNavigationBar />
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} />
             <main>
                 <HeroSearchSection onSearch={handleSearch} initialSearch={searchParams} />
                 <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-20 pt-6 lg:px-10 lg:pt-0">
@@ -252,7 +280,7 @@ export default function App() {
                         <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 border-b border-slate-200 py-5 lg:block`}>
                             <div className="mb-6 flex items-center justify-between"><h3 className="font-black">تصفية النتائج</h3><button type="button" onClick={clearFilters} className="flex items-center gap-1 text-xs font-bold text-remal-blue"><RotateCcw size={13} /> إعادة ضبط</button></div>
                             <div className="space-y-6 text-sm">
-                                <label className="block">الحد الأعلى للإقامة ({SEARCH_CURRENCY})<input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 p-3" /></label>
+                                <label className="block">الحد الأعلى للإقامة بعملة المورد ({SEARCH_CURRENCY})<input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} className="mt-2 w-full rounded-lg border border-slate-300 p-3" /></label>
                                 <label className="flex items-center gap-2"><input type="checkbox" checked={freeCancellation} onChange={event => setFreeCancellation(event.target.checked)} />إلغاء مجاني في أقل عرض ظاهر</label>
                                 <div className="border-t border-slate-100 pt-5"><p className="mb-3 font-black">التصنيف الأدنى</p><div className="flex gap-2">{[3, 4, 5].map((star) => <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex items-center gap-1 rounded-lg border px-3 py-2 text-xs font-black transition ${starFilter === star ? 'border-remal-gold bg-amber-50 text-amber-700' : 'border-slate-200 hover:border-remal-gold hover:text-amber-700'}`}>{star} <StarIcon size={12} className="text-remal-gold" fill="currentColor" /></button>)}</div></div>
                                 <div className="border-t border-slate-100 pt-5"><label className="flex items-center gap-3 text-xs font-bold text-slate-500"><input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="h-4 w-4 accent-remal-blue" /> يحتوي على مزايا للغرفة</label></div>
@@ -260,14 +288,14 @@ export default function App() {
                         </aside>
 
                         <div className="min-w-0 space-y-5">
-                            {lowestHotel && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 py-4"><div className="min-w-0"><p className="text-sm text-slate-600">أقل إجمالي مطابق للفلاتر</p><p className="mt-1 break-words font-bold">{lowestHotel.name}</p></div><p className="text-lg font-bold text-emerald-800">{formatMoney(rateAmount(cheapestRate(lowestHotel.rates)), SEARCH_CURRENCY)}</p></div>}
+                            {lowestHotel && <div className="flex flex-wrap items-center justify-between gap-3 border-b border-slate-300 py-4"><div className="min-w-0"><p className="text-sm text-slate-600">أقل إجمالي مطابق للفلاتر</p><p className="mt-1 break-words font-bold">{lowestHotel.name}</p></div><PriceDisplay amount={rateAmount(cheapestRate(lowestHotel.rates))} currency={SEARCH_CURRENCY} displayCurrency={displayCurrency} displayRates={displayRates} className="text-lg font-bold text-emerald-800" /></div>}
                             {selectedHotel ? <>
                                 <button type="button" onClick={() => setSelectedHotel(null)} className="flex items-center gap-2 text-xs font-black text-remal-blue"><ChevronLeft size={16} /> العودة للنتائج</button>
                                 <h2 className="text-2xl font-black">{selectedHotel.name}</h2>
                                 {!hotelPage && !error && <div className="flex items-center justify-center rounded-2xl bg-white p-10"><LoaderCircle className="animate-spin text-remal-blue" /></div>}
                                 {error && <p role="alert" className="rounded-2xl bg-red-50 p-5 text-sm font-bold text-remal-red">{error}</p>}
-                                {rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} />)}
-                            </> : loading ? <div role="status" className="flex items-center justify-center gap-3 bg-white p-12"><LoaderCircle className="animate-spin text-remal-blue" /><span>جار تحميل النتائج</span></div> : error ? <div role="alert" className="bg-red-50 p-5 text-sm text-remal-red"><p>{error}</p><button onClick={() => setSearchParams({ ...searchParams })} className="mt-3 underline">إعادة المحاولة</button></div> : visibleHotels.length ? visibleHotels.slice(0, limit).map((hotel) => <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotelDetails} />) : searched ? <p className="p-8 text-center text-sm text-slate-600">لا توجد نتائج مطابقة. جرّب إزالة الفلاتر أو تغيير التواريخ.</p> : <p className="p-8 text-center text-sm text-slate-600">اختر وجهة وتواريخ لعرض الأسعار الحية</p>}
+                                {rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} displayCurrency={displayCurrency} displayRates={displayRates} />)}
+                            </> : loading ? <div role="status" className="flex items-center justify-center gap-3 bg-white p-12"><LoaderCircle className="animate-spin text-remal-blue" /><span>جار تحميل النتائج</span></div> : error ? <div role="alert" className="bg-red-50 p-5 text-sm text-remal-red"><p>{error}</p><button onClick={() => setSearchParams({ ...searchParams })} className="mt-3 underline">إعادة المحاولة</button></div> : visibleHotels.length ? visibleHotels.slice(0, limit).map((hotel) => <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotelDetails} displayCurrency={displayCurrency} displayRates={displayRates} />) : searched ? <p className="p-8 text-center text-sm text-slate-600">لا توجد نتائج مطابقة. جرّب إزالة الفلاتر أو تغيير التواريخ.</p> : <p className="p-8 text-center text-sm text-slate-600">اختر وجهة وتواريخ لعرض الأسعار الحية</p>}
                             {visibleHotels.length > limit && <button onClick={() => setLimit(limit + 20)} className="min-h-12 w-full rounded-lg border border-slate-300 bg-white p-3">عرض المزيد ({visibleHotels.length - limit})</button>}
                             <div id="security" className="flex items-start gap-3 border-t border-slate-200 py-5"><ShieldCheck size={22} className="shrink-0 text-emerald-700" /><div><p className="font-bold">السعر والتوفر يخضعان للتحقق</p><p className="mt-1 text-sm leading-7 text-slate-600">تأكيد الدفع لا يعني تأكيد الحجز؛ انتظر مرجع التأكيد من المورد.</p></div></div>
                         </div>
