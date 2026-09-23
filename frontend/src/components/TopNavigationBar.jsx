@@ -11,7 +11,7 @@ const links = [
 export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrencyChange }) {
     const [open, setOpen] = useState(false);
     return (
-        <header className="relative z-20 border-b border-white/10 bg-remal-dark text-white">
+        <header className="relative z-20 bg-[#0F172A] text-white">
             <div className="mx-auto flex h-[76px] max-w-7xl items-center justify-between px-5 lg:px-10">
                 <div className="flex items-center gap-3">
                     <button onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-navigation" className="rounded-lg p-3 text-white lg:hidden" aria-label={open ? 'إغلاق القائمة' : 'فتح القائمة'}>
