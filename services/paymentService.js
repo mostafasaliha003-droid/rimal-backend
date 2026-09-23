@@ -2,7 +2,6 @@
 
 const crypto = require('node:crypto');
 const { SUPPORTED_CURRENCIES, minorUnits } = require('./ziinaClient');
-const { smtpPassword } = require('./smtpConfig');
 
 function supplierIdentity(environment = process.env) {
     if (!environment.RATEHAWK_BASE_URL || !environment.RATEHAWK_KEY_ID) return null;
@@ -51,7 +50,7 @@ function isCheckoutReady(environment = process.env) {
         && environment.RATEHAWK_CANCELLATION_ENABLED === 'true'
         && typeof environment.RATEHAWK_BOOKING_TOKEN === 'string' && environment.RATEHAWK_BOOKING_TOKEN.length >= 32
         && environment.RATEHAWK_BOOKING_TOKEN !== environment.REMAL_SECURE_KEY
-        && Boolean(environment.SMTP_USER && smtpPassword(environment))
+        && Boolean(environment.SMTP_USER && environment.SMTP_PASSWORD)
         && supplierHost(environment.RATEHAWK_BASE_URL, 'api.ratehawk.com')
         && frontend.origin === 'https://remalbookings.com';
 }

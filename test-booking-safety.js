@@ -1655,7 +1655,6 @@ test('payment uses the supplier amount and refreshed hash', () => {
 
 test('a provider key and checkout flag alone do not make collection ready', () => {
     const { isCheckoutReady } = require('./services/paymentService');
-    const { smtpPassword } = require('./services/smtpConfig');
     assert.equal(isCheckoutReady({ PAYMENT_CHECKOUT_ENABLED: 'true', ZIINA_API_KEY: 'test-key' }), false);
     const sandbox = {
         PAYMENT_CHECKOUT_ENABLED: 'true', RATEHAWK_BOOKING_ENABLED: 'true', ZIINA_REFUNDS_ENABLED: 'true',
@@ -1678,18 +1677,12 @@ test('a provider key and checkout flag alone do not make collection ready', () =
         RATEHAWK_CANCELLATION_ENABLED: 'true', SMTP_USER: 'fixture-sender', SMTP_PASSWORD: 'fixture-password'
     };
     assert.equal(isCheckoutReady(production), true);
-    const legacyProduction = { ...production, SMTP_PASS: production.SMTP_PASSWORD };
-    delete legacyProduction.SMTP_PASSWORD;
-    assert.equal(smtpPassword(legacyProduction), 'fixture-password');
-    assert.equal(smtpPassword({ SMTP_PASSWORD: 'canonical', SMTP_PASS: 'legacy' }), 'canonical');
-    assert.equal(isCheckoutReady(legacyProduction), true);
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_BOOKING_TOKEN: '' }), false);
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_BOOKING_TOKEN: production.REMAL_SECURE_KEY }), false);
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_KEY_ID: '' }), false);
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_API_KEY: '' }), false);
     assert.equal(isCheckoutReady({ ...production, PAYMENT_PRODUCTION_APPROVED: 'false' }), false);
     assert.equal(isCheckoutReady({ ...production, SMTP_PASSWORD: '' }), false);
-    assert.equal(isCheckoutReady({ ...production, SMTP_PASSWORD: '', SMTP_PASS: 'legacy-password' }), false);
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_BASE_URL: 'https://api.ratehawk.comapi/b2b/v3' }), false);
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_BASE_URL: 'https://api.ratehawk.com/api/b2b/v3?debug=1' }), false);
     assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true',

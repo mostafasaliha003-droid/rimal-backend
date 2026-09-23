@@ -2,7 +2,6 @@ const express = require('express');
 const puppeteer = require('puppeteer');
 const nodemailer = require('nodemailer');
 const fs = require('fs');
-const { smtpPassword } = require('./services/smtpConfig');
 const app = express();
 
 app.use(express.json());
@@ -13,7 +12,7 @@ const transporter = nodemailer.createTransport({
     port: 587,
     auth: {
         user: 'apikey', 
-        pass: smtpPassword() // كلمة المرور من بيئة الخادم
+        pass: process.env.SMTP_PASSWORD // كلمة المرور من بيئة الخادم
     }
 });
 

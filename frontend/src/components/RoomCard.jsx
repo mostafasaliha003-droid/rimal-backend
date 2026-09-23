@@ -24,7 +24,6 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 <div className="grid gap-6 p-5 sm:p-6 xl:grid-cols-[minmax(0,1fr)_15rem] xl:items-center">
                     <div className="min-w-0 text-right">
                         <h3 id={`room-${room.book_hash || room.roomId || room.name}`} className="text-xl font-black leading-8 text-slate-900">{room.name || 'غرفة فندقية'}</h3>
-                        {room.cancellation?.free_cancellation_before && <span className="mt-3 inline-flex items-center rounded-full bg-emerald-50 px-3 py-1 text-xs font-bold text-emerald-700">إلغاء مجاني</span>}
                         <div className="mt-5 flex flex-wrap justify-end gap-x-5 gap-y-3 text-xs font-bold text-slate-600">
                             {typeof room.bed === 'string' && <span className="inline-flex items-center gap-2"><BedIcon size={17} />{room.bed}</span>}
                             {room.guests && <span className="inline-flex items-center gap-2"><UsersIcon size={17} />{room.guests.reduce((total, group) => total + group.adults + group.children.length, 0)} ضيوف حسب البحث</span>}
@@ -36,7 +35,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                     <div className="border-t border-slate-200 pt-5 text-right xl:border-r xl:border-t-0 xl:pr-6 xl:pt-0">
                         <div aria-live="polite" aria-atomic="true">
                             <p className="text-xs font-bold text-slate-500">السعر الإجمالي</p>
-                            <PriceDisplay amount={room.price} currency={room.currency || 'USD'} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-3xl font-extrabold text-slate-900" />
+                            <PriceDisplay amount={room.price} currency={room.currency || 'USD'} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-2xl font-bold text-slate-900" />
                             <p className="mt-1 text-xs leading-6 text-slate-600">إجمالي الإقامة المحددة؛ قد تُطبق رسوم محلية.</p>
                             {additionalTaxes.map((tax, index) => <p key={index} className="text-xs leading-6 text-slate-600">رسوم غير مشمولة: {tax.name} {tax.amount} {tax.currency_code}</p>)}
                         </div>

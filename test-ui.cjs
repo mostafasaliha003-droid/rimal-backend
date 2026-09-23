@@ -85,8 +85,7 @@ async function run() {
                 else { paymentRequests++; return request.abort(); }
                 return request.respond({ status: 200, contentType: 'application/json', headers, body: JSON.stringify(body) });
             }
-            if (['images.unsplash.com', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)) return request.respond({ status: 200, contentType: 'text/plain', body: '' });
-            if (url.origin === base) return request.continue();
+            if (url.origin === base || ['images.unsplash.com', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)) return request.continue();
             return request.abort();
         });
         await page.setViewport({ width: 1440, height: 1000 });
