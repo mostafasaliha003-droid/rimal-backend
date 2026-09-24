@@ -5,6 +5,7 @@ import { addDays, format, parseISO, startOfDay } from 'date-fns';
 import { arSA } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
 import BookingAPI from '../services/bookingApi';
+import { trackBookingEvent } from '../services/analytics';
 
 export default function HeroSearchSection({ onSearch, initialSearch }) {
     const [query, setQuery] = useState(initialSearch?.query || '');
@@ -125,31 +126,37 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
             checkout: format(checkoutDate, 'yyyy-MM-dd'),
             guests
         };
+        trackBookingEvent('search_cta_clicked', { room_count: guests.length });
         onSearch?.(search);
     };
 
     return (
-        <section className="relative isolate overflow-visible bg-slate-900 py-16 lg:py-28">
+        <section id="search" className="hero-search relative isolate overflow-visible py-14 lg:py-24">
             {/* Background Layers for Depth & Contrast */}
-            <div className="absolute inset-0 -z-10 bg-[url('https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=2200&q=85')] bg-cover bg-center opacity-70 mix-blend-overlay" />
-            <div className="absolute inset-0 -z-10 bg-gradient-to-br from-blue-950/95 via-slate-900/80 to-transparent" />
-            <div className="absolute inset-x-0 bottom-0 -z-10 h-40 bg-gradient-to-t from-[#F8FAFC] to-transparent" />
+            <div className="absolute inset-0 -z-10 bg-[url('https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=2200&q=85')] bg-cover bg-center opacity-35" />
+            <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#102a43]/95 via-[#123c55]/90 to-[#0f8fa3]/75" />
+            <div className="absolute inset-x-0 bottom-0 -z-10 h-28 bg-gradient-to-t from-[#f7f9fc] to-transparent" />
 
             <div className="mx-auto flex max-w-7xl flex-col px-5 lg:px-10">
                 
-                <div className="max-w-2xl text-right text-white drop-shadow-lg mb-10">
+                <div className="max-w-3xl text-right text-white drop-shadow-lg mb-9">
                     {/* Trust Badge (عكس المخاطرة) */}
-                    <div className="inline-flex items-center gap-2 px-4 py-1.5 rounded-full bg-white/10 backdrop-blur-md border border-white/20 mb-6 text-xs font-bold text-blue-50 shadow-sm transition-all hover:bg-white/20 cursor-default">
+                    <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-blue-50 shadow-sm backdrop-blur-md">
                         <Sparkles size={14} className="text-amber-300" />
-                        عروض حصرية ومرونة في الإلغاء لمعظم الغرف
+                        ابحث، قارن، ثم اختر بثقة
                     </div>
                     
-                    <h1 className="max-w-xl text-5xl font-black leading-tight sm:text-6xl md:text-7xl tracking-tight">
-                        رمال <span className="text-transparent bg-clip-text bg-gradient-to-l from-blue-400 to-cyan-300">وفِلّها</span>
+                    <h1 className="max-w-3xl text-4xl font-black leading-[1.15] tracking-tight sm:text-6xl">
+                        إقامتك القادمة تبدأ من <span className="text-[#8ee7e8]">اختيار أوضح</span>
                     </h1>
-                    <p className="mt-5 max-w-lg text-lg font-semibold leading-relaxed text-slate-200 opacity-90">
-                        اكتشف العالم بأسعار لا تُقاوم. حدد وجهتك وتواريخك لتبدأ رحلتك الآن.
+                    <p className="mt-5 max-w-2xl text-base font-medium leading-relaxed text-slate-100/85 sm:text-lg">
+                        قارن الأسعار والتوفر وشروط الإلغاء من مكان واحد، ثم انتقل إلى العرض الذي يناسب رحلتك.
                     </p>
+                    <div className="mt-6 flex flex-wrap gap-3 text-xs font-bold text-white/80">
+                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">أسعار مباشرة</span>
+                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">تفاصيل قابلة للمقارنة</span>
+                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">تحقق قبل الدفع</span>
+                    </div>
                 </div>
 
                 {/* Sticky Wrapper */}
@@ -159,7 +166,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                     <form onSubmit={handleSearch} className="relative w-full mx-auto max-w-7xl z-20" dir="rtl">
                         
                         {/* The Masterstroke Floating Card */}
-                        <div className={`flex flex-col divide-y divide-slate-200/60 border shadow-[0_8px_30px_rgb(0,0,0,0.12)] backdrop-blur-xl lg:flex-row lg:items-stretch lg:divide-y-0 transition-all duration-300 ${isSticky ? 'bg-white rounded-2xl lg:rounded-full border-slate-200 p-1 lg:p-1.5' : 'bg-white/95 rounded-3xl lg:rounded-[2.5rem] border-white/40 p-2 lg:p-2.5'}`}>
+                        <div className={`search-panel flex flex-col divide-y divide-slate-200/60 border backdrop-blur-xl lg:flex-row lg:items-stretch lg:divide-y-0 transition-all duration-300 ${isSticky ? 'rounded-2xl border-slate-200 bg-white p-1 shadow-lg lg:rounded-full lg:p-1.5' : 'rounded-3xl border-white/70 bg-white/95 p-2 shadow-[0_22px_60px_rgba(7,31,51,0.22)] lg:rounded-[2rem] lg:p-2.5'}`}>
                             
                             {/* Destination Field */}
                             <label className={`relative flex min-h-[75px] lg:min-h-[80px] flex-1 items-center gap-4 transition-all duration-300 px-6 py-4 ${isSticky ? 'rounded-xl lg:rounded-r-full' : 'rounded-2xl lg:rounded-l-none lg:rounded-r-[2rem]'} ${activeField === 'destination' ? 'bg-white shadow-[0_4px_20px_rgb(0,0,0,0.08)] z-10 scale-[1.02] ring-1 ring-blue-100' : 'hover:bg-slate-50/80 z-0'}`} htmlFor="destination-search">
@@ -254,7 +261,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
 
                             {/* Submit Button */}
                             <div className={`lg:flex lg:items-center ${isSticky ? 'p-1' : 'p-2'}`}>
-                                <button type="submit" disabled={loading} className={`group relative flex min-h-[60px] lg:min-h-[70px] w-full items-center justify-center gap-3 overflow-hidden bg-blue-600 px-8 text-base font-black text-white shadow-[0_4px_14px_0_rgb(37,99,235,0.39)] transition-all duration-300 hover:bg-blue-700 hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 lg:w-auto z-20 ${isSticky ? 'rounded-xl lg:rounded-full' : 'rounded-[1.8rem]'}`}>
+                                <button type="submit" disabled={loading} className={`group relative flex min-h-[60px] lg:min-h-[70px] w-full items-center justify-center gap-3 overflow-hidden bg-[var(--remal-orange)] px-8 text-base font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.28)] transition-all duration-300 hover:bg-[#d86522] hover:shadow-[0_12px_24px_rgba(232,117,45,0.34)] hover:-translate-y-0.5 disabled:cursor-wait disabled:opacity-60 lg:w-auto z-20 ${isSticky ? 'rounded-xl lg:rounded-full' : 'rounded-[1.3rem]'}`}>
                                     <Search size={20} className="transition-transform group-hover:scale-110" />
                                     <span>ابحث الآن</span>
                                 </button>

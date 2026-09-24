@@ -83,7 +83,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     return (
         <article
             aria-labelledby={`room-${room.book_hash || room.roomId || room.name}`}
-            className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-blue-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)] mb-6"
+            className="room-card surface-card group relative mb-6 overflow-hidden rounded-3xl transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_18px_42px_rgba(15,35,55,0.12)]"
         >
             <div className="flex flex-col lg:flex-row h-full">
                 
@@ -97,7 +97,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             onError={(event) => { event.currentTarget.style.display = 'none'; }} 
                         />
                         <div className="absolute top-3 left-3 z-10">
-                            <span className="rounded-full bg-blue-600/90 backdrop-blur-md px-2.5 py-1 text-[10px] font-black text-white shadow-sm">الأكثر طلباً</span>
+                            <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)] shadow-sm">عرض قابل للمقارنة</span>
                         </div>
                     </div>
                 )}
@@ -106,7 +106,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 <div className="flex-1 p-5 sm:p-6 lg:p-7 min-w-0 flex flex-col justify-between">
                     <div>
                         <div className="mb-2 flex items-center gap-2">
-                            {!image && <span className="rounded-full bg-blue-50 border border-blue-100 px-2.5 py-1 text-[10px] font-black text-blue-700">الأكثر طلباً</span>}
+                            {!image && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)]">عرض قابل للمقارنة</span>}
                             <div className="flex gap-0.5 text-amber-400">
                                 {Array.from({ length: 5 }).map((_, index) => <StarIcon key={index} size={14} fill="currentColor" />)}
                             </div>
@@ -159,8 +159,8 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                     <div className="absolute top-0 left-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl -translate-x-10 -translate-y-10" />
                     
                     <div aria-live="polite" aria-atomic="true" className="relative z-10 text-right mb-6">
-                        <div className="mb-3 inline-flex rounded-full bg-amber-50 border border-amber-100 px-3 py-1 text-[10px] font-black text-amber-700 w-fit">
-                            كاش باك 43 AED
+                        <div className="mb-3 inline-flex rounded-full bg-cyan-50 border border-cyan-100 px-3 py-1 text-[10px] font-black text-[var(--remal-blue)] w-fit">
+                            تحقق من السعر والتوفر قبل الدفع
                         </div>
                         <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">السعر الإجمالي</p>
                         
@@ -179,7 +179,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             <div className="mt-3 space-y-1 rounded-lg bg-orange-50/50 p-2.5 border border-orange-100/50 text-right">
                                 {additionalTaxes.map((tax, index) => (
                                     <p key={index} className="text-[11px] font-bold text-orange-800 flex justify-between items-center gap-2">
-                                        <span>رسوم غير مشمولة:</span>
+                                        <span>{tax.name || 'رسوم غير مشمولة'}{' '}</span>
                                         <span dir="ltr" className="bg-white px-1.5 py-0.5 rounded shadow-sm">{tax.amount} {tax.currency_code}</span>
                                     </p>
                                 ))}
@@ -190,11 +190,11 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                     <div className="relative z-10 flex flex-col gap-2">
                         {errorMsg && <p role="alert" className="text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg text-center border border-red-100 mb-2">{errorMsg}</p>}
                         
-                        <button 
-                            type="button" 
+                        <button
+                            type="button"
                             onClick={handleBook} 
                             disabled={status === 'loading' || (!payable && status !== 'success')} 
-                            className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-[0_4px_14px_0_rgb(37,99,235,0.39)] transition-all duration-300 hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-blue-600 hover:bg-blue-700'} ${!payable && status !== 'success' ? 'bg-slate-300' : ''}`}
+                            className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.25)] transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[var(--remal-orange)] hover:bg-[#d86522]'} ${!payable && status !== 'success' ? 'bg-slate-300' : ''}`}
                         >
                             <span className="relative z-10 flex items-center gap-2">
                                 {status === 'loading' ? 'جارٍ التحقق...' : status === 'success' ? 'تم تثبيت السعر' : 'احجز الغرفة'}

@@ -8,7 +8,7 @@ const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
 import { StarIcon } from './components/Icons';
 import BookingAPI from './services/bookingApi';
-import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, cheapestRate, rateAmount, rateCurrency, paymentFor } from './services/offers';
+import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, cheapestRate, rateAmount, rateCurrency, paymentFor, normalizeRoom } from './services/offers';
 import { loadUsdDisplayRates } from './services/displayCurrency';
 import { trackBookingEvent } from './services/analytics';
 
@@ -67,23 +67,17 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     const [imageFailed, setImageFailed] = useState(false);
     const hasFreeCancellation = paymentFor(rate)?.cancellation_penalties?.free_cancellation_before;
 
-    // هندسة التحويل (Urgency & Trust)
+    // Recommendation cues stay deterministic and factual; avoid invented scarcity.
     const hotelIdStr = String(hotel.id || hotel.hid);
-    const isPopular = hotelIdStr.endsWith('1') || hotelIdStr.endsWith('7'); 
-    const isRareFind = hotelIdStr.endsWith('3'); 
+    const isPopular = hotelIdStr.endsWith('1') || hotelIdStr.endsWith('7');
     const priceAmount = rateAmount(rate);
     const isGreatDeal = priceAmount > 0 && priceAmount < 100;
 
-    // --- الدليل الاجتماعي الديناميكي (Dynamic Social Proof) ---
-    // نستخدم آخر رقمين من الـ ID لتوليد أرقام تبدو واقعية (بين 5 و 45)
-    const viewersCount = (parseInt(hotelIdStr.slice(-2)) % 40) + 5; 
-    // تحديد رسالة عشوائية (ثابتة لنفس الفندق)
     const socialProofMessages = [
-        `شاهده ${viewersCount} شخصاً خلال آخر ساعة`,
-        `تم حجز غرفتين في هذا الفندق اليوم`,
-        `مطلوب بشدة! ${viewersCount} مستخدماً يبحثون عنه الآن`
+        'اختيار مناسب للمقارنة',
+        'تفاصيل واضحة قبل اتخاذ القرار',
+        'عرض يستحق المراجعة'
     ];
-    // نختار الرسالة بناءً على آخر رقم في الـ ID
     const selectedSocialProof = socialProofMessages[parseInt(hotelIdStr.slice(-1)) % 3];
 
     const nextImage = (e) => {
@@ -97,14 +91,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     };
 
     return (
-        <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-blue-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
-            
-            {/* Urgency Ribbon */}
-            {isPopular && (
-                <div className="absolute top-4 -right-12 z-20 flex w-40 items-center justify-center rotate-45 bg-gradient-to-r from-red-600 to-rose-500 py-1 text-[10px] font-black text-white shadow-sm">
-                    مطلوب بشدة
-                </div>
-            )}
+        <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="hotel-card surface-card group relative overflow-hidden rounded-3xl transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_18px_42px_rgba(15,35,55,0.12)]">
 
             <div className="flex flex-col md:flex-row h-full">
                 
@@ -158,11 +145,6 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                     )}
 
                     {/* Social Proof Tag */}
-                    {isRareFind && (
-                        <div className="absolute bottom-4 right-4 z-10 rounded-lg bg-rose-600/90 backdrop-blur-md px-3 py-1.5 text-[11px] font-black text-white shadow-sm">
-                            فرصة نادرة!
-                        </div>
-                    )}
                 </div>
 
                 {/* Content Section */}
@@ -234,28 +216,17 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
 
                     {/* Pricing & CTA Divider */}
                     <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-5 relative">
-                        {isPopular && (
-                            <div className="absolute top-1 right-0 text-xs text-slate-400 line-through decoration-slate-300 font-bold">
-                                {(rateAmount(rate) * 1.15).toFixed(0)} {rateCurrency(rate)}
-                            </div>
-                        )}
-                        
                         <div className={`text-right ${isPopular ? 'mt-3' : ''}`}>
-                            <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">إجمالي الإقامة يبدأ من</p>
+                                <p className="eyebrow mb-1">إجمالي الإقامة يبدأ من</p>
                             <PriceDisplay amount={rateAmount(rate)} currency={rateCurrency(rate)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900" />
-                            <p className="mt-0.5 text-[10px] font-bold text-slate-400">قد تُطبق رسوم محلية إضافية</p>
+                                <p className="mt-1 text-[10px] font-bold text-slate-400">راجع الضرائب والرسوم قبل الدفع</p>
                         </div>
                         
                         <div className="w-full sm:w-auto flex flex-col items-end gap-2">
-                            {isPopular && (
-                                <span className="text-[11px] font-bold text-red-600 flex items-center gap-1 animate-pulse">
-                                    <span className="h-1.5 w-1.5 rounded-full bg-red-600"></span> قد يُحجز قريباً
-                                </span>
-                            )}
                             <button 
                                 type="button" 
                                 onClick={() => onSelect(hotel)} 
-                                className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-orange-600 px-6 py-2.5 text-sm font-black text-white shadow-[0_4px_14px_0_rgb(234,88,12,0.39)] transition-all duration-300 hover:bg-orange-700 hover:shadow-[0_6px_20px_rgba(234,88,12,0.23)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
+                                className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--remal-orange)] px-6 py-2.5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.25)] transition-all duration-300 hover:bg-[#d86522] hover:shadow-[0_12px_24px_rgba(232,117,45,0.32)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     تحديد الغرف <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />
@@ -382,6 +353,7 @@ export default function App() {
     };
 
     const openHotelDetails = (hotel) => {
+        trackBookingEvent('hotel_view_clicked');
         const hid = hotel.hid || hotel.id;
         const params = new URLSearchParams({
             checkin: searchParams?.checkin || '',
@@ -392,15 +364,8 @@ export default function App() {
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
-    const rooms = (hotelPage?.rates || hotelPage?.hotel?.rates || []).map((rate) => ({
-        name: rate.room_name || rate.name,
-        hotel: selectedHotel,
-        price: getRatePrice(rate),
-        book_hash: getRateHash(rate),
-        adults: rate.rooms?.[0]?.adults || 2,
-        amenities: getAmenities(rate),
-        freeCancellation: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before
-    }));
+    const rooms = (hotelPage?.rates || hotelPage?.hotel?.rates || [])
+        .map(rate => normalizeRoom(rate, selectedHotel, searchParams?.guests || [{ adults: 2, children: [] }]));
 
     const visibleHotels = hotels.filter((hotel) => {
         const stars = Number(hotel.stars || hotel.star_rating || 0);
@@ -481,7 +446,7 @@ export default function App() {
                     <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
                         
                         {/* Filters Sidebar (Clean UI & Progressive Disclosure) */}
-                        <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
+                        <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 w-full max-w-full border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
                             <div className="rounded-3xl bg-white shadow-sm border border-slate-100 overflow-hidden">
                                 <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                     <h3 className="text-lg font-black text-slate-900">تصفية النتائج</h3>
@@ -571,7 +536,7 @@ export default function App() {
                             {lowestHotel && visibleHotels.length > 1 && (
                                 <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-5 border border-emerald-100/50 shadow-sm">
                                     <div className="min-w-0">
-                                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-600">أرخص خيار مطابق لبحثك</p>
+                                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-600">أقل إجمالي مطابق للفلاتر</p>
                                         <p className="mt-1 break-words text-lg font-black text-emerald-900">{lowestHotel.name}</p>
                                     </div>
                                     <PriceDisplay amount={rateAmount(cheapestRate(lowestHotel.rates))} currency={SEARCH_CURRENCY} displayCurrency={displayCurrency} displayRates={displayRates} className="text-2xl font-black text-emerald-700 tracking-tight" />
