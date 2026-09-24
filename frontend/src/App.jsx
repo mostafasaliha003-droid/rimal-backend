@@ -4,6 +4,8 @@ import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
 import PriceDisplay from './components/PriceDisplay';
+import AccountCenter from './components/AccountCenter';
+import LoyaltyDashboard from './components/LoyaltyDashboard';
 const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
 import { StarIcon } from './components/Icons';
@@ -386,9 +388,29 @@ export default function App() {
 
     const hotelRoute = pathname.match(/^\/hotel\/([^/]+)$/);
     const checkoutRoute = pathname === '/checkout';
+    const accountRoute = pathname === '/account';
+    const loyaltyRoute = pathname === '/loyalty';
+    const navigateTo = path => {
+        const pathnameOnly = path.split('#')[0] || '/';
+        window.history.pushState({}, '', path);
+        setPathname(pathnameOnly);
+    };
+
+    if (accountRoute) {
+        return <>
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
+            <AccountCenter onNavigate={navigateTo} />
+        </>;
+    }
+    if (loyaltyRoute) {
+        return <>
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
+            <LoyaltyDashboard onNavigate={navigateTo} />
+        </>;
+    }
     if (checkoutRoute) {
         return <>
-            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} />
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <Checkout
                 booking={window.history.state?.checkout}
                 displayCurrency={displayCurrency}
@@ -401,7 +423,7 @@ export default function App() {
     }
     if (hotelRoute) {
         return <>
-            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} />
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <HotelDetails
                 hid={decodeURIComponent(hotelRoute[1])}
                 displayCurrency={displayCurrency}
@@ -416,7 +438,7 @@ export default function App() {
 
     return (
         <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
-            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} />
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <main>
                 <HeroSearchSection onSearch={handleSearch} initialSearch={searchParams} />
                 <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-24 pt-10 lg:px-10 lg:pt-12">

@@ -126,6 +126,18 @@ export const lookupRate = async (bookHash, language = 'en') =>
         params: { language }
     }));
 
+export const login = async credentials =>
+    responseData(await api.post('/auth/login', credentials));
+
+export const registerSendCode = async registration =>
+    responseData(await api.post('/auth/register-send-code', registration));
+
+export const verifyRegistration = async (email, code) =>
+    responseData(await api.post('/auth/verify-and-register', { email, code }));
+
+export const getUserProfile = async email =>
+    responseData(await api.get('/user/profile', { params: { email } }));
+
 export { api };
 
 export default {
@@ -141,5 +153,9 @@ export default {
     prebookSerp,
     createZiinaIntent,
     getCheckoutStatus,
-    lookupRate
+    lookupRate,
+    login,
+    registerSendCode,
+    verifyRegistration,
+    getUserProfile
 };
