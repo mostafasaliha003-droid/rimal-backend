@@ -6,6 +6,7 @@ const zlib = require('zlib');
 const mongoose = require('mongoose');
 const { pipeline } = require('stream/promises');
 const logger = require('./loggerService');
+const { normalizeSupplierImage } = require('./supplierImages');
 
 const hotelSchema = new mongoose.Schema({
     hid: { type: String, required: true, index: true },
@@ -33,7 +34,7 @@ function pickImage(hotel) {
     const image = (hotel.images && hotel.images[0])
         || (hotel.images_ext && hotel.images_ext[0] && (hotel.images_ext[0].url || hotel.images_ext[0]))
         || '';
-    return typeof image === 'string' ? image.replace(/\{size\}/gi, '2048x1536') : '';
+    return normalizeSupplierImage(image);
 }
 
 function toStaticOperation(hotel) {

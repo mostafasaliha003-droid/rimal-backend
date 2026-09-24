@@ -6,6 +6,7 @@ const mongoose = require('mongoose');
 const client = require('./services/ratehawkClient');
 const ratehawkService = require('./services/ratehawkService');
 const logger = require('./services/loggerService');
+const { normalizeSupplierImage } = require('./services/supplierImages');
 
 const hotelSchema = new mongoose.Schema({
     hid: { type: String, required: true, index: true },
@@ -148,7 +149,7 @@ function pickImage(hotel) {
     const image = (hotel.images && hotel.images[0])
         || (hotel.images_ext && hotel.images_ext[0] && (hotel.images_ext[0].url || hotel.images_ext[0]))
         || '';
-    return typeof image === 'string' ? image.replace(/\{size\}/gi, '2048x1536') : '';
+    return normalizeSupplierImage(image);
 }
 
 function toHotelOperation(hotel) {

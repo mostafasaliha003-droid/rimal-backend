@@ -1,5 +1,6 @@
 // services/mappingService.js
 const logger = require('./loggerService'); 
+const { collectSupplierImages } = require('./supplierImages');
 
 // ==========================================
 // 💱 0. محرك تحويل العملات (Currency Engine) 
@@ -234,17 +235,12 @@ function parseMetapolicy(metapolicyStruct) {
 // 🔄 2. محول البيانات الشامل (Universal Data Adapter)
 // ==========================================
 function standardizeHotelData(rawHotel) {
-    const imageValues = [
-        ...(Array.isArray(rawHotel.images) ? rawHotel.images : []),
-        ...(Array.isArray(rawHotel.images_ext) ? rawHotel.images_ext : []),
+    const images = collectSupplierImages(
+        rawHotel.images,
+        rawHotel.images_ext,
         rawHotel.image,
         rawHotel.img
-    ];
-    const images = imageValues
-        .map(value => typeof value === 'string' ? value : value?.url || value?.src || '')
-        .map(value => value.trim().replace(/\{size\}/gi, '2048x1536'))
-        .filter(value => value && !/images\.unsplash\.com|photo-1566073771259-6a8506099945|33036666\.jpg|35165972\.jpg/i.test(value))
-        .filter((value, index, values) => values.indexOf(value) === index);
+    );
     let standardHotel = {
         provider: "unknown",
         hotelId: "",
@@ -255,6 +251,8 @@ function standardizeHotelData(rawHotel) {
         lng: rawHotel.lng || rawHotel.longitude || 55.2708,
         image: images[0] || '',
         images,
+        staticData: rawHotel.staticData || {},
+        room_groups: rawHotel.room_groups || rawHotel.staticData?.room_groups || [],
         metapolicy: parseMetapolicy(rawHotel.metapolicy_struct || rawHotel.metapolicy),
         rooms: []
     };
@@ -319,10 +317,21 @@ function standardizeHotelData(rawHotel) {
                 freeCancellation: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before !== null,
                 formattedPolicy: rate.payment_options?.payment_types?.[0]?.cancellation_penalties?.free_cancellation_before ? "إلغاء مجاني متاح" : "غير قابل للاسترداد",
                 paymentType: rate.payment_options?.payment_types?.[0]?.tax_data?.taxes?.length > 0 ? "AT" : "HOTEL",
-                images: [
-                    ...(Array.isArray(rate.images) ? rate.images : []),
-                    ...(Array.isArray(rate.images_ext) ? rate.images_ext : [])
-                ],
+                images: collectSupplierImages(
+                    rate.images,
+                    rate.images_ext,
+                    rate.room_images,
+                    rate.room_data?.images,
+                    rate.room_data?.images_ext,
+                    rate.room?.images,
+                    rate.room?.images_ext,
+                    rate.room_info?.images,
+                    rate.room_info?.images_ext,
+                    rate.room_group?.images,
+                    rate.room_group?.images_ext,
+                    rate.room_group_data?.images,
+                    rate.room_group_data?.images_ext
+                ),
                 originalData: rate
             });
         });

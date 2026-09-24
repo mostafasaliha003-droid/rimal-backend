@@ -4,6 +4,7 @@ const PLACEHOLDER_IMAGE_PATTERNS = [
     /33036666\.jpg/i,
     /35165972\.jpg/i
 ];
+const SUPPLIER_IMAGE_SIZE = '1920x1080';
 
 function rawImageValue(value) {
     if (typeof value === 'string') return value;
@@ -20,14 +21,26 @@ export function normalizeImageUrl(value) {
     const raw = rawImageValue(value).trim();
     if (!raw || isPlaceholderImage(raw)) return '';
 
-    const image = raw.replace(/\{size\}/gi, '2048x1536');
+    let image = raw.replace(/\{size\}/gi, SUPPLIER_IMAGE_SIZE);
     if (image.startsWith('//')) return `https:${image}`;
-    if (/^https?:\/\//i.test(image)) return image;
+    if (/^https?:\/\//i.test(image)) {
+        try {
+            const url = new URL(image);
+            if (/\.(?:worldota|ratehawk)\.net$/i.test(url.hostname)) {
+                url.hostname = 'cdn.worldota.net';
+                url.pathname = url.pathname
+                    .replace(/\/t\/\d+x\d+(?=\/)/i, `/t/${SUPPLIER_IMAGE_SIZE}`)
+                    .replace(/\/\d+x\d+(?=\/)/i, `/${SUPPLIER_IMAGE_SIZE}`);
+                return url.toString();
+            }
+        } catch {
+            return '';
+        }
+        return image;
+    }
 
-    const path = image.replace(/^\/+/, '');
-    return path.startsWith('content/')
-        ? `https://cdn.ratehawk.net/t/2048x1536/${path}`
-        : `https://cdn.worldota.net/2048x1536/${path}`;
+    const path = image.replace(/^\/+/, '').replace(/^t\/\d+x\d+\//i, '');
+    return `https://cdn.worldota.net/t/${SUPPLIER_IMAGE_SIZE}/${path}`;
 }
 
 function collectImageValues(value, result) {

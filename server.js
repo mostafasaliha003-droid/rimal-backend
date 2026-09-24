@@ -23,6 +23,7 @@ const { createMidofficeWebhookRouter } = require('./services/midofficeWebhookSer
 const logger = require('./services/loggerService'); 
 const mappingService = require('./services/mappingService'); 
 const securityService = require('./services/securityService'); 
+const { normalizeSupplierImage, collectSupplierImages } = require('./services/supplierImages');
 const createFrontendRouter = require('./services/frontendService');
 const corsPolicy = require('./services/corsPolicy');
 const createBookingRouter = require('./services/bookingRoutes');
@@ -500,16 +501,7 @@ app.post('/api/search/rates/geo', verifyAPIKey, securityService.searchLimiter, a
 });
 
 function formatHotelImage(value) {
-    const raw = typeof value === 'string' ? value : value?.url || value?.src || value?.image || value?.photo || '';
-    if (!raw.trim()) return '';
-    if (/images\.unsplash\.com|photo-1566073771259-6a8506099945|33036666\.jpg|35165972\.jpg/i.test(raw)) return '';
-    const image = raw.trim().replace(/\{size\}/gi, '2048x1536');
-    if (image.startsWith('//')) return `https:${image}`;
-    if (/^https?:\/\//i.test(image)) return image;
-    const imagePath = image.replace(/^\/+/, '');
-    return imagePath.startsWith('content/')
-        ? `https://cdn.ratehawk.net/t/2048x1536/${imagePath}`
-        : `https://cdn.worldota.net/2048x1536/${imagePath}`;
+    return normalizeSupplierImage(value);
 }
 
 function firstHotelString(...values) {
@@ -517,10 +509,7 @@ function firstHotelString(...values) {
 }
 
 function hotelImageStrings(...values) {
-    return values.flatMap(value => {
-        const items = Array.isArray(value) ? value : [value];
-        return items.map(formatHotelImage).filter(Boolean);
-    }).filter((image, index, images) => images.indexOf(image) === index);
+    return collectSupplierImages(...values);
 }
 
 async function enrichRateHotels(hotels) {
