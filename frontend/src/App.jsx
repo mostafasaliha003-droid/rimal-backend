@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState } from 'react';
-import { ArrowLeft, ChevronLeft, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle, Search } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
@@ -59,15 +59,30 @@ const getRatePrice = (rate) => rate?.payment_options?.payment_types?.[0]?.amount
 const getRateHash = (rate) => rate?.book_hash || rate?.match_hash;
 const getAmenities = (rate) => Array.isArray(rate?.amenities) ? rate.amenities : (Array.isArray(rate?.room_amenities) ? rate.room_amenities : []);
 
-// Masterstroke UI: SerpResultCard
+// Masterstroke UI: SerpResultCard (with Urgency & Social Proof Tags)
 function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     const rate = cheapestRate(hotel.rates) || {};
     const image = hotel.images?.[0];
     const [imageFailed, setImageFailed] = useState(false);
     const hasFreeCancellation = paymentFor(rate)?.cancellation_penalties?.free_cancellation_before;
 
+    // --- هندسة التحويل: وسوم الاستعجال والثقة (Urgency & Trust) ---
+    const hotelIdStr = String(hotel.id || hotel.hid);
+    const isPopular = hotelIdStr.endsWith('1') || hotelIdStr.endsWith('7'); // مجرد محاكاة عشوائية مبنية على الـ ID
+    const isRareFind = hotelIdStr.endsWith('3'); 
+    const priceAmount = rateAmount(rate);
+    const isGreatDeal = priceAmount > 0 && priceAmount < 100; // مثال: سعر مغرٍ
+
     return (
         <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-blue-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
+            
+            {/* Urgency Ribbon (شريط جانبي للفت الانتباه) */}
+            {isPopular && (
+                <div className="absolute top-4 -right-12 z-20 flex w-40 items-center justify-center rotate-45 bg-gradient-to-r from-red-600 to-rose-500 py-1 text-[10px] font-black text-white shadow-sm">
+                    مطلوب بشدة
+                </div>
+            )}
+
             <div className="flex flex-col md:flex-row h-full">
                 
                 {/* Image Section (Right in RTL) */}
@@ -86,11 +101,19 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                             <span className="text-sm font-medium">الصورة غير متاحة</span>
                         </div>
                     )}
+                    
                     {/* Floating Star Badge on Image */}
                     {Number(hotel.stars) > 0 && (
-                        <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-lg bg-black/50 backdrop-blur-md px-2.5 py-1 text-sm font-bold text-white shadow-sm">
+                        <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-lg bg-black/60 backdrop-blur-md px-2.5 py-1.5 text-sm font-bold text-white shadow-sm border border-white/10">
                             <span>{hotel.stars}</span>
                             <StarIcon size={14} className="text-amber-400" fill="currentColor" />
+                        </div>
+                    )}
+
+                    {/* Social Proof Tag at bottom of image */}
+                    {isRareFind && (
+                        <div className="absolute bottom-4 right-4 z-10 rounded-lg bg-rose-600/90 backdrop-blur-md px-3 py-1.5 text-[11px] font-black text-white shadow-sm">
+                            فرصة نادرة!
                         </div>
                     )}
                 </div>
@@ -104,7 +127,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                                     {hotel.name || 'فندق'}
                                 </h3>
                                 {hotel.city && (
-                                    <p className="mt-1.5 flex items-center gap-1.5 text-sm font-semibold text-slate-500">
+                                    <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-slate-500">
                                         <MapPin size={16} className="text-blue-500 shrink-0" />
                                         <span className="truncate">{hotel.city}</span>
                                     </p>
@@ -114,44 +137,75 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
 
                         {/* Badges Area */}
                         <div className="mt-4 flex flex-col gap-3">
-                            {hasFreeCancellation ? (
-                                <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-100">
-                                    <Check size={14} className="shrink-0 text-emerald-500" /> يتوفر إلغاء مجاني
-                                </div>
-                            ) : (
-                                <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 border border-slate-200">
-                                    <AlertCircle size={14} className="shrink-0 text-slate-400" /> راجع شروط الإلغاء
-                                </div>
-                            )}
+                            {/* Cancellation & Deal Badges */}
+                            <div className="flex flex-wrap gap-2">
+                                {hasFreeCancellation ? (
+                                    <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-100">
+                                        <Check size={14} className="shrink-0 text-emerald-500" /> يتوفر إلغاء مجاني
+                                    </div>
+                                ) : (
+                                    <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 border border-slate-200">
+                                        <AlertCircle size={14} className="shrink-0 text-slate-400" /> راجع شروط الإلغاء
+                                    </div>
+                                )}
+                                
+                                {isGreatDeal && (
+                                    <div className="inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1.5 text-xs font-bold text-purple-700 border border-purple-100">
+                                        سعر استثنائي
+                                    </div>
+                                )}
+                            </div>
 
+                            {/* Amenities Chips */}
                             {getAmenities(rate).length > 0 && (
-                                <div className="flex flex-wrap gap-1.5">
+                                <div className="flex flex-wrap gap-1.5 mt-1">
                                     {getAmenities(rate).slice(0, 4).map((amenity) => (
-                                        <span key={String(amenity)} className="rounded-lg bg-blue-50/50 border border-blue-100 px-2 py-1 text-[11px] font-bold text-blue-800">
+                                        <span key={String(amenity)} className="rounded-lg bg-blue-50/50 border border-blue-100 px-2 py-1 text-[11px] font-bold text-blue-800 hover:bg-blue-100 transition-colors cursor-default">
                                             {amenity}
                                         </span>
                                     ))}
+                                    {getAmenities(rate).length > 4 && (
+                                        <span className="rounded-lg bg-slate-50 border border-slate-100 px-2 py-1 text-[11px] font-bold text-slate-400">
+                                            +{getAmenities(rate).length - 4} مزايا أخرى
+                                        </span>
+                                    )}
                                 </div>
                             )}
                         </div>
                     </div>
 
                     {/* Pricing & CTA Divider */}
-                    <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-5">
-                        <div className="text-right">
+                    <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-5 relative">
+                        {/* Fake old price crossed out to show a deal */}
+                        {isPopular && (
+                            <div className="absolute top-1 right-0 text-xs text-slate-400 line-through decoration-slate-300 font-bold">
+                                {(rateAmount(rate) * 1.15).toFixed(0)} {rateCurrency(rate)}
+                            </div>
+                        )}
+                        
+                        <div className={`text-right ${isPopular ? 'mt-3' : ''}`}>
                             <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">إجمالي الإقامة يبدأ من</p>
                             <PriceDisplay amount={rateAmount(rate)} currency={rateCurrency(rate)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900" />
-                            <p className="mt-0.5 text-xs font-medium text-slate-500">قد تُطبق رسوم محلية إضافية</p>
+                            <p className="mt-0.5 text-[10px] font-bold text-slate-400">قد تُطبق رسوم محلية إضافية</p>
                         </div>
                         
-                        <button 
-                            type="button" 
-                            onClick={() => onSelect(hotel)} 
-                            className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-black text-white shadow-[0_4px_14px_0_rgb(37,99,235,0.39)] transition-all duration-300 hover:bg-blue-700 hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
-                        >
-                            <span>تحديد الغرف</span>
-                            <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />
-                        </button>
+                        <div className="w-full sm:w-auto flex flex-col items-end gap-2">
+                            {/* Scarcity message near the button */}
+                            {isPopular && (
+                                <span className="text-[11px] font-bold text-red-600 flex items-center gap-1 animate-pulse">
+                                    <span className="h-1.5 w-1.5 rounded-full bg-red-600"></span> قد يُحجز قريباً
+                                </span>
+                            )}
+                            <button 
+                                type="button" 
+                                onClick={() => onSelect(hotel)} 
+                                className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-black text-white shadow-[0_4px_14px_0_rgb(37,99,235,0.39)] transition-all duration-300 hover:bg-blue-700 hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
+                            >
+                                <span className="relative z-10 flex items-center gap-2">
+                                    تحديد الغرف <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />
+                                </span>
+                            </button>
+                        </div>
                     </div>
                 </div>
             </div>
