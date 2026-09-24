@@ -24,6 +24,10 @@ const CONTENT_SANDBOX = new URL(BASE_URL).hostname === 'api-sandbox.ratehawk.com
 
 // Default per-endpoint timeouts (ms). Booking/cancel need longer windows.
 const DEFAULT_TIMEOUT = 20000;
+const configuredSerpTimeout = Number.parseInt(process.env.RATEHAWK_SERP_TIMEOUT_MS || '60000', 10);
+const SERP_TIMEOUT = Number.isFinite(configuredSerpTimeout)
+    ? Math.min(120000, Math.max(30000, configuredSerpTimeout))
+    : 60000;
 const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
 
 // ETG error codes that are safe to retry (transient / non-final).
@@ -654,14 +658,14 @@ async function suggestHotelAndRegion(query, language = 'en') {
         ? response.data.data
         : response.data;
 }
-const serpRegion = (data) => call('post', '/api/b2b/v3/search/serp/region/', { data, timeout: 30000 });
-const serpHotels = (data) => call('post', '/api/b2b/v3/search/serp/hotels/', { data, timeout: 30000 });
+const serpRegion = (data) => call('post', '/api/b2b/v3/search/serp/region/', { data, timeout: SERP_TIMEOUT });
+const serpHotels = (data) => call('post', '/api/b2b/v3/search/serp/hotels/', { data, timeout: SERP_TIMEOUT });
 async function searchHotels(params = {}) {
     let response;
     try {
         response = await call('post', '/api/b2b/v3/search/serp/hotels/', {
             data: params,
-            timeout: 30000
+            timeout: SERP_TIMEOUT
         });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {
@@ -690,7 +694,7 @@ async function searchHotelsByGeo(params = {}) {
     try {
         response = await call('post', '/api/b2b/v3/search/serp/geo/', {
             data: params,
-            timeout: 30000
+            timeout: SERP_TIMEOUT
         });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {
@@ -719,7 +723,7 @@ async function searchHotelsByRegion(params = {}) {
     try {
         response = await call('post', '/api/b2b/v3/search/serp/region/', {
             data: params,
-            timeout: 30000
+            timeout: SERP_TIMEOUT
         });
     } catch (error) {
         if (['invalid_params', 'hotels_not_found', 'core_search_error'].includes(error.ratehawkError)) {

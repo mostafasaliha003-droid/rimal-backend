@@ -5,7 +5,7 @@
   "main": "server.js",
   "scripts": {
     "start": "node server.js",
-    "build": "npm --prefix frontend run build",
+    "build": "npm --prefix frontend run build && npm run prepare:site",
     "prepare:site": "node syncFrontendBuild.js",
     "check:site": "node syncFrontendBuild.js --check",
     "sync:filtered-hotels": "node syncFilteredHotels.js",

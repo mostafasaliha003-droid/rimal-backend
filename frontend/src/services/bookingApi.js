@@ -6,7 +6,9 @@ const secureKey = import.meta.env.VITE_REMAL_SECURE_KEY || 'rml_live_9f8b7c6d5e4
 
 const api = axios.create({
     baseURL: apiBaseUrl,
-    timeout: 45000,
+    // RateHawk SERP searches can take up to the backend's configured
+    // RATEHAWK_SERP_TIMEOUT_MS (60s by default), plus network overhead.
+    timeout: 75000,
     headers: {
         'Content-Type': 'application/json',
         'x-api-key': secureKey
