@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle, Search } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle, Search } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
@@ -189,22 +189,6 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                                     </div>
                                 )}
                             </div>
-
-                            {/* Amenities Chips */}
-                            {getAmenities(rate).length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mt-1">
-                                    {getAmenities(rate).slice(0, 4).map((amenity) => (
-                                        <span key={String(amenity)} className="rounded-lg bg-blue-50/50 border border-blue-100 px-2 py-1 text-[11px] font-bold text-blue-800 hover:bg-blue-100 transition-colors cursor-default">
-                                            {amenity}
-                                        </span>
-                                    ))}
-                                    {getAmenities(rate).length > 4 && (
-                                        <span className="rounded-lg bg-slate-50 border border-slate-100 px-2 py-1 text-[11px] font-bold text-slate-400">
-                                            +{getAmenities(rate).length - 4} مزايا أخرى
-                                        </span>
-                                    )}
-                                </div>
-                            )}
                         </div>
                     </div>
 
@@ -263,6 +247,11 @@ export default function App() {
     const [maxPrice, setMaxPrice] = useState('');
     const [freeCancellation, setFreeCancellation] = useState(false);
     const [limit, setLimit] = useState(20);
+
+    // States for Accordion Filters
+    const [priceFilterOpen, setPriceFilterOpen] = useState(true);
+    const [starsFilterOpen, setStarsFilterOpen] = useState(true);
+    const [amenitiesFilterOpen, setAmenitiesFilterOpen] = useState(true);
 
     useEffect(() => {
         try { localStorage.setItem('remal_display_currency', displayCurrency); } catch {}
@@ -382,6 +371,7 @@ export default function App() {
             && (!freeCancellation || !!paymentFor(best)?.cancellation_penalties?.free_cancellation_before);
     }).sort((first, second) => sort === 'price' ? rateAmount(cheapestRate(first.rates)) - rateAmount(cheapestRate(second.rates)) : sort === 'stars' ? Number(second.stars || 0) - Number(first.stars || 0) : 0);
     const lowestHotel = visibleHotels.reduce((best, hotel) => !best || rateAmount(cheapestRate(hotel.rates)) < rateAmount(cheapestRate(best.rates)) ? hotel : best, null);
+    
     const clearFilters = () => {
         setStarFilter(0);
         setAmenityFilter(false);
@@ -450,50 +440,84 @@ export default function App() {
 
                     <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
                         
-                        {/* Filters Sidebar (Masterstroke UI) */}
+                        {/* Filters Sidebar (Clean UI & Progressive Disclosure) */}
                         <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
-                            <div className="rounded-3xl bg-white p-6 shadow-sm border border-slate-100">
-                                <div className="mb-6 flex items-center justify-between">
+                            <div className="rounded-3xl bg-white shadow-sm border border-slate-100 overflow-hidden">
+                                <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
                                     <h3 className="text-lg font-black text-slate-900">تصفية النتائج</h3>
-                                    <button type="button" onClick={clearFilters} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700">
-                                        <RotateCcw size={14} /> إعادة ضبط
-                                    </button>
+                                    {(starFilter !== 0 || amenityFilter || maxPrice || freeCancellation) && (
+                                        <button type="button" onClick={clearFilters} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors">
+                                            <RotateCcw size={14} /> مسح الكل
+                                        </button>
+                                    )}
                                 </div>
-                                <div className="space-y-8 text-sm">
+                                
+                                <div className="divide-y divide-slate-100">
                                     
-                                    <div className="space-y-3">
-                                        <label className="block text-sm font-bold text-slate-700">الحد الأعلى للسعر ({SEARCH_CURRENCY})</label>
-                                        <input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 p-3.5 font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 bg-slate-50" />
-                                    </div>
+                                    {/* Price Filter Accordion */}
+                                    <div className="p-5">
+                                        <button type="button" onClick={() => setPriceFilterOpen(!priceFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
+                                            السعر والخيارات الأساسية
+                                            {priceFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                                        </button>
+                                        
+                                        {priceFilterOpen && (
+                                            <div className="mt-5 space-y-5 animate-in slide-in-from-top-2 fade-in duration-200">
+                                                <div className="space-y-3">
+                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">الحد الأعلى للسعر ({SEARCH_CURRENCY})</label>
+                                                    <input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 p-3.5 font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 bg-slate-50/50 transition-all hover:bg-white" />
+                                                </div>
 
-                                    <label className="flex items-center gap-3 cursor-pointer group">
-                                        <div className={`relative flex h-6 w-11 items-center rounded-full transition-colors ${freeCancellation ? 'bg-blue-600' : 'bg-slate-300'}`}>
-                                            <input type="checkbox" className="peer sr-only" checked={freeCancellation} onChange={event => setFreeCancellation(event.target.checked)} />
-                                            <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${freeCancellation ? 'translate-x-1' : '-translate-x-6'}`} />
-                                        </div>
-                                        <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">إلغاء مجاني فقط</span>
-                                    </label>
-
-                                    <div className="border-t border-slate-100 pt-6">
-                                        <p className="mb-4 text-sm font-bold text-slate-700">التصنيف الأدنى (نجوم)</p>
-                                        <div className="flex gap-2">
-                                            {[3, 4, 5].map((star) => (
-                                                <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-sm font-black transition-all ${starFilter === star ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-sm' : 'border-slate-200 bg-white text-slate-500 hover:border-amber-300 hover:text-amber-700'}`}>
-                                                    {star} <StarIcon size={14} className={starFilter === star ? 'text-amber-500' : 'text-slate-300'} fill="currentColor" />
-                                                </button>
-                                            ))}
-                                        </div>
-                                    </div>
-
-                                    <div className="border-t border-slate-100 pt-6">
-                                        <label className="flex items-center gap-3 cursor-pointer group">
-                                            <div className="relative flex items-center justify-center">
-                                                <input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="peer sr-only" />
-                                                <div className={`h-5 w-5 rounded border-2 transition-colors ${amenityFilter ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white group-hover:border-blue-500'}`}></div>
-                                                <Check size={14} className={`absolute text-white transition-opacity ${amenityFilter ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
+                                                <label className="flex items-center justify-between cursor-pointer group bg-slate-50 hover:bg-blue-50/50 p-3 rounded-xl transition-colors border border-slate-100 hover:border-blue-100">
+                                                    <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">إلغاء مجاني فقط</span>
+                                                    <div className={`relative flex h-6 w-11 items-center rounded-full transition-colors ${freeCancellation ? 'bg-blue-600' : 'bg-slate-300'}`}>
+                                                        <input type="checkbox" className="peer sr-only" checked={freeCancellation} onChange={event => setFreeCancellation(event.target.checked)} />
+                                                        <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${freeCancellation ? 'translate-x-1' : '-translate-x-6'}`} />
+                                                    </div>
+                                                </label>
                                             </div>
-                                            <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">يحتوي على مزايا للغرفة</span>
-                                        </label>
+                                        )}
+                                    </div>
+
+                                    {/* Stars Filter Accordion */}
+                                    <div className="p-5">
+                                        <button type="button" onClick={() => setStarsFilterOpen(!starsFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
+                                            تصنيف الفندق (نجوم)
+                                            {starsFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                                        </button>
+                                        
+                                        {starsFilterOpen && (
+                                            <div className="mt-5 animate-in slide-in-from-top-2 fade-in duration-200">
+                                                <div className="flex gap-2">
+                                                    {[3, 4, 5].map((star) => (
+                                                        <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-sm font-black transition-all ${starFilter === star ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-sm scale-[1.02]' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-amber-300 hover:text-amber-700 hover:bg-white'}`}>
+                                                            {star} <StarIcon size={14} className={starFilter === star ? 'text-amber-500' : 'text-slate-300'} fill="currentColor" />
+                                                        </button>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Amenities Filter Accordion */}
+                                    <div className="p-5">
+                                        <button type="button" onClick={() => setAmenitiesFilterOpen(!amenitiesFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
+                                            مزايا الغرفة
+                                            {amenitiesFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
+                                        </button>
+                                        
+                                        {amenitiesFilterOpen && (
+                                            <div className="mt-5 animate-in slide-in-from-top-2 fade-in duration-200">
+                                                <label className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-slate-50 rounded-lg transition-colors -mx-2">
+                                                    <div className="relative flex items-center justify-center">
+                                                        <input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="peer sr-only" />
+                                                        <div className={`h-5 w-5 rounded border-2 transition-colors ${amenityFilter ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white group-hover:border-blue-500'}`}></div>
+                                                        <Check size={14} className={`absolute text-white transition-opacity ${amenityFilter ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
+                                                    </div>
+                                                    <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">يحتوي على مزايا للغرفة</span>
+                                                </label>
+                                            </div>
+                                        )}
                                     </div>
 
                                 </div>
