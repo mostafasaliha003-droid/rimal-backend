@@ -63,24 +63,42 @@ test('serves committed site and SPA routes when Render has no frontend/dist', as
     }
     const script = await fetch(`${base}/assets/app.js`);
     assert.match(script.headers.get('content-type'), /javascript/);
+    assert.equal(script.headers.get('cache-control'), 'public, max-age=31536000, immutable');
     const worker = await fetch(`${base}/sw.js`);
     assert.equal(worker.headers.get('cache-control'), 'no-cache');
+    const index = await fetch(`${base}/index.html`);
+    assert.equal(index.headers.get('cache-control'), 'no-store, no-cache, must-revalidate, proxy-revalidate');
 });
 
 test('prefers the local frontend build when it exists', async context => {
     const base = await startSite(context, true);
     assert.equal(await (await fetch(base)).text(), '<html>built site</html>');
-    assert.equal(await (await fetch(`${base}/assets/app.js`)).text(), 'built asset');
+    const asset = await fetch(`${base}/assets/app.js`);
+    assert.equal(await asset.text(), 'built asset');
+    assert.equal(asset.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+    const distAsset = await fetch(`${base}/dist/assets/app.js`);
+    assert.equal(await distAsset.text(), 'built asset');
+    assert.equal(distAsset.headers.get('cache-control'), 'public, max-age=31536000, immutable');
     assert.equal(await (await fetch(`${base}/sw.js`)).text(), 'built service worker');
+    const index = await fetch(`${base}/index.html`);
+    assert.equal(index.headers.get('cache-control'), 'no-store, no-cache, must-revalidate, proxy-revalidate');
+    const missingAsset = await fetch(`${base}/assets/old-build.js`);
+    assert.equal(missingAsset.status, 200);
+    assert.equal(await missingAsset.text(), '<html>built site</html>');
+    assert.equal(missingAsset.headers.get('cache-control'), 'no-store, no-cache, must-revalidate, proxy-revalidate');
 });
 
-test('root fallback never exposes server files or returns HTML for missing assets and APIs', async context => {
+test('root fallback never exposes server files and missing assets recover through index.html', async context => {
     const base = await startSite(context, false);
-    for (const route of ['/server.js', '/package.json', '/services/paymentService.js', '/.env', '/.git/config', '/assets/missing.js']) {
+    for (const route of ['/server.js', '/package.json', '/services/paymentService.js', '/.env', '/.git/config']) {
         const response = await fetch(`${base}${route}`);
         assert.equal(response.status, 404, route);
         assert.doesNotMatch(await response.text(), /PRIVATE|root site/);
     }
+    const missingAsset = await fetch(`${base}/assets/missing.js`);
+    assert.equal(missingAsset.status, 200);
+    assert.equal(await missingAsset.text(), '<html>root site</html>');
+    assert.equal(missingAsset.headers.get('cache-control'), 'no-store, no-cache, must-revalidate, proxy-revalidate');
     for (const route of ['/api', '/api/missing']) {
         const response = await fetch(`${base}${route}`);
         assert.equal(response.status, 404, route);

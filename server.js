@@ -1105,7 +1105,10 @@ app.use('/api/v1/bookings', createBookingRouter.createPostBookingRouter());
 app.get(['/admin', '/admin.html'], (req, res) => { res.sendFile(path.join(__dirname, 'admin.html')); });
 app.get('/style.css', (req, res) => { res.sendFile(path.join(__dirname, 'style.css')); });
 app.get('/logo.jpg', (req, res) => { res.sendFile(path.join(__dirname, 'logo.jpg')); });
-app.use(createFrontendRouter(__dirname));
+// The frontend router resolves frontend/dist/index.html and frontend/dist/assets
+// from this absolute project root, falling back to the committed root site when
+// a Render deployment has not produced a local frontend build.
+app.use(createFrontendRouter(path.resolve(__dirname)));
 
 // ==========================================
 // 🚀 11. تشغيل السيرفر المدمج
