@@ -2,12 +2,15 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowLeft, LoaderCircle, MapPin, CalendarDays, Users, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import DatePicker from 'react-datepicker';
 import { addDays, format, parseISO, startOfDay } from 'date-fns';
-import { arSA } from 'date-fns/locale';
+import { arSA, enUS, es } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
 import BookingAPI from '../services/bookingApi';
 import { trackBookingEvent } from '../services/analytics';
+import { useLanguage } from '../i18n';
 
 export default function HeroSearchSection({ onSearch, initialSearch }) {
+    const { t, apiLanguage, language, direction } = useLanguage();
+    const dateLocale = language === 'es' ? es : language === 'en' ? enUS : arSA;
     const [query, setQuery] = useState(initialSearch?.query || '');
     const [selectedDestination, setSelectedDestination] = useState(initialSearch?.destination || null);
     const [suggestions, setSuggestions] = useState([]);
@@ -47,7 +50,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
         setLoading(true);
         const timer = window.setTimeout(async () => {
             try {
-                const data = await BookingAPI.suggest(value, 'ar');
+                const data = await BookingAPI.suggest(value, apiLanguage);
                 if (!active) return;
                 const payload = data?.data || data;
                 const suggestionData = Array.isArray(payload)
@@ -63,12 +66,12 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                         : null;
                 };
                 const nextSuggestions = [
-                    ...regions.slice(0, 5).map((item) => ({ label: getLabel(item), hint: 'وجهة سفر', type: 'region', region_id: item.id || item.region_id })),
+                    ...regions.slice(0, 5).map((item) => ({ label: getLabel(item), hint: t('search.destinationType', 'وجهة سفر'), type: 'region', region_id: item.id || item.region_id })),
                     ...hotels.slice(0, 5).map((item) => {
                         const hotelId = getHotelId(item);
                         return hotelId === null ? null : {
                             label: getLabel(item),
-                            hint: 'فندق',
+                            hint: t('search.hotelType', 'فندق'),
                             type: 'hotel',
                             hotel_id: hotelId,
                             hotel_key: item.id || hotelId
@@ -77,7 +80,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                 ].filter((item) => item.label && (item.region_id || item.hotel_id));
                 setSuggestions(nextSuggestions);
                 setError('');
-                setSuggestionError(nextSuggestions.length > 0 ? '' : 'لا توجد وجهات أو فنادق مطابقة. جرّب الاسم بالإنجليزية أو اسماً آخر.');
+                setSuggestionError(nextSuggestions.length > 0 ? '' : t('search.noSuggestions', 'لا توجد وجهات أو فنادق مطابقة. جرّب اسماً آخر.'));
                 const exactSuggestion = nextSuggestions.find((item) => item.label.trim().toLocaleLowerCase() === value.toLocaleLowerCase());
                 if (exactSuggestion) setSelectedDestination(exactSuggestion);
                 setShowSuggestions(nextSuggestions.length > 0);
@@ -86,7 +89,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                 setSuggestions([]);
                 setShowSuggestions(false);
                 setError('');
-                setSuggestionError('تعذر تحميل اقتراحات الوجهة. تحقق من الاتصال وأعد كتابة الوجهة.');
+                setSuggestionError(t('search.suggestionsFailed', 'تعذر تحميل اقتراحات الوجهة. تحقق من الاتصال وأعد كتابة الوجهة.'));
             } finally {
                 if (active) setLoading(false);
             }
@@ -102,21 +105,21 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
         const exactSuggestion = suggestions.find((item) => item.label.trim().toLocaleLowerCase() === normalizedQuery);
         const destination = selectedDestination || exactSuggestion;
         if (!destination || (!destination.region_id && !destination.hotel_id)) {
-            setError(suggestionError || (loading ? 'جارٍ تحميل اقتراحات الوجهة.' : 'اختر وجهة أو فندقاً من قائمة الاقتراحات.'));
+            setError(suggestionError || (loading ? t('search.suggestionLoading', 'جارٍ تحميل اقتراحات الوجهة.') : t('search.destinationRequired', 'اختر وجهة أو فندقاً من قائمة الاقتراحات.')));
             form?.querySelector('#destination-search')?.focus();
             return;
         }
         if (!checkinDate || !checkoutDate) {
-            setError('حدد تاريخ الوصول والمغادرة.');
+            setError(t('search.datesRequired', 'حدد تاريخ الوصول والمغادرة.'));
             form.checkin.focus();
             return;
         }
         if (checkinDate < startOfDay(new Date()) || checkoutDate <= checkinDate) {
-            setError('اختر وصولاً من اليوم فصاعداً ومغادرة بعده بيوم على الأقل.');
+            setError(t('search.invalidDates', 'اختر وصولاً من اليوم فصاعداً ومغادرة بعده بيوم على الأقل.'));
             return;
         }
         if (guests.some(room => room.children.some(age => age === ''))) {
-            setError('حدد عمر كل طفل وقت تسجيل الوصول.');
+            setError(t('search.childAgeRequired', 'حدد عمر كل طفل وقت تسجيل الوصول.'));
             return;
         }
         const search = {
@@ -131,7 +134,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
     };
 
     return (
-        <section id="search" className="hero-search relative isolate overflow-visible py-14 lg:py-24">
+        <section id="search" className="hero-search relative isolate overflow-visible py-14 lg:py-24" dir={direction}>
             {/* Background Layers for Depth & Contrast */}
             <div className="absolute inset-0 -z-10 bg-[url('https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=2200&q=85')] bg-cover bg-center opacity-35" />
             <div className="absolute inset-0 -z-10 bg-gradient-to-br from-[#102a43]/95 via-[#123c55]/90 to-[#0f8fa3]/75" />
@@ -143,19 +146,19 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                     {/* Trust Badge (عكس المخاطرة) */}
                     <div className="inline-flex items-center gap-2 rounded-full border border-white/20 bg-white/10 px-4 py-2 text-xs font-bold text-blue-50 shadow-sm backdrop-blur-md">
                         <Sparkles size={14} className="text-amber-300" />
-                        ابحث، قارن، ثم اختر بثقة
+                        {t('search.badge', 'ابحث، قارن، ثم اختر بثقة')}
                     </div>
                     
                     <h1 className="max-w-3xl text-4xl font-black leading-[1.15] tracking-tight sm:text-6xl">
-                        إقامتك القادمة تبدأ من <span className="text-[#8ee7e8]">اختيار أوضح</span>
+                        {t('search.title', 'إقامتك القادمة تبدأ من اختيار أوضح')}
                     </h1>
                     <p className="mt-5 max-w-2xl text-base font-medium leading-relaxed text-slate-100/85 sm:text-lg">
-                        قارن الأسعار والتوفر وشروط الإلغاء من مكان واحد، ثم انتقل إلى العرض الذي يناسب رحلتك.
+                        {t('search.description', 'قارن الأسعار والتوفر وشروط الإلغاء من مكان واحد، ثم انتقل إلى العرض الذي يناسب رحلتك.')}
                     </p>
                     <div className="mt-6 flex flex-wrap gap-3 text-xs font-bold text-white/80">
-                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">أسعار مباشرة</span>
-                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">تفاصيل قابلة للمقارنة</span>
-                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">تحقق قبل الدفع</span>
+                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">{t('search.directPrices', 'أسعار مباشرة')}</span>
+                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">{t('search.comparableDetails', 'تفاصيل قابلة للمقارنة')}</span>
+                        <span className="rounded-full border border-white/15 bg-white/10 px-3 py-2">{t('search.clearCancellation', 'شروط إلغاء واضحة')}</span>
                     </div>
                 </div>
 
@@ -163,7 +166,7 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                 <div className={isSticky ? 'h-[100px] lg:h-[85px]' : 'hidden'} /> {/* يمنع قفزة المحتوى عند تفعيل العائم */}
                 
                 <div className={`transition-all duration-300 z-50 ${isSticky ? 'fixed top-0 left-0 right-0 bg-white/80 backdrop-blur-2xl shadow-sm border-b border-slate-200/50 py-3 px-4 sm:px-6 lg:px-10 animate-in slide-in-from-top-2' : 'relative w-full'}`}>
-                    <form onSubmit={handleSearch} className="relative w-full mx-auto max-w-7xl z-20" dir="rtl">
+                    <form onSubmit={handleSearch} className="relative w-full mx-auto max-w-7xl z-20" dir={direction}>
                         
                         {/* The Masterstroke Floating Card */}
                         <div className={`search-panel flex flex-col divide-y divide-slate-200/60 border backdrop-blur-xl lg:flex-row lg:items-stretch lg:divide-y-0 transition-all duration-300 ${isSticky ? 'rounded-2xl border-slate-200 bg-white p-1 shadow-lg lg:rounded-full lg:p-1.5' : 'rounded-3xl border-white/70 bg-white/95 p-2 shadow-[0_22px_60px_rgba(7,31,51,0.22)] lg:rounded-[2rem] lg:p-2.5'}`}>
@@ -172,12 +175,12 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                             <label className={`relative flex min-h-[75px] lg:min-h-[80px] flex-1 items-center gap-4 transition-all duration-300 px-6 py-4 ${isSticky ? 'rounded-xl lg:rounded-r-full' : 'rounded-2xl lg:rounded-l-none lg:rounded-r-[2rem]'} ${activeField === 'destination' ? 'bg-white shadow-[0_4px_20px_rgb(0,0,0,0.08)] z-10 scale-[1.02] ring-1 ring-blue-100' : 'hover:bg-slate-50/80 z-0'}`} htmlFor="destination-search">
                                 <MapPin className={`h-6 w-6 shrink-0 transition-colors ${activeField === 'destination' ? 'text-blue-600' : 'text-slate-400'}`} />
                                 <span className="flex min-w-0 flex-1 flex-col text-right">
-                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-0.5">الوجهة</span>
-                                    <input id="destination-search" role="combobox" aria-expanded={showSuggestions && suggestions.length > 0} aria-busy={loading} aria-describedby={error || suggestionError ? 'search-error' : undefined} value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setSuggestions([]); setShowSuggestions(false); setSuggestionError(''); setError(''); }} onFocus={() => { setActiveField('destination'); setShowSuggestions(true); }} onBlur={() => { setActiveField(null); blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 200); }} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#destination-suggestions button')?.focus(); } if (event.key === 'Escape') setShowSuggestions(false); }} placeholder="ابحث عن وجهة أو فندق..." aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full border-0 bg-transparent p-0 pt-1 text-base font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-0" />
+                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-0.5">{t('search.destination', 'الوجهة')}</span>
+                                    <input id="destination-search" role="combobox" aria-expanded={showSuggestions && suggestions.length > 0} aria-busy={loading} aria-describedby={error || suggestionError ? 'search-error' : undefined} value={query} onChange={(event) => { setQuery(event.target.value); setSelectedDestination(null); setSuggestions([]); setShowSuggestions(false); setSuggestionError(''); setError(''); }} onFocus={() => { setActiveField('destination'); setShowSuggestions(true); }} onBlur={() => { setActiveField(null); blurTimer.current = window.setTimeout(() => setShowSuggestions(false), 200); }} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); document.querySelector('#destination-suggestions button')?.focus(); } if (event.key === 'Escape') setShowSuggestions(false); }} placeholder={t('search.destinationPlaceholder', 'ابحث عن وجهة أو فندق...')} aria-autocomplete="list" aria-controls="destination-suggestions" className="w-full border-0 bg-transparent p-0 pt-1 text-base font-bold text-slate-900 placeholder:text-slate-300 outline-none focus:ring-0" />
                                 </span>
                                 {loading && <LoaderCircle size={18} className="animate-spin text-blue-500" />}
                                 {showSuggestions && query.trim().length > 1 && suggestions.length > 0 && (
-                                    <div id="destination-suggestions" role="listbox" aria-label="اقتراحات الوجهات" className="custom-scrollbar absolute inset-x-0 top-[90px] z-50 max-h-80 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-2 text-right shadow-2xl">
+                                    <div id="destination-suggestions" role="listbox" aria-label={t('search.suggestions', 'اقتراحات الوجهات')} className="custom-scrollbar absolute inset-x-0 top-[90px] z-50 max-h-80 overflow-y-auto rounded-2xl border border-slate-100 bg-white p-2 text-right shadow-2xl">
                                         {suggestions.map((item, index) => (
                                             <button type="button" role="option" aria-selected={selectedDestination?.label === item.label} key={`${item.label}-${index}`} onFocus={() => window.clearTimeout(blurTimer.current)} onMouseDown={event => event.preventDefault()} onClick={() => { setQuery(item.label); setSelectedDestination(item); setShowSuggestions(false); setSuggestionError(''); setError(''); }} onKeyDown={event => { if (event.key === 'ArrowDown') { event.preventDefault(); event.currentTarget.nextElementSibling?.focus(); } if (event.key === 'ArrowUp') { event.preventDefault(); event.currentTarget.previousElementSibling?.focus(); } if (event.key === 'Escape') { setShowSuggestions(false); document.getElementById('destination-search')?.focus(); } }} className="flex w-full items-center justify-between gap-3 rounded-xl px-4 py-3 text-right hover:bg-blue-50 transition-colors group">
                                                 <div className="flex items-center gap-3">
@@ -195,11 +198,11 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                             <label className={`relative flex min-h-[75px] lg:min-h-[80px] flex-1 items-center gap-4 lg:border-r border-slate-200/50 px-6 py-4 transition-all duration-300 ${isSticky ? 'rounded-xl lg:rounded-none' : 'rounded-2xl lg:rounded-none'} ${activeField === 'checkin' ? 'bg-white shadow-[0_4px_20px_rgb(0,0,0,0.08)] z-10 scale-[1.02] ring-1 ring-blue-100' : 'hover:bg-slate-50/80 z-0'}`}>
                                 <CalendarDays className={`pointer-events-none h-6 w-6 shrink-0 transition-colors ${activeField === 'checkin' ? 'text-blue-600' : 'text-slate-400'}`} />
                                 <span className="flex min-w-0 flex-1 flex-col text-right">
-                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-0.5">تسجيل الوصول</span>
+                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-0.5">{t('search.arrival', 'تسجيل الوصول')}</span>
                                     <DatePicker
                                         selected={checkinDate}
                                         onChange={date => { setCheckinDate(date); if (date && (!checkoutDate || checkoutDate <= date)) setCheckoutDate(addDays(date, 1)); }}
-                                        locale={arSA}
+                                        locale={dateLocale}
                                         minDate={startOfDay(new Date())}
                                         onFocus={() => setActiveField('checkin')}
                                         onCalendarClose={() => setActiveField(null)}
@@ -219,10 +222,10 @@ export default function HeroSearchSection({ onSearch, initialSearch }) {
                             <label className={`relative flex min-h-[75px] lg:min-h-[80px] flex-1 items-center gap-4 lg:border-r border-slate-200/50 px-6 py-4 transition-all duration-300 ${isSticky ? 'rounded-xl lg:rounded-none' : 'rounded-2xl lg:rounded-none'} ${activeField === 'checkout' ? 'bg-white shadow-[0_4px_20px_rgb(0,0,0,0.08)] z-10 scale-[1.02] ring-1 ring-blue-100' : 'hover:bg-slate-50/80 z-0'}`}>
                                 <CalendarDays className={`pointer-events-none h-6 w-6 shrink-0 transition-colors ${activeField === 'checkout' ? 'text-blue-600' : 'text-slate-400'}`} />
                                 <span className="flex min-w-0 flex-1 flex-col text-right">
-                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-0.5">تسجيل المغادرة</span>
+                                    <span className="text-[11px] font-black uppercase tracking-widest text-slate-500 mb-0.5">{t('search.departure', 'تسجيل المغادرة')}</span>
                                     <DatePicker
                                         selected={checkoutDate}
-                                        locale={arSA}
+                                        locale={dateLocale}
                                         onChange={setCheckoutDate}
                                         onFocus={() => setActiveField('checkout')}
                                         onCalendarClose={() => setActiveField(null)}

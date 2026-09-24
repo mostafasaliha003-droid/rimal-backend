@@ -3,8 +3,10 @@ import { ArrowLeft, Check, Wifi, Info, Coffee, Ban, AlertCircle } from 'lucide-r
 import { BedIcon, UsersIcon, StarIcon } from './Icons'; // تأكد أن StarIcon متوفر هنا
 import PriceDisplay from './PriceDisplay';
 import BookingAPI from '../services/bookingApi'; // تأكد من مسار API الخاص بك
+import { useLanguage } from '../i18n';
 
 export function CancellationPolicy({ cancellation, currency }) {
+    const { t } = useLanguage();
     const deadline = cancellation?.free_cancellation_before;
     return (
         <div className="text-sm">
@@ -12,27 +14,27 @@ export function CancellationPolicy({ cancellation, currency }) {
                 <div className="inline-flex max-w-full items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2 text-xs font-bold text-emerald-800">
                     <Check size={16} className="text-emerald-500 shrink-0" aria-hidden="true" />
                     <span className="min-w-0 break-words leading-tight">
-                        إلغاء مجاني حتى <span className="font-black text-emerald-900">{deadline.replace('T', ' ')}</span>
+                        {t('room.freeCancellationUntil', 'إلغاء مجاني حتى')} <span className="font-black text-emerald-900">{deadline.replace('T', ' ')}</span>
                     </span>
                 </div>
             ) : (
                 <div className="inline-flex max-w-full items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">
                     <AlertCircle size={16} className="text-slate-400 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 break-words leading-tight">لا يوجد إلغاء مجاني مؤكد لهذا العرض</span>
+                        <span className="min-w-0 break-words leading-tight">{t('room.noFreeCancellation', 'لا يوجد إلغاء مجاني مؤكد لهذا العرض')}</span>
                 </div>
             )}
             
             {cancellation?.policies?.length > 0 && (
                 <details className="mt-3 group">
                     <summary className="cursor-pointer text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors outline-none flex items-center gap-1">
-                        رسوم الإلغاء
+                        {t('room.cancellationFees', 'رسوم الإلغاء')}
                     </summary>
                     <ul className="mt-2 space-y-1.5 rounded-xl bg-slate-50 p-3 text-xs font-medium text-slate-600 border border-slate-100 shadow-sm">
                         {cancellation.policies.map((policy, index) => (
                             <li key={index} className="flex justify-between items-center border-b border-slate-200/50 last:border-0 pb-1.5 last:pb-0">
                                 <span>
-                                    {policy.start_at ? `من ${policy.start_at.replace('T', ' ')}` : 'قبل الموعد التالي'}
-                                    {policy.end_at ? ` حتى ${policy.end_at.replace('T', ' ')}` : ''}
+                                    {policy.start_at ? `${t('room.from', 'من')} ${policy.start_at.replace('T', ' ')}` : t('room.beforeNextDeadline', 'قبل الموعد التالي')}
+                                    {policy.end_at ? ` ${t('room.until', 'حتى')} ${policy.end_at.replace('T', ' ')}` : ''}
                                 </span>
                                 <span className="font-bold text-slate-800 text-left" dir="ltr">
                                     {policy.amount} {policy.currency_code || currency}
@@ -47,12 +49,13 @@ export function CancellationPolicy({ cancellation, currency }) {
 }
 
 export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', displayRates = null }) {
+    const { t } = useLanguage();
     const [status, setStatus] = useState('idle');
     const [errorMsg, setErrorMsg] = useState('');
     const [prebookResult, setPrebookResult] = useState(null);
 
     const hotel = room.hotel || {};
-    const name = room.name || 'غرفة فندقية';
+    const name = room.name || t('room.defaultName', 'غرفة فندقية');
     const image = hotel.images?.[0] || hotel.image;
     const price = room.price ?? '-';
     const amenities = room.amenities || [];
@@ -76,10 +79,10 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
             setStatus('error');
             const errorCode = requestError.response?.data?.error;
             setErrorMsg(requestError.response?.status === 409 || errorCode === 'RATE_NOT_FOUND' || errorCode === 'rate_not_found'
-                ? 'عذراً، لقد تغير السعر أو التوفر، يرجى تحديث الصفحة'
+                ? t('room.rateChanged', 'عذراً، لقد تغير السعر أو التوفر، يرجى تحديث الصفحة')
                 : errorCode === 'PREBOOK_TIMEOUT'
-                    ? 'استغرق التحقق من السعر وقتاً أطول من المتوقع. يرجى المحاولة مرة أخرى.'
-                    : 'تعذر تثبيت السعر، يرجى المحاولة مرة أخرى');
+                    ? t('room.timeout', 'استغرق التحقق من السعر وقتاً أطول من المتوقع. يرجى المحاولة مرة أخرى.')
+                    : t('room.prebookFailed', 'تعذر تثبيت السعر، يرجى المحاولة مرة أخرى'));
         }
     };
 
@@ -109,7 +112,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 <div className="flex-1 p-5 sm:p-6 lg:p-7 min-w-0 flex flex-col justify-between">
                     <div>
                         <div className="mb-2 flex items-center gap-2">
-                            {!image && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)]">عرض قابل للمقارنة</span>}
+                            {!image && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)]">{t('room.comparable', 'عرض قابل للمقارنة')}</span>}
                             <div className="flex gap-0.5 text-amber-400">
                                 {Array.from({ length: 5 }).map((_, index) => <StarIcon key={index} size={14} fill="currentColor" />)}
                             </div>
@@ -131,14 +134,14 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             {room.guests && (
                                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
                                     <UsersIcon size={16} className="text-slate-400" />
-                                    حتى {room.guests.reduce((total, group) => total + group.adults + group.children.length, 0)} ضيوف
+                                    {t('room.guests', `حتى ${room.guests.reduce((total, group) => total + group.adults + group.children.length, 0)} ضيوف`, { count: room.guests.reduce((total, group) => total + group.adults + group.children.length, 0) })}
                                 </span>
                             )}
                             
                             {room.meal && (
                                 <span className={`inline-flex items-center gap-1.5 rounded-lg px-3 py-2 border ${room.meal === 'nomeal' ? 'bg-slate-50 border-slate-100 text-slate-600' : 'bg-orange-50 border-orange-100 text-orange-800'}`}>
                                     {room.meal === 'nomeal' ? <Ban size={15} className="text-slate-400" /> : <Coffee size={15} className="text-orange-500" />}
-                                    {room.meal === 'nomeal' ? 'بدون وجبات' : room.meal === 'breakfast' ? 'الإفطار مشمول' : room.meal}
+                                    {room.meal === 'nomeal' ? t('results.noMeal', 'بدون وجبات') : room.meal === 'breakfast' ? t('results.breakfast', 'الإفطار مشمول') : room.meal}
                                 </span>
                             )}
 
@@ -175,14 +178,14 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             )}
                         </div>
                         <p className="mt-1 text-xs font-semibold text-slate-500 flex items-center justify-end gap-1">
-                            <Info size={12} /> شامل الضرائب والرسوم
+                            <Info size={12} /> {t('room.included', 'شامل الضرائب والرسوم')}
                         </p>
 
                         {additionalTaxes.length > 0 && (
                             <div className="mt-3 space-y-1 rounded-lg bg-orange-50/50 p-2.5 border border-orange-100/50 text-right">
                                 {additionalTaxes.map((tax, index) => (
                                     <p key={index} className="text-[11px] font-bold text-orange-800 flex justify-between items-center gap-2">
-                                        <span>{tax.name || 'رسوم غير مشمولة'}{' '}</span>
+                                        <span>{tax.name || t('room.localFees', 'رسوم غير مشمولة')}{' '}</span>
                                         <span dir="ltr" className="bg-white px-1.5 py-0.5 rounded shadow-sm">{tax.amount} {tax.currency_code}</span>
                                     </p>
                                 ))}
@@ -200,7 +203,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.25)] transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[var(--remal-orange)] hover:bg-[#d86522]'} ${!payable && status !== 'success' ? 'bg-slate-300' : ''}`}
                         >
                             <span className="relative z-10 flex items-center gap-2">
-                                {status === 'loading' ? 'جارٍ التحقق...' : status === 'success' ? 'تم تثبيت السعر' : 'احجز الغرفة'}
+                                {status === 'loading' ? t('room.verifying', 'جارٍ التحقق...') : status === 'success' ? t('room.fixed', 'تم تثبيت السعر') : t('room.book', 'احجز الغرفة')}
                                 {status === 'success' ? <Check size={18} className="animate-in zoom-in duration-300" /> : status === 'loading' ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span> : <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />}
                             </span>
                         </button>
@@ -208,7 +211,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         {!payable && status !== 'success' && (
                             <div className="mt-2 flex items-start gap-1.5 text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg">
                                 <Info size={14} className="shrink-0 mt-0.5" />
-                                <p>عذراً، هذا العرض غير متاح للدفع الإلكتروني حالياً.</p>
+                                <p>{t('room.paymentUnavailable', 'عذراً، هذا العرض غير متاح للدفع الإلكتروني حالياً.')}</p>
                             </div>
                         )}
                     </div>

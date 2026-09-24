@@ -4,6 +4,7 @@ import HotelRoomCard from './components/HotelRoomCard';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom } from './services/offers';
 import { trackBookingEvent } from './services/analytics';
+import { useLanguage } from './i18n';
 
 const formatImageUrl = (value) => {
     const raw = typeof value === 'string' ? value : value?.url || value?.src || '';
@@ -64,6 +65,7 @@ function LoadingSkeleton() {
 }
 
 export default function HotelDetails({ hid, onBack, displayCurrency, displayRates }) {
+    const { t, apiLanguage, direction } = useLanguage();
     const [hotel, setHotel] = useState(null);
     const [rates, setRates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -83,7 +85,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     checkin: searchParams.checkin,
                     checkout: searchParams.checkout,
                     guests: searchParams.guests,
-                    language: 'ar',
+                    language: apiLanguage,
                     currency: SEARCH_CURRENCY
                 })
             ]);
@@ -94,7 +96,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
             const liveHotel = liveData?.hotel || liveData?.hotels?.[0] || {};
             const liveRates = liveData?.rates || liveHotel.rates || [];
             if (liveResult.status === 'rejected' || (!staticHotel && !liveData)) {
-                setError('تعذر تحميل الأسعار الحالية، يرجى العودة للبحث والمحاولة مرة أخرى');
+                setError(t('hotel.loadFailed', 'تعذر تحميل الأسعار الحالية، يرجى العودة للبحث والمحاولة مرة أخرى'));
             } else {
                 setHotel({ ...staticHotel, ...liveHotel, hid, images: toImages({ ...staticHotel, ...liveHotel }) });
                 setRates(Array.isArray(liveRates) ? liveRates : []);
@@ -103,7 +105,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
         };
         fetchHotelDetails();
         return () => { active = false; };
-    }, [hid, searchParams.checkin, searchParams.checkout, JSON.stringify(searchParams.guests)]);
+    }, [hid, searchParams.checkin, searchParams.checkout, JSON.stringify(searchParams.guests), apiLanguage]);
 
     const rooms = rates.map(rate => normalizeRoom(rate, hotel, searchParams.guests));
 
@@ -124,20 +126,20 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
-    if (loading) return <main className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-7xl"><LoadingSkeleton /></div></main>;
-    if (error) return <main className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-3xl rounded-3xl bg-red-50 p-10 text-center font-bold text-red-600 shadow-sm"><p className="text-lg">{error}</p><button type="button" onClick={onBack} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm text-white hover:bg-red-700 transition-colors"><ArrowRight size={18} /> العودة للنتائج</button></div></main>;
+    if (loading) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-7xl"><LoadingSkeleton /></div></main>;
+    if (error) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-3xl rounded-3xl bg-red-50 p-10 text-center font-bold text-red-600 shadow-sm"><p className="text-lg">{error}</p><button type="button" onClick={onBack} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm text-white hover:bg-red-700 transition-colors"><ArrowRight size={18} /> {t('hotel.back', 'العودة للنتائج')}</button></div></main>;
 
     // Calculate total guests safely
     const totalGuests = searchParams.guests.reduce((acc, g) => acc + (g.adults || 0) + (g.children?.length || 0), 0);
 
     return (
-        <main className="min-h-screen bg-[#F8FAFC] pb-24 pt-8">
+        <main dir={direction} className="min-h-screen bg-[#F8FAFC] pb-24 pt-8">
             <div className="mx-auto max-w-7xl px-5 lg:px-10">
                 
                 {/* 1. Masterstroke Header (Top Section) */}
                 <div className="mb-6 space-y-4">
                     <button type="button" onClick={onBack} className="group inline-flex items-center gap-2 text-sm font-bold text-slate-500 hover:text-blue-600 transition-colors">
-                        <ArrowRight size={18} className="transition-transform group-hover:-translate-x-1" /> العودة للنتائج
+                        <ArrowRight size={18} className="transition-transform group-hover:-translate-x-1" /> {t('hotel.back', 'العودة للنتائج')}
                     </button>
                     
                     <div className="space-y-3">
@@ -145,7 +147,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             {Number(hotel?.stars || hotel?.star_rating) > 0 && (
                                 <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100/80 px-3 py-1.5 text-xs font-extrabold text-amber-700">
                                     <Star size={14} className="fill-amber-500 text-amber-500" />
-                                    {hotel.stars || hotel.star_rating} نجوم
+                                    {t('hotel.stars', `${hotel.stars || hotel.star_rating} نجوم`, { count: hotel.stars || hotel.star_rating })}
                                 </span>
                             )}
                         </div>
@@ -162,7 +164,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                 </div>
 
                 {/* 2. Masterstroke Bento Grid (Images) */}
-                <section aria-label="صور الفندق" dir="rtl" className="relative h-[40vh] min-h-[350px] sm:h-[50vh] sm:min-h-[450px] w-full overflow-hidden rounded-3xl shadow-sm">
+                <section aria-label={t('hotel.photos', 'صور الفندق')} className="relative h-[40vh] min-h-[350px] sm:h-[50vh] sm:min-h-[450px] w-full overflow-hidden rounded-3xl shadow-sm">
                     {images.length > 1 ? (
                         <div className="grid h-full grid-cols-1 gap-2 md:grid-cols-4">
                             {/* Main Image (Right side in RTL) */}
@@ -175,7 +177,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             <div className="hidden h-full grid-cols-2 grid-rows-2 gap-2 md:grid md:col-span-2">
                                 {Array.from({ length: 4 }).map((_, index) => images[index + 1] ? (
                                     <div key={images[index + 1]} className="group relative overflow-hidden bg-slate-200">
-                                        <img src={images[index + 1]} className="h-full w-full object-cover transition-transform duration-700 hover:scale-110" loading="lazy" alt={`صورة ${index + 2}`} />
+                                        <img src={images[index + 1]} className="h-full w-full object-cover transition-transform duration-700 hover:scale-110" loading="lazy" alt={`${t('hotel.photoAlt', 'صورة')} ${index + 2}`} />
                                         <div className="absolute inset-0 bg-slate-900/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
                                     </div>
                                 ) : (
@@ -231,8 +233,8 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             ) : (
                                 <div className="rounded-3xl bg-white p-12 text-center border border-slate-100 shadow-sm">
                                     <BedDouble className="mx-auto text-slate-300" size={48} />
-                                    <p className="mt-4 text-lg font-black text-slate-700">لا توجد عروض متاحة لهذه التواريخ</p>
-                                    <button onClick={onBack} className="mt-4 font-bold text-blue-600 hover:text-blue-700 underline underline-offset-4">تغيير تواريخ البحث</button>
+                                    <p className="mt-4 text-lg font-black text-slate-700">{t('hotel.noOffers', 'لا توجد عروض متاحة لهذه التواريخ')}</p>
+                                    <button onClick={onBack} className="mt-4 font-bold text-blue-600 hover:text-blue-700 underline underline-offset-4">{t('hotel.changeDates', 'تغيير تواريخ البحث')}</button>
                                 </div>
                             )}
                         </section>
@@ -242,25 +244,25 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     <aside className="sticky top-28 overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-200/50">
                         <div className="p-6 sm:p-8">
                             <div className="mb-6 flex items-baseline justify-between">
-                                <p className="text-3xl font-black text-slate-900">{rooms.length ? `${rooms.length} عروض` : 'لا عروض'}</p>
-                                <p className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">متاحة الآن</p>
+                                <p className="text-3xl font-black text-slate-900">{rooms.length ? t('hotel.offers', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.noOffers', 'لا عروض')}</p>
+                                <p className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{t('hotel.available', 'متاحة الآن')}</p>
                             </div>
                             
                             {/* Airbnb style checkin/checkout box */}
                             <div className="mb-6 rounded-2xl border border-slate-200 overflow-hidden">
                                 <div className="flex border-b border-slate-200">
                                     <div className="w-1/2 p-3 border-l border-slate-200 bg-slate-50/50">
-                                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">الوصول</p>
-                                        <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><CalendarDays size={14}/> {searchParams.checkin || 'تحديد'}</p>
+                                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">{t('hotel.arrival', 'الوصول')}</p>
+                                        <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><CalendarDays size={14}/> {searchParams.checkin || t('hotel.selectDates', 'تحديد')}</p>
                                     </div>
                                     <div className="w-1/2 p-3 bg-slate-50/50">
-                                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">المغادرة</p>
-                                        <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><CalendarDays size={14}/> {searchParams.checkout || 'تحديد'}</p>
+                                        <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">{t('hotel.departure', 'المغادرة')}</p>
+                                        <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><CalendarDays size={14}/> {searchParams.checkout || t('hotel.selectDates', 'تحديد')}</p>
                                     </div>
                                 </div>
                                 <div className="p-3 bg-slate-50/50">
-                                     <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">الضيوف</p>
-                                     <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><Users size={14}/> {totalGuests} ضيوف</p>
+                                     <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">{t('hotel.guestsLabel', 'الضيوف')}</p>
+                                     <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><Users size={14}/> {t('hotel.guests', `${totalGuests} ضيوف`, { count: totalGuests })}</p>
                                 </div>
                             </div>
 
@@ -268,9 +270,9 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             <div className="flex items-start gap-3 rounded-2xl bg-blue-50/50 p-4 border border-blue-100/50">
                                 <ShieldCheck size={24} className="text-blue-600 shrink-0 mt-0.5" />
                                 <div>
-                                    <p className="text-sm font-black text-slate-900">حجز آمن ومضمون</p>
+                                    <p className="text-sm font-black text-slate-900">{t('hotel.secureTitle', 'حجز آمن ومضمون')}</p>
                                     <p className="mt-1 text-xs font-medium text-slate-500 leading-relaxed">
-                                        يتم تشفير بياناتك بالكامل. لن يتم خصم أي مبالغ إلا بعد اختيارك للغرفة والتحقق من التوفر النهائي.
+                                        {t('hotel.secureDescription', 'يتم تشفير بياناتك بالكامل. لن يتم خصم أي مبالغ إلا بعد اختيارك للغرفة والتحقق من التوفر النهائي.')}
                                     </p>
                                 </div>
                             </div>

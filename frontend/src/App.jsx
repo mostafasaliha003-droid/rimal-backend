@@ -13,6 +13,7 @@ import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, cheapestRate, rateAmount, rateCurrency, paymentFor, normalizeRoom } from './services/offers';
 import { loadUsdDisplayRates } from './services/displayCurrency';
 import { trackBookingEvent } from './services/analytics';
+import { useLanguage } from './i18n';
 
 function storedSearch() {
     try { return JSON.parse(sessionStorage.getItem('remal_search') || 'null'); } catch { return null; }
@@ -63,6 +64,7 @@ const getAmenities = (rate) => Array.isArray(rate?.amenities) ? rate.amenities :
 
 // Masterstroke UI: SerpResultCard (with Urgency, Social Proof & Image Carousel)
 function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
+    const { t } = useLanguage();
     const rate = cheapestRate(hotel.rates) || {};
     const images = hotel.images || [];
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
@@ -76,9 +78,9 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     const isGreatDeal = priceAmount > 0 && priceAmount < 100;
 
     const socialProofMessages = [
-        'اختيار مناسب للمقارنة',
-        'تفاصيل واضحة قبل اتخاذ القرار',
-        'عرض يستحق المراجعة'
+        t('results.comparisonCue', 'اختيار مناسب للمقارنة'),
+        t('results.clearDetailsCue', 'تفاصيل واضحة قبل اتخاذ القرار'),
+        t('results.reviewCue', 'عرض يستحق المراجعة')
     ];
     const selectedSocialProof = socialProofMessages[parseInt(hotelIdStr.slice(-1)) % 3];
 
@@ -219,9 +221,9 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                     {/* Pricing & CTA Divider */}
                     <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-5 relative">
                         <div className={`text-right ${isPopular ? 'mt-3' : ''}`}>
-                                <p className="eyebrow mb-1">إجمالي الإقامة يبدأ من</p>
+                                <p className="eyebrow mb-1">{t('results.stayStartsAt', 'إجمالي الإقامة يبدأ من')}</p>
                             <PriceDisplay amount={rateAmount(rate)} currency={rateCurrency(rate)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900" />
-                                <p className="mt-1 text-[10px] font-bold text-slate-400">راجع الضرائب والرسوم قبل الدفع</p>
+                                <p className="mt-1 text-[10px] font-bold text-slate-400">{t('results.reviewFees', 'راجع الضرائب والرسوم قبل الدفع')}</p>
                         </div>
                         
                         <div className="w-full sm:w-auto flex flex-col items-end gap-2">
@@ -231,7 +233,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                                 className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--remal-orange)] px-6 py-2.5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.25)] transition-all duration-300 hover:bg-[#d86522] hover:shadow-[0_12px_24px_rgba(232,117,45,0.32)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
                             >
                                 <span className="relative z-10 flex items-center gap-2">
-                                    تحديد الغرف <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />
+                                    {t('results.chooseRooms', 'تحديد الغرف')} <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />
                                 </span>
                             </button>
                         </div>
@@ -243,6 +245,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
 }
 
 export default function App() {
+    const { t, apiLanguage, direction } = useLanguage();
     const [pathname, setPathname] = useState(() => window.location.pathname);
     const [displayCurrency, setDisplayCurrency] = useState(storedDisplayCurrency);
     const [displayRates, setDisplayRates] = useState(null);
@@ -307,7 +310,7 @@ export default function App() {
             setError('');
             try {
                 const { destination, checkin, checkout, guests } = searchParams;
-                const request = { checkin, checkout, guests, language: 'ar', currency: SEARCH_CURRENCY };
+                const request = { checkin, checkout, guests, language: apiLanguage, currency: SEARCH_CURRENCY };
                 const hotelId = Number(destination.hotel_id);
                 const isHotelSearch = destination.type === 'hotel' || destination.hotel_id;
                 if (isHotelSearch && (!Number.isInteger(hotelId) || hotelId < 0 || hotelId > 0xFFFFFFFF)) {
@@ -325,14 +328,14 @@ export default function App() {
             } catch (error) {
                 if (active) trackBookingEvent('search_failed');
                 console.error('Search Error Details:', error);
-                if (active) setError('تعذر تحميل الفنادق، يرجى المحاولة مرة أخرى');
+            setError(t('results.loadFailed', 'تعذر تحميل الفنادق، يرجى المحاولة مرة أخرى'));
             } finally {
                 if (active) setLoading(false);
             }
         };
         loadResults();
         return () => { active = false; };
-    }, [searchParams]);
+    }, [searchParams, apiLanguage]);
 
     const openHotel = async (hotel) => {
         setSelectedHotel(hotel);
@@ -345,12 +348,12 @@ export default function App() {
                 checkin: searchParams.checkin,
                 checkout: searchParams.checkout,
                 guests: searchParams.guests,
-                language: 'ar',
+                language: apiLanguage,
                 currency: SEARCH_CURRENCY
             });
             setHotelPage(response);
         } catch {
-            setError('تعذر تحميل الغرف، يرجى تحديث الصفحة');
+            setError(t('results.roomsLoadFailed', 'تعذر تحميل الغرف، يرجى تحديث الصفحة'));
         }
     };
 
@@ -437,7 +440,7 @@ export default function App() {
     }
 
     return (
-        <div className="min-h-screen bg-[#F8FAFC] text-slate-900">
+        <div className="min-h-screen bg-[#F8FAFC] text-slate-900" dir={direction}>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <main>
                 <HeroSearchSection onSearch={handleSearch} initialSearch={searchParams} />
@@ -446,21 +449,21 @@ export default function App() {
                     {/* Header Section */}
                     <div className="mb-10 flex flex-col gap-5 border-b border-slate-200 pb-8 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-blue-600">{searched ? 'نتائج البحث' : 'اختيارات رمال'}</p>
-                            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">فنادق تحسّها على كيفك</h2>
-                            <p className="mt-2 text-sm font-semibold text-slate-500">{searched ? `${visibleHotels.length} فندق متاح حسب بحثك` : 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية'}</p>
+                            <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-blue-600">{searched ? t('results.searchResults', 'نتائج البحث') : t('results.remalPicks', 'اختيارات رمال')}</p>
+                            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">{t('results.heading', 'فنادق تحسّها على كيفك')}</h2>
+                            <p className="mt-2 text-sm font-semibold text-slate-500">{searched ? t('results.searchedCount', `${visibleHotels.length} فندق متاح حسب بحثك`, { count: visibleHotels.length }) : t('results.initialSubheading', 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية')}</p>
                         </div>
                         <div className="flex flex-wrap items-center gap-4">
                             <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
-                                الترتيب 
+                                {t('results.sort', 'الترتيب')}
                                 <select value={sort} onChange={event => setSort(event.target.value)} className="rounded-xl border border-slate-200 p-2.5 font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white">
-                                    <option value="recommended">ترتيب المورد</option>
-                                    <option value="price">الأقل سعراً</option>
-                                    <option value="stars">الأعلى تصنيفاً</option>
+                                    <option value="recommended">{t('results.supplier', 'ترتيب المورد')}</option>
+                                    <option value="price">{t('results.lowestPrice', 'الأقل سعراً')}</option>
+                                    <option value="stars">{t('results.highestRating', 'الأعلى تصنيفاً')}</option>
                                 </select>
                             </label>
                             <button type="button" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} className="flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-bold shadow-sm lg:hidden hover:bg-slate-50">
-                                <SlidersHorizontal size={18} /> الفلاتر
+                                <SlidersHorizontal size={18} /> {t('results.filters', 'الفلاتر')}
                             </button>
                         </div>
                     </div>
@@ -471,10 +474,10 @@ export default function App() {
                         <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 w-full max-w-full border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
                             <div className="rounded-3xl bg-white shadow-sm border border-slate-100 overflow-hidden">
                                 <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
-                                    <h3 className="text-lg font-black text-slate-900">تصفية النتائج</h3>
+                                    <h3 className="text-lg font-black text-slate-900">{t('results.filterResults', 'تصفية النتائج')}</h3>
                                     {(starFilter !== 0 || amenityFilter || maxPrice || freeCancellation) && (
                                         <button type="button" onClick={clearFilters} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors">
-                                            <RotateCcw size={14} /> مسح الكل
+                                            <RotateCcw size={14} /> {t('results.clearFilters', 'مسح الكل')}
                                         </button>
                                     )}
                                 </div>
@@ -484,19 +487,19 @@ export default function App() {
                                     {/* Price Filter Accordion */}
                                     <div className="p-5">
                                         <button type="button" onClick={() => setPriceFilterOpen(!priceFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
-                                            السعر والخيارات الأساسية
+                                            {t('results.price', 'السعر والخيارات الأساسية')}
                                             {priceFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                                         </button>
                                         
                                         {priceFilterOpen && (
                                             <div className="mt-5 space-y-5 animate-in slide-in-from-top-2 fade-in duration-200">
                                                 <div className="space-y-3">
-                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">الحد الأعلى للسعر ({SEARCH_CURRENCY})</label>
+                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('results.maxPrice', 'الحد الأعلى للسعر')} ({SEARCH_CURRENCY})</label>
                                                     <input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 p-3.5 font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 bg-slate-50/50 transition-all hover:bg-white" />
                                                 </div>
 
                                                 <label className="flex items-center justify-between cursor-pointer group bg-slate-50 hover:bg-blue-50/50 p-3 rounded-xl transition-colors border border-slate-100 hover:border-blue-100">
-                                                    <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">إلغاء مجاني فقط</span>
+                                                    <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">{t('results.freeCancellation', 'إلغاء مجاني فقط')}</span>
                                                     <div className={`relative flex h-6 w-11 items-center rounded-full transition-colors ${freeCancellation ? 'bg-blue-600' : 'bg-slate-300'}`}>
                                                         <input type="checkbox" className="peer sr-only" checked={freeCancellation} onChange={event => setFreeCancellation(event.target.checked)} />
                                                         <span className={`inline-block h-4 w-4 transform rounded-full bg-white transition-transform ${freeCancellation ? 'translate-x-1' : '-translate-x-6'}`} />
@@ -509,7 +512,7 @@ export default function App() {
                                     {/* Stars Filter Accordion */}
                                     <div className="p-5">
                                         <button type="button" onClick={() => setStarsFilterOpen(!starsFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
-                                            تصنيف الفندق (نجوم)
+                                            {t('results.stars', 'تصنيف الفندق (نجوم)')}
                                             {starsFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                                         </button>
                                         
@@ -529,7 +532,7 @@ export default function App() {
                                     {/* Amenities Filter Accordion */}
                                     <div className="p-5">
                                         <button type="button" onClick={() => setAmenitiesFilterOpen(!amenitiesFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
-                                            مزايا الغرفة
+                                            {t('results.roomBenefits', 'مزايا الغرفة')}
                                             {amenitiesFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                                         </button>
                                         
@@ -541,7 +544,7 @@ export default function App() {
                                                         <div className={`h-5 w-5 rounded border-2 transition-colors ${amenityFilter ? 'border-blue-600 bg-blue-600' : 'border-slate-300 bg-white group-hover:border-blue-500'}`}></div>
                                                         <Check size={14} className={`absolute text-white transition-opacity ${amenityFilter ? 'opacity-100' : 'opacity-0'}`} strokeWidth={3} />
                                                     </div>
-                                                    <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">يحتوي على مزايا للغرفة</span>
+                                                    <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">{t('results.roomBenefits', 'يحتوي على مزايا للغرفة')}</span>
                                                 </label>
                                             </div>
                                         )}
@@ -558,7 +561,7 @@ export default function App() {
                             {lowestHotel && visibleHotels.length > 1 && (
                                 <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-5 border border-emerald-100/50 shadow-sm">
                                     <div className="min-w-0">
-                                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-600">أقل إجمالي مطابق للفلاتر</p>
+                                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-600">{t('results.bestFilteredTotal', 'أقل إجمالي مطابق للفلاتر')}</p>
                                         <p className="mt-1 break-words text-lg font-black text-emerald-900">{lowestHotel.name}</p>
                                     </div>
                                     <PriceDisplay amount={rateAmount(cheapestRate(lowestHotel.rates))} currency={SEARCH_CURRENCY} displayCurrency={displayCurrency} displayRates={displayRates} className="text-2xl font-black text-emerald-700 tracking-tight" />
@@ -598,30 +601,30 @@ export default function App() {
                                     ))}
                                     {visibleHotels.length > limit && (
                                         <button onClick={() => setLimit(limit + 20)} className="min-h-[60px] w-full rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 font-bold text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
-                                            عرض المزيد ({visibleHotels.length - limit} فندق)
+                                            {t('results.moreHotels', `عرض المزيد (${visibleHotels.length - limit} فندق)`, { count: visibleHotels.length - limit })}
                                         </button>
                                     )}
                                 </div>
                             ) : searched ? (
                                 <div className="rounded-3xl bg-white p-20 text-center shadow-sm border border-slate-100">
                                     <MapPin size={48} className="mx-auto text-slate-300 mb-4" />
-                                    <p className="font-black text-xl text-slate-700">لا توجد نتائج مطابقة</p>
-                                    <p className="mt-2 text-slate-500 font-medium">جرّب إزالة بعض الفلاتر أو تغيير تواريخ البحث.</p>
+                                    <p className="font-black text-xl text-slate-700">{t('results.noMatches', 'لا توجد نتائج مطابقة')}</p>
+                                    <p className="mt-2 text-slate-500 font-medium">{t('results.noMatchesHelp', 'جرّب إزالة بعض الفلاتر أو تغيير تواريخ البحث.')}</p>
                                 </div>
                             ) : (
                                 <div className="rounded-3xl bg-white p-20 text-center shadow-sm border border-slate-100">
                                     <Search size={48} className="mx-auto text-slate-300 mb-4" />
-                                    <p className="font-black text-xl text-slate-700">مستعد لرحلتك القادمة؟</p>
-                                    <p className="mt-2 text-slate-500 font-medium">اختر وجهة وتواريخ لعرض العروض الحية.</p>
+                                    <p className="font-black text-xl text-slate-700">{t('results.ready', 'مستعد لرحلتك القادمة؟')}</p>
+                                    <p className="mt-2 text-slate-500 font-medium">{t('results.readyHelp', 'اختر وجهة وتواريخ لعرض العروض الحية.')}</p>
                                 </div>
                             )}
 
                             <div id="security" className="mt-12 flex items-start gap-4 rounded-3xl border border-slate-200 bg-white p-6 shadow-sm">
                                 <ShieldCheck size={28} className="shrink-0 text-emerald-600 mt-1" />
                                 <div>
-                                    <p className="font-black text-slate-900 text-lg">الأسعار والتوفر يخضعان للتحقق المباشر</p>
+                                    <p className="font-black text-slate-900 text-lg">{t('results.securityTitle', 'الأسعار والتوفر يخضعان للتحقق المباشر')}</p>
                                     <p className="mt-2 text-sm font-medium leading-relaxed text-slate-500">
-                                        تأكيد الدفع لا يعني تأكيد الحجز فوراً؛ يرجى الانتظار حتى يصلك مرجع التأكيد النهائي من المورد الخاص بنا لضمان إقامتك.
+                                        {t('results.securityDescription', 'تأكيد الدفع لا يعني تأكيد الحجز فوراً؛ يرجى الانتظار حتى يصلك مرجع التأكيد النهائي من المورد الخاص بنا لضمان إقامتك.')}
                                     </p>
                                 </div>
                             </div>
@@ -634,11 +637,11 @@ export default function App() {
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-8 text-sm font-bold text-slate-500">
                     <span className="text-slate-800">© 2026 رمال وفِلّها</span>
                     <div className="flex items-center gap-6">
-                        <a href="mailto:management@remaltourismllc.com" className="hover:text-blue-600 transition-colors">المساعدة والتواصل</a>
-                        <a href="/#security" className="hover:text-blue-600 transition-colors">معلومات الحجز</a>
+                    <a href="mailto:management@remaltourismllc.com" className="hover:text-blue-600 transition-colors">{t('footer.help', 'المساعدة والتواصل')}</a>
+                    <a href="/#security" className="hover:text-blue-600 transition-colors">{t('footer.bookingInfo', 'معلومات الحجز')}</a>
                     </div>
                     <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-1.5 rounded-full bg-slate-50 px-4 py-2 text-slate-700 hover:bg-slate-100 transition-colors">
-                        العودة للأعلى <ChevronLeft size={16} className="rotate-90" />
+                        {t('footer.top', 'العودة للأعلى')} <ChevronLeft size={16} className="rotate-90" />
                     </button>
                 </div>
             </footer>
