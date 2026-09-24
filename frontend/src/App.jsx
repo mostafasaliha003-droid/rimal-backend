@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState } from 'react';
-import { ArrowLeft, ChevronLeft, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle, Search } from 'lucide-react';
+import { ArrowLeft, ChevronLeft, ChevronRight, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle, Search } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
@@ -59,24 +59,35 @@ const getRatePrice = (rate) => rate?.payment_options?.payment_types?.[0]?.amount
 const getRateHash = (rate) => rate?.book_hash || rate?.match_hash;
 const getAmenities = (rate) => Array.isArray(rate?.amenities) ? rate.amenities : (Array.isArray(rate?.room_amenities) ? rate.room_amenities : []);
 
-// Masterstroke UI: SerpResultCard (with Urgency & Social Proof Tags)
+// Masterstroke UI: SerpResultCard (with Urgency, Social Proof & Image Carousel)
 function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     const rate = cheapestRate(hotel.rates) || {};
-    const image = hotel.images?.[0];
+    const images = hotel.images || [];
+    const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [imageFailed, setImageFailed] = useState(false);
     const hasFreeCancellation = paymentFor(rate)?.cancellation_penalties?.free_cancellation_before;
 
-    // --- هندسة التحويل: وسوم الاستعجال والثقة (Urgency & Trust) ---
+    // هندسة التحويل (Urgency & Trust)
     const hotelIdStr = String(hotel.id || hotel.hid);
-    const isPopular = hotelIdStr.endsWith('1') || hotelIdStr.endsWith('7'); // مجرد محاكاة عشوائية مبنية على الـ ID
+    const isPopular = hotelIdStr.endsWith('1') || hotelIdStr.endsWith('7'); 
     const isRareFind = hotelIdStr.endsWith('3'); 
     const priceAmount = rateAmount(rate);
-    const isGreatDeal = priceAmount > 0 && priceAmount < 100; // مثال: سعر مغرٍ
+    const isGreatDeal = priceAmount > 0 && priceAmount < 100;
+
+    const nextImage = (e) => {
+        e.stopPropagation(); // يمنع الانتقال لصفحة الفندق عند النقر على السهم
+        setCurrentImageIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
+    };
+
+    const prevImage = (e) => {
+        e.stopPropagation();
+        setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
+    };
 
     return (
         <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="group relative overflow-hidden rounded-3xl border border-slate-200 bg-white shadow-sm transition-all duration-300 hover:border-blue-200 hover:shadow-[0_8px_30px_rgb(0,0,0,0.08)]">
             
-            {/* Urgency Ribbon (شريط جانبي للفت الانتباه) */}
+            {/* Urgency Ribbon */}
             {isPopular && (
                 <div className="absolute top-4 -right-12 z-20 flex w-40 items-center justify-center rotate-45 bg-gradient-to-r from-red-600 to-rose-500 py-1 text-[10px] font-black text-white shadow-sm">
                     مطلوب بشدة
@@ -85,16 +96,40 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
 
             <div className="flex flex-col md:flex-row h-full">
                 
-                {/* Image Section (Right in RTL) */}
-                <div className="relative w-full md:w-[280px] shrink-0 overflow-hidden bg-slate-100 h-56 md:h-auto">
-                    {image && !imageFailed ? (
-                        <img 
-                            src={image} 
-                            alt={hotel.name} 
-                            loading="lazy" 
-                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                            onError={() => setImageFailed(true)} 
-                        />
+                {/* Image Section with Carousel */}
+                <div className="relative w-full md:w-[280px] shrink-0 overflow-hidden bg-slate-100 h-56 md:h-auto group/carousel">
+                    {images.length > 0 && !imageFailed ? (
+                        <>
+                            <img 
+                                src={images[currentImageIndex]} 
+                                alt={`${hotel.name} - صورة ${currentImageIndex + 1}`} 
+                                loading="lazy" 
+                                className="h-full w-full object-cover transition-transform duration-700 group-hover/carousel:scale-105" 
+                                onError={() => setImageFailed(true)} 
+                            />
+                            
+                            {/* Carousel Controls (تظهر عند التمرير بالماوس) */}
+                            {images.length > 1 && (
+                                <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300">
+                                    <button onClick={prevImage} className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors" aria-label="الصورة السابقة">
+                                        <ChevronRight size={20} />
+                                    </button>
+                                    <button onClick={nextImage} className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors" aria-label="الصورة التالية">
+                                        <ChevronLeft size={20} />
+                                    </button>
+                                </div>
+                            )}
+
+                            {/* Image Indicators (Dots) */}
+                            {images.length > 1 && (
+                                <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
+                                    {images.slice(0, 5).map((_, idx) => (
+                                        <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
+                                    ))}
+                                    {images.length > 5 && <div className="h-1.5 w-1.5 rounded-full bg-white/50" />}
+                                </div>
+                            )}
+                        </>
                     ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center text-slate-400 gap-2">
                             <ImageOff size={32} />
@@ -102,7 +137,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                         </div>
                     )}
                     
-                    {/* Floating Star Badge on Image */}
+                    {/* Floating Star Badge */}
                     {Number(hotel.stars) > 0 && (
                         <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-lg bg-black/60 backdrop-blur-md px-2.5 py-1.5 text-sm font-bold text-white shadow-sm border border-white/10">
                             <span>{hotel.stars}</span>
@@ -110,7 +145,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                         </div>
                     )}
 
-                    {/* Social Proof Tag at bottom of image */}
+                    {/* Social Proof Tag */}
                     {isRareFind && (
                         <div className="absolute bottom-4 right-4 z-10 rounded-lg bg-rose-600/90 backdrop-blur-md px-3 py-1.5 text-[11px] font-black text-white shadow-sm">
                             فرصة نادرة!
@@ -123,7 +158,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                     <div>
                         <div className="flex justify-between items-start gap-4">
                             <div className="min-w-0 flex-1">
-                                <h3 id={`hotel-${hotel.hid || hotel.id}`} className="text-2xl font-black text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2">
+                                <h3 id={`hotel-${hotel.hid || hotel.id}`} className="text-2xl font-black text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 cursor-pointer" onClick={() => onSelect(hotel)}>
                                     {hotel.name || 'فندق'}
                                 </h3>
                                 {hotel.city && (
@@ -137,7 +172,6 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
 
                         {/* Badges Area */}
                         <div className="mt-4 flex flex-col gap-3">
-                            {/* Cancellation & Deal Badges */}
                             <div className="flex flex-wrap gap-2">
                                 {hasFreeCancellation ? (
                                     <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-100">
@@ -176,7 +210,6 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
 
                     {/* Pricing & CTA Divider */}
                     <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-5 relative">
-                        {/* Fake old price crossed out to show a deal */}
                         {isPopular && (
                             <div className="absolute top-1 right-0 text-xs text-slate-400 line-through decoration-slate-300 font-bold">
                                 {(rateAmount(rate) * 1.15).toFixed(0)} {rateCurrency(rate)}
@@ -190,7 +223,6 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                         </div>
                         
                         <div className="w-full sm:w-auto flex flex-col items-end gap-2">
-                            {/* Scarcity message near the button */}
                             {isPopular && (
                                 <span className="text-[11px] font-bold text-red-600 flex items-center gap-1 animate-pulse">
                                     <span className="h-1.5 w-1.5 rounded-full bg-red-600"></span> قد يُحجز قريباً
@@ -199,7 +231,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                             <button 
                                 type="button" 
                                 onClick={() => onSelect(hotel)} 
-                                className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-blue-600 px-6 py-2.5 text-sm font-black text-white shadow-[0_4px_14px_0_rgb(37,99,235,0.39)] transition-all duration-300 hover:bg-blue-700 hover:shadow-[0_6px_20px_rgba(37,99,235,0.23)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
+                                className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-orange-600 px-6 py-2.5 text-sm font-black text-white shadow-[0_4px_14px_0_rgb(234,88,12,0.39)] transition-all duration-300 hover:bg-orange-700 hover:shadow-[0_6px_20px_rgba(234,88,12,0.23)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
                             >
                                 <span className="relative z-10 flex items-center gap-2">
                                     تحديد الغرف <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />
