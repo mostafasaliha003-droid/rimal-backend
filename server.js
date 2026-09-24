@@ -701,6 +701,14 @@ app.post('/api/booking/prebook', verifyAPIKey, securityService.searchLimiter, as
         );
         return res.status(200).json({ success: true, ...result });
     } catch (error) {
+        if (['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
+            logger.warn('RateHawk hotel prebook timed out', { code: error.code });
+            return res.status(504).json({
+                success: false,
+                error: 'PREBOOK_TIMEOUT',
+                message: 'تعذر التحقق من السعر في الوقت المحدد. يرجى المحاولة مرة أخرى.'
+            });
+        }
         if (error.ratehawkError === 'rate_not_found') {
             return res.status(409).json({
                 success: false,
@@ -737,6 +745,14 @@ app.post('/api/booking/prebook-serp', verifyAPIKey, securityService.searchLimite
         );
         return res.status(200).json({ success: true, ...result });
     } catch (error) {
+        if (['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
+            logger.warn('RateHawk SERP prebook timed out', { code: error.code });
+            return res.status(504).json({
+                success: false,
+                error: 'PREBOOK_TIMEOUT',
+                message: 'تعذر التحقق من السعر في الوقت المحدد. يرجى المحاولة مرة أخرى.'
+            });
+        }
         if (error.ratehawkError === 'rate_not_found') {
             return res.status(409).json({
                 success: false,

@@ -74,9 +74,12 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
             setStatus('success');
         } catch (requestError) {
             setStatus('error');
-            setErrorMsg(requestError.response?.status === 409 || requestError.response?.data?.error === 'rate_not_found'
+            const errorCode = requestError.response?.data?.error;
+            setErrorMsg(requestError.response?.status === 409 || errorCode === 'RATE_NOT_FOUND' || errorCode === 'rate_not_found'
                 ? 'عذراً، لقد تغير السعر أو التوفر، يرجى تحديث الصفحة'
-                : 'تعذر تثبيت السعر، يرجى المحاولة مرة أخرى');
+                : errorCode === 'PREBOOK_TIMEOUT'
+                    ? 'استغرق التحقق من السعر وقتاً أطول من المتوقع. يرجى المحاولة مرة أخرى.'
+                    : 'تعذر تثبيت السعر، يرجى المحاولة مرة أخرى');
         }
     };
 

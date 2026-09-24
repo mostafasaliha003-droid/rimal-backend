@@ -28,6 +28,10 @@ const configuredSerpTimeout = Number.parseInt(process.env.RATEHAWK_SERP_TIMEOUT_
 const SERP_TIMEOUT = Number.isFinite(configuredSerpTimeout)
     ? Math.min(120000, Math.max(30000, configuredSerpTimeout))
     : 60000;
+const configuredPrebookTimeout = Number.parseInt(process.env.RATEHAWK_PREBOOK_TIMEOUT_MS || '60000', 10);
+const PREBOOK_TIMEOUT = Number.isFinite(configuredPrebookTimeout)
+    ? Math.min(120000, Math.max(30000, configuredPrebookTimeout))
+    : 60000;
 const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
 
 // ETG error codes that are safe to retry (transient / non-final).
@@ -844,7 +848,7 @@ async function prebookRate(hash, priceIncreasePercent = 0) {
     try {
         response = await call('post', '/api/b2b/v3/hotel/prebook/', {
             data: { hash, price_increase_percent: priceIncreasePercent },
-            timeout: 30000,
+            timeout: PREBOOK_TIMEOUT,
             retries: 1
         });
     } catch (error) {
@@ -874,7 +878,7 @@ async function prebookSerpRate(hash, priceIncreasePercent = 0) {
     try {
         response = await call('post', '/api/b2b/v3/serp/prebook/', {
             data: { hash, price_increase_percent: priceIncreasePercent },
-            timeout: 30000,
+            timeout: PREBOOK_TIMEOUT,
             retries: 1
         });
     } catch (error) {
@@ -899,8 +903,8 @@ async function prebookSerpRate(hash, priceIncreasePercent = 0) {
         ? response.data.data
         : response.data;
 }
-const prebook = (data) => call('post', '/api/b2b/v3/hotel/prebook/', { data, timeout: 30000, retries: 1 });
-const prebookFromSerp = (data) => call('post', '/api/b2b/v3/serp/prebook/', { data, timeout: 30000, retries: 1 });
+const prebook = (data) => call('post', '/api/b2b/v3/hotel/prebook/', { data, timeout: PREBOOK_TIMEOUT, retries: 1 });
+const prebookFromSerp = (data) => call('post', '/api/b2b/v3/serp/prebook/', { data, timeout: PREBOOK_TIMEOUT, retries: 1 });
 
 // ---- Booking ----------------------------------------------------------------
 // No blind retry: ETG requires retrying booking/form with a NEW partner_order_id

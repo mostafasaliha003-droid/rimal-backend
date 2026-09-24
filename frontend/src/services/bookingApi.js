@@ -86,7 +86,7 @@ export const prebook = async (hash, priceIncreasePercent = 0) =>
     responseData(await api.post('/booking/prebook', {
         hash,
         price_increase_percent: priceIncreasePercent
-    }));
+    }, { timeout: 135000 }));
 
 /**
  * Validate a SERP-originated rate through the ETG SERP prebook endpoint.
@@ -98,7 +98,7 @@ export const prebookSerp = async (hash, priceIncreasePercent = 0) =>
     responseData(await api.post('/booking/prebook-serp', {
         hash,
         price_increase_percent: priceIncreasePercent
-    }));
+    }, { timeout: 135000 }));
 
 /**
  * Create a Ziina payment intent for a validated room selection.
