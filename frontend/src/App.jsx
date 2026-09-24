@@ -74,6 +74,18 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     const priceAmount = rateAmount(rate);
     const isGreatDeal = priceAmount > 0 && priceAmount < 100;
 
+    // --- الدليل الاجتماعي الديناميكي (Dynamic Social Proof) ---
+    // نستخدم آخر رقمين من الـ ID لتوليد أرقام تبدو واقعية (بين 5 و 45)
+    const viewersCount = (parseInt(hotelIdStr.slice(-2)) % 40) + 5; 
+    // تحديد رسالة عشوائية (ثابتة لنفس الفندق)
+    const socialProofMessages = [
+        `شاهده ${viewersCount} شخصاً خلال آخر ساعة`,
+        `تم حجز غرفتين في هذا الفندق اليوم`,
+        `مطلوب بشدة! ${viewersCount} مستخدماً يبحثون عنه الآن`
+    ];
+    // نختار الرسالة بناءً على آخر رقم في الـ ID
+    const selectedSocialProof = socialProofMessages[parseInt(hotelIdStr.slice(-1)) % 3];
+
     const nextImage = (e) => {
         e.stopPropagation(); // يمنع الانتقال لصفحة الفندق عند النقر على السهم
         setCurrentImageIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
@@ -189,6 +201,34 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                                     </div>
                                 )}
                             </div>
+
+                            {/* Amenities Chips */}
+                            {getAmenities(rate).length > 0 && (
+                                <div className="flex flex-wrap gap-1.5 mt-1">
+                                    {getAmenities(rate).slice(0, 4).map((amenity) => (
+                                        <span key={String(amenity)} className="rounded-lg bg-blue-50/50 border border-blue-100 px-2 py-1 text-[11px] font-bold text-blue-800 hover:bg-blue-100 transition-colors cursor-default">
+                                            {amenity}
+                                        </span>
+                                    ))}
+                                    {getAmenities(rate).length > 4 && (
+                                        <span className="rounded-lg bg-slate-50 border border-slate-100 px-2 py-1 text-[11px] font-bold text-slate-400">
+                                            +{getAmenities(rate).length - 4} مزايا أخرى
+                                        </span>
+                                    )}
+                                </div>
+                            )}
+
+                            {/* Dynamic Social Proof Text */}
+                            {isPopular && (
+                                <p className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1.5 bg-rose-50 px-2 py-1 rounded-md w-fit border border-rose-100/50">
+                                    <span className="relative flex h-2 w-2">
+                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
+                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
+                                    </span>
+                                    {selectedSocialProof}
+                                </p>
+                            )}
+
                         </div>
                     </div>
 
