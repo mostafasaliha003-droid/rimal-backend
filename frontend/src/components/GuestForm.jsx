@@ -1,52 +1,165 @@
-export default function GuestForm({ guestDetails, onGuestDetailsChange, onSubmit, isSubmitting, paymentAvailable = false }) {
-  return (
-    <div className="min-w-0 bg-white rounded-2xl border border-slate-200 p-4 shadow-sm sm:p-6">
-      {/* Secure Stepper Header */}
-      <div className="flex items-center gap-4 mb-8 pb-6 border-b border-slate-100">
-        <div className="w-10 h-10 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center font-bold text-sm">
-          01
-        </div>
-        <div>
-          <h2 className="text-xl font-bold text-slate-900">بيانات الضيف الرئيسي</h2>
-          <p className="text-sm text-slate-500 mt-1">تُستخدم هذه البيانات لتأكيد الحجز والتواصل معك</p>
-        </div>
-      </div>
+import { useState } from 'react';
+import { CheckCircle2, LockKeyhole, UserCircle } from 'lucide-react';
+import PriceDisplay from './PriceDisplay';
 
-      <form onSubmit={onSubmit} className="space-y-6">
-        <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-          <div>
-            <label htmlFor="guest-first-name" className="block text-sm font-semibold text-slate-700 mb-2">الاسم الأول كما في وثيقة السفر</label>
-            <input id="guest-first-name" name="given-name" autoComplete="given-name" maxLength={80} required type="text" className="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-sm focus:bg-white focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 focus-visible:outline-none transition-all" value={guestDetails.firstName} onChange={(event) => onGuestDetailsChange({ ...guestDetails, firstName: event.target.value })} />
-          </div>
-          <div>
-            <label htmlFor="guest-last-name" className="block text-sm font-semibold text-slate-700 mb-2">اسم العائلة كما في وثيقة السفر</label>
-            <input id="guest-last-name" name="family-name" autoComplete="family-name" maxLength={80} required type="text" className="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-sm focus:bg-white focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 focus-visible:outline-none transition-all" value={guestDetails.lastName} onChange={(event) => onGuestDetailsChange({ ...guestDetails, lastName: event.target.value })} />
-          </div>
-          <div>
-            <label htmlFor="guest-email" className="block text-sm font-semibold text-slate-700 mb-2">البريد الإلكتروني</label>
-            <input id="guest-email" name="email" autoComplete="email" required type="email" maxLength={254} className="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-sm text-left focus:bg-white focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 focus-visible:outline-none transition-all" dir="ltr" value={guestDetails.email} onChange={(event) => onGuestDetailsChange({ ...guestDetails, email: event.target.value })} />
-          </div>
-          <div>
-            <label htmlFor="guest-phone" className="block text-sm font-semibold text-slate-700 mb-2">رقم الهاتف مع رمز الدولة</label>
-            <input id="guest-phone" name="tel" autoComplete="tel" minLength={7} maxLength={25} required type="tel" className="w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 text-sm text-left focus:bg-white focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 focus-visible:outline-none transition-all" dir="ltr" value={guestDetails.phone} onChange={(event) => onGuestDetailsChange({ ...guestDetails, phone: event.target.value })} />
-          </div>
-        </div>
+const emptyErrors = {};
 
-        {(guestDetails.rooms || []).map((room, roomIndex) => <fieldset key={roomIndex} className="space-y-4 border-t border-slate-200 pt-4"><legend className="text-sm font-bold">مسافرو الغرفة {roomIndex + 1}</legend>{room.guests.map((traveler, travelerIndex) => roomIndex === 0 && travelerIndex === 0 ? null : <div key={travelerIndex} className="grid gap-3 sm:grid-cols-2">{['firstName', 'lastName'].map(field => <label key={field} className="text-sm text-slate-700">{field === 'firstName' ? 'الاسم الأول' : 'اسم العائلة'} للضيف {travelerIndex + 1}{traveler.is_child ? ` (طفل، ${traveler.age} سنوات)` : ''}<input required maxLength={80} autoComplete="off" value={traveler[field]} onChange={event => onGuestDetailsChange({ ...guestDetails, rooms: guestDetails.rooms.map((group, groupIndex) => groupIndex === roomIndex ? { ...group, guests: group.guests.map((person, personIndex) => personIndex === travelerIndex ? { ...person, [field]: event.target.value } : person) } : group) })} className="mt-2 w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 focus:bg-white focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 focus-visible:outline-none transition-all" /></label>)}</div>)}</fieldset>)}
-        <label className="block text-sm text-slate-700">طلبات خاصة (اختيارية وغير مضمونة)<textarea value={guestDetails.specialRequests} maxLength={1000} onChange={event => onGuestDetailsChange({ ...guestDetails, specialRequests: event.target.value })} className="mt-2 w-full bg-slate-50 px-4 py-3 rounded-xl border border-slate-200 focus:bg-white focus:ring-4 focus:ring-blue-600/10 focus:border-blue-600 focus-visible:outline-none transition-all" rows={3} /></label>
-        <label className="flex items-start gap-3 text-sm leading-7"><input type="checkbox" required className="mt-2 h-4 w-4 shrink-0" />راجعت إجمالي الإقامة والرسوم وشروط الإلغاء لهذا العرض.</label>
-        <div className="pt-6 mt-8 border-t border-slate-100">
-          <div className="flex items-center justify-center gap-2 mb-4 text-slate-500 text-xs font-medium">
-            <svg className="w-4 h-4 text-emerald-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path></svg>
-            <span>دفع آمن ومشفر بواسطة بوابات Ziina</span>
-          </div>
+function validateGuest(guestDetails, acceptedTerms) {
+    const errors = {};
+    if (!guestDetails.firstName?.trim()) errors.firstName = 'أدخل الاسم الأول.';
+    if (!guestDetails.lastName?.trim()) errors.lastName = 'أدخل اسم العائلة.';
+    if (!guestDetails.email?.trim()) errors.email = 'أدخل البريد الإلكتروني.';
+    else if (!/^\S+@\S+\.\S+$/.test(guestDetails.email.trim())) errors.email = 'تحقق من صيغة البريد الإلكتروني.';
+    if (!guestDetails.phone?.trim()) errors.phone = 'أدخل رقم الهاتف مع رمز الدولة.';
+    else if (guestDetails.phone.trim().length < 7) errors.phone = 'أدخل رقم هاتف صالحاً.';
 
-          <button type="submit" disabled={isSubmitting || !paymentAvailable} className="w-full flex items-center justify-center gap-2 bg-remal-dark text-white rounded-lg py-4 font-bold text-base disabled:opacity-50">
-            {isSubmitting ? 'جار التحقق والتحويل...' : paymentAvailable ? 'التحقق من السعر والمتابعة للدفع' : 'الدفع غير متاح حالياً'}
-          </button>
-        </div>
-      </form>
-    </div>
-  );
+    (guestDetails.rooms || []).forEach((room, roomIndex) => {
+        room.guests.forEach((traveler, travelerIndex) => {
+            if (roomIndex === 0 && travelerIndex === 0) return;
+            if (!traveler.firstName?.trim()) errors[`traveler-${roomIndex}-${travelerIndex}-firstName`] = 'أدخل الاسم الأول.';
+            if (!traveler.lastName?.trim()) errors[`traveler-${roomIndex}-${travelerIndex}-lastName`] = 'أدخل اسم العائلة.';
+        });
+    });
+
+    if (!acceptedTerms) errors.terms = 'يرجى تأكيد مراجعة السعر والرسوم وشروط الإلغاء.';
+    return errors;
 }
 
+function FieldError({ id, message }) {
+    return message ? <p id={id} role="alert" className="mt-2 text-xs font-bold text-red-700">{message}</p> : null;
+}
+
+export default function GuestForm({
+    guestDetails,
+    onGuestDetailsChange,
+    onSubmit,
+    formId = 'checkout-form',
+    isSubmitting = false,
+    paymentAvailable = false,
+    onValidationError,
+    total,
+    currency,
+    displayCurrency,
+    displayRates
+}) {
+    const [errors, setErrors] = useState(emptyErrors);
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
+
+    const updateGuest = patch => onGuestDetailsChange({ ...guestDetails, ...patch });
+    const clearError = key => setErrors(current => {
+        if (!current[key]) return current;
+        const next = { ...current };
+        delete next[key];
+        return next;
+    });
+    const validateAndSubmit = event => {
+        event.preventDefault();
+        const nextErrors = validateGuest(guestDetails, acceptedTerms);
+        setErrors(nextErrors);
+        if (Object.keys(nextErrors).length > 0) {
+            onValidationError?.('يرجى مراجعة الحقول الموضحة قبل المتابعة.');
+            const firstError = Object.keys(nextErrors)[0];
+            window.requestAnimationFrame(() => document.getElementById(`guest-error-${firstError}`)?.scrollIntoView({ behavior: 'smooth', block: 'center' }));
+            return;
+        }
+        onSubmit(event);
+    };
+
+    return (
+        <form id={formId} onSubmit={validateAndSubmit} className="space-y-8" noValidate>
+            <section aria-labelledby="guest-section-title" className="surface-card rounded-3xl p-6 sm:p-8">
+                <div className="flex items-start gap-4 border-b border-slate-100 pb-6">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-cyan-50 text-[var(--remal-blue)]"><UserCircle size={25} /></div>
+                    <div>
+                        <p className="eyebrow">الخطوة 1 من 2</p>
+                        <h2 id="guest-section-title" className="mt-1 text-2xl font-black text-slate-900">بيانات الضيوف</h2>
+                        <p className="mt-2 text-sm font-medium leading-6 text-slate-500">اكتب الأسماء كما تظهر في وثيقة السفر لتجنب أي تأخير عند تسجيل الوصول.</p>
+                    </div>
+                </div>
+
+                <div className="mt-7 grid grid-cols-1 gap-6 md:grid-cols-2">
+                    <label htmlFor="guest-first-name" className="block space-y-2 text-sm font-bold text-slate-700">الاسم الأول كما في وثيقة السفر
+                        <input id="guest-first-name" name="given-name" autoComplete="given-name" maxLength={80} required type="text" aria-required="true" aria-invalid={Boolean(errors.firstName)} aria-describedby={errors.firstName ? 'guest-error-firstName' : undefined} value={guestDetails.firstName} onChange={event => { updateGuest({ firstName: event.target.value }); clearError('firstName'); }} className={`min-h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-[var(--remal-focus)] focus:bg-white focus:ring-4 focus:ring-cyan-100 ${errors.firstName ? 'border-red-400' : 'border-slate-200'}`} />
+                        <FieldError id="guest-error-firstName" message={errors.firstName} />
+                    </label>
+                    <label htmlFor="guest-last-name" className="block space-y-2 text-sm font-bold text-slate-700">اسم العائلة كما في وثيقة السفر
+                        <input id="guest-last-name" name="family-name" autoComplete="family-name" maxLength={80} required type="text" aria-required="true" aria-invalid={Boolean(errors.lastName)} aria-describedby={errors.lastName ? 'guest-error-lastName' : undefined} value={guestDetails.lastName} onChange={event => { updateGuest({ lastName: event.target.value }); clearError('lastName'); }} className={`min-h-12 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-[var(--remal-focus)] focus:bg-white focus:ring-4 focus:ring-cyan-100 ${errors.lastName ? 'border-red-400' : 'border-slate-200'}`} />
+                        <FieldError id="guest-error-lastName" message={errors.lastName} />
+                    </label>
+                    <label htmlFor="guest-email" className="block space-y-2 text-sm font-bold text-slate-700">البريد الإلكتروني
+                        <input id="guest-email" name="email" autoComplete="email" required type="email" maxLength={254} dir="ltr" aria-required="true" aria-invalid={Boolean(errors.email)} aria-describedby={errors.email ? 'guest-error-email' : undefined} value={guestDetails.email} onChange={event => { updateGuest({ email: event.target.value }); clearError('email'); }} className={`min-h-12 w-full rounded-2xl border bg-slate-50 px-4 text-left text-sm font-semibold outline-none transition focus:border-[var(--remal-focus)] focus:bg-white focus:ring-4 focus:ring-cyan-100 ${errors.email ? 'border-red-400' : 'border-slate-200'}`} />
+                        <FieldError id="guest-error-email" message={errors.email} />
+                    </label>
+                    <label htmlFor="guest-phone" className="block space-y-2 text-sm font-bold text-slate-700">رقم الهاتف مع رمز الدولة
+                        <input id="guest-phone" name="tel" autoComplete="tel" minLength={7} maxLength={25} required type="tel" dir="ltr" aria-required="true" aria-invalid={Boolean(errors.phone)} aria-describedby={errors.phone ? 'guest-error-phone' : undefined} value={guestDetails.phone} onChange={event => { updateGuest({ phone: event.target.value }); clearError('phone'); }} className={`min-h-12 w-full rounded-2xl border bg-slate-50 px-4 text-left text-sm font-semibold outline-none transition focus:border-[var(--remal-focus)] focus:bg-white focus:ring-4 focus:ring-cyan-100 ${errors.phone ? 'border-red-400' : 'border-slate-200'}`} />
+                        <FieldError id="guest-error-phone" message={errors.phone} />
+                    </label>
+                </div>
+
+                <div className="mt-8 space-y-6">
+                    {(guestDetails.rooms || []).map((room, roomIndex) => (
+                        <fieldset key={roomIndex} className="space-y-4 border-t border-slate-100 pt-6">
+                            <legend className="text-base font-black text-slate-900">مسافرو الغرفة {roomIndex + 1}</legend>
+                            {room.guests.map((traveler, travelerIndex) => roomIndex === 0 && travelerIndex === 0 ? null : (
+                                <div key={travelerIndex} className="grid gap-4 sm:grid-cols-2">
+                                    {['firstName', 'lastName'].map(field => {
+                                        const errorKey = `traveler-${roomIndex}-${travelerIndex}-${field}`;
+                                        return (
+                                            <label key={field} className="block space-y-2 text-sm font-bold text-slate-700">
+                                                {field === 'firstName' ? 'الاسم الأول' : 'اسم العائلة'} للضيف {travelerIndex + 1}{traveler.is_child ? ` (طفل، ${traveler.age} سنوات)` : ''}
+                                                <input required maxLength={80} autoComplete="off" aria-required="true" aria-invalid={Boolean(errors[errorKey])} aria-describedby={errors[errorKey] ? `guest-error-${errorKey}` : undefined} value={traveler[field]} onChange={event => { onGuestDetailsChange({ ...guestDetails, rooms: guestDetails.rooms.map((group, groupIndex) => groupIndex === roomIndex ? { ...group, guests: group.guests.map((person, personIndex) => personIndex === travelerIndex ? { ...person, [field]: event.target.value } : person) } : group) }); clearError(errorKey); }} className={`min-h-12 mt-1 w-full rounded-2xl border bg-slate-50 px-4 text-sm font-semibold outline-none transition focus:border-[var(--remal-focus)] focus:bg-white focus:ring-4 focus:ring-cyan-100 ${errors[errorKey] ? 'border-red-400' : 'border-slate-200'}`} />
+                                                <FieldError id={`guest-error-${errorKey}`} message={errors[errorKey]} />
+                                            </label>
+                                        );
+                                    })}
+                                </div>
+                            ))}
+                        </fieldset>
+                    ))}
+                </div>
+
+                <label className="mt-8 block space-y-2 text-sm font-bold text-slate-700">طلبات خاصة <span className="font-medium text-slate-400">(اختيارية وغير مضمونة)</span>
+                    <textarea value={guestDetails.specialRequests} maxLength={1000} onChange={event => updateGuest({ specialRequests: event.target.value })} className="min-h-24 mt-1 w-full rounded-2xl border border-slate-200 bg-slate-50 px-4 py-3 text-sm font-medium outline-none transition focus:border-[var(--remal-focus)] focus:bg-white focus:ring-4 focus:ring-cyan-100" rows={3} />
+                </label>
+
+                <div className="mt-7">
+                    <label className={`flex min-h-12 items-start gap-3 rounded-2xl border p-4 text-sm font-bold leading-6 ${errors.terms ? 'border-red-300 bg-red-50 text-red-800' : 'border-slate-200 bg-slate-50 text-slate-700'}`}>
+                        <input type="checkbox" required aria-required="true" aria-invalid={Boolean(errors.terms)} checked={acceptedTerms} onChange={event => { setAcceptedTerms(event.target.checked); clearError('terms'); }} className="mt-1 h-5 w-5 shrink-0 accent-cyan-700" />
+                        <span>راجعت إجمالي الإقامة والرسوم وشروط الإلغاء لهذا العرض.</span>
+                    </label>
+                    <FieldError id="guest-error-terms" message={errors.terms} />
+                </div>
+            </section>
+
+            <section aria-labelledby="payment-section-title" className="surface-card rounded-3xl p-6 sm:p-8">
+                <div className="flex items-start gap-4">
+                    <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><LockKeyhole size={23} /></div>
+                    <div>
+                        <p className="eyebrow">الخطوة 2 من 2</p>
+                        <h2 id="payment-section-title" className="mt-1 text-2xl font-black text-slate-900">الدفع والتأكيد</h2>
+                        <p className="mt-2 text-sm font-medium leading-6 text-slate-500">سيتم التحقق من السعر والتوفر قبل تحويلك إلى بوابة الدفع.</p>
+                    </div>
+                </div>
+                <div className="mt-7 grid gap-3 sm:grid-cols-3">
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-800"><CheckCircle2 size={18} className="mb-2 text-emerald-600" />دفع مشفر عبر Ziina</div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700"><CheckCircle2 size={18} className="mb-2 text-[var(--remal-blue)]" />لا رسوم مخفية من رمال</div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700"><CheckCircle2 size={18} className="mb-2 text-[var(--remal-blue)]" />إشعار واضح بحالة العملية</div>
+                </div>
+                <p className="mt-5 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-xs font-bold leading-6 text-cyan-900"><LockKeyhole size={18} className="mt-0.5 shrink-0" />لن يتم إنشاء طلب دفع قبل اكتمال البيانات والتحقق من توفر الدفع لهذا العرض.</p>
+                {!paymentAvailable && <p className="mt-4 text-sm font-bold text-amber-800">الدفع الإلكتروني غير متاح لهذا العرض حالياً.</p>}
+            </section>
+
+            <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-4 shadow-[0_-10px_30px_rgba(15,35,55,0.12)] backdrop-blur md:static md:rounded-3xl md:border md:p-5 md:shadow-sm">
+                <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 md:block">
+                    <div className="shrink-0 md:mb-4">
+                        <p className="text-xs font-bold text-slate-500">الإجمالي عند المتابعة</p>
+                        {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-lg font-black text-slate-900" /> : <p className="mt-1 text-lg font-black text-slate-900">السعر غير متاح</p>}
+                    </div>
+                    <button type="submit" form={formId} disabled={isSubmitting || !paymentAvailable} aria-disabled={isSubmitting || !paymentAvailable} className="min-h-12 flex-1 rounded-2xl bg-[var(--remal-navy)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:bg-[var(--remal-blue)] focus:outline-none focus:ring-4 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-50 md:w-full">
+                        {isSubmitting ? <span className="inline-flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" role="status" aria-label="جار تجهيز الدفع" />جار تجهيز الدفع...</span> : paymentAvailable ? 'تأكيد الحجز والمتابعة للدفع' : 'الدفع غير متاح حالياً'}
+                    </button>
+                </div>
+            </div>
+        </form>
+    );
+}
