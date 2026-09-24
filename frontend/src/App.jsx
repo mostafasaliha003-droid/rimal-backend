@@ -13,6 +13,7 @@ import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, cheapestRate, rateAmount, rateCurrency, paymentFor, normalizeRoom } from './services/offers';
 import { loadUsdDisplayRates } from './services/displayCurrency';
 import { trackBookingEvent } from './services/analytics';
+import { hotelImages } from './services/hotelImages.js';
 import { useLanguage } from './i18n';
 
 function storedSearch() {
@@ -39,20 +40,14 @@ const getHotels = (response) => {
     const hotels = Array.isArray(response) ? response : hotelEnvelope?.hotels;
     return (hotels || []).filter(Boolean).map((hotel) => {
         const staticData = hotel.staticData || {};
-        const images = [
-            ...(Array.isArray(hotel.images) ? hotel.images : []),
-            hotel.image,
-            ...(Array.isArray(staticData.images) ? staticData.images : []),
-            staticData.image
-        ].map((image) => typeof image === 'string' ? image : image?.url || image?.src || '')
-            .filter((image) => image.trim());
+        const images = hotelImages({ ...hotel, staticData });
         const name = [hotel.name, hotel.hotel_name, staticData.name, staticData.hotel_name]
             .find((value) => typeof value === 'string' && value.trim());
 
         return {
             ...hotel,
             name: name?.trim() || 'Hotel',
-            images: [...new Set(images)].map(image => image.replace(/\{size\}/gi, '640x400')),
+            images,
             rates: (hotel.rates || []).filter(rate => rateCurrency(rate) === SEARCH_CURRENCY).sort((first, second) => rateAmount(first) - rateAmount(second)),
             stars: hotel.stars || hotel.star_rating || staticData.stars || staticData.star_rating || ''
         };

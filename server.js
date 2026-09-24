@@ -166,7 +166,13 @@ async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBu
     if (attachmentBuffer && attachmentFilename) {
         mailOptions.attachments = [{ filename: attachmentFilename, content: attachmentBuffer, contentType: 'application/pdf' }];
     }
-    try { await transporter.sendMail(mailOptions); } catch (error) { console.error('❌ خطأ البريد:', error); }
+    try {
+        await transporter.sendMail(mailOptions);
+        return true;
+    } catch (error) {
+        logger.error('Verification/notification email failed', { error: error.message, toEmail });
+        return false;
+    }
 }
 
 async function sendWhatsAppNotification(toPhone, messageText) {
@@ -262,14 +268,38 @@ app.get('/api/v1/health', (req, res) => {
 
 app.post('/api/auth/register-send-code', async (req, res) => {
     try {
-        const email = (req.body.email || '').toLowerCase().trim();
+        const body = req.body && typeof req.body === 'object' ? req.body : {};
+        const name = String(body.name || '').trim();
+        const email = String(body.email || '').toLowerCase().trim();
+        const password = String(body.password || '');
+        const phone = String(body.phone || '').trim();
+        if (name.length < 2) {
+            return res.status(400).json({ success: false, error: 'INVALID_NAME', message: 'يرجى إدخال الاسم الكامل.' });
+        }
+        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+            return res.status(400).json({ success: false, error: 'INVALID_EMAIL', message: 'يرجى إدخال بريد إلكتروني صحيح.' });
+        }
+        if (password.length < 6) {
+            return res.status(400).json({ success: false, error: 'INVALID_PASSWORD', message: 'يجب أن تتكون كلمة المرور من 6 أحرف أو أكثر.' });
+        }
         const existingUser = await User.findOne({ email });
-        if (existingUser) return res.status(400).json({ success: false, error: 'البريد مسجل مسبقاً!' });
+        if (existingUser) return res.status(400).json({ success: false, error: 'EMAIL_ALREADY_REGISTERED', message: 'هذا البريد الإلكتروني مسجل مسبقاً.' });
         
         const code = Math.floor(100000 + Math.random() * 900000).toString();
-        verificationCodes[email] = { ...req.body, password: bcrypt.hashSync(req.body.password || '123456', 8), code, expires: Date.now() + 10 * 60000 };
+        verificationCodes[email] = {
+            name,
+            email,
+            phone,
+            password: bcrypt.hashSync(password, 8),
+            code,
+            expires: Date.now() + 10 * 60000
+        };
 
-        await sendProfessionalEmail(email, 'رمز التحقق لتفعيل حسابك - رمال!', `<h2 dir="rtl">الكود: ${code}</h2>`);
+        const emailSent = await sendProfessionalEmail(email, 'رمز التحقق لتفعيل حسابك - رمال!', `<h2 dir="rtl">الكود: ${code}</h2>`);
+        if (!emailSent) {
+            delete verificationCodes[email];
+            return res.status(503).json({ success: false, error: 'VERIFICATION_EMAIL_UNAVAILABLE', message: 'تعذر إرسال البريد الإلكتروني حالياً. يرجى المحاولة مرة أخرى.' });
+        }
         res.json({ success: true, message: 'تم إرسال كود التحقق!' });
     } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
@@ -367,8 +397,8 @@ app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, asyn
                 ...staticData,
                 hid: hotel.hid || staticData.hid || hid,
                 hotelId: hotel.hotelId || staticData.hotelId,
-                image: formatHotelImage(hotel.image || staticData.image) || DEFAULT_HOTEL_IMAGE,
-                images: hotelImageStrings(hotel.images, staticData.images, staticData.images_ext, hotel.image, staticData.image),
+                image: formatHotelImage(hotel.image || staticData.image) || '',
+                images: hotelImageStrings(hotel.images, hotel.images_ext, staticData.images, staticData.images_ext, hotel.image, staticData.image),
                 reviews: hotel.reviews || staticData.reviews || [],
                 detailed_ratings: hotel.detailed_ratings || staticData.detailed_ratings || {}
             }
@@ -469,15 +499,17 @@ app.post('/api/search/rates/geo', verifyAPIKey, securityService.searchLimiter, a
     }
 });
 
-const DEFAULT_HOTEL_IMAGE = 'https://images.unsplash.com/photo-1566073771259-6a8506099945?auto=format&fit=crop&w=800&q=80';
-
 function formatHotelImage(value) {
-    const raw = typeof value === 'string' ? value : value?.url || value?.src || '';
+    const raw = typeof value === 'string' ? value : value?.url || value?.src || value?.image || value?.photo || '';
     if (!raw.trim()) return '';
-    const image = raw.trim().replace(/\{size\}/gi, '1024x768');
+    if (/images\.unsplash\.com|photo-1566073771259-6a8506099945|33036666\.jpg|35165972\.jpg/i.test(raw)) return '';
+    const image = raw.trim().replace(/\{size\}/gi, '2048x1536');
     if (image.startsWith('//')) return `https:${image}`;
     if (/^https?:\/\//i.test(image)) return image;
-    return `https://cdn.worldota.net/2048x1536/${image.replace(/^\/+/, '')}`;
+    const imagePath = image.replace(/^\/+/, '');
+    return imagePath.startsWith('content/')
+        ? `https://cdn.ratehawk.net/t/2048x1536/${imagePath}`
+        : `https://cdn.worldota.net/2048x1536/${imagePath}`;
 }
 
 function firstHotelString(...values) {
@@ -523,6 +555,7 @@ async function enrichRateHotels(hotels) {
             : {};
         const images = hotelImageStrings(
             hotel?.images,
+            hotel?.images_ext,
             hotel?.image,
             staticHotel.images,
             staticHotel.image,
@@ -535,8 +568,8 @@ async function enrichRateHotels(hotels) {
             ...hotel,
             hid,
             name: firstHotelString(hotel?.name, staticHotel.name, staticData.name, staticData.hotel_name) || 'Hotel',
-            images: images.length ? images : [DEFAULT_HOTEL_IMAGE],
-            image: images[0] || DEFAULT_HOTEL_IMAGE,
+            images,
+            image: images[0] || '',
             stars: firstHotelString(hotel?.stars, hotel?.star_rating, staticHotel.stars, staticData.stars, staticData.star_rating)
         };
     });
@@ -853,28 +886,21 @@ app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, a
                                              apiHotel.hotel_code.toString() === '38772617' ? 'Grand Excelsior Hotel' : 
                                              `فندق دبي المميز (${apiHotel.hotel_code})`;
 
-                    let defaultImage = "https://cf.bstatic.com/xdata/images/hotel/max1024x768/33036666.jpg?k=3f4e2f819446d61688abcb51b1473db2f6afc949704dbabf3d82a1738be789f2&o=&hp=1";
-                    
-                    if (apiHotel.hotel_code.toString() === '38772617') {
-                        defaultImage = "https://cf.bstatic.com/xdata/images/hotel/max1024x768/35165972.jpg?k=c6fa07659695d3dc685511b81628178c7c73a628003f0b2fbebb9f1cd2fc151f&o=&hp=1";
-                    }
-
                     if (dbInfo) {
                         logger.info(`✅ DB Match Found for Hotel: ${apiHotel.hotel_code}`);
                         apiHotel.hotel = dbInfo.name || uniqueFallbackName;
                         apiHotel.city = dbInfo.city || 'دبي';
-                        // حقن الصورة الحقيقية إذا وجدت أو الافتراضية الموثوقة
-                        let finalImage = (dbInfo.image && dbInfo.image.startsWith('http')) ? dbInfo.image : defaultImage;
+                        const finalImage = formatHotelImage(dbInfo.image);
                         apiHotel.image = finalImage;
-                        apiHotel.thumb = finalImage; // إضافة لضمان التوافق
-                        apiHotel.photo = finalImage; // إضافة لضمان التوافق
+                        apiHotel.thumb = finalImage;
+                        apiHotel.photo = finalImage;
                     } else {
                         logger.warn(`❌ No DB Match for Hotel: ${apiHotel.hotel_code}`);
                         apiHotel.hotel = uniqueFallbackName;
                         apiHotel.city = 'دبي';
-                        apiHotel.image = defaultImage;
-                        apiHotel.thumb = defaultImage; // إضافة لضمان التوافق
-                        apiHotel.photo = defaultImage; // إضافة لضمان التوافق
+                        apiHotel.image = '';
+                        apiHotel.thumb = '';
+                        apiHotel.photo = '';
                     }
                 }
                 return apiHotel;

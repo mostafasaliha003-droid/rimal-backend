@@ -4,27 +4,11 @@ import HotelRoomCard from './components/HotelRoomCard';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom } from './services/offers';
 import { trackBookingEvent } from './services/analytics';
+import { hotelImages } from './services/hotelImages.js';
 import { useLanguage } from './i18n';
 
-const formatImageUrl = (value) => {
-    const raw = typeof value === 'string' ? value : value?.url || value?.src || '';
-    if (!raw.trim()) return '';
-    const image = raw.trim().replace(/\{size\}/gi, '1024x768');
-    if (image.startsWith('//')) return `https:${image}`;
-    if (/^https?:\/\//i.test(image)) return image;
-    return `https://cdn.worldota.net/2048x1536/${image.replace(/^\/+/, '')}`;
-};
-
 const toImages = (hotel = {}) => {
-    const staticData = hotel.staticData || {};
-    const values = [
-        ...(Array.isArray(hotel.images) ? hotel.images : []),
-        hotel.image,
-        ...(Array.isArray(staticData.images) ? staticData.images : []),
-        staticData.image
-    ];
-    const images = [...new Set(values.map(formatImageUrl).filter(Boolean))];
-    return images;
+    return hotelImages(hotel);
 };
 
 function readSearchParams() {

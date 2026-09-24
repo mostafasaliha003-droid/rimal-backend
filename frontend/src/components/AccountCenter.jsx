@@ -25,6 +25,22 @@ function clearUser() {
     window.dispatchEvent(new CustomEvent('remal:user-changed', { detail: null }));
 }
 
+function requestErrorMessage(requestError, fallback, translate) {
+    const code = requestError?.response?.data?.error;
+    const knownMessage = {
+        EMAIL_ALREADY_REGISTERED: translate('account.emailAlreadyRegistered', 'هذا البريد الإلكتروني مسجل مسبقاً.'),
+        INVALID_NAME: translate('account.invalidName', 'يرجى إدخال الاسم الكامل.'),
+        INVALID_EMAIL: translate('account.invalidEmail', 'يرجى إدخال بريد إلكتروني صحيح.'),
+        INVALID_PASSWORD: translate('account.passwordLength', 'استخدم كلمة مرور من 6 أحرف أو أكثر.'),
+        VERIFICATION_EMAIL_UNAVAILABLE: translate('account.emailUnavailable', 'تعذر إرسال البريد الإلكتروني حالياً. يرجى المحاولة مرة أخرى.')
+    }[code];
+    return knownMessage
+        || requestError?.response?.data?.message
+        || (code && !/request failed|^5\d\d$/i.test(String(code)) ? code : '')
+        || requestError?.message
+        || fallback;
+}
+
 function Field({ label, icon: Icon, ...props }) {
     return (
         <label className="block space-y-2 text-sm font-bold text-slate-700">
@@ -93,7 +109,7 @@ export default function AccountCenter({ onNavigate }) {
             trackBookingEvent('login_succeeded');
             setMessage(t('account.loginSuccess', 'مرحباً بعودتك. تم تسجيل الدخول بنجاح.'));
         } catch (requestError) {
-            setError(requestError.message || t('account.invalidCredentials', 'بيانات الدخول غير صحيحة'));
+            setError(requestErrorMessage(requestError, t('account.invalidCredentials', 'بيانات الدخول غير صحيحة'), t));
         } finally {
             setBusy(false);
         }
@@ -113,7 +129,7 @@ export default function AccountCenter({ onNavigate }) {
             setRegisterStep('verify');
             setMessage(t('account.codeSent', 'تم إرسال رمز التحقق إلى بريدك الإلكتروني.'));
         } catch (requestError) {
-            setError(requestError.message || t('account.createError', 'تعذر إنشاء الحساب'));
+            setError(requestErrorMessage(requestError, t('account.createError', 'تعذر إنشاء الحساب'), t));
         } finally {
             setBusy(false);
         }
@@ -131,7 +147,7 @@ export default function AccountCenter({ onNavigate }) {
             trackBookingEvent('register_succeeded');
             setMessage(t('account.accountCreated', 'تم إنشاء حسابك وإضافة نقاط البداية إلى برنامج الولاء.'));
         } catch (requestError) {
-            setError(requestError.message || t('account.invalidCode', 'رمز التحقق غير صحيح أو منتهي'));
+            setError(requestErrorMessage(requestError, t('account.invalidCode', 'رمز التحقق غير صحيح أو منتهي'), t));
         } finally {
             setBusy(false);
         }

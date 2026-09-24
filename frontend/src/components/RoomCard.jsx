@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { ArrowLeft, Check, Wifi, Info, Coffee, Ban, AlertCircle } from 'lucide-react';
+import { ArrowLeft, Check, Wifi, Info, Coffee, Ban, AlertCircle, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import { BedIcon, UsersIcon, StarIcon } from './Icons'; // تأكد أن StarIcon متوفر هنا
 import PriceDisplay from './PriceDisplay';
 import BookingAPI from '../services/bookingApi'; // تأكد من مسار API الخاص بك
@@ -53,10 +53,12 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     const [status, setStatus] = useState('idle');
     const [errorMsg, setErrorMsg] = useState('');
     const [prebookResult, setPrebookResult] = useState(null);
+    const [activeImageIndex, setActiveImageIndex] = useState(0);
 
     const hotel = room.hotel || {};
     const name = room.name || t('room.defaultName', 'غرفة فندقية');
-    const image = hotel.images?.[0] || hotel.image;
+    const roomImages = Array.isArray(room.images) ? room.images : [];
+    const image = roomImages[activeImageIndex];
     const price = room.price ?? '-';
     const amenities = room.amenities || [];
 
@@ -93,20 +95,31 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
         >
             <div className="flex flex-col lg:flex-row h-full">
                 
-                {/* Optional Image Section (If hotel image is passed down) */}
-                {image && (
-                    <div className="relative w-full lg:w-[240px] shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
+                {/* Only supplier-provided room photos are shown; never reuse the hotel photo. */}
+                <div className="relative w-full lg:w-[240px] shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
+                    {image ? (
                         <img 
                             src={image} 
-                            alt={hotel.name || 'صورة الغرفة'} 
+                            alt={name}
                             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                            onError={(event) => { event.currentTarget.style.display = 'none'; }} 
+                            onError={() => setActiveImageIndex(index => index + 1)}
                         />
-                        <div className="absolute top-3 left-3 z-10">
-                            <span className="rounded-full bg-white/90 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)] shadow-sm">عرض قابل للمقارنة</span>
+                    ) : (
+                        <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
+                            <ImageOff size={30} />
+                            <span className="px-4 text-center text-xs font-bold">{t('room.photoUnavailable', 'لا توجد صورة حقيقية متاحة لهذه الغرفة')}</span>
                         </div>
-                    </div>
-                )}
+                    )}
+                    {roomImages.length > 1 && image && (
+                        <>
+                            <button type="button" onClick={() => setActiveImageIndex(index => index === 0 ? roomImages.length - 1 : index - 1)} className="absolute left-2 top-1/2 rounded-full bg-black/45 p-1.5 text-white" aria-label="Previous room photo"><ChevronLeft size={16} /></button>
+                            <button type="button" onClick={() => setActiveImageIndex(index => index === roomImages.length - 1 ? 0 : index + 1)} className="absolute right-2 top-1/2 rounded-full bg-black/45 p-1.5 text-white" aria-label="Next room photo"><ChevronRight size={16} /></button>
+                            <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
+                                {roomImages.slice(0, 5).map((roomImage, index) => <span key={roomImage} className={`h-1.5 rounded-full ${index === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'}`} />)}
+                            </div>
+                        </>
+                    )}
+                </div>
 
                 {/* Right Side: Room Details */}
                 <div className="flex-1 p-5 sm:p-6 lg:p-7 min-w-0 flex flex-col justify-between">

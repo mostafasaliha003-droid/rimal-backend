@@ -1,6 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, displayAmount, cheapestRate, normalizeRoom, rateAmount, formatMoney } from './offers.js';
+import { hotelImages, roomImagesForRate } from './hotelImages.js';
 import { trackBookingEvent } from './analytics.js';
 
 const rate = (amount, currency = 'USD') => ({ book_hash: 'rate', payment_options: { payment_types: [{ amount, currency_code: currency, type: 'deposit' }] } });
@@ -41,6 +42,24 @@ test('missing policy and bed do not become free cancellation or king bed', () =>
     assert.equal(room.price, 60);
     assert.equal(room.currency, 'USD');
     assert.equal(formatMoney(room.price, room.currency), new Intl.NumberFormat('ar-AE', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(60));
+});
+
+test('room photos follow the selected supplier rate and exclude placeholders', () => {
+    const hotel = {
+        images: ['https://cdn.worldota.net/hotel-photo.jpg'],
+        staticData: {
+            room_groups: [
+                { id: 'king', name: 'Deluxe King Room', images_ext: [{ url: 'https://cdn.ratehawk.net/t/{size}/content/king.jpg' }] },
+                { id: 'double', name: 'Deluxe Double Room', images_ext: [{ url: 'https://cdn.ratehawk.net/t/{size}/content/double.jpg' }] }
+            ]
+        }
+    };
+    const kingRate = { room_name: 'Deluxe King Room', room_group_id: 'king', book_hash: 'king' };
+    const doubleRate = { room_name: 'Deluxe Double Room', room_group_id: 'double', book_hash: 'double' };
+    assert.deepEqual(roomImagesForRate(kingRate, hotel), ['https://cdn.ratehawk.net/t/2048x1536/content/king.jpg']);
+    assert.deepEqual(roomImagesForRate(doubleRate, hotel), ['https://cdn.ratehawk.net/t/2048x1536/content/double.jpg']);
+    assert.notDeepEqual(roomImagesForRate(kingRate, hotel), roomImagesForRate(doubleRate, hotel));
+    assert.deepEqual(hotelImages({ images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945'] }), []);
 });
 
 test('analytics contract excludes personal data and unknown events', () => {

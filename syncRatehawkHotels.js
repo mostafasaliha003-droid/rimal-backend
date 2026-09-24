@@ -151,7 +151,7 @@ function pickImage(hotel) {
     const image = (hotel.images && hotel.images[0])
         || (hotel.images_ext && hotel.images_ext[0] && (hotel.images_ext[0].url || hotel.images_ext[0]))
         || '';
-    return typeof image === 'string' ? image.replace('{size}', '1024x768') : '';
+    return typeof image === 'string' ? image.replace(/\{size\}/gi, '2048x1536') : '';
 }
 
 function toHotelUpdate(hotel) {

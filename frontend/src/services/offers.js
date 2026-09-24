@@ -1,5 +1,6 @@
 export const SEARCH_CURRENCY = 'USD';
 export const DISPLAY_CURRENCIES = ['USD', 'AED', 'SAR', 'EUR'];
+import { roomImagesForRate } from './hotelImages.js';
 
 export function displayAmount(amount, sourceCurrency, displayCurrency, usdRates) {
     const value = Number(amount);
@@ -34,12 +35,34 @@ export function formatMoney(amount, currency = 'AED') {
 
 export function normalizeRoom(rate, hotel, guests) {
     const payment = paymentFor(rate);
+    const roomImages = roomImagesForRate(rate, hotel);
+    const roomName = rate.room_name || rate.name || 'غرفة';
+    const roomNameLower = String(roomName).toLowerCase();
+    const textualBed = rate.room_info?.bed
+        || rate.room_info?.bedding_type
+        || rate.name_struct?.bedding_type
+        || rate.bedding
+        || rate.bed;
+    const bed = textualBed || (
+        roomNameLower.includes('king') ? 'King bed'
+            : roomNameLower.includes('triple') ? 'Triple bed'
+                : roomNameLower.includes('double') || roomNameLower.includes('dbl') ? 'Double bed'
+                    : roomNameLower.includes('twin') ? 'Twin beds'
+                        : roomNameLower.includes('single') ? 'Single bed'
+                            : rate.rg_ext?.capacity === 3 ? 'Triple bed'
+                                : rate.rg_ext?.capacity === 2 ? 'Double bed'
+                                    : undefined
+    );
     return {
-        name: rate.room_name || rate.name || 'غرفة',
+        name: roomName,
         price: rateAmount(rate),
         currency: rateCurrency(rate),
         book_hash: rate.book_hash || rate.match_hash,
-        bed: rate.room_info?.bed || rate.bedding || rate.bed,
+        bed,
+        images: roomImages,
+        amenities: rate.amenities || rate.room_amenities || rate.room_info?.amenities || [],
+        rg_ext: rate.rg_ext,
+        originalRate: rate,
         cancellation: payment?.cancellation_penalties,
         taxes: payment?.tax_data?.taxes || [],
         meal: rate.meal,
