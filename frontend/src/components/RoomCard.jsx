@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useRef, useState } from 'react';
 import { ArrowLeft, Check, Wifi, Info, Coffee, Ban, AlertCircle, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
 import { BedIcon, UsersIcon, StarIcon } from './Icons'; // تأكد أن StarIcon متوفر هنا
 import PriceDisplay from './PriceDisplay';
@@ -54,6 +54,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     const [errorMsg, setErrorMsg] = useState('');
     const [prebookResult, setPrebookResult] = useState(null);
     const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const touchStartX = useRef(null);
 
     const hotel = room.hotel || {};
     const name = room.name || t('room.defaultName', 'غرفة فندقية');
@@ -88,6 +89,20 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
         }
     };
 
+    const handleImageTouchStart = (event) => {
+        touchStartX.current = event.touches[0]?.clientX ?? null;
+    };
+
+    const handleImageTouchEnd = (event) => {
+        if (touchStartX.current === null || roomImages.length < 2) return;
+        const delta = event.changedTouches[0]?.clientX - touchStartX.current;
+        touchStartX.current = null;
+        if (Math.abs(delta) < 36) return;
+        setActiveImageIndex((index) => delta < 0
+            ? (index === roomImages.length - 1 ? 0 : index + 1)
+            : (index === 0 ? roomImages.length - 1 : index - 1));
+    };
+
     return (
         <article
             aria-labelledby={`room-${room.book_hash || room.roomId || room.name}`}
@@ -96,7 +111,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
             <div className="flex flex-col lg:flex-row h-full">
                 
                 {/* Only supplier-provided room photos are shown; never reuse the hotel photo. */}
-                <div className="relative w-full lg:w-[240px] shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
+                <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y lg:w-[240px] shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
                     {image ? (
                         <img 
                             src={image} 
@@ -112,8 +127,8 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                     )}
                     {roomImages.length > 1 && image && (
                         <>
-                            <button type="button" onClick={() => setActiveImageIndex(index => index === 0 ? roomImages.length - 1 : index - 1)} className="absolute left-2 top-1/2 rounded-full bg-black/45 p-1.5 text-white" aria-label="Previous room photo"><ChevronLeft size={16} /></button>
-                            <button type="button" onClick={() => setActiveImageIndex(index => index === roomImages.length - 1 ? 0 : index + 1)} className="absolute right-2 top-1/2 rounded-full bg-black/45 p-1.5 text-white" aria-label="Next room photo"><ChevronRight size={16} /></button>
+                            <button type="button" onClick={() => setActiveImageIndex(index => index === 0 ? roomImages.length - 1 : index - 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute left-2 top-1/2 rounded-full bg-black/45 text-white" aria-label="Previous room photo"><ChevronLeft size={16} /></button>
+                            <button type="button" onClick={() => setActiveImageIndex(index => index === roomImages.length - 1 ? 0 : index + 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute right-2 top-1/2 rounded-full bg-black/45 text-white" aria-label="Next room photo"><ChevronRight size={16} /></button>
                             <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
                                 {roomImages.slice(0, 5).map((roomImage, index) => <span key={roomImage} className={`h-1.5 rounded-full ${index === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'}`} />)}
                             </div>
@@ -173,15 +188,15 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 </div>
 
                 {/* Left Side: Pricing & CTA (Glassmorphism highlight box) */}
-                <div className="bg-slate-50 border-t lg:border-t-0 lg:border-r border-slate-100 p-6 sm:p-7 flex flex-col justify-center min-w-[280px] relative overflow-hidden">
+                <div className="bg-slate-50 border-t lg:border-t-0 lg:border-r border-slate-100 p-5 sm:p-7 flex flex-col justify-center lg:min-w-[280px] relative overflow-hidden">
                     {/* Decorative background element */}
                     <div className="absolute top-0 left-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl -translate-x-10 -translate-y-10" />
                     
-                    <div aria-live="polite" aria-atomic="true" className="relative z-10 text-right mb-6">
+                    <div aria-live="polite" aria-atomic="true" className="relative z-10 text-right mb-5 lg:mb-6">
                         <div className="mb-3 inline-flex rounded-full bg-cyan-50 border border-cyan-100 px-3 py-1 text-[10px] font-black text-[var(--remal-blue)] w-fit">
                             تحقق من السعر والتوفر قبل الدفع
                         </div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">السعر الإجمالي</p>
+                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">السعر الإجمالي للإقامة</p>
                         
                         <div className="flex items-baseline justify-end gap-1.5">
                             {price !== '-' ? (

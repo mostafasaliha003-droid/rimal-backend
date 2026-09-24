@@ -1,5 +1,5 @@
-import { lazy, useEffect, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle, Search } from 'lucide-react';
+import { lazy, useEffect, useRef, useState } from 'react';
+import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle, Search, X } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelRoomCard from './components/HotelRoomCard';
@@ -64,6 +64,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
     const images = hotel.images || [];
     const [currentImageIndex, setCurrentImageIndex] = useState(0);
     const [imageFailed, setImageFailed] = useState(false);
+    const touchStartX = useRef(null);
     const hasFreeCancellation = paymentFor(rate)?.cancellation_penalties?.free_cancellation_before;
 
     // Recommendation cues stay deterministic and factual; avoid invented scarcity.
@@ -89,13 +90,27 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
         setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
     };
 
+    const handleImageTouchStart = (event) => {
+        touchStartX.current = event.touches[0]?.clientX ?? null;
+    };
+
+    const handleImageTouchEnd = (event) => {
+        if (touchStartX.current === null || images.length < 2) return;
+        const delta = event.changedTouches[0]?.clientX - touchStartX.current;
+        touchStartX.current = null;
+        if (Math.abs(delta) < 36) return;
+        setCurrentImageIndex((index) => delta < 0
+            ? (index === images.length - 1 ? 0 : index + 1)
+            : (index === 0 ? images.length - 1 : index - 1));
+    };
+
     return (
         <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="hotel-card surface-card group relative overflow-hidden rounded-3xl transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_18px_42px_rgba(15,35,55,0.12)]">
 
             <div className="flex flex-col md:flex-row h-full">
                 
                 {/* Image Section with Carousel */}
-                <div className="relative w-full md:w-[280px] shrink-0 overflow-hidden bg-slate-100 h-56 md:h-auto group/carousel">
+                <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y md:w-[280px] shrink-0 overflow-hidden bg-slate-100 h-56 md:h-auto group/carousel">
                     {images.length > 0 && !imageFailed ? (
                         <>
                             <img 
@@ -108,11 +123,11 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
                             
                             {/* Carousel Controls (تظهر عند التمرير بالماوس) */}
                             {images.length > 1 && (
-                                <div className="absolute inset-0 flex items-center justify-between px-2 opacity-0 group-hover/carousel:opacity-100 transition-opacity duration-300">
-                                    <button onClick={prevImage} className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors" aria-label="الصورة السابقة">
+                                <div className="absolute inset-0 flex items-center justify-between px-2 opacity-100 md:opacity-0 md:group-hover/carousel:opacity-100 transition-opacity duration-300">
+                                    <button onClick={prevImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/60 transition-colors" aria-label="الصورة السابقة">
                                         <ChevronRight size={20} />
                                     </button>
-                                    <button onClick={nextImage} className="p-1.5 rounded-full bg-black/40 backdrop-blur-sm text-white hover:bg-black/60 transition-colors" aria-label="الصورة التالية">
+                                    <button onClick={nextImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/60 transition-colors" aria-label="الصورة التالية">
                                         <ChevronLeft size={20} />
                                     </button>
                                 </div>
@@ -263,6 +278,19 @@ export default function App() {
     const [priceFilterOpen, setPriceFilterOpen] = useState(true);
     const [starsFilterOpen, setStarsFilterOpen] = useState(true);
     const [amenitiesFilterOpen, setAmenitiesFilterOpen] = useState(true);
+
+    const activeFilterCount = [
+        Boolean(maxPrice),
+        freeCancellation,
+        Boolean(starFilter),
+        amenityFilter
+    ].filter(Boolean).length;
+
+    useEffect(() => {
+        const isMobile = window.matchMedia('(max-width: 1023px)').matches;
+        document.body.classList.toggle('filter-sheet-open', filtersOpen && isMobile);
+        return () => document.body.classList.remove('filter-sheet-open');
+    }, [filtersOpen]);
 
     useEffect(() => {
         try { localStorage.setItem('remal_display_currency', displayCurrency); } catch {}
@@ -448,7 +476,7 @@ export default function App() {
                             <h2 className="text-3xl font-black tracking-tight sm:text-4xl">{t('results.heading', 'فنادق تحسّها على كيفك')}</h2>
                             <p className="mt-2 text-sm font-semibold text-slate-500">{searched ? t('results.searchedCount', `${visibleHotels.length} فندق متاح حسب بحثك`, { count: visibleHotels.length }) : t('results.initialSubheading', 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية')}</p>
                         </div>
-                        <div className="flex flex-wrap items-center gap-4">
+                        <div className="hidden flex-wrap items-center gap-4 lg:flex">
                             <label className="text-sm font-bold text-slate-700 flex items-center gap-2">
                                 {t('results.sort', 'الترتيب')}
                                 <select value={sort} onChange={event => setSort(event.target.value)} className="rounded-xl border border-slate-200 p-2.5 font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 bg-white">
@@ -457,24 +485,22 @@ export default function App() {
                                     <option value="stars">{t('results.highestRating', 'الأعلى تصنيفاً')}</option>
                                 </select>
                             </label>
-                            <button type="button" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} className="flex min-h-[46px] items-center gap-2 rounded-xl border border-slate-200 bg-white px-5 py-2 text-sm font-bold shadow-sm lg:hidden hover:bg-slate-50">
-                                <SlidersHorizontal size={18} /> {t('results.filters', 'الفلاتر')}
-                            </button>
                         </div>
                     </div>
 
                     <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
                         
                         {/* Filters Sidebar (Clean UI & Progressive Disclosure) */}
-                        <aside id="search-filters" className={`${filtersOpen ? 'block' : 'hidden'} min-w-0 w-full max-w-full border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
-                            <div className="rounded-3xl bg-white shadow-sm border border-slate-100 overflow-hidden">
-                                <div className="p-6 pb-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50">
+                        {filtersOpen && <button type="button" aria-label={t('results.closeFilters', 'إغلاق الفلاتر')} onClick={() => setFiltersOpen(false)} className="filter-sheet-backdrop fixed inset-0 z-[60] bg-slate-950/45 lg:hidden" />}
+                        <aside id="search-filters" role={filtersOpen ? 'dialog' : undefined} aria-modal={filtersOpen ? 'true' : undefined} aria-label={t('results.filterResults', 'تصفية النتائج')} className={`filter-sheet ${filtersOpen ? 'filter-sheet-open' : ''} min-w-0 w-full max-w-full border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
+                            <div className="filter-sheet-panel rounded-t-3xl bg-white shadow-sm border border-slate-100 overflow-hidden lg:rounded-3xl">
+                                <div className="filter-sheet-handle lg:hidden" aria-hidden="true" />
+                                <div className="p-5 pb-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 sm:p-6">
                                     <h3 className="text-lg font-black text-slate-900">{t('results.filterResults', 'تصفية النتائج')}</h3>
-                                    {(starFilter !== 0 || amenityFilter || maxPrice || freeCancellation) && (
-                                        <button type="button" onClick={clearFilters} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors">
-                                            <RotateCcw size={14} /> {t('results.clearFilters', 'مسح الكل')}
-                                        </button>
-                                    )}
+                                    <div className="flex items-center gap-2">
+                                        {activeFilterCount > 0 && <button type="button" onClick={clearFilters} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors"><RotateCcw size={14} /> {t('results.clearFilters', 'مسح الكل')}</button>}
+                                        <button type="button" onClick={() => setFiltersOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 lg:hidden" aria-label={t('results.closeFilters', 'إغلاق الفلاتر')}><X size={18} /></button>
+                                    </div>
                                 </div>
                                 
                                 <div className="divide-y divide-slate-100">
@@ -546,11 +572,15 @@ export default function App() {
                                     </div>
 
                                 </div>
+                                <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-5 py-4 lg:hidden">
+                                    <span className="text-sm font-bold text-slate-500">{activeFilterCount ? t('results.activeFilters', '{{count}} فلاتر مفعّلة', { count: activeFilterCount }) : t('results.noActiveFilters', 'لا توجد فلاتر مفعّلة')}</span>
+                                    <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-xl bg-[var(--remal-orange)] px-6 text-sm font-black text-white shadow-sm hover:bg-[#d86522]">{t('results.showResults', 'عرض النتائج')}</button>
+                                </div>
                             </div>
                         </aside>
 
                         {/* Search Results Area */}
-                        <div className="min-w-0 space-y-6">
+                        <div className="min-w-0 space-y-6 pb-20 lg:pb-0">
                             
                             {/* Best Price Highlight Banner */}
                             {lowestHotel && visibleHotels.length > 1 && (
@@ -627,6 +657,20 @@ export default function App() {
 
                     </div>
                 </section>
+                {searched && <div className="mobile-results-toolbar lg:hidden">
+                    <button type="button" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} className="relative flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm active:scale-[0.98]">
+                        <SlidersHorizontal size={18} /> {t('results.filters', 'الفلاتر')}
+                        {activeFilterCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--remal-blue)] px-1 text-[11px] font-black text-white">{activeFilterCount}</span>}
+                    </button>
+                    <label className="flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-3 text-sm font-black text-slate-700 shadow-sm">
+                        <span className="sr-only">{t('results.sort', 'الترتيب')}</span>
+                        <select value={sort} onChange={event => setSort(event.target.value)} className="w-full bg-transparent text-center font-black outline-none">
+                            <option value="recommended">{t('results.supplier', 'ترتيب المورد')}</option>
+                            <option value="price">{t('results.lowestPrice', 'الأقل سعراً')}</option>
+                            <option value="stars">{t('results.highestRating', 'الأعلى تصنيفاً')}</option>
+                        </select>
+                    </label>
+                </div>}
             </main>
             <footer className="border-t border-slate-200 bg-white">
                 <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-8 text-sm font-bold text-slate-500">

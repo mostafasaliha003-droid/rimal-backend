@@ -2,7 +2,8 @@ import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CheckCircle2, CalendarDays, Users } from 'lucide-react';
 import HotelRoomCard from './components/HotelRoomCard';
 import BookingAPI from './services/bookingApi';
-import { SEARCH_CURRENCY, normalizeRoom } from './services/offers';
+import { SEARCH_CURRENCY, normalizeRoom, rateAmount, rateCurrency } from './services/offers';
+import PriceDisplay from './components/PriceDisplay';
 import { trackBookingEvent } from './services/analytics';
 import { hotelImages } from './services/hotelImages.js';
 import { useLanguage } from './i18n';
@@ -92,6 +93,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
     }, [hid, searchParams.checkin, searchParams.checkout, JSON.stringify(searchParams.guests), apiLanguage]);
 
     const rooms = rates.map(rate => normalizeRoom(rate, hotel, searchParams.guests));
+    const lowestRoom = rooms.reduce((best, room) => !best || rateAmount(room) < rateAmount(best) ? room : best, null);
 
     const navigateToCheckout = (room) => {
         trackBookingEvent('room_selected', { room_count: searchParams.guests.length });
@@ -117,7 +119,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
     const totalGuests = searchParams.guests.reduce((acc, g) => acc + (g.adults || 0) + (g.children?.length || 0), 0);
 
     return (
-        <main dir={direction} className="min-h-screen bg-[#F8FAFC] pb-24 pt-8">
+        <main dir={direction} className="min-h-screen bg-[#F8FAFC] pb-[calc(7rem+env(safe-area-inset-bottom))] pt-8 lg:pb-24">
             <div className="mx-auto max-w-7xl px-5 lg:px-10">
                 
                 {/* 1. Masterstroke Header (Top Section) */}
@@ -204,7 +206,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         </article>
 
                         {/* Rooms List */}
-                        <section className="space-y-5">
+                        <section id="hotel-room-offers" className="scroll-mt-24 space-y-5">
                             <div className="mb-6">
                                 <h2 className="text-2xl font-black text-slate-900">عروض الإقامة</h2>
                                 <p className="mt-1 text-sm font-medium text-slate-500">سيُعاد التحقق من السعر والتوفر قبل إتمام الدفع</p>
@@ -225,7 +227,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     </div>
 
                     {/* Right Column (Sticky Booking Widget - Masterstroke Style) */}
-                    <aside className="sticky top-28 overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-200/50">
+                    <aside className="sticky top-28 hidden overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-200/50 lg:block">
                         <div className="p-6 sm:p-8">
                             <div className="mb-6 flex items-baseline justify-between">
                                 <p className="text-3xl font-black text-slate-900">{rooms.length ? t('hotel.offers', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.noOffers', 'لا عروض')}</p>
@@ -264,6 +266,18 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     </aside>
 
                 </section>
+                <div className="mobile-booking-bar lg:hidden">
+                    <div className="min-w-0">
+                        <p className="text-[11px] font-black text-slate-500">{t('hotel.mobileSummary', 'ابدأ باختيار غرفة')}</p>
+                        <div className="min-w-0">
+                            <p className="truncate text-sm font-black text-slate-900">{rooms.length ? t('hotel.offers', `${rooms.length} عروض متاحة`, { count: rooms.length }) : t('hotel.noOffers', 'لا عروض')}</p>
+                            {lowestRoom && <PriceDisplay amount={rateAmount(lowestRoom)} currency={rateCurrency(lowestRoom)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-sm font-black text-[var(--remal-blue)]" />}
+                        </div>
+                    </div>
+                    <button type="button" onClick={() => document.getElementById('hotel-room-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} disabled={!rooms.length} className="min-h-12 shrink-0 rounded-xl bg-[var(--remal-orange)] px-5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.22)] disabled:cursor-not-allowed disabled:bg-slate-300">
+                        {t('hotel.viewOffers', 'عرض الغرف')}
+                    </button>
+                </div>
             </div>
         </main>
     );
