@@ -23,11 +23,14 @@
 
 * { box-sizing: border-box; }
 * { letter-spacing: 0 !important; }
+:where(.flex, .inline-flex, .grid) > * { min-width: 0; }
 html { scroll-behavior: smooth; }
 body { margin: 0; min-width: 320px; background: #f7f9fc; }
 body.filter-sheet-open { overflow: hidden; }
 button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
+button, a { overflow-wrap: anywhere; }
+button, select { max-width: 100%; }
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible, textarea:focus-visible {
     outline: 3px solid var(--remal-focus);
     outline-offset: 3px;
@@ -76,8 +79,10 @@ input[type="checkbox"] { accent-color: #146776; }
 .filter-sheet-backdrop { animation: filter-backdrop-in 180ms ease-out both; }
 .filter-sheet-panel { overflow: hidden; }
 .filter-sheet-handle { width: 42px; height: 4px; margin: 10px auto 2px; border-radius: 999px; background: #cbd5e1; }
-.mobile-booking-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: flex; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid rgba(226, 232, 240, 0.95); background: rgba(255, 255, 255, 0.94); padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); box-shadow: 0 -12px 30px rgba(15, 35, 55, 0.12); backdrop-filter: blur(18px); }
-.mobile-results-toolbar { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: flex; gap: 0.75rem; border-top: 1px solid rgba(226, 232, 240, 0.95); background: rgba(248, 250, 252, 0.94); padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); box-shadow: 0 -12px 30px rgba(15, 35, 55, 0.1); backdrop-filter: blur(18px); }
+.mobile-booking-bar { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 1rem; border-top: 1px solid rgba(226, 232, 240, 0.95); background: rgba(255, 255, 255, 0.94); padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); box-shadow: 0 -12px 30px rgba(15, 35, 55, 0.12); backdrop-filter: blur(18px); }
+.mobile-booking-bar > :first-child { flex: 1 1 10rem; min-width: 0; }
+.mobile-results-toolbar { position: fixed; inset-inline: 0; bottom: 0; z-index: 40; display: flex; flex-wrap: wrap; gap: 0.75rem; border-top: 1px solid rgba(226, 232, 240, 0.95); background: rgba(248, 250, 252, 0.94); padding: 0.75rem 1rem calc(0.75rem + env(safe-area-inset-bottom)); box-shadow: 0 -12px 30px rgba(15, 35, 55, 0.1); backdrop-filter: blur(18px); }
+.mobile-results-toolbar > * { flex: 1 1 10rem; min-width: 0; }
 @keyframes filter-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 
 .eyebrow {

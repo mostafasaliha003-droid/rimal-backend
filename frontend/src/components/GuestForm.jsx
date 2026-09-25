@@ -152,12 +152,12 @@ export default function GuestForm({
             </section>
 
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-4 shadow-[0_-10px_30px_rgba(15,35,55,0.12)] backdrop-blur md:static md:rounded-3xl md:border md:p-5 md:shadow-sm">
-                <div className="mx-auto flex max-w-3xl items-center justify-between gap-4 md:block">
-                    <div className="shrink-0 md:mb-4">
+                <div className="mx-auto flex max-w-3xl flex-wrap items-center justify-between gap-4 md:block">
+                    <div className="min-w-0 flex-1 md:mb-4">
                         <p className="text-xs font-bold text-slate-500">{t('checkout.totalAtContinue', 'الإجمالي عند المتابعة')}</p>
                         {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-lg font-black text-slate-900" /> : <p className="mt-1 text-lg font-black text-slate-900">{t('checkout.priceUnavailable', 'السعر غير متاح')}</p>}
                     </div>
-                    <button type="submit" form={formId} disabled={isSubmitting || !paymentAvailable} aria-disabled={isSubmitting || !paymentAvailable} className="min-h-12 flex-1 rounded-2xl bg-[var(--remal-navy)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:bg-[var(--remal-blue)] focus:outline-none focus:ring-4 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-50 md:w-full">
+                    <button type="submit" form={formId} disabled={isSubmitting || !paymentAvailable} aria-disabled={isSubmitting || !paymentAvailable} className="min-h-12 min-w-0 flex-[1_1_12rem] rounded-2xl bg-[var(--remal-navy)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:bg-[var(--remal-blue)] focus:outline-none focus:ring-4 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-50 md:w-full">
                         {isSubmitting ? <span className="inline-flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" role="status" aria-label={t('checkout.processing', 'جار تجهيز الدفع')} />{t('checkout.processing', 'جار تجهيز الدفع...')}</span> : paymentAvailable ? t('checkout.confirm', 'تأكيد الحجز والمتابعة للدفع') : t('checkout.paymentUnavailable', 'الدفع غير متاح حالياً')}
                     </button>
                 </div>

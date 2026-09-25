@@ -120,7 +120,7 @@ function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
             <div className="flex flex-col md:flex-row h-full">
                 
                 {/* Image Section with Carousel */}
-                <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y md:w-[280px] shrink-0 overflow-hidden bg-slate-100 h-56 md:h-auto group/carousel">
+                <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y md:w-1/4 md:min-w-0 shrink-0 overflow-hidden bg-slate-100 h-56 md:h-auto group/carousel">
                     {images.length > 0 && !imageFailed ? (
                         <>
                             <img 

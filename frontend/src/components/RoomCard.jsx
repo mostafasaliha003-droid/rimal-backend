@@ -31,12 +31,12 @@ export function CancellationPolicy({ cancellation, currency }) {
                     </summary>
                     <ul className="mt-2 space-y-1.5 rounded-xl bg-slate-50 p-3 text-xs font-medium text-slate-600 border border-slate-100 shadow-sm">
                         {cancellation.policies.map((policy, index) => (
-                            <li key={index} className="flex justify-between items-center border-b border-slate-200/50 last:border-0 pb-1.5 last:pb-0">
-                                <span>
+                            <li key={index} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-200/50 pb-1.5 last:border-0 last:pb-0">
+                                <span className="min-w-0 break-words">
                                     {policy.start_at ? `${t('room.from', 'من')} ${policy.start_at.replace('T', ' ')}` : t('room.beforeNextDeadline', 'قبل الموعد التالي')}
                                     {policy.end_at ? ` ${t('room.until', 'حتى')} ${policy.end_at.replace('T', ' ')}` : ''}
                                 </span>
-                                <span className="font-bold text-slate-800 text-left" dir="ltr">
+                                <span className="shrink-0 break-words font-bold text-left text-slate-800" dir="ltr">
                                     {policy.amount} {policy.currency_code || currency}
                                 </span>
                             </li>
@@ -111,7 +111,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
             <div className="flex flex-col lg:flex-row h-full">
                 
                 {/* Only supplier-provided room photos are shown; never reuse the hotel photo. */}
-                <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y lg:w-[240px] shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
+                <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y lg:w-1/4 lg:min-w-0 shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
                     {image ? (
                         <img 
                             src={image} 
@@ -139,7 +139,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 {/* Right Side: Room Details */}
                 <div className="flex-1 p-5 sm:p-6 lg:p-7 min-w-0 flex flex-col justify-between">
                     <div>
-                        <div className="mb-2 flex items-center gap-2">
+                        <div className="mb-2 flex flex-wrap items-center gap-2">
                             {!image && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)]">{t('room.comparable', 'عرض قابل للمقارنة')}</span>}
                             <div className="flex gap-0.5 text-amber-400">
                                 {Array.from({ length: 5 }).map((_, index) => <StarIcon key={index} size={14} fill="currentColor" />)}
@@ -176,7 +176,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             {amenities.slice(0, 2).map((amenity) => (
                                 <span key={String(amenity)} className="inline-flex items-center gap-1.5 rounded-lg bg-blue-50/50 border border-blue-100 px-3 py-2 text-blue-800">
                                     <Wifi size={15} className="text-blue-600" />
-                                    <span className="truncate max-w-[120px]">{amenity}</span>
+                                    <span className="max-w-full break-words">{amenity}</span>
                                 </span>
                             ))}
                         </div>
@@ -188,7 +188,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 </div>
 
                 {/* Left Side: Pricing & CTA (Glassmorphism highlight box) */}
-                <div className="bg-slate-50 border-t lg:border-t-0 lg:border-r border-slate-100 p-5 sm:p-7 flex flex-col justify-center lg:min-w-[280px] relative overflow-hidden">
+                <div className="min-w-0 bg-slate-50 border-t lg:w-1/4 lg:border-t-0 lg:border-r border-slate-100 p-5 sm:p-7 flex flex-col justify-center relative overflow-hidden">
                     {/* Decorative background element */}
                     <div className="absolute top-0 left-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl -translate-x-10 -translate-y-10" />
                     
@@ -212,9 +212,9 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         {additionalTaxes.length > 0 && (
                             <div className="mt-3 space-y-1 rounded-lg bg-orange-50/50 p-2.5 border border-orange-100/50 text-right">
                                 {additionalTaxes.map((tax, index) => (
-                                    <p key={index} className="text-[11px] font-bold text-orange-800 flex justify-between items-center gap-2">
-                                        <span>{tax.name || t('room.localFees', 'رسوم غير مشمولة')}{' '}</span>
-                                        <span dir="ltr" className="bg-white px-1.5 py-0.5 rounded shadow-sm">{tax.amount} {tax.currency_code}</span>
+                                    <p key={index} className="flex flex-wrap items-center justify-between gap-2 text-[11px] font-bold text-orange-800">
+                                        <span className="min-w-0 break-words">{tax.name || t('room.localFees', 'رسوم غير مشمولة')}{' '}</span>
+                                        <span dir="ltr" className="shrink-0 break-words rounded bg-white px-1.5 py-0.5 shadow-sm">{tax.amount} {tax.currency_code}</span>
                                     </p>
                                 ))}
                             </div>
@@ -230,7 +230,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             disabled={status === 'loading' || (!payable && status !== 'success')} 
                             className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.25)] transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[var(--remal-orange)] hover:bg-[#d86522]'} ${!payable && status !== 'success' ? 'bg-slate-300' : ''}`}
                         >
-                            <span className="relative z-10 flex items-center gap-2">
+                            <span className="relative z-10 flex flex-wrap items-center justify-center gap-2 text-center">
                                 {status === 'loading' ? t('room.verifying', 'جارٍ التحقق...') : status === 'success' ? t('room.fixed', 'تم تثبيت السعر') : t('room.book', 'احجز الغرفة')}
                                 {status === 'success' ? <Check size={18} className="animate-in zoom-in duration-300" /> : status === 'loading' ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span> : <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />}
                             </span>

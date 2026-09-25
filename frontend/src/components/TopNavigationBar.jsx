@@ -38,21 +38,21 @@ export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrenc
     };
     return (
         <header className="site-header relative z-20 text-white">
-            <div className="mx-auto flex min-h-[72px] max-w-7xl items-center justify-between gap-4 px-5 lg:px-10">
-                <div className="flex items-center gap-3">
+            <div className="mx-auto flex min-h-[72px] max-w-7xl flex-wrap items-center justify-between gap-4 px-5 lg:px-10">
+                <div className="flex min-w-0 flex-1 items-center gap-3">
                     <button onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-navigation" className="rounded-lg p-3 text-white lg:hidden" aria-label={open ? t('nav.closeMenu', 'إغلاق القائمة') : t('nav.openMenu', 'فتح القائمة')}>
                         {open ? <X size={21} /> : <Menu size={21} />}
                     </button>
                     <a href="/" aria-label={t('nav.logoAlt', 'العودة إلى الصفحة الرئيسية')} className="flex items-center gap-2.5">
                         <img src="/logo.jpg" alt={t('nav.logoAlt', 'شعار رمال الدولية')} className="h-10 w-10 rounded-2xl border border-white/20 bg-white object-cover shadow-sm" onError={event => { event.currentTarget.style.display = 'none'; }} />
-                        <div className="leading-none">
-                            <div className="text-lg font-black tracking-tight">رمال <span className="text-remal-blue">وفِلّها</span></div>
-                            <div className="mt-1 text-[9px] font-bold uppercase tracking-[0.24em] text-white/45">{t('nav.brandTagline', 'إقامتك تبدأ من هنا')}</div>
+                        <div className="min-w-0 leading-none">
+                            <div className="break-words text-lg font-black tracking-tight">رمال <span className="text-remal-blue">وفِلّها</span></div>
+                            <div className="mt-1 break-words text-[9px] font-bold uppercase tracking-[0.24em] text-white/45">{t('nav.brandTagline', 'إقامتك تبدأ من هنا')}</div>
                         </div>
                     </a>
                 </div>
 
-                <nav className="hidden items-center gap-6 lg:flex">
+                <nav className="hidden flex-wrap items-center gap-6 lg:flex">
                     {links.map(({ key, href, active, icon: Icon }) => (
                         <a key={key} href={href} onClick={event => href.startsWith('/') && navigate(event, href)} className={`group flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] font-bold transition ${active ? 'bg-white/10 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}>
                             {Icon && <Icon size={15} className={active ? 'text-remal-blue' : 'text-white/40'} />}
@@ -61,8 +61,8 @@ export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrenc
                     ))}
                 </nav>
 
-                <div className="flex shrink-0 items-center gap-2 text-xs font-bold">
-                    <div className="hidden items-center gap-2 xl:flex">
+                <div className="flex min-w-0 max-w-full flex-wrap items-center justify-end gap-2 text-xs font-bold">
+                    <div className="hidden min-w-0 flex-wrap items-center gap-2 xl:flex">
                         <a href="/account" onClick={event => navigate(event, '/account')} className="inline-flex items-center gap-1.5 rounded-full bg-white/10 px-3 py-2 text-white/80 transition hover:bg-white/20 hover:text-white">
                             <UserRound size={14} /> {user ? (user.name?.split(' ')[0] || t('nav.account', 'حسابي')) : t('nav.login', 'تسجيل الدخول')}
                         </a>

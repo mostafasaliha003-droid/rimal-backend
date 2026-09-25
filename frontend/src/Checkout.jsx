@@ -42,7 +42,7 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
                     <div className="relative">
                         <p className="eyebrow text-cyan-200">{t('checkout.summary', 'ملخص الحجز')}</p>
                         <h2 className="mt-2 text-2xl font-black leading-tight">{booking.hotelName || 'Hotel'}</h2>
-                        <p className="mt-3 flex items-center gap-2 text-sm font-semibold text-slate-300"><MapPin size={16} />{room.name || 'Room'}</p>
+                        <p className="mt-3 flex min-w-0 flex-wrap items-center gap-2 break-words text-sm font-semibold text-slate-300"><MapPin size={16} className="shrink-0" />{room.name || 'Room'}</p>
                     </div>
                 </div>
 
@@ -59,18 +59,18 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
                     </div>
 
                     <div>
-                        <div className="flex items-end justify-between gap-4 border-b border-slate-100 pb-5">
-                            <div>
+                        <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 pb-5">
+                            <div className="min-w-0">
                                 <p className="text-sm font-black text-slate-900">{t('checkout.priceBreakdown', 'تفصيل السعر')}</p>
                                 <p className="mt-1 text-xs font-medium text-slate-500">{t('checkout.originalCurrency', 'بالعملة الأصلية للعرض')}</p>
                             </div>
-                            {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-[var(--remal-blue)]" /> : <span className="font-bold text-slate-400">غير متاح</span>}
+                            {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="max-w-full text-3xl font-black tracking-tight text-[var(--remal-blue)]" /> : <span className="font-bold text-slate-400">غير متاح</span>}
                         </div>
 
                         {localTaxes.length > 0 && (
                             <div className="mt-4 space-y-2 rounded-2xl border border-orange-100 bg-orange-50 p-4">
                                 <p className="border-b border-orange-200/70 pb-2 text-xs font-black text-orange-900">{t('checkout.localTaxes', 'رسوم محلية تُدفع في الفندق')}</p>
-                                {localTaxes.map((tax, index) => <div key={index} className="flex justify-between gap-3 text-[11px] font-bold text-orange-800"><span>{tax.name}</span><span dir="ltr">{tax.amount} {tax.currency_code}</span></div>)}
+                                {localTaxes.map((tax, index) => <div key={index} className="flex flex-wrap justify-between gap-3 text-[11px] font-bold text-orange-800"><span className="min-w-0 break-words">{tax.name}</span><span dir="ltr" className="break-words">{tax.amount} {tax.currency_code}</span></div>)}
                             </div>
                         )}
                     </div>
@@ -268,7 +268,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
 
                 {!canPay && <div role="status" className="mb-8 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800 shadow-sm"><Info size={24} className="mt-0.5 shrink-0 text-amber-500" /><div><p className="font-bold text-amber-900">{t('checkout.noPaymentTitle', 'الدفع الإلكتروني غير متاح لهذا العرض حالياً.')}</p><p className="mt-1 text-sm font-medium leading-6">{t('checkout.noPaymentBody', 'لم يتم إنشاء عملية دفع. يرجى اختيار عرض آخر أو التواصل مع فريق الحجوزات.')}</p></div></div>}
 
-                <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_400px]">
+                <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)]">
                     <div className="order-2 min-w-0 lg:order-1">
                         {error && <div role="alert" aria-live="assertive" className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800"><Info size={20} className="mt-0.5 shrink-0" /><p className="text-sm font-bold leading-6">{error}</p></div>}
                         <GuestForm

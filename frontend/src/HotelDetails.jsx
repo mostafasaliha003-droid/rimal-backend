@@ -181,7 +181,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                 </section>
 
                 {/* 3. Main Content & Sticky Widget */}
-                <section className="mt-8 grid items-start gap-8 lg:mt-12 lg:grid-cols-[1fr_360px] lg:gap-12">
+                <section className="mt-8 grid min-w-0 items-start gap-8 lg:mt-12 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,22.5rem)] lg:gap-12">
                     
                     {/* Left Column (Content) */}
                     <div className="min-w-0 space-y-8">
@@ -229,19 +229,19 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     {/* Right Column (Sticky Booking Widget - Masterstroke Style) */}
                     <aside className="sticky top-28 hidden overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-200/50 lg:block">
                         <div className="p-6 sm:p-8">
-                            <div className="mb-6 flex items-baseline justify-between">
-                                <p className="text-3xl font-black text-slate-900">{rooms.length ? t('hotel.offers', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.noOffers', 'لا عروض')}</p>
-                                <p className="text-sm font-bold text-emerald-600 bg-emerald-50 px-3 py-1 rounded-full">{t('hotel.available', 'متاحة الآن')}</p>
+                            <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
+                                <p className="min-w-0 break-words text-3xl font-black text-slate-900">{rooms.length ? t('hotel.offers', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.noOffers', 'لا عروض')}</p>
+                                <p className="max-w-full break-words rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-600">{t('hotel.available', 'متاحة الآن')}</p>
                             </div>
                             
                             {/* Airbnb style checkin/checkout box */}
                             <div className="mb-6 rounded-2xl border border-slate-200 overflow-hidden">
-                                <div className="flex border-b border-slate-200">
-                                    <div className="w-1/2 p-3 border-l border-slate-200 bg-slate-50/50">
+                                <div className="flex flex-wrap border-b border-slate-200">
+                                    <div className="min-w-0 flex-1 basis-1/2 p-3 border-l border-slate-200 bg-slate-50/50">
                                         <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">{t('hotel.arrival', 'الوصول')}</p>
                                         <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><CalendarDays size={14}/> {searchParams.checkin || t('hotel.selectDates', 'تحديد')}</p>
                                     </div>
-                                    <div className="w-1/2 p-3 bg-slate-50/50">
+                                    <div className="min-w-0 flex-1 basis-1/2 p-3 bg-slate-50/50">
                                         <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">{t('hotel.departure', 'المغادرة')}</p>
                                         <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><CalendarDays size={14}/> {searchParams.checkout || t('hotel.selectDates', 'تحديد')}</p>
                                     </div>
