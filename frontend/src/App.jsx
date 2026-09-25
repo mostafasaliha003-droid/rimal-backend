@@ -53,9 +53,19 @@ const getHotels = (response) => {
         };
     });
 };
-const getRatePrice = (rate) => rate?.payment_options?.payment_types?.[0]?.amount || rate?.price || '-';
-const getRateHash = (rate) => rate?.book_hash || rate?.match_hash;
-const getAmenities = (rate) => Array.isArray(rate?.amenities) ? rate.amenities : (Array.isArray(rate?.room_amenities) ? rate.room_amenities : []);
+const getRatePrice = (rate) => {
+    return rate?.payment_options?.payment_types?.[0]?.amount || rate?.price || '-';
+};
+
+const getRateHash = (rate) => {
+    return rate?.book_hash || rate?.match_hash;
+};
+
+const getAmenities = (rate) => {
+    if (Array.isArray(rate?.amenities)) return rate.amenities;
+    if (Array.isArray(rate?.room_amenities)) return rate.room_amenities;
+    return [];
+};
 
 // Masterstroke UI: SerpResultCard (with Urgency, Social Proof & Image Carousel)
 function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
