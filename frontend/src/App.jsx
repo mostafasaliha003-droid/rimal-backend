@@ -322,6 +322,8 @@ export default function App() {
     }, []);
 
     const handleSearch = (params) => {
+        setLoading(true);
+        setError('');
         try { sessionStorage.setItem('remal_search', JSON.stringify(params)); } catch {}
         setLimit(20);
         setSearchParams(params);
@@ -476,7 +478,7 @@ export default function App() {
         <div className="min-h-screen bg-[#F8FAFC] text-slate-900" dir={direction}>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <main>
-                <HeroSearchSection onSearch={handleSearch} initialSearch={searchParams} />
+                <HeroSearchSection onSearch={handleSearch} initialSearch={searchParams} isSearching={loading} searchError={error} />
                 <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-24 pt-10 lg:px-10 lg:pt-12">
                     
                     {/* Header Section */}

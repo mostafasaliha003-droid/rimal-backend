@@ -4,18 +4,41 @@
 @tailwind utilities;
 
 :root {
-    font-family: 'Tajawal', 'Cairo', sans-serif;
-    color: #12212f;
-    background: #f7f9fc;
-    --remal-ink: #12212f;
+    /* Canonical brand channels, shared by CSS aliases and Tailwind opacity utilities. */
+    --remal-blue-rgb: 15 143 163;
+    --remal-blue-strong-rgb: 11 101 115;
+    --remal-navy-rgb: 16 42 67;
+    --remal-red-rgb: 139 0 0;
+    --remal-orange-rgb: 232 117 45;
+    --remal-ink-rgb: 18 33 47;
+    --remal-bg-rgb: 247 249 252;
+
+    /* Legacy colors remain available for existing components. */
+    --remal-dark-rgb: 17 35 49;
+    --remal-gold-rgb: 251 191 36;
+
+    /* Solid aliases preserve existing var(--remal-*) consumers. */
+    --remal-blue: rgb(var(--remal-blue-rgb));
+    --remal-blue-strong: rgb(var(--remal-blue-strong-rgb));
+    --remal-navy: rgb(var(--remal-navy-rgb));
+    --remal-red: rgb(var(--remal-red-rgb));
+    --remal-orange: rgb(var(--remal-orange-rgb));
+    --remal-ink: rgb(var(--remal-ink-rgb));
+    --remal-bg: rgb(var(--remal-bg-rgb));
+    --remal-dark: rgb(var(--remal-dark-rgb));
+    --remal-gold: rgb(var(--remal-gold-rgb));
+
+    /* Semantic aliases can evolve independently of their initial brand mapping. */
+    --remal-danger-rgb: var(--remal-red-rgb);
+    --remal-danger: rgb(var(--remal-danger-rgb));
+    --remal-focus: var(--remal-blue);
     --remal-surface: #ffffff;
     --remal-border: #e2e8f0;
-    --remal-focus: #0f8fa3;
-    --remal-danger: #8b0000;
-    --remal-blue: #0f8fa3;
-    --remal-navy: #102a43;
-    --remal-orange: #e8752d;
     --remal-muted: #64748b;
+
+    font-family: 'Tajawal', 'Cairo', sans-serif;
+    color: var(--remal-ink);
+    background: var(--remal-bg);
     --remal-mobile-bar-height: 76px;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
@@ -25,7 +48,7 @@
 * { letter-spacing: 0 !important; }
 :where(.flex, .inline-flex, .grid) > * { min-width: 0; }
 html { scroll-behavior: smooth; }
-body { margin: 0; min-width: 320px; background: #f7f9fc; }
+body { margin: 0; min-width: 320px; background: var(--remal-bg); }
 body.filter-sheet-open { overflow: hidden; }
 button, input, select { font: inherit; }
 button, a { -webkit-tap-highlight-color: transparent; }
@@ -42,10 +65,10 @@ input, select, textarea { min-width: 0; }
 input[type="checkbox"] { accent-color: #146776; }
 .text-slate-400 { color: #526477; }
 
-::selection { color: #fff; background: #0f8fa3; }
+::selection { color: #fff; background: var(--remal-blue); }
 
 .site-header {
-    background: linear-gradient(115deg, #102a43 0%, #123c55 58%, #0f6f7d 100%);
+    background: linear-gradient(115deg, var(--remal-navy) 0%, #123c55 58%, #0f6f7d 100%);
     box-shadow: 0 1px 0 rgba(255, 255, 255, 0.08), 0 12px 30px rgba(16, 42, 67, 0.12);
 }
 
@@ -75,6 +98,38 @@ input[type="checkbox"] { accent-color: #146776; }
     isolation: isolate;
 }
 
+/* Search-specific surfaces: one glass layer, separate from controls and portal overlays. */
+.search-shell { position: relative; z-index: 45; margin-top: -2rem; scroll-margin-top: calc(var(--search-top, 0px) + 1rem); }
+.search-glass-surface { background: #fff; border: 1px solid rgb(255 255 255 / 0.2); box-shadow: 0 0.75rem 2rem rgb(var(--remal-navy-rgb) / 0.08); }
+.search-field { min-width: 0; min-height: 5.5rem; border: 1px solid transparent; border-radius: 0.75rem; background: rgb(var(--remal-bg-rgb) / 0.65); padding: 0.75rem; color: var(--remal-navy); transition: background-color 150ms ease-out, box-shadow 150ms ease-out; }
+.search-field:focus-within { background: #fff; box-shadow: 0 0 0 2px rgb(var(--remal-blue-rgb) / 0.2); }
+.search-field-invalid { border-color: var(--remal-danger); }
+.search-label { display: block; margin-bottom: 0.25rem; font-size: 0.75rem; line-height: 1.5; font-weight: 700; color: var(--remal-blue-strong); }
+.search-input { width: 100%; min-width: 0; min-height: 2.5rem; border: 0; border-radius: 0.375rem; background: transparent; padding: 0.25rem; color: var(--remal-navy); font-size: 1rem; line-height: 1.5; font-weight: 700; }
+.search-input::placeholder { color: #526477; opacity: 1; }
+.search-date-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 0.5rem; }
+.search-guest-control { min-height: 2.75rem; width: 6rem; max-width: 100%; border: 1px solid var(--remal-border); border-radius: 0.5rem; padding: 0.5rem; background: #fff; font-weight: 700; }
+.search-popover { animation: search-popover-in 180ms ease-out; transform-origin: top; }
+.search-calendar-popper { z-index: 95 !important; max-width: calc(100vw - 2rem); max-height: min(28rem, 70dvh); overflow-y: auto; }
+.search-calendar-popper .react-datepicker { max-width: 100%; }
+.search-dialog { width: min(100% - 1rem, 42rem); max-width: none; max-height: calc(100dvh - 1rem); margin: auto; padding: 0 0 max(1rem, env(safe-area-inset-bottom)); border: 1px solid var(--remal-border); border-radius: 1.25rem; background: #fff; color: var(--remal-navy); overflow-y: auto; overscroll-behavior: contain; }
+.search-dialog::backdrop { background: rgb(var(--remal-navy-rgb) / 0.55); }
+@keyframes search-popover-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+@supports (backdrop-filter: blur(1px)) {
+    .search-glass-surface { background: rgb(255 255 255 / 0.88); backdrop-filter: blur(20px); }
+    .search-shell[data-sticky="true"] .search-glass-surface { background: rgb(255 255 255 / 0.92); }
+}
+@media (min-width: 1280px) {
+    .search-shell { position: sticky; top: var(--search-top, 0px); }
+    .search-date-fields { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (hover: hover) and (pointer: fine) {
+    .search-submit:enabled:hover { box-shadow: 0 0.75rem 1.75rem rgb(var(--remal-red-rgb) / 0.18); }
+}
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .search-submit:enabled:hover { transform: translateY(-0.125rem); }
+}
+
 .filter-sheet { display: none; }
 .filter-sheet-backdrop { animation: filter-backdrop-in 180ms ease-out both; }
 .filter-sheet-panel { overflow: hidden; }
@@ -102,7 +157,7 @@ input[type="checkbox"] { accent-color: #146776; }
 .premium-datepicker-popper { z-index: 70 !important; }
 .date-picker-shell { display: block; width: 100%; }
 .date-picker-shell input { direction: ltr; }
-.date-picker-shell input:focus-visible { outline: none; }
+.date-picker-shell input:focus-visible { outline: 3px solid var(--remal-blue-strong); outline-offset: 2px; }
 .premium-datepicker {
     border: 1px solid #e2e8f0;
     border-radius: 1rem;

@@ -21,10 +21,11 @@ const responseData = (response) => response.data;
  * Search hotel and region suggestions for autocomplete.
  * @param {string} query - User-entered hotel or region text.
  * @param {string} [language='en'] - ETG response language.
+ * @param {{ signal?: AbortSignal }} [options] - Optional request cancellation.
  * @returns {Promise<object>} Suggestion response containing hotels and regions.
  */
-export const suggest = async (query, language = 'en') =>
-    responseData(await api.get('/search/suggest', { params: { query, language } }));
+export const suggest = async (query, language = 'en', { signal } = {}) =>
+    responseData(await api.get('/search/suggest', { params: { query, language }, signal }));
 
 /**
  * Search live rates by a list of hotel IDs.
