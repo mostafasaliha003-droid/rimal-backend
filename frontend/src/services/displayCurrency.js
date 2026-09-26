@@ -1,6 +1,7 @@
 import { DISPLAY_CURRENCIES, SEARCH_CURRENCY } from './offers.js';
 
-const RATE_URL = 'https://api.frankfurter.dev/v2/rates?base=USD&quotes=AED,SAR,EUR';
+const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL
+    || (import.meta.env?.PROD ? 'https://rimal-api.onrender.com/api' : '/api');
 const CACHE_KEY = 'remal_usd_display_rates';
 const CACHE_LIFETIME_MS = 6 * 60 * 60 * 1000;
 const RATE_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
@@ -24,20 +25,30 @@ export function parseUsdDisplayRates(rows, now = Date.now()) {
     return { date, rates };
 }
 
+export function parseUsdDisplayRatePayload(payload, now = Date.now()) {
+    if (!payload || typeof payload !== 'object' || payload.success !== true || typeof payload.date !== 'string'
+        || !payload.rates || typeof payload.rates !== 'object' || !Number.isFinite(now)) return null;
+    const rows = DISPLAY_CURRENCIES.filter(currency => currency !== SEARCH_CURRENCY)
+        .map(quote => ({ base: SEARCH_CURRENCY, quote, date: payload.date, rate: payload.rates[quote] }));
+    return parseUsdDisplayRates(rows, now);
+}
+
 export async function loadUsdDisplayRates({ storage = globalThis.localStorage, fetcher = globalThis.fetch, signal, now = Date.now() } = {}) {
     try {
         const cached = JSON.parse(storage?.getItem(CACHE_KEY) || 'null');
         if (Number.isFinite(cached?.fetchedAt) && cached.fetchedAt <= now
             && now - cached.fetchedAt < CACHE_LIFETIME_MS) {
-            const parsed = parseUsdDisplayRates(cached.rows, now);
-            if (parsed) return parsed;
+            const parsed = cached.payload
+                ? parseUsdDisplayRatePayload(cached.payload, now)
+                : parseUsdDisplayRates(cached.rows, now);
+            if (parsed) return { ...parsed, stale: cached.payload?.stale === true };
         }
     } catch {}
-    const response = await fetcher(RATE_URL, { signal });
+    const response = await fetcher(`${API_BASE_URL.replace(/\/$/, '')}/display-rates`, { signal });
     if (!response.ok) throw new Error('Display exchange rates unavailable');
-    const rows = await response.json();
-    const parsed = parseUsdDisplayRates(rows, now);
+    const payload = await response.json();
+    const parsed = parseUsdDisplayRatePayload(payload, now);
     if (!parsed) throw new Error('Invalid display exchange rates');
-    try { storage?.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: now, rows })); } catch {}
-    return parsed;
+    try { storage?.setItem(CACHE_KEY, JSON.stringify({ fetchedAt: now, payload })); } catch {}
+    return { ...parsed, stale: payload.stale === true };
 }

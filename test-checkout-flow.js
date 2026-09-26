@@ -66,6 +66,30 @@ function extractHash(rate) {
 }
 
 async function run() {
+    let supplierBase;
+    let frontend;
+    try {
+        supplierBase = new URL(process.env.RATEHAWK_BASE_URL || '');
+        frontend = new URL(process.env.FRONTEND_URL || '');
+    } catch {
+        supplierBase = null;
+        frontend = null;
+    }
+    const isolatedSandbox = ['localhost', '127.0.0.1', '::1'].includes(new URL(baseUrl).hostname)
+        && supplierBase?.protocol === 'https:'
+        && supplierBase.hostname === 'api-sandbox.ratehawk.com'
+        && supplierBase.pathname === '/'
+        && frontend !== null
+        && !['remalbookings.com', 'www.remalbookings.com'].includes(frontend.hostname)
+        && process.env.ZIINA_TEST_MODE === 'true'
+        && process.env.PAYMENT_SANDBOX_ENABLED === 'true'
+        && process.env.PAYMENT_ETG_SANDBOX_ISOLATED === 'true'
+        && process.env.PAYMENT_TEST_MONGO_ISOLATED === 'true'
+        && process.env.ALLOW_TEST_PAYMENT_INTENT === 'true';
+    if (!isolatedSandbox) {
+        console.log('SKIP: checkout live-integration script requires explicit local, isolated ETG/Ziina/Mongo sandbox gates; no HTTP requests were made.');
+        return;
+    }
     if (!apiKey) {
         throw new Error('REMAL_SECURE_KEY is missing from the environment.');
     }

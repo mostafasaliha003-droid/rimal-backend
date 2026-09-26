@@ -52,7 +52,9 @@ async function run() {
                     if (url.pathname.includes('/api/')) {
                         let body = {};
                         let status = 200;
-                        if (url.pathname.endsWith('/search/suggest')) {
+                        if (url.pathname.endsWith('/display-rates')) {
+                            body = { success: true, date: new Date().toISOString().slice(0, 10), rates: { AED: 3.6725, SAR: 3.75, EUR: 0.87088 } };
+                        } else if (url.pathname.endsWith('/search/suggest')) {
                             const query = url.searchParams.get('query');
                             requests.suggestions.push({ query, language: url.searchParams.get('language') });
                             if (query === 'Old') await delay(1000);
@@ -69,7 +71,6 @@ async function run() {
                         }
                         return await request.respond({ status, contentType: 'application/json', body: JSON.stringify(body) });
                     }
-                    if (url.hostname === 'api.frankfurter.dev') return await request.respond({ status: 503, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: '{}' });
                     if (url.origin === base) return await request.continue();
                     await request.abort();
                 } catch (error) {

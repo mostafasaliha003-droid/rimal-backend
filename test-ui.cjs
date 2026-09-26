@@ -1,7 +1,7 @@
 const assert = require('node:assert/strict');
 const puppeteer = require('puppeteer');
 
-const base = 'http://127.0.0.1:5178';
+const base = process.env.REMAL_UI_TEST_BASE || 'http://127.0.0.1:5178';
 const checkoutReference = '11111111-1111-4111-8111-111111111111';
 const accessToken = 'a'.repeat(64);
 const rate = (amount, currency = 'USD') => ({
@@ -39,18 +39,16 @@ async function run() {
         await page.setRequestInterception(true);
         page.on('request', request => {
             const url = new URL(request.url());
-            if (url.origin === 'https://api.frankfurter.dev' && url.pathname === '/v2/rates') {
-                exchangeRequests++;
-                if (!exchangeAvailable) return request.respond({ status: 503, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: '{}' });
-                const date = new Date().toISOString().slice(0, 10);
-                const rows = [['AED', 3.6725], ['SAR', 3.75], ['EUR', 0.87088]].map(([quote, value]) => ({ date, base: 'USD', quote, rate: value }));
-                return request.respond({ status: 200, contentType: 'application/json', headers: { 'Access-Control-Allow-Origin': '*' }, body: JSON.stringify(rows) });
-            }
             if (url.pathname.includes('/api/')) {
                 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key,authorization,idempotency-key', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
                 if (request.method() === 'OPTIONS') return request.respond({ status: 204, headers });
                 let body;
-                if (url.pathname.endsWith('/search/suggest')) {
+                if (url.pathname.endsWith('/display-rates')) {
+                    exchangeRequests++;
+                    if (!exchangeAvailable) return request.respond({ status: 503, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'DISPLAY_RATES_UNAVAILABLE' }) });
+                    body = { success: true, date: new Date().toISOString().slice(0, 10), rates: { AED: 3.6725, SAR: 3.75, EUR: 0.87088 } };
+                }
+                else if (url.pathname.endsWith('/search/suggest')) {
                     suggestionRequests.push(url.searchParams.get('language'));
                     const query = url.searchParams.get('query');
                     if (query === 'Unavailable') return request.respond({ status: 503, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'SUGGESTIONS_UNAVAILABLE' }) });
@@ -90,6 +88,8 @@ async function run() {
         });
         await page.setViewport({ width: 1440, height: 1000 });
         await page.goto(base, { waitUntil: 'networkidle0' });
+        assert.match(await page.title(), /Remal|رمال/);
+        assert.match(await page.$eval('link[rel="canonical"]', link => link.href), /\?lang=ar$/);
         const destinationInput = await page.$('#destination-search');
         const fillDestination = async value => {
             await destinationInput.click({ clickCount: 3 });
@@ -213,6 +213,11 @@ async function run() {
         await page.click('#results-heading article a.cta-red');
         await page.waitForFunction(() => location.pathname.startsWith('/hotel/'));
         await page.waitForSelector('article[aria-labelledby^="room-"] button', { visible: true });
+        assert.match(await page.title(), /Test Hotel 60/);
+        assert.match(await page.$eval('link[rel="canonical"]', link => link.href), /\/hotel\/2\?lang=en$/);
+        assert.equal(await page.$eval('html', element => element.lang), 'ar');
+        assert.match(await page.$eval('main', element => element.textContent), /عن هذا المكان/);
+        assert.deepEqual(await page.$$eval('link[rel="alternate"][data-remal-hreflang]', links => links.map(link => link.hreflang).sort()), ['en', 'x-default']);
         assert.equal(await page.$eval('main', element => element.innerText.includes('كاش باك')), false);
         assert.equal(lastHotelPage.currency, 'USD');
         assert.equal(await page.$eval('article[aria-labelledby^="room-"] button', element => element.disabled), false);
@@ -228,6 +233,8 @@ async function run() {
         await page.evaluate(value => sessionStorage.setItem('remal_checkout', JSON.stringify(value)), booking);
         await page.goto(`${base}/checkout`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('#guest-first-name');
+        assert.equal(await page.$eval('meta[name="robots"]', element => element.content), 'noindex,follow');
+        assert.match(await page.$eval('link[rel="canonical"]', link => link.href), /\/checkout\?lang=ar$/);
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), true);
         assert.match(await page.$eval('main', element => element.textContent), /عملة العرض: USD/);
         assert.doesNotMatch(await page.$eval('main', element => element.textContent), /عملة الخصم: الدرهم/);

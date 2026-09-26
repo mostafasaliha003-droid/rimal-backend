@@ -4,7 +4,7 @@ const path = require('node:path');
 
 const root = __dirname;
 const output = path.join(root, 'frontend', 'dist');
-const publicFiles = ['index.html', '404.html', 'sw.js', 'manifest.webmanifest', 'offline.html', 'icon-192.png', 'icon-512.png'];
+const publicFiles = ['index.html', '404.html', 'sw.js', 'manifest.webmanifest', 'offline.html', 'icon-192.png', 'icon-512.png', 'robots.txt', 'sitemap.xml'];
 const assetFiles = fs.readdirSync(path.join(output, 'assets'), { withFileTypes: true })
     .filter(entry => entry.isFile())
     .map(entry => path.join('assets', entry.name));

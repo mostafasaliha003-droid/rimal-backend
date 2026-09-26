@@ -8,6 +8,7 @@ import { trackBookingEvent } from './services/analytics';
 import { hotelImages } from './services/hotelImages.js';
 import { responsiveImageSources } from './services/hotelImages.js';
 import { useLanguage } from './i18n';
+import { setPageSeo } from './services/seo.js';
 
 const toImages = (hotel = {}) => {
     return hotelImages(hotel);
@@ -28,9 +29,9 @@ function readSearchParams() {
     };
 }
 
-function LoadingSkeleton() {
+function LoadingSkeleton({ label }) {
     return (
-        <div className="space-y-8 animate-pulse" aria-label="جار تحميل تفاصيل الفندق">
+        <div className="space-y-8 animate-pulse" aria-label={label}>
             <div className="space-y-4">
                 <div className="h-4 w-32 rounded bg-slate-200" />
                 <div className="h-10 w-2/3 rounded-lg bg-slate-200" />
@@ -51,7 +52,7 @@ function LoadingSkeleton() {
 }
 
 function SupplierPicture({ source, fallback, alt, loading = 'lazy', fetchPriority, className = '' }) {
-    if (!source && !fallback) return <div className="flex h-full items-center justify-center text-slate-400"><ImageOff size={40} /></div>;
+    if (!source && !fallback) return <div role="img" aria-label={alt} className="flex h-full items-center justify-center text-slate-400"><ImageOff size={40} /></div>;
     return (
         <picture>
             {source?.sources?.map(item => <source key={item.type} type={item.type} srcSet={item.srcSet} />)}
@@ -78,8 +79,53 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const searchParams = useMemo(readSearchParams, []);
-    const images = toImages(hotel || {});
+    const images = useMemo(() => toImages(hotel || {}), [hotel]);
     const mainImageSource = responsiveImageSources(images[0], 'gallery');
+
+    useEffect(() => {
+        if (!hotel?.name) return undefined;
+        const availableLanguages = hotel.availableLanguages || ['en'];
+        const seoLanguage = availableLanguages.includes(language) ? language : 'en';
+        const location = [hotel.city, hotel.country].filter(Boolean).join(', ');
+        const title = `${hotel.name}${location ? ` — ${location}` : ''} | Remal`;
+        const description = hotel.description || (seoLanguage === 'ar'
+            ? `استكشف تفاصيل ${hotel.name}${location ? ` في ${location}` : ''} وقارن عروض الإقامة المتاحة.`
+            : seoLanguage === 'es'
+                ? `Descubre ${hotel.name}${location ? ` en ${location}` : ''} y compara las ofertas de alojamiento disponibles.`
+                : `Explore ${hotel.name}${location ? ` in ${location}` : ''} and compare available room offers.`);
+        const path = `/hotel/${encodeURIComponent(String(hid))}`;
+        const canonical = new URL(`${path}?lang=${seoLanguage}`, window.location.origin).href;
+        const streetAddress = hotel.address || location;
+        const stars = Number(hotel.stars || hotel.star_rating);
+        const image = images.find(source => typeof source === 'string' && /^https:\/\//i.test(source));
+        setPageSeo({
+            title,
+            description,
+            canonical,
+            locale: seoLanguage === 'ar' ? 'ar_AE' : seoLanguage === 'es' ? 'es_ES' : 'en_US',
+            language,
+            type: 'article',
+            image,
+            languages: hotel.availableLanguages || ['en'],
+            structuredData: {
+                '@context': 'https://schema.org',
+                '@type': 'Hotel',
+                name: hotel.name,
+                url: canonical,
+                ...(hotel.description ? { description: hotel.description } : {}),
+                ...(image ? { image } : {}),
+                ...(Number.isFinite(stars) && stars >= 1 && stars <= 5
+                    ? { starRating: { '@type': 'Rating', ratingValue: stars, bestRating: 5 } } : {}),
+                ...(streetAddress || hotel.country ? { address: {
+                    '@type': 'PostalAddress',
+                    ...(streetAddress ? { streetAddress } : {}),
+                    ...(hotel.city ? { addressLocality: hotel.city } : {}),
+                    ...(hotel.country ? { addressCountry: hotel.country } : {})
+                } } : {})
+            }
+        });
+        return undefined;
+    }, [hid, hotel, images, language]);
 
     useEffect(() => {
         let active = true;
@@ -141,7 +187,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
-    if (loading) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-7xl"><LoadingSkeleton /></div></main>;
+    if (loading) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-7xl"><LoadingSkeleton label={t('hotel.loading', 'جار تحميل تفاصيل الفندق')} /></div></main>;
     if (error) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-3xl rounded-3xl bg-red-50 p-10 text-center font-bold text-red-600 shadow-sm"><p className="text-lg">{error}</p><button type="button" onClick={onBack} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm text-white hover:bg-red-700 transition-colors"><ArrowRight size={18} /> {t('hotel.back', 'العودة للنتائج')}</button></div></main>;
 
     // Calculate total guests safely
@@ -167,7 +213,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             )}
                         </div>
                         <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl md:text-5xl lg:leading-tight">
-                            {hotel?.name || 'Hotel'}
+                            {hotel?.name || t('hotel.name', 'الفندق')}
                         </h1>
                         {(hotel?.address || hotel?.staticData?.address) && (
                             <p className="flex items-start gap-2 text-sm font-semibold text-slate-600 sm:text-base">
@@ -196,7 +242,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                                         <div className="absolute inset-0 bg-slate-900/10 opacity-0 transition-opacity duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100" />
                                     </div>
                                 ) : (
-                                    <div key={index} className="flex h-full items-center justify-center bg-slate-100/50 text-slate-300">
+                                    <div key={index} role="img" aria-label={t('hotel.missingPhoto', 'لا توجد صورة')} className="flex h-full items-center justify-center bg-slate-100/50 text-slate-300">
                                         <ImageOff size={28} />
                                     </div>
                                 ))}
@@ -216,14 +262,14 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     <div className="min-w-0 space-y-8">
                         {/* About & Amenities Card */}
                         <article className="rounded-3xl bg-white p-6 shadow-sm border border-slate-100 sm:p-8">
-                            <h2 className="text-2xl font-black text-slate-900">عن هذا المكان</h2>
+                            <h2 className="text-2xl font-black text-slate-900">{t('hotel.about', 'عن هذا المكان')}</h2>
                             {typeof hotel?.description === 'string' && (
-                                <p className="mt-4 leading-relaxed text-slate-600 font-medium">{hotel.description}</p>
+                            <p className="mt-4 leading-relaxed text-slate-600 font-medium">{hotel.description}</p>
                             )}
                             
                             <hr className="my-8 border-slate-100" />
                             
-                            <h3 className="text-xl font-black text-slate-900 mb-5">أهم المرافق</h3>
+                            <h3 className="mb-5 text-xl font-black text-slate-900">{t('hotel.amenities', 'أهم المرافق')}</h3>
                             <div className="grid grid-cols-2 gap-y-4 gap-x-2 sm:grid-cols-3">
                                 {(hotel?.amenities || hotel?.staticData?.amenities || []).slice(0, 6).map((amenity) => (
                                     <span key={String(amenity)} className="flex items-center gap-2 text-sm font-bold text-slate-700">
@@ -237,10 +283,9 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         {/* Rooms List */}
                         <section id="hotel-room-offers" className="scroll-mt-24 space-y-5">
                             <div className="mb-6">
-                                <h2 className="text-2xl font-black text-slate-900">عروض الإقامة</h2>
-                                <p className="mt-1 text-sm font-medium text-slate-500">سيُعاد التحقق من السعر والتوفر قبل إتمام الدفع</p>
+                                <h2 className="text-2xl font-black text-slate-900">{t('hotel.roomOffers', 'عروض الإقامة')}</h2>
+                                <p className="mt-1 text-sm font-medium text-slate-500">{t('hotel.recheckNotice', 'سيُعاد التحقق من السعر والتوفر قبل إتمام الدفع.')}</p>
                             </div>
-                            
                             {rooms.length ? (
                                 rooms.map((room, index) => (
                                     <HotelRoomCard key={room.book_hash || index} room={room} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />
@@ -259,8 +304,8 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     <aside className="sticky top-28 hidden overflow-hidden rounded-3xl bg-white border border-slate-200 shadow-2xl shadow-slate-200/50 lg:block">
                         <div className="p-6 sm:p-8">
                             <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
-                                <p className="min-w-0 break-words text-3xl font-black text-slate-900">{rooms.length ? t('hotel.offers', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.noOffers', 'لا عروض')}</p>
-                                <p className="max-w-full break-words rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-600">{t('hotel.available', 'متاحة الآن')}</p>
+                                <p className="min-w-0 break-words text-3xl font-black text-slate-900">{rooms.length ? t('hotel.stayCount', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.stayCountUnavailable', 'لا توجد عروض')}</p>
+                                {rooms.length > 0 && <p className="max-w-full break-words rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-600">{t('hotel.available', 'متاحة الآن')}</p>}
                             </div>
                             
                             {/* Airbnb style checkin/checkout box */}
@@ -277,7 +322,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                                 </div>
                                 <div className="p-3 bg-slate-50/50">
                                      <p className="text-[10px] font-black text-slate-900 uppercase tracking-wider mb-1">{t('hotel.guestsLabel', 'الضيوف')}</p>
-                                     <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><Users size={14}/> {t('hotel.guests', `${totalGuests} ضيوف`, { count: totalGuests })}</p>
+                                      <p className="text-sm font-semibold text-slate-600 flex items-center gap-1.5"><Users size={14}/> {t('hotel.guests', `${totalGuests} ${t('hotel.guestsUnit', 'ضيوف')}`, { count: totalGuests })}</p>
                                 </div>
                             </div>
 
@@ -299,7 +344,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     <div className="min-w-0">
                         <p className="text-[11px] font-black text-slate-500">{t('hotel.mobileSummary', 'ابدأ باختيار غرفة')}</p>
                         <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-slate-900">{rooms.length ? t('hotel.offers', `${rooms.length} عروض متاحة`, { count: rooms.length }) : t('hotel.noOffers', 'لا عروض')}</p>
+                            <p className="truncate text-sm font-black text-slate-900">{rooms.length ? t('hotel.stayCount', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.stayCountUnavailable', 'لا توجد عروض')}</p>
                             {lowestRoom && <PriceDisplay amount={rateAmount(lowestRoom)} currency={rateCurrency(lowestRoom)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-sm font-black text-[var(--remal-blue)]" />}
                         </div>
                     </div>

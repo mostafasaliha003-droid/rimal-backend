@@ -26,6 +26,8 @@ const mappingService = require('./services/mappingService');
 const securityService = require('./services/securityService'); 
 const { normalizeSupplierImage, collectSupplierImages } = require('./services/supplierImages');
 const createFrontendRouter = require('./services/frontendService');
+const createDisplayCurrencyRouter = require('./services/displayCurrencyRoutes');
+const { createDisplayCurrencyService } = require('./services/displayCurrencyService');
 const corsPolicy = require('./services/corsPolicy');
 const createBookingRouter = require('./services/bookingRoutes');
 const bookingProcessService = require('./services/bookingProcessService');
@@ -34,6 +36,7 @@ const checkoutReconciliationService = require('./services/checkoutReconciliation
 const ziinaWebhookService = require('./services/ziinaWebhookService');
 
 const app = express();
+const displayCurrencyService = createDisplayCurrencyService();
 
 const frontendContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: blob: https:; connect-src 'self' https: wss: https://pay.google.com;";
 app.use((req, res, next) => {
@@ -61,6 +64,7 @@ app.use(securityService.globalLimiter);
 // 🛡️ 2. إعدادات الحماية (CORS Policy)
 // ==========================================
 app.use(cors(corsPolicy));
+app.use('/api', createDisplayCurrencyRouter(displayCurrencyService));
 app.use('/api/booking', createBookingRouter());
 app.use('/api/v1/contracts', createBookingRouter.createContractRouter());
 
@@ -393,6 +397,9 @@ app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, asyn
                 hotelId: hotel.hotelId || staticData.hotelId,
                 requestedLanguage: language,
                 resolvedLanguage: approvedTranslation?.name ? language : 'en',
+                availableLanguages: ['en', ...['ar', 'es'].filter(code => Boolean(
+                    translations[code]?.reviewStatus === 'approved' && translations[code]?.name
+                ))],
                 image: formatHotelImage(hotel.image || staticData.image) || '',
                 images: hotelImageStrings(hotel.images, hotel.images_ext, staticData.images, staticData.images_ext, hotel.image, staticData.image),
                 reviews: hotel.reviews || staticData.reviews || [],
@@ -1163,7 +1170,7 @@ app.get('/logo.jpg', (req, res) => { res.sendFile(path.join(__dirname, 'logo.jpg
 // The frontend router resolves frontend/dist/index.html and frontend/dist/assets
 // from this absolute project root, falling back to the committed root site when
 // a Render deployment has not produced a local frontend build.
-app.use(createFrontendRouter(path.resolve(__dirname)));
+app.use(createFrontendRouter(path.resolve(__dirname), { Hotel }));
 
 // ==========================================
 // 🚀 11. تشغيل السيرفر المدمج

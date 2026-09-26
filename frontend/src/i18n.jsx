@@ -9,6 +9,38 @@ export const SUPPORTED_LANGUAGES = [
 const LANGUAGE_STORAGE_KEY = 'remal_language';
 
 const translations = {
+    ar: {
+        'hotel.back': 'العودة للنتائج',
+        'hotel.stars': '{{count}} نجوم',
+        'hotel.photos': 'صور الفندق',
+        'hotel.name': 'الفندق',
+        'hotel.loadFailed': 'تعذر تحميل الأسعار الحالية، يرجى العودة للبحث والمحاولة مرة أخرى',
+        'hotel.about': 'عن هذا المكان',
+        'hotel.amenities': 'أهم المرافق',
+        'hotel.roomOffers': 'عروض الإقامة',
+        'hotel.recheckNotice': 'سيُعاد التحقق من السعر والتوفر قبل إتمام الدفع.',
+        'hotel.offers': '{{count}} عروض',
+        'hotel.noOffers': 'لا توجد عروض متاحة لهذه التواريخ',
+        'hotel.changeDates': 'تغيير تواريخ البحث',
+        'hotel.available': 'متاحة الآن',
+        'hotel.arrival': 'الوصول',
+        'hotel.departure': 'المغادرة',
+        'hotel.guests': '{{count}} ضيوف',
+        'hotel.secureTitle': 'حجز آمن',
+        'hotel.secureDescription': 'تُشفّر بياناتك. لن يتم الخصم حتى تختار غرفة ويتم التحقق من التوفر النهائي.',
+        'hotel.photoAlt': 'صورة',
+        'hotel.guestsLabel': 'الضيوف',
+        'hotel.guestsUnit': 'ضيوف',
+        'hotel.selectDates': 'تحديد',
+        'hotel.loading': 'جار تحميل تفاصيل الفندق',
+        'hotel.mobileSummary': 'ابدأ باختيار غرفة',
+        'hotel.viewOffers': 'عرض الغرف',
+        'hotel.stayCount': '{{count}} عروض',
+        'hotel.stayCountUnavailable': 'لا توجد عروض',
+        'currency.estimate': 'تقديري · سعر المورد {{price}} · تاريخ الصرف {{date}} ·',
+        'currency.unavailable': 'سعر الصرف غير متاح · سعر المورد {{price}}',
+        'currency.stale': 'سعر صرف مرجعي أقدم'
+    },
     en: {
         'nav.explore': 'Explore hotels',
         'nav.contact': 'Contact us',
@@ -92,15 +124,11 @@ const translations = {
         'results.breakfast': 'Breakfast included',
         'results.noMeal': 'Room only',
         'results.bestFilteredTotal': 'Lowest total matching your filters',
-        'results.retry': 'Try again',
         'results.loadingOffers': 'Finding the best live offers...',
         'results.moreHotels': 'Show more ({{count}} hotels)',
-        'results.noMatches': 'No matching results',
-        'results.noMatchesHelp': 'Try removing a filter or changing your dates.',
-        'results.ready': 'Ready for your next trip?',
-        'results.readyHelp': 'Choose a destination and dates to see live offers.',
-        'results.securityTitle': 'Prices and availability are verified live',
-        'results.securityDescription': 'Payment confirmation does not always mean the supplier booking is final. Wait for the final confirmation reference to secure your stay.',
+        'currency.estimate': 'Estimated · supplier price {{price}} · FX date {{date}} ·',
+        'currency.unavailable': 'Exchange rate unavailable · supplier price {{price}}',
+        'currency.stale': 'Older reference rate',
         'results.sort': 'Sort',
         'results.supplier': 'Supplier ranking',
         'results.lowestPrice': 'Lowest price',
@@ -116,22 +144,25 @@ const translations = {
         'results.maxPrice': 'Maximum total',
         'results.stars': 'Star rating',
         'results.allRatings': 'All ratings',
-        'results.amenities': 'Amenities',
-        'results.breakfast': 'Breakfast included',
         'results.freeCancellation': 'Free cancellation',
         'results.showMore': 'Show more ({{count}} hotels)',
-        'results.noMatches': 'No matching results',
-        'results.noMatchesHelp': 'Try removing a filter or changing your dates.',
-        'results.ready': 'Ready for your next trip?',
-        'results.readyHelp': 'Choose a destination and dates to see live offers.',
-        'results.securityTitle': 'Prices and availability are verified live',
-        'results.securityDescription': 'Payment confirmation does not always mean the supplier booking is final. Wait for the final confirmation reference to secure your stay.',
         'footer.help': 'Help and contact',
         'footer.bookingInfo': 'Booking information',
         'footer.top': 'Back to top',
         'hotel.back': 'Back to results',
         'hotel.stars': '{{count}} stars',
         'hotel.photos': 'Hotel photos',
+        'hotel.name': 'Hotel',
+        'hotel.loadFailed': 'Could not load current prices. Return to search and try again.',
+        'hotel.missingPhoto': 'No photo',
+        'hotel.guestsUnit': 'guests',
+        'hotel.stayCount': '{{count}} room offers',
+        'hotel.stayCountUnavailable': 'No offers',
+        'hotel.about': 'About this property',
+        'hotel.amenities': 'Featured amenities',
+        'hotel.roomOffers': 'Available rooms',
+        'hotel.recheckNotice': 'Price and availability will be checked again before payment.',
+        'hotel.loading': 'Loading hotel details',
         'hotel.offers': '{{count}} offers',
         'hotel.noOffers': 'No offers for these dates',
         'hotel.changeDates': 'Change search dates',
@@ -144,15 +175,6 @@ const translations = {
         'hotel.photoAlt': 'Photo',
         'hotel.previousPhoto': 'Previous photo',
         'hotel.nextPhoto': 'Next photo',
-        'hotel.guestsLabel': 'Guests',
-        'hotel.selectDates': 'Select',
-        'hotel.loading': 'Loading hotel details',
-        'hotel.mobileSummary': 'Start by choosing a room',
-        'hotel.viewOffers': 'View rooms',
-        'room.comparable': 'Comparable offer',
-        'room.guests': 'Up to {{count}} guests',
-        'room.included': 'Taxes and fees included',
-        'room.localFees': 'Local fees not included',
         'room.book': 'Book room',
         'room.verifying': 'Verifying...',
         'room.fixed': 'Price verified',
@@ -417,8 +439,6 @@ const translations = {
         'results.maxPrice': 'Total máximo',
         'results.stars': 'Estrellas',
         'results.allRatings': 'Todas las valoraciones',
-        'results.amenities': 'Servicios',
-        'results.breakfast': 'Desayuno incluido',
         'results.freeCancellation': 'Cancelación gratuita',
         'results.showMore': 'Mostrar más ({{count}} hoteles)',
         'results.noMatches': 'No hay resultados coincidentes',
@@ -427,12 +447,22 @@ const translations = {
         'results.readyHelp': 'Elige un destino y fechas para ver ofertas en vivo.',
         'results.securityTitle': 'Precios y disponibilidad verificados en vivo',
         'results.securityDescription': 'La confirmación del pago no siempre significa que la reserva del proveedor sea final. Espera la referencia final para asegurar tu estancia.',
+        'currency.estimate': 'Estimado · precio del proveedor {{price}} · fecha del cambio {{date}} ·',
+        'currency.unavailable': 'Tipo de cambio no disponible · precio del proveedor {{price}}',
+        'currency.stale': 'Tipo de cambio de referencia anterior',
         'footer.help': 'Ayuda y contacto',
         'footer.bookingInfo': 'Información de reserva',
         'footer.top': 'Volver arriba',
         'hotel.back': 'Volver a resultados',
         'hotel.stars': '{{count}} estrellas',
         'hotel.photos': 'Fotos del hotel',
+        'hotel.name': 'Hotel',
+        'hotel.loadFailed': 'No se pudieron cargar los precios actuales. Vuelve a la búsqueda e inténtalo de nuevo.',
+        'hotel.about': 'Acerca de este alojamiento',
+        'hotel.amenities': 'Servicios destacados',
+        'hotel.roomOffers': 'Habitaciones disponibles',
+        'hotel.recheckNotice': 'El precio y la disponibilidad se comprobarán de nuevo antes del pago.',
+        'hotel.loading': 'Cargando detalles del hotel',
         'hotel.offers': '{{count}} ofertas',
         'hotel.noOffers': 'No hay ofertas para estas fechas',
         'hotel.changeDates': 'Cambiar fechas',
@@ -443,13 +473,15 @@ const translations = {
         'hotel.secureTitle': 'Reserva segura',
         'hotel.secureDescription': 'Tus datos están cifrados. No se cobra ningún importe hasta elegir una habitación y verificar la disponibilidad final.',
         'hotel.photoAlt': 'Foto',
+        'hotel.missingPhoto': 'Sin foto',
         'hotel.previousPhoto': 'Foto anterior',
         'hotel.nextPhoto': 'Foto siguiente',
         'hotel.guestsLabel': 'Huéspedes',
-        'hotel.selectDates': 'Seleccionar',
-        'hotel.loading': 'Cargando detalles del hotel',
+        'hotel.guestsUnit': 'huéspedes',
         'hotel.mobileSummary': 'Empieza eligiendo una habitación',
         'hotel.viewOffers': 'Ver habitaciones',
+        'hotel.stayCount': '{{count}} ofertas de habitación',
+        'hotel.stayCountUnavailable': 'Sin ofertas',
         'room.comparable': 'Oferta comparable',
         'room.guests': 'Hasta {{count}} huéspedes',
         'room.included': 'Impuestos y tasas incluidos',
@@ -621,6 +653,8 @@ const translations = {
 
 function readLanguage() {
     try {
+        const requested = new URLSearchParams(window.location.search).get('lang');
+        if (SUPPORTED_LANGUAGES.some(item => item.code === requested)) return requested;
         const stored = localStorage.getItem(LANGUAGE_STORAGE_KEY);
         return SUPPORTED_LANGUAGES.some(item => item.code === stored) ? stored : 'ar';
     } catch {
@@ -639,17 +673,68 @@ export function LanguageProvider({ children }) {
     const metadata = SUPPORTED_LANGUAGES.find(item => item.code === language) || SUPPORTED_LANGUAGES[0];
 
     useEffect(() => {
-        document.documentElement.lang = metadata.code;
-        document.documentElement.dir = metadata.direction;
+        const hotelRoute = /^\/hotel\/[^/]+$/.test(window.location.pathname);
+        const privatePage = ['/checkout', '/account', '/loyalty'].includes(window.location.pathname);
+        if (!hotelRoute) {
+            document.documentElement.lang = metadata.code;
+            document.documentElement.dir = metadata.direction;
+        }
         document.body.dataset.language = metadata.code;
-        document.title = translations[metadata.code]?.['meta.title'] || 'رمال وفِلّها | حجوزات الفنادق';
-        const description = document.querySelector('meta[name="description"]');
-        if (description) description.setAttribute('content', translations[metadata.code]?.['meta.description'] || description.content);
+        if (!hotelRoute) {
+            document.title = translations[metadata.code]?.['meta.title'] || 'رمال وفِلّها | حجوزات الفنادق';
+            const description = document.querySelector('meta[name="description"]');
+            if (description) description.setAttribute('content', translations[metadata.code]?.['meta.description'] || description.content);
+        }
+        if (privatePage) {
+            let robots = document.querySelector('meta[name="robots"]');
+            if (!robots) {
+                robots = document.createElement('meta');
+                robots.name = 'robots';
+                document.head.append(robots);
+            }
+            robots.content = 'noindex,follow';
+        } else if (!hotelRoute) {
+            document.querySelector('meta[name="robots"]')?.remove();
+        }
+        const pagePath = window.location.pathname === '/' ? '/' : window.location.pathname;
+        const canonicalUrl = new URL(pagePath, window.location.origin);
+        canonicalUrl.searchParams.set('lang', metadata.code);
+        let canonical = document.querySelector('link[rel="canonical"]');
+        if (!hotelRoute) {
+            if (!canonical) {
+                canonical = document.createElement('link');
+                canonical.rel = 'canonical';
+                document.head.append(canonical);
+            }
+            canonical.href = canonicalUrl.href;
+            for (const link of document.querySelectorAll('link[data-remal-hreflang]')) link.remove();
+            for (const option of SUPPORTED_LANGUAGES) {
+                const alternateUrl = new URL(pagePath, window.location.origin);
+                alternateUrl.searchParams.set('lang', option.code);
+                const link = document.createElement('link');
+                link.rel = 'alternate';
+                link.hreflang = option.code;
+                link.href = alternateUrl.href;
+                link.dataset.remalHreflang = 'true';
+                document.head.append(link);
+            }
+            const fallbackUrl = new URL(pagePath, window.location.origin);
+            fallbackUrl.searchParams.set('lang', 'en');
+            const fallbackLink = document.createElement('link');
+            fallbackLink.rel = 'alternate';
+            fallbackLink.hreflang = 'x-default';
+            fallbackLink.href = fallbackUrl.href;
+            fallbackLink.dataset.remalHreflang = 'true';
+            document.head.append(fallbackLink);
+        }
         try { localStorage.setItem(LANGUAGE_STORAGE_KEY, metadata.code); } catch {}
     }, [metadata]);
 
     const setLanguage = nextLanguage => {
         if (!SUPPORTED_LANGUAGES.some(item => item.code === nextLanguage)) return;
+        const url = new URL(window.location.href);
+        url.searchParams.set('lang', nextLanguage);
+        window.history.replaceState(window.history.state, '', `${url.pathname}${url.search}${url.hash}`);
         setLanguageState(nextLanguage);
     };
 

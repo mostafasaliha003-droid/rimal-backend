@@ -16,6 +16,7 @@ import { loadUsdDisplayRates } from './services/displayCurrency';
 import { trackBookingEvent } from './services/analytics';
 import { hotelImages } from './services/hotelImages.js';
 import { useLanguage } from './i18n';
+import { setPageSeo } from './services/seo.js';
 
 function storedSearch() {
     try { return JSON.parse(sessionStorage.getItem('remal_search') || 'null'); } catch { return null; }
@@ -93,6 +94,25 @@ export default function App() {
     const [maxPrice, setMaxPrice] = useState('');
     const [freeCancellation, setFreeCancellation] = useState(false);
     const [limit, setLimit] = useState(20);
+
+    useEffect(() => {
+        if (/^\/hotel\/[^/]+$/.test(pathname)) return;
+        const noindex = ['/checkout', '/account', '/loyalty'].includes(pathname);
+        const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
+        const title = t('meta.title', 'رمال وفِلّها | حجوزات الفنادق');
+        const description = t('meta.description', 'ابحث عن إقامة مناسبة مع رمال وقارن عروض الفنادق.');
+        setPageSeo({
+            title,
+            description,
+            canonical,
+            locale: language === 'ar' ? 'ar_AE' : language === 'es' ? 'es_ES' : 'en_US',
+            language,
+            type: 'website',
+            languages: noindex ? [] : ['ar', 'en', 'es'],
+            noindex,
+            structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Remal', url: canonical }
+        });
+    }, [pathname, language, t]);
 
     // States for Accordion Filters
     const [priceFilterOpen, setPriceFilterOpen] = useState(true);
