@@ -72,7 +72,7 @@ function SupplierPicture({ source, fallback, alt, loading = 'lazy', fetchPriorit
 }
 
 export default function HotelDetails({ hid, onBack, displayCurrency, displayRates }) {
-    const { t, apiLanguage, direction } = useLanguage();
+    const { t, apiLanguage, language, direction } = useLanguage();
     const [hotel, setHotel] = useState(null);
     const [rates, setRates] = useState([]);
     const [loading, setLoading] = useState(true);
@@ -87,7 +87,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
             setLoading(true);
             setError('');
             const [staticResult, liveResult] = await Promise.allSettled([
-                BookingAPI.getHotelStatic(hid),
+                BookingAPI.getHotelStatic(hid, language),
                 BookingAPI.getHotelPage({
                     hid,
                     checkin: searchParams.checkin,
@@ -106,14 +106,20 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
             if (liveResult.status === 'rejected' || (!staticHotel && !liveData)) {
                 setError(t('hotel.loadFailed', 'تعذر تحميل الأسعار الحالية، يرجى العودة للبحث والمحاولة مرة أخرى'));
             } else {
-                setHotel({ ...staticHotel, ...liveHotel, hid, images: toImages({ ...staticHotel, ...liveHotel }) });
+                const mergedHotel = { ...staticHotel, ...liveHotel, hid };
+                if (staticHotel?.resolvedLanguage === language && staticHotel?.name) {
+                    for (const field of ['name', 'description', 'city', 'address']) {
+                        if (staticHotel[field]) mergedHotel[field] = staticHotel[field];
+                    }
+                }
+                setHotel({ ...mergedHotel, images: toImages(mergedHotel) });
                 setRates(Array.isArray(liveRates) ? liveRates : []);
             }
             setLoading(false);
         };
         fetchHotelDetails();
         return () => { active = false; };
-    }, [hid, searchParams.checkin, searchParams.checkout, JSON.stringify(searchParams.guests), apiLanguage]);
+    }, [hid, searchParams.checkin, searchParams.checkout, JSON.stringify(searchParams.guests), apiLanguage, language]);
 
     const rooms = rates.map(rate => normalizeRoom(rate, hotel, searchParams.guests));
     const lowestRoom = rooms.reduce((best, room) => !best || rateAmount(room) < rateAmount(best) ? room : best, null);

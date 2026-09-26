@@ -7,24 +7,8 @@ const mongoose = require('mongoose');
 const { pipeline } = require('stream/promises');
 const logger = require('./loggerService');
 const { normalizeSupplierImage } = require('./supplierImages');
-
-const hotelSchema = new mongoose.Schema({
-    hid: { type: String, required: true, index: true },
-    hotelId: { type: String, required: true, unique: true },
-    name: String,
-    address: String,
-    city: String,
-    countryCode: String,
-    stars: String,
-    latitude: String,
-    longitude: String,
-    image: String,
-    provider: { type: String, default: 'ratehawk' },
-    staticData: mongoose.Schema.Types.Mixed,
-    reviews: [{ type: mongoose.Schema.Types.Mixed }],
-    detailed_ratings: mongoose.Schema.Types.Mixed
-});
-const Hotel = mongoose.models.Hotel || mongoose.model('Hotel', hotelSchema);
+const Hotel = require('../models/Hotel');
+const { normalizeHotelSearchText, hotelSearchTokens } = require('./hotelSearchIndex');
 
 const BATCH_SIZE = 500;
 const DOWNLOAD_TIMEOUT_MS = Number(process.env.RATEHAWK_DUMP_DOWNLOAD_TIMEOUT_MS || 30 * 60 * 1000);
@@ -59,6 +43,8 @@ function toStaticOperation(hotel) {
                     longitude: String(hotel.longitude != null ? hotel.longitude : ''),
                     image: pickImage(hotel),
                     provider: 'ratehawk',
+                    normalizedSupplierName: normalizeHotelSearchText(hotel.name || ''),
+                    searchTokens: hotelSearchTokens(hotel.name || ''),
                     staticData: hotel
                 }
             },

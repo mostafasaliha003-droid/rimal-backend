@@ -75,7 +75,7 @@ const getAmenities = (rate) => {
 };
 
 export default function App() {
-    const { t, apiLanguage, direction } = useLanguage();
+    const { t, apiLanguage, language, direction } = useLanguage();
     const [pathname, setPathname] = useState(() => window.location.pathname);
     const [displayCurrency, setDisplayCurrency] = useState(storedDisplayCurrency);
     const [displayRates, setDisplayRates] = useState(null);
@@ -155,10 +155,10 @@ export default function App() {
             setError('');
             try {
                 const { destination, checkin, checkout, guests } = searchParams;
-                const request = { checkin, checkout, guests, language: apiLanguage, currency: SEARCH_CURRENCY };
+                const request = { checkin, checkout, guests, language: apiLanguage, display_language: language, currency: SEARCH_CURRENCY };
                 const hotelId = Number(destination.hotel_id);
                 const isHotelSearch = destination.type === 'hotel' || destination.hotel_id;
-                if (isHotelSearch && (!Number.isInteger(hotelId) || hotelId < 0 || hotelId > 0xFFFFFFFF)) {
+                if (isHotelSearch && (!Number.isSafeInteger(hotelId) || hotelId < 0 || hotelId > 9999999999)) {
                     throw new Error('The selected hotel does not have a valid RateHawk hotel ID.');
                 }
                 const response = isHotelSearch

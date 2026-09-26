@@ -9,6 +9,8 @@
     "prepare:site": "node syncFrontendBuild.js",
     "check:site": "node syncFrontendBuild.js --check",
     "sync:filtered-hotels": "node syncFilteredHotels.js",
+    "sync:hotel-search-index": "node syncHotelSearchIndex.js",
+    "test:hotel-search-index": "node --test test-hotel-search-index.js",
     "sync:hotel-reviews": "node syncHotelReviews.js",
     "check:limits": "node checkApiLimits.js",
     "sync:hotel-dump": "node syncHotelDump.js",

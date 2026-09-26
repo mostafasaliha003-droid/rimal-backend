@@ -5,13 +5,7 @@ require('dotenv').config();
 const mongoose = require('mongoose');
 const client = require('./services/ratehawkClient');
 const logger = require('./services/loggerService');
-
-const hotelSchema = new mongoose.Schema({
-    hid: { type: String, required: true, index: true },
-    hotelId: { type: String, required: true, unique: true },
-    reviews: [{ type: mongoose.Schema.Types.Mixed }]
-});
-const Hotel = mongoose.models.Hotel || mongoose.model('Hotel', hotelSchema);
+const Hotel = require('./models/Hotel');
 
 const MONGO_URI = process.env.MONGO_URI;
 const CHUNK_SIZE = 100;

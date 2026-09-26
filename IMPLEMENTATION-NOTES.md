@@ -2,6 +2,7 @@
 
 ## Verification
 
+- `node --test test-hotel-search-index.js` verifies Arabic/Latin name normalization, a common Hilton typo, editorial approval gates, stable HIDs, and that supplier upserts leave translations/aliases alone.
 - `node --test test-booking-safety.js test-frontend-serving.js frontend/src/services/offers.test.js frontend/src/services/displayCurrency.test.js test-checkout-process.js test-checkout-reconciliation.js test-checkout-cancellation.js test-ziina-client.js test-ziina-webhook.js` checks booking, payment and refund recovery, offer identity, display exchange rates, autocomplete and HTTP behavior without live supplier or payment requests. Tests use mocked transport/storage; they do not certify MongoDB failover, live Ziina, Payota, bank challenges or supplier account capabilities.
 - `node --test test-frontend-serving.js` checks HTTP routes with and without `frontend/dist`, including private-file protection, missing assets and CORS preflights for allowed and rejected origins.
 - `npm --prefix frontend run build`
@@ -248,7 +249,9 @@ For the existing repository-root static site, run `npm run build`, then `npm run
 
 The production preview uses the production API, not Vite's development proxy. The backend's exact CORS allowlist includes HTTP `localhost` and `127.0.0.1` on ports 10000, 5173 and 5178, in addition to the existing production origins. Deploy the backend change for these preview requests to work; rebuilding the frontend alone does not update CORS.
 
-Autocomplete requests the chosen language first, then tries English once only when both hotel and region lists are empty. Existing localized results and supplier errors are preserved. The fallback returns actual supplier names and IDs; it does not translate the query or guarantee matches for Arabic spelling. The interface distinguishes empty results from connection failures and suggests trying another spelling or an English name.
+Autocomplete searches the local RateHawk content index and supplier multicomplete in parallel. NFKD/Arabic transliteration joins Arabic and Latin hotel spelling variants; indexed three-character tokens provide typo candidates, which are then ranked against the complete normalized names. The supplier is called in the selected API language and retried once in English only when it returns no hotel and region suggestions. Results report requested, resolved and supplier languages. Before release, deploy the backend and run `npm run sync:hotel-search-index` once to backfill indexed names/tokens; later hotel-content sync jobs maintain them. Use reviewed editorial aliases for brand names that cannot be safely transliterated. Supplier upserts do not write the editorial `translations` or `searchAliases` fields. MongoDB Atlas Search is not required for this implementation.
+
+Hotel search and hotel-content requests accept `display_language` (`ar`, `en`, `es`) separately from `language`, which controls the supplier request. Responses expose requested and resolved language metadata. Live rates remain in the supplier-requested currency; display currency and estimated FX remain frontend-only and are not checkout inputs.
 
 PWA cache v6 stores the offline page, app icons and same-origin hashed JS/CSS/fonts only. It does not cache API responses, checkout documents, guest information or external hotel photos. Offline mode cannot make reservations. Updates are user initiated outside checkout. Notification subscriptions and offline vouchers are not implemented.
 

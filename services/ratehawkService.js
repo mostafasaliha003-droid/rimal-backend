@@ -16,6 +16,7 @@ const mongoose = require('mongoose');
 const client = require('./ratehawkClient');
 const mappingService = require('./mappingService');
 const logger = require('./loggerService');
+const { findHotelSuggestions } = require('./hotelSearchIndex');
 
 // Fallback name for hotels not yet present in our local static-content cache.
 const FALLBACK_HOTEL_NAME = 'فندق شريك لرمال وفلّها';
@@ -64,14 +65,7 @@ const FILTER_CACHE_SCOPE = crypto.createHash('sha256')
 // Access the shared Hotel model (registered by server.js / syncRatehawkHotels.js).
 // Defined lazily so requiring this module never fails if the model isn't set up yet.
 function getHotelModel() {
-    if (mongoose.models.Hotel) return mongoose.models.Hotel;
-    const hotelSchema = new mongoose.Schema({
-        hotelId: { type: String, required: true, unique: true },
-        name: String, address: String, city: String, countryCode: String,
-        stars: String, latitude: String, longitude: String, image: String,
-        provider: { type: String, default: 'dubailink' }
-    });
-    return mongoose.model('Hotel', hotelSchema);
+    return require('../models/Hotel');
 }
 
 function isDeletedHotel(hotel) {
@@ -417,14 +411,52 @@ async function getHotelsContent(ids = [], hids = [], language = 'en') {
 }
 
 // ---- Step 2: Search ---------------------------------------------------------
-async function getAutocompleteSuggestions(query, language = 'en') {
-    const suggestions = await client.suggestHotelAndRegion(query, language);
-    const hasHotels = Array.isArray(suggestions?.hotels) && suggestions.hotels.length > 0;
-    const hasRegions = Array.isArray(suggestions?.regions) && suggestions.regions.length > 0;
-    if (language !== 'en' && !hasHotels && !hasRegions) {
-        return client.suggestHotelAndRegion(query, 'en');
+async function getAutocompleteSuggestions(query, language = 'en', displayLanguage = language) {
+    if (!['ar', 'en', 'es'].includes(language) || !['ar', 'en', 'es'].includes(displayLanguage)) {
+        throw Object.assign(new TypeError('Unsupported display language'), { httpStatus: 400 });
     }
-    return suggestions;
+    const [providerResult, localResult] = await Promise.allSettled([
+        (async () => {
+            const suggestions = await client.suggestHotelAndRegion(query, language);
+            const hasHotels = Array.isArray(suggestions?.hotels) && suggestions.hotels.length > 0;
+            const hasRegions = Array.isArray(suggestions?.regions) && suggestions.regions.length > 0;
+            if (language !== 'en' && !hasHotels && !hasRegions) {
+                return { suggestions: await client.suggestHotelAndRegion(query, 'en'), language: 'en' };
+            }
+            return { suggestions, language };
+        })(),
+        mongoose.connection.readyState === 1
+            ? findHotelSuggestions(query, { Hotel: getHotelModel(), language: displayLanguage })
+            : Promise.resolve([])
+    ]);
+
+    if (localResult.status === 'rejected') {
+        logger.warn('Local hotel autocomplete unavailable; using supplier suggestions', { error: localResult.reason?.message });
+    }
+    const localHotels = localResult.status === 'fulfilled' ? localResult.value : [];
+    if (providerResult.status === 'rejected' && !localHotels.length) throw providerResult.reason;
+
+    const provider = providerResult.status === 'fulfilled' ? providerResult.value.suggestions : { hotels: [], regions: [] };
+    const supplierLanguage = providerResult.status === 'fulfilled' ? providerResult.value.language : null;
+    const providerHotels = Array.isArray(provider?.hotels)
+        ? provider.hotels.map(hotel => ({ ...hotel, resolvedLanguage: supplierLanguage })) : [];
+    const regions = (Array.isArray(provider?.regions) ? provider.regions : [])
+        .map(region => ({ ...region, resolvedLanguage: supplierLanguage }));
+    const localIds = new Set(localHotels.map(hotel => String(hotel.hid || hotel.hotel_id)));
+    const hotels = [...localHotels, ...providerHotels.filter(hotel => !localIds.has(String(hotel?.hid || hotel?.hotel_id || hotel?.id)))];
+    const resolvedLanguages = [...new Set([
+        ...localHotels.map(hotel => hotel.resolvedLanguage),
+        ...providerHotels.map(hotel => hotel.resolvedLanguage),
+        ...regions.map(region => region.resolvedLanguage)
+    ].filter(Boolean))];
+    return {
+        ...provider,
+        regions,
+        hotels,
+        requestedLanguage: displayLanguage,
+        resolvedLanguage: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || supplierLanguage || displayLanguage,
+        supplierLanguage
+    };
 }
 const searchLiveRates = (searchCriteria = {}) => client.searchHotels(searchCriteria);
 const searchLiveRatesByGeo = (searchCriteria = {}) => client.searchHotelsByGeo(searchCriteria);

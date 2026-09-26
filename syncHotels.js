@@ -1,24 +1,10 @@
 require('dotenv').config();
 const mongoose = require('mongoose');
+const Hotel = require('./models/Hotel');
 
 // ==========================================
 // 1. تعريف نموذج الفندق في قاعدة البيانات (Schema)
 // ==========================================
-const hotelSchema = new mongoose.Schema({
-    hotelId: { type: String, required: true, unique: true }, 
-    name: String,
-    address: String,
-    city: String,
-    countryCode: String,
-    stars: String,
-    latitude: String,
-    longitude: String,
-    image: String,
-    provider: { type: String, default: 'dubailink' }
-});
-
-const Hotel = mongoose.models.Hotel || mongoose.model('Hotel', hotelSchema);
-
 // ==========================================
 // 2. إعدادات الاتصال والبيانات
 // ==========================================

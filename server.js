@@ -10,6 +10,7 @@ const fs = require('fs');
 const crypto = require('crypto'); 
 const http = require('http'); 
 const { Server } = require('socket.io'); 
+const Hotel = require('./models/Hotel');
 
 // ==========================================
 // 🧩 1. استدعاء خدمات المحرك الجديد
@@ -117,28 +118,9 @@ const reviewSchema = new mongoose.Schema({
     comment: { type: String, required: true }, createdAt: { type: Date, default: Date.now }
 });
 
-// 🌟 تعريف هيكل الفنادق المخزنة لربطها بأسعار دبي لينك
-const hotelSchema = new mongoose.Schema({
-    hid: { type: String, index: true },
-    hotelId: { type: String, required: true, unique: true },
-    name: String,
-    address: String,
-    city: String,
-    countryCode: String,
-    stars: String,
-    latitude: String,
-    longitude: String,
-    image: String,
-    provider: { type: String, default: 'dubailink' },
-    staticData: mongoose.Schema.Types.Mixed,
-    reviews: [{ type: mongoose.Schema.Types.Mixed }],
-    detailed_ratings: mongoose.Schema.Types.Mixed
-});
-
 const User = mongoose.model('User', userSchema);
 const Booking = mongoose.model('Booking', bookingSchema);
 const Review = mongoose.model('Review', reviewSchema);
-const Hotel = mongoose.model('Hotel', hotelSchema); // تفعيل الموديل
 
 let verificationCodes = {}; let passwordResetCodes = {}; let updateEmailCodes = {}; let updatePasswordCodes = {};  
 const ADMIN_EMAIL = 'management@remaltourismllc.com';
@@ -374,6 +356,8 @@ app.get('/api/v1/hotels/filters', verifyAPIKey, securityService.searchLimiter, a
 
 app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     const hid = String(req.params.hid || '').trim();
+    const language = req.query.language || 'en';
+    if (!['ar', 'en', 'es'].includes(language)) return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE' });
     if (!/^\d+$/.test(hid)) {
         return res.status(404).json({ success: false, message: 'Hotel is no longer available.' });
     }
@@ -387,6 +371,11 @@ app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, asyn
         const staticData = hotel.staticData && typeof hotel.staticData === 'object'
             ? hotel.staticData
             : hotel;
+        const translations = hotel.translations instanceof Map
+            ? Object.fromEntries(hotel.translations)
+            : hotel.translations || {};
+        const translation = translations[language];
+        const approvedTranslation = translation?.reviewStatus === 'approved' ? translation : null;
         if (hotel.is_closed === true || hotel.deleted === true
             || staticData.is_closed === true || staticData.deleted === true) {
             return res.status(404).json({ success: false, message: 'Hotel is no longer available.' });
@@ -396,8 +385,14 @@ app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, asyn
             success: true,
             hotel: {
                 ...staticData,
+                name: approvedTranslation?.name || staticData.name || hotel.name || '',
+                description: approvedTranslation?.description || staticData.description || '',
+                city: approvedTranslation?.city || staticData.city || hotel.city || '',
+                address: approvedTranslation?.address || staticData.address || hotel.address || '',
                 hid: hotel.hid || staticData.hid || hid,
                 hotelId: hotel.hotelId || staticData.hotelId,
+                requestedLanguage: language,
+                resolvedLanguage: approvedTranslation?.name ? language : 'en',
                 image: formatHotelImage(hotel.image || staticData.image) || '',
                 images: hotelImageStrings(hotel.images, hotel.images_ext, staticData.images, staticData.images_ext, hotel.image, staticData.image),
                 reviews: hotel.reviews || staticData.reviews || [],
@@ -432,6 +427,8 @@ app.get('/api/hotels/:hid/live', verifyAPIKey, securityService.searchLimiter, as
 app.post('/api/search/rates', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     const body = req.body || {};
     const { checkin, checkout, hids, guests } = body;
+    const displayLanguage = body.display_language || body.language || 'en';
+    if (!['ar', 'en', 'es'].includes(displayLanguage)) return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE' });
     if (!Array.isArray(hids) || guests === undefined || guests === null) {
         return res.status(400).json({
             success: false,
@@ -450,7 +447,15 @@ app.post('/api/search/rates', verifyAPIKey, securityService.searchLimiter, async
             currency: body.currency || 'USD',
             guests
         });
-        return res.status(200).json({ success: true, ...result });
+        const hotels = Array.isArray(result)
+            ? result
+            : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
+        const enrichedHotels = await enrichRateHotels(hotels.map(hotel => ({
+            ...hotel, displayLanguage, supplierLanguage: body.language || 'en'
+        })));
+        const resolvedLanguages = [...new Set(enrichedHotels.map(hotel => hotel.resolvedLanguage).filter(Boolean))];
+        return res.status(200).json({ success: true, ...(Array.isArray(result) ? {} : result), hotels: enrichedHotels,
+            requested_language: displayLanguage, resolved_language: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || body.language || 'en' });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
@@ -542,6 +547,12 @@ async function enrichRateHotels(hotels) {
         const staticData = staticHotel.staticData && typeof staticHotel.staticData === 'object'
             ? staticHotel.staticData
             : {};
+        const language = hotel.displayLanguage || 'en';
+        const translations = staticHotel.translations instanceof Map
+            ? Object.fromEntries(staticHotel.translations)
+            : staticHotel.translations || {};
+        const translation = translations[language];
+        const approvedTranslation = translation?.reviewStatus === 'approved' ? translation : null;
         const images = hotelImageStrings(
             hotel?.images,
             hotel?.images_ext,
@@ -556,7 +567,12 @@ async function enrichRateHotels(hotels) {
         return {
             ...hotel,
             hid,
-            name: firstHotelString(hotel?.name, staticHotel.name, staticData.name, staticData.hotel_name) || 'Hotel',
+            name: firstHotelString(approvedTranslation?.name, hotel?.name, staticHotel.name, staticData.name, staticData.hotel_name) || 'Hotel',
+            description: firstHotelString(approvedTranslation?.description, hotel?.description, staticHotel.description, staticData.description),
+            city: firstHotelString(approvedTranslation?.city, hotel?.city, staticHotel.city, staticData.city),
+            address: firstHotelString(approvedTranslation?.address, hotel?.address, staticHotel.address, staticData.address),
+            requestedLanguage: language,
+            resolvedLanguage: approvedTranslation?.name ? language : hotel.supplierLanguage || 'en',
             images,
             image: images[0] || '',
             stars: firstHotelString(hotel?.stars, hotel?.star_rating, staticHotel.stars, staticData.stars, staticData.star_rating)
@@ -567,6 +583,8 @@ async function enrichRateHotels(hotels) {
 app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     const body = req.body || {};
     const { checkin, checkout, region_id: regionId, guests } = body;
+    const displayLanguage = body.display_language || body.language || 'en';
+    if (!['ar', 'en', 'es'].includes(displayLanguage)) return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE' });
     const numericRegionId = Number(regionId);
     if (regionId === undefined || regionId === null || !Number.isInteger(numericRegionId)
         || guests === undefined || guests === null) {
@@ -590,8 +608,12 @@ app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter
         const hotels = Array.isArray(result)
             ? result
             : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
-        const enrichedHotels = await enrichRateHotels(hotels);
-        return res.status(200).json({ success: true, hotels: enrichedHotels });
+        const enrichedHotels = await enrichRateHotels(hotels.map(hotel => ({
+            ...hotel, displayLanguage, supplierLanguage: body.language || 'en'
+        })));
+        const resolvedLanguages = [...new Set(enrichedHotels.map(hotel => hotel.resolvedLanguage).filter(Boolean))];
+        return res.status(200).json({ success: true, hotels: enrichedHotels,
+            requested_language: displayLanguage, resolved_language: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || body.language || 'en' });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
@@ -637,7 +659,8 @@ app.get('/api/search/sort/:region_id', verifyAPIKey, securityService.searchLimit
 app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     const query = req.query.query;
     const language = req.query.language || 'en';
-    if (typeof query !== 'string' || !query.trim()) {
+    const displayLanguage = req.query.display_language || language;
+    if (typeof query !== 'string' || !query.trim() || query.trim().length > 160) {
         return res.status(400).json({
             success: false,
             error: 'INVALID_QUERY',
@@ -646,7 +669,7 @@ app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, asyn
     }
 
     try {
-        const result = await ratehawkService.getAutocompleteSuggestions(query, language);
+        const result = await ratehawkService.getAutocompleteSuggestions(query, language, displayLanguage);
         return res.status(200).json({ success: true, suggestions: result });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
@@ -655,6 +678,7 @@ app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, asyn
         if (error.ratehawkError === 'core_search_error') {
             return res.status(502).json({ success: false, error: 'CORE_SEARCH_ERROR', message: error.message });
         }
+        if (error.httpStatus === 400) return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE' });
         logger.error('Hotel autocomplete failed', { error: error.message });
         return res.status(502).json({ success: false, error: 'SUGGESTIONS_UNAVAILABLE' });
     }
@@ -664,7 +688,7 @@ app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, a
     const body = req.body || {};
     const { checkin, checkout, hid, guests, match_hash: matchHash } = body;
     const numericHid = Number(hid);
-    if (hid === undefined || hid === null || !Number.isSafeInteger(numericHid) || numericHid < 0 || numericHid > 0xFFFFFFFF
+    if (hid === undefined || hid === null || !Number.isSafeInteger(numericHid) || numericHid < 0 || numericHid > 9999999999
         || guests === undefined || guests === null) {
         return res.status(400).json({
             success: false,

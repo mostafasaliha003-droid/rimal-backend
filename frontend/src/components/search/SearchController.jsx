@@ -48,7 +48,7 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
         setSuggestionStatus('loading');
         const timer = window.setTimeout(async () => {
             try {
-                const response = await BookingAPI.suggest(query.trim(), apiLanguage, { signal: abort.signal });
+                const response = await BookingAPI.suggest(query.trim(), apiLanguage, { signal: abort.signal, displayLanguage: language });
                 if (abort.signal.aborted || requestVersion.current !== version) return;
                 const next = normalizeSuggestions(response);
                 setSuggestions(next);
@@ -58,7 +58,7 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
             }
         }, 280);
         return () => { window.clearTimeout(timer); abort.abort(); };
-    }, [query, destination, apiLanguage, online, retry]);
+    }, [query, destination, apiLanguage, language, online, retry]);
 
     const clearError = useCallback(field => {
         setErrors(current => {

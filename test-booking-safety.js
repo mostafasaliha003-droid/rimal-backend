@@ -1719,14 +1719,23 @@ test('autocomplete falls back to English only for empty localized results', asyn
         calls.push({ query, language });
         return language === 'en' ? english : localResponse;
     });
-    assert.deepEqual(await getAutocompleteSuggestions('DUBAI', 'ar'), english);
+    assert.deepEqual(await getAutocompleteSuggestions('DUBAI', 'ar'), {
+        ...english, regions: english.regions.map(region => ({ ...region, resolvedLanguage: 'en' })),
+        hotels: [], requestedLanguage: 'ar', resolvedLanguage: 'en', supplierLanguage: 'en'
+    });
     assert.deepEqual(calls, [{ query: 'DUBAI', language: 'ar' }, { query: 'DUBAI', language: 'en' }]);
     calls.length = 0;
     localResponse = localized;
-    assert.deepEqual(await getAutocompleteSuggestions('دبي', 'ar'), localized);
+    assert.deepEqual(await getAutocompleteSuggestions('دبي', 'ar'), {
+        ...localized, regions: localized.regions.map(region => ({ ...region, resolvedLanguage: 'ar' })),
+        hotels: [], requestedLanguage: 'ar', resolvedLanguage: 'ar', supplierLanguage: 'ar'
+    });
     assert.deepEqual(calls, [{ query: 'دبي', language: 'ar' }]);
     calls.length = 0;
-    assert.deepEqual(await getAutocompleteSuggestions('Dubai', 'en'), english);
+    assert.deepEqual(await getAutocompleteSuggestions('Dubai', 'en'), {
+        ...english, regions: english.regions.map(region => ({ ...region, resolvedLanguage: 'en' })),
+        hotels: [], requestedLanguage: 'en', resolvedLanguage: 'en', supplierLanguage: 'en'
+    });
     assert.deepEqual(calls, [{ query: 'Dubai', language: 'en' }]);
 });
 
@@ -1738,7 +1747,9 @@ test('autocomplete does not mask supplier errors or loop on empty English result
     await assert.rejects(getAutocompleteSuggestions('Dubai', 'ar'), failure);
     assert.equal(suggest.mock.callCount(), 1);
     suggest.mock.mockImplementation(async () => ({ hotels: [], regions: [] }));
-    assert.deepEqual(await getAutocompleteSuggestions('Unknown', 'ar'), { hotels: [], regions: [] });
+    assert.deepEqual(await getAutocompleteSuggestions('Unknown', 'ar'), {
+        hotels: [], regions: [], requestedLanguage: 'ar', resolvedLanguage: 'en', supplierLanguage: 'en'
+    });
     assert.equal(suggest.mock.callCount(), 3);
 });
 

@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { initialGuests, normalizeSuggestions, parseSearchDate, validDestination, validateSearch } from './searchModel.js';
+import { hotelId, initialGuests, normalizeSuggestions, parseSearchDate, validDestination, validateSearch } from './searchModel.js';
 
 const destination = { label: 'Dubai', type: 'region', region_id: 6053839 };
 const search = { query: 'Dubai', destination, checkin: '2099-10-15', checkout: '2099-10-17', guests: [{ adults: 2, children: [] }] };
@@ -25,8 +25,10 @@ test('normalizes envelopes, deduplicates IDs, and rejects unusable suggestions',
 });
 
 test('hotel selection requires an actual bounded ID, not a slug or empty value', () => {
-    for (const id of [undefined, null, '', -1, 0x100000000, 'hotel-slug']) assert.equal(validDestination({ type: 'hotel', label: 'Hotel', hotel_id: id }), false);
+    for (const id of [undefined, null, '', -1, 10_000_000_000, Number.MAX_SAFE_INTEGER + 1, 'hotel-slug']) assert.equal(validDestination({ type: 'hotel', label: 'Hotel', hotel_id: id }), false);
     assert.equal(validDestination({ type: 'hotel', label: 'Hotel', hotel_id: 0 }), true);
+    assert.equal(hotelId('9999999999'), 9999999999);
+    assert.equal(normalizeSuggestions({ success: true, suggestions: { requestedLanguage: 'es', resolvedLanguage: 'en', hotels: [{ hid: '9999999999', name: 'Hotel', resolvedLanguage: 'en' }] } })[0].resolvedLanguage, 'en');
 });
 
 test('a selected ID must still match the edited query', () => {

@@ -24,8 +24,8 @@ const responseData = (response) => response.data;
  * @param {{ signal?: AbortSignal }} [options] - Optional request cancellation.
  * @returns {Promise<object>} Suggestion response containing hotels and regions.
  */
-export const suggest = async (query, language = 'en', { signal } = {}) =>
-    responseData(await api.get('/search/suggest', { params: { query, language }, signal }));
+export const suggest = async (query, language = 'en', { signal, displayLanguage = language } = {}) =>
+    responseData(await api.get('/search/suggest', { params: { query, language, display_language: displayLanguage }, signal }));
 
 /**
  * Search live rates by a list of hotel IDs.
@@ -74,8 +74,8 @@ export const getHotelPage = async (hotelData) =>
  * @param {object} searchData - Dates, guests, and search options.
  * @returns {Promise<{staticData: object, liveData: object}>}
  */
-export const getHotelStatic = async (hid) =>
-    responseData(await api.get(`/v1/hotels/${encodeURIComponent(hid)}`));
+export const getHotelStatic = async (hid, language = 'en') =>
+    responseData(await api.get(`/v1/hotels/${encodeURIComponent(hid)}`, { params: { language } }));
 
 /**
  * Validate a hotel rate through the standard ETG prebook endpoint.

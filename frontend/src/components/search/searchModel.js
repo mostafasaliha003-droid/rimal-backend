@@ -6,29 +6,34 @@ export function parseSearchDate(value) {
     return isValid(date) && format(date, 'yyyy-MM-dd') === value ? date : null;
 }
 
-function hotelId(value) {
+export function hotelId(value) {
     if (value === null || value === undefined || value === '') return null;
     const id = Number(value);
-    return Number.isInteger(id) && id >= 0 && id <= 0xFFFFFFFF ? id : null;
+    return Number.isSafeInteger(id) && id >= 0 && id <= 9999999999 ? id : null;
 }
 
 export function validDestination(destination) {
     if (!destination || typeof destination.label !== 'string' || !destination.label.trim()) return false;
     if (destination.type === 'hotel') return hotelId(destination.hotel_id) !== null;
-    return destination.type === 'region' && Number.isInteger(Number(destination.region_id)) && Number(destination.region_id) > 0;
+    return destination.type === 'region' && Number.isSafeInteger(Number(destination.region_id)) && Number(destination.region_id) > 0;
 }
 
 export function normalizeSuggestions(response) {
     const payload = response?.data || response;
     const data = Array.isArray(payload) ? { regions: payload }
         : Array.isArray(payload?.suggestions) ? { regions: payload.suggestions } : payload?.suggestions || payload || {};
+    const metadata = payload?.suggestions && !Array.isArray(payload.suggestions)
+        ? payload.suggestions
+        : payload || {};
     const labelFor = item => [item.name?.content, item.name?.value, item.name, item.title, item.label]
         .find(value => typeof value === 'string' && value.trim())?.trim();
     const regions = (Array.isArray(data.regions) ? data.regions : []).filter(item => item && typeof item === 'object').slice(0, 5).map(item => ({
-        label: labelFor(item), type: 'region', region_id: item.id ?? item.region_id
+        label: labelFor(item), type: 'region', region_id: item.id ?? item.region_id,
+        resolvedLanguage: item.resolvedLanguage || metadata.resolvedLanguage || null
     }));
     const hotels = (Array.isArray(data.hotels) ? data.hotels : []).filter(item => item && typeof item === 'object').slice(0, 5).map(item => ({
-        label: labelFor(item), type: 'hotel', hotel_id: hotelId(item.hid ?? item.hotel_id), hotel_key: item.id
+        label: labelFor(item), type: 'hotel', hotel_id: hotelId(item.hid ?? item.hotel_id ?? item.id), hotel_key: item.id,
+        resolvedLanguage: item.resolvedLanguage || metadata.resolvedLanguage || null
     }));
     return [...new Map([...regions, ...hotels].filter(validDestination).map(item => {
         const key = `${item.type}-${item.region_id ?? item.hotel_id}`;
