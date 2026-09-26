@@ -157,7 +157,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         <div className="grid h-full grid-cols-1 gap-2 md:grid-cols-4">
                             {/* Main Image (Right side in RTL) */}
                             <div className="group relative h-full md:col-span-2 overflow-hidden bg-slate-200">
-                                <img src={mainImageSource?.src || images[0]} srcSet={mainImageSource?.srcSet} sizes={mainImageSource?.sizes} width={mainImageSource?.width} height={mainImageSource?.height} fetchPriority="high" decoding="async" alt={hotel?.name} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
+                                <img src={mainImageSource?.src || images[0]} srcSet={mainImageSource?.srcSet} sizes={mainImageSource?.sizes} width={mainImageSource?.width} height={mainImageSource?.height} fetchPriority="high" decoding="async" alt={hotel?.name || hotel?.staticData?.name || t('hotel.name', 'الفندق')} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
                             </div>
                             
@@ -177,7 +177,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         </div>
                     ) : (
                         <div className="h-full w-full bg-slate-200">
-                            {images[0] ? <img {...mainImageSource} fetchPriority="high" decoding="async" alt={hotel?.name} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-slate-400"><ImageOff size={40} /></div>}
+                            {images[0] ? <img {...mainImageSource} fetchPriority="high" decoding="async" alt={hotel?.name || hotel?.staticData?.name || t('hotel.name', 'الفندق')} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-slate-400"><ImageOff size={40} /></div>}
                         </div>
                     )}
                 </section>
