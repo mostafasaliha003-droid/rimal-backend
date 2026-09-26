@@ -98,9 +98,28 @@ input[type="checkbox"] { accent-color: #146776; }
     isolation: isolate;
 }
 
+/* Shared semantic surfaces and primary orange actions. */
+.glass-surface {
+    border: 1px solid rgb(255 255 255 / 0.2);
+    background: rgb(255 255 255 / 0.88);
+    box-shadow: 0 0.75rem 2rem rgb(var(--remal-navy-rgb) / 0.08);
+}
+.cta-orange {
+    background: var(--remal-orange);
+    box-shadow: 0 0.5rem 1.125rem rgb(var(--remal-orange-rgb) / 0.25);
+    transition: transform 300ms ease, background-color 300ms ease, box-shadow 300ms ease;
+}
+.cta-orange:hover {
+    background: #d86522;
+    box-shadow: 0 0.75rem 1.5rem rgb(var(--remal-orange-rgb) / 0.32);
+    transform: translateY(-0.125rem);
+}
+.cta-orange:focus-visible { outline: 3px solid var(--remal-focus); outline-offset: 3px; }
+.cta-orange:disabled { cursor: not-allowed; opacity: 0.6; }
+
 /* Search-specific surfaces: one glass layer, separate from controls and portal overlays. */
 .search-shell { position: relative; z-index: 45; margin-top: -2rem; scroll-margin-top: calc(var(--search-top, 0px) + 1rem); }
-.search-glass-surface { background: #fff; border: 1px solid rgb(255 255 255 / 0.2); box-shadow: 0 0.75rem 2rem rgb(var(--remal-navy-rgb) / 0.08); }
+.search-glass-surface { background: #fff; }
 .search-field { min-width: 0; min-height: 5.5rem; border: 1px solid transparent; border-radius: 0.75rem; background: rgb(var(--remal-bg-rgb) / 0.65); padding: 0.75rem; color: var(--remal-navy); transition: background-color 150ms ease-out, box-shadow 150ms ease-out; }
 .search-field:focus-within { background: #fff; box-shadow: 0 0 0 2px rgb(var(--remal-blue-rgb) / 0.2); }
 .search-field-invalid { border-color: var(--remal-danger); }
@@ -116,7 +135,8 @@ input[type="checkbox"] { accent-color: #146776; }
 .search-dialog::backdrop { background: rgb(var(--remal-navy-rgb) / 0.55); }
 @keyframes search-popover-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
 @supports (backdrop-filter: blur(1px)) {
-    .search-glass-surface { background: rgb(255 255 255 / 0.88); backdrop-filter: blur(20px); }
+    .glass-surface { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+    .search-glass-surface { background: rgb(255 255 255 / 0.88); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
     .search-shell[data-sticky="true"] .search-glass-surface { background: rgb(255 255 255 / 0.92); }
 }
 @media (min-width: 1280px) {

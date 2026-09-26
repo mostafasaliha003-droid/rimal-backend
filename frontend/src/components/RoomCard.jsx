@@ -236,7 +236,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             type="button"
                             onClick={handleBook} 
                             disabled={status === 'loading' || (!payable && status !== 'success')} 
-                            className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.25)] transition-all duration-300 hover:-translate-y-0.5 disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 hover:bg-emerald-700' : 'bg-[var(--remal-orange)] hover:bg-[#d86522]'} ${!payable && status !== 'success' ? 'bg-slate-300' : ''}`}
+                            className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 shadow-[0_8px_18px_rgba(16,185,129,0.2)] transition-colors hover:bg-emerald-700' : payable ? 'cta-orange' : 'bg-slate-300'}`}
                         >
                             <span className="relative z-10 flex flex-wrap items-center justify-center gap-2 text-center">
                                 {status === 'loading' ? t('room.verifying', 'جارٍ التحقق...') : status === 'success' ? t('room.fixed', 'تم تثبيت السعر') : t('room.book', 'احجز الغرفة')}

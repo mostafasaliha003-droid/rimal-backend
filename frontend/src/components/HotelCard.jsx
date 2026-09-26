@@ -150,7 +150,7 @@ export default function HotelCard({ hotel, onSelect, displayCurrency, displayRat
                             <p className="mt-1 text-[10px] font-bold text-slate-400">{t('results.reviewFees', 'راجع الضرائب والرسوم قبل الدفع')}</p>
                         </div>
                         <div className="flex w-full flex-col items-end gap-2 sm:w-auto">
-                            <button type="button" onClick={() => onSelect(hotel)} className="group/btn relative inline-flex min-h-[50px] w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--remal-orange)] px-6 py-2.5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.25)] transition-all duration-300 hover:-translate-y-0.5 hover:bg-[#d86522] hover:shadow-[0_12px_24px_rgba(232,117,45,0.32)] sm:w-auto">
+                            <button type="button" onClick={() => onSelect(hotel)} className="cta-orange group/btn relative inline-flex min-h-[50px] w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-2.5 text-sm font-black text-white sm:w-auto">
                                 <span className="relative z-10 flex items-center gap-2">{t('results.chooseRooms', 'تحديد الغرف')} <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" /></span>
                             </button>
                         </div>

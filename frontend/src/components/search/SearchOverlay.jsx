@@ -56,7 +56,7 @@ export function AnchoredOverlay({ anchorRef, host, children, className = '', rol
     }, [anchorRef, host, direction]);
     if (!host) return null;
     return createPortal(<div ref={ref} id={id} role={role} aria-label={label} dir={direction}
-        className={`search-popover fixed z-[90] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-2 text-remal-navy shadow-xl supports-[backdrop-filter]:bg-white/[0.92] supports-[backdrop-filter]:backdrop-blur-[20px] ${className}`}
+        className={`glass-surface search-popover fixed z-[90] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-2 text-remal-navy shadow-xl supports-[backdrop-filter]:bg-white/[0.92] supports-[backdrop-filter]:backdrop-blur-[20px] ${className}`}
         style={{ ...position, visibility: position ? 'visible' : 'hidden' }}>{children}</div>, host);
 }
 
