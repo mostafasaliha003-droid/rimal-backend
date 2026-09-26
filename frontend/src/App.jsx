@@ -44,11 +44,25 @@ const getHotels = (response) => {
         const images = hotelImages({ ...hotel, staticData });
         const name = [hotel.name, hotel.hotel_name, staticData.name, staticData.hotel_name]
             .find((value) => typeof value === 'string' && value.trim());
+        const detailedRatings = hotel.detailed_ratings || staticData.detailed_ratings || {};
+        const reviewScore = [
+            hotel.review_score, hotel.guest_rating, hotel.rating,
+            staticData.review_score, staticData.guest_rating, staticData.rating,
+            detailedRatings.overall, detailedRatings.overall_score, detailedRatings.score
+        ].map(Number).find(value => Number.isFinite(value) && value > 0);
+        const reviewCount = [
+            hotel.review_count, hotel.reviews_count, hotel.number_of_reviews,
+            staticData.review_count, staticData.reviews_count, staticData.number_of_reviews,
+            Array.isArray(hotel.reviews) ? hotel.reviews.length : undefined,
+            Array.isArray(staticData.reviews) ? staticData.reviews.length : undefined
+        ].map(Number).find(value => Number.isFinite(value) && value > 0);
 
         return {
             ...hotel,
             name: name?.trim() || 'Hotel',
             images,
+            reviewScore,
+            reviewCount,
             rates: (hotel.rates || []).filter(rate => rateCurrency(rate) === SEARCH_CURRENCY).sort((first, second) => rateAmount(first) - rateAmount(second)),
             stars: hotel.stars || hotel.star_rating || staticData.stars || staticData.star_rating || ''
         };
@@ -188,15 +202,19 @@ export default function App() {
         }
     };
 
-    const openHotelDetails = (hotel) => {
-        trackBookingEvent('hotel_view_clicked');
+    const hotelDetailsHref = hotel => {
         const hid = hotel.hid || hotel.id;
         const params = new URLSearchParams({
             checkin: searchParams?.checkin || '',
             checkout: searchParams?.checkout || '',
             guests: JSON.stringify(searchParams?.guests || [{ adults: 2, children: [] }])
         });
-        window.history.pushState({}, '', `/hotel/${encodeURIComponent(hid)}?${params.toString()}`);
+        return `/hotel/${encodeURIComponent(hid)}?${params.toString()}`;
+    };
+
+    const openHotelDetails = (hotel) => {
+        trackBookingEvent('hotel_view_clicked');
+        window.history.pushState({}, '', hotelDetailsHref(hotel));
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
@@ -207,11 +225,12 @@ export default function App() {
         const stars = Number(hotel.stars || hotel.star_rating || 0);
         const amenities = getAmenities(hotel.rates?.[0] || hotel);
         const best = cheapestRate(hotel.rates);
-        return best && (!starFilter || stars >= starFilter) && (!amenityFilter || amenities.length > 0)
-            && (!maxPrice || rateAmount(best) <= Number(maxPrice))
-            && (!freeCancellation || !!paymentFor(best)?.cancellation_penalties?.free_cancellation_before);
+        const matchesPrice = !maxPrice || Boolean(best && rateAmount(best) <= Number(maxPrice));
+        const matchesCancellation = !freeCancellation || Boolean(best && paymentFor(best)?.cancellation_penalties?.free_cancellation_before);
+        return (!starFilter || stars >= starFilter) && (!amenityFilter || amenities.length > 0)
+            && matchesPrice && matchesCancellation;
     }).sort((first, second) => sort === 'price' ? rateAmount(cheapestRate(first.rates)) - rateAmount(cheapestRate(second.rates)) : sort === 'stars' ? Number(second.stars || 0) - Number(first.stars || 0) : 0);
-    const lowestHotel = visibleHotels.reduce((best, hotel) => !best || rateAmount(cheapestRate(hotel.rates)) < rateAmount(cheapestRate(best.rates)) ? hotel : best, null);
+    const lowestHotel = visibleHotels.filter(hotel => cheapestRate(hotel.rates)).reduce((best, hotel) => !best || rateAmount(cheapestRate(hotel.rates)) < rateAmount(cheapestRate(best.rates)) ? hotel : best, null);
     
     const clearFilters = () => {
         setStarFilter(0);
@@ -321,10 +340,10 @@ export default function App() {
                                         </button>
                                         
                                         {priceFilterOpen && (
-                                            <div className="mt-5 space-y-5 animate-in slide-in-from-top-2 fade-in duration-200">
+                                            <div className="filter-reveal mt-5 space-y-5">
                                                 <div className="space-y-3">
                                                     <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('results.maxPrice', 'الحد الأعلى للسعر')} ({SEARCH_CURRENCY})</label>
-                                                    <input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 p-3.5 font-bold outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 placeholder:text-slate-300 bg-slate-50/50 transition-all hover:bg-white" />
+                                                    <input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 font-bold outline-none transition-[background-color,border-color,box-shadow] duration-150 ease-out placeholder:text-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-white" />
                                                 </div>
 
                                                 <label className="flex items-center justify-between cursor-pointer group bg-slate-50 hover:bg-blue-50/50 p-3 rounded-xl transition-colors border border-slate-100 hover:border-blue-100">
@@ -346,10 +365,10 @@ export default function App() {
                                         </button>
                                         
                                         {starsFilterOpen && (
-                                            <div className="mt-5 animate-in slide-in-from-top-2 fade-in duration-200">
+                                            <div className="filter-reveal mt-5">
                                                 <div className="flex gap-2">
                                                     {[3, 4, 5].map((star) => (
-                                                        <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-sm font-black transition-all ${starFilter === star ? 'border-amber-400 bg-amber-50 text-amber-800 shadow-sm scale-[1.02]' : 'border-slate-200 bg-slate-50 text-slate-500 hover:border-amber-300 hover:text-amber-700 hover:bg-white'}`}>
+                                                        <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-sm font-black transition-[transform,box-shadow,border-color,background-color,color] duration-300 ease-out motion-reduce:transition-none ${starFilter === star ? 'scale-[1.02] border-amber-400 bg-amber-50 text-amber-800 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:border-amber-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-white motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:text-amber-700'}`}>
                                                             {star} <StarIcon size={14} className={starFilter === star ? 'text-amber-500' : 'text-slate-300'} fill="currentColor" />
                                                         </button>
                                                     ))}
@@ -366,7 +385,7 @@ export default function App() {
                                         </button>
                                         
                                         {amenitiesFilterOpen && (
-                                            <div className="mt-5 animate-in slide-in-from-top-2 fade-in duration-200">
+                                            <div className="filter-reveal mt-5">
                                                 <label className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-slate-50 rounded-lg transition-colors -mx-2">
                                                     <div className="relative flex items-center justify-center">
                                                         <input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="peer sr-only" />
@@ -429,9 +448,9 @@ export default function App() {
                                 </div>
                             ) : visibleHotels.length ? (
                                 <ul aria-label={t('results.hotelList', 'قائمة الفنادق')} className="grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto overscroll-x-contain snap-x snap-proximity scroll-px-4 px-4 py-4 touch-auto md:auto-cols-auto md:grid-flow-row md:grid-cols-1 md:overflow-visible md:snap-none md:space-y-6">
-                                    {visibleHotels.slice(0, limit).map((hotel) => (
+                                    {visibleHotels.slice(0, limit).map((hotel, index) => (
                                         <li key={hotel.id || hotel.hid} className="min-w-0 snap-start snap-normal">
-                                            <HotelCard hotel={hotel} onSelect={openHotelDetails} displayCurrency={displayCurrency} displayRates={displayRates} />
+                                            <HotelCard hotel={hotel} href={hotelDetailsHref(hotel)} onSelect={openHotelDetails} priority={index === 0} displayCurrency={displayCurrency} displayRates={displayRates} />
                                         </li>
                                     ))}
                                     {visibleHotels.length > limit && (

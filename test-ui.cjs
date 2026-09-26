@@ -119,6 +119,14 @@ async function run() {
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForSelector('article');
         assert.equal(await page.$$eval('article', cards => cards.length), 3);
+        const resultCardChecks = await page.$$eval('#results-heading article', cards => cards.map(card => ({
+            detailHref: card.querySelector('h3 a')?.getAttribute('href') || '',
+            chooseHref: card.querySelector('a.cta-red')?.getAttribute('href') || '',
+            text: card.textContent || ''
+        })));
+        assert(resultCardChecks.every(card => card.detailHref.startsWith('/hotel/')));
+        assert(resultCardChecks.every(card => card.chooseHref.startsWith('/hotel/')));
+        assert(resultCardChecks.every(card => !/Popular|Great Deal|سعر استثنائي|اختيار مناسب للمقارنة|عرض يستحق المراجعة/.test(card.text)));
         assert.equal(lastSearch.currency, 'USD');
         assert.equal(lastSearch.language, 'ar');
         assert.match(await page.$eval('header', element => element.textContent), /USD/);
@@ -161,7 +169,14 @@ async function run() {
         await page.setViewport({ width: 390, height: 844 });
         await page.click('[aria-controls="search-filters"]');
         assert.equal(await page.$eval('#search-filters', element => getComputedStyle(element).display !== 'none'), true);
-        await page.type('#search-filters input[type="number"]', '70');
+        await page.$eval('#search-filters input[type="number"]', element => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(element, '70');
+            element.dispatchEvent(new Event('input', { bubbles: true }));
+            element.dispatchEvent(new Event('change', { bubbles: true }));
+        });
+        await page.waitForFunction(() => document.querySelector('#search-filters input[type="number"]')?.value === '70');
+        await page.waitForFunction(() => document.querySelectorAll('#results-heading article').length === 2);
         assert.equal(await page.$$eval('article', cards => cards.length), 2);
         const mobileResults = await page.$('#results-heading ul[aria-label]');
         assert(mobileResults, 'Expected semantic hotel results list');
@@ -195,7 +210,7 @@ async function run() {
         await page.waitForSelector('article');
         assert.deepEqual(lastSearch.hids, [2]);
         assert.equal(lastSearch.currency, 'USD');
-        await page.click('article button');
+        await page.click('#results-heading article a.cta-red');
         await page.waitForFunction(() => location.pathname.startsWith('/hotel/'));
         await page.waitForSelector('article[aria-labelledby^="room-"] button', { visible: true });
         assert.equal(await page.$eval('main', element => element.innerText.includes('كاش باك')), false);

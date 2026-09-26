@@ -60,7 +60,7 @@ test('room photos follow the selected supplier rate and exclude placeholders', (
     assert.deepEqual(roomImagesForRate(doubleRate, hotel), ['https://cdn.worldota.net/t/1920x1080/content/double.jpg']);
     assert.notDeepEqual(roomImagesForRate(kingRate, hotel), roomImagesForRate(doubleRate, hotel));
     assert.deepEqual(hotelImages({ images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945'] }), []);
-    assert.deepEqual(hotelImages({ images: ['https://cdn.worldota.net/t/2048x1536/content/old.jpg'] }), ['https://cdn.worldota.net/t/1920x1080/content/old.jpg']);
+    assert.deepEqual(hotelImages({ images: ['https://cdn.worldota.net/t/2048x1536/content/old.jpg'] }), ['https://cdn.worldota.net/t/2048x1536/content/old.jpg']);
 });
 
 test('analytics contract excludes personal data and unknown events', () => {

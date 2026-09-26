@@ -98,24 +98,55 @@ input[type="checkbox"] { accent-color: #146776; }
     isolation: isolate;
 }
 
-/* Shared semantic surfaces and primary orange actions. */
-.glass-surface {
+/* Shared semantic surfaces and primary actions. */
+.glass-surface,
+.glass-light,
+.glass-medium,
+.glass-dark {
+    border-radius: 1rem;
     border: 1px solid rgb(255 255 255 / 0.2);
-    background: rgb(255 255 255 / 0.88);
     box-shadow: 0 0.75rem 2rem rgb(var(--remal-navy-rgb) / 0.08);
+}
+.glass-light {
+    background: #fff;
+    color: var(--remal-navy);
+}
+.glass-medium,
+.glass-surface {
+    background: rgb(255 255 255 / 0.88);
+    color: var(--remal-navy);
+}
+.glass-dark {
+    background: var(--remal-navy);
+    color: #fff;
+}
+.glass-light:focus-within,
+.glass-medium:focus-within { border-color: rgb(var(--remal-blue-rgb) / 0.3); }
+@media (hover: hover) and (pointer: fine) {
+    .glass-light:hover { border-color: rgb(255 255 255 / 0.3); }
+    .glass-medium:hover { border-color: rgb(var(--remal-blue-rgb) / 0.3); }
+    .glass-dark:hover { border-color: rgb(255 255 255 / 0.3); }
+}
+.cta-red {
+    background: var(--remal-red);
+    box-shadow: 0 0.5rem 1.125rem rgb(var(--remal-red-rgb) / 0.14);
+    transition: transform 300ms ease-out, box-shadow 300ms ease-out, background-color 300ms ease-out;
+}
+.cta-red:focus-visible { outline: 3px solid var(--remal-focus); outline-offset: 3px; }
+.cta-red:disabled { cursor: not-allowed; background: #e2e8f0; color: #475569; box-shadow: none; }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .cta-red:not(:disabled):hover { box-shadow: 0 0.75rem 1.75rem rgb(var(--remal-red-rgb) / 0.18); transform: translateY(-0.125rem); }
 }
 .cta-orange {
     background: var(--remal-orange);
     box-shadow: 0 0.5rem 1.125rem rgb(var(--remal-orange-rgb) / 0.25);
     transition: transform 300ms ease, background-color 300ms ease, box-shadow 300ms ease;
 }
-.cta-orange:hover {
-    background: #d86522;
-    box-shadow: 0 0.75rem 1.5rem rgb(var(--remal-orange-rgb) / 0.32);
-    transform: translateY(-0.125rem);
-}
 .cta-orange:focus-visible { outline: 3px solid var(--remal-focus); outline-offset: 3px; }
 .cta-orange:disabled { cursor: not-allowed; opacity: 0.6; }
+@media (hover: hover) and (pointer: fine) and (prefers-reduced-motion: no-preference) {
+    .cta-orange:hover { background: #d86522; box-shadow: 0 0.75rem 1.5rem rgb(var(--remal-orange-rgb) / 0.32); transform: translateY(-0.125rem); }
+}
 
 /* Search-specific surfaces: one glass layer, separate from controls and portal overlays. */
 .search-shell { position: relative; z-index: 45; margin-top: -2rem; scroll-margin-top: calc(var(--search-top, 0px) + 1rem); }
@@ -129,13 +160,23 @@ input[type="checkbox"] { accent-color: #146776; }
 .search-date-fields { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 10rem), 1fr)); gap: 0.5rem; }
 .search-guest-control { min-height: 2.75rem; width: 6rem; max-width: 100%; border: 1px solid var(--remal-border); border-radius: 0.5rem; padding: 0.5rem; background: #fff; font-weight: 700; }
 .search-popover { animation: search-popover-in 180ms ease-out; transform-origin: top; }
+.filter-reveal { animation: filter-reveal-in 180ms ease-out; transform-origin: top; }
 .search-calendar-popper { z-index: 95 !important; max-width: calc(100vw - 2rem); max-height: min(28rem, 70dvh); overflow-y: auto; }
 .search-calendar-popper .react-datepicker { max-width: 100%; }
 .search-dialog { width: min(100% - 1rem, 42rem); max-width: none; max-height: calc(100dvh - 1rem); margin: auto; padding: 0 0 max(1rem, env(safe-area-inset-bottom)); border: 1px solid var(--remal-border); border-radius: 1.25rem; background: #fff; color: var(--remal-navy); overflow-y: auto; overscroll-behavior: contain; }
 .search-dialog::backdrop { background: rgb(var(--remal-navy-rgb) / 0.55); }
 @keyframes search-popover-in { from { opacity: 0; transform: scale(0.98); } to { opacity: 1; transform: scale(1); } }
+@keyframes filter-reveal-in { from { opacity: 0; transform: translateY(-0.5rem); } to { opacity: 1; transform: translateY(0); } }
+@keyframes success-pop { from { opacity: 0; transform: scale(0.8); } to { opacity: 1; transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) {
+    .search-popover,
+    .filter-reveal { animation: none; }
+}
 @supports (backdrop-filter: blur(1px)) {
-    .glass-surface { backdrop-filter: blur(18px); -webkit-backdrop-filter: blur(18px); }
+    .glass-light { background: rgb(255 255 255 / 0.75); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
+    .glass-medium,
+    .glass-surface { background: rgb(255 255 255 / 0.88); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
+    .glass-dark { background: rgb(var(--remal-navy-rgb) / 0.92); backdrop-filter: blur(12px); -webkit-backdrop-filter: blur(12px); }
     .search-glass-surface { background: rgb(255 255 255 / 0.88); backdrop-filter: blur(20px); -webkit-backdrop-filter: blur(20px); }
     .search-shell[data-sticky="true"] .search-glass-surface { background: rgb(255 255 255 / 0.92); }
 }

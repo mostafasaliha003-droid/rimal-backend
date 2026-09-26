@@ -50,6 +50,27 @@ function LoadingSkeleton() {
     );
 }
 
+function SupplierPicture({ source, fallback, alt, loading = 'lazy', fetchPriority, className = '' }) {
+    if (!source && !fallback) return <div className="flex h-full items-center justify-center text-slate-400"><ImageOff size={40} /></div>;
+    return (
+        <picture>
+            {source?.sources?.map(item => <source key={item.type} type={item.type} srcSet={item.srcSet} />)}
+            <img
+                src={source?.src || fallback}
+                srcSet={source?.srcSet}
+                sizes={source?.sizes}
+                width={source?.width}
+                height={source?.height}
+                loading={loading}
+                fetchPriority={fetchPriority}
+                decoding="async"
+                alt={alt}
+                className={className}
+            />
+        </picture>
+    );
+}
+
 export default function HotelDetails({ hid, onBack, displayCurrency, displayRates }) {
     const { t, apiLanguage, direction } = useLanguage();
     const [hotel, setHotel] = useState(null);
@@ -157,16 +178,16 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         <div className="grid h-full grid-cols-1 gap-2 md:grid-cols-4">
                             {/* Main Image (Right side in RTL) */}
                             <div className="group relative h-full md:col-span-2 overflow-hidden bg-slate-200">
-                                <img src={mainImageSource?.src || images[0]} srcSet={mainImageSource?.srcSet} sizes={mainImageSource?.sizes} width={mainImageSource?.width} height={mainImageSource?.height} fetchPriority="high" decoding="async" alt={hotel?.name || hotel?.staticData?.name || t('hotel.name', 'الفندق')} className="h-full w-full object-cover transition-transform duration-700 hover:scale-105" />
-                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 to-transparent opacity-0 transition-opacity duration-500 group-hover:opacity-100" />
+                                <SupplierPicture source={mainImageSource} fallback={images[0]} fetchPriority="high" alt={hotel?.name || hotel?.staticData?.name || t('hotel.name', 'الفندق')} className="h-full w-full object-cover transition-transform duration-500 ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-[1.03]" />
+                                <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 to-transparent opacity-0 transition-opacity duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100" />
                             </div>
                             
                             {/* 4 Small Images (Left side) */}
                             <div className="hidden h-full grid-cols-2 grid-rows-2 gap-2 md:grid md:col-span-2">
                                 {Array.from({ length: 4 }).map((_, index) => images[index + 1] ? (
                                     <div key={images[index + 1]} className="group relative overflow-hidden bg-slate-200">
-                                        <img {...responsiveImageSources(images[index + 1], 'gallery')} className="h-full w-full object-cover transition-transform duration-700 hover:scale-110" loading="lazy" decoding="async" alt={`${t('hotel.photoAlt', 'صورة')} ${index + 2}`} />
-                                        <div className="absolute inset-0 bg-slate-900/10 opacity-0 transition-opacity duration-300 group-hover:opacity-100" />
+                                        <SupplierPicture source={responsiveImageSources(images[index + 1], 'gallery')} fallback={images[index + 1]} alt={`${t('hotel.photoAlt', 'صورة')} ${index + 2}`} className="h-full w-full object-cover transition-transform duration-500 ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-[1.03]" />
+                                        <div className="absolute inset-0 bg-slate-900/10 opacity-0 transition-opacity duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100" />
                                     </div>
                                 ) : (
                                     <div key={index} className="flex h-full items-center justify-center bg-slate-100/50 text-slate-300">
@@ -177,7 +198,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         </div>
                     ) : (
                         <div className="h-full w-full bg-slate-200">
-                            {images[0] ? <img {...mainImageSource} fetchPriority="high" decoding="async" alt={hotel?.name || hotel?.staticData?.name || t('hotel.name', 'الفندق')} className="h-full w-full object-cover" /> : <div className="flex h-full items-center justify-center text-slate-400"><ImageOff size={40} /></div>}
+                            <SupplierPicture source={mainImageSource} fallback={images[0]} fetchPriority="high" alt={hotel?.name || hotel?.staticData?.name || t('hotel.name', 'الفندق')} className="h-full w-full object-cover" />
                         </div>
                     )}
                 </section>

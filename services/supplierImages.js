@@ -31,9 +31,6 @@ function normalizeSupplierImage(value) {
             const url = new URL(image);
             if (/\.(?:worldota|ratehawk)\.net$/i.test(url.hostname)) {
                 url.hostname = 'cdn.worldota.net';
-                url.pathname = url.pathname
-                    .replace(/\/t\/\d+x\d+(?=\/)/i, `/t/${SUPPLIER_IMAGE_SIZE}`)
-                    .replace(/\/\d+x\d+(?=\/)/i, `/${SUPPLIER_IMAGE_SIZE}`);
                 return url.toString();
             }
         } catch {
@@ -42,8 +39,9 @@ function normalizeSupplierImage(value) {
         return image;
     }
 
-    const imagePath = image.replace(/^\/+/, '').replace(/^t\/\d+x\d+\//i, '');
-    return `${SUPPLIER_IMAGE_HOST}/t/${SUPPLIER_IMAGE_SIZE}/${imagePath}`;
+    if (/^t\/\d+x\d+\//i.test(image)) return `${SUPPLIER_IMAGE_HOST}/${image.replace(/^\/+/, '')}`;
+    const imagePath = image.replace(/^\/+/, '');
+    return `${SUPPLIER_IMAGE_HOST}/${imagePath}`;
 }
 
 function collectSupplierImages(...values) {

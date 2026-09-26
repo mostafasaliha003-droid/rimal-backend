@@ -65,12 +65,24 @@ export default function GuestSelector({ controller, overlayHost, inDialog, onOpe
     useEffect(() => {
         if (!open || modal) return undefined;
         const frame = requestAnimationFrame(() => document.getElementById('guests-0-adults')?.focus({ preventScroll: true }));
+        const escape = event => {
+            if (event.key !== 'Escape') return;
+            event.preventDefault();
+            event.stopPropagation();
+            close();
+        };
         const outside = event => {
             if (!anchorRef.current?.contains(event.target) && !document.getElementById('search-guests-panel')?.contains(event.target)) setOpen(false);
         };
+        document.addEventListener('keydown', escape, true);
         document.addEventListener('pointerdown', outside);
         document.addEventListener('focusin', outside);
-        return () => { cancelAnimationFrame(frame); document.removeEventListener('pointerdown', outside); document.removeEventListener('focusin', outside); };
+        return () => {
+            cancelAnimationFrame(frame);
+            document.removeEventListener('keydown', escape, true);
+            document.removeEventListener('pointerdown', outside);
+            document.removeEventListener('focusin', outside);
+        };
     }, [open, modal]);
     return <div className="min-w-0 sm:col-span-2 xl:col-span-1">
         <div ref={anchorRef} className={`search-field ${errors.guests ? 'search-field-invalid' : ''}`}>

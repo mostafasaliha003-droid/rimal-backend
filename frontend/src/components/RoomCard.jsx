@@ -4,6 +4,7 @@ import { BedIcon, UsersIcon, StarIcon } from './Icons'; // تأكد أن StarIco
 import PriceDisplay from './PriceDisplay';
 import BookingAPI from '../services/bookingApi'; // تأكد من مسار API الخاص بك
 import { responsiveImageSources } from '../services/hotelImages.js';
+import { paymentFor, rateAmount, rateCurrency } from '../services/offers';
 import { useLanguage } from '../i18n';
 
 export function CancellationPolicy({ cancellation, currency }) {
@@ -78,7 +79,18 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
         setErrorMsg('');
         try {
             const result = await BookingAPI.prebook(room.book_hash || room.roomId, 2);
-            setPrebookResult(result);
+            const validatedRate = result?.rate || result?.hotels?.[0]?.rates?.[0];
+            const validatedRoom = {
+                ...room,
+                ...result,
+                book_hash: result?.bookHash || validatedRate?.book_hash || room.book_hash,
+                price: validatedRate ? rateAmount(validatedRate) : room.price,
+                currency: validatedRate ? rateCurrency(validatedRate) : room.currency,
+                paymentType: paymentFor(validatedRate)?.type || room.paymentType,
+                originalRate: validatedRate || room.originalRate,
+                prebookResult: result
+            };
+            setPrebookResult(validatedRoom);
             setStatus('success');
         } catch (requestError) {
             setStatus('error');
@@ -108,25 +120,28 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     return (
         <article
             aria-labelledby={`room-${room.book_hash || room.roomId || room.name}`}
-            className="room-card surface-card group relative mb-6 overflow-hidden rounded-3xl transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_18px_42px_rgba(15,35,55,0.12)]"
+            className="room-card surface-card group relative mb-6 overflow-hidden rounded-3xl transition-[transform,box-shadow,border-color] duration-[350ms] ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:border-remal-blue/30 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:shadow-[0_1rem_2.5rem_rgba(16,42,67,0.10)]"
         >
             <div className="flex flex-col lg:flex-row h-full">
                 
                 {/* Only supplier-provided room photos are shown; never reuse the hotel photo. */}
                 <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y lg:w-1/4 lg:min-w-0 shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
                     {image ? (
-                        <img 
-                            src={imageSource?.src || image}
-                            srcSet={imageSource?.srcSet}
-                            sizes={imageSource?.sizes}
-                            width={imageSource?.width}
-                            height={imageSource?.height}
-                            alt={name}
-                            loading="lazy"
-                            decoding="async"
-                            className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" 
-                            onError={() => setActiveImageIndex(index => index + 1)}
-                        />
+                        <picture>
+                            {imageSource?.sources?.map(source => <source key={source.type} type={source.type} srcSet={source.srcSet} />)}
+                            <img
+                                src={imageSource?.src || image}
+                                srcSet={imageSource?.srcSet}
+                                sizes={imageSource?.sizes}
+                                width={imageSource?.width}
+                                height={imageSource?.height}
+                                alt={name}
+                                loading="lazy"
+                                decoding="async"
+                                className="h-full w-full object-cover transition-transform duration-500 ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-[1.03]"
+                                onError={() => setActiveImageIndex(index => index + 1)}
+                            />
+                        </picture>
                     ) : (
                         <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
                             <ImageOff size={30} />
@@ -154,7 +169,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             </div>
                         </div>
                         
-                        <h3 id={`room-${room.book_hash || room.roomId || room.name}`} className="text-2xl font-black leading-snug text-slate-900 mb-4 group-hover:text-blue-700 transition-colors">
+                        <h3 id={`room-${room.book_hash || room.roomId || room.name}`} className="mb-4 text-2xl font-black leading-snug text-slate-900 transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:text-blue-700">
                             {name}
                         </h3>
                         
@@ -236,11 +251,11 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             type="button"
                             onClick={handleBook} 
                             disabled={status === 'loading' || (!payable && status !== 'success')} 
-                            className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 shadow-[0_8px_18px_rgba(16,185,129,0.2)] transition-colors hover:bg-emerald-700' : payable ? 'cta-orange' : 'bg-slate-300'}`}
+                            className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 shadow-[0_8px_18px_rgba(16,185,129,0.2)] transition-colors hover:bg-emerald-700' : payable ? 'cta-red' : 'bg-slate-300 text-slate-600'}`}
                         >
                             <span className="relative z-10 flex flex-wrap items-center justify-center gap-2 text-center">
                                 {status === 'loading' ? t('room.verifying', 'جارٍ التحقق...') : status === 'success' ? t('room.fixed', 'تم تثبيت السعر') : t('room.book', 'احجز الغرفة')}
-                                {status === 'success' ? <Check size={18} className="animate-in zoom-in duration-300" /> : status === 'loading' ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent animate-spin"></span> : <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />}
+                                {status === 'success' ? <Check size={18} className="motion-safe:animate-[success-pop_300ms_ease-out] motion-reduce:animate-none" /> : status === 'loading' ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent motion-safe:animate-spin motion-reduce:animate-none"></span> : <ArrowLeft size={18} className="transition-transform duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover/btn:-translate-x-1" />}
                             </span>
                         </button>
 

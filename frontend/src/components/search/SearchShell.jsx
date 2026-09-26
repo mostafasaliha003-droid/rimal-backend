@@ -25,7 +25,7 @@ function SearchForm({ controller, overlayHost, inDialog = false, onSubmitted, on
             blurFrame.current = requestAnimationFrame(() => setFocused(Boolean(frameRef.current?.contains(document.activeElement) || overlayHost?.contains(document.activeElement))));
         }}>
         <h2 id="search-form-title" className="sr-only">{t('search.formTitle', 'ابحث عن فندقك')}</h2>
-        <div aria-hidden="true" className="glass-surface search-glass-surface pointer-events-none absolute inset-0 rounded-2xl" />
+        <div aria-hidden="true" className="glass-medium search-glass-surface pointer-events-none absolute inset-0 rounded-2xl" />
         <form id="hotel-search-form" role="search" aria-labelledby="search-form-title" aria-busy={busy} noValidate
             onSubmit={async event => {
                 event.preventDefault();
