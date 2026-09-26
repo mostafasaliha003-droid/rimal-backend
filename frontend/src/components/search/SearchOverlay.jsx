@@ -65,6 +65,20 @@ export function SearchDialog({ id = 'search-editor-dialog', title, closeLabel, o
     const [host, setHost] = useState(null);
     const closeRef = useRef(onClose);
     closeRef.current = onClose;
+    const trapFocus = event => {
+        if (event.key !== 'Tab') return;
+        const dialog = ref.current;
+        if (!dialog) return;
+        const focusable = [...dialog.querySelectorAll('a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])')]
+            .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden');
+        if (!focusable.length) return;
+        const current = focusable.indexOf(document.activeElement);
+        const next = event.shiftKey
+            ? current <= 0 ? focusable.length - 1 : current - 1
+            : current === -1 || current === focusable.length - 1 ? 0 : current + 1;
+        event.preventDefault();
+        focusable[next].focus({ preventScroll: true });
+    };
     useLayoutEffect(() => {
         const dialog = ref.current;
         const previous = returnFocusRef?.current || document.activeElement;
@@ -86,7 +100,7 @@ export function SearchDialog({ id = 'search-editor-dialog', title, closeLabel, o
         };
     }, [returnFocusRef, initialFocusId]);
     return createPortal(<dialog ref={ref} id={id} dir={direction} aria-labelledby={`${id}-title`} className="search-dialog"
-        onCancel={event => { event.preventDefault(); closeRef.current(); }}>
+        onKeyDown={trapFocus} onCancel={event => { event.preventDefault(); closeRef.current(); }}>
         <div className="sticky top-0 z-10 flex items-center justify-between gap-3 border-b border-slate-200 bg-white px-4 py-3">
             <h2 id={`${id}-title`} className="text-lg font-bold text-remal-navy">{title}</h2>
             <button data-dialog-close type="button" onClick={onClose} aria-label={closeLabel} className="flex min-h-12 min-w-12 items-center justify-center rounded-xl text-remal-navy hover:bg-remal-blue/10"><X size={22} aria-hidden="true" /></button>

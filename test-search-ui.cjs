@@ -218,8 +218,28 @@ async function run() {
         assert.equal(await page.$eval('[data-search-shell]', element => getComputedStyle(element).position), 'sticky');
         assert(Math.abs(await page.$eval('[data-search-shell]', element => element.getBoundingClientRect().top)) < 2);
         await page.emulateMediaFeatures([{ name: 'prefers-reduced-motion', value: 'reduce' }]);
+        const reducedMotionSuggestions = page.waitForRequest(request => {
+            try {
+                const url = new URL(request.url());
+                return url.pathname.endsWith('/search/suggest') && url.searchParams.get('query') === 'Du';
+            } catch {
+                return false;
+            }
+        });
         await type(page, '#destination-search', 'Du');
-        await page.waitForSelector('#destination-suggestions', { visible: true });
+        await page.waitForFunction(() => document.getElementById('destination-search')?.value === 'Du');
+        await reducedMotionSuggestions;
+        await page.waitForFunction(() => {
+            const option = document.querySelector('#destination-suggestions [role="option"]');
+            const popover = option?.closest('.search-popover');
+            if (!option || !popover) return false;
+            const optionStyle = getComputedStyle(option);
+            const popoverStyle = getComputedStyle(popover);
+            const rect = option.getBoundingClientRect();
+            return optionStyle.display !== 'none' && optionStyle.visibility !== 'hidden'
+                && popoverStyle.display !== 'none' && popoverStyle.visibility !== 'hidden'
+                && rect.width > 0 && rect.height > 0;
+        });
         assert(Number.parseFloat(await page.$eval('.search-popover', element => getComputedStyle(element).animationDuration)) < 0.01);
         await page.keyboard.press('Escape');
         console.log('PASS: requested widths, RTL/LTR, desktop sticky and reduced motion.');

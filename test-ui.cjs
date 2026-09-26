@@ -106,9 +106,9 @@ async function run() {
         await page.click('form button[type="submit"]');
         assert.match(await page.$eval('#search-error', element => element.textContent), /تعذر تحميل اقتراحات/);
         await fillDestination('Du');
-        await page.waitForSelector('#destination-suggestions button', { visible: true });
-        assert.equal(await page.$('#search-error'), null);
-        await page.click('#destination-suggestions button');
+        await page.waitForSelector('#destination-suggestions [role="option"]', { visible: true });
+        assert.equal(await page.$('#search-destination-error'), null);
+        await page.click('#destination-suggestions [role="option"]');
         assert.equal(await page.$eval('#destination-search', element => element.value), 'Dubai');
         await page.click('form button[type="submit"]');
         assert.match(await page.$eval('#search-error', element => element.textContent), /حدد تاريخ الوصول والمغادرة/);
@@ -116,7 +116,7 @@ async function run() {
         assert(suggestionRequests.every(language => language === 'ar'));
         console.log('PASS: fresh destination suggestions, real response envelope, selection, empty results, network errors and recovery.');
         await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), search);
-        await page.reload({ waitUntil: 'networkidle0' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForSelector('article');
         assert.equal(await page.$$eval('article', cards => cards.length), 3);
         assert.equal(lastSearch.currency, 'USD');
@@ -138,7 +138,8 @@ async function run() {
             assert.equal(lastSearch.currency, 'USD');
             assert.match(await page.$eval('#search-filters label', element => element.textContent), /USD/);
         }
-        await page.reload({ waitUntil: 'networkidle0' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('article');
         assert.equal(await page.$eval('select[aria-label="عملة عرض السعر"]', element => element.value), 'EUR');
         assert(exchangeRequests > 0);
         exchangeAvailable = false;
@@ -162,17 +163,35 @@ async function run() {
         assert.equal(await page.$eval('#search-filters', element => getComputedStyle(element).display !== 'none'), true);
         await page.type('#search-filters input[type="number"]', '70');
         assert.equal(await page.$$eval('article', cards => cards.length), 2);
+        const mobileResults = await page.$('#results-heading ul[aria-label]');
+        assert(mobileResults, 'Expected semantic hotel results list');
+        assert.equal(await page.$eval('#results-heading ul[aria-label]', list => getComputedStyle(list).scrollSnapType.includes('x')), true);
+        assert.equal(await page.$$eval('#results-heading ul[aria-label] > li', items => items.length), 2);
         await page.screenshot({ path: 'frontend/dist/test-mobile.png', fullPage: true });
-        await page.click('form details summary');
+        const openGuestEditor = async () => {
+            const guestButton = await page.$('#search-guests');
+            if (guestButton) {
+                await guestButton.click();
+                return;
+            }
+            await page.click('[data-search-compact] button');
+            await page.waitForSelector('dialog[open] #search-guests');
+            await page.click('dialog[open] #search-guests');
+        };
+        const closeGuestEditor = async () => {
+            await page.keyboard.press('Escape');
+            await page.waitForFunction(() => !document.querySelector('#search-guests-panel'));
+        };
+        await openGuestEditor();
         await page.select('select[aria-label="الأطفال في غرفة 1"]', '1');
         await page.select('select[aria-label="عمر الطفل 1 في غرفة 1"]', '5');
-        await page.click('form details summary');
+        await closeGuestEditor();
         await page.click('form button[type="submit"]');
-        await page.waitForNetworkIdle();
+        await page.waitForFunction(() => document.querySelector('#search-submit')?.disabled === false);
         assert.deepEqual(lastSearch.guests, [{ adults: 2, children: [5] }]);
         const hotelSearch = { ...search, query: 'Test Hotel 60', guests: lastSearch.guests, destination: { type: 'hotel', hotel_id: 2, label: 'Test Hotel 60' } };
         await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), hotelSearch);
-        await page.reload({ waitUntil: 'networkidle0' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForSelector('article');
         assert.deepEqual(lastSearch.hids, [2]);
         assert.equal(lastSearch.currency, 'USD');
@@ -192,17 +211,18 @@ async function run() {
         const booking = { hid: 2, hotelName: hotels[1].name, checkin: search.checkin, checkout: search.checkout, guests: hotelSearch.guests, room: normalizeRoom(rate(60), hotels[1], hotelSearch.guests) };
         paymentEnabled = false;
         await page.evaluate(value => sessionStorage.setItem('remal_checkout', JSON.stringify(value)), booking);
-        await page.goto(`${base}/checkout`, { waitUntil: 'networkidle0' });
+        await page.goto(`${base}/checkout`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#guest-first-name');
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), true);
         assert.match(await page.$eval('main', element => element.textContent), /عملة العرض: USD/);
         assert.doesNotMatch(await page.$eval('main', element => element.textContent), /عملة الخصم: الدرهم/);
         await page.$eval('form', form => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
-        await page.waitForNetworkIdle();
+        await page.waitForSelector('#guest-first-name');
         assert.equal(paymentRequests, 0);
         paymentEnabled = false;
         booking.room = normalizeRoom(rate(60, 'AED'), hotels[1], hotelSearch.guests);
         await page.evaluate(value => sessionStorage.setItem('remal_checkout', JSON.stringify(value)), booking);
-        await page.reload({ waitUntil: 'networkidle0' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForSelector('#guest-first-name');
         await page.type('#guest-first-name', 'Local');
         await page.type('#guest-last-name', 'Test');
@@ -219,7 +239,7 @@ async function run() {
             sessionStorage.setItem('remal_checkout', JSON.stringify(value));
             sessionStorage.removeItem('remal_guest_draft');
         }, booking);
-        await page.reload({ waitUntil: 'networkidle0' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(60 / 3.6725, 'USD'));
         assert((await page.$eval('aside', element => element.textContent)).includes(formatMoney(60, 'AED')));
         await page.select('select[aria-label="عملة عرض السعر"]', 'EUR');
@@ -241,15 +261,17 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('بانتظار التحقق من الدفع والحجز'));
         assert.match(await page.$eval('main', element => element.innerText), /بانتظار التحقق من الدفع والحجز/);
         assert.doesNotMatch(await page.$eval('main', element => element.innerText), /تم تأكيد الحجز/);
-        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('مرجع المتابعة:'));
+        await page.waitForFunction(reference => document.querySelector('main')?.innerText.includes(reference), {}, checkoutReference);
+        assert.match(await page.$eval('main', element => element.innerText), /مرجع المتابعة/);
         assert(statusRequests > 0);
         checkoutStatus = 'booking_confirmed';
-        await page.reload({ waitUntil: 'networkidle0' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('تم تأكيد الحجز لدى المورد'));
         assert.match(await page.$eval('main', element => element.innerText), /TEST-SUPPLIER-ORDER/);
         assert.equal(paymentRequests, 1);
         paymentEnabled = false;
-        await page.goto(`${base}/checkout?payment=success`, { waitUntil: 'networkidle0' });
+        await page.goto(`${base}/checkout?payment=success`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('main h1');
         const returned = await page.$eval('main', element => element.innerText);
         assert.match(returned, /بانتظار التحقق/);
         assert.doesNotMatch(returned, /تم الدفع بنجاح/);
@@ -263,7 +285,8 @@ async function run() {
             sessionStorage.removeItem('remal_checkout_idempotency_key');
             sessionStorage.removeItem('remal_payment_attempt');
         }, booking);
-        await page.goto(`${base}/checkout`, { waitUntil: 'networkidle0' });
+        await page.goto(`${base}/checkout`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#guest-first-name');
         await page.select('select[aria-label="عملة عرض السعر"]', 'AED');
         assert((await page.$eval('aside', element => element.textContent)).includes(formatMoney(60, 'USD')));
         await page.type('#guest-first-name', 'Local');
@@ -277,7 +300,7 @@ async function run() {
         assert.equal(paymentPayload.currency, 'USD');
         assert.equal(paymentPayload.total, 60);
         checkoutStatus = 'refund_completed';
-        await page.reload({ waitUntil: 'networkidle0' });
+        await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('تم تأكيد الاسترداد'));
         assert.doesNotMatch(await page.$eval('main', element => element.innerText), /تم تأكيد الحجز/);
         assert.equal(paymentRequests, 2);
@@ -285,7 +308,8 @@ async function run() {
         console.log('PASS: USD supplier search, four display currencies, FX fallback, original tax currency, mobile layout, disabled checkout availability, simulated AED and USD supplier-currency intents, private pending/confirmed/refunded statuses and no browser errors.');
         await page.evaluate(() => sessionStorage.clear());
         await page.setBypassServiceWorker(false);
-        await page.goto(base, { waitUntil: 'networkidle0' });
+        await page.goto(base, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#destination-search');
         await page.evaluate(() => navigator.serviceWorker.ready);
         const manifest = await page.evaluate(async () => {
             const url = document.querySelector('link[rel="manifest"]').href;

@@ -3,6 +3,7 @@ import { ArrowLeft, Check, Wifi, Info, Coffee, Ban, AlertCircle, ChevronLeft, Ch
 import { BedIcon, UsersIcon, StarIcon } from './Icons'; // تأكد أن StarIcon متوفر هنا
 import PriceDisplay from './PriceDisplay';
 import BookingAPI from '../services/bookingApi'; // تأكد من مسار API الخاص بك
+import { responsiveImageSources } from '../services/hotelImages.js';
 import { useLanguage } from '../i18n';
 
 export function CancellationPolicy({ cancellation, currency }) {
@@ -60,6 +61,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     const name = room.name || t('room.defaultName', 'غرفة فندقية');
     const roomImages = Array.isArray(room.images) ? room.images : [];
     const image = roomImages[activeImageIndex];
+    const imageSource = responsiveImageSources(image, 'room');
     const price = room.price ?? '-';
     const amenities = room.amenities || [];
 
@@ -114,8 +116,14 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y lg:w-1/4 lg:min-w-0 shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
                     {image ? (
                         <img 
-                            src={image} 
+                            src={imageSource?.src || image}
+                            srcSet={imageSource?.srcSet}
+                            sizes={imageSource?.sizes}
+                            width={imageSource?.width}
+                            height={imageSource?.height}
                             alt={name}
+                            loading="lazy"
+                            decoding="async"
                             className="h-full w-full object-cover transition-transform duration-700 group-hover:scale-105" 
                             onError={() => setActiveImageIndex(index => index + 1)}
                         />

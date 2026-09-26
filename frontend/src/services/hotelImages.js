@@ -5,6 +5,21 @@ const PLACEHOLDER_IMAGE_PATTERNS = [
     /35165972\.jpg/i
 ];
 const SUPPLIER_IMAGE_SIZE = '1920x1080';
+const SUPPLIER_IMAGE_HOST = 'cdn.worldota.net';
+const IMAGE_PRESETS = {
+    card: {
+        sizes: '(max-width: 767px) 88vw, (max-width: 1279px) 25vw, 360px',
+        variants: [[480, 270], [768, 432], [1200, 675], [1920, 1080]]
+    },
+    room: {
+        sizes: '(max-width: 1023px) 100vw, 25vw',
+        variants: [[480, 270], [768, 432], [1200, 675], [1920, 1080]]
+    },
+    gallery: {
+        sizes: '(max-width: 767px) 100vw, 50vw',
+        variants: [[768, 432], [1200, 675], [1920, 1080]]
+    }
+};
 
 function rawImageValue(value) {
     if (typeof value === 'string') return value;
@@ -41,6 +56,43 @@ export function normalizeImageUrl(value) {
 
     const path = image.replace(/^\/+/, '').replace(/^t\/\d+x\d+\//i, '');
     return `https://cdn.worldota.net/t/${SUPPLIER_IMAGE_SIZE}/${path}`;
+}
+
+function resizeSupplierImage(url, width, height) {
+    try {
+        const parsed = new URL(url);
+        if (parsed.hostname !== SUPPLIER_IMAGE_HOST) return url;
+        parsed.pathname = parsed.pathname.replace(/\/t\/\d+x\d+(?=\/)/i, `/t/${width}x${height}`);
+        return parsed.toString();
+    } catch {
+        return url;
+    }
+}
+
+export function responsiveImageSources(value, purpose = 'card') {
+    const src = normalizeImageUrl(value);
+    if (!src) return null;
+
+    const preset = IMAGE_PRESETS[purpose] || IMAGE_PRESETS.card;
+    const dimensions = preset.variants[preset.variants.length - 1];
+    const isResizableSupplierImage = (() => {
+        try {
+            const parsed = new URL(src);
+            return parsed.hostname === SUPPLIER_IMAGE_HOST && /\/t\/\d+x\d+\//i.test(parsed.pathname);
+        } catch {
+            return false;
+        }
+    })();
+
+    return {
+        src: isResizableSupplierImage ? resizeSupplierImage(src, dimensions[0], dimensions[1]) : src,
+        srcSet: isResizableSupplierImage
+            ? preset.variants.map(([width, height]) => `${resizeSupplierImage(src, width, height)} ${width}w`).join(', ')
+            : undefined,
+        sizes: isResizableSupplierImage ? preset.sizes : undefined,
+        width: dimensions[0],
+        height: dimensions[1]
+    };
 }
 
 function collectImageValues(value, result) {

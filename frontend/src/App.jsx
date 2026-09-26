@@ -1,7 +1,8 @@
-import { lazy, useEffect, useRef, useState } from 'react';
-import { ArrowLeft, ChevronLeft, ChevronRight, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, ImageOff, MapPin, Check, Ban, AlertCircle, Search, X } from 'lucide-react';
+import { lazy, useEffect, useState } from 'react';
+import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, X } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
+import HotelCard from './components/HotelCard';
 import HotelRoomCard from './components/HotelRoomCard';
 import PriceDisplay from './components/PriceDisplay';
 import AccountCenter from './components/AccountCenter';
@@ -53,216 +54,11 @@ const getHotels = (response) => {
         };
     });
 };
-const getRatePrice = (rate) => {
-    return rate?.payment_options?.payment_types?.[0]?.amount || rate?.price || '-';
-};
-
-const getRateHash = (rate) => {
-    return rate?.book_hash || rate?.match_hash;
-};
-
 const getAmenities = (rate) => {
     if (Array.isArray(rate?.amenities)) return rate.amenities;
     if (Array.isArray(rate?.room_amenities)) return rate.room_amenities;
     return [];
 };
-
-// Masterstroke UI: SerpResultCard (with Urgency, Social Proof & Image Carousel)
-function SerpResultCard({ hotel, onSelect, displayCurrency, displayRates }) {
-    const { t } = useLanguage();
-    const rate = cheapestRate(hotel.rates) || {};
-    const images = hotel.images || [];
-    const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    const [imageFailed, setImageFailed] = useState(false);
-    const touchStartX = useRef(null);
-    const hasFreeCancellation = paymentFor(rate)?.cancellation_penalties?.free_cancellation_before;
-
-    // Recommendation cues stay deterministic and factual; avoid invented scarcity.
-    const hotelIdStr = String(hotel.id || hotel.hid);
-    const isPopular = hotelIdStr.endsWith('1') || hotelIdStr.endsWith('7');
-    const priceAmount = rateAmount(rate);
-    const isGreatDeal = priceAmount > 0 && priceAmount < 100;
-
-    const socialProofMessages = [
-        t('results.comparisonCue', 'اختيار مناسب للمقارنة'),
-        t('results.clearDetailsCue', 'تفاصيل واضحة قبل اتخاذ القرار'),
-        t('results.reviewCue', 'عرض يستحق المراجعة')
-    ];
-    const selectedSocialProof = socialProofMessages[parseInt(hotelIdStr.slice(-1)) % 3];
-
-    const nextImage = (e) => {
-        e.stopPropagation(); // يمنع الانتقال لصفحة الفندق عند النقر على السهم
-        setCurrentImageIndex((prevIndex) => (prevIndex === images.length - 1 ? 0 : prevIndex + 1));
-    };
-
-    const prevImage = (e) => {
-        e.stopPropagation();
-        setCurrentImageIndex((prevIndex) => (prevIndex === 0 ? images.length - 1 : prevIndex - 1));
-    };
-
-    const handleImageTouchStart = (event) => {
-        touchStartX.current = event.touches[0]?.clientX ?? null;
-    };
-
-    const handleImageTouchEnd = (event) => {
-        if (touchStartX.current === null || images.length < 2) return;
-        const delta = event.changedTouches[0]?.clientX - touchStartX.current;
-        touchStartX.current = null;
-        if (Math.abs(delta) < 36) return;
-        setCurrentImageIndex((index) => delta < 0
-            ? (index === images.length - 1 ? 0 : index + 1)
-            : (index === 0 ? images.length - 1 : index - 1));
-    };
-
-    return (
-        <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="hotel-card surface-card group relative overflow-hidden rounded-3xl transition-all duration-300 hover:-translate-y-0.5 hover:border-cyan-200 hover:shadow-[0_18px_42px_rgba(15,35,55,0.12)]">
-
-            <div className="flex flex-col md:flex-row h-full">
-                
-                {/* Image Section with Carousel */}
-                <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y md:w-1/4 md:min-w-0 shrink-0 overflow-hidden bg-slate-100 h-56 md:h-auto group/carousel">
-                    {images.length > 0 && !imageFailed ? (
-                        <>
-                            <img 
-                                src={images[currentImageIndex]} 
-                                alt={`${hotel.name} - صورة ${currentImageIndex + 1}`} 
-                                loading="lazy" 
-                                className="h-full w-full object-cover transition-transform duration-700 group-hover/carousel:scale-105" 
-                                onError={() => setImageFailed(true)} 
-                            />
-                            
-                            {/* Carousel Controls (تظهر عند التمرير بالماوس) */}
-                            {images.length > 1 && (
-                                <div className="absolute inset-0 flex items-center justify-between px-2 opacity-100 md:opacity-0 md:group-hover/carousel:opacity-100 transition-opacity duration-300">
-                                    <button onClick={prevImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/60 transition-colors" aria-label="الصورة السابقة">
-                                        <ChevronRight size={20} />
-                                    </button>
-                                    <button onClick={nextImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 backdrop-blur-sm text-white hover:bg-black/60 transition-colors" aria-label="الصورة التالية">
-                                        <ChevronLeft size={20} />
-                                    </button>
-                                </div>
-                            )}
-
-                            {/* Image Indicators (Dots) */}
-                            {images.length > 1 && (
-                                <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5 z-10">
-                                    {images.slice(0, 5).map((_, idx) => (
-                                        <div key={idx} className={`h-1.5 rounded-full transition-all duration-300 ${idx === currentImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/50'}`} />
-                                    ))}
-                                    {images.length > 5 && <div className="h-1.5 w-1.5 rounded-full bg-white/50" />}
-                                </div>
-                            )}
-                        </>
-                    ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center text-slate-400 gap-2">
-                            <ImageOff size={32} />
-                            <span className="text-sm font-medium">الصورة غير متاحة</span>
-                        </div>
-                    )}
-                    
-                    {/* Floating Star Badge */}
-                    {Number(hotel.stars) > 0 && (
-                        <div className="absolute top-4 right-4 z-10 flex items-center gap-1 rounded-lg bg-black/60 backdrop-blur-md px-2.5 py-1.5 text-sm font-bold text-white shadow-sm border border-white/10">
-                            <span>{hotel.stars}</span>
-                            <StarIcon size={14} className="text-amber-400" fill="currentColor" />
-                        </div>
-                    )}
-
-                    {/* Social Proof Tag */}
-                </div>
-
-                {/* Content Section */}
-                <div className="flex flex-1 flex-col justify-between p-5 sm:p-6 lg:p-7 min-w-0">
-                    <div>
-                        <div className="flex justify-between items-start gap-4">
-                            <div className="min-w-0 flex-1">
-                                <h3 id={`hotel-${hotel.hid || hotel.id}`} className="text-2xl font-black text-slate-900 group-hover:text-blue-700 transition-colors line-clamp-2 cursor-pointer" onClick={() => onSelect(hotel)}>
-                                    {hotel.name || 'فندق'}
-                                </h3>
-                                {hotel.city && (
-                                    <p className="mt-2 flex items-center gap-1.5 text-sm font-semibold text-slate-500">
-                                        <MapPin size={16} className="text-blue-500 shrink-0" />
-                                        <span className="truncate">{hotel.city}</span>
-                                    </p>
-                                )}
-                            </div>
-                        </div>
-
-                        {/* Badges Area */}
-                        <div className="mt-4 flex flex-col gap-3">
-                            <div className="flex flex-wrap gap-2">
-                                {hasFreeCancellation ? (
-                                    <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700 border border-emerald-100">
-                                        <Check size={14} className="shrink-0 text-emerald-500" /> يتوفر إلغاء مجاني
-                                    </div>
-                                ) : (
-                                    <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600 border border-slate-200">
-                                        <AlertCircle size={14} className="shrink-0 text-slate-400" /> راجع شروط الإلغاء
-                                    </div>
-                                )}
-                                
-                                {isGreatDeal && (
-                                    <div className="inline-flex items-center gap-1 rounded-lg bg-purple-50 px-2.5 py-1.5 text-xs font-bold text-purple-700 border border-purple-100">
-                                        سعر استثنائي
-                                    </div>
-                                )}
-                            </div>
-
-                            {/* Amenities Chips */}
-                            {getAmenities(rate).length > 0 && (
-                                <div className="flex flex-wrap gap-1.5 mt-1">
-                                    {getAmenities(rate).slice(0, 4).map((amenity) => (
-                                        <span key={String(amenity)} className="rounded-lg bg-blue-50/50 border border-blue-100 px-2 py-1 text-[11px] font-bold text-blue-800 hover:bg-blue-100 transition-colors cursor-default">
-                                            {amenity}
-                                        </span>
-                                    ))}
-                                    {getAmenities(rate).length > 4 && (
-                                        <span className="rounded-lg bg-slate-50 border border-slate-100 px-2 py-1 text-[11px] font-bold text-slate-400">
-                                            +{getAmenities(rate).length - 4} مزايا أخرى
-                                        </span>
-                                    )}
-                                </div>
-                            )}
-
-                            {/* Dynamic Social Proof Text */}
-                            {isPopular && (
-                                <p className="text-[11px] font-bold text-rose-600 mt-1 flex items-center gap-1.5 bg-rose-50 px-2 py-1 rounded-md w-fit border border-rose-100/50">
-                                    <span className="relative flex h-2 w-2">
-                                      <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-rose-400 opacity-75"></span>
-                                      <span className="relative inline-flex rounded-full h-2 w-2 bg-rose-500"></span>
-                                    </span>
-                                    {selectedSocialProof}
-                                </p>
-                            )}
-
-                        </div>
-                    </div>
-
-                    {/* Pricing & CTA Divider */}
-                    <div className="mt-6 flex flex-wrap items-end justify-between gap-4 border-t border-slate-100 pt-5 relative">
-                        <div className={`text-right ${isPopular ? 'mt-3' : ''}`}>
-                                <p className="eyebrow mb-1">{t('results.stayStartsAt', 'إجمالي الإقامة يبدأ من')}</p>
-                            <PriceDisplay amount={rateAmount(rate)} currency={rateCurrency(rate)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900" />
-                                <p className="mt-1 text-[10px] font-bold text-slate-400">{t('results.reviewFees', 'راجع الضرائب والرسوم قبل الدفع')}</p>
-                        </div>
-                        
-                        <div className="w-full sm:w-auto flex flex-col items-end gap-2">
-                            <button 
-                                type="button" 
-                                onClick={() => onSelect(hotel)} 
-                                className="group/btn relative inline-flex min-h-[50px] items-center justify-center gap-2 overflow-hidden rounded-xl bg-[var(--remal-orange)] px-6 py-2.5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.25)] transition-all duration-300 hover:bg-[#d86522] hover:shadow-[0_12px_24px_rgba(232,117,45,0.32)] hover:-translate-y-0.5 w-full sm:w-auto shrink-0"
-                            >
-                                <span className="relative z-10 flex items-center gap-2">
-                                    {t('results.chooseRooms', 'تحديد الغرف')} <ArrowLeft size={18} className="transition-transform duration-300 group-hover/btn:-translate-x-1" />
-                                </span>
-                            </button>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </article>
-    );
-}
 
 export default function App() {
     const { t, apiLanguage, direction } = useLanguage();
@@ -632,16 +428,20 @@ export default function App() {
                                     <button onClick={() => setSearchParams({ ...searchParams })} className="mt-6 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 transition-colors">إعادة المحاولة</button>
                                 </div>
                             ) : visibleHotels.length ? (
-                                <div className="space-y-6">
+                                <ul aria-label={t('results.hotelList', 'قائمة الفنادق')} className="grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto overscroll-x-contain snap-x snap-proximity scroll-px-4 px-4 py-4 touch-auto md:auto-cols-auto md:grid-flow-row md:grid-cols-1 md:overflow-visible md:snap-none md:space-y-6">
                                     {visibleHotels.slice(0, limit).map((hotel) => (
-                                        <SerpResultCard key={hotel.id || hotel.hid} hotel={hotel} onSelect={openHotelDetails} displayCurrency={displayCurrency} displayRates={displayRates} />
+                                        <li key={hotel.id || hotel.hid} className="min-w-0 snap-start snap-normal">
+                                            <HotelCard hotel={hotel} onSelect={openHotelDetails} displayCurrency={displayCurrency} displayRates={displayRates} />
+                                        </li>
                                     ))}
                                     {visibleHotels.length > limit && (
-                                        <button onClick={() => setLimit(limit + 20)} className="min-h-[60px] w-full rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 font-bold text-slate-600 hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700 transition-colors">
+                                        <li className="min-w-0 snap-start snap-normal md:col-span-1">
+                                            <button onClick={() => setLimit(limit + 20)} className="min-h-[60px] w-full rounded-2xl border-2 border-dashed border-slate-300 bg-slate-50 p-4 font-bold text-slate-600 transition-colors hover:border-blue-300 hover:bg-blue-50 hover:text-blue-700">
                                             {t('results.moreHotels', `عرض المزيد (${visibleHotels.length - limit} فندق)`, { count: visibleHotels.length - limit })}
-                                        </button>
+                                            </button>
+                                        </li>
                                     )}
-                                </div>
+                                </ul>
                             ) : searched ? (
                                 <div className="rounded-3xl bg-white p-20 text-center shadow-sm border border-slate-100">
                                     <MapPin size={48} className="mx-auto text-slate-300 mb-4" />
