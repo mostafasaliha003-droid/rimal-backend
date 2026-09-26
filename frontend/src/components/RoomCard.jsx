@@ -3,7 +3,7 @@ import { ArrowLeft, Check, Wifi, Info, Coffee, Ban, AlertCircle, ChevronLeft, Ch
 import { BedIcon, UsersIcon, StarIcon } from './Icons'; // تأكد أن StarIcon متوفر هنا
 import PriceDisplay from './PriceDisplay';
 import BookingAPI from '../services/bookingApi'; // تأكد من مسار API الخاص بك
-import { responsiveImageSources } from '../services/hotelImages.js';
+import { hotelImages, responsiveImageSources, roomCardImages } from '../services/hotelImages.js';
 import { paymentFor, rateAmount, rateCurrency } from '../services/offers';
 import { useLanguage } from '../i18n';
 
@@ -61,7 +61,10 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     const hotel = room.hotel || {};
     const name = room.name || t('room.defaultName', 'غرفة فندقية');
     const roomImages = Array.isArray(room.images) ? room.images : [];
-    const image = roomImages[activeImageIndex];
+    const allImages = roomCardImages(roomImages, hotelImages(hotel));
+    const activeImage = allImages[activeImageIndex];
+    const image = activeImage?.url;
+    const isPropertyImage = activeImage?.isPropertyPhoto === true;
     const imageSource = responsiveImageSources(image, 'room');
     const price = room.price ?? '-';
     const amenities = room.amenities || [];
@@ -108,13 +111,13 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     };
 
     const handleImageTouchEnd = (event) => {
-        if (touchStartX.current === null || roomImages.length < 2) return;
+        if (touchStartX.current === null || allImages.length < 2) return;
         const delta = event.changedTouches[0]?.clientX - touchStartX.current;
         touchStartX.current = null;
         if (Math.abs(delta) < 36) return;
         setActiveImageIndex((index) => delta < 0
-            ? (index === roomImages.length - 1 ? 0 : index + 1)
-            : (index === 0 ? roomImages.length - 1 : index - 1));
+            ? (index === allImages.length - 1 ? 0 : index + 1)
+            : (index === 0 ? allImages.length - 1 : index - 1));
     };
 
     return (
@@ -124,7 +127,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
         >
             <div className="flex flex-col lg:flex-row h-full">
                 
-                {/* Only supplier-provided room photos are shown; never reuse the hotel photo. */}
+                {/* Room photos come first; property photos are explicitly labeled as property-level. */}
                 <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y lg:w-1/4 lg:min-w-0 shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
                     {image ? (
                         <picture>
@@ -135,7 +138,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                                 sizes={imageSource?.sizes}
                                 width={imageSource?.width}
                                 height={imageSource?.height}
-                                alt={name}
+                                alt={isPropertyImage ? t('room.propertyPhoto', 'صورة للممتلكات، وليست للغرفة') : name}
                                 loading="lazy"
                                 decoding="async"
                                 className="h-full w-full object-cover transition-transform duration-500 ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-[1.03]"
@@ -148,12 +151,17 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             <span className="px-4 text-center text-xs font-bold">{t('room.photoUnavailable', 'لا توجد صورة حقيقية متاحة لهذه الغرفة')}</span>
                         </div>
                     )}
-                    {roomImages.length > 1 && image && (
+                    {isPropertyImage && (
+                        <span className="absolute bottom-3 left-3 rounded-full bg-black/65 px-2.5 py-1 text-[10px] font-bold text-white">
+                            {t('room.propertyPhoto', 'صورة للممتلكات، وليست للغرفة')}
+                        </span>
+                    )}
+                    {allImages.length > 1 && image && (
                         <>
-                            <button type="button" onClick={() => setActiveImageIndex(index => index === 0 ? roomImages.length - 1 : index - 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute left-2 top-1/2 rounded-full bg-black/45 text-white" aria-label="Previous room photo"><ChevronLeft size={16} /></button>
-                            <button type="button" onClick={() => setActiveImageIndex(index => index === roomImages.length - 1 ? 0 : index + 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute right-2 top-1/2 rounded-full bg-black/45 text-white" aria-label="Next room photo"><ChevronRight size={16} /></button>
+                            <button type="button" onClick={() => setActiveImageIndex(index => index === 0 ? allImages.length - 1 : index - 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute left-2 top-1/2 rounded-full bg-black/45 text-white" aria-label={t('room.previousPhoto', 'الصورة السابقة')}><ChevronLeft size={16} /></button>
+                            <button type="button" onClick={() => setActiveImageIndex(index => index === allImages.length - 1 ? 0 : index + 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute right-2 top-1/2 rounded-full bg-black/45 text-white" aria-label={t('room.nextPhoto', 'الصورة التالية')}><ChevronRight size={16} /></button>
                             <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
-                                {roomImages.slice(0, 5).map((roomImage, index) => <span key={roomImage} className={`h-1.5 rounded-full ${index === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'}`} />)}
+                                {allImages.slice(0, 5).map((roomImage, index) => <span key={roomImage.url} className={`h-1.5 rounded-full ${index === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'}`} />)}
                             </div>
                         </>
                     )}
@@ -163,7 +171,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 <div className="flex-1 p-5 sm:p-6 lg:p-7 min-w-0 flex flex-col justify-between">
                     <div>
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                            {!image && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)]">{t('room.comparable', 'عرض قابل للمقارنة')}</span>}
+                            {!roomImages.length && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)]">{t('room.comparable', 'عرض قابل للمقارنة')}</span>}
                             <div className="flex gap-0.5 text-amber-400">
                                 {Array.from({ length: 5 }).map((_, index) => <StarIcon key={index} size={14} fill="currentColor" />)}
                             </div>

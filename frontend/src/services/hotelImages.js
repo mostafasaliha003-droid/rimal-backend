@@ -152,27 +152,28 @@ export function collectImages(...values) {
     return [...new Set(images)];
 }
 
+export function roomCardImages(roomImages = [], propertyPhotoImages = []) {
+    const supplierImages = Array.isArray(roomImages) ? roomImages : [];
+    const propertyImages = Array.isArray(propertyPhotoImages) ? propertyPhotoImages : [];
+    const propertyFallbackImages = propertyImages.filter(image => !supplierImages.includes(image));
+    return [
+        ...supplierImages.map(url => ({ url, isPropertyPhoto: false })),
+        ...propertyFallbackImages.map(url => ({ url, isPropertyPhoto: true }))
+    ];
+}
+
+function roomGroupId(value) {
+    const id = [value?.room_group_id, value?.id]
+        .find(candidate => candidate !== undefined && candidate !== null && String(candidate).trim() !== '');
+    return id === undefined ? null : String(id);
+}
+
 function roomGroupMatches(rate, group) {
     if (!rate || !group) return false;
 
-    const rateGroupId = rate.room_group_id || rate.room_group?.room_group_id || rate.room_group?.id;
-    if (rateGroupId !== undefined && rateGroupId !== null) {
-        return String(rateGroupId) === String(group.room_group_id || group.id);
-    }
-
-    const rateName = String(rate.room_name || rate.name || '').trim().toLowerCase();
-    const groupName = String(group.name || group.name_struct?.main_name || '').trim().toLowerCase();
-    if (rateName && groupName && (rateName === groupName || rateName.includes(groupName) || groupName.includes(rateName))) {
-        return true;
-    }
-
-    const rateRgExt = rate.rg_ext || rate.room_info?.rg_ext;
-    const groupRgExt = group.rg_ext;
-    if (!rateRgExt || !groupRgExt) return false;
-
-    const comparableKeys = ['bathroom', 'bedding', 'bedrooms', 'capacity', 'class', 'quality', 'view', 'balcony'];
-    const keys = comparableKeys.filter(key => Number(rateRgExt[key]) > 0 && Number(groupRgExt[key]) > 0);
-    return keys.length > 0 && keys.every(key => Number(rateRgExt[key]) === Number(groupRgExt[key]));
+    const rateId = roomGroupId(rate.room_group) ?? roomGroupId(rate);
+    const groupId = roomGroupId(group);
+    return rateId !== null && groupId !== null && rateId === groupId;
 }
 
 export function roomImagesForRate(rate = {}, hotel = {}) {

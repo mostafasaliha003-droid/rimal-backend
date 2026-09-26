@@ -1,7 +1,7 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, displayAmount, cheapestRate, normalizeRoom, rateAmount, formatMoney } from './offers.js';
-import { hotelImages, roomImagesForRate } from './hotelImages.js';
+import { hotelImages, roomCardImages, roomImagesForRate } from './hotelImages.js';
 import { trackBookingEvent } from './analytics.js';
 
 const rate = (amount, currency = 'USD') => ({ book_hash: 'rate', payment_options: { payment_types: [{ amount, currency_code: currency, type: 'deposit' }] } });
@@ -59,8 +59,29 @@ test('room photos follow the selected supplier rate and exclude placeholders', (
     assert.deepEqual(roomImagesForRate(kingRate, hotel), ['https://cdn.worldota.net/t/1920x1080/content/king.jpg']);
     assert.deepEqual(roomImagesForRate(doubleRate, hotel), ['https://cdn.worldota.net/t/1920x1080/content/double.jpg']);
     assert.notDeepEqual(roomImagesForRate(kingRate, hotel), roomImagesForRate(doubleRate, hotel));
+    assert.deepEqual(roomImagesForRate({ room_group_id: 'missing', room_name: 'Deluxe King Room' }, hotel), []);
+    assert.deepEqual(roomImagesForRate({ room_group_id: '', room_name: 'Deluxe King Room' }, hotel), []);
+    assert.deepEqual(roomImagesForRate({ room_group_id: '', id: 'king' }, hotel), ['https://cdn.worldota.net/t/1920x1080/content/king.jpg']);
+    assert.deepEqual(roomImagesForRate({ room_group: { id: 'king' } }, hotel), ['https://cdn.worldota.net/t/1920x1080/content/king.jpg']);
+    assert.deepEqual(roomImagesForRate({ images: ['https://cdn.worldota.net/offer-room.jpg'], room_group_id: 'missing' }, hotel), ['https://cdn.worldota.net/offer-room.jpg']);
     assert.deepEqual(hotelImages({ images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945'] }), []);
     assert.deepEqual(hotelImages({ images: ['https://cdn.worldota.net/t/2048x1536/content/old.jpg'] }), ['https://cdn.worldota.net/t/2048x1536/content/old.jpg']);
+    assert.deepEqual(hotelImages({ images: ['https://cdn.worldota.net/property.jpg'] }), ['https://cdn.worldota.net/property.jpg']);
+});
+
+test('room card photos prefer room images, label property fallback, and allow no-photo state', () => {
+    assert.deepEqual(roomCardImages(['room.jpg'], ['property.jpg']), [
+        { url: 'room.jpg', isPropertyPhoto: false },
+        { url: 'property.jpg', isPropertyPhoto: true }
+    ]);
+    assert.deepEqual(roomCardImages([], ['property.jpg']), [
+        { url: 'property.jpg', isPropertyPhoto: true }
+    ]);
+    assert.deepEqual(roomCardImages([], []), []);
+    assert.deepEqual(roomCardImages(['shared.jpg'], ['shared.jpg', 'property.jpg']), [
+        { url: 'shared.jpg', isPropertyPhoto: false },
+        { url: 'property.jpg', isPropertyPhoto: true }
+    ]);
 });
 
 test('analytics contract excludes personal data and unknown events', () => {
