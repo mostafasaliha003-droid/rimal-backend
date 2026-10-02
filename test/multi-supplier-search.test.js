@@ -333,6 +333,22 @@ test('Hotelbeds is not called for region searches or hotel IDs outside its appro
     assert.equal(nonPilotResult.partialResults, true);
 });
 
+test('malformed pilot IDs fail closed before Hotelbeds supplier calls', async () => {
+    let hotelbedsCalls = 0;
+    const env = { ...approvedEnv(), HOTELBEDS_PILOT_HOTEL_CODES: '74001,not-a-code' };
+    const orchestrator = createMultiSupplierSearchOrchestrator({
+        suppliers: [supplier('hotelbeds', { search: async () => { hotelbedsCalls += 1; return {}; } })],
+        env,
+        priceOffer: async item => priceFixture(item),
+        cacheOffers: cacheOffers().cache
+    });
+    await assert.rejects(orchestrator.performSearch({
+        ...CRITERIA,
+        destination: { type: 'hotel', providerHotelIds: { hotelbeds: ['74001'] } }
+    }), error => error.code === 'multi_supplier_search_not_approved');
+    assert.equal(hotelbedsCalls, 0);
+});
+
 test('invalid provider adapter definitions are rejected at construction', () => {
     assert.throws(() => createMultiSupplierSearchOrchestrator({ suppliers: [] }),
         /multi_supplier_search_dependencies_invalid/);

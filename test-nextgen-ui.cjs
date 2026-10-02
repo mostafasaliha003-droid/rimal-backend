@@ -56,7 +56,7 @@ async function run() {
         page.setDefaultTimeout(15000);
         const pageErrors = [];
         const pageLogs = [];
-        const calls = { search: [], checkout: [], payment: [], status: [] };
+        const calls = { pilotList: 0, search: [], suggestions: [], checkout: [], payment: [], status: [] };
         page.on('pageerror', error => pageErrors.push(error.message));
         page.on('console', message => { if (message.type() === 'error') pageLogs.push(message.text()); });
         page.on('requestfailed', request => pageLogs.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || ''}`));
@@ -74,6 +74,17 @@ async function run() {
                     let body = { success: true };
                     if (url.pathname.endsWith('/display-rates')) {
                         body = { success: true, date: '2099-01-01', rates: { AED: 3.67, SAR: 3.75, EUR: 0.9 } };
+                    } else if (url.pathname.endsWith('/v1/hotels/pilot-list') && method === 'GET') {
+                        calls.pilotList += 1;
+                        body = {
+                            success: true,
+                            environment: 'test',
+                            configured: true,
+                            hotels: [{ providerHotelId: '900001', label: 'Hotelbeds ID 900001' }]
+                        };
+                    } else if (url.pathname.endsWith('/search/suggest') && method === 'GET') {
+                        calls.suggestions.push(url.pathname);
+                        body = { success: true, suggestions: { regions: [], hotels: [] } };
                     } else if (url.pathname.endsWith('/search/aggregate') && method === 'POST') {
                         calls.search.push(JSON.parse(request.postData()));
                         body = {
@@ -142,6 +153,18 @@ async function run() {
         });
 
         await page.goto(`${base}/next-gen`, { waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => document.querySelector('#hotelbeds-pilot-hotel option[value="900001"]'));
+        assert.match(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /Next-Gen Sandbox/);
+        await page.select('#hotelbeds-pilot-hotel', '900001');
+        const setDate = async (selector, value) => page.$eval(selector, (input, nextValue) => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, nextValue);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }, value);
+        await setDate('input[aria-label="Check-in"]', search.checkin);
+        await setDate('input[aria-label="Check-out"]', search.checkout);
+        await page.click('#hotelbeds-pilot-search');
         try { await page.waitForFunction(() => document.body.innerText.includes('Rimal Next-Gen Mock Hotel')); }
         catch (error) {
             console.error(JSON.stringify({ url: page.url(), body: await page.evaluate(() => document.body.innerText), calls, pageErrors, pageLogs }, null, 2));
@@ -149,11 +172,16 @@ async function run() {
         }
         assert.match(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /AED\s*403\.70/);
         assert.equal((await page.$eval('[data-next-gen-hotels]', element => element.innerText)).includes('supplierAmount'), false);
+        assert(calls.pilotList >= 1, 'the approved Hotelbeds pilot list must be loaded');
         assert(calls.search.length >= 1);
-        assert(calls.search.every(criteria => criteria.destination.type === 'region'));
+        assert(calls.search.every(criteria => criteria.destination.type === 'hotel'
+            && criteria.destination.providerHotelIds.hotelbeds[0] === '900001'
+            && !Object.hasOwn(criteria.destination, 'region_id')
+            && !Object.hasOwn(criteria.destination, 'hid')));
+        assert.deepEqual(calls.suggestions, [], 'Next-Gen must not call legacy RateHawk suggestions');
 
-        assert.equal(await page.$$eval('[data-next-gen-hotels] button.cta-red', buttons => buttons.length), 1);
-        await page.click('[data-next-gen-hotels] button.cta-red');
+        assert.equal(await page.$$eval('[data-next-gen-hotels] article button.cta-red', buttons => buttons.length), 1);
+        await page.click('[data-next-gen-hotels] article button.cta-red');
         await page.waitForSelector('input[name="firstName"]');
         await page.type('input[name="firstName"]', 'Ada');
         await page.type('input[name="lastName"]', 'Lovelace');

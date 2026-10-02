@@ -168,6 +168,17 @@ export const searchAggregateHotels = async (criteria, { signal } = {}) => {
     }));
 };
 
+/** Next-Gen currently uses only the explicitly local mock search route. */
+export const searchMockAggregateHotels = async (criteria, { signal } = {}) =>
+    responseData(await api.post('/v1/hotels/search/aggregate', criteria, {
+        signal,
+        timeout: 75000
+    }));
+
+/** Read the server-approved Hotelbeds pilot IDs; this endpoint performs no supplier call. */
+export const getHotelbedsPilotList = async ({ signal } = {}) =>
+    responseData(await api.get('/v1/hotels/pilot-list', { signal, timeout: 15000 }));
+
 /**
  * Look up rate details by ETG book hash.
  * @param {string} bookHash - ETG book hash to resolve.
@@ -214,6 +225,8 @@ export default {
     getHotelCheckoutSessionStatus,
     completeMockHotelPayment,
     searchAggregateHotels,
+    searchMockAggregateHotels,
+    getHotelbedsPilotList,
     lookupRate,
     login,
     registerSendCode,

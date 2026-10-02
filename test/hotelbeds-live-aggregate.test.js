@@ -9,6 +9,7 @@ const hotelbedsDatabase = require('../services/hotelbedsMockDatabase');
 const {
     LIVE_SEARCH_GATES,
     requiredGates,
+    hotelbedsSearchCriteriaFrom,
     createHotelbedsLiveAggregateSearchService
 } = require('../services/hotelbedsLiveAggregateSearchService');
 const createAggregateSearchController = require('../controllers/aggregateSearchController');
@@ -200,6 +201,69 @@ function searchCriteria() {
     };
 }
 
+test('Hotelbeds criteria require an explicit approved provider ID and discard all legacy RateHawk identifiers', async () => {
+    const env = enabledEnv();
+    const legacyOnlyRequests = [
+        { destination: { type: 'region', region_id: 42, label: 'Legacy region' } },
+        { destination: { type: 'hotel', hid: 'rh-91' } },
+        { hids: ['rh-91'], destination: { type: 'hotel', hotel_id: 'rh-92' } },
+        { providerHotelIds: { ratehawk: ['rh-93'] }, destination: { type: 'hotel' } },
+        { destination: { type: 'hotel', providerHotelIds: { hotelbeds: ['74001', '74002'] } } }
+    ];
+    for (const legacy of legacyOnlyRequests) {
+        assert.throws(() => hotelbedsSearchCriteriaFrom({ ...searchCriteria(), ...legacy }, env), error =>
+            error.code === 'hotelbeds_pilot_hotel_required' || error.code === 'hotelbeds_pilot_hotel_not_allowed');
+    }
+
+    const mixed = hotelbedsSearchCriteriaFrom({
+        ...searchCriteria(),
+        region_id: 42,
+        hids: ['rh-old-hid'],
+        destination: {
+            type: 'hotel',
+            regionId: 99,
+            hid: 'rh-old-destination-hid',
+            hotel_id: 'rh-old-hotel-id',
+            providerHotelIds: { hotelbeds: ['74001'], ratehawk: ['rh-old-provider-id'] }
+        }
+    }, env);
+    assert.deepEqual(mixed.destination, {
+        type: 'hotel',
+        providerHotelIds: { hotelbeds: ['74001'] }
+    });
+    assert.equal(Object.hasOwn(mixed, 'hids'), false);
+    assert.equal(Object.hasOwn(mixed, 'region_id'), false);
+
+    const topLevelContract = hotelbedsSearchCriteriaFrom({
+        ...searchCriteria(),
+        destination: { type: 'region', region_id: 42, hid: 'rh-legacy' },
+        providerHotelIds: { hotelbeds: ['74001'], ratehawk: ['rh-legacy'] },
+        hids: ['rh-legacy']
+    }, env);
+    assert.deepEqual(topLevelContract.destination, {
+        type: 'hotel', providerHotelIds: { hotelbeds: ['74001'] }
+    });
+});
+
+test('legacy IDs, missing IDs, and mixed unapproved Hotelbeds IDs fail before DB or Availability initialization', async () => {
+    const env = enabledEnv();
+    const database = fakeDatabase();
+    const { service, availability } = createService({ env, database });
+    const invalidCriteria = [
+        { ...searchCriteria(), destination: { type: 'region', region_id: 42 } },
+        { ...searchCriteria(), destination: { type: 'hotel', hid: 'rh-1' } },
+        { ...searchCriteria(), hids: ['rh-1'], destination: { type: 'hotel', hotel_id: 'rh-2' } },
+        { ...searchCriteria(), destination: { type: 'hotel', providerHotelIds: { hotelbeds: ['74001', '74002'] } } }
+    ];
+
+    for (const criteria of invalidCriteria) {
+        await assert.rejects(service.performSearch(criteria), error =>
+            ['hotelbeds_pilot_hotel_required', 'hotelbeds_pilot_hotel_not_allowed'].includes(error.code));
+    }
+    assert.equal(database.connection.openedUri, null);
+    assert.equal(availability.searchAvailabilityCalls.length, 0);
+});
+
 function createService({ env = enabledEnv(), database = fakeDatabase(), CacheModel, FxService } = {}) {
     const cache = CacheModel || memoryOfferCacheModel(database.connection);
     const availability = availabilityFixture(env);
@@ -260,6 +324,28 @@ test('live route composition injects only Hotelbeds, live FX, and isolated schem
     assert.equal(result.hotels[0].offers[0].price.currency, 'AED');
     assert.equal(JSON.stringify(result).includes('private-rate-key-fixture'), false);
     assert.equal(JSON.stringify(result).includes('supplierAmount'), false);
+});
+
+test('live Availability receives only the selected approved Hotelbeds ID even when legacy IDs are present', async () => {
+    const { service, availability } = createService();
+    const criteria = searchCriteria();
+    criteria.region_id = 42;
+    criteria.hids = ['rh-legacy-top-level'];
+    criteria.destination = {
+        type: 'hotel',
+        regionId: 123,
+        hid: 'rh-legacy-hid',
+        hotel_id: 'rh-legacy-hotel-id',
+        providerHotelIds: { hotelbeds: ['74001'], ratehawk: ['rh-legacy-provider'] }
+    };
+
+    await service.performSearch(criteria);
+    assert.deepEqual(availability.searchAvailabilityCalls, [{
+        checkIn: '2026-11-10',
+        checkOut: '2026-11-12',
+        occupancies: [{ rooms: 1, adults: 2, children: 0 }],
+        hotelCodes: ['74001']
+    }]);
 });
 
 test('real Hotelbeds OfferCache schema persists schemaVersion 2 with explicit test readiness', async () => {

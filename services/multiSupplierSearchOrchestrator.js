@@ -1,6 +1,7 @@
 const crypto = require('node:crypto');
 const { OFFER_TTL_MS, storeOffers, hotelbeds: hotelbedsOfferCache } = require('./offerCacheService');
 const { providerIdentifier, toCustomerDisplayOffer } = require('./offerNormalizationService');
+const { configuredHotelbedsPilotCodes } = require('./hotelbedsPilotList');
 
 function fail(code, httpStatus = 400) {
     return Object.assign(new Error(code), { code, httpStatus });
@@ -371,9 +372,12 @@ function createMultiSupplierSearchOrchestrator({
             if (supplier.provider !== 'hotelbeds') return true;
             const hotelIds = criteria.destination.providerHotelIds?.hotelbeds;
             if (!hotelIds?.length) return false;
-            const pilotCodes = String(env.HOTELBEDS_PILOT_HOTEL_CODES || '')
-                .split(',').map(value => value.trim()).filter(Boolean);
-            return hotelIds.every(id => pilotCodes.includes(id));
+            try {
+                const pilotCodes = configuredHotelbedsPilotCodes(env);
+                return hotelIds.every(id => pilotCodes.includes(id));
+            } catch {
+                return false;
+            }
         });
         if (!eligibleSuppliers.length) throw fail('multi_supplier_search_not_approved', 503);
         if (eligibleSuppliers.some(supplier => typeof (supplier.priceOffer || priceOffer) !== 'function')) {

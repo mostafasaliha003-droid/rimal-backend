@@ -34,6 +34,8 @@ const createSearchController = require('./controllers/searchController');
 const createSearchRouter = require('./services/searchRoutes');
 const createAggregateSearchController = require('./controllers/aggregateSearchController');
 const createAggregateSearchRouter = require('./services/aggregateSearchRoutes');
+const createHotelbedsPilotListController = require('./controllers/hotelbedsPilotListController');
+const createHotelbedsPilotListRouter = require('./services/hotelbedsPilotListRoutes');
 const { createMockAggregateSearchService } = require('./services/mockAggregateSearchService');
 const {
     createHotelbedsLiveAggregateSearchService,
@@ -190,6 +192,11 @@ const hotelbedsSearchRouter = createSearchRouter({
     searchLimiter: securityService.searchLimiter
 });
 const hotelbedsBookingController = createBookingController();
+app.use('/api/v1/hotels', createHotelbedsPilotListRouter({
+    controller: createHotelbedsPilotListController(),
+    verifyAPIKey,
+    searchLimiter: securityService.searchLimiter
+}));
 app.use('/api/v1/hotels', createCheckoutSessionRouter({
     controller: checkoutSessionController,
     statusController: checkoutSessionStatusController,
