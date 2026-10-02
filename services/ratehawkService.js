@@ -109,17 +109,6 @@ async function syncBookingByPartnerOrderId(partnerOrderId, update) {
 const BOOK_WAIT_MS = parseInt(process.env.RATEHAWK_BOOK_WAIT_MS || '90000', 10);
 const BOOK_POLL_INTERVAL_MS = parseInt(process.env.RATEHAWK_BOOK_POLL_MS || '5000', 10);
 
-// Hotelpage (hp) is used EXCLUSIVELY on hotel selection (getHotelPricing), never
-// looped over search results — the ETG-recommended "HP on selection only" pattern.
-// hp is strictly rate-limited (~10/min); a short-lived cache lets repeated views of
-// the same hotel/dates reuse the result (ETG allows caching hotelpage rates ~1h).
-const HP_CACHE_TTL_MS = parseInt(process.env.RATEHAWK_HP_CACHE_TTL_MS || '600000', 10); // 10 min
-const hpCache = new Map(); // key -> { rates, id, hid, expires }
-
-function hpCacheKey(hotelKey, p) {
-    return `${hotelKey}|${p.checkin}|${p.checkout}|${p.residency}|${p.currency}|${JSON.stringify(p.guests)}`;
-}
-
 // Booking status errors that are final (stop polling immediately).
 const FINAL_STATUS_ERRORS = new Set([
     '3ds', 'block', 'book_limit', 'booking_finish_did_not_succeed', 'charge', 'decoding_json',
@@ -568,35 +557,25 @@ async function getHotelPricing(hotelId, searchParams = {}) {
     if (!params.checkin || !params.checkout) return { success: false, error: 'missing_dates', rooms: [] };
 
     const numeric = /^\d+$/.test(String(hotelId));
-    const key = hpCacheKey(hotelId, params);
-    let entry = hpCache.get(key);
-    if (!entry || entry.expires <= Date.now()) {
-        const body = { ...params };
-        if (numeric) body.hid = Number(hotelId); else body.id = String(hotelId);
-        const res = await client.hotelPage(body); // single user-facing call: 429 -> sleep+retry is fine
-        if (!res.ok) return { success: false, error: res.error || 'hp_failed', rooms: [] };
-        const hotel = res.data && res.data.hotels && res.data.hotels[0];
-        if (!hotel) return { success: false, error: 'not_found', rooms: [] };
-        entry = {
-            rates: hotel.rates || [],
-            metapolicy_struct: hotel.metapolicy_struct || hotel.metapolicy || null,
-            id: hotel.id,
-            hid: hotel.hid,
-            expires: Date.now() + HP_CACHE_TTL_MS
-        };
-        hpCache.set(key, entry);
-    }
+    const body = { ...params };
+    if (numeric) body.hid = Number(hotelId); else body.id = String(hotelId);
+    // Hotelpage prices and availability are live data: make a fresh supplier
+    // request for every selected-hotel view, with no in-process rate cache.
+    const res = await client.hotelPage(body);
+    if (!res.ok) return { success: false, error: res.error || 'hp_failed', rooms: [] };
+    const hotel = res.data && res.data.hotels && res.data.hotels[0];
+    if (!hotel) return { success: false, error: 'not_found', rooms: [] };
 
     // Hydrate static content from our local DB, then map to the unified room shape.
     let doc = null;
     try {
         const Hotel = getHotelModel();
-        doc = await Hotel.findOne({ hotelId: String(entry.id || hotelId) }).lean();
+        doc = await Hotel.findOne({ hotelId: String(hotel.id || hotelId) }).lean();
     } catch (e) { /* ignore */ }
 
     const raw = {
-        id: entry.id || hotelId,
-        hid: entry.hid,
+        id: hotel.id || hotelId,
+        hid: hotel.hid,
         name: (doc && doc.name) || FALLBACK_HOTEL_NAME,
         image: (doc && doc.image) || '',
         images: Array.isArray(doc?.staticData?.images) ? doc.staticData.images : [],
@@ -606,9 +585,9 @@ async function getHotelPricing(hotelId, searchParams = {}) {
         city: (doc && doc.city) || 'دبي',
         latitude: (doc && doc.latitude) || '',
         longitude: (doc && doc.longitude) || '',
-        metapolicy_struct: entry.metapolicy_struct
+        metapolicy_struct: hotel.metapolicy_struct || hotel.metapolicy
             || (doc && doc.staticData && doc.staticData.metapolicy_struct),
-        rates: entry.rates || [],
+        rates: hotel.rates || [],
         provider: 'ratehawk'
     };
     const [mapped] = mappingService.deduplicateHotels([raw]);

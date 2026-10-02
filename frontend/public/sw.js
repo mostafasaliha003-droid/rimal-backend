@@ -1,7 +1,7 @@
-const CACHE_NAME = 'rimal-pwa-cache-v7';
+const CACHE_NAME = 'rimal-pwa-cache-v8';
 const OFFLINE_URL = '/offline.html';
 const MAX_ASSET_ENTRIES = 40;
-const DYNAMIC_PATHS = ['/checkout', '/account', '/loyalty', '/payment'];
+const DYNAMIC_PATHS = ['/checkout', '/next-gen', '/payment-status', '/mock-payment', '/account', '/loyalty', '/payment'];
 
 function isDynamicPath(pathname) {
     return DYNAMIC_PATHS.some(path => pathname === path || pathname.startsWith(`${path}/`));

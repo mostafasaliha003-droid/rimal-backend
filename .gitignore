@@ -3,6 +3,9 @@ node_modules/
 .env.*
 !.env.example
 logs/
+certs/
+etg-certification-logs.json
+etg-certification-logs.json.tmp
 data/filters.json
 data/filters.json.tmp
 npm-debug.log*

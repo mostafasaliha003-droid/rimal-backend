@@ -129,7 +129,11 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL } = {}) {
         }
     });
 
-    router.get(['/checkout', '/account', '/loyalty'], (req, res, next) =>
+    router.get(['/checkout', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/loyalty'], (req, res, next) =>
+        sendSeoIndex(req, res, next, buildHomeMetadata(languageFor(req), siteUrl), { noindex: true })
+    );
+
+    router.get('/next-gen', (req, res, next) =>
         sendSeoIndex(req, res, next, buildHomeMetadata(languageFor(req), siteUrl), { noindex: true })
     );
 

@@ -132,7 +132,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
         const fetchHotelDetails = async () => {
             setLoading(true);
             setError('');
-            const [staticResult, liveResult] = await Promise.allSettled([
+            const [staticResult, liveResult, affiliateResult] = await Promise.allSettled([
                 BookingAPI.getHotelStatic(hid, language),
                 BookingAPI.getHotelPage({
                     hid,
@@ -141,15 +141,32 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     guests: searchParams.guests,
                     language: apiLanguage,
                     currency: SEARCH_CURRENCY
-                })
+                }),
+                BookingAPI.affiliateAvailability()
             ]);
             if (!active) return;
 
             const staticHotel = staticResult.status === 'fulfilled' ? staticResult.value?.hotel : null;
             const liveData = liveResult.status === 'fulfilled' ? liveResult.value : null;
             const liveHotel = liveData?.hotel || liveData?.hotels?.[0] || {};
-            const liveRates = liveData?.rates || liveHotel.rates || [];
-            if (liveResult.status === 'rejected' || (!staticHotel && !liveData)) {
+            let liveRates = liveData?.rates || liveHotel.rates || [];
+            const affiliateState = affiliateResult.status === 'fulfilled' ? affiliateResult.value : { search: false };
+            if (affiliateState.search) {
+                try {
+                    const affiliate = await BookingAPI.getAffiliateHotelPage(hid, {
+                        checkin: searchParams.checkin,
+                        checkout: searchParams.checkout,
+                        guests: searchParams.guests,
+                        language: apiLanguage,
+                        currency: SEARCH_CURRENCY
+                    });
+                    liveRates = [...liveRates, ...(affiliate.rates || [])];
+                } catch {
+                    // Keep the separate B2B offers available when Affiliate HP is unavailable.
+                }
+            }
+            if (!active) return;
+            if (liveResult.status === 'rejected' && !affiliateState.search) {
                 setError(t('hotel.loadFailed', 'تعذر تحميل الأسعار الحالية، يرجى العودة للبحث والمحاولة مرة أخرى'));
             } else {
                 const mergedHotel = { ...staticHotel, ...liveHotel, hid };
@@ -172,16 +189,21 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
 
     const navigateToCheckout = (room) => {
         trackBookingEvent('room_selected', { room_count: searchParams.guests.length });
+        const checkoutRoom = room.contract_source === 'affiliate'
+            ? (({ originalRate, hotel: roomHotel, ...selected }) => selected)(room)
+            : room;
         const booking = {
             hid,
             hotelName: hotel?.name || 'Hotel',
             checkin: searchParams.checkin,
             checkout: searchParams.checkout,
             guests: searchParams.guests,
-            room
+            room: checkoutRoom
         };
         sessionStorage.setItem('remal_checkout', JSON.stringify(booking));
         sessionStorage.removeItem('remal_checkout_idempotency_key');
+        sessionStorage.removeItem('remal_affiliate_booking_idempotency_key');
+        sessionStorage.removeItem('remal_affiliate_attempt');
         sessionStorage.removeItem('remal_payment_attempt');
         window.history.pushState({ checkout: booking }, '', '/checkout');
         window.dispatchEvent(new PopStateEvent('popstate'));
@@ -284,11 +306,11 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         <section id="hotel-room-offers" className="scroll-mt-24 space-y-5">
                             <div className="mb-6">
                                 <h2 className="text-2xl font-black text-slate-900">{t('hotel.roomOffers', 'عروض الإقامة')}</h2>
-                                <p className="mt-1 text-sm font-medium text-slate-500">{t('hotel.recheckNotice', 'سيُعاد التحقق من السعر والتوفر قبل إتمام الدفع.')}</p>
+                <p className="mt-1 text-sm font-medium text-slate-500">{t('hotel.recheckNotice', 'سيُعاد التحقق من السعر والتوفر قبل إتمام الحجز. اختر عرض الدفع الآن أو الدفع في الفندق عند توفره.')}</p>
                             </div>
                             {rooms.length ? (
                                 rooms.map((room, index) => (
-                                    <HotelRoomCard key={room.book_hash || index} room={room} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />
+                                    <HotelRoomCard key={`${room.contract_source || 'b2b'}:${room.book_hash || index}`} room={room} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />
                                 ))
                             ) : (
                                 <div className="rounded-3xl bg-white p-12 text-center border border-slate-100 shadow-sm">

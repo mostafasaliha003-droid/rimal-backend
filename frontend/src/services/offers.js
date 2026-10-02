@@ -34,7 +34,10 @@ export function formatMoney(amount, currency = 'AED') {
 }
 
 export function normalizeRoom(rate, hotel, guests) {
-    const payment = paymentFor(rate);
+    const contractSource = rate.contract_source === 'affiliate' ? 'affiliate' : 'b2b';
+    const payment = contractSource === 'affiliate'
+        ? rate.payment_options?.payment_types?.find(item => item?.type === 'hotel')
+        : paymentFor(rate);
     const roomImages = roomImagesForRate(rate, hotel);
     const roomName = rate.room_name || rate.name || 'غرفة';
     const roomNameLower = String(roomName).toLowerCase();
@@ -55,8 +58,12 @@ export function normalizeRoom(rate, hotel, guests) {
     );
     return {
         name: roomName,
-        price: rateAmount(rate),
-        currency: rateCurrency(rate),
+        price: contractSource === 'affiliate'
+            ? Number(rate.display_amount ?? payment?.show_amount ?? payment?.amount)
+            : rateAmount(rate),
+        currency: contractSource === 'affiliate'
+            ? rate.display_currency || payment?.show_currency_code || payment?.currency_code || ''
+            : rateCurrency(rate),
         book_hash: rate.book_hash || rate.match_hash,
         bed,
         images: roomImages,
@@ -67,6 +74,9 @@ export function normalizeRoom(rate, hotel, guests) {
         taxes: payment?.tax_data?.taxes || [],
         meal: rate.meal,
         paymentType: payment?.type,
+        contract_source: contractSource,
+        affiliate_offer_token: contractSource === 'affiliate' ? rate.affiliate_offer_token : undefined,
+        affiliateBookingAvailable: contractSource === 'affiliate' && rate.affiliate_booking_enabled === true,
         guests,
         hotel
     };

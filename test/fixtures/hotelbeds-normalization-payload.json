@@ -1,0 +1,131 @@
+{
+  "request": {
+    "checkIn": "2026-10-31",
+    "checkOut": "2026-11-02",
+    "rooms": 1,
+    "adults": 2,
+    "children": 0
+  },
+  "hotels": [
+    {
+      "code": 74,
+      "name": "AR Roca Esmeralda & Spa",
+      "categoryCode": "4EST",
+      "categoryName": "4 STARS",
+      "currency": "EUR",
+      "rooms": [
+        {
+          "code": "DBL.ST",
+          "name": "DOUBLE STANDARD ROOM (2 ADULTS)",
+          "rates": [
+            {
+              "rateClass": "NOR",
+              "rateType": "BOOKABLE",
+              "net": "218.50",
+              "allotment": 5,
+              "paymentType": "AT_WEB",
+              "packaging": false,
+              "boardCode": "BB",
+              "boardName": "BED AND BREAKFAST",
+              "cancellationPolicies": [
+                { "amount": "126.73", "from": "2026-10-23T23:59:00+02:00" },
+                { "amount": "218.50", "from": "2026-10-28T23:59:00+01:00" }
+              ],
+              "rooms": 1,
+              "adults": 2,
+              "children": 0
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "code": 1070,
+      "name": "Artmadams",
+      "categoryCode": "4EST",
+      "categoryName": "4 STARS",
+      "currency": "EUR",
+      "rooms": [
+        {
+          "code": "DBT.ST",
+          "name": "DOUBLE STANDARD",
+          "rates": [
+            {
+              "rateClass": "NOR",
+              "rateType": "BOOKABLE",
+              "net": "264.14",
+              "allotment": 6,
+              "paymentType": "AT_WEB",
+              "packaging": false,
+              "boardCode": "RO",
+              "boardName": "ROOM ONLY",
+              "cancellationPolicies": [
+                {
+                  "amount": "264.14",
+                  "from": "2026-10-28T23:59:00+01:00"
+                }
+              ],
+              "taxes": {
+                "taxes": [
+                  {
+                    "included": false,
+                    "amount": "13.20",
+                    "currency": "EUR",
+                    "type": "TAX",
+                    "clientAmount": "13.20",
+                    "clientCurrency": "EUR",
+                    "subType": "City Tax"
+                  }
+                ],
+                "allIncluded": false
+              },
+              "rooms": 1,
+              "adults": 2,
+              "children": 0
+            },
+            {
+              "rateClass": "NRF",
+              "rateType": "BOOKABLE",
+              "net": "225.87",
+              "allotment": 8,
+              "paymentType": "AT_WEB",
+              "packaging": false,
+              "boardCode": "RO",
+              "boardName": "ROOM ONLY",
+              "cancellationPolicies": [
+                {
+                  "amount": "225.87",
+                  "from": "2026-09-30T23:59:00+02:00"
+                }
+              ],
+              "taxes": {
+                "taxes": [
+                  {
+                    "included": false,
+                    "amount": "13.20",
+                    "currency": "EUR",
+                    "type": "TAX",
+                    "clientAmount": "13.20",
+                    "clientCurrency": "EUR",
+                    "subType": "City Tax"
+                  }
+                ],
+                "allIncluded": false
+              },
+              "rooms": 1,
+              "adults": 2,
+              "children": 0,
+              "promotions": [
+                {
+                  "code": "073",
+                  "name": "Non-refundable rate. No amendments permitted",
+                  "remark": "Non-refundable rate. No amendments permitted"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

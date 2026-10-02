@@ -44,6 +44,35 @@ test('missing policy and bed do not become free cancellation or king bed', () =>
     assert.equal(formatMoney(room.price, room.currency), new Intl.NumberFormat('ar-AE', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(60));
 });
 
+test('Affiliate and B2B rates retain distinct contract and payment identities', () => {
+    const guests = [{ adults: 1, children: [] }];
+    const b2b = normalizeRoom(rate('60'), {}, guests);
+    const affiliate = normalizeRoom({
+        book_hash: 'affiliate-rate',
+        room_name: 'Hotel-payable double room',
+        contract_source: 'affiliate',
+        display_amount: '80.00',
+        display_currency: 'USD',
+        affiliate_offer_token: 'signed.fixture',
+        affiliate_booking_enabled: true,
+        payment_options: { payment_types: [
+            { type: 'deposit', amount: '55', currency_code: 'USD' },
+            { type: 'hotel', amount: '75', currency_code: 'AED', show_amount: '80.00', show_currency_code: 'USD' }
+        ] }
+    }, {}, guests);
+
+    assert.equal(b2b.contract_source, 'b2b');
+    assert.equal(b2b.paymentType, 'deposit');
+    assert.equal(b2b.price, 60);
+    assert.equal(b2b.affiliate_offer_token, undefined);
+    assert.equal(affiliate.contract_source, 'affiliate');
+    assert.equal(affiliate.paymentType, 'hotel');
+    assert.equal(affiliate.price, 80);
+    assert.equal(affiliate.currency, 'USD');
+    assert.equal(affiliate.affiliateBookingAvailable, true);
+    assert.equal(affiliate.affiliate_offer_token, 'signed.fixture');
+});
+
 test('room photos follow the selected supplier rate and exclude placeholders', () => {
     const hotel = {
         images: ['https://cdn.worldota.net/hotel-photo.jpg'],

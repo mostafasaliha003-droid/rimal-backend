@@ -69,11 +69,20 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     const price = room.price ?? '-';
     const amenities = room.amenities || [];
 
-    const payable = ['AED', 'USD', 'SAR', 'EUR'].includes(room.currency) && room.paymentType === 'deposit'
+    const affiliateOffer = room.contract_source === 'affiliate';
+    const payable = affiliateOffer
+        ? room.affiliateBookingAvailable === true && Boolean(room.affiliate_offer_token)
+            && ['AED', 'USD', 'SAR', 'EUR'].includes(room.currency) && Number.isFinite(room.price) && room.price > 0
+            && room.paymentType === 'hotel'
+        : ['AED', 'USD', 'SAR', 'EUR'].includes(room.currency) && room.paymentType === 'deposit'
         && Number.isFinite(room.price) && room.price > 0 && room.book_hash;
     const additionalTaxes = (room.taxes || []).filter(tax => !tax.included_by_supplier);
 
     const handleBook = async () => {
+        if (affiliateOffer) {
+            if (payable) onBook?.(room);
+            return;
+        }
         if (status === 'success') {
             onBook?.(prebookResult);
             return;
@@ -123,6 +132,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     return (
         <article
             aria-labelledby={`room-${room.book_hash || room.roomId || room.name}`}
+            data-contract-source={room.contract_source || 'b2b'}
             className="room-card surface-card group relative mb-6 overflow-hidden rounded-3xl transition-[transform,box-shadow,border-color] duration-[350ms] ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:border-remal-blue/30 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:shadow-[0_1rem_2.5rem_rgba(16,42,67,0.10)]"
         >
             <div className="flex flex-col lg:flex-row h-full">
@@ -227,7 +237,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         <div className="mb-3 inline-flex rounded-full bg-cyan-50 border border-cyan-100 px-3 py-1 text-[10px] font-black text-[var(--remal-blue)] w-fit">
                             تحقق من السعر والتوفر قبل الدفع
                         </div>
-                        <p className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">السعر الإجمالي للإقامة</p>
+                            <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">{affiliateOffer ? t('room.payAtHotel', 'الدفع في الفندق') : t('room.payNow', 'ادفع الآن بأمان عبر Ziina')}</span>
                         
                         <div className="flex items-baseline justify-end gap-1.5">
                             {price !== '-' ? (
@@ -262,7 +272,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 shadow-[0_8px_18px_rgba(16,185,129,0.2)] transition-colors hover:bg-emerald-700' : payable ? 'cta-red' : 'bg-slate-300 text-slate-600'}`}
                         >
                             <span className="relative z-10 flex flex-wrap items-center justify-center gap-2 text-center">
-                                {status === 'loading' ? t('room.verifying', 'جارٍ التحقق...') : status === 'success' ? t('room.fixed', 'تم تثبيت السعر') : t('room.book', 'احجز الغرفة')}
+                                {affiliateOffer ? t('room.payAtHotelAction', 'اختر الدفع في الفندق') : status === 'loading' ? t('room.verifying', 'جارٍ التحقق...') : status === 'success' ? t('room.fixed', 'تم تثبيت السعر') : t('room.payNowAction', 'تحقق وانتقل إلى الدفع')}
                                 {status === 'success' ? <Check size={18} className="motion-safe:animate-[success-pop_300ms_ease-out] motion-reduce:animate-none" /> : status === 'loading' ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent motion-safe:animate-spin motion-reduce:animate-none"></span> : <ArrowLeft size={18} className="transition-transform duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover/btn:-translate-x-1" />}
                             </span>
                         </button>
@@ -270,7 +280,9 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         {!payable && status !== 'success' && (
                             <div className="mt-2 flex items-start gap-1.5 text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg">
                                 <Info size={14} className="shrink-0 mt-0.5" />
-                                <p>{t('room.paymentUnavailable', 'عذراً، هذا العرض غير متاح للدفع الإلكتروني حالياً.')}</p>
+                                <p>{affiliateOffer
+                                    ? t('room.affiliateUnavailable', 'الحجز بالدفع في الفندق غير متاح مؤقتاً لهذا العرض.')
+                                    : t('room.paymentUnavailable', 'عذراً، هذا العرض غير متاح للدفع الإلكتروني حالياً.')}</p>
                             </div>
                         )}
                     </div>

@@ -1,5 +1,5 @@
 import { lazy, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, X } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, Sparkles, X } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelCard from './components/HotelCard';
@@ -9,6 +9,10 @@ const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
 const AccountCenter = lazy(() => import('./components/AccountCenter'));
 const LoyaltyDashboard = lazy(() => import('./components/LoyaltyDashboard'));
+const NextGenHotels = lazy(() => import('./pages/NextGenHotels'));
+const NextGenCheckout = lazy(() => import('./pages/NextGenCheckout'));
+const MockPaymentPage = lazy(() => import('./pages/MockPaymentPage'));
+const PaymentStatus = lazy(() => import('./pages/PaymentStatus'));
 import { StarIcon } from './components/Icons';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, cheapestRate, rateAmount, rateCurrency, paymentFor, normalizeRoom } from './services/offers';
@@ -97,7 +101,7 @@ export default function App() {
 
     useEffect(() => {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
-        const noindex = ['/checkout', '/account', '/loyalty'].includes(pathname);
+        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/loyalty'].includes(pathname);
         const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
         const title = t('meta.title', 'رمال وفِلّها | حجوزات الفنادق');
         const description = t('meta.description', 'ابحث عن إقامة مناسبة مع رمال وقارن عروض الفنادق.');
@@ -261,6 +265,11 @@ export default function App() {
 
     const hotelRoute = pathname.match(/^\/hotel\/([^/]+)$/);
     const checkoutRoute = pathname === '/checkout';
+    const nextGenEnabled = import.meta.env.VITE_NEXT_GEN_HOTELS_ENABLED === 'true';
+    const nextGenRoute = nextGenEnabled && ['/next-gen', '/next-gen/checkout'].includes(pathname);
+    const nextGenCheckoutRoute = nextGenEnabled && pathname === '/next-gen/checkout';
+    const paymentStatusRoute = nextGenEnabled && pathname === '/payment-status';
+    const mockPaymentRoute = nextGenEnabled && pathname === '/mock-payment';
     const accountRoute = pathname === '/account';
     const loyaltyRoute = pathname === '/loyalty';
     const navigateTo = path => {
@@ -268,6 +277,29 @@ export default function App() {
         window.history.pushState({}, '', path);
         setPathname(pathnameOnly);
     };
+
+    if (paymentStatusRoute) {
+        return <>
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
+            <PaymentStatus onBack={() => navigateTo('/')} />
+        </>;
+    }
+    if (mockPaymentRoute) {
+        return <>
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
+            <MockPaymentPage />
+        </>;
+    }
+    if (nextGenRoute) {
+        let initialNextGenSearch = null;
+        try { initialNextGenSearch = JSON.parse(sessionStorage.getItem('remal_nextgen_search') || 'null'); } catch {}
+        return <>
+            <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
+            {nextGenCheckoutRoute
+                ? <NextGenCheckout initialSearch={initialNextGenSearch} onBack={() => navigateTo('/next-gen')} />
+                : <NextGenHotels initialSearch={initialNextGenSearch} onBack={() => navigateTo('/')} />}
+        </>;
+    }
 
     if (accountRoute) {
         return <>
@@ -313,6 +345,11 @@ export default function App() {
         <div className="min-h-screen bg-[#F8FAFC] text-slate-900" dir={direction}>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <main>
+                {nextGenEnabled && <div className="mx-auto max-w-7xl px-5 pt-5 lg:px-10">
+                    <a href="/next-gen" onClick={event => { event.preventDefault(); navigateTo('/next-gen'); }} className="glass-surface inline-flex min-h-11 items-center gap-2 rounded-xl border border-remal-blue/15 px-4 py-2.5 text-sm font-black text-remal-navy shadow-sm transition hover:bg-white/95">
+                        <Sparkles size={17} className="text-remal-blue" />{t('nextgen.launch', 'جرّب تجربة الفنادق التجريبية الجديدة')}
+                    </a>
+                </div>}
                 <HeroSearchSection onSearch={handleSearch} initialSearch={searchParams} isSearching={loading} searchError={error} />
                 <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-24 pt-10 lg:px-10 lg:pt-12">
                     

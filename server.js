@@ -7,7 +7,6 @@ const mongoose = require('mongoose');
 const path = require('path');
 const puppeteer = require('puppeteer'); 
 const fs = require('fs'); 
-const crypto = require('crypto'); 
 const http = require('http'); 
 const { Server } = require('socket.io'); 
 const Hotel = require('./models/Hotel');
@@ -24,6 +23,23 @@ const { createMidofficeWebhookRouter } = require('./services/midofficeWebhookSer
 const logger = require('./services/loggerService'); 
 const mappingService = require('./services/mappingService'); 
 const securityService = require('./services/securityService'); 
+const affiliateBookingService = require('./services/affiliateBookingService');
+const createAffiliateBookingRouter = require('./services/affiliateBookingRoutes');
+const hotelbedsMockCertificationService = require('./services/hotelbedsMockCertificationService');
+const createHotelbedsMockCertificationRouter = require('./services/hotelbedsMockCertificationRoutes');
+const { createHotelbedsAvailabilityService } = require('./services/hotelbedsAvailabilityService');
+const createHotelbedsAvailabilityRouter = require('./services/hotelbedsAvailabilityRoutes');
+const { createSearchOrchestrator } = require('./services/searchOrchestrator');
+const createSearchController = require('./controllers/searchController');
+const createSearchRouter = require('./services/searchRoutes');
+const createAggregateSearchController = require('./controllers/aggregateSearchController');
+const createAggregateSearchRouter = require('./services/aggregateSearchRoutes');
+const { createMockAggregateSearchService } = require('./services/mockAggregateSearchService');
+const {
+    createHotelbedsLiveAggregateSearchService,
+    requiredGates: liveAggregateSearchGatesEnabled
+} = require('./services/hotelbedsLiveAggregateSearchService');
+const createBookingController = require('./controllers/bookingController');
 const { normalizeSupplierImage, collectSupplierImages } = require('./services/supplierImages');
 const createFrontendRouter = require('./services/frontendService');
 const createDisplayCurrencyRouter = require('./services/displayCurrencyRoutes');
@@ -34,9 +50,17 @@ const bookingProcessService = require('./services/bookingProcessService');
 const checkoutProcessService = require('./services/checkoutProcessService');
 const checkoutReconciliationService = require('./services/checkoutReconciliationService');
 const ziinaWebhookService = require('./services/ziinaWebhookService');
+const checkoutSessionService = require('./services/checkoutSessionService');
+const createCheckoutSessionController = require('./controllers/checkoutSessionController');
+const createCheckoutSessionRouter = require('./services/checkoutSessionRoutes');
+const { createHotelbedsMockCheckoutBookingService } = require('./services/hotelbedsMockCheckoutBookingService');
+const { createZiinaWebhookHandler } = require('./services/ziinaWebhookHandler');
+const { createMockHotelCheckoutPaymentController } = require('./controllers/mockHotelCheckoutPaymentController');
 
 const app = express();
 const displayCurrencyService = createDisplayCurrencyService();
+const checkoutSessionController = createCheckoutSessionController({ service: checkoutSessionService });
+const checkoutSessionStatusController = createCheckoutSessionController.createStatusController({ service: checkoutSessionService });
 
 const frontendContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: blob: https:; connect-src 'self' https: wss: https://pay.google.com;";
 app.use((req, res, next) => {
@@ -55,6 +79,19 @@ app.use('/api/v1/order-groups', securityService.globalLimiter, createBookingRout
 app.use('/api/v1/profiles', securityService.globalLimiter, createBookingRouter.createProfileRouter());
 app.use('/api/v1/webhooks/midoffice', createMidofficeWebhookRouter());
 app.post('/api/payment/ziina/webhook', express.raw({ type: 'application/json', limit: '256kb' }), ziinaWebhookService.receiveZiinaWebhook);
+if (process.env.HOTELBEDS_PREPAID_CHECKOUT_ENABLED === 'true'
+    && process.env.HOTELBEDS_PREPAID_CHECKOUT_APPROVED === 'true'
+    && process.env.HOTELBEDS_MOCK_DATABASE_ENABLED === 'true'
+    && process.env.HOTELBEDS_PREPAID_MOCK_PAYMENT_ENABLED === 'true'
+    && process.env.HOTELBEDS_PREPAID_MOCK_BOOKING_ENABLED === 'true'
+    && process.env.HOTELBEDS_ENABLED === 'true'
+    && String(process.env.HOTELBEDS_ENV || '').toLowerCase() === 'test') {
+    const ziinaMockWebhookHandler = createZiinaWebhookHandler({
+        hotelbedsBookingService: createHotelbedsMockCheckoutBookingService()
+    });
+    // Mock-only; registered before express.json so HMAC covers the original body bytes.
+    app.post('/api/v1/webhooks/ziina-mock', express.raw({ type: 'application/json', limit: '64kb' }), ziinaMockWebhookHandler.receiveWebhook);
+}
 app.use(express.json());
 
 // 🛡️ تطبيق جدار الحماية العام على كل السيرفر
@@ -67,7 +104,6 @@ app.use(cors(corsPolicy));
 app.use('/api', createDisplayCurrencyRouter(displayCurrencyService));
 app.use('/api/booking', createBookingRouter());
 app.use('/api/v1/contracts', createBookingRouter.createContractRouter());
-
 // ==========================================
 // 🚀 3. إعدادات البريد وقاعدة البيانات
 // ==========================================
@@ -145,6 +181,79 @@ const verifyAPIKey = (req, res, next) => {
     next(); 
 };
 
+const hotelbedsSearchController = createSearchController({
+    orchestrator: createSearchOrchestrator()
+});
+const hotelbedsSearchRouter = createSearchRouter({
+    controller: hotelbedsSearchController,
+    verifyAPIKey,
+    searchLimiter: securityService.searchLimiter
+});
+const hotelbedsBookingController = createBookingController();
+app.use('/api/v1/hotels', createCheckoutSessionRouter({
+    controller: checkoutSessionController,
+    statusController: checkoutSessionStatusController,
+    mockPaymentController: createMockHotelCheckoutPaymentController({
+        service: checkoutSessionService,
+        webhookHandler: createZiinaWebhookHandler({
+            hotelbedsBookingService: createHotelbedsMockCheckoutBookingService()
+        })
+    }),
+    verifyAPIKey,
+    bookingLimiter: securityService.bookingLimiter
+}));
+
+// Explicitly isolated, deterministic mock search. This adapter cannot call live
+// Hotelbeds/RateHawk/FX services; production supplier search has a separate route
+// and the orchestrator retains all supplier approval gates.
+app.use('/api/v1/hotels', createAggregateSearchRouter({
+    controller: createAggregateSearchController({
+        service: createMockAggregateSearchService(),
+        enabled: () => process.env.MULTI_SUPPLIER_MOCK_SEARCH_ENABLED === 'true'
+    }),
+    verifyAPIKey,
+    searchLimiter: securityService.searchLimiter
+}));
+
+// Isolated live Hotelbeds pilot. The route is mounted independently from the
+// deterministic mock and legacy RateHawk routes, and stays unavailable unless
+// every database, supplier, pricing, FX, content, and pilot approval gate is set.
+app.use('/api/v1/hotels', createAggregateSearchRouter({
+    routePath: '/search/aggregate/live',
+    controller: createAggregateSearchController({
+        service: createHotelbedsLiveAggregateSearchService(),
+        enabled: () => liveAggregateSearchGatesEnabled(process.env),
+        requiredSchemaVersion: 2
+    }),
+    verifyAPIKey,
+    searchLimiter: securityService.searchLimiter
+}));
+
+app.use('/api/affiliate', createAffiliateBookingRouter({
+    service: affiliateBookingService,
+    securityService,
+    verifyAPIKey
+}));
+
+// This mock-only route never calls a supplier and remains independent from
+// HOTELBEDS_ENABLED. Mount it only when explicitly requested for UI development.
+if (process.env.HOTELBEDS_MOCK_CERTIFICATION_ENABLED === 'true') {
+    app.use('/api/hotelbeds', createHotelbedsMockCertificationRouter({
+        service: hotelbedsMockCertificationService,
+        searchLimiter: securityService.searchLimiter
+    }));
+}
+
+// Internal pilot endpoint only. It is not wired into customer SERP/checkout and
+// remains unmounted unless explicitly enabled; the service validates all gates.
+if (process.env.HOTELBEDS_AVAILABILITY_PILOT_ENABLED === 'true') {
+    app.use('/api/hotelbeds', createHotelbedsAvailabilityRouter({
+        service: createHotelbedsAvailabilityService(),
+        verifyAPIKey,
+        searchLimiter: securityService.searchLimiter
+    }));
+}
+
 // ==========================================
 // 🚀 5. دوال مساعدة القديمة
 // ==========================================
@@ -164,14 +273,6 @@ async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBu
 
 async function sendWhatsAppNotification(toPhone, messageText) {
     try { console.log(`📱 [WhatsApp API Mock]: رسالة لـ ${toPhone}: \n${messageText}`); return true; } catch (error) { return false; }
-}
-
-function generateHotelbedsSignature() {
-    const apiKey = 'c01c3ba1f01270fa671b1c8c1f9b05d1'; 
-    const secret = '3eQESu8wOA'; 
-    const timestamp = Math.floor(Date.now() / 1000);
-    const signature = crypto.createHash('sha256').update(apiKey + secret + timestamp).digest('hex');
-    return { apiKey, signature };
 }
 
 const fetchWithTimeout = async (url, options, timeout = 65000) => {
@@ -692,6 +793,7 @@ app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, asyn
 });
 
 app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     const body = req.body || {};
     const { checkin, checkout, hid, guests, match_hash: matchHash } = body;
     const numericHid = Number(hid);
@@ -881,6 +983,8 @@ app.get('/api/search/rate/:book_hash', verifyAPIKey, securityService.searchLimit
     }
 });
 
+app.use('/api/v1/hotels', hotelbedsSearchRouter);
+
 app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
     logger.info("New live secure search request received");
     try {
@@ -940,6 +1044,7 @@ app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, a
 // 🏨 HP-on-selection: full rooms/rates (bookable book_hash) for a single hotel the
 // user opened. SERP powers the listing; this powers the hotel details page.
 app.post('/api/v1/hotels/:hotelId/rates', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     try {
         const { hotelId } = req.params;
         const result = await ratehawkService.getHotelPricing(hotelId, req.body || {});
@@ -1000,83 +1105,8 @@ app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.booking
     */
 });
 
-app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
-    return res.status(410).json({ success: false, error: 'SERVER_CONFIRMATION_REQUIRED', message: 'لا يمكن تأكيد الحجز من المتصفح. يرجى التواصل مع فريق الحجوزات.' });
-    /*
-    const bookingDetails = req.body;
-    try {
-        // 🛡️ لا يُنفَّذ الحجز إلا بعد دفع ناجح (visa) أو عند اختيار الدفع في الفندق (Pay at Hotel)
-        const method = String(bookingDetails.paymentMethod || '').toLowerCase();
-        const isPayAtHotel = !['visa', 'card', 'online', 'ziina'].includes(method);
-        const paymentConfirmed = bookingDetails.paymentStatus === 'success' || bookingDetails.paymentConfirmed === true;
-        if (!isPayAtHotel && !paymentConfirmed) {
-            return res.status(402).json({ success: false, error: 'PAYMENT_REQUIRED', message: 'لا يمكن تأكيد الحجز قبل إتمام عملية الدفع.' });
-        }
+app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, hotelbedsBookingController);
 
-        let finalHCN;
-        let supplierReference = 'Pending';
-        let supplierStatus = 'Pending';
-
-        if (bookingDetails.provider === 'dubailink') {
-            finalHCN = (await dubailinkService.bookHotel(bookingDetails)).booking_reference; 
-            supplierReference = finalHCN || 'Pending';
-            supplierStatus = 'Confirmed';
-        } else {
-            // 🔵 RateHawk: Create + Start + Check (polling) للحجز.
-            // - دفع بالبطاقة: نستخدم الـ book_hash المُثبَّت مسبقاً في مسار recheck-and-pay (لا نكرر الـ Prebook بعد الدفع).
-            // - الدفع في الفندق: لا يوجد Prebook سابق، لذا نُثبّت السعر الآن قبل الحجز.
-            let bookHashToUse = bookingDetails.book_hash;
-            if (!bookHashToUse) {
-                const pre = await ratehawkService.recheckHotel(bookingDetails);
-                if (!pre.success) {
-                    return res.status(400).json({ success: false, error: 'SOLD_OUT', message: 'عذراً، لم تعد هذه الغرفة متاحة للحجز.' });
-                }
-                bookHashToUse = pre.book_hash;
-            }
-            const booking = await ratehawkService.bookHotel({ ...bookingDetails, book_hash: bookHashToUse });
-            if (!booking.success) {
-                return res.status(400).json({ success: false, error: booking.status || 'BOOKING_FAILED', message: 'تعذر تأكيد الحجز لدى المورد. لم يتم خصم أي مبلغ من طرفنا.' });
-            }
-            finalHCN = booking.hcn;                               // partner_order_id (مرجعنا)
-            supplierReference = booking.hcn;
-            supplierStatus = booking.status === 'confirmed' ? 'CONFIRMED' : 'PROCESSING';
-        }
-
-        // 🔴 تحديث لحفظ كل بيانات الحجز لتوليد PDF لاحقاً بشكل سليم
-        const newBooking = new Booking({ 
-            bookingReference: finalHCN || ('RML-' + Date.now()), 
-            supplierReference: supplierReference || 'Pending', 
-            supplierStatus: supplierStatus,
-            provider: bookingDetails.provider || 'ratehawk',
-            hotelName: bookingDetails.hotelName || 'Unknown Hotel', 
-            customerName: bookingDetails.guestName || bookingDetails.customerName || "ضيفنا", 
-            email: bookingDetails.email || bookingDetails.holderEmail || "customer@example.com", 
-            phone: bookingDetails.phone || bookingDetails.holderPhone || "",
-            roomType: bookingDetails.roomName || 'غرفة قياسية',
-            boardType: bookingDetails.board || 'RO',
-            cancellationPolicy: bookingDetails.cancellationPolicy || bookingDetails.policyText || 'شروط المورد مطبقة',
-            status: 'active', 
-            price: bookingDetails.price || 0
-        });
-        await newBooking.save();
-
-        const pdfBuffer = await notificationService.generateVoucher(bookingDetails, finalHCN);
-        await notificationService.sendEmailConfirmation(newBooking.email, newBooking.customerName, finalHCN, pdfBuffer);
-
-        return res.status(200).json({ success: true, hcn: finalHCN, supplierStatus });
-    } catch (error) { 
-        logger.error("Booking Failed", { error: error.message });
-        if (error.code === 'invalid_upsells') {
-            return res.status(400).json({ success: false, error: 'INVALID_UPSELLS', message: error.message });
-        }
-        res.status(500).json({ success: false, error: "Booking Failed" }); 
-    }
-    */
-});
-
-// ==========================================
-// 🚀 10. مسارات تحميل الـ PDF و التقييمات والإدارة
-// ==========================================
 app.get('/api/bookings/pdf/:reference', async (req, res) => {
     let browser;
     try {
@@ -1201,9 +1231,11 @@ mongoose.connection.on('disconnected', () => console.warn('⚠️ MongoDB discon
 mongoose.connection.on('reconnected', () => console.log('✅ MongoDB reconnected.'));
 let stopBookingStatusWorker = () => {};
 let stopCheckoutWorker = () => {};
+let stopAffiliateBookingStatusWorker = () => {};
 mongoose.connection.once('connected', () => {
     stopBookingStatusWorker = bookingProcessService.startBookingStatusWorker();
     stopCheckoutWorker = checkoutReconciliationService.startCheckoutWorker();
+    stopAffiliateBookingStatusWorker = affiliateBookingService.startStatusWorker();
 });
-server.once('close', () => { stopBookingStatusWorker(); stopCheckoutWorker(); });
+server.once('close', () => { stopBookingStatusWorker(); stopCheckoutWorker(); stopAffiliateBookingStatusWorker(); });
 connectMongoWithRetry();

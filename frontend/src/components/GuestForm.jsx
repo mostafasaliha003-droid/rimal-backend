@@ -37,6 +37,7 @@ export default function GuestForm({
     formId = 'checkout-form',
     isSubmitting = false,
     paymentAvailable = false,
+    paymentMode = 'ziina',
     onValidationError,
     total,
     currency,
@@ -138,17 +139,23 @@ export default function GuestForm({
                     <div className="grid h-12 w-12 shrink-0 place-items-center rounded-2xl bg-emerald-50 text-emerald-700"><LockKeyhole size={23} /></div>
                     <div>
                         <p className="eyebrow">{t('checkout.stepPayment', 'الخطوة 2 من 2')}</p>
-                        <h2 id="payment-section-title" className="mt-1 text-2xl font-black text-slate-900">{t('checkout.paymentTitle', 'الدفع والتأكيد')}</h2>
-                        <p className="mt-2 text-sm font-medium leading-6 text-slate-500">{t('checkout.paymentDescription', 'سيتم التحقق من السعر والتوفر قبل تحويلك إلى بوابة الدفع.')}</p>
+                        <h2 id="payment-section-title" className="mt-1 text-2xl font-black text-slate-900">{paymentMode === 'affiliate' ? t('checkout.affiliateTitle', 'الدفع في الفندق') : t('checkout.paymentTitle', 'الدفع والتأكيد')}</h2>
+                        <p className="mt-2 text-sm font-medium leading-6 text-slate-500">{paymentMode === 'affiliate'
+                            ? t('checkout.affiliateDescription', 'سنرسل طلب الحجز إلى الفندق عبر عقد ETG Affiliate، ولن يتم تحويلك إلى Ziina أو تحصيل مبلغ إلكتروني الآن.')
+                            : t('checkout.paymentDescription', 'سيتم التحقق من السعر والتوفر قبل تحويلك إلى بوابة الدفع.')}</p>
                     </div>
                 </div>
                 <div className="mt-7 grid gap-3 sm:grid-cols-3">
-                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-800"><CheckCircle2 size={18} className="mb-2 text-emerald-600" />{t('checkout.encrypted', 'دفع مشفر عبر Ziina')}</div>
+                    <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-800"><CheckCircle2 size={18} className="mb-2 text-emerald-600" />{paymentMode === 'affiliate' ? t('checkout.hotelPayment', 'تدفع في الفندق وفق شروط العرض') : t('checkout.encrypted', 'دفع مشفر عبر Ziina')}</div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700"><CheckCircle2 size={18} className="mb-2 text-[var(--remal-blue)]" />{t('checkout.noHiddenFees', 'لا رسوم مخفية من رمال')}</div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700"><CheckCircle2 size={18} className="mb-2 text-[var(--remal-blue)]" />{t('checkout.statusNotice', 'إشعار واضح بحالة العملية')}</div>
                 </div>
-                <p className="mt-5 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-xs font-bold leading-6 text-cyan-900"><LockKeyhole size={18} className="mt-0.5 shrink-0" />{t('checkout.paymentNotice', 'لن يتم إنشاء طلب دفع قبل اكتمال البيانات والتحقق من توفر الدفع لهذا العرض.')}</p>
-                {!paymentAvailable && <p className="mt-4 text-sm font-bold text-amber-800">{t('checkout.paymentUnavailable', 'الدفع الإلكتروني غير متاح لهذا العرض حالياً.')}</p>}
+                <p className="mt-5 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-xs font-bold leading-6 text-cyan-900"><LockKeyhole size={18} className="mt-0.5 shrink-0" />{paymentMode === 'affiliate'
+                    ? t('checkout.affiliateNotice', 'إرسال الطلب لا يعني تأكيد الحجز. سنعرض التأكيد فقط بعد تحقق ETG من الحالة النهائية.')
+                    : t('checkout.paymentNotice', 'لن يتم إنشاء طلب دفع قبل اكتمال البيانات والتحقق من توفر الدفع لهذا العرض.')}</p>
+                {!paymentAvailable && <p className="mt-4 text-sm font-bold text-amber-800">{paymentMode === 'affiliate'
+                    ? t('checkout.affiliateUnavailable', 'حجز الدفع في الفندق غير متاح لهذا العرض حالياً.')
+                    : t('checkout.paymentUnavailable', 'الدفع الإلكتروني غير متاح لهذا العرض حالياً.')}</p>}
             </section>
 
             <div className="fixed inset-x-0 bottom-0 z-40 border-t border-slate-200 bg-white/95 p-4 shadow-[0_-10px_30px_rgba(15,35,55,0.12)] backdrop-blur md:static md:rounded-3xl md:border md:p-5 md:shadow-sm">
@@ -158,7 +165,9 @@ export default function GuestForm({
                         {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-lg font-black text-slate-900" /> : <p className="mt-1 text-lg font-black text-slate-900">{t('checkout.priceUnavailable', 'السعر غير متاح')}</p>}
                     </div>
                     <button type="submit" form={formId} disabled={isSubmitting || !paymentAvailable} aria-disabled={isSubmitting || !paymentAvailable} className="min-h-12 min-w-0 flex-[1_1_12rem] rounded-2xl bg-[var(--remal-navy)] px-5 py-3 text-sm font-black text-white shadow-lg shadow-slate-900/10 transition hover:bg-[var(--remal-blue)] focus:outline-none focus:ring-4 focus:ring-cyan-100 disabled:cursor-not-allowed disabled:opacity-50 md:w-full">
-                        {isSubmitting ? <span className="inline-flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" role="status" aria-label={t('checkout.processing', 'جار تجهيز الدفع')} />{t('checkout.processing', 'جار تجهيز الدفع...')}</span> : paymentAvailable ? t('checkout.confirm', 'تأكيد الحجز والمتابعة للدفع') : t('checkout.paymentUnavailable', 'الدفع غير متاح حالياً')}
+                        {isSubmitting ? <span className="inline-flex items-center justify-center gap-2"><span className="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white" role="status" aria-label={t('checkout.processing', 'جار تجهيز الطلب')} />{t('checkout.processing', 'جار تجهيز الطلب...')}</span> : paymentAvailable
+                            ? paymentMode === 'affiliate' ? t('checkout.submitAffiliate', 'إرسال طلب الحجز والدفع في الفندق') : t('checkout.confirm', 'تأكيد الحجز والمتابعة للدفع')
+                            : paymentMode === 'affiliate' ? t('checkout.affiliateUnavailable', 'حجز الدفع في الفندق غير متاح') : t('checkout.paymentUnavailable', 'الدفع غير متاح حالياً')}
                     </button>
                 </div>
             </div>

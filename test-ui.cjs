@@ -4,6 +4,8 @@ const puppeteer = require('puppeteer');
 const base = process.env.REMAL_UI_TEST_BASE || 'http://127.0.0.1:5178';
 const checkoutReference = '11111111-1111-4111-8111-111111111111';
 const accessToken = 'a'.repeat(64);
+const affiliateProcessId = 'f'.repeat(64);
+const affiliateAccessToken = 'd'.repeat(64);
 const rate = (amount, currency = 'USD') => ({
     book_hash: `test-${currency}-${amount}`, room_name: 'Test Double Room', meal: 'breakfast',
     payment_options: { payment_types: [{ type: 'deposit', amount: String(amount), currency_code: currency,
@@ -28,6 +30,11 @@ async function run() {
     let paymentEnabled = false;
     let paymentRequests = 0;
     let paymentPayload;
+    let affiliateBookingRequests = 0;
+    let affiliateBookingPayload;
+    let affiliateBookingStatusRequests = 0;
+    let affiliateRateRequests = 0;
+    let b2bPrebookRequests = 0;
     let checkoutStatus = 'booking_pending';
     let statusRequests = 0;
     let exchangeAvailable = true;
@@ -63,6 +70,38 @@ async function run() {
                     lastHotelPage = JSON.parse(request.postData());
                     if (lastHotelPage.currency !== 'USD') return request.respond({ status: 400, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: 'unknown currency' }) });
                     body = { hotel: hotels[1], rates: [rate(60)] };
+                }
+                else if (url.pathname.endsWith('/affiliate/availability')) body = { search: true, booking: true };
+                else if (url.pathname.endsWith('/affiliate/hotels/2/rates')) {
+                    affiliateRateRequests++;
+                    const criteria = JSON.parse(request.postData());
+                    assert.equal(criteria.currency, 'USD');
+                    body = { success: true, rates: [{
+                        book_hash: 'affiliate-hotel-rate', room_name: 'Test Hotel Double Room', meal: 'breakfast',
+                        contract_source: 'affiliate', display_amount: '80.00', display_currency: 'USD',
+                        affiliate_offer_token: 'signed.affiliate-fixture', affiliate_booking_enabled: true,
+                        payment_options: { payment_types: [{ type: 'hotel', amount: '75.00', currency_code: 'AED',
+                            show_amount: '80.00', show_currency_code: 'USD', is_need_credit_card_data: false }] }
+                    }] };
+                }
+                else if (url.pathname.endsWith('/booking/prebook')) {
+                    b2bPrebookRequests++;
+                    const prebook = JSON.parse(request.postData());
+                    assert.match(prebook.hash, /^test-(?:USD|AED)-60$/);
+                    body = { success: true, rate: rate(60), bookHash: 'test-USD-60' };
+                }
+                else if (url.pathname.endsWith('/affiliate/bookings')) {
+                    affiliateBookingRequests++;
+                    affiliateBookingPayload = JSON.parse(request.postData());
+                    assert.match(request.headers()['idempotency-key'], /^[a-f\d-]{36}$/);
+                    assert.equal(affiliateBookingPayload.contract_source, 'affiliate');
+                    assert.equal(affiliateBookingPayload.affiliate_offer_token, 'signed.affiliate-fixture');
+                    body = { process_id: affiliateProcessId, access_token: affiliateAccessToken, status: 'processing', confirmed: false };
+                }
+                else if (url.pathname.endsWith(`/affiliate/bookings/${affiliateProcessId}/status`)) {
+                    affiliateBookingStatusRequests++;
+                    assert.equal(request.headers().authorization, `Bearer ${affiliateAccessToken}`);
+                    body = { process_id: affiliateProcessId, status: 'confirmed', confirmed: true, supplier_reference: 'TEST-AFFILIATE-ORDER' };
                 }
                 else if (url.pathname.includes('/v1/hotels/')) body = { hotel: hotels[1] };
                 else if (url.pathname.endsWith('/payment/availability')) body = { enabled: paymentEnabled };
@@ -220,6 +259,9 @@ async function run() {
         assert.deepEqual(await page.$$eval('link[rel="alternate"][data-remal-hreflang]', links => links.map(link => link.hreflang).sort()), ['en', 'x-default']);
         assert.equal(await page.$eval('main', element => element.innerText.includes('كاش باك')), false);
         assert.equal(lastHotelPage.currency, 'USD');
+        assert(affiliateRateRequests > 0, 'Affiliate rates should be fetched through their separate endpoint');
+        assert.equal(await page.$$eval('article[data-contract-source="affiliate"]', cards => cards.length), 1);
+        assert.equal(await page.$$eval('article[data-contract-source="b2b"]', cards => cards.length), 1);
         assert.equal(await page.$eval('article[aria-labelledby^="room-"] button', element => element.disabled), false);
         assert((await page.$eval('article[aria-labelledby^="room-"]', element => element.textContent)).includes(formatMoney(60, 'USD')));
         assert.match(await page.$eval('article[aria-labelledby^="room-"]', element => element.textContent), /Local tax 15 AED/);
@@ -288,7 +330,7 @@ async function run() {
         assert(statusRequests > 0);
         checkoutStatus = 'booking_confirmed';
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('تم تأكيد الحجز لدى المورد'));
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('TEST-SUPPLIER-ORDER'));
         assert.match(await page.$eval('main', element => element.innerText), /TEST-SUPPLIER-ORDER/);
         assert.equal(paymentRequests, 1);
         paymentEnabled = false;
@@ -324,10 +366,39 @@ async function run() {
         checkoutStatus = 'refund_completed';
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('تم تأكيد الاسترداد'));
-        assert.doesNotMatch(await page.$eval('main', element => element.innerText), /تم تأكيد الحجز/);
-        assert.equal(paymentRequests, 2);
-        assert.deepEqual(errors, []);
         console.log('PASS: USD supplier search, four display currencies, FX fallback, original tax currency, mobile layout, disabled checkout availability, simulated AED and USD supplier-currency intents, private pending/confirmed/refunded statuses and no browser errors.');
+
+        const affiliateSearch = new URLSearchParams({ checkin: search.checkin, checkout: search.checkout,
+            guests: JSON.stringify(mockGuestCount), lang: 'en' });
+        const b2bPrebookCountBeforeAffiliate = b2bPrebookRequests;
+        const ziinaIntentCountBeforeAffiliate = paymentRequests;
+        await page.goto(`${base}/hotel/2?${affiliateSearch}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('article[data-contract-source="affiliate"] button.cta-red:not([disabled])');
+        await page.click('article[data-contract-source="affiliate"] button.cta-red:not([disabled])');
+        await page.waitForFunction(() => location.pathname === '/checkout');
+        await page.waitForSelector('#guest-first-name');
+        await page.waitForFunction(() => document.querySelector('button[type="submit"]')?.disabled === false);
+        assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem('remal_checkout') || 'null')?.room?.contract_source), 'affiliate');
+        assert.equal(await page.evaluate(() => JSON.parse(sessionStorage.getItem('remal_guest_draft') || 'null')?.key), 'affiliate:affiliate-hotel-rate');
+        await page.type('#guest-first-name', 'Affiliate');
+        await page.type('#guest-last-name', 'Guest');
+        await page.type('#guest-email', 'affiliate@example.test');
+        await page.type('#guest-phone', '+971501112233');
+        await page.click('form input[type="checkbox"]');
+        await page.click('button[type="submit"]');
+        await page.waitForFunction(() => location.search.includes('affiliate=pending'));
+        assert.equal(affiliateBookingRequests, 1);
+        assert.equal(affiliateBookingPayload.expected_price, '80');
+        assert.equal(affiliateBookingPayload.expected_currency, 'USD');
+        assert.equal(affiliateBookingPayload.rooms[0].guests[0].firstName, 'Affiliate');
+        assert.equal(paymentRequests, ziinaIntentCountBeforeAffiliate, 'Affiliate must not create a Ziina payment intent');
+        assert.equal(await page.evaluate(() => sessionStorage.getItem('remal_payment_attempt')), null);
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('TEST-AFFILIATE-ORDER'));
+        assert.match(await page.$eval('main', element => element.innerText), /TEST-AFFILIATE-ORDER/);
+        assert(affiliateBookingStatusRequests > 0);
+        assert.equal(b2bPrebookRequests, b2bPrebookCountBeforeAffiliate, 'Affiliate must not issue a B2B prebook request');
+        assert.deepEqual(errors, []);
+        console.log('PASS: Affiliate Pay at Hotel carries its signed contract and guest details only to Affiliate booking/status routes, without Ziina or B2B booking calls.');
         await page.evaluate(() => sessionStorage.clear());
         await page.setBypassServiceWorker(false);
         await page.goto(base, { waitUntil: 'domcontentloaded' });

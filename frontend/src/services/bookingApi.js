@@ -68,6 +68,22 @@ export const sortRegionHotels = async (regionId, limit = 250) =>
 export const getHotelPage = async (hotelData) =>
     responseData(await api.post('/search/hotelpage', hotelData));
 
+export const affiliateAvailability = async () =>
+    responseData(await api.get('/affiliate/availability'));
+
+export const getAffiliateHotelPage = async (hid, hotelData) =>
+    responseData(await api.post(`/affiliate/hotels/${encodeURIComponent(hid)}/rates`, hotelData));
+
+export const createAffiliateBooking = async (bookingData, idempotencyKey) =>
+    responseData(await api.post('/affiliate/bookings', bookingData, {
+        headers: { 'Idempotency-Key': idempotencyKey }, timeout: 75000
+    }));
+
+export const getAffiliateBookingStatus = async (processId, accessToken) =>
+    responseData(await api.get(`/affiliate/bookings/${encodeURIComponent(processId)}/status`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+    }));
+
 /**
  * Retrieve static hotel content and live room rates for the details page.
  * @param {string|number} hid - RateHawk hotel identifier.
@@ -116,6 +132,42 @@ export const getCheckoutStatus = async (reference, accessToken) =>
         headers: { Authorization: `Bearer ${accessToken}` }
     }));
 
+/** Create a long-lived Hotelbeds prepaid checkout session (mock payment only). */
+export const createHotelCheckoutSession = async (checkoutData, idempotencyKey) =>
+    responseData(await api.post('/v1/hotels/checkout', checkoutData, {
+        headers: { 'Idempotency-Key': idempotencyKey },
+        timeout: 30000
+    }));
+
+/** Read checkout state with its session-scoped bearer token; never cache this API request. */
+export const getHotelCheckoutSessionStatus = async (sessionId, accessToken, { signal } = {}) =>
+    responseData(await api.get(`/v1/hotels/checkout/${encodeURIComponent(sessionId)}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
+        timeout: 15000
+    }));
+
+/** Complete a test-only mock payment; authorization is scoped to the session. */
+export const completeMockHotelPayment = async (sessionId, accessToken) =>
+    responseData(await api.post(`/v1/hotels/checkout/${encodeURIComponent(sessionId)}/mock-payment`, {
+        action: 'complete'
+    }, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 30000
+    }));
+
+/** Aggregate v2 endpoint is opt-in and intentionally distinct from legacy search routes. */
+export const searchAggregateHotels = async (criteria, { signal } = {}) => {
+    const configuredPath = import.meta.env.VITE_AGGREGATE_SEARCH_PATH || '/v1/hotels/search/aggregate';
+    if (!/^\/v1\/hotels\/[a-z0-9/_-]+$/i.test(configuredPath)) {
+        throw new Error('aggregate_search_path_invalid');
+    }
+    return responseData(await api.post(configuredPath, criteria, {
+        signal,
+        timeout: 75000
+    }));
+};
+
 /**
  * Look up rate details by ETG book hash.
  * @param {string} bookHash - ETG book hash to resolve.
@@ -149,11 +201,19 @@ export default {
     searchByRegion,
     sortRegionHotels,
     getHotelPage,
+    affiliateAvailability,
+    getAffiliateHotelPage,
+    createAffiliateBooking,
+    getAffiliateBookingStatus,
     getHotelStatic,
     prebook,
     prebookSerp,
     createZiinaIntent,
     getCheckoutStatus,
+    createHotelCheckoutSession,
+    getHotelCheckoutSessionStatus,
+    completeMockHotelPayment,
+    searchAggregateHotels,
     lookupRate,
     login,
     registerSendCode,
