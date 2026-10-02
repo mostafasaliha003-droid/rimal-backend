@@ -20,7 +20,10 @@ const PRIVATE_TOKEN = 'fixture-private-hotelbeds-rate-key';
 const SUPPLIER_NET = '218.50';
 
 function approvedEnv() {
-    return Object.fromEntries(REQUIRED_PUBLIC_GATES.map(key => [key, 'true']));
+    return Object.fromEntries([
+        ...REQUIRED_PUBLIC_GATES,
+        'HOTELBEDS_COMMISSION_NET_CONTRACT_APPROVED'
+    ].map(key => [key, 'true']));
 }
 
 function availabilityResponse() {
@@ -28,6 +31,10 @@ function availabilityResponse() {
         pricePolicy: 'supplier-raw-internal-only',
         hotels: [{
             code: 74001,
+            contentHotelCode: 74001,
+            contentLanguage: 'ENG',
+            contentSource: 'hotelbeds_content_api',
+            contentSyncedAt: '2026-10-01T12:00:00.000Z',
             currency: 'EUR',
             name: 'Supplier property name',
             categoryCode: '4EST',
@@ -36,7 +43,8 @@ function availabilityResponse() {
                 contentStatus: 'complete',
                 name: 'Verified Fixture Hotel',
                 category: { code: '4EST', name: '4 stars' },
-                images: [{ path: 'verified/property.jpg' }]
+                description: 'Verified fixture property description.',
+                images: [{ path: 'verified/property.jpg', visualOrder: 0, type: { code: 'GEN' } }]
             },
             rooms: [{
                 code: 'DBL.ST',
@@ -49,8 +57,11 @@ function availabilityResponse() {
                     children: 0,
                     rateType: 'BOOKABLE',
                     rateClass: 'NOR',
+                    packaging: false,
+                    hotelMandatory: false,
                     boardCode: 'BB',
                     boardName: 'Bed and Breakfast',
+                    taxes: { allIncluded: true, taxes: [] },
                     cancellationPolicies: []
                 }]
             }]
@@ -211,7 +222,7 @@ test('unapproved public pricing gates fail closed before Availability or cache a
         assert.equal(response.status, 503);
         assert.deepEqual(await response.json(), {
             success: false,
-            error: 'hotelbeds_public_search_not_approved'
+            error: 'hotel_search_temporarily_unavailable'
         });
     });
 
@@ -246,7 +257,7 @@ test('live FX provider failures stop search before offers are cached', async () 
         assert.equal(response.status, 503);
         assert.deepEqual(await response.json(), {
             success: false,
-            error: 'fx_provider_unavailable'
+            error: 'hotel_search_temporarily_unavailable'
         });
     });
 
@@ -323,6 +334,7 @@ test('incomplete and synthetic Hotelbeds content is excluded before caching', as
                 const response = availabilityResponse();
                 response.hotels[0].content.name = 'Mock fixture hotel';
                 response.hotels[0].content.images[0].path = 'mock/hotel-74001.jpg';
+                response.hotels[0].contentSource = 'mock_fixture';
                 response.hotels.push({
                     code: 74002,
                     currency: 'EUR',

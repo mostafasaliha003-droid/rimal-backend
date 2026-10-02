@@ -1,7 +1,10 @@
-const HotelbedsHotelContent = require('../models/HotelbedsHotelContent');
+const HotelbedsHotelContent = require('../models/HotelbedsVerifiedHotelContent');
 const hotelbedsClient = require('./hotelbedsClient');
 const { operationBudgetFor } = require('./hotelbedsRateLimiter');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
+const HotelbedsRateComment = require('../models/HotelbedsRateComment');
+const { parseRateCommentsId, resolveHotelbedsRateComments } = require('./hotelbedsRateCommentResolver');
+const { isVerifiedHotelbedsContent } = require('./hotelbedsContentPolicy');
 
 const MAX_PILOT_HOTELS = 5;
 const MAX_PILOT_ROOMS = 9;
@@ -114,8 +117,10 @@ function hotelCodeOf(hotel) {
 
 function createHotelbedsAvailabilityService({
     ContentModel = HotelbedsHotelContent,
+    RateCommentModel = HotelbedsRateComment,
     client = hotelbedsClient,
     env = process.env,
+    now = () => new Date(),
     database = hotelbedsMockDatabase,
     testOnly = false,
     ensureModelConnected: testEnsureModelConnected
@@ -162,6 +167,10 @@ function createHotelbedsAvailabilityService({
         });
         if (!availability?.ok || !availability.data || typeof availability.data !== 'object'
             || availability.data.error !== undefined && availability.data.error !== null) {
+            const status = availability?.httpStatus;
+            if (status === 403) throw fail('hotelbeds_supplier_access_ambiguous', 403);
+            if (status === 403) throw fail('hotelbeds_supplier_access_ambiguous', 403);
+            if (status === 502 || status === 503) throw fail('hotelbeds_supplier_temporarily_unavailable', status);
             throw fail('hotelbeds_availability_request_failed', 502);
         }
         const hotels = responseHotelsFrom(availability);
@@ -179,16 +188,105 @@ function createHotelbedsAvailabilityService({
         const contentRows = returnedCodes.length
             ? await queryExec(ContentModel.find({ hotelCode: { $in: returnedCodes }, language: config.language }))
             : [];
-        const contentByCode = new Map((contentRows || []).map(row => [Number(row.hotelCode), row.content]));
+        const contentRowsByCode = new Map();
+        for (const row of contentRows || []) {
+            const code = Number(row.hotelCode);
+            if (!contentRowsByCode.has(code)) contentRowsByCode.set(code, []);
+            contentRowsByCode.get(code).push(row);
+        }
+        const contentByCode = new Map([...contentRowsByCode].map(([code, rows]) => [code,
+            rows.length === 1 ? {
+                content: rows[0].content,
+                source: rows[0].source,
+                hotelCode: rows[0].hotelCode,
+                language: rows[0].language,
+                syncedAt: rows[0].syncedAt
+            } : null
+        ]));
+
+        const commentIds = [];
+        for (const hotel of hotels) {
+            const code = hotelCodeOf(hotel);
+            for (const room of Array.isArray(hotel.rooms) ? hotel.rooms : []) {
+                for (const rate of Array.isArray(room?.rates) ? room.rates : []) {
+                    if (rate?.rateCommentsId) commentIds.push({ hotelCode: code, rateCommentsId: rate.rateCommentsId });
+                }
+            }
+        }
+        const commentQuery = [...new Map(commentIds.map(item => {
+            const identity = parseRateCommentsId(item.rateCommentsId);
+            if (!identity) {
+                return [`invalid|${item.hotelCode}|${item.rateCommentsId}`, null];
+            }
+            return [`${item.hotelCode}|${identity.incoming}|${identity.code}|${identity.rateCodes}`, {
+                hotelCode: item.hotelCode, language: config.language,
+                incoming: identity.incoming, code: identity.code, rateCodes: identity.rateCodes
+            }];
+        })).values()].filter(Boolean);
+        const rateCommentRows = commentQuery.length ? await (async () => {
+            await ensureModelConnected(RateCommentModel, {
+                env,
+                errorCode: 'hotelbeds_rate_comment_database_unavailable'
+            });
+            return queryExec(RateCommentModel.find({ $or: commentQuery, source: 'hotelbeds_content_api' }));
+        })() : [];
+        const checkedAt = new Date(now());
+        if (!Number.isFinite(checkedAt.getTime())) throw fail('hotelbeds_availability_clock_invalid', 503);
 
         return {
             hotels: hotels.map(hotel => {
                 const code = hotelCodeOf(hotel);
-                const content = code === null ? undefined : contentByCode.get(code);
+                const cached = code === null ? undefined : contentByCode.get(code);
+                const content = cached?.content;
+                const contentSource = cached?.source || null;
+                const contentSyncedAt = cached?.syncedAt || null;
+                const contentTrusted = isVerifiedHotelbedsContent({
+                    code,
+                    contentHotelCode: cached?.hotelCode,
+                    contentLanguage: cached?.language,
+                    contentSource,
+                    contentSyncedAt,
+                    content
+                }, { hotelCode: code, language: config.language, now: checkedAt })
+                    && Array.isArray(content?.images) && content.images.length > 0
+                    && content.images.some(image => image?.type?.code !== 'HAB' && image?.type?.code !== 'ROOM')
+                    && typeof content.description === 'string' && content.description.trim().length > 0;
+                const rooms = (Array.isArray(hotel.rooms) ? hotel.rooms : []).map(room => ({
+                    ...room,
+                    rates: (Array.isArray(room?.rates) ? room.rates : []).map(rate => {
+                        if (!rate?.rateCommentsId) {
+                            return { ...rate, rateCommentsResolved: true,
+                                hotelbedsIssues: contentTrusted ? (content.issues || []).map(issue => issue.description).filter(Boolean) : [],
+                                hotelbedsMandatoryFacilities: contentTrusted ? (content.facilities || [])
+                                    .filter(facility => facility?.voucher === true).map(facility => ({
+                                        description: facility.description,
+                                        fee: typeof facility.indFee === 'boolean' ? facility.indFee : null,
+                                        amount: facility.amount,
+                                        currency: facility.currency
+                                    })) : [] };
+                        }
+                        const resolved = resolveHotelbedsRateComments({
+                            rateCommentsId: rate.rateCommentsId, hotelCode: code, language: config.language,
+                            checkIn, records: rateCommentRows || [], now: checkedAt
+                        });
+                        return {
+                            ...rate,
+                            rateCommentsResolved: resolved.resolved,
+                            rateComments: resolved.comments,
+                            hotelbedsIssues: resolved.issues,
+                            hotelbedsMandatoryFacilities: resolved.mandatoryFacilities
+                        };
+                    })
+                }));
                 return {
                     ...hotel,
-                    content: content || null,
-                    contentMissing: !content
+                    rooms,
+                    content: contentTrusted ? content : null,
+                    contentSource: contentTrusted ? contentSource : null,
+                    contentHotelCode: contentTrusted ? code : null,
+                    contentLanguage: contentTrusted ? config.language : null,
+                    contentSyncedAt: contentTrusted ? contentSyncedAt : null,
+                    contentMissing: !contentTrusted
                 };
             }),
             contentLanguage: config.language,

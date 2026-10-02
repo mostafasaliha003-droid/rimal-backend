@@ -82,6 +82,18 @@ function normalizeBoard(codeValue, nameValue) {
     return { supplierCode, supplierName, normalizedCode: normalizedCode || 'UNKNOWN' };
 }
 
+function normalizeRateComments(value) {
+    const comments = typeof value === 'string' ? [value] : Array.isArray(value) ? value : [];
+    return comments.map(comment => typeof comment === 'string' ? comment : comment?.description)
+        .filter(comment => typeof comment === 'string' && comment.trim())
+        .map(comment => comment.trim().slice(0, 2000)).slice(0, 20);
+}
+
+function rateHasUnresolvedComment(rate) {
+    return typeof rate?.rateCommentsId === 'string' && rate.rateCommentsId.trim().length > 0
+        && rate.rateCommentsResolved !== true;
+}
+
 function normalizeTaxItems(items, mapper) {
     return Array.isArray(items) ? items.map(mapper) : [];
 }
@@ -209,7 +221,13 @@ function normalizeRate({
                 name: textOrNull(hotel.categoryName || hotel.category?.name)
             },
             destinationCode: textOrNull(hotel.destinationCode),
-            destinationName: textOrNull(hotel.destinationName)
+            destinationName: textOrNull(hotel.destinationName),
+            contentSource: textOrNull(hotel.contentSource),
+            contentHotelCode: hotel.contentHotelCode ?? null,
+            contentLanguage: textOrNull(hotel.contentLanguage),
+            contentSyncedAt: hotel.contentSyncedAt ?? null,
+            sourceContent: hotel.content || null,
+            customerContent: hotel.customerContent || null
         },
         room: {
             providerCode: textOrNull(room.code || rate.room_code || rate.room_group_id),
@@ -238,13 +256,36 @@ function normalizeRate({
             rateClass: textOrNull(rate.rateClass),
             allotment: Number.isSafeInteger(Number(rate.allotment)) && Number(rate.allotment) >= 0
                 ? Number(rate.allotment) : null,
-            packaging: typeof rate.packaging === 'boolean' ? rate.packaging : null
+            packaging: typeof rate.packaging === 'boolean' ? rate.packaging : null,
+            sourceMarket: textOrNull(rate.sourceMarket),
+            hotelMandatory: typeof rate.hotelMandatory === 'boolean' ? rate.hotelMandatory : null,
+            sellingRate: decimalString(rate.sellingRate),
+            commission: decimalString(rate.commission),
+            commissionVAT: decimalString(rate.commissionVAT),
+            commissionPCT: decimalString(rate.commissionPCT),
+            rateCommentsResolved: rate.rateCommentsResolved !== false
         },
         payment: { type: textOrNull(paymentType ?? rate.paymentType ?? rate.payment_type) },
         cancellation: {
             refundability: refundabilityFor(rate, normalizedCancellation),
             freeCancellationBefore: normalizedCancellation.freeCancellationBefore,
             schedule: normalizedCancellation.schedule
+        },
+        rateComments: Array.isArray(rate.rateComments) ? rate.rateComments.map(comment => {
+            if (typeof comment === 'string') return comment;
+            if (!comment || typeof comment !== 'object' || typeof comment.description !== 'string') return null;
+            return {
+                description: comment.description.trim().slice(0, 2000),
+                dateStart: comment.dateStart,
+                dateEnd: comment.dateEnd
+            };
+        }).filter(Boolean).slice(0, 20) : normalizeRateComments(rate.rateComments),
+        contractTerms: {
+            rateCommentsResolved: rate.rateCommentsResolved !== false,
+            issues: Array.isArray(rate.hotelbedsIssues) ? rate.hotelbedsIssues
+                .filter(item => typeof item === 'string' && item.trim()).map(item => item.trim().slice(0, 1000)).slice(0, 30) : [],
+            mandatoryFacilities: Array.isArray(rate.hotelbedsMandatoryFacilities)
+                ? rate.hotelbedsMandatoryFacilities.slice(0, 100) : []
         },
         taxes: taxes(rate),
         promotions: Array.isArray(promotions) ? promotions.map(promotion => ({
@@ -270,23 +311,26 @@ function normalizeHotelbedsHotel(hotel, { stay = {} } = {}) {
     const rooms = Array.isArray(hotel.rooms) ? hotel.rooms : [];
     return rooms.flatMap(room => (Array.isArray(room?.rates) ? room.rates : [])
         .filter(rate => rate && typeof rate === 'object' && !Array.isArray(rate))
-        .map(rate => normalizeRate({
-            provider: 'hotelbeds',
-            providerHotelId,
-            hotel,
-            room,
-            rate,
-            amount: rate.net,
-            currency,
-            amountBasis: 'supplier_net',
-            boardCode: rate.boardCode,
-            boardName: rate.boardName,
-            paymentType: rate.paymentType,
-            cancellation: hotelbedsCancellation,
-            taxes: hotelbedsTaxes,
-            promotions: rate.promotions,
-            stay
-        })));
+        .map(rate => {
+            if (rateHasUnresolvedComment(rate)) return null;
+            return normalizeRate({
+                provider: 'hotelbeds',
+                providerHotelId,
+                hotel,
+                room,
+                rate,
+                amount: rate.net,
+                currency,
+                amountBasis: 'supplier_net',
+                boardCode: rate.boardCode,
+                boardName: rate.boardName,
+                paymentType: rate.paymentType,
+                cancellation: hotelbedsCancellation,
+                taxes: hotelbedsTaxes,
+                promotions: rate.promotions,
+                stay
+            });
+        }).filter(Boolean));
 }
 
 function ratehawkPayment(rate) {
@@ -377,7 +421,23 @@ function toCustomerDisplayOffer(offer, options = {}) {
             hotel: {
                 canonicalId: offer.hotel?.canonicalId ?? null,
                 name: offer.hotel?.name ?? null,
-                category: offer.hotel?.category ?? null
+                category: offer.hotel?.category ?? null,
+                ...(offer.hotel?.customerContent && typeof offer.hotel.customerContent === 'object'
+                    ? { content: {
+                        description: textOrNull(offer.hotel.customerContent.description),
+                        images: Array.isArray(offer.hotel.customerContent.images)
+                            ? offer.hotel.customerContent.images.slice(0, 12).map(image => ({
+                                url: image.url, visualOrder: image.visualOrder
+                            })) : [],
+                        roomImages: Array.isArray(offer.hotel.customerContent.roomImages)
+                            ? offer.hotel.customerContent.roomImages.filter(image =>
+                                image.roomCode && image.roomCode === offer.room?.providerCode)
+                                .slice(0, 12).map(image => ({ url: image.url, visualOrder: image.visualOrder })) : [],
+                        facilities: Array.isArray(offer.hotel.customerContent.facilities)
+                            ? offer.hotel.customerContent.facilities.slice(0, 100) : [],
+                        issues: Array.isArray(offer.hotel.customerContent.issues)
+                            ? offer.hotel.customerContent.issues.slice(0, 30) : []
+                    } } : {})
             },
             room: {
                 name: offer.room?.name ?? null
@@ -391,9 +451,57 @@ function toCustomerDisplayOffer(offer, options = {}) {
             board: offer.board,
             cancellation: {
                 refundability: offer.cancellation?.refundability ?? 'unknown',
-                freeCancellationBefore: offer.cancellation?.freeCancellationBefore ?? null
-            }
+                freeCancellationBefore: publicPolicyTimestamp(offer.cancellation?.freeCancellationBefore),
+                schedule: publicCancellationSchedule(offer.cancellation?.schedule)
+            },
+            rateComments: normalizeRateComments(offer.rateComments),
+            contractTerms: {
+                rateCommentsResolved: offer.contractTerms?.rateCommentsResolved !== false,
+                issues: Array.isArray(offer.contractTerms?.issues) ? offer.contractTerms.issues.slice(0, 30) : [],
+                mandatoryFacilities: Array.isArray(offer.contractTerms?.mandatoryFacilities)
+                    ? offer.contractTerms.mandatoryFacilities.slice(0, 100) : []
+            },
+            taxes: publicCustomerTaxes(offer.taxes)
         }
+    };
+}
+
+function publicPolicyTimestamp(value) {
+    if (!value || typeof value.source !== 'string' || value.timezoneKnown !== true
+        || !/(?:Z|[+-]\d{2}:\d{2})$/i.test(value.source)
+        || typeof value.utc !== 'string' || !Number.isFinite(Date.parse(value.utc))) return null;
+    return { source: value.source, utc: value.utc };
+}
+
+function publicCancellationSchedule(schedule) {
+    if (!Array.isArray(schedule) || !schedule.length) return [];
+    const projected = schedule.map(item => {
+        const startsAt = publicPolicyTimestamp(item?.startsAt);
+        if (!startsAt) return null;
+        const feeAmountDisplayable = item?.penalty?.currency === 'AED'
+            && decimalString(item?.penalty?.amount) !== null;
+        return {
+            startsAt,
+            feeAmountDisplayable,
+            ...(feeAmountDisplayable ? { feeAmount: decimalString(item.penalty.amount), currency: 'AED' } : {})
+        };
+    });
+    return projected.every(Boolean) ? projected : [];
+}
+
+function publicCustomerTaxes(taxes) {
+    if (!taxes || typeof taxes !== 'object') return { status: 'unknown', allIncluded: null, items: [] };
+    return {
+        status: taxes.status === 'provided' ? 'provided' : 'unknown',
+        allIncluded: typeof taxes.allIncluded === 'boolean' ? taxes.allIncluded : null,
+        items: Array.isArray(taxes.items) ? taxes.items.slice(0, 50).map(item => ({
+            included: typeof item?.included === 'boolean' ? item.included : null,
+            type: textOrNull(item?.type),
+            subType: textOrNull(item?.subType),
+            amount: item?.clientCurrency === 'AED' ? decimalString(item?.clientAmount) : null,
+            currency: item?.clientCurrency === 'AED' && decimalString(item?.clientAmount) ? 'AED' : null,
+            amountDisplayable: item?.clientCurrency === 'AED' && Boolean(decimalString(item?.clientAmount))
+        })) : []
     };
 }
 
@@ -405,6 +513,8 @@ module.exports = {
     providerIdentifier,
     timestamp,
     normalizeBoard,
+    normalizeRateComments,
+    rateHasUnresolvedComment,
     normalizeHotelbedsHotel,
     normalizeRateHawkHotel,
     assessCustomerDisplayEligibility,

@@ -8,6 +8,7 @@ const HotelbedsOfferCache = require('../models/HotelbedsOfferCache');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
 const mongoose = require('mongoose');
 const { configuredHotelbedsPilotCodes } = require('./hotelbedsPilotList');
+const { isVerifiedHotelbedsContent, projectVerifiedHotelContent } = require('./hotelbedsContentPolicy');
 
 const LIVE_SEARCH_GATES = Object.freeze([
     'HOTELBEDS_LIVE_AGGREGATE_SEARCH_ENABLED',
@@ -144,17 +145,23 @@ function createHotelbedsLiveAggregateSearchService({
                     },
                     normalize(result, criteria) {
                         const hotels = result?.hotels || [];
-                        const publicHotels = hotels.filter(hotel => {
-                            const content = hotel?.content;
-                            const name = typeof content?.name === 'string' ? content.name.trim() : '';
-                            const hasMockImage = Array.isArray(content?.images)
-                                && content.images.some(image => /^mock\//i.test(String(image?.path || '')));
-                            return content?.contentStatus === 'complete' && name
-                                && !/^mock\b/i.test(name) && !hasMockImage;
-                        }).map(hotel => ({
+                        const nowAtProjection = now();
+                        const publicHotels = hotels.filter(hotel => isVerifiedHotelbedsContent(hotel, {
+                            hotelCode: hotel.code,
+                            language: result.contentLanguage,
+                            now: nowAtProjection
+                        })).map(hotel => ({
                             ...hotel,
                             name: hotel.content.name,
-                            category: hotel.content.category || hotel.category
+                            category: hotel.content.category || hotel.category,
+                            customerContent: projectVerifiedHotelContent(hotel, {
+                                hotelCode: hotel.code, language: result.contentLanguage, now: nowAtProjection
+                            }),
+                            contentHotelCode: hotel.contentHotelCode,
+                            contentLanguage: hotel.contentLanguage,
+                            contentSource: hotel.contentSource,
+                            contentSyncedAt: hotel.contentSyncedAt,
+                            sourceContent: hotel.content
                         }));
                         return publicHotels.flatMap(hotel => normalizeHotelbedsHotel(hotel, {
                             stay: { checkIn: criteria.checkIn, checkOut: criteria.checkOut }

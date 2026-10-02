@@ -75,22 +75,72 @@ function pick(source, fields) {
     return result;
 }
 
-function publicCancellation(cancellation) {
+function publicCancellation(cancellation, provider) {
     if (!cancellation || typeof cancellation !== 'object' || Array.isArray(cancellation)) return null;
+    const safeTimestamp = value => {
+        const source = typeof value?.source === 'string' ? value.source : '';
+        return value?.timezoneKnown === true && /(?:Z|[+-]\d{2}:\d{2})$/i.test(source)
+            && typeof value?.utc === 'string' && Number.isFinite(Date.parse(value.utc))
+            ? { source, utc: value.utc } : null;
+    };
     return {
         refundability: cancellation.refundability ?? 'unknown',
-        freeCancellationBefore: pick(cancellation.freeCancellationBefore, ['source', 'utc', 'timezoneKnown']),
-        schedule: Array.isArray(cancellation.schedule) ? cancellation.schedule.map(item => ({
-            startsAt: pick(item?.startsAt, ['source', 'utc', 'timezoneKnown']),
-            endsAt: pick(item?.endsAt, ['source', 'utc', 'timezoneKnown']),
-            penalty: pick(item?.penalty, ['amount', 'currency']),
-            displayAmount: item?.displayAmount ?? null
-        })) : []
+        freeCancellationBefore: safeTimestamp(cancellation.freeCancellationBefore),
+        schedule: Array.isArray(cancellation.schedule) && cancellation.schedule.length
+            && cancellation.schedule.every(item => safeTimestamp(item?.startsAt))
+            ? cancellation.schedule.slice(0, 30).map(item => {
+                const displayable = provider !== 'hotelbeds'
+                    ? Boolean(item?.displayAmount && item?.penalty?.currency)
+                    : item?.penalty?.currency === 'AED'
+                        && /^\d+(?:\.\d+)?$/.test(String(item?.penalty?.amount ?? ''));
+                return {
+                    startsAt: safeTimestamp(item.startsAt),
+                    feeAmountDisplayable: displayable,
+                    ...(displayable ? {
+                        feeAmount: provider === 'hotelbeds' ? String(item.penalty.amount) : String(item.displayAmount),
+                        currency: provider === 'hotelbeds' ? 'AED' : item.penalty.currency
+                    } : {})
+                };
+            }) : []
     };
 }
 
-function publicTaxes(taxes) {
+function publicRateComments(comments) {
+    return Array.isArray(comments) ? comments.slice(0, 20).map(comment => {
+        if (typeof comment === 'string') return comment.trim().slice(0, 2000);
+        if (!comment || typeof comment !== 'object') return null;
+        const description = typeof comment.description === 'string' ? comment.description.trim() : '';
+        const dateStart = typeof comment.dateStart === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(comment.dateStart)
+            ? comment.dateStart : null;
+        const dateEnd = typeof comment.dateEnd === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(comment.dateEnd)
+            ? comment.dateEnd : null;
+        if (!description) return null;
+        return dateStart && dateEnd
+            ? { description: description.slice(0, 2000), dateStart, dateEnd }
+            : description.slice(0, 2000);
+    }).filter(Boolean) : [];
+}
+
+function publicTaxes(taxes, provider) {
     if (!taxes || typeof taxes !== 'object' || Array.isArray(taxes)) return null;
+    if (provider === 'hotelbeds') {
+        return {
+            status: taxes.status === 'provided' ? 'provided' : 'unknown',
+            allIncluded: typeof taxes.allIncluded === 'boolean' ? taxes.allIncluded : null,
+            items: Array.isArray(taxes.items) ? taxes.items.slice(0, 50).map(item => {
+                const displayable = item?.clientCurrency === 'AED'
+                    && /^\d+(?:\.\d+)?$/.test(String(item?.clientAmount ?? ''));
+                return {
+                    included: typeof item?.included === 'boolean' ? item.included : null,
+                    type: typeof item?.type === 'string' ? item.type.slice(0, 100) : null,
+                    subType: typeof item?.subType === 'string' ? item.subType.slice(0, 100) : null,
+                    amount: displayable ? String(item.clientAmount) : null,
+                    currency: displayable ? 'AED' : null,
+                    amountDisplayable: displayable
+                };
+            }) : []
+        };
+    }
     return {
         status: taxes.status ?? null,
         allIncluded: typeof taxes.allIncluded === 'boolean' ? taxes.allIncluded : null,
@@ -111,6 +161,22 @@ function clientSafeOffer(offer, publicOfferId) {
             canonicalId: offer.hotel?.canonicalId ?? null,
             name: offer.hotel?.name ?? null,
             category: pick(offer.hotel?.category, ['code', 'name']),
+            content: offer.hotel?.customerContent ? {
+                description: typeof offer.hotel.customerContent.description === 'string'
+                    ? offer.hotel.customerContent.description.slice(0, 4000) : null,
+                images: Array.isArray(offer.hotel.customerContent.images)
+                    ? offer.hotel.customerContent.images.slice(0, 12).map(image => ({
+                        url: image.url, visualOrder: image.visualOrder
+                    })) : [],
+                roomImages: Array.isArray(offer.hotel.customerContent.roomImages)
+                    ? offer.hotel.customerContent.roomImages.slice(0, 12).map(image => ({
+                        url: image.url, visualOrder: image.visualOrder, roomCode: image.roomCode
+                    })) : [],
+                facilities: Array.isArray(offer.hotel.customerContent.facilities)
+                    ? offer.hotel.customerContent.facilities.slice(0, 100) : [],
+                issues: Array.isArray(offer.hotel.customerContent.issues)
+                    ? offer.hotel.customerContent.issues.slice(0, 30) : []
+            } : null,
             destinationCode: offer.hotel?.destinationCode ?? null,
             destinationName: offer.hotel?.destinationName ?? null
         },
@@ -139,8 +205,24 @@ function clientSafeOffer(offer, publicOfferId) {
             packaging: offer.availability.packaging ?? null
         } : null,
         payment: offer.payment ? { type: offer.payment.type ?? null } : null,
-        cancellation: publicCancellation(offer.cancellation),
-        taxes: publicTaxes(offer.taxes),
+        cancellation: publicCancellation(offer.cancellation, offer.provider),
+        rateComments: publicRateComments(offer.rateComments),
+        contractTerms: {
+            rateCommentsResolved: offer.contractTerms?.rateCommentsResolved !== false,
+            issues: Array.isArray(offer.contractTerms?.issues)
+                ? offer.contractTerms.issues.filter(value => typeof value === 'string' && value.trim())
+                    .map(value => value.trim().slice(0, 1000)).slice(0, 30) : [],
+            mandatoryFacilities: Array.isArray(offer.contractTerms?.mandatoryFacilities)
+                ? offer.contractTerms.mandatoryFacilities.slice(0, 100).map(item => ({
+                    description: typeof item?.description === 'string' ? item.description.trim().slice(0, 300) : '',
+                    fee: typeof item?.fee === 'boolean' ? item.fee : null,
+                    amount: item?.fee === true && item.currency === 'AED'
+                        && /^\d+(?:\.\d+)?$/.test(String(item.amount ?? '')) ? String(item.amount) : null,
+                    currency: item?.fee === true && item.currency === 'AED'
+                        && /^\d+(?:\.\d+)?$/.test(String(item.amount ?? '')) ? 'AED' : null
+                })).filter(item => item.description) : []
+        },
+        taxes: publicTaxes(offer.taxes, offer.provider),
         promotions: Array.isArray(offer.promotions) ? offer.promotions.map(promotion =>
             pick(promotion, ['code', 'name', 'remark'])) : []
     };

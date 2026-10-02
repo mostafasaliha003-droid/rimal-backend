@@ -3,6 +3,7 @@ const { normalizeHotelbedsHotel, toCustomerDisplayOffer } = require('./offerNorm
 const { createLivePricingService } = require('./pricingService');
 const liveFxService = require('./liveFxService');
 const { hotelbeds: hotelbedsOfferCache } = require('./offerCacheService');
+const { isVerifiedHotelbedsContent, projectVerifiedHotelContent } = require('./hotelbedsContentPolicy');
 
 const defaultLivePricing = createLivePricingService({ fxService: liveFxService });
 
@@ -91,21 +92,18 @@ function createSearchOrchestrator({
 
         // 2. Normalize each supplier hotel/rate; only supplier offers are passed
         //    downstream, never the original hotel response object.
+        const contentCheckAt = new Date();
         const publicHotels = availability.hotels
-            .filter(hotel => {
-                const content = hotel?.content;
-                const contentName = typeof content?.name === 'string' ? content.name.trim() : '';
-                const hasMockImage = Array.isArray(content?.images)
-                    && content.images.some(image => /^mock\//i.test(String(image?.path || '')));
-                return content?.contentStatus === 'complete'
-                    && contentName.length > 0
-                    && !/^mock\b/i.test(contentName)
-                    && !hasMockImage;
-            })
+            .filter(hotel => isVerifiedHotelbedsContent(hotel, {
+                hotelCode: hotel?.code, language: availability.contentLanguage, now: contentCheckAt
+            }))
             .map(hotel => ({
                 ...hotel,
                 name: hotel.content.name,
-                category: hotel.content.category || hotel.category
+                category: hotel.content.category || hotel.category,
+                customerContent: projectVerifiedHotelContent(hotel, {
+                    hotelCode: hotel.code, language: availability.contentLanguage, now: contentCheckAt
+                })
             }));
 
         const normalizedOffers = publicHotels.flatMap(hotel => normalizeHotel(hotel, {
@@ -114,7 +112,22 @@ function createSearchOrchestrator({
 
         // 3. Convert through live, dated FX quotes and exact BigInt pricing.
         //    Supplier net data remains private for cache locking.
-        const pricedOffers = await Promise.all(normalizedOffers.map(async offer => {
+        const commerciallyEligibleOffers = normalizedOffers.filter(offer =>
+            env.HOTELBEDS_COMMISSION_NET_CONTRACT_APPROVED === 'true'
+            && offer.availability.rateClass !== 'NRF'
+            && offer.availability.packaging === false
+            && !offer.availability.sourceMarket
+            && offer.availability.hotelMandatory === false
+            && !offer.availability.sellingRate && !offer.availability.commission
+            && !offer.availability.commissionVAT && !offer.availability.commissionPCT
+            && offer.contractTerms?.rateCommentsResolved !== false
+            && offer.price.supplierAmount.basis === 'supplier_net'
+            && offer.taxes.status === 'provided' && offer.taxes.allIncluded === true
+            && offer.taxes.items.every(item => item.included === true)
+            && offer.cancellation.schedule.every(policy => policy.startsAt?.timezoneKnown === true
+                && policy.penalty.currency === 'AED' && policy.penalty.amount !== null));
+
+        const pricedOffers = await Promise.all(commerciallyEligibleOffers.map(async offer => {
             const priced = await priceOffer({ ...offer, origin: 'live' }, 'AED', env.B2C_MARKUP_PERCENT === undefined
                 ? {} : { markupPercent: env.B2C_MARKUP_PERCENT });
             return {

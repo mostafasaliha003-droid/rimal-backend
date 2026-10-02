@@ -1,6 +1,14 @@
 const rateLimit = require('express-rate-limit');
 const logger = require('./loggerService'); // لتسجيل أي محاولات هجوم
 
+const MAX_IP_RETRY_AFTER_SECONDS = 24 * 60 * 60;
+
+function retryAfterSecondsFromResetTime(value, now = Date.now()) {
+    const resetAt = value instanceof Date ? value.getTime() : NaN;
+    if (!Number.isFinite(resetAt) || resetAt <= now) return null;
+    return Math.min(MAX_IP_RETRY_AFTER_SECONDS, Math.max(1, Math.ceil((resetAt - now) / 1000)));
+}
+
 // ==========================================
 // 🛡️ 1. جدار حماية البحث (Search API Limiter)
 // ==========================================
@@ -16,7 +24,14 @@ const searchLimiter = rateLimit({
     legacyHeaders: false, // تعطيل ترويسات X-RateLimit-* القديمة
     handler: (req, res, next, options) => {
         logger.warn(`🚨 SECURITY ALERT: Search API Rate Limit Exceeded by IP: ${req.ip}`);
-        res.status(options.statusCode).send(options.message);
+        res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
+        res.set('Pragma', 'no-cache');
+        res.set('Expires', '0');
+        const resetAt = req.rateLimit?.resetTime ?? req.rateLimit?.resetTime?.resetTime;
+        const retryAfterSeconds = retryAfterSecondsFromResetTime(resetAt);
+        if (retryAfterSeconds) res.set('Retry-After', String(retryAfterSeconds));
+        res.status(options.statusCode).json({ success: false, error: 'local_search_rate_limited',
+            ...(retryAfterSeconds ? { retryAfterSeconds } : {}) });
     }
 });
 
@@ -58,6 +73,7 @@ const globalLimiter = rateLimit({
 
 // 📦 التصدير لاستخدامها في السيرفر الرئيسي (server.js)
 module.exports = {
+    retryAfterSecondsFromResetTime,
     searchLimiter,
     bookingLimiter,
     globalLimiter

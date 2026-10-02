@@ -2,9 +2,45 @@ const crypto = require('node:crypto');
 const { OFFER_TTL_MS, storeOffers, hotelbeds: hotelbedsOfferCache } = require('./offerCacheService');
 const { providerIdentifier, toCustomerDisplayOffer } = require('./offerNormalizationService');
 const { configuredHotelbedsPilotCodes } = require('./hotelbedsPilotList');
+const { isVerifiedHotelbedsContent } = require('./hotelbedsContentPolicy');
 
 function fail(code, httpStatus = 400) {
     return Object.assign(new Error(code), { code, httpStatus });
+}
+
+function safeLiveOfferForDisplay(source, projected, env) {
+    if (source?.provider !== 'hotelbeds') return true;
+    const availability = source.availability || {};
+    const terms = source.contractTerms || {};
+    if (!isVerifiedHotelbedsContent({
+        code: source.providerHotelId,
+        contentHotelCode: source.hotel?.contentHotelCode,
+        contentLanguage: source.hotel?.contentLanguage,
+        contentSource: source.hotel?.contentSource,
+        contentSyncedAt: source.hotel?.contentSyncedAt,
+        content: source.hotel?.sourceContent
+    }, {
+        hotelCode: source.providerHotelId,
+        language: source.hotel?.contentLanguage,
+        now: new Date()
+    })) return false;
+    if (env.HOTELBEDS_COMMISSION_NET_CONTRACT_APPROVED !== 'true'
+        || availability.rateClass === 'NRF' || availability.packaging !== false
+            || availability.sourceMarket || availability.hotelMandatory !== false
+        || availability.sellingRate || availability.commission || availability.commissionVAT
+        || availability.commissionPCT || source.price?.supplierAmount?.basis !== 'supplier_net'
+        || source.cancellation?.refundability === 'non_refundable'
+        || terms.rateCommentsResolved === false) return false;
+    const schedule = source.cancellation?.schedule || [];
+    if (schedule.some(item => !item?.startsAt?.timezoneKnown
+        || !projected.cancellation?.schedule?.some(entry => entry.startsAt?.source === item.startsAt.source))) return false;
+    if (schedule.some(item => item?.penalty?.currency !== 'AED'
+        || !projected.cancellation?.schedule?.some(entry => entry.startsAt?.source === item.startsAt.source
+            && entry.feeAmountDisplayable === true))) return false;
+    const taxes = source.taxes || {};
+    if (taxes.status !== 'provided' || taxes.allIncluded !== true
+        || (taxes.items || []).some(item => item.included !== true)) return false;
+    return true;
 }
 
 function createProviderScopedCacheWriter({
@@ -388,7 +424,21 @@ function createMultiSupplierSearchOrchestrator({
             searchSupplier(supplier, criteria)));
         const successful = settled.filter(result => result.status === 'fulfilled');
         const normalizedOffers = successful.flatMap(result => result.value);
-        if (successful.length === 0) throw fail('multi_supplier_search_unavailable', 502);
+        if (successful.length === 0) {
+            const reasons = settled.filter(result => result.status === 'rejected').map(result => result.reason);
+            const quotaFailure = reasons.find(error => error?.httpStatus === 429
+                && ['hotelbeds_rate_limited', 'hotelbeds_daily_quota_exhausted',
+                    'hotelbeds_operation_daily_budget_exhausted'].includes(error.code));
+            if (quotaFailure) throw quotaFailure;
+            const supplierLimited = reasons.find(error => error?.httpStatus === 429
+                && error.code === 'hotelbeds_supplier_rate_limited');
+            if (supplierLimited) throw supplierLimited;
+            const ambiguousAccess = reasons.find(error => error?.code === 'hotelbeds_supplier_access_ambiguous');
+            if (ambiguousAccess) throw ambiguousAccess;
+            const temporary = reasons.find(error => error?.httpStatus === 503);
+            if (temporary) throw temporary;
+            throw fail('multi_supplier_search_unavailable', 502);
+        }
 
         // Mock-only search is a presentation fixture, not a supplier-backed
         // booking offer. Never cache its synthetic opaque reference into the
@@ -449,7 +499,8 @@ function createMultiSupplierSearchOrchestrator({
         })).filter(item => item.projection?.eligible && item.projection.offer
             && item.projection.offer.price?.currency === 'AED'
             && typeof item.projection.offer.price?.amount === 'string'
-            && /^\d+(?:\.\d{1,2})?$/.test(item.projection.offer.price.amount));
+            && /^\d+(?:\.\d{1,2})?$/.test(item.projection.offer.price.amount)
+            && (mockOnly || safeLiveOfferForDisplay(item.offer, item.projection.offer, env)));
 
         const hotelGroups = new Map();
         for (const { offer, identity, projection } of eligibleOffers) {
@@ -528,5 +579,6 @@ module.exports = {
     SUPPLIER_GATES,
     normalizedCriteria,
     createProviderScopedCacheWriter,
+    safeLiveOfferForDisplay,
     createMultiSupplierSearchOrchestrator
 };

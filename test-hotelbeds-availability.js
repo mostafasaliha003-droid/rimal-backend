@@ -103,7 +103,19 @@ test('availability makes one supplier request, reads content with one $in query,
             find(query) {
                 contentQueries.push(query);
                 return queryResult([
-                    { hotelCode: 12345, content: { name: 'Cached One', images: [{ path: 'img/one.jpg' }] } }
+                    {
+                        hotelCode: 12345,
+                        language: 'ENG',
+                        source: 'hotelbeds_content_api',
+                        syncedAt: new Date('2026-10-01T12:00:00.000Z'),
+                        content: {
+                            contentStatus: 'complete',
+                            name: 'Cached One',
+                            category: { code: '4EST', name: '4 stars' },
+                            description: 'Verified fixture hotel description.',
+                            images: [{ path: 'img/one.jpg', visualOrder: 0, type: { code: 'GEN' } }]
+                        }
+                    }
                 ]);
             }
         }
@@ -124,7 +136,13 @@ test('availability makes one supplier request, reads content with one $in query,
     assert.equal(contentQueries.length, 1);
     assert.deepEqual(contentQueries[0], { hotelCode: { $in: [12345, 23456] }, language: 'ENG' });
     assert.equal(result.hotels[0].name, 'Supplier Name One');
-    assert.deepEqual(result.hotels[0].content, { name: 'Cached One', images: [{ path: 'img/one.jpg' }] });
+    assert.deepEqual(result.hotels[0].content, {
+        contentStatus: 'complete',
+        name: 'Cached One',
+        category: { code: '4EST', name: '4 stars' },
+        description: 'Verified fixture hotel description.',
+        images: [{ path: 'img/one.jpg', visualOrder: 0, type: { code: 'GEN' } }]
+    });
     assert.equal(result.hotels[0].rooms[0].rates[0].net, 101.25);
     assert.equal(result.hotels[0].rooms[0].rates[0].currency, 'USD');
     assert.equal(result.hotels[0].contentMissing, false);

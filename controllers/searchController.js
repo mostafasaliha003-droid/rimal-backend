@@ -1,3 +1,5 @@
+const { sendSearchError } = require('../services/searchErrorContract');
+
 function createSearchController({ orchestrator }) {
     if (!orchestrator || typeof orchestrator.performSearch !== 'function') {
         throw new TypeError('search_controller_orchestrator_invalid');
@@ -12,11 +14,7 @@ function createSearchController({ orchestrator }) {
             const result = await orchestrator.performSearch(req.body || {});
             return res.status(200).json(result);
         } catch (error) {
-            const status = Number.isInteger(error?.httpStatus) ? error.httpStatus : 502;
-            return res.status(status).json({
-                success: false,
-                error: typeof error?.code === 'string' ? error.code : 'hotel_search_unavailable'
-            });
+            return sendSearchError(res, error);
         }
     };
 }

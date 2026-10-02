@@ -48,11 +48,12 @@ const hotelbedsHotelSchema = new mongoose.Schema({
     phone: { type: String, required: true, trim: true, maxlength: 80 },
     images: { type: [hotelbedsImageSchema], default: [] },
     facilities: { type: [hotelbedsFacilitySchema], default: [] },
+    contentSource: { type: String, enum: ['hotelbeds_content_api', 'mock_fixture'], required: true, default: 'mock_fixture' },
     contentStatus: { type: String, enum: ['complete', 'partial'], default: 'partial' },
     sourceUpdatedAt: Date,
     syncedAt: { type: Date, required: true, default: Date.now }
 }, { timestamps: true, bufferCommands: false, strict: 'throw' });
 
-hotelbedsHotelSchema.index({ hotelCode: 1, language: 1 }, { unique: true });
+hotelbedsHotelSchema.index({ hotelCode: 1, language: 1, contentSource: 1 }, { unique: true });
 
 module.exports = hotelbedsMockDatabase.model('HotelbedsHotel', hotelbedsHotelSchema);

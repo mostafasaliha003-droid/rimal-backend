@@ -122,6 +122,7 @@ function recordsAt(syncedAt = new Date()) {
         images: hotel.images.map(image => ({ ...image, type: { ...image.type } })),
         facilities: hotel.facilities.map(facility => ({ ...facility })),
         contentStatus: 'complete',
+        contentSource: 'mock_fixture',
         sourceUpdatedAt: date,
         syncedAt: date
     }));
@@ -172,11 +173,12 @@ async function seedMockHotelbedsContent({
 
     await HotelModel.deleteMany({
         hotelCode: { $in: [...PILOT_HOTEL_CODES] },
-        language: LANGUAGE
+        language: LANGUAGE,
+        contentSource: 'mock_fixture'
     });
     const hotelWriteResult = await HotelModel.bulkWrite(documents.map(document => ({
         replaceOne: {
-            filter: { hotelCode: document.hotelCode, language: document.language },
+            filter: { hotelCode: document.hotelCode, language: document.language, contentSource: 'mock_fixture' },
             replacement: document.toObject(),
             upsert: true
         }
@@ -184,10 +186,11 @@ async function seedMockHotelbedsContent({
 
     const contentWriteResult = await ContentModel.bulkWrite(records.map(record => ({
         updateOne: {
-            filter: { hotelCode: record.hotelCode, language: record.language },
+            filter: { hotelCode: record.hotelCode, language: record.language, source: 'mock_fixture' },
             update: {
                 $set: {
                     content: contentForAvailability(record),
+                    source: 'mock_fixture',
                     sourceUpdatedAt: record.sourceUpdatedAt,
                     syncedAt: record.syncedAt
                 },

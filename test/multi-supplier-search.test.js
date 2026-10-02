@@ -28,6 +28,7 @@ function approvedEnv(providers = ['hotelbeds', 'ratehawk']) {
             ...GLOBAL_GATES,
             ...providers.flatMap(provider => SUPPLIER_GATES[provider])
         ].map(name => [name, 'true'])),
+        HOTELBEDS_COMMISSION_NET_CONTRACT_APPROVED: 'true',
         HOTELBEDS_PILOT_HOTEL_CODES: '74001'
     };
 }
@@ -43,16 +44,35 @@ function offer(provider, providerHotelId, {
         origin: 'live',
         provider,
         providerHotelId,
-        hotel: { canonicalId, name, category: { code: '4EST', name: '4 stars' } },
+        hotel: {
+            canonicalId,
+            name,
+            category: { code: '4EST', name: '4 stars' },
+            ...(provider === 'hotelbeds' ? {
+                contentSource: 'hotelbeds_content_api',
+                contentHotelCode: providerHotelId,
+                contentLanguage: 'ENG',
+                contentSyncedAt: '2026-10-01T12:00:00.000Z',
+                sourceContent: {
+                    contentStatus: 'complete',
+                    name,
+                    category: { code: '4EST', name: '4 stars' }
+                }
+            } : {})
+        },
         room: { name: 'Double room' },
         stay: { checkIn: '2026-11-10', checkOut: '2026-11-12' },
         occupancy: { rooms: 1, adults: 2, children: 0 },
-        availability: { rateType: 'BOOKABLE' },
+        availability: {
+            rateType: 'BOOKABLE',
+            ...(provider === 'hotelbeds' ? { rateClass: 'NOR', packaging: false, hotelMandatory: false } : {})
+        },
         payment: { type: provider === 'hotelbeds' ? 'AT_HOTEL' : 'deposit' },
         price: {
-            supplierAmount: { amount, currency, basis: 'fixture' },
+            supplierAmount: { amount, currency, basis: provider === 'hotelbeds' ? 'supplier_net' : 'fixture' },
             display: { amount, currency: 'AED' }
         },
+        ...(provider === 'hotelbeds' ? { taxes: { status: 'provided', allIncluded: true, items: [] } } : {}),
         booking: { opaqueToken: `private-${provider}-${providerHotelId}` }
     };
 }

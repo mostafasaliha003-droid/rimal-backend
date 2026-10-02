@@ -1,3 +1,5 @@
+const { sendSearchError } = require('../services/searchErrorContract');
+
 function createAggregateSearchController({
     service,
     enabled = () => process.env.MULTI_SUPPLIER_MOCK_SEARCH_ENABLED === 'true',
@@ -22,13 +24,7 @@ function createAggregateSearchController({
             }
             return res.status(200).json(result);
         } catch (error) {
-            const status = [400, 403, 404, 429, 502, 503].includes(error?.httpStatus)
-                ? error.httpStatus : 502;
-            return res.status(status).json({
-                success: false,
-                error: typeof error?.code === 'string' && /^[a-z][a-z0-9_]{0,79}$/.test(error.code)
-                    ? error.code : 'hotel_search_unavailable'
-            });
+            return sendSearchError(res, error);
         }
     };
 }

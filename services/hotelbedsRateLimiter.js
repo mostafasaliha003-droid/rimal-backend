@@ -2,6 +2,13 @@ const crypto = require('node:crypto');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
 
 const DAY_MS = 24 * 60 * 60 * 1000;
+const MAX_RETRY_AFTER_SECONDS = 24 * 60 * 60;
+
+function retryAfterSecondsFromMs(value, maxSeconds = MAX_RETRY_AFTER_SECONDS) {
+    if (!Number.isSafeInteger(maxSeconds) || maxSeconds < 1 || maxSeconds > MAX_RETRY_AFTER_SECONDS
+        || !Number.isFinite(value) || value <= 0) return null;
+    return Math.min(maxSeconds, Math.max(1, Math.ceil(value / 1000)));
+}
 
 function fail(code, httpStatus = 503, details = {}) {
     return Object.assign(new Error(code), { code, httpStatus, ...details });
@@ -190,14 +197,22 @@ function createHotelbedsRateLimiter({
                 .sort((left, right) => left - right);
             if (recentOperation.length >= settings.operationDailyMax) {
                 throw fail('hotelbeds_operation_daily_budget_exhausted', 429, {
+                    quotaScope: 'operation_daily',
                     operation: settings.operation,
-                    retryAfterMs: Math.max(1, recentOperation[0] + settings.dailyWindowMs - timestamp)
+                    retryAfterMs: Math.max(1, recentOperation[0] + settings.dailyWindowMs - timestamp),
+                    retryAfterSeconds: retryAfterSecondsFromMs(
+                        Math.max(1, recentOperation[0] + settings.dailyWindowMs - timestamp)
+                    )
                 });
             }
         }
         if (recentDaily.length >= settings.dailyMax) {
             throw fail('hotelbeds_daily_quota_exhausted', 429, {
-                retryAfterMs: Math.max(1, recentDaily[0] + settings.dailyWindowMs - timestamp)
+                quotaScope: 'daily',
+                retryAfterMs: Math.max(1, recentDaily[0] + settings.dailyWindowMs - timestamp),
+                retryAfterSeconds: retryAfterSecondsFromMs(
+                    Math.max(1, recentDaily[0] + settings.dailyWindowMs - timestamp)
+                )
             });
         }
 
@@ -206,9 +221,13 @@ function createHotelbedsRateLimiter({
             .filter(value => Number.isFinite(value) && value > timestamp - settings.burstWindowMs)
             .sort((left, right) => left - right);
         throw fail('hotelbeds_rate_limited', 429, {
+            quotaScope: 'burst',
             retryAfterMs: recentBurst.length >= settings.burstMax
                 ? Math.max(1, recentBurst[0] + settings.burstWindowMs - timestamp)
-                : settings.burstWindowMs
+                : settings.burstWindowMs,
+            retryAfterSeconds: retryAfterSecondsFromMs(recentBurst.length >= settings.burstMax
+                ? Math.max(1, recentBurst[0] + settings.burstWindowMs - timestamp)
+                : settings.burstWindowMs)
         });
     }
 
@@ -219,8 +238,10 @@ const defaultLimiter = createHotelbedsRateLimiter();
 
 module.exports = {
     DAY_MS,
+    MAX_RETRY_AFTER_SECONDS,
+    retryAfterSecondsFromMs,
     createHotelbedsRateLimiter,
     acquire: defaultLimiter.acquire,
     operationBudgetFor,
-    _test: { settingsFor, recentRequestsExpression, recentOperationRequestsExpression, operationBudgetFor }
+    _test: { settingsFor, recentRequestsExpression, recentOperationRequestsExpression, operationBudgetFor, retryAfterSecondsFromMs }
 };

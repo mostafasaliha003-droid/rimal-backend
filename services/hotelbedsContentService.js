@@ -89,7 +89,12 @@ function phoneFromContent(source) {
     return '';
 }
 
-function normalizeHotelContent(source, { language = 'ENG', syncedAt = new Date() } = {}) {
+function normalizeHotelContent(source, {
+    language = 'ENG',
+    syncedAt = new Date(),
+    provenance = 'mock_fixture',
+    requirePhone = true
+} = {}) {
     if (!source || typeof source !== 'object' || Array.isArray(source)) {
         throw fail('hotelbeds_content_record_invalid');
     }
@@ -98,21 +103,27 @@ function normalizeHotelContent(source, { language = 'ENG', syncedAt = new Date()
     const name = localizedText(source.name, 'hotelbeds_content_name_invalid', 200);
     const category = categoryFromContent(source);
     const address = normalizeAddress(source.address);
-    const phone = requiredText(phoneFromContent(source), 'hotelbeds_content_phone_invalid', 80);
+    const rawPhone = phoneFromContent(source);
+    const phone = requirePhone ? requiredText(rawPhone, 'hotelbeds_content_phone_invalid', 80)
+        : typeof rawPhone === 'string' && rawPhone.trim() ? rawPhone.trim().slice(0, 80) : null;
     const sourceUpdatedAt = source.sourceUpdatedAt == null ? undefined : new Date(source.sourceUpdatedAt);
     if (sourceUpdatedAt && Number.isNaN(sourceUpdatedAt.getTime())) {
         throw fail('hotelbeds_content_source_date_invalid');
     }
     const syncDate = new Date(syncedAt);
     if (Number.isNaN(syncDate.getTime())) throw fail('hotelbeds_content_sync_date_invalid');
+    if (!['hotelbeds_content_api', 'mock_fixture'].includes(provenance)) {
+        throw fail('hotelbeds_content_provenance_invalid');
+    }
 
     return {
         hotelCode: code,
         language: normalizedLanguage,
+        source: provenance,
         name,
         category,
         address,
-        phone,
+        ...(phone ? { phone } : {}),
         ...(sourceUpdatedAt ? { sourceUpdatedAt } : {}),
         syncedAt: syncDate
     };
@@ -158,11 +169,11 @@ function createHotelbedsContentService({
         }));
 
         const operations = hotels.map(hotel => {
-            const { hotelCode, language: hotelLanguage, ...fields } = hotel;
+            const { hotelCode, language: hotelLanguage, source, ...fields } = hotel;
             return {
                 updateOne: {
-                    filter: { hotelCode, language: hotelLanguage },
-                    update: { $set: fields, $setOnInsert: { hotelCode, language: hotelLanguage } },
+                    filter: { hotelCode, language: hotelLanguage, contentSource: 'mock_fixture' },
+                    update: { $set: { ...fields, contentSource: source }, $setOnInsert: { hotelCode, language: hotelLanguage } },
                     upsert: true
                 }
             };
@@ -177,7 +188,6 @@ function createHotelbedsContentService({
 const defaultService = createHotelbedsContentService();
 
 module.exports = {
-    MOCK_HOTEL_CONTENT,
     normalizeHotelContent,
     categoryFromContent,
     normalizeAddress,
