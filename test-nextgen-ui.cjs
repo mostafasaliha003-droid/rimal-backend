@@ -56,7 +56,8 @@ async function run() {
         page.setDefaultTimeout(15000);
         const pageErrors = [];
         const pageLogs = [];
-        const calls = { pilotList: 0, search: [], suggestions: [], checkout: [], payment: [], status: [] };
+        const calls = { pilotList: 0, search: [], searchScenarios: [], suggestions: [], checkout: [], payment: [], status: [] };
+        const searchFailureQueue = [];
         page.on('pageerror', error => pageErrors.push(error.message));
         page.on('console', message => { if (message.type() === 'error') pageLogs.push(message.text()); });
         page.on('requestfailed', request => pageLogs.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || ''}`));
@@ -87,6 +88,18 @@ async function run() {
                         body = { success: true, suggestions: { regions: [], hotels: [] } };
                     } else if (url.pathname.endsWith('/search/aggregate') && method === 'POST') {
                         calls.search.push(JSON.parse(request.postData()));
+                        if (searchFailureQueue.length > 0) {
+                            const scenario = searchFailureQueue.shift();
+                            calls.searchScenarios.push(scenario);
+                            const errors = {
+                                '429': { status: 429, headers: { 'Retry-After': '5' }, data: { success: false, error: 'hotelbeds_local_quota_exhausted', retryAfterSeconds: 5 } },
+                                '503': { status: 503, headers: {}, data: { success: false, error: 'hotel_search_temporarily_unavailable' } },
+                                '403': { status: 403, headers: {}, data: { success: false, error: 'access_denied' } }
+                            };
+                            const failure = errors[scenario];
+                            return request.respond({ status: failure.status, headers: failure.headers,
+                                contentType: 'application/json', body: JSON.stringify(failure.data) });
+                        }
                         body = {
                             success: true,
                             schemaVersion: 2,
@@ -98,18 +111,53 @@ async function run() {
                             offerCount: 1,
                             hotels: [{
                                 hotelGroupId: 'mock-hotel-group',
-                                name: 'Rimal Next-Gen Mock Hotel',
+                                name: 'Rimal Next-Gen Fixture Hotel',
+                                category: { code: '4EST', name: 'Four-star verified fixture' },
+                                content: {
+                                    images: [{ url: 'https://photos.hotelbeds.com/giata/bigger/mock-unverified.jpg', visualOrder: 0 }]
+                                },
                                 offers: [{
                                     provider: 'hotelbeds',
                                     mock: true,
                                     publicOfferId,
                                     paymentFlow: 'PAY_NOW',
                                     occupancy: { rooms: 1, adults: 2, children: 0 },
-                                    room: { name: 'Mock Double Room' },
+                                    hotel: {
+                                        name: 'Rimal Next-Gen Fixture Hotel',
+                                        category: { code: '4EST', name: 'Four-star verified fixture' },
+                                        content: { facilities: [] }
+                                    },
+                                    room: { name: 'Mock Double Room', providerCode: 'ROOM-1' },
                                     stay: { checkIn: search.checkin, checkOut: search.checkout },
                                     price: { amount: '403.70', currency: 'AED' },
-                                    board: { normalizedCode: 'BB' },
-                                    cancellation: { refundability: 'unknown' }
+                                    board: { normalizedCode: 'BB', supplierName: 'Bed and Breakfast' },
+                                    rateComments: ['Fixture rate condition: local fees may apply.'],
+                                    contractTerms: {
+                                        rateCommentsResolved: true,
+                                        issues: [],
+                                        mandatoryFacilities: [
+                                            { description: 'Local facility fee', fee: true, amount: '25.00', currency: 'AED' },
+                                            { description: 'Unpriced mandatory facility', fee: true, amount: null, currency: null },
+                                            { description: 'Unknown facility conditions', fee: null, amount: null, currency: null }
+                                        ]
+                                    },
+                                    taxes: {
+                                        status: 'provided',
+                                        allIncluded: false,
+                                        items: [
+                                            { type: 'Municipal fee', included: false, amountDisplayable: true, amount: '8.50', currency: 'AED' },
+                                            { type: 'Unverified local tax', included: null, amountDisplayable: false }
+                                        ]
+                                    },
+                                    cancellation: {
+                                        refundability: 'unknown',
+                                        schedule: [{
+                                            startsAt: { source: '2099-10-14T18:30:00+04:00', utc: '2099-10-14T14:30:00.000Z', timezoneKnown: true },
+                                            feeAmountDisplayable: true,
+                                            feeAmount: '90.00',
+                                            currency: 'AED'
+                                        }]
+                                    }
                                 }]
                             }]
                         };
@@ -152,7 +200,9 @@ async function run() {
             }
         });
 
-        await page.goto(`${base}/next-gen`, { waitUntil: 'networkidle0' });
+        await page.goto(`${base}/next-gen?lang=en`, { waitUntil: 'networkidle0' });
+        await page.select('#language-select', 'en');
+        await page.waitForFunction(() => document.body.dataset.language === 'en');
         await page.waitForFunction(() => document.querySelector('#hotelbeds-pilot-hotel option[value="900001"]'));
         assert.match(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /Next-Gen Sandbox/);
         await page.select('#hotelbeds-pilot-hotel', '900001');
@@ -165,13 +215,20 @@ async function run() {
         await setDate('input[aria-label="Check-in"]', search.checkin);
         await setDate('input[aria-label="Check-out"]', search.checkout);
         await page.click('#hotelbeds-pilot-search');
-        try { await page.waitForFunction(() => document.body.innerText.includes('Rimal Next-Gen Mock Hotel')); }
+        try { await page.waitForFunction(() => document.body.innerText.includes('Rimal Next-Gen Fixture Hotel')); }
         catch (error) {
             console.error(JSON.stringify({ url: page.url(), body: await page.evaluate(() => document.body.innerText), calls, pageErrors, pageLogs }, null, 2));
             throw error;
         }
         assert.match(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /AED\s*403\.70/);
         assert.equal((await page.$eval('[data-next-gen-hotels]', element => element.innerText)).includes('supplierAmount'), false);
+        const resultText = await page.$eval('[data-next-gen-hotels]', element => element.innerText);
+        assert.match(resultText, /(?:Fee unknown|Tarifa desconocida)/);
+        assert.match(resultText, /(?:Amount unknown|Importe desconocido)/);
+        assert.match(resultText, /(?:Conditions unknown|Condiciones desconocidas)/);
+        assert.match(resultText, /2099-10-14T18:30:00\+04:00/);
+        assert.equal(await page.$$eval('[data-next-gen-hotels] img', images => images.length), 0,
+            'unverified mock images must not render');
         assert(calls.pilotList >= 1, 'the approved Hotelbeds pilot list must be loaded');
         assert(calls.search.length >= 1);
         assert(calls.search.every(criteria => criteria.destination.type === 'hotel'
@@ -180,9 +237,55 @@ async function run() {
             && !Object.hasOwn(criteria.destination, 'hid')));
         assert.deepEqual(calls.suggestions, [], 'Next-Gen must not call legacy RateHawk suggestions');
 
+        const submitSearch = async () => {
+            await page.click('#hotelbeds-pilot-search');
+            await page.waitForSelector('[data-search-form-error]');
+        };
+
+        searchFailureQueue.push('429');
+        await submitSearch();
+        await page.waitForSelector('[data-nextgen-cooldown]');
+        assert.match(await page.$eval('[data-nextgen-cooldown]', element => element.innerText), /5 (?:seconds|segundos)/);
+        assert.equal(await page.$eval('#hotelbeds-pilot-search', button => button.disabled), true);
+        assert.equal(await page.$eval('[data-nextgen-retry]', button => button.disabled), true);
+        const callsAfter429 = calls.search.length;
+        await new Promise(resolve => setTimeout(resolve, 400));
+        assert.equal(calls.search.length, callsAfter429, '429 cooldown must not retry automatically');
+        await page.waitForFunction(() => !document.querySelector('[data-nextgen-cooldown]'));
+        assert.equal(await page.$eval('#hotelbeds-pilot-search', button => button.disabled), false);
+        await page.click('[data-nextgen-retry]');
+        await page.waitForFunction(() => document.querySelector('[data-next-gen-hotels]')?.innerText.includes('Rimal Next-Gen Fixture Hotel'));
+        assert.equal(calls.search.length, callsAfter429 + 1, 'retry occurs only after an explicit user action');
+
+        searchFailureQueue.push('503');
+        await submitSearch();
+        assert.match(await page.$eval('[data-search-form-error]', element => element.innerText), /(?:temporarily unavailable|no está disponible temporalmente)/i);
+        assert.equal(await page.$('[data-nextgen-cooldown]'), null, '503 must not show a speculative countdown');
+        await page.click('[data-nextgen-retry]');
+        await page.waitForFunction(() => document.querySelector('[data-next-gen-hotels]')?.innerText.includes('Rimal Next-Gen Fixture Hotel'));
+
+        searchFailureQueue.push('403');
+        await submitSearch();
+        assert.match(await page.$eval('[data-search-form-error]', element => element.innerText), /(?:contact support|contacta con soporte)/i);
+        assert.doesNotMatch(await page.$eval('[data-search-form-error]', element => element.innerText), /quota|rate limit/i);
+        assert.equal(await page.$('[data-nextgen-cooldown]'), null);
+
+        await page.click('[data-nextgen-retry]');
+        await page.waitForFunction(() => document.body.innerText.includes('Rimal Next-Gen Fixture Hotel'));
+
         assert.equal(await page.$$eval('[data-next-gen-hotels] article button.cta-red', buttons => buttons.length), 1);
         await page.click('[data-next-gen-hotels] article button.cta-red');
         await page.waitForSelector('input[name="firstName"]');
+        const checkoutText = await page.$eval('aside', element => element.innerText);
+        assert.match(checkoutText, /Four-star verified fixture/);
+        assert.match(checkoutText, /Mock Double Room/);
+        assert.match(checkoutText, /Bed and Breakfast/);
+        assert.match(checkoutText, /Fixture rate condition/);
+        assert.match(checkoutText, /AED 25\.00/);
+        assert.match(checkoutText, /AED 8\.50/);
+        assert.match(checkoutText, /2099-10-14T18:30:00\+04:00/);
+        assert.match(checkoutText, /(?:Amount unknown|Importe desconocido)/);
+        assert.match(checkoutText, /(?:Fee unknown|Tarifa desconocida)/);
         await page.type('input[name="firstName"]', 'Ada');
         await page.type('input[name="lastName"]', 'Lovelace');
         await page.type('input[name="email"]', 'ada@example.test');
@@ -216,7 +319,7 @@ async function run() {
         assert(calls.status.length >= 2);
         assert(calls.status.every(call => call.authorization === `Bearer ${accessToken}`));
         assert.deepEqual(pageErrors, []);
-        console.log('PASS: mock v2 results, AED presentation, checkout creation, local mock payment, and secure confirmed status.');
+        console.log('PASS: verified fixture DTO, mock-image exclusion, rate fee/time display, 429 cooldown/manual-only retry, 503/403 UX, mock checkout, and secure confirmed status.');
     } finally {
         await context?.close();
         await browser?.close();

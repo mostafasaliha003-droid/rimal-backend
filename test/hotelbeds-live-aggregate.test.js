@@ -38,7 +38,8 @@ function enabledEnv() {
         HOTELBEDS_PILOT_APPROVED: 'true',
         HOTELBEDS_ENV: 'test',
         HOTELBEDS_PILOT_HOTEL_CODES: '74001',
-        B2C_MARKUP_PERCENT: '10'
+        B2C_MARKUP_PERCENT: '10',
+        HOTELBEDS_COMMISSION_NET_CONTRACT_APPROVED: 'true'
     };
 }
 
@@ -110,7 +111,7 @@ function memoryOfferCacheModel(connection) {
     return Model;
 }
 
-function availabilityFixture(env) {
+function availabilityFixture(env, contentSyncedAt) {
     const searchAvailabilityCalls = [];
     return {
         searchAvailabilityCalls,
@@ -123,6 +124,10 @@ function availabilityFixture(env) {
                     contentLanguage: 'EN',
                     hotels: [{
                         code: 74001,
+                        contentHotelCode: 74001,
+                        contentLanguage: 'EN',
+                        contentSource: 'hotelbeds_content_api',
+                        contentSyncedAt,
                         currency: 'EUR',
                         name: 'Supplier name',
                         rooms: [{
@@ -131,6 +136,9 @@ function availabilityFixture(env) {
                             rates: [{
                                 rateKey: 'private-rate-key-fixture',
                                 rateType: 'BOOKABLE',
+                                rateClass: 'NOR',
+                                packaging: false,
+                                hotelMandatory: false,
                                 paymentType: 'AT_WEB',
                                 boardCode: 'BB',
                                 boardName: 'Breakfast',
@@ -138,6 +146,7 @@ function availabilityFixture(env) {
                                 rooms: 1,
                                 adults: 2,
                                 children: 0,
+                                taxes: { allIncluded: true, taxes: [] },
                                 cancellationPolicies: []
                             }]
                         }],
@@ -145,7 +154,8 @@ function availabilityFixture(env) {
                             contentStatus: 'complete',
                             name: 'Verified Pilot Hotel',
                             category: { code: '4EST', name: '4 stars' },
-                            images: [{ path: 'hotel/verified.jpg' }]
+                            description: 'Verified fixture property description.',
+                            images: [{ path: 'hotel/verified.jpg', visualOrder: 0, type: { code: 'GEN' } }]
                         }
                     }]
                 };
@@ -266,7 +276,8 @@ test('legacy IDs, missing IDs, and mixed unapproved Hotelbeds IDs fail before DB
 
 function createService({ env = enabledEnv(), database = fakeDatabase(), CacheModel, FxService } = {}) {
     const cache = CacheModel || memoryOfferCacheModel(database.connection);
-    const availability = availabilityFixture(env);
+    const now = new Date();
+    const availability = availabilityFixture(env, now);
     const fxCalls = [];
     const fx = FxService || {
         async getRate(from, to) {
@@ -292,7 +303,7 @@ function createService({ env = enabledEnv(), database = fakeDatabase(), CacheMod
         },
         FxService: fx,
         CacheModel: cache,
-        now: () => new Date('2026-10-02T12:00:00.000Z')
+        now: () => now
     });
     return { service, env, database, cache, availability, fx, fxCalls, get supplierAdapters() { return supplierAdapters; } };
 }
@@ -485,6 +496,6 @@ test('live aggregate controller rejects a non-v2 response', async () => {
             method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}'
         });
         assert.equal(response.status, 502);
-        assert.deepEqual(await response.json(), { success: false, error: 'aggregate_response_schema_invalid' });
+        assert.deepEqual(await response.json(), { success: false, error: 'hotel_search_unavailable' });
     });
 });

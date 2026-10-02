@@ -31,24 +31,73 @@ function SearchSkeleton({ label }) {
     );
 }
 
-function OfferCard({ offer, onChoose, labels }) {
+function OfferCard({ offer, onChoose, labels, allowVerifiedImages, taxesUnknown }) {
     const amount = formatAedPrice(offer?.price?.amount, offer?.price?.currency);
     const canCheckout = Boolean(amount && canCreateHotelbedsCheckout(offer));
     const payAtProperty = offer.paymentFlow === 'PAY_AT_PROPERTY';
     const paymentFlowKnown = offer.paymentFlow === 'PAY_NOW' || payAtProperty;
     const refundable = offer.cancellation?.refundability;
+    const content = offer.hotel?.content;
+    const roomImages = Array.isArray(content?.roomImages) ? content.roomImages : [];
+    const verifiedRoomImage = allowVerifiedImages && offer.mock !== true && roomImages.find(image =>
+        typeof offer.room?.providerCode === 'string'
+        && image?.roomCode === offer.room.providerCode
+        && isVerifiedHotelImageUrl(image?.url)
+    );
+    const rateComments = offer.contractTerms?.rateCommentsResolved === true && Array.isArray(offer.rateComments)
+        ? offer.rateComments.map(rateCommentText).filter(Boolean) : [];
+    const taxes = offer.taxes;
 
     return (
         <article className="rounded-2xl border border-white/80 bg-white/65 p-4 shadow-sm backdrop-blur-xl transition hover:border-remal-blue/25 hover:bg-white/85 sm:p-5">
             <div className="flex flex-wrap items-start justify-between gap-4">
                 <div className="min-w-0">
-                    <h4 className="break-words text-base font-black text-remal-navy">{offer.room?.name || labels.room}</h4>
+                    <h4 className="break-words text-base font-black text-remal-navy">{offer.room?.name || labels.roomUnknown}</h4>
                     <p className="mt-2 flex items-center gap-2 text-sm font-semibold text-slate-600">
                         <BedDouble size={16} className="shrink-0 text-remal-blue" />
                         {offer.board?.normalizedCode && offer.board.normalizedCode !== 'UNKNOWN'
-                            ? (offer.board.normalizedCode === 'BB' ? labels.breakfast : offer.board.normalizedCode)
-                            : labels.roomOnly}
+                            ? [offer.board.supplierName, offer.board.normalizedCode].filter(Boolean).join(' · ')
+                            : labels.boardUnknown}
                     </p>
+                    {verifiedRoomImage?.url && <img src={verifiedRoomImage.url} alt="" loading="lazy"
+                        className="mt-3 h-28 w-40 rounded-xl object-cover" />}
+                    {rateComments.length > 0 ? rateComments.map((comment, index) => (
+                        <p key={`${index}-${comment}`} className="mt-2 max-w-2xl text-sm leading-6 text-slate-700">
+                            {labels.rateTerms}: {comment}
+                        </p>
+                    )) : <p className="mt-2 text-sm font-semibold text-slate-500">{labels.rateCommentsUnknown}</p>}
+                    {Array.isArray(offer.contractTerms?.issues) && offer.contractTerms.issues.map((issue, index) => (
+                        <p key={`issue-${index}`} className="mt-2 text-sm font-semibold text-amber-800">{issue}</p>
+                    ))}
+                    {Array.isArray(offer.contractTerms?.mandatoryFacilities) && offer.contractTerms.mandatoryFacilities.map((facility, index) => (
+                        <p key={`facility-${index}`} className="mt-2 text-sm font-semibold text-slate-700">
+                            {facility.description}: {facility.fee === true ? labels.paid : facility.fee === false ? labels.noFeeIndicated : labels.feeUnknown}
+                            {facility.amount && facility.currency ? ` · ${facility.currency} ${facility.amount}` : ''}
+                            {facility.fee === true && !(facility.amount && facility.currency)
+                                ? ` · ${labels.amountUnknown}` : ''}
+                        </p>
+                    ))}
+                    {Array.isArray(taxes?.items) && taxes.items.map((tax, index) => (
+                        <p key={`tax-${index}`} className="mt-2 text-sm font-semibold text-slate-700">
+                            {tax.type || tax.subType || labels.additionalFee}: {tax.included === true ? labels.included
+                                : tax.included === false ? labels.paid : labels.feeUnknown}
+                            {tax.amountDisplayable === true && tax.amount && tax.currency
+                                ? ` · ${tax.currency} ${tax.amount}` : ''}
+                            {tax.included === false && !(tax.amountDisplayable === true && tax.amount && tax.currency)
+                                ? ` · ${labels.amountUnknown}` : ''}
+                        </p>
+                    ))}
+                    {taxes?.status !== 'provided' || taxes?.allIncluded === null
+                        || taxes?.items?.some(tax => tax.included === null)
+                        ? <p className="mt-2 text-sm font-semibold text-amber-800">{labels.feesUnknown}</p>
+                        : taxes.allIncluded === false && taxes.items?.length === 0
+                            ? <p className="mt-2 text-sm font-semibold text-amber-800">{labels.taxesNotIncluded}</p>
+                            : null}
+                    {taxes?.status === 'provided' && taxes.allIncluded === false
+                        && taxes.items?.length > 0 && taxes.items.every(tax => tax.included !== false)
+                        ? <p className="mt-2 text-sm font-semibold text-amber-800">{labels.taxesNotIncluded}</p>
+                        : null}
+                    {taxesUnknown && <p className="mt-2 text-sm font-semibold text-amber-800">{labels.feesUnknown}</p>}
                     {offer.stay?.checkIn && offer.stay?.checkOut && (
                         <p className="mt-2 flex items-center gap-2 text-xs font-bold text-slate-500">
                             <Clock3 size={14} /> {offer.stay.checkIn} — {offer.stay.checkOut}
@@ -67,7 +116,17 @@ function OfferCard({ offer, onChoose, labels }) {
                 <span className={`inline-flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-black ${payAtProperty ? 'bg-emerald-50 text-emerald-800' : 'bg-cyan-50 text-cyan-900'}`}>
                     <ShieldCheck size={14} /> {payAtProperty ? labels.payAtProperty : offer.paymentFlow === 'PAY_NOW' ? labels.payNow : labels.paymentUnknown}
                 </span>
-                <span className="text-xs font-bold text-slate-500">{labels.refundability[refundable] || labels.policyVaries}</span>
+                    <span className="text-xs font-bold text-slate-500">{refundable === 'unknown'
+                        ? labels.unknownConditions : labels.refundability[refundable] || labels.unknownConditions}</span>
+                {Array.isArray(offer.cancellation?.schedule) && offer.cancellation.schedule.map((policy, index) => (
+                    <span key={`cancel-${index}`} className="w-full text-xs font-semibold text-slate-600">
+                        {labels.cancellationFrom}: {policy.startsAt?.source || labels.timeUnknown}
+                        {policy.startsAt?.source && !hasExplicitTimezoneOffset(policy.startsAt.source)
+                            ? ` · ${labels.timeUnknown}` : ''}
+                        {policy.feeAmountDisplayable === true && policy.feeAmount && policy.currency
+                            ? ` · ${labels.fee}: ${policy.currency} ${policy.feeAmount}` : ''}
+                    </span>
+                ))}
                 {canCheckout ? (
                     <button type="button" onClick={() => onChoose?.(offer)} className="cta-red inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white">
                         {labels.choose} <ArrowRight size={16} />
@@ -82,10 +141,13 @@ function OfferCard({ offer, onChoose, labels }) {
     );
 }
 
-function HotelCard({ hotel, onChooseOffer, labels }) {
+function HotelCard({ hotel, onChooseOffer, labels, allowVerifiedImages, taxesUnknown }) {
     const offers = Array.isArray(hotel.offers) ? hotel.offers : [];
-    const image = typeof hotel.images?.[0] === 'string' ? hotel.images[0] : null;
-    const category = hotel.category?.name || hotel.category?.code;
+    const hasMockOffers = offers.some(offer => offer?.mock === true);
+    const image = allowVerifiedImages && hotel.mock !== true && !hasMockOffers
+        ? hotel.content?.images?.find(candidate => isVerifiedHotelImageUrl(candidate?.url))?.url || null
+        : null;
+    const category = hotel.category?.name || labels.categoryUnknown;
 
     return (
         <article className="glass-surface overflow-hidden rounded-3xl border border-white/80 shadow-float">
@@ -93,26 +155,58 @@ function HotelCard({ hotel, onChooseOffer, labels }) {
                 {image && <img src={image} alt="" loading="lazy" className="h-48 w-full object-cover sm:h-52 sm:w-56" />}
                 <div className="min-w-0 flex-1 p-5 sm:p-6">
                     <p className="eyebrow flex items-center gap-2"><MapPin size={14} /> {hotel.destinationName || hotel.destinationCode || labels.hotel}</p>
-                    <h3 className="mt-2 break-words text-2xl font-black text-remal-navy">{hotel.name || labels.hotel}</h3>
+                        <h3 className="mt-2 break-words text-2xl font-black text-remal-navy">{hotel.name || labels.hotel}</h3>
                     {category && <p className="mt-2 text-sm font-semibold text-slate-600">{category}</p>}
+                    {hotel.content?.description && <p className="mt-3 max-w-3xl text-sm leading-6 text-slate-700">{hotel.content.description}</p>}
+                    {Array.isArray(hotel.content?.facilities) && hotel.content.facilities.map((facility, index) => (
+                        <p key={`hotel-facility-${index}`} className="mt-2 text-sm text-slate-600">
+                            {facility.description}: {facility.present === false ? labels.notPresent
+                                : facility.fee === true ? labels.paid
+                                    : facility.fee === false ? labels.noFeeIndicated : labels.feeUnknown}
+                            {facility.amount && facility.currency ? ` · ${facility.currency} ${facility.amount}` : ''}
+                        </p>
+                    ))}
                     {hotel.hotelGroupId && <p className="mt-2 text-xs font-semibold text-slate-500">{labels.verifiedProperty}</p>}
                 </div>
             </div>
             <div className="space-y-3 border-t border-remal-navy/5 bg-white/30 p-4 sm:p-5">
                 {offers.length ? offers.map((offer, index) => (
-                    <OfferCard key={offer.publicOfferId || `${hotel.hotelGroupId}-${index}`} offer={offer} onChoose={onChooseOffer} labels={labels} />
+                    <OfferCard key={offer.publicOfferId || `${hotel.hotelGroupId}-${index}`} offer={offer} onChoose={onChooseOffer} labels={labels} allowVerifiedImages={allowVerifiedImages && Boolean(hotel.hotelGroupId)} taxesUnknown={taxesUnknown} />
                 )) : <p className="rounded-2xl bg-white/65 p-5 text-sm font-bold text-slate-600">{labels.noOffers}</p>}
             </div>
         </article>
     );
 }
 
+function hasExplicitTimezoneOffset(value) {
+    return typeof value === 'string' && /(?:Z|[+-]\d{2}:\d{2})$/i.test(value);
+}
+
+function rateCommentText(comment) {
+    const value = typeof comment === 'string' ? comment : comment?.description;
+    return typeof value === 'string' ? value.trim() : '';
+}
+
+function isVerifiedHotelImageUrl(value) {
+    if (typeof value !== 'string' || !value || /mock/i.test(value)) return false;
+    try {
+        const imageUrl = new URL(value);
+        return imageUrl.protocol === 'https:' && imageUrl.hostname === 'photos.hotelbeds.com'
+            && !imageUrl.username && !imageUrl.password;
+    } catch {
+        return false;
+    }
+}
+
 export default function UnifiedSearchResults({
     response,
     isLoading = false,
     error = '',
+    errorStatus,
     onRetry,
     onChooseOffer,
+    retryDisabled = false,
+    cooldownSeconds = 0,
     className = ''
 }) {
     const { t, direction } = useLanguage();
@@ -123,6 +217,7 @@ export default function UnifiedSearchResults({
         heading: t('nextgen.heading', 'عروض الفنادق المناسبة لرحلتك'),
         hotel: t('nextgen.hotel', 'فندق'),
         room: t('nextgen.room', 'غرفة'),
+        roomUnknown: t('nextgen.roomUnknown', 'Room details unknown'),
         total: t('nextgen.total', 'إجمالي الإقامة'),
         serverPrice: t('nextgen.serverPrice', 'السعر النهائي من الخادم · AED'),
         priceUnavailable: t('nextgen.priceUnavailable', 'السعر غير متاح'),
@@ -136,8 +231,26 @@ export default function UnifiedSearchResults({
         },
         verifiedProperty: t('nextgen.verifiedProperty', 'عروض موحدة للعقار الموثّق فقط'),
         breakfast: t('nextgen.breakfast', 'يشمل الإفطار'),
-        roomOnly: t('nextgen.roomOnly', 'غرفة فقط'),
-        policyVaries: t('nextgen.policyVaries', 'تختلف شروط الإلغاء'),
+        boardUnknown: t('nextgen.boardUnknown', 'Board information unavailable'),
+        unknownConditions: t('nextgen.unknownConditions', 'Conditions unknown'),
+        cancellationFrom: t('nextgen.cancellationFrom', 'Cancellation terms apply from'),
+        timeUnknown: t('nextgen.timeUnknown', 'Time zone unknown'),
+        fee: t('nextgen.fee', 'Fee'),
+        additionalFee: t('nextgen.additionalFee', 'Additional fee'),
+        included: t('nextgen.included', 'Included'),
+        categoryUnknown: t('nextgen.categoryUnknown', 'Hotel category unavailable'),
+        amountUnknown: t('nextgen.amountUnknown', 'Amount unknown'),
+        feesUnknown: t('nextgen.feesUnknown', 'Additional fees or tax conditions unknown'),
+        taxesNotIncluded: t('nextgen.taxesNotIncluded', 'Taxes are not included in the displayed amount'),
+        rateTerms: t('nextgen.rateTerms', 'Rate terms'),
+        rateCommentsUnknown: t('nextgen.rateCommentsUnknown', 'Rate comments unknown'),
+        unavailable503: t('nextgen.unavailable503', 'Hotel search is temporarily unavailable. No retry time is known.'),
+        accessError: t('nextgen.accessError', 'Search access is unavailable. Please contact support or try again later.'),
+        paid: t('nextgen.paidFee', 'Paid'),
+        noFeeIndicated: t('nextgen.noFeeIndicated', 'No fee indicated'),
+        feeUnknown: t('nextgen.feeUnknown', 'Fee unknown'),
+        notPresent: t('nextgen.facilityNotPresent', 'Not available'),
+        cooldown: t('nextgen.cooldown', 'Search is temporarily paused. You can retry in {{seconds}} seconds.'),
         noOffers: t('nextgen.noOffers', 'لا توجد عروض صالحة لهذا الفندق.'),
         emptyTitle: t('nextgen.emptyTitle', 'لم نعثر على عروض لهذه الرحلة'),
         emptyBody: t('nextgen.emptyBody', 'جرّب تغيير التواريخ أو الوجهة ثم أعد البحث.'),
@@ -163,11 +276,20 @@ export default function UnifiedSearchResults({
     if (isLoading) return <SearchSkeleton label={labels.loading} />;
     if (error || invalidResponse) {
         return (
-            <section role="alert" dir={direction} className={`glass-surface rounded-3xl border border-red-200/80 p-8 text-center shadow-float sm:p-12 ${className}`}>
+            <section role="alert" data-error-status={errorStatus || ''} dir={direction} className={`glass-surface rounded-3xl border border-red-200/80 p-8 text-center shadow-float sm:p-12 ${className}`}>
                 <AlertCircle size={38} className="mx-auto text-remal-danger" />
                 <h2 className="mt-4 text-2xl font-black text-remal-navy">{labels.errorTitle}</h2>
-                <p className="mt-2 text-sm font-semibold text-slate-600">{invalidResponse ? labels.errorTitle : error}</p>
-                {onRetry && <button type="button" onClick={onRetry} className="cta-red mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl px-5 py-2.5 font-black text-white"><RefreshCw size={16} />{labels.retry}</button>}
+                <p className="mt-2 text-sm font-semibold text-slate-600">{invalidResponse ? labels.errorTitle
+                    : errorStatus === 503 ? labels.unavailable503
+                        : errorStatus === 403 ? labels.accessError : error}</p>
+                {cooldownSeconds > 0 && <p id="nextgen-cooldown-status" data-nextgen-cooldown role="status" aria-live="polite" className="mt-3 text-sm font-semibold text-slate-700">
+                    {labels.cooldown.replace('{{seconds}}', String(cooldownSeconds))}
+                </p>}
+                {onRetry && <button type="button" disabled={retryDisabled || isLoading || cooldownSeconds > 0}
+                    data-nextgen-retry
+                    onClick={onRetry} className="cta-red mt-6 inline-flex min-h-11 items-center gap-2 rounded-xl px-5 py-2.5 font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
+                    <RefreshCw size={16} />{labels.retry}
+                </button>}
             </section>
         );
     }
@@ -199,7 +321,7 @@ export default function UnifiedSearchResults({
             {normalized.mock === true && <p role="note" className="rounded-2xl border border-cyan-200/70 bg-cyan-50/80 p-4 text-sm font-black text-cyan-950">{labels.mockNotice}</p>}
             {normalized.partialResults && <p role="status" className="flex items-start gap-2 rounded-2xl border border-amber-200/70 bg-amber-50/75 p-4 text-sm font-bold text-amber-950 backdrop-blur-xl"><AlertCircle size={18} className="mt-0.5 shrink-0" />{labels.partial}</p>}
             <div className="space-y-5">
-                {visibleHotels.map((hotel, index) => <HotelCard key={hotel.hotelGroupId || `${hotel.name}-${index}`} hotel={hotel} onChooseOffer={onChooseOffer} labels={labels} />)}
+                {visibleHotels.map((hotel, index) => <HotelCard key={hotel.hotelGroupId || `${hotel.name}-${index}`} hotel={hotel} onChooseOffer={onChooseOffer} labels={labels} allowVerifiedImages={normalized.mock !== true} taxesUnknown={normalized.mock !== true} />)}
             </div>
             {!expandedHotels && hotels.length > visibleHotels.length && (
                 <button type="button" onClick={() => setExpandedHotels(true)} className="glass-light min-h-12 w-full rounded-2xl border border-white/80 px-5 py-3 font-black text-remal-navy shadow-sm backdrop-blur-xl hover:bg-white/90">{labels.showMore}</button>

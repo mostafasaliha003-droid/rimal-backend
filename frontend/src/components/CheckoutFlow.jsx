@@ -53,6 +53,12 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
         back: t('nextgen.backOffers', 'العودة للعروض'),
         payNow: t('nextgen.payNow', 'الدفع الآن')
     };
+    const refundabilityLabels = {
+        conditional: t('nextgen.conditional', 'Cancellation with conditions'),
+        non_refundable: t('nextgen.nonRefundable', 'Non-refundable'),
+        refundable: t('nextgen.refundable', 'Refundable'),
+        unknown: t('nextgen.unknownRefund', 'Cancellation conditions unknown')
+    };
 
     const submit = async event => {
         event.preventDefault();
@@ -167,7 +173,89 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
                 <aside className="glass-surface h-fit rounded-3xl border border-white/80 p-5 shadow-float backdrop-blur-2xl sm:p-6 lg:sticky lg:top-6">
                     <p className="eyebrow flex items-center gap-2"><ShieldCheck size={14} />{t('nextgen.summary', 'ملخص العرض')}</p>
                     <h2 className="mt-3 text-xl font-black text-remal-navy">{bookingContext.hotelName || offer.hotel?.name || t('nextgen.hotel', 'فندق')}</h2>
-                    <p className="mt-2 text-sm font-semibold text-slate-600">{offer.room?.name || t('nextgen.room', 'غرفة')}</p>
+                    <p className="mt-2 text-sm font-semibold text-slate-600">
+                        {offer.hotel?.category?.name
+                            || t('nextgen.categoryUnknown', 'Hotel category unavailable')}
+                    </p>
+                    <p className="mt-2 text-sm font-semibold text-slate-600">{offer.room?.name || t('nextgen.roomUnknown', 'Room details unknown')}</p>
+                    {offer.board?.normalizedCode && offer.board.normalizedCode !== 'UNKNOWN'
+                        ? <p className="mt-2 text-sm font-semibold text-slate-600">{offer.board.supplierName || offer.board.normalizedCode}</p>
+                        : <p className="mt-2 text-sm font-semibold text-slate-500">{t('nextgen.boardUnknown', 'Board information unavailable')}</p>}
+                    {offer.contractTerms?.rateCommentsResolved === true
+                        && Array.isArray(offer.rateComments) && offer.rateComments.length > 0
+                        ? offer.rateComments.map((comment, index) => (
+                        <p key={`comment-${index}`} className="mt-2 text-sm leading-6 text-slate-700">
+                            {t('nextgen.rateTerms', 'Rate terms')}: {typeof comment === 'string' ? comment : comment?.description}
+                        </p>
+                    )) : <p className="mt-2 text-sm font-semibold text-slate-500">
+                        {t('nextgen.rateCommentsUnknown', 'Rate comments unknown')}
+                    </p>}
+                    {Array.isArray(offer.contractTerms?.issues) && offer.contractTerms.issues.map((issue, index) => (
+                        <p key={`issue-${index}`} className="mt-2 text-sm leading-6 text-amber-800">{issue}</p>
+                    ))}
+                    {Array.isArray(offer.contractTerms?.mandatoryFacilities) && offer.contractTerms.mandatoryFacilities.map((facility, index) => (
+                        <p key={`facility-${index}`} className="mt-2 text-sm text-slate-700">
+                            {facility.description}: {facility.fee === true ? t('nextgen.paidFee', 'Paid')
+                                : facility.fee === false ? t('nextgen.noFeeIndicated', 'No fee indicated')
+                                    : t('nextgen.feeUnknown', 'Fee unknown')}
+                            {facility.amount && facility.currency ? ` · ${facility.currency} ${facility.amount}` : ''}
+                            {facility.fee === true && !(facility.amount && facility.currency)
+                                ? ` · ${t('nextgen.amountUnknown', 'Amount unknown')}` : ''}
+                        </p>
+                    ))}
+                    {Array.isArray(offer.hotel?.content?.facilities) && offer.hotel.content.facilities.map((facility, index) => (
+                        <p key={`content-facility-${index}`} className="mt-2 text-sm text-slate-700">
+                            {facility.description}: {facility.fee === true ? t('nextgen.paidFee', 'Paid')
+                                : facility.fee === false ? t('nextgen.noFeeIndicated', 'No fee indicated')
+                                    : t('nextgen.feeUnknown', 'Fee unknown')}
+                            {facility.amount && facility.currency ? ` · ${facility.currency} ${facility.amount}` : ''}
+                            {facility.fee === true && !(facility.amount && facility.currency)
+                                ? ` · ${t('nextgen.amountUnknown', 'Amount unknown')}` : ''}
+                        </p>
+                    ))}
+                    {Array.isArray(offer.taxes?.items) && offer.taxes.items.map((tax, index) => (
+                        <p key={`tax-${index}`} className="mt-2 text-sm text-slate-700">
+                            {tax.type || tax.subType || t('nextgen.additionalFee', 'Additional fee')}: {tax.included === true
+                                ? t('nextgen.included', 'Included') : tax.included === false
+                                    ? t('nextgen.paidFee', 'Paid') : t('nextgen.feeUnknown', 'Fee unknown')}
+                            {tax.amountDisplayable === true && tax.amount && tax.currency
+                                ? ` · ${tax.currency} ${tax.amount}` : ''}
+                            {tax.included === false && !(tax.amountDisplayable === true && tax.amount && tax.currency)
+                                ? ` · ${t('nextgen.amountUnknown', 'Amount unknown')}` : ''}
+                        </p>
+                    ))}
+                    {offer.taxes?.status !== 'provided' || offer.taxes?.allIncluded === null
+                        || offer.taxes?.items?.some(tax => tax.included === null)
+                        ? <p className="mt-2 text-sm font-semibold text-amber-800">
+                            {t('nextgen.feesUnknown', 'Additional fees or tax conditions unknown')}
+                        </p>
+                        : offer.taxes.allIncluded === false && offer.taxes.items?.length === 0
+                            ? <p className="mt-2 text-sm font-semibold text-amber-800">
+                                {t('nextgen.taxesNotIncluded', 'Taxes are not included in the displayed amount')}
+                            </p> : null}
+                    {offer.taxes?.status === 'provided' && offer.taxes.allIncluded === false
+                        && offer.taxes.items?.length > 0 && offer.taxes.items.every(tax => tax.included !== false)
+                        ? <p className="mt-2 text-sm font-semibold text-amber-800">
+                            {t('nextgen.taxesNotIncluded', 'Taxes are not included in the displayed amount')}
+                        </p> : null}
+                    <p className="mt-2 text-sm font-semibold text-slate-600">
+                        {refundabilityLabels[offer.cancellation?.refundability] || refundabilityLabels.unknown}
+                    </p>
+                    {Array.isArray(offer.cancellation?.schedule) && offer.cancellation.schedule.length > 0
+                        ? offer.cancellation.schedule.map((policy, index) => (
+                        <p key={`cancellation-${index}`} className="mt-2 text-xs font-semibold text-slate-600">
+                            {t('nextgen.cancellationFrom', 'Cancellation terms apply from')}: {policy.startsAt?.source
+                                || t('nextgen.timeUnknown', 'Time zone unknown')}
+                            {policy.startsAt?.source && !/(?:Z|[+-]\d{2}:\d{2})$/i.test(policy.startsAt.source)
+                                ? ` · ${t('nextgen.timeUnknown', 'Time zone unknown')}` : ''}
+                            {policy.feeAmountDisplayable === true && policy.feeAmount && policy.currency
+                                ? ` · ${policy.currency} ${policy.feeAmount}` : ''}
+                            {policy.feeAmountDisplayable !== true
+                                ? ` · ${t('nextgen.feeUnknown', 'Fee unknown')}` : ''}
+                        </p>
+                    )) : <p className="mt-2 text-xs font-semibold text-slate-500">
+                        {t('nextgen.unknownConditions', 'Cancellation conditions unknown')}
+                    </p>}
                     <p className="mt-4 flex items-center gap-2 text-xs font-bold text-slate-500"><CalendarDays size={15} />{stay.checkIn || '—'} — {stay.checkOut || '—'}</p>
                     <div className="mt-6 border-t border-remal-navy/10 pt-5">
                         <p className="text-xs font-bold text-slate-500">{labels.total}</p>

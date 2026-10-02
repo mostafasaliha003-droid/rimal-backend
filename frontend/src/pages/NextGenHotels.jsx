@@ -35,6 +35,52 @@ function readInitialAdults(initialSearch) {
         ? guests[0].adults : 2;
 }
 
+function retryAfterMilliseconds(error, now = Date.now()) {
+    const maxCooldownMs = 24 * 60 * 60 * 1000;
+    const response = error?.response;
+    const headers = response?.headers;
+    let retryAfter = typeof headers?.get === 'function'
+        ? headers.get('retry-after')
+        : headers?.['retry-after'] ?? headers?.['Retry-After'];
+
+    if (retryAfter === undefined || retryAfter === null || retryAfter === '') {
+        retryAfter = response?.data?.retryAfterSeconds;
+        const seconds = Number(retryAfter);
+        return Number.isFinite(seconds) && seconds >= 0
+            ? Math.min(maxCooldownMs, Math.ceil(seconds * 1000)) : null;
+    }
+
+    const value = String(retryAfter).trim();
+    if (/^\d+(?:\.\d+)?$/.test(value)) {
+        const seconds = Number(value);
+        return Number.isFinite(seconds) ? Math.min(maxCooldownMs, Math.ceil(seconds * 1000)) : null;
+    }
+    if (!/^[A-Z][a-z]{2}, \d{2} [A-Z][a-z]{2} \d{4} \d{2}:\d{2}:\d{2} GMT$/.test(value)) return null;
+    const retryAt = Date.parse(value);
+    return Number.isFinite(retryAt) ? Math.min(maxCooldownMs, Math.max(0, retryAt - now)) : null;
+}
+
+function searchErrorMessage(status, code, t) {
+    if (status === 429) {
+        return code === 'hotelbeds_supplier_rate_limited'
+            ? t('nextgen.supplierQuotaError', 'The supplier is temporarily limiting searches. Please try again later.')
+            : t('nextgen.quotaError', 'Search is temporarily paused because a request limit was reached.');
+    }
+    if (status === 503) {
+        return t('nextgen.unavailable503', 'Hotel search is temporarily unavailable. No retry time is known.');
+    }
+    if (status === 403) {
+        return t('nextgen.accessError', 'Search access is unavailable. Please contact support or try again later.');
+    }
+    if (code === 'multi_supplier_mock_search_disabled') {
+        return t('nextgen.searchDisabled', 'Mock search is not currently enabled on the server.');
+    }
+    if (code === 'hotelbeds_pilot_hotel_not_allowed') {
+        return t('nextgen.pilotSelectionInvalid', 'Select a hotel from the currently approved pilot list.');
+    }
+    return t('nextgen.searchError', 'Mock search could not complete. Please try again later.');
+}
+
 export default function NextGenHotels({ initialSearch = null }) {
     const { t, apiLanguage, language, direction } = useLanguage();
     const [pilotHotels, setPilotHotels] = useState([]);
@@ -47,10 +93,27 @@ export default function NextGenHotels({ initialSearch = null }) {
     const [response, setResponse] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [cooldownUntil, setCooldownUntil] = useState(null);
+    const [cooldownSeconds, setCooldownSeconds] = useState(0);
     const [retryKey, setRetryKey] = useState(0);
     const requestVersion = useRef(0);
     const activeRequest = useRef(null);
     const mounted = useRef(false);
+
+    useEffect(() => {
+        if (cooldownUntil === null) {
+            setCooldownSeconds(0);
+            return undefined;
+        }
+        const updateCountdown = () => {
+            const remaining = Math.max(0, Math.ceil((cooldownUntil - Date.now()) / 1000));
+            setCooldownSeconds(remaining);
+            if (remaining === 0) setCooldownUntil(null);
+        };
+        updateCountdown();
+        const timer = window.setInterval(updateCountdown, 1000);
+        return () => window.clearInterval(timer);
+    }, [cooldownUntil]);
 
     useEffect(() => {
         let active = true;
@@ -79,6 +142,8 @@ export default function NextGenHotels({ initialSearch = null }) {
         setSearch(criteria);
         setLoading(true);
         setError('');
+        setCooldownUntil(null);
+        setCooldownSeconds(0);
         try {
             // Revalidate against the latest server-supplied list at the call boundary.
             const request = sanitizeHotelbedsPilotSearch(criteria, pilotHotels);
@@ -94,11 +159,17 @@ export default function NextGenHotels({ initialSearch = null }) {
         } catch (cause) {
             if (version !== requestVersion.current || controller.signal.aborted) return null;
             setResponse(null);
-            setError(cause?.response?.data?.error === 'multi_supplier_mock_search_disabled'
-                ? t('nextgen.searchDisabled', 'Mock search is not currently enabled on the server.')
-                : cause?.message === 'hotelbeds_pilot_hotel_not_allowed'
-                    ? t('nextgen.pilotSelectionInvalid', 'Select a hotel from the currently approved pilot list.')
-                    : t('nextgen.searchError', 'Mock search could not complete. Please try again later.'));
+            const status = Number(cause?.response?.status) || null;
+            const code = cause?.response?.data?.error || cause?.message || null;
+            setError({ message: searchErrorMessage(status, code, t), status, code });
+            const waitMs = status === 429 ? retryAfterMilliseconds(cause) : null;
+            if (waitMs !== null && waitMs > 0) {
+                setCooldownUntil(Date.now() + waitMs);
+                setCooldownSeconds(Math.ceil(waitMs / 1000));
+            } else {
+                setCooldownUntil(null);
+                setCooldownSeconds(0);
+            }
             return null;
         } finally {
             if (version === requestVersion.current) {
@@ -122,14 +193,15 @@ export default function NextGenHotels({ initialSearch = null }) {
 
     const handleSubmit = event => {
         event.preventDefault();
+        if (cooldownSeconds > 0) return;
         setError('');
         if (!pilotHotels.some(hotel => hotel.providerHotelId === selectedHotelCode)) {
-            setError(t('nextgen.pilotSelectionInvalid', 'Select a hotel from the currently approved pilot list.'));
+            setError({ message: t('nextgen.pilotSelectionInvalid', 'Select a hotel from the currently approved pilot list.') });
             return;
         }
         if (!isValidDate(dates.checkIn) || !isValidDate(dates.checkOut) || dates.checkOut <= dates.checkIn
             || !Number.isSafeInteger(adults) || adults < 1 || adults > 6) {
-            setError(t('nextgen.pilotDatesInvalid', 'Choose valid stay dates and one to six adults.'));
+            setError({ message: t('nextgen.pilotDatesInvalid', 'Choose valid stay dates and one to six adults.') });
             return;
         }
         let criteria;
@@ -142,14 +214,14 @@ export default function NextGenHotels({ initialSearch = null }) {
                 hotels: pilotHotels
             });
         } catch {
-            setError(t('nextgen.pilotSelectionInvalid', 'Select a hotel from the currently approved pilot list.'));
+            setError({ message: t('nextgen.pilotSelectionInvalid', 'Select a hotel from the currently approved pilot list.') });
             return;
         }
         void runSearch(criteria);
     };
 
     const retrySearch = () => {
-        if (!search) return;
+        if (!search || cooldownSeconds > 0) return;
         setRetryKey(value => value + 1);
         void runSearch(search);
     };
@@ -226,8 +298,9 @@ export default function NextGenHotels({ initialSearch = null }) {
                     </div>
                     {listLoading && <p role="status" className="mt-4 flex items-center gap-2 text-sm font-bold text-slate-600"><LoaderCircle size={16} className="animate-spin" />{t('nextgen.pilotListLoading', 'Loading approved hotels…')}</p>}
                     {listError && <p role="alert" className="mt-4 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm font-bold text-amber-950">{listError}</p>}
-                    {error && <p role="alert" className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-900">{error}</p>}
-                    <button id="hotelbeds-pilot-search" type="submit" disabled={loading || listLoading || !selectedHotelCode || pilotHotels.length === 0}
+                    {error && <p role="alert" data-search-form-error={error.status || 'validation'} className="mt-4 rounded-xl border border-red-200 bg-red-50 p-3 text-sm font-bold text-red-900">{error.message}</p>}
+                    <button id="hotelbeds-pilot-search" type="submit" aria-describedby={cooldownSeconds > 0 ? 'nextgen-cooldown-status' : undefined}
+                        disabled={loading || cooldownSeconds > 0 || listLoading || !selectedHotelCode || pilotHotels.length === 0}
                         className="cta-red mt-5 inline-flex min-h-12 items-center justify-center gap-2 rounded-xl px-6 py-3 font-black text-white disabled:cursor-not-allowed disabled:opacity-60">
                         {loading ? <LoaderCircle size={18} className="animate-spin" /> : <Search size={18} />}
                         {loading ? t('nextgen.loading', 'Searching for hotel offers…') : t('search.search', 'Search now')}
@@ -238,8 +311,10 @@ export default function NextGenHotels({ initialSearch = null }) {
                     key={retryKey}
                     response={response}
                     isLoading={loading}
-                    error={error}
+                    error={error?.message || ''}
+                    errorStatus={error?.status}
                     onRetry={retrySearch}
+                    cooldownSeconds={cooldownSeconds}
                     onChooseOffer={offer => {
                         if (offer?.mock !== true || response?.mock !== true) return;
                         try { sessionStorage.setItem('remal_nextgen_selected_offer', JSON.stringify(offer)); } catch {}
