@@ -68,7 +68,8 @@ test('mock content seeder clears only pilot hotel codes and bulk-upserts both co
 
     assert.deepEqual(calls.deletes, [{
         hotelCode: { $in: [...PILOT_HOTEL_CODES] },
-        language: LANGUAGE
+        language: LANGUAGE,
+        contentSource: 'mock_fixture'
     }]);
     assert.equal(calls.hotelWrites.length, 1);
     assert.equal(calls.hotelWrites[0].operations.length, 4);

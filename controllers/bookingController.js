@@ -6,8 +6,6 @@ function createBookingController({
     hotelbedsBookingService = createHotelbedsBookingService()
 } = {}) {
     if (!offerCacheService || typeof offerCacheService.getBookingOffer !== 'function'
-        || typeof offerCacheService.claimBookingOffer !== 'function'
-        || typeof offerCacheService.finishBookingOffer !== 'function'
         || !hotelbedsBookingService || typeof hotelbedsBookingService.confirmBooking !== 'function') {
         throw new TypeError('booking_controller_dependencies_invalid');
     }

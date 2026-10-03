@@ -1,9 +1,21 @@
 const crypto = require('node:crypto');
-const hotelbedsClientModule = require('./hotelbedsClient');
-const hotelbedsClient = hotelbedsClientModule;
+const hotelbedsClient = require('./hotelbedsClient');
+const bookingAttemptStoreModule = require('./hotelbedsBookingAttemptStore');
+const rateCheck = require('./hotelbedsRateCheckService');
+const { createHotelbedsBookingCoordinator } = require('./hotelbedsBookingCoordinator');
 
 const MAX_NAME_LENGTH = 80;
 const MAX_GUESTS = 36;
+
+function decimalKey(value) {
+    if (typeof value !== 'string' && typeof value !== 'number') return null;
+    const text = String(value).trim();
+    const match = /^(\d+)(?:\.(\d+))?$/.exec(text);
+    if (!match || text.length > 80) return null;
+    const whole = match[1].replace(/^0+(?=\d)/, '');
+    const fraction = (match[2] || '').replace(/0+$/, '');
+    return `${whole}${fraction ? `.${fraction}` : ''}`;
+}
 
 function fail(code, httpStatus = 503) {
     return Object.assign(new Error(code), { code, httpStatus });
@@ -50,16 +62,6 @@ function normalizeGuestDetails(value, offer) {
     };
 }
 
-function decimalKey(value) {
-    if (typeof value !== 'string' && typeof value !== 'number') return null;
-    const text = String(value).trim();
-    const match = /^(\d+)(?:\.(\d+))?$/.exec(text);
-    if (!match || text.length > 80) return null;
-    const whole = match[1].replace(/^0+(?=\d)/, '');
-    const fraction = (match[2] || '').replace(/0+$/, '');
-    return `${whole}${fraction ? `.${fraction}` : ''}`;
-}
-
 function bookingGate(env) {
     if (env.HOTELBEDS_BOOKING_ENABLED !== 'true' || env.HOTELBEDS_BOOKING_APPROVED !== 'true') {
         throw fail('hotelbeds_booking_disabled', 503);
@@ -69,23 +71,19 @@ function bookingGate(env) {
     }
 }
 
-function confirmationFrom(result) {
-    const booking = result?.data?.booking;
-    if (!result?.ok || !booking || typeof booking !== 'object') return null;
-    const reference = typeof booking.reference === 'string' ? booking.reference.trim() : '';
-    const status = typeof booking.status === 'string' ? booking.status.trim().toUpperCase() : '';
-    if (!reference || reference.length > 200 || !['CONFIRMED', 'ON_REQUEST', 'PENDING'].includes(status)) return null;
-    return { bookingReference: reference, status };
-}
-
 function createHotelbedsBookingService({
     client = hotelbedsClient,
+    attemptStore = bookingAttemptStoreModule.createHotelbedsBookingAttemptStore(),
+    coordinator = createHotelbedsBookingCoordinator({ client }),
     env = process.env,
     now = () => new Date(),
     createAttemptId = () => crypto.randomUUID(),
     createClientReference = () => `RML${crypto.randomBytes(8).toString('hex').toUpperCase()}`
 } = {}) {
     if (!client || typeof client.checkRates !== 'function' || typeof client.createBooking !== 'function'
+        || !attemptStore || typeof attemptStore.claim !== 'function'
+        || typeof attemptStore.getByOfferId !== 'function' || typeof attemptStore.transition !== 'function'
+        || !coordinator || typeof coordinator.book !== 'function'
         || typeof now !== 'function' || typeof createAttemptId !== 'function'
         || typeof createClientReference !== 'function') {
         throw new TypeError('hotelbeds_booking_dependencies_invalid');
@@ -93,9 +91,37 @@ function createHotelbedsBookingService({
 
     async function confirmBooking({ publicOfferId, guestDetails, offerCacheService } = {}) {
         bookingGate(env);
-        if (!offerCacheService || typeof offerCacheService.getBookingOffer !== 'function'
-            || typeof offerCacheService.claimBookingOffer !== 'function'
-            || typeof offerCacheService.finishBookingOffer !== 'function') {
+        if (typeof publicOfferId !== 'string' || !/^[a-f\d]{64}$/i.test(publicOfferId)) {
+            throw fail('booking_offer_not_found', 404);
+        }
+        if (!offerCacheService || typeof offerCacheService.getBookingOffer !== 'function') {
+            throw new TypeError('booking_offer_cache_invalid');
+        }
+
+        // The durable attempt outlives the TTL offer cache. Resolve it first so
+        // retries never need the offer document and can never recreate a POST.
+        const existingAttempt = await attemptStore.getByOfferId(publicOfferId);
+        if (existingAttempt) {
+            if (existingAttempt.state === 'confirmed' && existingAttempt.bookingReference) {
+                return { bookingReference: existingAttempt.bookingReference, status: 'CONFIRMED' };
+            }
+            if (existingAttempt.state === 'booking_pending' && existingAttempt.bookingReference
+                && ['ON_REQUEST', 'PENDING'].includes(existingAttempt.bookingStatus)) {
+                return {
+                    bookingReference: existingAttempt.bookingReference,
+                    status: existingAttempt.bookingStatus
+                };
+            }
+            throw fail(existingAttempt.state === 'outcome_unknown'
+                || existingAttempt.state === 'booking_processing'
+                || existingAttempt.state === 'claimed'
+                ? 'booking_outcome_unknown' : 'booking_attempt_already_claimed',
+            existingAttempt.state === 'outcome_unknown'
+                || existingAttempt.state === 'booking_processing'
+                || existingAttempt.state === 'claimed' ? 502 : 409);
+        }
+
+        if (!offerCacheService || typeof offerCacheService.getBookingOffer !== 'function') {
             throw new TypeError('booking_offer_cache_invalid');
         }
         const offer = await offerCacheService.getBookingOffer(publicOfferId);
@@ -103,7 +129,11 @@ function createHotelbedsBookingService({
         if (offer.paymentType !== 'AT_HOTEL') throw fail('booking_payment_flow_required', 409);
         if (!['BOOKABLE', 'RECHECK'].includes(offer.rateType)) throw fail('booking_rate_not_bookable', 409);
         if (typeof offer.opaqueToken !== 'string' || !offer.opaqueToken.trim()) throw fail('booking_rate_key_missing', 409);
-        if (decimalKey(offer.lockedNetPrice) === null || !/^[A-Z]{3}$/.test(offer.currency || '')) {
+        if (!rateCheck.isValidRateIdentity(offer.bookingIdentity)
+            || !rateCheck.isValidRateTerms(offer.bookingTerms)
+            || offer.bookingIdentity.net !== decimalKey(offer.lockedNetPrice)
+            || offer.bookingIdentity.currency !== offer.currency
+            || offer.bookingIdentity.paymentType !== offer.paymentType) {
             throw fail('booking_locked_price_invalid', 409);
         }
 
@@ -120,97 +150,73 @@ function createHotelbedsBookingService({
         if (Number.isNaN(claimedAt.getTime()) || !(offer.expiresAt instanceof Date)
             || offer.expiresAt <= claimedAt) throw fail('offer_cache_booking_expired', 404);
 
-        const claimedOffer = await offerCacheService.claimBookingOffer(publicOfferId, attemptId, clientReference);
-        if (!claimedOffer) throw fail('booking_offer_not_found', 404);
-        if (claimedOffer.paymentType !== 'AT_HOTEL' || claimedOffer.rateType !== offer.rateType
-            || claimedOffer.opaqueToken !== offer.opaqueToken
-            || claimedOffer.lockedNetPrice !== offer.lockedNetPrice
-            || claimedOffer.currency !== offer.currency) {
-            await offerCacheService.finishBookingOffer(publicOfferId, attemptId, { state: 'available' });
-            throw fail('booking_offer_state_changed', 409);
-        }
-
-        let claimFinalized = false;
-        try {
-            if (offer.rateType === 'RECHECK') {
-                const checked = await client.checkRates({ rooms: [{ rateKey: offer.opaqueToken }] });
-                if (!checked?.ok || !checked.data || checked.data.error != null) {
-                    await offerCacheService.finishBookingOffer(offer.publicOfferId, attemptId, {
-                        state: 'available', bookingError: 'booking_checkrate_unavailable'
-                    });
-                    claimFinalized = true;
-                    throw fail('booking_checkrate_unavailable', 502);
-                }
-                const checkedRate = hotelbedsClientModule.findRateByKey(checked.data, offer.opaqueToken);
-                if (!checkedRate || checkedRate.rateType !== 'BOOKABLE') {
-                    await offerCacheService.finishBookingOffer(offer.publicOfferId, attemptId, {
-                        state: 'available', bookingError: 'booking_rate_not_bookable'
-                    });
-                    claimFinalized = true;
-                    throw fail('booking_rate_not_bookable', 409);
-                }
-                if (decimalKey(checkedRate.net) !== decimalKey(offer.lockedNetPrice)
-                    || String(checkedRate.currency || '').trim().toUpperCase() !== offer.currency) {
-                    await offerCacheService.finishBookingOffer(offer.publicOfferId, attemptId, {
-                        state: 'available', bookingError: 'booking_rate_changed'
-                    });
-                    claimFinalized = true;
-                    throw fail('booking_rate_changed', 409);
-                }
-            }
-        } catch (error) {
-            if (!claimFinalized) {
-                await offerCacheService.finishBookingOffer(offer.publicOfferId, attemptId, {
-                    state: 'available', bookingError: 'booking_preflight_failed'
-                });
-            }
-            throw error;
-        }
-
-        let result;
-        try {
-            result = await client.createBooking({
-                ...bookingRequest,
-                rooms: bookingRequest.rooms.map(room => ({ ...room, rateKey: offer.opaqueToken })),
-                clientReference
-            });
-        } catch (error) {
-            if (error.outcomeUnknown || error.code === 'hotelbeds_request_timeout'
-                || error.code === 'hotelbeds_request_unavailable') {
-                await offerCacheService.finishBookingOffer(offer.publicOfferId, attemptId, {
-                    state: 'outcome_unknown', clientReference, bookingError: 'booking_outcome_unknown'
-                });
-                throw fail('booking_outcome_unknown', 502);
-            }
-
-            // The Hotelbeds client only throws a non-ambiguous booking error
-            // before its Booking transport write (credentials/quota/config gates).
-            await offerCacheService.finishBookingOffer(offer.publicOfferId, attemptId, {
-                state: 'available', bookingError: 'booking_preflight_failed'
-            });
-            throw error;
-        }
-
-        const confirmation = confirmationFrom(result);
-        if (confirmation) {
-            // If persisting this transition fails, keep the atomic claim in
-            // `processing`; its clientReference is already durable for manual
-            // reconciliation. Never make a possibly-created booking reusable.
-            await offerCacheService.finishBookingOffer(offer.publicOfferId, attemptId, {
-                state: confirmation.status === 'CONFIRMED' ? 'confirmed' : 'pending',
-                clientReference,
-                bookingReference: confirmation.bookingReference,
-                bookingStatus: confirmation.status
-            });
-            return confirmation;
-        }
-
-        // A supplier HTTP response without an unambiguous confirmation may
-        // still represent a created reservation; quarantine rather than retry.
-        await offerCacheService.finishBookingOffer(offer.publicOfferId, attemptId, {
-            state: 'outcome_unknown', clientReference, bookingError: 'booking_confirmation_ambiguous'
+        const durableClaim = await attemptStore.claim({
+            scope: 'direct',
+            publicOfferId,
+            attemptId,
+            clientReference,
+            rateKey: offer.opaqueToken,
+            rateType: offer.rateType,
+            rateIdentity: offer.bookingIdentity,
+            rateTerms: offer.bookingTerms,
+            state: 'claimed',
+            claimedAt
         });
-        throw fail('booking_outcome_unknown', 502);
+        if (!durableClaim) {
+            const existing = await attemptStore.getByOfferId(publicOfferId);
+            if (!existing) throw fail('booking_attempt_state_unknown', 503);
+            if (existing.state === 'confirmed' && existing.bookingReference) {
+                return { bookingReference: existing.bookingReference, status: 'CONFIRMED' };
+            }
+            if (existing.state === 'booking_pending' && existing.bookingReference
+                && ['ON_REQUEST', 'PENDING'].includes(existing.bookingStatus)) {
+                return { bookingReference: existing.bookingReference, status: existing.bookingStatus };
+            }
+            throw fail(existing.state === 'outcome_unknown'
+                || existing.state === 'booking_processing' || existing.state === 'claimed'
+                ? 'booking_outcome_unknown' : 'booking_attempt_already_claimed',
+            existing.state === 'outcome_unknown'
+                || existing.state === 'booking_processing' || existing.state === 'claimed' ? 502 : 409);
+        }
+
+        const result = await coordinator.book({
+            claim: async () => durableClaim,
+            rateType: offer.rateType,
+            rateKey: offer.opaqueToken,
+            rateIdentity: offer.bookingIdentity,
+            rateTerms: offer.bookingTerms,
+            clientReference,
+            createBookingRequest: async () => bookingRequest,
+            beforeBooking: async ({ bookingRateKey }) => attemptStore.transition({
+                attemptId,
+                expectedState: 'claimed',
+                nextState: 'booking_processing',
+                fields: { bookingStartedAt: new Date(now()), bookingRateKey }
+            }),
+            onPreflightFailure: async () => attemptStore.transition({
+                attemptId,
+                expectedState: 'claimed',
+                nextState: 'preflight_failed',
+                fields: { lastError: 'booking_preflight_failed' }
+            }),
+            onOutcomeUnknown: async () => attemptStore.transition({
+                attemptId,
+                expectedState: 'booking_processing',
+                nextState: 'outcome_unknown',
+                fields: { lastError: 'booking_outcome_unknown' }
+            }),
+            onResult: async ({ bookingRateKey, confirmation }) => attemptStore.transition({
+                attemptId,
+                expectedState: 'booking_processing',
+                nextState: confirmation.status === 'CONFIRMED' ? 'confirmed' : 'booking_pending',
+                fields: {
+                    bookingRateKey,
+                    bookingReference: confirmation.bookingReference,
+                    bookingStatus: confirmation.status
+                }
+            })
+        });
+        return { bookingReference: result.bookingReference, status: result.status };
     }
 
     return { confirmBooking };

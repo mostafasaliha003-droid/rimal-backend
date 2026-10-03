@@ -27,6 +27,7 @@ The connector's allowlisted body is:
       { "roomId": 1, "type": "AD", "name": "Charles", "surname": "Babbage" }
     ]
   }],
+  "tolerance": "0",
   "clientReference": "RML1234567890ABCDEF"
 }
 ```
@@ -70,12 +71,15 @@ refund operations are separately approved and tested.
    verify the intent server-to-server, including account, intent ID, completed
    status, exact minor-unit amount, currency, and Test/Live identity. Browser
    return parameters and the current mock webhook are not sufficient.
-2. Only a persisted `payment_verified` session may be atomically claimed into
-   `booking_preflight`. The claim stores a unique `bookingAttemptId`, a unique
-   `bookingClientReference`, and `bookingStartedAt` before provider operations.
-3. `RECHECK` performs one CheckRate request and requires the same net price,
-   currency, `BOOKABLE` state, and `AT_WEB` payment type. Failure enters
-   `refund_review`; it never books a newly priced offer after collection.
+2. Only a persisted `payment_verified` session may be claimed. A scope-specific,
+   unique durable `HotelbedsBookingAttempt` is inserted before the checkout
+   session CAS and before any supplier request. It stores the unique attempt ID,
+   client reference, original rate key and immutable rate/terms snapshots.
+3. `RECHECK` performs one CheckRate request for the one selected key. It verifies
+   rate identity (including the locked net/currency, occupancy and `AT_WEB`)
+   separately from cancellation, promotions and resolved comments. Any change
+   enters `refund_review`; a different opaque CheckRate key is rejected because
+   its relationship to the selected offer cannot be proven.
 4. The connector persists `booking_processing` and the final rate key before
    the one Booking POST. No card or payment data is forwarded.
 5. Only a response with a booking reference and `CONFIRMED` becomes
@@ -84,17 +88,18 @@ refund operations are separately approved and tested.
    `outcome_unknown`. Repeated calls/webhooks in these states do not issue a
    second Booking POST.
 
-No automatic stale-claim recovery, BookingList/BookingDetail reconciliation,
-pending-status worker, or Ziina refund worker is implemented for this connector.
-Those states require an explicit reconciliation/refund design before the flow
-can be considered operational. In particular, do not reset `booking_processing`
-or `outcome_unknown` to retry Booking: a process crash may have happened after
-Hotelbeds received the first POST.
+The shared read-only BookingList reconciliation helper searches a bounded
+creation-date window by the private `clientReference`, follows bounded pages,
+checks that the supplier response is unambiguous, and does not update the
+attempt. It is not wired to a background worker or operator route. No automatic
+stale-claim recovery, pending-status worker, or Ziina refund worker is
+implemented. Do not reset `booking_processing` or `outcome_unknown` to retry
+Booking: a process crash may have happened after Hotelbeds received the first
+POST.
 
 ## Local verification
 
-`npm run test:hotelbeds-prepaid-booking` uses only in-memory fixtures and injected
-supplier transport. It checks the no-card allowlist, independent gates, verified
-payment identity, concurrent claims, rate changes, ambiguous outcomes, pending
-supplier statuses, and database failure before supplier calls. It does not call
-Ziina, Hotelbeds, or MongoDB.
+`npm run test:hotelbeds-prepaid-booking` uses injected supplier transport and an
+in-memory checkout/attempt fixture; a focused Mongoose contract test exercises
+the actual model validation and `create([document], options)` call against a
+local collection stub. The suite does not connect to MongoDB, Ziina, or Hotelbeds.

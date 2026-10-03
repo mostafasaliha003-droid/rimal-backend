@@ -87,8 +87,10 @@ a reservation or collect payment.
 
 `POST /api/v1/hotels/book` is protected by the existing API-key middleware and
 booking limiter. The route requires `publicOfferId` and `guestDetails`, retrieves
-the private supplier offer from OfferCache, and atomically claims it before any
-supplier call. It is disabled unless both `HOTELBEDS_BOOKING_ENABLED=true` and
+the private supplier offer from OfferCache, and atomically claims a durable,
+scope-specific `HotelbedsBookingAttempt` before any supplier call. OfferCache is
+not the booking idempotency ledger. It is disabled unless both
+`HOTELBEDS_BOOKING_ENABLED=true` and
 `HOTELBEDS_BOOKING_APPROVED=true`; the existing supplier client additionally only
 allows `HOTELBEDS_ENV=test`, with mTLS and the shared quota limiter. Keep these
 booking flags unset until payment, commercial, and operations approval.
@@ -97,11 +99,14 @@ The current booking pilot is intentionally narrow: one room, adults only, and
 `AT_HOTEL` payment. It rejects online-payment (`AT_WEB`) offers because this route
 does not verify a payment authorization, and rejects child or multi-room requests
 until the full availability/guest workflow supports them. `RECHECK` rates are
-rechecked and compared against the locked supplier net amount/currency before
-Booking. The public response includes only booking reference and status. If a
-Booking transport outcome is unknown, the offer is quarantined with its private
-client reference; never automatically retry or represent it as a failed booking.
-Tests use an in-memory OfferCache and mocked HTTP transport and make no supplier
+matched to a locked rate-identity snapshot and separately checked against the
+accepted cancellation, promotions and resolved-comment terms before Booking.
+Changed opaque CheckRate keys fail closed. The public response includes only
+booking reference and status. If a Booking transport outcome is unknown, the
+attempt is quarantined with its private client reference; never automatically
+retry or represent it as a failed booking. Duplicate prevention is backed by the
+durable attempt store, not the expiring OfferCache record. Tests use in-memory
+OfferCache/attempt fixtures and mocked HTTP transport; they make no supplier
 requests.
 
 ## Verification

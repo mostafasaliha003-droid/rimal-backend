@@ -1,5 +1,7 @@
 const mongoose = require('mongoose');
 const hotelbedsMockDatabase = require('../services/hotelbedsMockDatabase');
+const HotelbedsRateIdentity = require('./HotelbedsRateIdentity');
+const HotelbedsRateTerms = require('./HotelbedsRateTerms');
 
 const CHECKOUT_SESSION_STATUSES = Object.freeze([
     'awaiting_payment',
@@ -37,6 +39,18 @@ const checkoutSessionSchema = new mongoose.Schema({
     rateType: { type: String, enum: ['BOOKABLE', 'RECHECK'], required: true, immutable: true },
     lockedNetPrice: { type: String, required: true, select: false, immutable: true, match: /^\d+(?:\.\d+)?$/ },
     lockedNetCurrency: { type: String, required: true, select: false, uppercase: true, immutable: true, match: /^[A-Z]{3}$/ },
+    bookingIdentity: {
+        type: HotelbedsRateIdentity,
+        default: undefined,
+        select: false,
+        immutable: true
+    },
+    bookingTerms: {
+        type: HotelbedsRateTerms,
+        default: undefined,
+        select: false,
+        immutable: true
+    },
     occupancy: {
         rooms: { type: Number, required: true, min: 1, max: 1, immutable: true },
         adults: { type: Number, required: true, min: 1, max: 36, immutable: true },

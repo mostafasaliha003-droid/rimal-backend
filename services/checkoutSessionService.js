@@ -232,6 +232,8 @@ function createCheckoutSessionService({
                 rateType: offer.rateType,
                 lockedNetPrice: offer.lockedNetPrice,
                 lockedNetCurrency: offer.currency,
+                bookingIdentity: offer.bookingIdentity,
+                bookingTerms: offer.bookingTerms,
                 occupancy: { rooms: offer.roomCount, adults: offer.adultCount, children: offer.childCount },
                 idempotencyKeyHash,
                 requestFingerprint,

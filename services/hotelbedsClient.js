@@ -12,9 +12,13 @@ const TEST_MTLS_BASE_URL = 'https://api-mtls.test.hotelbeds.com';
 const MAX_HOTELS_PER_AVAILABILITY = 2000;
 const ENDPOINTS = Object.freeze({
     status: { method: 'get', path: '/hotel-api/1.0/status', timeoutMs: 15000, mtls: false },
-    availability: { method: 'post', path: '/hotel-api/1.0/hotels', timeoutMs: 30000, mtls: true },
-    checkRates: { method: 'post', path: '/hotel-api/1.0/checkrates', timeoutMs: 30000, mtls: true },
-    booking: { method: 'post', path: '/hotel-api/1.0/bookings', timeoutMs: 60000, mtls: true }
+    availability: { method: 'post', path: '/hotel-api/1.0/hotels', timeoutMs: 5000, mtls: true },
+    checkRates: { method: 'post', path: '/hotel-api/1.0/checkrates', timeoutMs: 15000, mtls: true },
+    booking: { method: 'post', path: '/hotel-api/1.0/bookings', timeoutMs: 60000, mtls: true },
+    bookingList: {
+        method: 'get', path: '/hotel-api/1.0/bookings', timeoutMs: 30000, mtls: true,
+        budgetOperation: 'booking'
+    }
 });
 
 function fail(code, httpStatus = 503, details = {}) {
@@ -88,18 +92,6 @@ function safeLog(log, entry) {
     try { log.logEtgExchange(entry); } catch { /* Logging must not alter supplier request behavior. */ }
 }
 
-function findRateByKey(value, rateKey, visited = new Set()) {
-    if (!value || typeof value !== 'object' || visited.has(value)) return null;
-    visited.add(value);
-    if (!Array.isArray(value) && value.rateKey === rateKey) return value;
-    const children = Array.isArray(value) ? value : Object.values(value);
-    for (const child of children) {
-        const found = findRateByKey(child, rateKey, visited);
-        if (found) return found;
-    }
-    return null;
-}
-
 function isSuccessfulResponse(response) {
     return Boolean(response && response.ok && response.data && typeof response.data === 'object'
         && (response.data.error === undefined || response.data.error === null));
@@ -136,7 +128,8 @@ function createHotelbedsClient({
         const transport = endpoint.mtls
             ? configurationFrom(env, { readFileSync })
             : { ...credentials, baseUrl: TEST_BASE_URL };
-        const operationDailyMaxRequests = operationBudgetFor(env, operation);
+        const budgetOperation = endpoint.budgetOperation || operation;
+        const operationDailyMaxRequests = operationBudgetFor(env, budgetOperation);
         await limiter.acquire({
             account: credentials.accountConfig,
             apiKey: credentials.apiKey,
@@ -145,7 +138,7 @@ function createHotelbedsClient({
             windowMs: env.HOTELBEDS_RATE_WINDOW_MS,
             dailyMaxRequests: env.HOTELBEDS_DAILY_MAX_REQUESTS,
             dailyWindowMs: env.HOTELBEDS_DAILY_WINDOW_MS,
-            operation,
+            operation: budgetOperation,
             operationDailyMaxRequests
         });
 
@@ -168,6 +161,7 @@ function createHotelbedsClient({
                 url,
                 headers,
                 ...(endpoint.method === 'post' ? { data: payload } : {}),
+                ...(endpoint.method === 'get' && payload ? { params: payload } : {}),
                 ...(httpsAgent ? { httpsAgent } : {}),
                 timeout: endpoint.timeoutMs,
                 maxRedirects: 0,
@@ -208,69 +202,12 @@ function createHotelbedsClient({
         };
     }
 
-    async function bookSelectedRate({ availabilityResponse, rateKey, bookingRequest, roomIndex = 0 } = {}) {
-        if (!isSuccessfulResponse(availabilityResponse)) {
-            throw fail('hotelbeds_availability_response_invalid', 400);
-        }
-        if (typeof rateKey !== 'string' || !rateKey.trim()
-            || !bookingRequest || !Array.isArray(bookingRequest.rooms)
-            || !Number.isSafeInteger(roomIndex) || roomIndex < 0 || roomIndex >= bookingRequest.rooms.length) {
-            throw fail('hotelbeds_booking_selection_invalid', 400);
-        }
-
-        // rateKey is opaque: select it by exact equality and never parse its format.
-        const selectedRate = findRateByKey(availabilityResponse.data, rateKey);
-        if (!selectedRate || !['BOOKABLE', 'RECHECK'].includes(selectedRate.rateType)) {
-            throw fail('hotelbeds_rate_not_found', 409);
-        }
-
-        let bookingRateKey = rateKey;
-        let checkRatesResponse = null;
-        if (selectedRate.rateType === 'RECHECK') {
-            // Hotelbeds recommends one rateKey per CheckRate operation.
-            checkRatesResponse = await request('checkRates', { rooms: [{ rateKey }] });
-            if (!isSuccessfulResponse(checkRatesResponse)) {
-                return { ok: false, stage: 'checkRates', checkRates: checkRatesResponse };
-            }
-            const checkedRate = findRateByKey(checkRatesResponse.data, rateKey);
-            if (!checkedRate || checkedRate.rateType !== 'BOOKABLE') {
-                return {
-                    ok: false,
-                    stage: 'checkRates',
-                    checkRates: checkRatesResponse,
-                    error: 'hotelbeds_rate_not_bookable_after_recheck'
-                };
-            }
-            bookingRateKey = checkedRate.rateKey;
-        }
-
-        const rooms = bookingRequest.rooms.map((room, index) => index === roomIndex
-            ? { ...room, rateKey: bookingRateKey }
-            : room);
-        let bookingResponse;
-        try {
-            bookingResponse = await request('booking', { ...bookingRequest, rooms });
-        } catch (error) {
-            if (!error.outcomeUnknown) throw error;
-            return { ok: false, stage: 'booking', outcomeUnknown: true,
-                error: 'hotelbeds_booking_outcome_unknown' };
-        }
-
-        return {
-            ok: isSuccessfulResponse(bookingResponse),
-            stage: 'booking',
-            outcomeUnknown: false,
-            ...(checkRatesResponse ? { checkRates: checkRatesResponse } : {}),
-            booking: bookingResponse
-        };
-    }
-
     return {
         getStatus: () => request('status'),
         availability: payload => request('availability', payload),
         checkRates: payload => request('checkRates', payload),
         createBooking: payload => request('booking', payload),
-        bookSelectedRate
+        getBookingList: params => request('bookingList', params)
     };
 }
 
@@ -283,7 +220,6 @@ module.exports = {
     ENDPOINTS,
     generateSignature,
     createMutualTlsAgent,
-    findRateByKey,
     validateAvailabilityPayload,
     credentialsFrom,
     configurationFrom,
@@ -292,5 +228,6 @@ module.exports = {
     getStatus: defaultClient.getStatus,
     availability: defaultClient.availability,
     checkRates: defaultClient.checkRates,
-    createBooking: defaultClient.createBooking
+    createBooking: defaultClient.createBooking,
+    getBookingList: defaultClient.getBookingList
 };

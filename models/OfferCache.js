@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const HotelbedsRateIdentity = require('./HotelbedsRateIdentity');
+const HotelbedsRateTerms = require('./HotelbedsRateTerms');
 
 const OFFER_CACHE_TTL_SECONDS = 30 * 60;
 const OFFER_CACHE_PROVIDERS = Object.freeze(['hotelbeds', 'ratehawk']);
@@ -76,6 +78,18 @@ const offerCacheSchema = new mongoose.Schema({
     roomCount: { type: Number, min: 1, max: 9, default: null, immutable: true, select: false },
     adultCount: { type: Number, min: 1, max: 36, default: null, immutable: true, select: false },
     childCount: { type: Number, min: 0, max: 36, default: null, immutable: true, select: false },
+    bookingIdentity: {
+        type: HotelbedsRateIdentity,
+        default: undefined,
+        select: false,
+        immutable: true
+    },
+    bookingTerms: {
+        type: HotelbedsRateTerms,
+        default: undefined,
+        select: false,
+        immutable: true
+    },
     bookingState: {
         type: String,
         enum: ['available', 'processing', 'confirmed', 'pending', 'failed', 'outcome_unknown'],

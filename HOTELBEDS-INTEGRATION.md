@@ -1,8 +1,9 @@
 # Hotelbeds scaffold
 
-This integration remains isolated from RateHawk, public routes, checkout, and
-payment collection. It is **disabled by default** and this scaffold does not
-enable it.
+The Hotelbeds client and availability pilot are isolated from RateHawk. Direct
+booking remains behind its own explicit approval gates, and the prepaid
+credit-line connector remains standalone and is not wired to checkout or a public
+payment route. This change does not enable booking or payment gates.
 
 ## Configuration
 
@@ -84,17 +85,33 @@ them with the account manager before enabling.
 
 ## Booking workflow
 
-Pass the selected rate and the original Availability response to
-`bookSelectedRate`:
+The direct pay-at-hotel and isolated prepaid services share
+`services/hotelbedsBookingCoordinator.js` and the durable
+`HotelbedsBookingAttempt` store. Scope-specific unique indexes claim a direct
+offer or prepaid checkout session before any supplier operation; the short-lived
+OfferCache is not the idempotency record. A majority-acknowledged attempt claim
+and a private `clientReference` are kept even when the cache expires.
 
-- `BOOKABLE`: send exactly one Booking request; do not CheckRate first.
-- `RECHECK`: send one CheckRate containing only that opaque `rateKey`, then send
-  Booking only if CheckRate returns a bookable rate.
-- Never parse or transform `rateKey`; copy it from the supplier response.
-- Requests are not automatically retried. If a Booking transport response is
-  lost, the result is `outcomeUnknown`; reconcile with Hotelbeds before any retry.
-- Availability requests containing `hotels.hotel` are rejected above 2,000 hotel
-  IDs, before consuming the shared request quota.
+- `BOOKABLE`: send one Booking POST; do not CheckRate first.
+- `RECHECK`: send one CheckRate with just the selected opaque `rateKey` and
+  `upselling: false`. Match hotel, room, stay, occupancy, payment type, board,
+  packaging, net and currency against the immutable rate identity. Validate
+  cancellation, promotions and resolved rate comments separately against the
+  accepted terms snapshot.
+- Never parse or transform `rateKey`. If CheckRate returns a different opaque
+  key, this implementation rejects it because it cannot prove that the new key
+  is the selected offer.
+- Persist `booking_processing` and the exact key before the sole Booking POST.
+  An unknown outcome remains quarantined; retries never send another Booking.
+- The read-only reconciliation helper uses Hotels BookingList filtered by
+  creation dates and private `clientReference`, scans bounded pages, and returns
+  `response_ambiguous` rather than infer absence when pagination is incomplete.
+  The 25-item page window, five-page cap and 30-day lookback are local safety
+  limits, not claims about a supplier maximum. The public Hotels references show
+  a 1–25 page example but do not expose a complete pagination schema here. The
+  helper never changes the attempt and is not wired to a worker or operator route.
+- Availability requests containing `hotels.hotel` are rejected above 2,000
+  hotel IDs, before consuming the shared request quota.
 
 Hotelbeds specifies a minimum 60-second timeout for Booking Confirmation. Static
 hotel descriptions/images use the separate Content API client and
@@ -109,9 +126,8 @@ not mean the corresponding behavior has been verified against a live account.
 
 | Certification area | Current state | Remaining evidence or work |
 | --- | --- | --- |
-| Technical transport | **Partial.** Dynamic SHA-256 signature, JSON, gzip acceptance, fixed test hosts, mTLS for Availability/CheckRate/Booking, and 60-second Booking timeout are implemented. | Run certification only after rotated Hotel API credentials and a registered/associated test mTLS certificate exist. |
-| Availability size | **Implemented/tested.** Rejects more than 2,000 entries in `hotels.hotel` before limiter use. | Add request-shape tests for the actual certification search channel and its selected hotels. |
-| Availability/booking workflow | **Restricted scaffold implemented/tested.** The customer search and `/api/v1/hotels/book` route are wired behind independent approval gates. Booking atomically claims a cached Hotelbeds offer, accepts one adults-only room with `AT_HOTEL` payment, checks `RECHECK`, compares the locked net price, and quarantines unknown outcomes with a private client reference for reconciliation. | Not production/certification ready: obtain business approval for payment/collection and reconciliation, prove every room required by a booking was requested in the same Availability call, implement multi-room/child guest mapping, persist confirmed bookings/vouchers/notifications, and complete supplier certification. Online-payment rates remain rejected. |
+| Technical transport | **Partial.** Dynamic SHA-256 signature, JSON, gzip acceptance, fixed test hosts, mTLS for Availability/CheckRate/Booking/BookingList, and 60-second Booking timeout are implemented. | Run certification only after rotated Hotel API credentials and a registered/associated test mTLS certificate exist. |
+| Availability/booking workflow | **Restricted scaffold implemented/tested.** The customer search and `/api/v1/hotels/book` route are wired behind independent approval gates. Both direct and isolated prepaid coordinators use a durable, scope-indexed attempt record; RECHECK validates a stable rate identity plus a separate terms snapshot, and opaque changed keys are rejected. Unknown outcomes are reconciled only by a bounded read-only BookingList helper. | Not production/certification ready: obtain business approval for payment/collection and reconciliation operations, prove every room required by a booking was requested in the same Availability call, implement multi-room/child guest mapping, wire monitored reconciliation and refund workflows, persist confirmed bookings/vouchers/notifications, and complete supplier certification. Online-payment rates remain rejected. |
 | CheckRate policy | **Implemented/tested** for a single key. Current Best Practices say one `rateKey` per call and no mixed BOOKABLE/RECHECK keys; this conservative rule takes precedence over the older Certification page's allowance to group up to ten. | Keep provider-specific response/error handling and the no-repeat rule in any later workflow. |
 | Guest and room choices | **Restricted adults-only pilot.** The booking endpoint maps one room's adult names to Hotelbeds paxes and rejects children/multiple rooms. | Add verified child-age and multi-room flows end-to-end and exercise different occupancies before expanding the pilot. |
 | Rates, cancellation and comments | **Not certification-ready.** No Hotelbeds result presentation is wired to the frontend. | Demonstrate accurate price/currency, room/board/category, applicable cancellation policy using destination-local policy times, and rate comments before confirmation. Declare if policies/comments are not used. |
@@ -129,7 +145,8 @@ reservation without explicit business approval.
 ## Local verification and activation gates
 
 Run `npm run test:hotelbeds`, `npm run test:booking-flow`,
-`npm run test:offer-cache`, `npm run test:live-fx-service`, and
+`npm run test:hotelbeds-prepaid-booking`, `npm run test:offer-cache`,
+`npm run test:live-fx-service`, and
 `npm run test:search-orchestrator` for fixture-only tests; they do not connect to
 Hotelbeds or Frankfurter. Before any external Sandbox request: rotate exposed credentials, create
 and associate the mTLS certificate, confirm the quota reset/aggregate account use,

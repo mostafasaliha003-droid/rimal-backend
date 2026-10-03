@@ -3,6 +3,9 @@ const CheckoutSession = require('../models/CheckoutSession');
 const { decryptGuestDetails } = require('./checkoutSessionService');
 const hotelbedsClientModule = require('./hotelbedsClient');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
+const { isValidRateIdentity, isValidRateTerms } = require('./hotelbedsRateCheckService');
+const bookingAttemptStoreModule = require('./hotelbedsBookingAttemptStore');
+const { createHotelbedsBookingCoordinator } = require('./hotelbedsBookingCoordinator');
 
 const PREPAID_BOOKING_GATES = Object.freeze([
     'HOTELBEDS_PREPAID_BOOKING_ENABLED',
@@ -69,7 +72,7 @@ function sessionQuery(Model, sessionId) {
     return Model.findOne({ sessionId }).select([
         '+paymentIntentId', '+providerOfferRef', '+providerHotelCode', '+lockedNetPrice',
         '+lockedNetCurrency', '+guestDetailsEncrypted', '+bookingAttemptId',
-        '+bookingClientReference', '+bookingRateKey'
+        '+bookingClientReference', '+bookingRateKey', '+bookingIdentity', '+bookingTerms'
     ].join(' ')).lean();
 }
 
@@ -96,6 +99,16 @@ function publicResult(sessionId, status, duplicate = false) {
     return { sessionId, status, duplicate };
 }
 
+function duplicateStatus(attempt, fallbackStatus) {
+    if (attempt?.state === 'confirmed' && attempt.bookingReference) return 'confirmed';
+    if (attempt?.state === 'booking_pending' && attempt.bookingReference) return 'booking_pending';
+    if (['claimed', 'booking_processing', 'booking_pending', 'outcome_unknown'].includes(attempt?.state)) {
+        return 'outcome_unknown';
+    }
+    if (['preflight_failed', 'manual_review'].includes(attempt?.state)) return 'refund_review';
+    return fallbackStatus || 'outcome_unknown';
+}
+
 function createHotelbedsPrepaidBookingService({
     client = hotelbedsClientModule,
     Model = CheckoutSession,
@@ -106,8 +119,14 @@ function createHotelbedsPrepaidBookingService({
     decryptGuests = decryptGuestDetails,
     database = hotelbedsMockDatabase,
     testOnly = false,
-    ensureDatabaseReady: testEnsureDatabaseReady
+    ensureDatabaseReady: testEnsureDatabaseReady,
+    attemptStore: injectedAttemptStore
 } = {}) {
+    const attemptStore = injectedAttemptStore || bookingAttemptStoreModule.createHotelbedsBookingAttemptStore({
+        database, env, testOnly,
+        ...(testOnly ? { ensureDatabaseReady: testEnsureDatabaseReady } : {})
+    });
+    const coordinator = createHotelbedsBookingCoordinator({ client });
     const ensureDatabaseReady = async () => {
         if (testOnly) {
             await testEnsureDatabaseReady();
@@ -117,6 +136,8 @@ function createHotelbedsPrepaidBookingService({
     };
     if (!client || typeof client.checkRates !== 'function' || typeof client.createBooking !== 'function'
         || !Model || typeof Model.findOne !== 'function' || typeof Model.findOneAndUpdate !== 'function'
+        || !attemptStore || typeof attemptStore.claim !== 'function'
+        || typeof attemptStore.getBySessionId !== 'function' || typeof attemptStore.transition !== 'function'
         || !env || typeof now !== 'function' || typeof createAttemptId !== 'function'
         || typeof createClientReference !== 'function' || typeof decryptGuests !== 'function'
         || !database || testOnly && typeof testEnsureDatabaseReady !== 'function'
@@ -151,6 +172,10 @@ function createHotelbedsPrepaidBookingService({
         }
 
         const session = await readSession(Model, sessionId);
+        const existingAttempt = await attemptStore.getBySessionId(sessionId);
+        if (existingAttempt) {
+            return publicResult(sessionId, duplicateStatus(existingAttempt, session.status), true);
+        }
         if (['booking_preflight', 'booking_processing', 'booking_pending', 'confirmed', 'outcome_unknown', 'refund_review'].includes(session.status)) {
             return publicResult(sessionId, session.status, true);
         }
@@ -162,6 +187,11 @@ function createHotelbedsPrepaidBookingService({
             || typeof session.providerOfferRef !== 'string' || !session.providerOfferRef.trim()
             || decimalKey(session.lockedNetPrice) === null
             || !/^[A-Z]{3}$/.test(session.lockedNetCurrency || '')
+            || !isValidRateIdentity(session.bookingIdentity)
+            || !isValidRateTerms(session.bookingTerms)
+            || session.bookingIdentity.net !== decimalKey(session.lockedNetPrice)
+            || session.bookingIdentity.currency !== session.lockedNetCurrency
+            || session.bookingIdentity.paymentType !== session.paymentType
             || !(session.offerExpiresAt instanceof Date) || session.offerExpiresAt <= new Date(now())) {
             throw fail('hotelbeds_prepaid_booking_session_invalid');
         }
@@ -176,6 +206,30 @@ function createHotelbedsPrepaidBookingService({
         if (Number.isNaN(startedAt.getTime())) throw fail('checkout_clock_invalid', 503);
 
         // The durable claim and unique reference are committed before any supplier call.
+        const claimedAt = new Date(startedAt);
+        let durableClaim;
+        try {
+            durableClaim = await attemptStore.claim({
+                scope: 'prepaid',
+                publicOfferId: session.publicOfferId,
+                sessionId,
+                attemptId,
+                clientReference,
+                rateKey: session.providerOfferRef,
+                rateType: session.rateType,
+                rateIdentity: session.bookingIdentity,
+                rateTerms: session.bookingTerms,
+                state: 'claimed',
+                claimedAt
+            });
+        } catch {
+            throw fail('checkout_database_unavailable', 503);
+        }
+        if (!durableClaim) {
+            const existing = await attemptStore.getBySessionId(sessionId);
+            return publicResult(sessionId, duplicateStatus(existing, session.status), true);
+        }
+
         let claimed;
         try {
             claimed = await Model.findOneAndUpdate({
@@ -193,107 +247,116 @@ function createHotelbedsPrepaidBookingService({
                 bookingStartedAt: startedAt
             } }, { new: true }).select([
                 '+providerOfferRef', '+providerHotelCode', '+lockedNetPrice',
-                '+lockedNetCurrency', '+guestDetailsEncrypted'
+                '+lockedNetCurrency', '+guestDetailsEncrypted', '+bookingIdentity', '+bookingTerms'
             ].join(' ')).lean();
         } catch {
+            await attemptStore.transition({
+                attemptId,
+                expectedState: 'claimed',
+                nextState: 'preflight_failed',
+                fields: { lastError: 'checkout_claim_persistence_failed' }
+            }).catch(() => {});
             throw fail('checkout_database_unavailable', 503);
         }
         if (!claimed) {
+            await attemptStore.transition({
+                attemptId,
+                expectedState: 'claimed',
+                nextState: 'preflight_failed',
+                fields: { lastError: 'checkout_claim_conflict' }
+            }).catch(() => {});
             const current = await readSession(Model, sessionId);
             return publicResult(sessionId, current?.status || 'payment_verified', true);
         }
 
-        let guests;
-        let bookingRateKey = claimed.providerOfferRef;
         try {
-            if (claimed.offerExpiresAt <= new Date(now())) throw fail('checkout_offer_expired', 409);
-            guests = bookingGuestPayload(decryptGuests(claimed.guestDetailsEncrypted, env), claimed.occupancy);
-
-            if (claimed.rateType === 'RECHECK') {
-                const response = await client.checkRates({ rooms: [{ rateKey: claimed.providerOfferRef }] });
-                if (!response?.ok || !response.data || response.data.error != null) {
-                    throw fail('booking_checkrate_unavailable', 502);
+            const result = await coordinator.book({
+                claim: async () => claimed,
+                rateType: claimed.rateType,
+                rateKey: claimed.providerOfferRef,
+                rateIdentity: claimed.bookingIdentity,
+                rateTerms: claimed.bookingTerms,
+                clientReference: durableClaim.clientReference,
+                createBookingRequest: async () => {
+                    if (claimed.offerExpiresAt <= new Date(now())) throw fail('checkout_offer_expired', 409);
+                    const guests = bookingGuestPayload(
+                        decryptGuests(claimed.guestDetailsEncrypted, env), claimed.occupancy
+                    );
+                    return {
+                        holder: guests.holder,
+                        rooms: [{ rateKey: claimed.providerOfferRef, paxes: guests.paxes }]
+                    };
+                },
+                beforeBooking: async ({ bookingRateKey }) => {
+                    await attemptStore.transition({
+                        attemptId,
+                        expectedState: 'claimed',
+                        nextState: 'booking_processing',
+                        fields: { bookingStartedAt: new Date(now()), bookingRateKey }
+                    });
+                    const saved = await updateSession(Model, sessionId, 'booking_preflight', attemptId, {
+                        status: 'booking_processing', bookingRateKey
+                    });
+                    if (!saved) throw fail('checkout_session_state_conflict', 503);
+                },
+                onPreflightFailure: async () => {
+                    const at = new Date(now());
+                    await attemptStore.transition({
+                        attemptId,
+                        expectedState: 'claimed',
+                        nextState: 'preflight_failed',
+                        fields: { lastError: 'booking_preflight_failed' }
+                    }).catch(() => {});
+                    await updateSession(Model, sessionId, 'booking_preflight', attemptId, {
+                        status: 'refund_review',
+                        lastError: 'booking_preflight_failed',
+                        completedAt: at,
+                        webhookProcessedAt: at
+                    });
+                },
+                onOutcomeUnknown: async () => {
+                    await attemptStore.transition({
+                        attemptId,
+                        expectedState: 'booking_processing',
+                        nextState: 'outcome_unknown',
+                        fields: { lastError: 'booking_outcome_unknown' }
+                    }).catch(() => {});
+                    return finalize(sessionId, attemptId, 'outcome_unknown', 'booking_outcome_unknown');
+                },
+                onResult: async ({ confirmation, bookingRateKey }) => {
+                    const status = confirmation.status === 'CONFIRMED' ? 'confirmed' : 'booking_pending';
+                    await attemptStore.transition({
+                        attemptId,
+                        expectedState: 'booking_processing',
+                        nextState: status,
+                        fields: {
+                            bookingReference: confirmation.bookingReference,
+                            bookingStatus: confirmation.status,
+                            bookingRateKey
+                        }
+                    });
+                    return finalize(sessionId, attemptId, status, null, {
+                        bookingReference: confirmation.bookingReference,
+                        hotelbedsBookingStatus: confirmation.status,
+                        bookingRateKey
+                    });
                 }
-                const checked = hotelbedsClientModule.findRateByKey(response.data, claimed.providerOfferRef);
-                if (!checked || checked.rateType !== 'BOOKABLE' || checked.paymentType !== 'AT_WEB'
-                    || decimalKey(checked.net) !== decimalKey(claimed.lockedNetPrice)
-                    || String(checked.currency || '').trim().toUpperCase() !== claimed.lockedNetCurrency
-                    || typeof checked.rateKey !== 'string' || !checked.rateKey.trim()) {
-                    throw fail('booking_rate_changed_after_payment', 409);
-                }
-                bookingRateKey = checked.rateKey;
-            }
-        } catch (error) {
-            const at = new Date(now());
-            try {
-                await updateSession(Model, sessionId, 'booking_preflight', attemptId, {
-                    status: 'refund_review',
-                    lastError: error?.code === 'booking_rate_changed_after_payment'
-                        ? 'booking_rate_changed_after_payment' : 'booking_preflight_failed',
-                    completedAt: at,
-                    webhookProcessedAt: at
-                });
-            } catch {
-                // The durable preflight claim remains quarantined if Mongo fails.
-            }
-            return publicResult(sessionId, 'refund_review');
-        }
-
-        let preflightComplete;
-        try {
-            preflightComplete = await Model.findOneAndUpdate({
-                sessionId,
-                status: 'booking_preflight',
-                bookingAttemptId: attemptId,
-                bookingClientReference: clientReference
-            }, { $set: {
-                status: 'booking_processing',
-                bookingRateKey
-            } }, { new: true }).lean();
-        } catch {
-            throw fail('checkout_database_unavailable', 503);
-        }
-        if (!preflightComplete) throw fail('checkout_session_state_conflict', 503);
-
-        const bookingRequest = {
-            holder: guests.holder,
-            rooms: [{ rateKey: bookingRateKey, paxes: guests.paxes }],
-            clientReference
-        };
-
-        let response;
-        try {
-            response = await client.createBooking(bookingRequest);
-        } catch (error) {
-            if (error?.outcomeUnknown || error?.code === 'hotelbeds_request_timeout'
-                || error?.code === 'hotelbeds_request_unavailable') {
-                return finalize(sessionId, attemptId, 'outcome_unknown', 'booking_outcome_unknown');
-            }
-            return finalize(sessionId, attemptId, 'refund_review', 'booking_request_rejected');
-        }
-
-        const booking = response?.data?.booking;
-        const bookingReference = typeof booking?.reference === 'string' ? booking.reference.trim() : '';
-        const bookingStatus = typeof booking?.status === 'string' ? booking.status.trim().toUpperCase() : '';
-        if (response?.ok && bookingReference && bookingReference.length <= 200
-            && bookingStatus === 'CONFIRMED') {
-            return finalize(sessionId, attemptId, 'confirmed', null, {
-                bookingReference,
-                hotelbedsBookingStatus: bookingStatus
             });
+            return publicResult(sessionId,
+                result.status === 'CONFIRMED' ? 'confirmed'
+                    : ['ON_REQUEST', 'PENDING'].includes(result.status) ? 'booking_pending' : result.status);
+        } catch (error) {
+            let currentAttempt = null;
+            try { currentAttempt = await attemptStore.getBySessionId(sessionId); } catch { /* Keep the failure quarantined. */ }
+            if (currentAttempt?.state === 'outcome_unknown' || currentAttempt?.state === 'booking_processing'
+                || error?.code === 'booking_outcome_unknown') {
+                return publicResult(sessionId, 'outcome_unknown');
+            }
+            if (currentAttempt?.state === 'preflight_failed') {
+                return publicResult(sessionId, 'refund_review');
+            }
+            throw error;
         }
-        if (response?.ok && bookingReference && bookingReference.length <= 200
-            && ['ON_REQUEST', 'PENDING'].includes(bookingStatus)) {
-            const saved = await updateSession(Model, sessionId, 'booking_processing', attemptId, {
-                status: 'booking_pending',
-                bookingReference,
-                hotelbedsBookingStatus: bookingStatus,
-                webhookProcessedAt: new Date(now())
-            });
-            if (!saved) throw fail('checkout_session_state_conflict', 503);
-            return publicResult(sessionId, 'booking_pending');
-        }
-        return finalize(sessionId, attemptId, 'outcome_unknown', 'booking_confirmation_ambiguous');
     }
 
     return { confirmBooking };

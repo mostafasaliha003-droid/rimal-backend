@@ -101,7 +101,7 @@ test('uses the mTLS Sandbox host, fresh signature, authentication headers, and s
     assert.equal(calls.length, 1);
     assert.equal(calls[0].url, `${clientModule.TEST_MTLS_BASE_URL}/hotel-api/1.0/hotels`);
     assert.equal(calls[0].method, 'post');
-    assert.equal(calls[0].timeout, 30000);
+    assert.equal(calls[0].timeout, 5000);
     assert.deepEqual(calls[0].data, payload);
     assert.equal(calls[0].headers['Api-key'], credentials.HOTELBEDS_API_KEY);
     assert.deepEqual(calls[0].headers, {
@@ -248,108 +248,46 @@ test('Hotelbeds client does not call the supplier when the shared limiter reject
     assert.equal(outboundCalls, 0);
 });
 
-test('BOOKABLE rate skips CheckRate and books with the selected opaque rateKey', async () => {
-    const calls = [];
-    const rateKey = 'fixture-opaque-bookable-rate-key';
-    const availabilityResponse = {
-        ok: true,
-        data: { hotels: { hotels: [{ rooms: [{ rates: [{ rateKey, rateType: 'BOOKABLE' }] }] }] } }
-    };
-    const bookingRequest = { holder: { name: 'Fixture', surname: 'Guest' }, rooms: [{ paxes: [{ roomId: 1, type: 'AD' }] }] };
+test('BookingList uses the read-only Hotels GET contract, mTLS, params, and shared booking budget', async () => {
+    let captured;
+    const limiterCalls = [];
     const client = testClient({
-        http: { request: async config => {
-            calls.push(config);
-            return { status: 200, data: { booking: { reference: 'fixture-booking' } } };
-        } },
-        limiter: { acquire: async () => {} },
+        http: { request: async config => { captured = config; return { status: 200, data: { bookings: [] } }; } },
+        limiter: { acquire: async options => limiterCalls.push(options) },
         env: credentials,
         log: { logEtgExchange() {} }
     });
-
-    const result = await client.bookSelectedRate({ availabilityResponse, rateKey, bookingRequest });
-    assert.equal(result.ok, true);
-    assert.equal(result.outcomeUnknown, false);
-    assert.deepEqual(calls.map(call => call.url.split('/').at(-1)), ['bookings']);
-    assert.equal(calls[0].data.rooms[0].rateKey, rateKey);
-    assert.equal(Object.hasOwn(bookingRequest.rooms[0], 'rateKey'), false);
+    const query = {
+        start: '2026-10-01', end: '2026-10-03', filterType: 'CREATION',
+        status: 'ALL', from: 1, to: 25, clientReference: 'RMLTEST00000000001'
+    };
+    const response = await client.getBookingList(query);
+    assert.equal(response.ok, true);
+    assert.equal(captured.method, 'get');
+    assert.equal(captured.url, `${clientModule.TEST_MTLS_BASE_URL}/hotel-api/1.0/bookings`);
+    assert.deepEqual(captured.params, query);
+    assert.equal(Object.hasOwn(captured, 'data'), false);
+    assert.equal(captured.timeout, 30000);
+    assert.equal(limiterCalls.length, 1);
+    assert.equal(limiterCalls[0].operation, 'booking');
+    assert.equal(clientModule.ENDPOINTS.bookingList.mtls, true);
 });
 
-test('RECHECK stops before Booking if CheckRate does not return BOOKABLE', async () => {
-    const calls = [];
-    const rateKey = 'fixture-opaque-recheck-rate-key';
-    const availabilityResponse = {
-        ok: true,
-        data: { hotels: { hotels: [{ rooms: [{ rates: [{ rateKey, rateType: 'RECHECK' }] }] }] } }
-    };
+test('BookingList GET transport errors are not retried and are not treated as a negative reconciliation', async () => {
+    let calls = 0;
     const client = testClient({
-        http: { request: async config => {
-            calls.push(config);
-            return { status: 200, data: { hotel: { rooms: [{ rates: [{ rateKey, rateType: 'RECHECK' }] }] } } };
+        http: { request: async () => {
+            calls += 1;
+            throw Object.assign(new Error('fixture transport reset'), { code: 'ECONNRESET' });
         } },
-        limiter: { acquire: async () => {} }, env: credentials,
+        env: credentials,
         log: { logEtgExchange() {} }
     });
-
-    const result = await client.bookSelectedRate({
-        availabilityResponse, rateKey,
-        bookingRequest: { holder: { name: 'Fixture', surname: 'Guest' }, rooms: [{}] }
-    });
-    assert.equal(result.ok, false);
-    assert.equal(result.stage, 'checkRates');
-    assert.deepEqual(calls.map(call => call.url.split('/').at(-1)), ['checkrates']);
-    assert.deepEqual(calls[0].data, { rooms: [{ rateKey }] });
-});
-
-test('RECHECK becomes BOOKABLE then sends exactly one Booking request', async () => {
-    const calls = [];
-    const rateKey = 'fixture-opaque-recheck-to-bookable';
-    const availabilityResponse = {
-        ok: true,
-        data: { hotels: { hotels: [{ rooms: [{ rates: [{ rateKey, rateType: 'RECHECK' }] }] }] } }
-    };
-    const client = testClient({
-        http: { request: async config => {
-            calls.push(config);
-            if (config.url.endsWith('/checkrates')) {
-                return { status: 200, data: { hotel: { rooms: [{ rates: [{ rateKey, rateType: 'BOOKABLE' }] }] } } };
-            }
-            return { status: 200, data: { booking: { reference: 'fixture-booking' } } };
-        } },
-        limiter: { acquire: async () => {} }, env: credentials,
-        log: { logEtgExchange() {} }
-    });
-
-    const result = await client.bookSelectedRate({
-        availabilityResponse, rateKey,
-        bookingRequest: { holder: { name: 'Fixture', surname: 'Guest' }, rooms: [{}] }
-    });
-    assert.equal(result.ok, true);
-    assert.equal(result.stage, 'booking');
-    assert.deepEqual(calls.map(call => call.url.split('/').at(-1)), ['checkrates', 'bookings']);
-    assert.deepEqual(calls[0].data, { rooms: [{ rateKey }] });
-    assert.equal(calls[1].data.rooms[0].rateKey, rateKey);
-});
-
-test('booking transport failure is outcome-unknown and is not automatically retried', async () => {
-    const calls = [];
-    const rateKey = 'fixture-opaque-unknown-rate-key';
-    const availabilityResponse = {
-        ok: true,
-        data: { hotels: { hotels: [{ rooms: [{ rates: [{ rateKey, rateType: 'BOOKABLE' }] }] }] } }
-    };
-    const client = testClient({
-        http: { request: async config => {
-            calls.push(config);
-            throw Object.assign(new Error('connection reset'), { code: 'ECONNRESET' });
-        } },
-        limiter: { acquire: async () => {} }, env: credentials,
-        log: { logEtgExchange() {} }
-    });
-
-    const result = await client.bookSelectedRate({ availabilityResponse, rateKey, bookingRequest: { rooms: [{}] } });
-    assert.equal(result.outcomeUnknown, true);
-    assert.equal(result.error, 'hotelbeds_booking_outcome_unknown');
-    assert.equal(calls.length, 1);
+    await assert.rejects(client.getBookingList({
+        start: '2026-10-01', end: '2026-10-02', filterType: 'CREATION',
+        status: 'ALL', from: 1, to: 25, clientReference: 'RMLTEST00000000001'
+    }), error => error.code === 'hotelbeds_request_unavailable');
+    assert.equal(calls, 1);
 });
 
 test('does not retry requests and sanitizes transport failures', async () => {

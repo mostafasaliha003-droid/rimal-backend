@@ -2,6 +2,7 @@ const crypto = require('node:crypto');
 const mongoose = require('mongoose');
 const OfferCache = require('../models/OfferCache');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
+const { identityFromNormalizedOffer, termsFromNormalizedOffer } = require('./hotelbedsRateCheckService');
 
 const OFFER_TTL_MS = 30 * 60 * 1000;
 
@@ -336,6 +337,8 @@ function createOfferCacheService({
             }
             seenIds.add(publicOfferId);
             const lockedSellPrice = lockedSellPriceFrom(offer);
+            const bookingIdentity = provider === 'hotelbeds' ? identityFromNormalizedOffer(offer) : null;
+            const bookingTerms = provider === 'hotelbeds' ? termsFromNormalizedOffer(offer) : null;
 
             return {
                 document: {
@@ -356,6 +359,8 @@ function createOfferCacheService({
                     roomCount: nullableInteger(offer.occupancy?.rooms, 1, 9),
                     adultCount: nullableInteger(offer.occupancy?.adults, 1, 36),
                     childCount: nullableInteger(offer.occupancy?.children, 0, 36),
+                    ...(bookingIdentity ? { bookingIdentity } : {}),
+                    ...(bookingTerms ? { bookingTerms } : {}),
                     bookingState: 'available',
                     expiresAt
                 },
@@ -409,7 +414,7 @@ function createOfferCacheService({
         })
             .select([
                 '+opaqueToken', '+lockedNetPrice', '+currency', '+paymentType', '+rateType',
-                '+roomCount', '+adultCount', '+childCount', '+origin'
+                '+roomCount', '+adultCount', '+childCount', '+origin', '+bookingIdentity', '+bookingTerms'
             ].join(' ')).lean().exec();
         if (!record) return null;
         return {
@@ -423,6 +428,8 @@ function createOfferCacheService({
             roomCount: record.roomCount,
             adultCount: record.adultCount,
             childCount: record.childCount,
+            bookingIdentity: record.bookingIdentity || null,
+            bookingTerms: record.bookingTerms || null,
             expiresAt: new Date(record.expiresAt)
         };
     }
@@ -442,7 +449,7 @@ function createOfferCacheService({
         })
             .select([
                 '+opaqueToken', '+lockedNetPrice', '+currency', '+lockedSellAmount', '+lockedSellCurrency',
-                '+paymentType', '+rateType', '+roomCount', '+adultCount', '+childCount', '+origin'
+                '+paymentType', '+rateType', '+roomCount', '+adultCount', '+childCount', '+origin', '+bookingIdentity', '+bookingTerms'
             ].join(' ')).lean().exec();
         if (!record || record.origin === undefined) return null;
         return {
@@ -460,6 +467,8 @@ function createOfferCacheService({
             roomCount: record.roomCount,
             adultCount: record.adultCount,
             childCount: record.childCount,
+            bookingIdentity: record.bookingIdentity || null,
+            bookingTerms: record.bookingTerms || null,
             expiresAt: new Date(record.expiresAt)
         };
     }
@@ -489,7 +498,8 @@ function createOfferCacheService({
             $unset: { bookingError: '' }
         }, { new: true }).select([
             '+opaqueToken', '+lockedNetPrice', '+currency', '+paymentType', '+rateType',
-            '+roomCount', '+adultCount', '+childCount', '+bookingAttemptId', '+bookingClientReference'
+            '+roomCount', '+adultCount', '+childCount', '+bookingAttemptId', '+bookingClientReference',
+            '+bookingIdentity'
         ].join(' ')).lean().exec();
         if (record) return record;
 
