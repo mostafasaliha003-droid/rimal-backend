@@ -1,0 +1,274 @@
+import axios from 'axios';
+
+const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
+    || (import.meta.env.PROD ? 'https://rimal-api.onrender.com/api' : '/api');
+import { userAccessToken } from './authSession.js';
+
+const api = axios.create({
+    baseURL: apiBaseUrl,
+    // RateHawk SERP searches can take up to the backend's configured
+    // RATEHAWK_SERP_TIMEOUT_MS (60s by default), plus network overhead.
+    timeout: 75000,
+    headers: {
+        'Content-Type': 'application/json'
+    }
+});
+
+api.interceptors.request.use(config => {
+    // Operation capabilities (checkout/affiliate status) are deliberately passed
+    // explicitly and must never be replaced by a customer identity token.
+    if (config.authScope === 'user') {
+        const token = userAccessToken();
+        if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
+});
+
+const responseData = (response) => response.data;
+
+/**
+ * Search hotel and region suggestions for autocomplete.
+ * @param {string} query - User-entered hotel or region text.
+ * @param {string} [language='en'] - ETG response language.
+ * @param {{ signal?: AbortSignal }} [options] - Optional request cancellation.
+ * @returns {Promise<object>} Suggestion response containing hotels and regions.
+ */
+export const suggest = async (query, language = 'en', { signal, displayLanguage = language } = {}) =>
+    responseData(await api.get('/search/suggest', { params: { query, language, display_language: displayLanguage }, signal }));
+
+/**
+ * Search live rates by a list of hotel IDs.
+ * @param {object} searchData - Dates, hotel IDs, guests, and search options.
+ * @returns {Promise<object>} SERP rates and hotel results.
+ */
+export const searchByIds = async (searchData) =>
+    responseData(await api.post('/search/rates', searchData));
+
+/**
+ * Search live rates around geographic coordinates.
+ * @param {object} geoData - Coordinates, dates, guests, radius, and search options.
+ * @returns {Promise<object>} Geo SERP rates and hotel results.
+ */
+export const searchByGeo = async (geoData) =>
+    responseData(await api.post('/search/rates/geo', geoData));
+
+/**
+ * Search live rates within an ETG region.
+ * @param {object} regionData - Region ID, dates, guests, and search options.
+ * @returns {Promise<object>} Region SERP rates and hotel results.
+ */
+export const searchByRegion = async (regionData) =>
+    responseData(await api.post('/search/rates/region', regionData));
+
+/**
+ * Retrieve ETG's optimal hotel ranking for a region.
+ * @param {number|string} regionId - ETG region ID.
+ * @param {number} [limit=250] - Maximum number of hotel IDs to return.
+ * @returns {Promise<object>} Sorted hotel ID response.
+ */
+export const sortRegionHotels = async (regionId, limit = 250) =>
+    responseData(await api.get(`/search/sort/${encodeURIComponent(regionId)}`, { params: { limit } }));
+
+/**
+ * Retrieve full hotelpage rates for prebooking validation.
+ * @param {object} hotelData - Hotel ID, dates, guests, and optional match hash.
+ * @returns {Promise<object>} Hotelpage rates containing book hashes.
+ */
+export const getHotelPage = async (hotelData) =>
+    responseData(await api.post('/search/hotelpage', hotelData));
+
+export const affiliateAvailability = async () =>
+    responseData(await api.get('/affiliate/availability'));
+
+export const getAffiliateHotelPage = async (hid, hotelData) =>
+    responseData(await api.post(`/affiliate/hotels/${encodeURIComponent(hid)}/rates`, hotelData));
+
+export const createAffiliateBooking = async (bookingData, idempotencyKey) =>
+    responseData(await api.post('/affiliate/bookings', bookingData, {
+        authScope: 'user',
+        headers: { 'Idempotency-Key': idempotencyKey }, timeout: 75000
+    }));
+
+export const getAffiliateBookingStatus = async (processId, accessToken) =>
+    responseData(await api.get(`/affiliate/bookings/${encodeURIComponent(processId)}/status`, {
+        authScope: 'user',
+        headers: { 'X-Affiliate-Status-Token': accessToken }
+    }));
+
+/**
+ * Retrieve static hotel content and live room rates for the details page.
+ * @param {string|number} hid - RateHawk hotel identifier.
+ * @param {object} searchData - Dates, guests, and search options.
+ * @returns {Promise<{staticData: object, liveData: object}>}
+ */
+export const getHotelStatic = async (hid, language = 'en') =>
+    responseData(await api.get(`/v1/hotels/${encodeURIComponent(hid)}`, { params: { language } }));
+
+/**
+ * Validate a hotel rate through the standard ETG prebook endpoint.
+ * @param {string} hash - ETG book hash.
+ * @param {number} [priceIncreasePercent=0] - Allowed price increase percentage.
+ * @returns {Promise<object>} Prebook validation result.
+ */
+export const prebook = async (hash, priceIncreasePercent = 0) =>
+    responseData(await api.post('/booking/prebook', {
+        hash,
+        price_increase_percent: priceIncreasePercent
+    }, { timeout: 135000 }));
+
+/**
+ * Validate a SERP-originated rate through the ETG SERP prebook endpoint.
+ * @param {string} hash - ETG book hash from a SERP result.
+ * @param {number} [priceIncreasePercent=0] - Allowed price increase percentage.
+ * @returns {Promise<object>} SERP prebook validation result.
+ */
+export const prebookSerp = async (hash, priceIncreasePercent = 0) =>
+    responseData(await api.post('/booking/prebook-serp', {
+        hash,
+        price_increase_percent: priceIncreasePercent
+    }, { timeout: 135000 }));
+
+/**
+ * Create a Ziina payment intent for a validated room selection.
+ * @param {object} paymentData - Booking and guest details with the exact total.
+ * @returns {Promise<object>} Ziina payment URL response.
+ */
+export const createZiinaIntent = async (paymentData, idempotencyKey) =>
+    responseData(await api.post('/payment/ziina/intent', paymentData, {
+        authScope: 'user', headers: { 'Idempotency-Key': idempotencyKey }
+    }));
+
+export const paymentAvailability = async () => responseData(await api.get('/payment/availability'));
+
+export const getCheckoutStatus = async (reference, accessToken) =>
+    responseData(await api.get(`/payment/ziina/${encodeURIComponent(reference)}/status`, {
+        headers: { Authorization: `Bearer ${accessToken}` }
+    }));
+
+/** Create a long-lived Hotelbeds prepaid checkout session (mock payment only). */
+export const createHotelCheckoutSession = async (checkoutData, idempotencyKey) =>
+    responseData(await api.post('/v1/hotels/checkout', checkoutData, {
+        authScope: 'user',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        timeout: 30000
+    }));
+
+/** Read checkout state with its session-scoped bearer token; never cache this API request. */
+export const getHotelCheckoutSessionStatus = async (sessionId, accessToken, { signal } = {}) =>
+    responseData(await api.get(`/v1/hotels/checkout/${encodeURIComponent(sessionId)}`, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        signal,
+        timeout: 15000
+    }));
+
+/** Complete a test-only mock payment; authorization is scoped to the session. */
+export const completeMockHotelPayment = async (sessionId, accessToken) =>
+    responseData(await api.post(`/v1/hotels/checkout/${encodeURIComponent(sessionId)}/mock-payment`, {
+        action: 'complete'
+    }, {
+        headers: { Authorization: `Bearer ${accessToken}` },
+        timeout: 30000
+    }));
+
+/** Aggregate v2 endpoint is opt-in and intentionally distinct from legacy search routes. */
+export const searchAggregateHotels = async (criteria, { signal } = {}) => {
+    const configuredPath = import.meta.env.VITE_AGGREGATE_SEARCH_PATH || '/v1/hotels/search/aggregate';
+    if (!/^\/v1\/hotels\/[a-z0-9/_-]+$/i.test(configuredPath)) {
+        throw new Error('aggregate_search_path_invalid');
+    }
+    return responseData(await api.post(configuredPath, criteria, {
+        signal,
+        timeout: 75000
+    }));
+};
+
+/** Next-Gen currently uses only the explicitly local mock search route. */
+export const searchMockAggregateHotels = async (criteria, { signal } = {}) =>
+    responseData(await api.post('/v1/hotels/search/aggregate', criteria, {
+        signal,
+        timeout: 75000
+    }));
+
+/** Read the server-approved Hotelbeds pilot IDs; this endpoint performs no supplier call. */
+export const getHotelbedsPilotList = async ({ signal } = {}) =>
+    responseData(await api.get('/v1/hotels/pilot-list', { signal, timeout: 15000 }));
+
+/** Admin-only Hotelbeds TEST Availability probe; credentials remain server-side. */
+export const runAdminHotelbedsSupplierTest = async (criteria, { signal } = {}) =>
+    responseData(await api.post('/v1/admin/hotelbeds/supplier-test', criteria, {
+        authScope: 'admin', signal, timeout: 75000
+    }));
+
+/**
+ * Look up rate details by ETG book hash.
+ * @param {string} bookHash - ETG book hash to resolve.
+ * @param {string} [language='en'] - ETG response language.
+ * @returns {Promise<object>} Rate details containing hotels and original parameters.
+ */
+export const lookupRate = async (bookHash, language = 'en') =>
+    responseData(await api.get(`/search/rate/${encodeURIComponent(bookHash)}`, {
+        params: { language }
+    }));
+
+export const login = async credentials =>
+    responseData(await api.post('/auth/login', credentials));
+
+export const registerSendCode = async registration =>
+    responseData(await api.post('/auth/register-send-code', registration));
+
+export const verifyRegistration = async (email, code) =>
+    responseData(await api.post('/auth/verify-and-register', { email, code }));
+
+export const getUserProfile = async () =>
+    responseData(await api.get('/user/profile', { authScope: 'user' }));
+
+export const getUserSession = async () =>
+    responseData(await api.get('/auth/session', { authScope: 'user' }));
+
+export const logoutUser = async () =>
+    responseData(await api.post('/auth/logout', {}, { authScope: 'user' }));
+
+/** Download a booking voucher only for the authenticated owner of that booking. */
+export const getOwnedBookingVoucher = async reference => {
+    if (typeof reference !== 'string' || !reference.trim()) throw new Error('booking_reference_invalid');
+    return api.get(`/owned/bookings/pdf/${encodeURIComponent(reference)}`, {
+        authScope: 'user',
+        responseType: 'blob',
+        timeout: 30000
+    });
+};
+
+export { api };
+
+export default {
+    paymentAvailability,
+    suggest,
+    searchByIds,
+    searchByGeo,
+    searchByRegion,
+    sortRegionHotels,
+    getHotelPage,
+    affiliateAvailability,
+    getAffiliateHotelPage,
+    createAffiliateBooking,
+    getAffiliateBookingStatus,
+    getHotelStatic,
+    prebook,
+    prebookSerp,
+    createZiinaIntent,
+    getCheckoutStatus,
+    createHotelCheckoutSession,
+    getHotelCheckoutSessionStatus,
+    completeMockHotelPayment,
+    searchAggregateHotels,
+    searchMockAggregateHotels,
+    getHotelbedsPilotList,
+    lookupRate,
+    login,
+    registerSendCode,
+    verifyRegistration,
+    getUserProfile,
+    getUserSession,
+    logoutUser,
+    getOwnedBookingVoucher
+};

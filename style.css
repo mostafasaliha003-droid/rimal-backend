@@ -1,0 +1,34 @@
+/* 🌟 متغيرات الهوية البصرية والألوان الرسمية لشركة الرمال الدولية (محدثة لنسخة Ultimate UI) */
+:root {
+    --primary: #1f3a40;        /* اللون البترولي الغامق الفاخر للنص والخلفيات */
+    --accent-cyan: #00b4d8;    /* لون التركواز الديناميكي (الهوية الأساسية) */
+    --accent-red: #800000;     /* 🔴 اللون العنابي الفاخر (لأزرار الحجز والـ Call to Action) */
+    --accent-coral: #ff595e;   /* اللون المرجاني الجذاب للحركات والإشعارات */
+    --accent-yellow: #ffca3a;  /* الأصفر الذهبي للنجوم والحصالة والكاش باك */
+    --bg-light: #f8fafc;       /* خلفية الموقع النقية (مريحة للعين وتبرز البطاقات) */
+    --white: #ffffff;
+    --shadow: 0 10px 30px rgba(31, 58, 64, 0.12);
+}
+
+/* 🌟 تنسيق الهوية والبراند (محتفظ بها لدعم الصفحات الداخلية مثل Checkout و Admin) */
+.brand-logo-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    cursor: pointer;
+    text-decoration: none;
+}
+
+.brand-logo-container img {
+    height: 48px; /* حجم متناسق وواضح للهيدر */
+    object-fit: contain;
+    background: transparent; /* خلفية شفافة تماماً ليتناسق الشعار المفرغ مع الهيدر الداكن */
+}
+
+.brand-text-sub {
+    font-size: 9px;
+    letter-spacing: 2px;
+    color: var(--accent-cyan);
+    text-transform: uppercase;
+    font-weight: 800;
+}
