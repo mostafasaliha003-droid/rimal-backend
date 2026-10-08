@@ -359,8 +359,35 @@ test('separate Content API client signs and bounds a static hotel page request',
     assert.equal(captured.timeout, 60000);
 });
 
+test('Content API client requests the official Categories dictionary endpoint with codes filter', async () => {
+    let captured;
+    const client = contentClientModule.createHotelbedsContentClient({
+        http: { request: async config => {
+            captured = config;
+            return { status: 200, data: { categories: [{ code: '4EST' }] } };
+        } },
+        requestLimiter: { acquire: async () => {} },
+        env: credentials,
+        now: () => 1700000000000,
+        log: { logEtgExchange() {} }
+    });
+
+    const result = await client.getCategoriesPage({
+        language: 'eng', from: 1, to: 1, fields: 'all', codes: ['4EST']
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(captured.url, `https://api.test.hotelbeds.com${contentClientModule.HOTEL_CATEGORIES_PATH}`);
+    assert.deepEqual(captured.params, {
+        fields: 'all', language: 'ENG', from: 1, to: 1, codes: '4EST'
+    });
+});
+
 test('Content API page builder rejects oversized or invalid pages and impossible dates', () => {
     assert.throws(() => contentClientModule.buildHotelContentQuery({ language: 'en', from: 1, to: 1001 }), /hotelbeds_content_query_invalid/);
     assert.throws(() => contentClientModule.buildHotelContentQuery({ language: 'en', from: 2, to: 1 }), /hotelbeds_content_query_invalid/);
     assert.throws(() => contentClientModule.buildHotelContentQuery({ language: 'en', from: 1, to: 1, lastUpdateTime: '2026-02-30' }), /hotelbeds_content_last_update_invalid/);
+    assert.throws(() => contentClientModule.buildHotelContentQuery({
+        language: 'en', from: 1, to: 1, codes: [1, '1']
+    }), /hotelbeds_content_codes_invalid/);
 });

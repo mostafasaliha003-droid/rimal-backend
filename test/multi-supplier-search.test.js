@@ -52,7 +52,7 @@ function offer(provider, providerHotelId, {
                 contentSource: 'hotelbeds_content_api',
                 contentHotelCode: providerHotelId,
                 contentLanguage: 'ENG',
-                contentSyncedAt: '2026-10-01T12:00:00.000Z',
+                contentSyncedAt: new Date().toISOString(),
                 sourceContent: {
                     contentStatus: 'complete',
                     name,
@@ -156,6 +156,9 @@ test('aggregate search starts both suppliers concurrently and groups only explic
     assert.equal(result.currency, 'AED');
     assert.equal(result.hotelCount, 2);
     assert.equal(result.offerCount, 3);
+    assert.deepEqual(result.hotels.flatMap(hotel => hotel.offers)
+        .filter(item => item.provider === 'hotelbeds')
+        .map(item => item.availability.rateType), ['BOOKABLE']);
     const mappedGroups = new Map();
     for (const hotel of result.hotels) {
         const group = mappedGroups.get(hotel.hotelGroupId) || [];

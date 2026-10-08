@@ -25,7 +25,9 @@ function offerTermsVersion(publicOffer) {
         rateComments: publicOffer.rateComments,
         contractTerms: publicOffer.contractTerms,
         taxes: publicOffer.taxes,
-        promotions: publicOffer.promotions
+        promotions: publicOffer.promotions,
+        ...(Object.hasOwn(publicOffer, 'checkRateTerms')
+            ? { checkRateTerms: publicOffer.checkRateTerms } : {})
     };
     return crypto.createHash('sha256').update(JSON.stringify(snapshot), 'utf8').digest('hex');
 }

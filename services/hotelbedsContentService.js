@@ -36,14 +36,19 @@ function normalizeLanguage(value = 'ENG') {
     return language;
 }
 
-function normalizeCategory(value) {
+function normalizeCategory(value, { required = true } = {}) {
     const category = typeof value === 'string' ? { name: value } : value;
     if (!category || typeof category !== 'object' || Array.isArray(category)) {
         throw fail('hotelbeds_content_category_invalid');
     }
+    const rawName = category.name ?? category.description ?? category.content;
+    const name = typeof rawName === 'string' ? rawName : rawName?.content;
+    const code = typeof category.code === 'string' ? category.code.trim().slice(0, 40) : '';
+    if (!name && required) throw fail('hotelbeds_content_category_invalid');
+    if (!name && !code) return null;
     return {
-        code: typeof category.code === 'string' ? category.code.trim().slice(0, 40) : '',
-        name: requiredText(category.name, 'hotelbeds_content_category_invalid', 100)
+        code,
+        ...(name ? { name: requiredText(name, 'hotelbeds_content_category_invalid', 100) } : {})
     };
 }
 
@@ -64,14 +69,21 @@ function localizedText(value, code, maxLength) {
     return requiredText(text, code, maxLength);
 }
 
-function categoryFromContent(source) {
-    if (source.category !== undefined) return normalizeCategory(source.category);
-    const categoryName = source.categoryName;
+function categoryFromContent(source, { required = true } = {}) {
+    if (source.category !== undefined && source.category !== null) {
+        return normalizeCategory(source.category, { required });
+    }
+    if (source.category === null && !required) return null;
+    const categoryName = source.categoryName ?? source.categoryDescription;
     const categoryCode = source.categoryCode;
+    const name = typeof categoryName === 'string'
+        ? categoryName
+        : categoryName?.content ?? categoryName?.description ?? categoryName?.name;
+    if (!name && categoryCode == null && !required) return null;
     return normalizeCategory({
         code: typeof categoryCode === 'string' ? categoryCode : '',
-        name: typeof categoryName === 'string' ? categoryName : categoryName?.content
-    });
+        name
+    }, { required });
 }
 
 function phoneFromContent(source) {
@@ -93,7 +105,8 @@ function normalizeHotelContent(source, {
     language = 'ENG',
     syncedAt = new Date(),
     provenance = 'mock_fixture',
-    requirePhone = true
+    requirePhone = true,
+    requireCategory = true
 } = {}) {
     if (!source || typeof source !== 'object' || Array.isArray(source)) {
         throw fail('hotelbeds_content_record_invalid');
@@ -101,7 +114,7 @@ function normalizeHotelContent(source, {
     const normalizedLanguage = normalizeLanguage(source.language || language);
     const code = positiveHotelCode(source.hotelCode ?? source.code);
     const name = localizedText(source.name, 'hotelbeds_content_name_invalid', 200);
-    const category = categoryFromContent(source);
+    const category = categoryFromContent(source, { required: requireCategory });
     const address = normalizeAddress(source.address);
     const rawPhone = phoneFromContent(source);
     const phone = requirePhone ? requiredText(rawPhone, 'hotelbeds_content_phone_invalid', 80)
@@ -121,7 +134,7 @@ function normalizeHotelContent(source, {
         language: normalizedLanguage,
         source: provenance,
         name,
-        category,
+        ...(category ? { category } : {}),
         address,
         ...(phone ? { phone } : {}),
         ...(sourceUpdatedAt ? { sourceUpdatedAt } : {}),
@@ -188,6 +201,7 @@ function createHotelbedsContentService({
 const defaultService = createHotelbedsContentService();
 
 module.exports = {
+    normalizeLanguage,
     normalizeHotelContent,
     categoryFromContent,
     normalizeAddress,

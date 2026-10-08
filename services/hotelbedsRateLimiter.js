@@ -243,5 +243,6 @@ module.exports = {
     createHotelbedsRateLimiter,
     acquire: defaultLimiter.acquire,
     operationBudgetFor,
+    validateSettings: settingsFor,
     _test: { settingsFor, recentRequestsExpression, recentOperationRequestsExpression, operationBudgetFor, retryAfterSecondsFromMs }
 };

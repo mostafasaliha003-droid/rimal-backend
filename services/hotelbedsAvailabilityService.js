@@ -4,7 +4,7 @@ const { operationBudgetFor } = require('./hotelbedsRateLimiter');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
 const HotelbedsRateComment = require('../models/HotelbedsRateComment');
 const { parseRateCommentsId, resolveHotelbedsRateComments } = require('./hotelbedsRateCommentResolver');
-const { isVerifiedHotelbedsContent } = require('./hotelbedsContentPolicy');
+const { boundedText, issueApplies, isVerifiedHotelbedsContent, publicFacilities } = require('./hotelbedsContentPolicy');
 
 const MAX_PILOT_HOTELS = 5;
 const MAX_PILOT_ROOMS = 9;
@@ -218,9 +218,9 @@ function createHotelbedsAvailabilityService({
             if (!identity) {
                 return [`invalid|${item.hotelCode}|${item.rateCommentsId}`, null];
             }
-            return [`${item.hotelCode}|${identity.incoming}|${identity.code}|${identity.rateCodes}`, {
+            return [`${item.hotelCode}|${identity.incoming}|${identity.code}`, {
                 hotelCode: item.hotelCode, language: config.language,
-                incoming: identity.incoming, code: identity.code, rateCodes: identity.rateCodes
+                incoming: identity.incoming, code: identity.code
             }];
         })).values()].filter(Boolean);
         const rateCommentRows = commentQuery.length ? await (async () => {
@@ -251,30 +251,30 @@ function createHotelbedsAvailabilityService({
                     && Array.isArray(content?.images) && content.images.length > 0
                     && content.images.some(image => image?.type?.code !== 'HAB' && image?.type?.code !== 'ROOM')
                     && typeof content.description === 'string' && content.description.trim().length > 0;
+                const hotelbedsIssues = contentTrusted && Array.isArray(content?.issues)
+                    ? content.issues.filter(issue => issueApplies(issue, checkIn, checkOut))
+                        .slice(0, 30).map(issue => boundedText(issue?.description ?? issue, 1000)).filter(Boolean)
+                    : [];
+                const hotelbedsMandatoryFacilities = contentTrusted
+                    ? publicFacilities(content?.facilities).slice(0, 100) : [];
                 const rooms = (Array.isArray(hotel.rooms) ? hotel.rooms : []).map(room => ({
                     ...room,
                     rates: (Array.isArray(room?.rates) ? room.rates : []).map(rate => {
                         if (!rate?.rateCommentsId) {
                             return { ...rate, rateCommentsResolved: true,
-                                hotelbedsIssues: contentTrusted ? (content.issues || []).map(issue => issue.description).filter(Boolean) : [],
-                                hotelbedsMandatoryFacilities: contentTrusted ? (content.facilities || [])
-                                    .filter(facility => facility?.voucher === true).map(facility => ({
-                                        description: facility.description,
-                                        fee: typeof facility.indFee === 'boolean' ? facility.indFee : null,
-                                        amount: facility.amount,
-                                        currency: facility.currency
-                                    })) : [] };
+                                hotelbedsIssues, hotelbedsMandatoryFacilities };
                         }
                         const resolved = resolveHotelbedsRateComments({
                             rateCommentsId: rate.rateCommentsId, hotelCode: code, language: config.language,
-                            checkIn, records: rateCommentRows || [], now: checkedAt
+                            checkIn, records: rateCommentRows || [],
+                            now: checkedAt
                         });
                         return {
                             ...rate,
                             rateCommentsResolved: resolved.resolved,
                             rateComments: resolved.comments,
-                            hotelbedsIssues: resolved.issues,
-                            hotelbedsMandatoryFacilities: resolved.mandatoryFacilities
+                            hotelbedsIssues,
+                            hotelbedsMandatoryFacilities
                         };
                     })
                 }));

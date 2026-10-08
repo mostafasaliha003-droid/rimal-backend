@@ -11,6 +11,26 @@ function encryptionKey(env = process.env) {
     return Buffer.from(value, 'hex');
 }
 
+function createEncryptedBookingRecordPayloadSchema(mongooseInstance) {
+    if (!mongooseInstance?.Schema) throw new TypeError('booking_record_schema_factory_invalid');
+    return new mongooseInstance.Schema({
+        iv: { type: String, required: true, match: /^[a-f\d]{24}$/i },
+        tag: { type: String, required: true, match: /^[a-f\d]{32}$/i },
+        ciphertext: { type: String, required: true, minlength: 1, maxlength: 65536 }
+    }, { _id: false, strict: 'throw' });
+}
+
+function validEncryptedBookingRecordPayload(envelope) {
+    if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)
+        || !/^[a-f\d]{24}$/i.test(envelope.iv || '')
+        || !/^[a-f\d]{32}$/i.test(envelope.tag || '')
+        || typeof envelope.ciphertext !== 'string' || envelope.ciphertext.length < 1
+        || envelope.ciphertext.length > 65536 || envelope.ciphertext.length % 4 !== 0
+        || !/^(?:[A-Za-z\d+/]{4})*(?:[A-Za-z\d+/]{2}==|[A-Za-z\d+/]{3}=)?$/.test(envelope.ciphertext)) return false;
+    try { return Buffer.from(envelope.ciphertext, 'base64').toString('base64') === envelope.ciphertext; }
+    catch { return false; }
+}
+
 function encryptBookingRecordPayload(payload, env = process.env) {
     if (!payload || typeof payload !== 'object' || Array.isArray(payload)) throw fail('booking_record_payload_invalid', 400);
     const iv = crypto.randomBytes(12);
@@ -20,8 +40,7 @@ function encryptBookingRecordPayload(payload, env = process.env) {
 }
 
 function decryptBookingRecordPayload(envelope, env = process.env) {
-    if (!envelope || !/^[a-f\d]{24}$/i.test(envelope.iv || '') || !/^[a-f\d]{32}$/i.test(envelope.tag || '')
-        || typeof envelope.ciphertext !== 'string' || envelope.ciphertext.length > 65536) {
+    if (!validEncryptedBookingRecordPayload(envelope)) {
         throw fail('booking_record_payload_unavailable', 503);
     }
     try {
@@ -60,15 +79,20 @@ function amountFrom(offer) {
     return Number.isFinite(number) ? { price: number, priceCurrency: offer.lockedSellCurrency } : {};
 }
 
-function createBookingRecordPersistence({ BookingModel, realm = process.env.RIMAL_AUTH_REALM, env = process.env } = {}) {
+function createBookingRecordPersistence(options = {}) {
+    const { BookingModel, env = process.env } = options;
+    const realm = options.realm === undefined ? env?.RIMAL_AUTH_REALM : options.realm;
     if (!BookingModel || typeof BookingModel.findOneAndUpdate !== 'function'
         || typeof BookingModel.findOne !== 'function'
-        || typeof realm !== 'string') {
+        || !env || typeof env !== 'object' || Array.isArray(env)) {
         throw new TypeError('booking_record_persistence_dependencies_invalid');
     }
+    const activeRealm = typeof realm === 'string' && realm === realm.trim()
+        && /^[a-z0-9:_-]{1,100}$/i.test(realm) ? realm : null;
 
-    async function persist({ bookingReference, ownerSubject, guestDetails, offer, bookingStatus, paymentMethod, clientReference } = {}) {
-        if (!/^[a-z0-9:_-]{1,100}$/i.test(realm)) throw fail('booking_record_scope_unavailable', 503);
+    async function persist({ bookingReference, ownerSubject, guestDetails, offer, bookingStatus, paymentMethod,
+        clientReference, hotelbedsVoucherSnapshotEncrypted, hotelbedsVoucherSnapshotProcessed = false } = {}) {
+        if (!activeRealm) throw fail('booking_record_scope_unavailable', 503);
         const reference = safeText(bookingReference, '', 200);
         const owner = safeText(ownerSubject, '', 254);
         const status = typeof bookingStatus === 'string' ? bookingStatus.trim().toUpperCase() : '';
@@ -77,10 +101,22 @@ function createBookingRecordPersistence({ BookingModel, realm = process.env.RIMA
         }
         const contact = contactFrom(guestDetails);
         const metadata = offer?.bookingMetadata || {};
+        const providerHotelCode = safeText(offer?.providerHotelCode, '', 20);
+        if (providerHotelCode && !/^\d{1,10}$/.test(providerHotelCode)) {
+            throw fail('booking_record_hotel_code_invalid', 409);
+        }
+        if (hotelbedsVoucherSnapshotEncrypted !== undefined
+            && !validEncryptedBookingRecordPayload(hotelbedsVoucherSnapshotEncrypted)) {
+            throw fail('booking_record_voucher_snapshot_invalid', 409);
+        }
+        if (typeof hotelbedsVoucherSnapshotProcessed !== 'boolean'
+            || hotelbedsVoucherSnapshotEncrypted && !hotelbedsVoucherSnapshotProcessed) {
+            throw fail('booking_record_voucher_snapshot_invalid', 409);
+        }
         const identity = {
             bookingReference: reference,
             ownerSubject: owner,
-            realm,
+            realm: activeRealm,
             provider: 'hotelbeds'
         };
         const document = {
@@ -97,6 +133,9 @@ function createBookingRecordPersistence({ BookingModel, realm = process.env.RIMA
             supplierPaymentType: safeText(metadata.paymentType, 'unknown', 40),
             cancellationPolicy: safeText(metadata.cancellationPolicy, 'Supplier terms apply', 2000),
             bookingClientReference: safeText(clientReference, '', 100),
+            hotelbedsVoucherSnapshotProcessed,
+            ...(providerHotelCode ? { providerHotelCode } : {}),
+            ...(hotelbedsVoucherSnapshotEncrypted ? { hotelbedsVoucherSnapshotEncrypted } : {}),
             ...amountFrom(offer),
             ...(status === 'CONFIRMED' ? { confirmedAt: new Date() } : {})
         };
@@ -127,13 +166,13 @@ function createBookingRecordPersistence({ BookingModel, realm = process.env.RIMA
             }
             try { record = await BookingModel.findOne({ bookingReference: reference }).lean(); }
             catch { throw fail('booking_record_persistence_unavailable', 503); }
-            if (!record || record.ownerSubject !== owner || record.realm !== realm
+            if (!record || record.ownerSubject !== owner || record.realm !== activeRealm
                 || record.provider !== 'hotelbeds') {
                 throw fail('booking_record_owner_conflict', 409);
             }
         }
 
-        if (!record || record.ownerSubject !== owner || record.realm !== realm
+        if (!record || record.ownerSubject !== owner || record.realm !== activeRealm
             || record.provider !== 'hotelbeds') {
             throw fail('booking_record_owner_conflict', 409);
         }
@@ -160,7 +199,7 @@ function createBookingRecordPersistence({ BookingModel, realm = process.env.RIMA
         let current;
         try { current = await BookingModel.findOne({ bookingReference: reference }).lean(); }
         catch { throw fail('booking_record_persistence_unavailable', 503); }
-        if (!current || current.ownerSubject !== owner || current.realm !== realm
+        if (!current || current.ownerSubject !== owner || current.realm !== activeRealm
             || current.provider !== 'hotelbeds'
             || ['cancelled', 'canceled'].includes(String(current.status).toLowerCase())) {
             throw fail('booking_record_terminal_state_conflict', 409);
@@ -174,8 +213,10 @@ function createBookingRecordPersistence({ BookingModel, realm = process.env.RIMA
 
 module.exports = {
     createBookingRecordPersistence,
+    createEncryptedBookingRecordPayloadSchema,
     encryptBookingRecordPayload,
     decryptBookingRecordPayload,
+    validEncryptedBookingRecordPayload,
     safeText,
     contactFrom,
     amountFrom

@@ -33,6 +33,14 @@ const bookingAttemptSchema = new mongoose.Schema({
     rateType: { type: String, required: true, enum: ['BOOKABLE', 'RECHECK'], immutable: true, select: false },
     rateIdentity: { type: rateIdentitySchema, required: true, immutable: true, select: false },
     rateTerms: { type: rateTermsSchema, required: true, immutable: true, select: false },
+    rateReviewId: {
+        type: String, default: undefined, immutable: true, select: false,
+        match: /^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i
+    },
+    sourceTermsVersion: {
+        type: String, default: undefined, immutable: true, select: false, match: /^[a-f\d]{64}$/i
+    },
+    rateReviewCheckRateRequests: { type: Number, default: undefined, immutable: true, select: false, enum: [1] },
     acceptedTermsVersion: {
         type: String, required: true, immutable: true, select: false, match: /^[a-f\d]{64}$/i
     },
@@ -47,6 +55,16 @@ const bookingAttemptSchema = new mongoose.Schema({
         select: false,
         immutable: true
     },
+    hotelbedsVoucherSnapshotEncrypted: {
+        type: new mongoose.Schema({
+            iv: { type: String, required: true, match: /^[a-f\d]{24}$/i },
+            tag: { type: String, required: true, match: /^[a-f\d]{32}$/i },
+            ciphertext: { type: String, required: true, minlength: 1, maxlength: 65536 }
+        }, { _id: false, strict: 'throw' }),
+        default: undefined,
+        select: false
+    },
+    hotelbedsVoucherSnapshotProcessed: { type: Boolean, default: false, select: false },
     bookingReference: { type: String, default: null, select: false, maxlength: 200 },
     bookingStatus: { type: String, default: null, select: false, maxlength: 40 },
     lastError: { type: String, default: null, select: false, match: /^(?:[a-z][a-z0-9_]{0,79})?$/ },

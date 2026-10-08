@@ -77,6 +77,12 @@ function createHotelbedsBookingAttemptStore({
             || !(attempt?.termsAcceptedAt instanceof Date) || Number.isNaN(attempt.termsAcceptedAt.getTime())) {
             throw fail('hotelbeds_booking_attempt_claim_invalid', 400);
         }
+        if (attempt.scope === 'direct' && (!validOfferTermsVersion(attempt.sourceTermsVersion)
+            || typeof attempt.rateReviewId !== 'string'
+            || !/^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i.test(attempt.rateReviewId)
+            || attempt.rateReviewCheckRateRequests !== 1)) {
+            throw fail('hotelbeds_booking_attempt_rate_review_required', 409);
+        }
         const context = trustedContext(attempt?.ownerSubject);
         if (attempt.provider !== 'hotelbeds' || attempt.origin !== 'live') {
             throw fail('hotelbeds_booking_fixture_forbidden', 409);
@@ -110,7 +116,10 @@ function createHotelbedsBookingAttemptStore({
             origin: 'live', provider: 'hotelbeds',
             ...(!allowAnyOwner ? { ownerSubject: context.ownerSubject } : {}) })
             .select('+scope +realm +environment +accountId +ownerSubject +sessionId +attemptId +clientReference +rateKey +rateType +rateIdentity +rateTerms '
-                + '+acceptedTermsVersion +termsAcceptedAt +bookingReference +bookingStatus +lastError +bookingRateKey +bookingRecordPayloadEncrypted')
+                + '+acceptedTermsVersion +termsAcceptedAt +rateReviewId +sourceTermsVersion '
+                + '+rateReviewCheckRateRequests '
+                + '+bookingReference +bookingStatus +lastError +bookingRateKey +bookingRecordPayloadEncrypted +hotelbedsVoucherSnapshotEncrypted '
+                + '+hotelbedsVoucherSnapshotProcessed')
             .lean().exec();
     }
 
@@ -122,7 +131,8 @@ function createHotelbedsBookingAttemptStore({
             origin: 'live', provider: 'hotelbeds',
             ...(!allowAnyOwner ? { ownerSubject: context.ownerSubject } : {}) })
             .select('+scope +realm +environment +accountId +ownerSubject +sessionId +publicOfferId +attemptId +clientReference +rateKey +rateType +rateIdentity +rateTerms '
-                + '+acceptedTermsVersion +termsAcceptedAt +bookingReference +bookingStatus +lastError +bookingRateKey +bookingRecordPayloadEncrypted')
+                + '+acceptedTermsVersion +termsAcceptedAt +bookingReference +bookingStatus +lastError +bookingRateKey +bookingRecordPayloadEncrypted +hotelbedsVoucherSnapshotEncrypted '
+                + '+hotelbedsVoucherSnapshotProcessed')
             .lean().exec();
     }
 
@@ -133,8 +143,9 @@ function createHotelbedsBookingAttemptStore({
             environment: context.environment, accountId: context.accountId,
             origin: 'live', provider: 'hotelbeds',
             ...(!allowAnyOwner ? { ownerSubject: context.ownerSubject } : {}) })
-            .select('+scope +realm +environment +accountId +ownerSubject +sessionId +publicOfferId +attemptId +clientReference +rateKey +rateType +rateIdentity +rateTerms '
-                + '+bookingReference +bookingStatus +lastError +bookingRateKey')
+            .select('+scope +realm +environment +accountId +ownerSubject +sessionId +publicOfferId +attemptId +clientReference '
+                + '+rateKey +rateType +rateIdentity +rateTerms +bookingReference +bookingStatus +lastError +bookingRateKey +bookingRecordPayloadEncrypted '
+                + '+hotelbedsVoucherSnapshotEncrypted +hotelbedsVoucherSnapshotProcessed')
             .lean().exec();
     }
 
@@ -152,7 +163,9 @@ function createHotelbedsBookingAttemptStore({
         try {
             updated = await Model.findOneAndUpdate({ attemptId, ...context, state: expectedState }, {
                 $set: { ...fields, state: nextState }
-            }, { new: true, writeConcern: WRITE_CONCERN }).lean().exec();
+            }, { new: true, writeConcern: WRITE_CONCERN })
+                .select('+bookingRecordPayloadEncrypted +hotelbedsVoucherSnapshotEncrypted +hotelbedsVoucherSnapshotProcessed')
+                .lean().exec();
         } catch (error) {
             throw fail('hotelbeds_booking_attempt_persistence_unknown', 503, error);
         }

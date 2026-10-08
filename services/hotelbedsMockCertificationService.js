@@ -53,7 +53,8 @@ async function getMockCertificationFlow() {
     };
     const bookingConfirmation = {
         bookingReference: 'HBX-MOCK-BOOKING-900001',
-        agencyReference: 'RIMAL-MOCK-AGENCY-001',
+        status: 'CONFIRMED',
+        clientReference: 'RMLMOCKAGENCY001',
         checkIn: '2030-06-15',
         checkOut: '2030-06-17',
         supplierName: 'Hotelbeds Mock Supplier',
@@ -63,8 +64,8 @@ async function getMockCertificationFlow() {
             roomType: 'Mock Double Room',
             boardType: 'BED AND BREAKFAST',
             passengers: [
-                { name: 'Mock Lead Passenger Guest', type: 'AD' },
-                { name: 'Mock Child Guest', type: 'CH', age: 7 }
+                { name: 'Mock Lead Passenger', surname: 'Guest', type: 'AD' },
+                { name: 'Mock Child', surname: 'Guest', type: 'CH', age: 7 }
             ],
             rateComments: ['Mock rate comment for certification UI.']
         }]

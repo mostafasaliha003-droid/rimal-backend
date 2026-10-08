@@ -107,7 +107,7 @@ test('availability makes one supplier request, reads content with one $in query,
                         hotelCode: 12345,
                         language: 'ENG',
                         source: 'hotelbeds_content_api',
-                        syncedAt: new Date('2026-10-01T12:00:00.000Z'),
+                        syncedAt: new Date(),
                         content: {
                             contentStatus: 'complete',
                             name: 'Cached One',

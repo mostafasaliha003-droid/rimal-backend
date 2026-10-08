@@ -279,6 +279,9 @@ test('attempt store persists a validated Mongoose document with majority write c
             rateType: 'RECHECK',
             rateIdentity: BOOKING_IDENTITY,
             rateTerms: BOOKING_TERMS,
+            rateReviewId: '33333333-3333-4333-8333-333333333333',
+            sourceTermsVersion: ACCEPTED_TERMS_VERSION,
+            rateReviewCheckRateRequests: 1,
             acceptedTermsVersion: ACCEPTED_TERMS_VERSION,
             termsAcceptedAt: new Date(NOW),
             bookingRecordPayloadEncrypted: { iv: 'a'.repeat(24), tag: 'b'.repeat(32), ciphertext: 'YQ==' },
@@ -289,6 +292,7 @@ test('attempt store persists a validated Mongoose document with majority write c
         assert.equal(writes.length, 1);
         assert.equal(writes[0].document.scope, 'direct');
         assert.equal(writes[0].document.publicOfferId, 'c'.repeat(64));
+        assert.equal(writes[0].document.rateReviewCheckRateRequests, 1);
         assert.equal(writes[0].options.writeConcern.w, 'majority');
         assert.equal(writes[0].options.writeConcern.j, true);
         assert.equal(writes[0].options.writeConcern.wtimeout, 10000);

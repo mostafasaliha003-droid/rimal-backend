@@ -15,7 +15,13 @@ function validStayDate(value) {
     return Number.isFinite(parsed.getTime()) && parsed.toISOString().slice(0, 10) === value;
 }
 
-function resolveHotelbedsRateComments({ rateCommentsId, hotelCode, language, checkIn, records, now = new Date() } = {}) {
+function rateCodeSetIncludes(rateCodes, rateCode) {
+    if (typeof rateCodes !== 'string' || typeof rateCode !== 'string') return false;
+    return rateCodes.trim().split(/\s+/).includes(rateCode);
+}
+
+function resolveHotelbedsRateComments({ rateCommentsId, hotelCode, language, checkIn, records,
+    now = new Date() } = {}) {
     const identity = parseRateCommentsId(rateCommentsId);
     if (!identity || !Number.isSafeInteger(Number(hotelCode)) || !language || !validStayDate(checkIn)
         || !Array.isArray(records)) return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
@@ -23,51 +29,49 @@ function resolveHotelbedsRateComments({ rateCommentsId, hotelCode, language, che
         && String(record?.language || '').toUpperCase() === String(language).toUpperCase()
         && record?.source === 'hotelbeds_content_api'
         && String(record?.incoming).trim() === identity.incoming
-        && String(record?.code).trim() === identity.code
-        && String(record?.rateCodes).trim().replace(/\s+/g, ' ') === identity.rateCodes);
-    if (matching.length !== 1) return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
+        && String(record?.code).trim() === identity.code);
+    if (matching.length === 0) return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
 
-    const record = matching[0];
     const nowMs = new Date(now).getTime();
-    const syncedAtMs = new Date(record.syncedAt).getTime();
-    if (!Number.isFinite(nowMs) || !Number.isFinite(syncedAtMs) || syncedAtMs > nowMs
-        || nowMs - syncedAtMs > 7 * 24 * 60 * 60 * 1000) {
+    if (!Number.isFinite(nowMs)) return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
+    const freshMatching = matching.filter(record => {
+        const syncedAtMs = new Date(record.syncedAt).getTime();
+        return Number.isFinite(syncedAtMs) && syncedAtMs <= nowMs
+            && nowMs - syncedAtMs <= 7 * 24 * 60 * 60 * 1000;
+    });
+    if (freshMatching.length === 0) return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
+
+    const latestSyncedAtMs = Math.max(...freshMatching.map(record => new Date(record.syncedAt).getTime()));
+    const currentMatching = freshMatching.filter(record => {
+        const syncedAtMs = new Date(record.syncedAt).getTime();
+        return syncedAtMs === latestSyncedAtMs;
+    });
+    if (currentMatching.length === 0) return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
+
+    const matchingRateGroups = currentMatching.flatMap(record =>
+        (Array.isArray(record.commentsByRates) ? record.commentsByRates : [])
+            .filter(group => rateCodeSetIncludes(group?.rateCodes, identity.rateCodes))
+            .map(group => ({ record, group })));
+    if (matchingRateGroups.length === 0) {
         return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
     }
-    const rateGroups = Array.isArray(record.commentsByRates) ? record.commentsByRates : [];
-    const applicable = rateGroups.filter(group => String(group?.rateCodes || '').trim().replace(/\s+/g, ' ') === identity.rateCodes)
-        .flatMap(group => Array.isArray(group.comments) ? group.comments : [])
+    const applicable = matchingRateGroups.flatMap(({ group }) => Array.isArray(group.comments) ? group.comments : [])
         .filter(comment => validStayDate(comment?.dateStart) && validStayDate(comment?.dateEnd)
             && comment.dateStart <= checkIn && comment.dateEnd >= checkIn)
-        .map(comment => ({
-            dateStart: comment.dateStart,
-            dateEnd: comment.dateEnd,
-            description: typeof comment.description === 'string' ? comment.description.trim() : '',
-            incoming: identity.incoming,
-            code: identity.code,
-            rateCodes: identity.rateCodes
-        })).filter(comment => comment.description && comment.description.length <= 2000)
+        .map(comment => ({ dateStart: comment.dateStart, dateEnd: comment.dateEnd,
+            description: typeof comment.description === 'string' ? comment.description.trim() : '' }))
+        .filter(comment => comment.description && comment.description.length <= 2000);
+    const uniqueApplicable = [...new Map(applicable.map(comment =>
+        [`${comment.dateStart}|${comment.dateEnd}|${comment.description}`, comment])).values()]
         .sort((left, right) => left.dateStart.localeCompare(right.dateStart)
             || left.dateEnd.localeCompare(right.dateEnd) || left.description.localeCompare(right.description));
-    if (applicable.length === 0) return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
+    if (uniqueApplicable.length === 0) return { resolved: false, comments: [], issues: [], mandatoryFacilities: [] };
 
-    const issues = (Array.isArray(record.issues) ? record.issues : [])
-        .map(issue => typeof issue?.description === 'string' ? issue.description.trim() : '')
-        .filter(Boolean).slice(0, 30);
-    const mandatoryFacilities = (Array.isArray(record.facilities) ? record.facilities : [])
-        .filter(facility => facility?.voucher === true)
-        .map(facility => ({
-            description: typeof facility.description === 'string' ? facility.description.trim() : '',
-            fee: typeof facility.indFee === 'boolean' ? facility.indFee : null,
-            amount: facility.indFee === true && Number.isFinite(Number(facility.amount)) ? String(facility.amount) : null,
-            currency: facility.indFee === true && /^[A-Z]{3}$/.test(String(facility.currency || ''))
-                ? facility.currency : null
-        })).filter(facility => facility.description).slice(0, 100);
     return {
         resolved: true,
-        comments: applicable.map(({ dateStart, dateEnd, description }) => ({ dateStart, dateEnd, description })),
-        issues,
-        mandatoryFacilities
+        comments: uniqueApplicable,
+        issues: [],
+        mandatoryFacilities: []
     };
 }
 

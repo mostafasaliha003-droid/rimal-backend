@@ -1,5 +1,48 @@
 const express = require('express');
 const fs = require('node:fs');
+const {
+    decryptBookingRecordPayload,
+    validEncryptedBookingRecordPayload
+} = require('./bookingRecordPersistence');
+const { hotelbedsVoucherSnapshotMatchesBooking } = require('./hotelbedsVoucherSnapshot');
+const { generateVoucher, renderVoucherHtml } = require('./hotelbedsVoucherService');
+const { isVerifiedHotelbedsContent } = require('./hotelbedsContentPolicy');
+const { hotelbedsScopeFrom } = require('./hotelbedsScope');
+
+function queryExec(query) {
+    return query && typeof query.exec === 'function' ? query.exec() : query;
+}
+
+function verifiedHotelContent(Model, hotelbedsDatabase, env, snapshot, now) {
+    const language = snapshot?.binding?.contentLanguage;
+    const hotelCode = snapshot?.binding?.hotelCode;
+    if (!Model || !hotelbedsDatabase || !language || !Number.isSafeInteger(hotelCode)) {
+        throw Object.assign(new Error('hotelbeds_voucher_content_missing'), { code: 'hotelbeds_voucher_content_missing' });
+    }
+    return Promise.resolve().then(async () => {
+        await hotelbedsDatabase.ensureModelConnected(Model, {
+            env,
+            errorCode: 'hotelbeds_voucher_content_unavailable'
+        });
+        const query = Model.findOne({ hotelCode, language, source: 'hotelbeds_content_api' });
+        const row = await queryExec(query?.lean ? query.lean() : query);
+        const trustedRow = row && {
+            code: row.hotelCode,
+            hotelCode: row.hotelCode,
+            contentHotelCode: row.hotelCode,
+            contentLanguage: row.language,
+            contentSource: row.source,
+            contentSyncedAt: row.syncedAt,
+            content: row.content
+        };
+        if (!isVerifiedHotelbedsContent(trustedRow, { hotelCode, language, now, requireCategory: false })) {
+            throw Object.assign(new Error('hotelbeds_voucher_content_missing'), {
+                code: 'hotelbeds_voucher_content_missing'
+            });
+        }
+        return row.content;
+    });
+}
 
 function escapeHtml(value) {
     return String(value ?? 'N/A').replace(/[&<>"']/g, character => ({
@@ -7,11 +50,16 @@ function escapeHtml(value) {
     })[character]);
 }
 
-function createOwnedBookingPdfRouter({ BookingModel, puppeteer, templatePath, requireUser, requireAdmin,
-    realm = process.env.RIMAL_AUTH_REALM, sanitizeText = value => String(value || 'N/A') } = {}) {
+function createOwnedBookingPdfRouter({ BookingModel, HotelbedsContentModel, hotelbedsDatabase,
+    env = process.env, puppeteer, templatePath, hotelbedsTemplatePath, requireUser, requireAdmin,
+    realm = process.env.RIMAL_AUTH_REALM, sanitizeText = value => String(value || 'N/A'),
+    now = () => new Date() } = {}) {
     if (!BookingModel || typeof BookingModel.findOne !== 'function' || typeof puppeteer?.launch !== 'function'
         || typeof templatePath !== 'string' || typeof requireUser !== 'function' || typeof requireAdmin !== 'function'
-        || typeof sanitizeText !== 'function') throw new TypeError('owned_booking_pdf_dependencies_invalid');
+        || typeof sanitizeText !== 'function' || !env || typeof env !== 'object' || typeof now !== 'function'
+        || hotelbedsTemplatePath !== undefined && typeof hotelbedsTemplatePath !== 'string') {
+        throw new TypeError('owned_booking_pdf_dependencies_invalid');
+    }
 
     const router = express.Router();
     const respond = async (req, res, isAdmin) => {
@@ -34,12 +82,51 @@ function createOwnedBookingPdfRouter({ BookingModel, puppeteer, templatePath, re
             if (!isAdmin && (!scope.ownerSubject || typeof scope.ownerSubject !== 'string')) {
                 return res.status(401).send('Unauthorized');
             }
-            const booking = await BookingModel.findOne({ bookingReference: reference, ...scope }).lean();
+            let bookingQuery = BookingModel.findOne({ bookingReference: reference, ...scope });
+            if (typeof bookingQuery?.select === 'function') {
+                bookingQuery = bookingQuery.select('+providerHotelCode +bookingClientReference +hotelbedsVoucherSnapshotEncrypted '
+                    + '+hotelbedsVoucherSnapshotProcessed');
+            }
+            if (typeof bookingQuery?.lean === 'function') bookingQuery = bookingQuery.lean();
+            const booking = await queryExec(bookingQuery);
             if (!booking) return res.status(404).send('Booking not found');
 
-            let html = fs.readFileSync(templatePath, 'utf8');
-            const cleanHotelName = sanitizeText(booking.hotelName);
-            const replacements = {
+            const isHotelbeds = booking.provider === 'hotelbeds';
+            let html;
+            if (isHotelbeds) {
+                if (String(booking.status).toLowerCase() !== 'active'
+                    || String(booking.supplierStatus).toUpperCase() !== 'CONFIRMED') {
+                    return res.status(409).send('Voucher unavailable');
+                }
+                if (!validEncryptedBookingRecordPayload(booking.hotelbedsVoucherSnapshotEncrypted)) {
+                    return res.status(409).send('Voucher unavailable');
+                }
+                let snapshot;
+                try {
+                    snapshot = decryptBookingRecordPayload(booking.hotelbedsVoucherSnapshotEncrypted, env);
+                } catch {
+                    return res.status(409).send('Voucher unavailable');
+                }
+                let trustedSupplierScope;
+                try { trustedSupplierScope = hotelbedsScopeFrom(env); }
+                catch { return res.status(503).send('Voucher unavailable'); }
+                if (!hotelbedsVoucherSnapshotMatchesBooking(snapshot, booking, {
+                    accountId: trustedSupplierScope.accountId
+                })) return res.status(409).send('Voucher unavailable');
+                const hotelContent = await verifiedHotelContent(
+                    HotelbedsContentModel,
+                    hotelbedsDatabase,
+                    env,
+                    snapshot,
+                    new Date(now())
+                );
+                const voucher = generateVoucher(snapshot.confirmation, hotelContent);
+                const voucherTemplate = fs.readFileSync(hotelbedsTemplatePath || templatePath, 'utf8');
+                html = renderVoucherHtml(voucherTemplate, voucher);
+            } else {
+                html = fs.readFileSync(templatePath, 'utf8');
+                const cleanHotelName = sanitizeText(booking.hotelName);
+                const replacements = {
                 bookingReference: booking.bookingReference,
                 bookingStatus: ['cancelled', 'canceled'].includes(String(booking.status).toLowerCase())
                     ? 'ملغي'
@@ -65,10 +152,11 @@ function createOwnedBookingPdfRouter({ BookingModel, puppeteer, templatePath, re
                 checkInDate: /^\d{4}-\d{2}-\d{2}$/.test(booking.checkInDate || '') ? booking.checkInDate : 'غير متاح',
                 checkOutDate: /^\d{4}-\d{2}-\d{2}$/.test(booking.checkOutDate || '') ? booking.checkOutDate : 'غير متاح',
                 policyText: sanitizeText(booking.cancellationPolicy)
-            };
-            for (const [key, value] of Object.entries(replacements)) {
-                const safe = key === 'encodedHotelName' ? value : escapeHtml(value);
-                html = html.replaceAll(`{{${key}}}`, safe || 'N/A');
+                };
+                for (const [key, value] of Object.entries(replacements)) {
+                    const safe = key === 'encodedHotelName' ? value : escapeHtml(value);
+                    html = html.replaceAll(`{{${key}}}`, safe || 'N/A');
+                }
             }
 
             browser = await puppeteer.launch({

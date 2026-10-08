@@ -74,6 +74,8 @@ test('saved Hotelbeds payload maps rates with parent currency, multiple cancella
         price: { ...normalizedWithReference.price, customerDisplay: { amount: '218.50', currency: 'EUR' } }
     }, { displayPolicyApproved: true, displayCurrency: 'EUR' });
     assert.equal(publicProjection.eligible, true);
+    assert.equal(publicProjection.offer.availability.rateType, normalizedWithReference.availability.rateType);
+    assert.equal(Object.hasOwn(publicProjection.offer.availability, 'rateClass'), false);
     assert.equal(JSON.stringify(publicProjection).includes('private-hotelbeds-rate-key'), false);
     assert.equal(JSON.stringify(publicProjection).includes('rateKey'), false);
 });

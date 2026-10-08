@@ -354,6 +354,11 @@ function createOfferCacheService({
             const supplierScope = provider === 'hotelbeds' ? hotelbedsScope() : null;
             const bookingMetadata = provider === 'hotelbeds' ? {
                 hotelName: typeof offer.hotel?.name === 'string' ? offer.hotel.name.slice(0, 200) : '',
+                contentLanguage: offer.hotel?.contentSource === 'hotelbeds_content_api'
+                    && String(offer.hotel?.contentHotelCode) === String(offer.providerHotelId)
+                    && typeof offer.hotel?.contentLanguage === 'string'
+                    && /^[A-Z]{2,12}$/i.test(offer.hotel.contentLanguage.trim())
+                    ? offer.hotel.contentLanguage.trim().toUpperCase() : null,
                 roomName: typeof offer.room?.name === 'string' ? offer.room.name.slice(0, 160) : '',
                 boardName: typeof offer.board?.supplierName === 'string' ? offer.board.supplierName.slice(0, 120) : '',
                 checkIn: typeof offer.stay?.checkIn === 'string' ? offer.stay.checkIn : '',
@@ -367,6 +372,11 @@ function createOfferCacheService({
                 ...clientSafeOffer(offer, publicOfferId),
                 schemaVersion: recordSchemaVersion
             };
+            const publicReviewOffer = provider === 'hotelbeds'
+                ? {
+                    ...structuredClone(publicOffer),
+                    termsVersion: offerTermsVersion(publicOffer)
+                } : undefined;
             const termsVersion = provider === 'hotelbeds' ? offerTermsVersion(publicOffer) : null;
 
             return {
@@ -377,6 +387,7 @@ function createOfferCacheService({
                     provider,
                     ...(termsVersion ? { termsVersion } : {}),
                     ...(supplierScope || {}),
+                    ...(publicReviewOffer ? { publicReviewOffer } : {}),
                     ...(bookingMetadata ? { bookingMetadata } : {}),
                     providerHotelCode: providerHotelCodeFrom(offer),
                     opaqueToken: opaqueTokenFrom(offer),
@@ -449,7 +460,7 @@ function createOfferCacheService({
                 '+opaqueToken', '+lockedNetPrice', '+lockedSellAmount', '+lockedSellCurrency',
                 '+currency', '+paymentType', '+rateType', '+origin',
                 '+roomCount', '+adultCount', '+childCount', '+realm', '+environment', '+accountId',
-                '+bookingIdentity', '+bookingTerms', '+bookingMetadata', '+termsVersion'
+                '+bookingIdentity', '+bookingTerms', '+bookingMetadata', '+publicReviewOffer', '+termsVersion'
             ].join(' ')).lean().exec();
         if (!record) return null;
         return {
@@ -472,6 +483,7 @@ function createOfferCacheService({
             bookingIdentity: record.bookingIdentity || null,
             bookingTerms: record.bookingTerms || null,
             bookingMetadata: record.bookingMetadata || null,
+            publicReviewOffer: record.publicReviewOffer || null,
             lockedSellAmount: record.lockedSellAmount,
             lockedSellCurrency: record.lockedSellCurrency,
             expiresAt: new Date(record.expiresAt)
@@ -519,6 +531,51 @@ function createOfferCacheService({
             childCount: record.childCount,
             bookingIdentity: record.bookingIdentity || null,
             bookingTerms: record.bookingTerms || null,
+            expiresAt: new Date(record.expiresAt)
+        };
+    }
+
+    async function getRateReviewOffer(publicOfferId) {
+        if (providerScope !== 'hotelbeds' && !testOnly) {
+            throw fail('offer_cache_provider_scope_mismatch', 503);
+        }
+        if (!validPublicOfferId(publicOfferId)) throw fail('offer_cache_public_id_invalid', 404);
+        const retrievedAt = new Date(now());
+        if (Number.isNaN(retrievedAt.getTime())) throw fail('offer_cache_clock_invalid', 503);
+        await ensureDatabaseReady();
+        const record = await Model.findOne({
+            publicOfferId,
+            ...providerFilter(),
+            ...offerScopeFilter(),
+            expiresAt: { $gt: retrievedAt }
+        }).select([
+            '+opaqueToken', '+lockedNetPrice', '+lockedSellAmount', '+lockedSellCurrency', '+currency',
+            '+paymentType', '+rateType', '+origin', '+roomCount', '+adultCount', '+childCount',
+            '+realm', '+environment', '+accountId', '+bookingIdentity', '+bookingTerms',
+            '+publicReviewOffer', '+termsVersion'
+        ].join(' ')).lean().exec();
+        if (!record) return null;
+        return {
+            publicOfferId: record.publicOfferId,
+            provider: record.provider,
+            origin: record.origin,
+            realm: record.realm,
+            environment: record.environment,
+            accountId: record.accountId,
+            termsVersion: validOfferTermsVersion(record.termsVersion) ? record.termsVersion : null,
+            opaqueToken: record.opaqueToken,
+            lockedNetPrice: record.lockedNetPrice,
+            currency: record.currency,
+            paymentType: record.paymentType,
+            rateType: record.rateType,
+            roomCount: record.roomCount,
+            adultCount: record.adultCount,
+            childCount: record.childCount,
+            bookingIdentity: record.bookingIdentity || null,
+            bookingTerms: record.bookingTerms || null,
+            publicReviewOffer: record.publicReviewOffer || null,
+            lockedSellAmount: record.lockedSellAmount,
+            lockedSellCurrency: record.lockedSellCurrency,
             expiresAt: new Date(record.expiresAt)
         };
     }
@@ -603,7 +660,10 @@ function createOfferCacheService({
         return true;
     }
 
-    return { storeOffers, retrieveOffer, getBookingOffer, getCheckoutOffer, claimBookingOffer, finishBookingOffer };
+    return {
+        storeOffers, retrieveOffer, getBookingOffer, getCheckoutOffer, getRateReviewOffer,
+        claimBookingOffer, finishBookingOffer
+    };
 }
 
 const defaultService = createOfferCacheService();
@@ -624,6 +684,7 @@ const hotelbeds = Object.freeze({
     retrieveOffer: hotelbedsService.retrieveOffer,
     getBookingOffer: hotelbedsService.getBookingOffer,
     getCheckoutOffer: hotelbedsService.getCheckoutOffer,
+    getRateReviewOffer: hotelbedsService.getRateReviewOffer,
     claimBookingOffer: hotelbedsService.claimBookingOffer,
     finishBookingOffer: hotelbedsService.finishBookingOffer
 });

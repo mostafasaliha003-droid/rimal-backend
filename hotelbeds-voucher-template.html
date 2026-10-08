@@ -1,0 +1,67 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Hotel accommodation voucher</title>
+    <style>
+        @page { size: A4; margin: 14mm; }
+        * { box-sizing: border-box; }
+        body { color: #18343a; font: 14px/1.5 Arial, sans-serif; margin: 0; }
+        header { border-bottom: 4px solid #00a7c4; display: flex; justify-content: space-between; padding: 0 0 14px; }
+        h1, h2, p { margin: 0; }
+        h1 { font-size: 22px; letter-spacing: .04em; }
+        h2 { border-bottom: 1px solid #cbd5e1; font-size: 15px; margin: 22px 0 12px; padding-bottom: 6px; }
+        .subtitle, .muted { color: #64748b; }
+        .badge { border: 1px solid #14804a; border-radius: 999px; color: #14804a; font-weight: 700; padding: 5px 12px; }
+        .grid { display: grid; gap: 12px 22px; grid-template-columns: 1fr 1fr; }
+        .item { overflow-wrap: anywhere; }
+        .label { color: #64748b; display: block; font-size: 11px; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; }
+        .value { font-size: 14px; font-weight: 700; }
+        .room { border: 1px solid #dbe4ea; border-radius: 8px; margin: 10px 0; padding: 13px; page-break-inside: avoid; }
+        .room-title { font-size: 14px; font-weight: 700; margin-bottom: 8px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border-bottom: 1px solid #e2e8f0; padding: 7px; text-align: left; vertical-align: top; }
+        th { color: #64748b; font-size: 11px; text-transform: uppercase; }
+        .terms { background: #f1f5f9; border-radius: 8px; margin-top: 18px; padding: 13px; }
+        .footer { border-top: 1px solid #cbd5e1; color: #64748b; font-size: 10px; margin-top: 28px; padding-top: 10px; }
+    </style>
+</head>
+<body>
+    <header>
+        <div>
+            <h1>HOTEL ACCOMMODATION VOUCHER</h1>
+            <p class="subtitle">Hotel reservation confirmation</p>
+        </div>
+        <span class="badge">{{bookingStatus}}</span>
+    </header>
+
+    <section>
+        <h2>Booking details</h2>
+        <div class="grid">
+            <div class="item"><span class="label">Hotel booking reference</span><span class="value">{{bookingReference}}</span></div>
+            {{agencyReferenceField}}
+            <div class="item"><span class="label">Guest / holder</span><span class="value">{{customerName}}</span></div>
+            <div class="item"><span class="label">Stay dates</span><span class="value">{{checkInDate}} — {{checkOutDate}}</span></div>
+        </div>
+    </section>
+
+    <section>
+        <h2>Accommodation</h2>
+        <div class="grid">
+            <div class="item"><span class="label">Hotel</span><span class="value">{{hotelName}}</span></div>
+            {{hotelCategoryField}}
+            <div class="item"><span class="label">Address</span><span class="value">{{hotelAddress}}</span></div>
+            {{hotelPhoneField}}
+        </div>
+        {{roomSections}}
+    </section>
+
+    <section class="terms">
+        <span class="label">Supplier and payment information</span>
+        <p class="value">{{paymentStatement}}</p>
+    </section>
+
+    <p class="footer">Please present this voucher at the accommodation reception. Bring the travel documents used for the reservation.</p>
+</body>
+</html>

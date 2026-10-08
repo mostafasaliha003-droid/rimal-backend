@@ -6,7 +6,7 @@ const {
     createHotelbedsContentService,
     normalizeHotelContent
 } = require('./services/hotelbedsContentService');
-const { generateVoucher } = require('./services/hotelbedsVoucherService');
+const { generateVoucher, renderVoucherHtml } = require('./services/hotelbedsVoucherService');
 const { getMockCertificationFlow } = require('./services/hotelbedsMockCertificationService');
 const createHotelbedsMockCertificationRouter = require('./services/hotelbedsMockCertificationRoutes');
 
@@ -21,8 +21,9 @@ const validContent = {
 };
 
 const validBooking = {
+    status: 'CONFIRMED',
     bookingReference: 'HBX-REF-123',
-    agencyReference: 'RIMAL-REF-123',
+    agencyReference: 'RMLREF123456789',
     checkIn: '2030-06-15',
     checkOut: '2030-06-17',
     supplierName: 'Example Supplier',
@@ -39,7 +40,7 @@ const validBooking = {
     }]
 };
 
-test('Hotelbeds hotel model is isolated and strictly requires voucher content fields', () => {
+test('Hotelbeds legacy content model remains isolated and requires its established fields', () => {
     assert.equal(HotelbedsHotel.modelName, 'HotelbedsHotel');
     assert.equal(HotelbedsHotel.collection.name, 'hotelbedshotels');
     const valid = new HotelbedsHotel(validContent);
@@ -69,6 +70,17 @@ test('content normalizer accepts common Content API name/category/address/phone 
     assert.equal(result.address, '1 Fixture Road, Dubai, UAE');
     assert.equal(result.phone, '+971-4-555-0100');
     assert.throws(() => normalizeHotelContent({ ...validContent, name: '' }), /hotelbeds_content_name_invalid/);
+});
+
+test('approved Content API normalization permits missing recommended category and phone', () => {
+    const normalized = normalizeHotelContent({
+        code: 12345,
+        language: 'ENG',
+        name: { content: 'Fixture Hotel without recommended fields' },
+        address: { content: '1 Fixture Road', city: 'Dubai' }
+    }, { provenance: 'hotelbeds_content_api', requirePhone: false, requireCategory: false });
+    assert.equal(Object.hasOwn(normalized, 'category'), false);
+    assert.equal(Object.hasOwn(normalized, 'phone'), false);
 });
 
 test('mock content sync deduplicates IDs and upserts into its isolated model', async () => {
@@ -142,7 +154,7 @@ test('voucher contains the required hotel, passenger, booking and exact dynamic 
         { name: 'Child Passenger', type: 'child', age: 7 }
     ]);
     assert.equal(voucher.booking.hotelbedsBookingReference, 'HBX-REF-123');
-    assert.equal(voucher.booking.agencyReference, 'RIMAL-REF-123');
+    assert.equal(voucher.booking.agencyReference, 'RMLREF123456789');
     assert.equal(voucher.booking.checkIn, '2030-06-15');
     assert.equal(voucher.booking.checkOut, '2030-06-17');
     assert.deepEqual(voucher.booking.rooms[0], {
@@ -156,22 +168,73 @@ test('voucher contains the required hotel, passenger, booking and exact dynamic 
     assert.equal(JSON.stringify(voucher).includes('100.00'), false, 'voucher must not invent or expose a booking price');
 });
 
-test('voucher accepts Hotelbeds-style booking confirmation fields and requires a passenger in every room', () => {
+test('voucher omits absent recommended category, phone and agency reference without placeholders', () => {
+    const voucher = generateVoucher({
+        ...validBooking,
+        agencyReference: undefined,
+        clientReference: undefined
+    }, {
+        name: 'Fixture Hotel',
+        address: '1 Fixture Road, Dubai, UAE'
+    });
+    assert.deepEqual(voucher.hotel, {
+        name: 'Fixture Hotel',
+        address: '1 Fixture Road, Dubai, UAE'
+    });
+    assert.equal(Object.hasOwn(voucher.booking, 'agencyReference'), false);
+    const html = renderVoucherHtml(
+        '<div>{{agencyReferenceField}}</div><div>{{hotelCategoryField}}</div><div>{{hotelPhoneField}}</div>', voucher
+    );
+    assert.equal(html, '<div></div><div></div><div></div>');
+});
+
+test('voucher rejects malformed or over-limit rate comments rather than silently dropping them', () => {
+    const malformed = structuredClone(validBooking);
+    malformed.rooms[0].rateComments = ['   '];
+    assert.throws(() => generateVoucher(malformed, validContent), /hotelbeds_voucher_rate_comment_invalid/);
+    const oversized = structuredClone(validBooking);
+    oversized.rooms[0].rateComments = ['x'.repeat(2001)];
+    assert.throws(() => generateVoucher(oversized, validContent), /hotelbeds_voucher_rate_comment_invalid/);
+});
+
+test('Hotelbeds voucher HTML escapes supplier data and includes nested rate comments', () => {
+    const voucher = generateVoucher({
+        booking: {
+            reference: 'HBX-HTML-1', clientReference: 'RMLHTMLREFERENCE1', status: 'CONFIRMED',
+            holder: { name: 'Ada', surname: 'Lovelace' },
+            hotel: {
+                checkIn: '2030-06-15', checkOut: '2030-06-16',
+                supplier: { name: 'Supplier <script>', vatNumber: 'VAT-1' },
+                rooms: [{ name: 'Double Room', paxes: [{ name: 'Ada', surname: 'Lovelace', type: 'AD' }],
+                    rates: [{ boardName: 'BED AND BREAKFAST', rateComments: 'Check-in is after 15:00.' }] }]
+            }
+        }
+    }, validContent);
+    const html = renderVoucherHtml('<h1>{{hotelName}}</h1>{{roomSections}}<p>{{paymentStatement}}</p>', voucher);
+    assert.match(html, /Check-in is after 15:00\./);
+    assert.match(html, /BED AND BREAKFAST/);
+    assert.match(html, /Supplier &lt;script&gt;/);
+    assert.doesNotMatch(html, /<script>/);
+});
+
+test('voucher accepts Hotelbeds-style confirmation fields and keeps client reference out of agency reference', () => {
     const confirmation = {
         booking: {
-            reference: 'HBX-RSP-1', clientReference: 'AGENCY-1', holder: { name: 'Lead Passenger' },
+            reference: 'HBX-RSP-1', clientReference: 'RMLRESPONSETST1', status: 'CONFIRMED', holder: { name: 'Lead', surname: 'Passenger' },
             hotel: { checkIn: '2030-06-15', checkOut: '2030-06-16', rooms: [{
-            name: 'Twin Room', boardName: 'ROOM ONLY', paxes: [{ name: 'Lead Passenger', type: 'AD' }],
-            rates: [{ rateComments: 'No meals included.' }]
+            code: 'TWIN', name: 'Twin Room', boardCode: 'RO', boardName: 'ROOM ONLY',
+            paxes: [{ name: 'Lead', surname: 'Passenger', type: 'AD' }],
+            rates: [{ boardCode: 'RO', boardName: 'ROOM ONLY', rateComments: 'No meals included.' }]
             }] }
         },
         supplier: { name: 'Hotelbeds', vatNumber: 'VAT-54321' }
     };
     const voucher = generateVoucher(confirmation, validContent);
     assert.equal(voucher.booking.hotelbedsBookingReference, 'HBX-RSP-1');
-    assert.equal(voucher.booking.agencyReference, 'AGENCY-1');
+    assert.equal(Object.hasOwn(voucher.booking, 'agencyReference'), false);
     assert.equal(voucher.booking.rooms[0].roomType, 'Twin Room');
     assert.deepEqual(voucher.booking.rooms[0].rateComments, ['No meals included.']);
+    assert.equal(renderVoucherHtml('<div>{{agencyReferenceField}}</div>', voucher), '<div></div>');
 
     const missingRoomPax = structuredClone(validBooking);
     missingRoomPax.rooms.push({ roomType: 'Second Room', boardType: 'ROOM ONLY', passengers: [] });
@@ -185,11 +248,19 @@ test('voucher accepts Hotelbeds-style booking confirmation fields and requires a
     assert.deepEqual(normalizedChild, { name: 'Child Passenger', type: 'child', age: 7 });
 });
 
-test('voucher fails closed for missing required fields and invalid dates', () => {
+test('voucher omits recommended fields but fails closed for mandatory fields and invalid dates', () => {
     assert.throws(() => generateVoucher({ ...validBooking, bookingReference: '' }, validContent), /hotelbeds_voucher_booking_reference_missing/);
-    assert.throws(() => generateVoucher(validBooking, { ...validContent, phone: '' }), /hotelbeds_voucher_hotel_phone_missing/);
+    const optionalContent = { ...validContent, category: undefined, phone: '' };
+    const optionalVoucher = generateVoucher({ ...validBooking, agencyReference: undefined }, optionalContent);
+    assert.equal(Object.hasOwn(optionalVoucher.hotel, 'category'), false);
+    assert.equal(Object.hasOwn(optionalVoucher.hotel, 'phone'), false);
+    assert.equal(Object.hasOwn(optionalVoucher.booking, 'agencyReference'), false);
+    assert.throws(() => generateVoucher(validBooking, { ...optionalContent, name: '' }), /hotelbeds_voucher_hotel_name_missing/);
+    assert.throws(() => generateVoucher(validBooking, { ...optionalContent, address: '' }), /hotelbeds_voucher_hotel_address_missing/);
     assert.throws(() => generateVoucher({ ...validBooking, checkOut: '2030-02-30' }, validContent), /hotelbeds_voucher_check_out_invalid/);
     assert.throws(() => generateVoucher({ ...validBooking, checkOut: '2030-06-14' }, validContent), /hotelbeds_voucher_stay_invalid/);
+    assert.throws(() => generateVoucher({ ...validBooking, status: 'ON_REQUEST' }, validContent),
+        /hotelbeds_voucher_booking_not_confirmed/);
 });
 
 test('mock certification flow returns Availability, successful CheckRate and a voucher without supplier requests', async () => {

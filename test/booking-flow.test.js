@@ -5,12 +5,16 @@ const express = require('express');
 const { createOfferCacheService, OFFER_TTL_MS } = require('../services/offerCacheService');
 const { createHotelbedsClient, TEST_MTLS_BASE_URL } = require('../services/hotelbedsClient');
 const { createHotelbedsBookingService } = require('../services/hotelbedsBookingService');
+const { decryptBookingRecordPayload, encryptBookingRecordPayload } = require('../services/bookingRecordPersistence');
+const { hotelbedsVoucherSnapshotFromResponse, hotelbedsVoucherSnapshotMatchesBooking } = require('../services/hotelbedsVoucherSnapshot');
 const {
     identityFromNormalizedOffer,
     termsFromNormalizedOffer
 } = require('../services/hotelbedsRateCheckService');
 const { createHotelbedsBookingReconciliationService } = require('../services/hotelbedsBookingReconciliationService');
 const { hotelbedsScopeFrom } = require('../services/hotelbedsScope');
+const { createHotelbedsRateReviewService } = require('../services/hotelbedsRateReviewService');
+const { createMemoryHotelbedsRateReviewModel } = require('./helpers/createMemoryHotelbedsRateReviewModel');
 const createBookingController = require('../controllers/bookingController');
 
 const NOW = new Date('2026-10-01T12:00:00.000Z');
@@ -46,6 +50,9 @@ const SUPPLIER_ENV = {
     HOTELBEDS_DAILY_BUDGETS: JSON.stringify({ checkrates: 10, booking: 10 }),
     HOTELBEDS_BOOKING_ENABLED: 'true',
     HOTELBEDS_BOOKING_APPROVED: 'true',
+    HOTELBEDS_PILOT_LANGUAGE: 'ENG',
+    HOTELBEDS_RATE_REVIEW_ENABLED: 'true',
+    HOTELBEDS_RATE_REVIEW_APPROVED: 'true',
     PAYMENT_BOOKING_ENCRYPTION_KEY: 'cd'.repeat(32)
 };
 
@@ -113,6 +120,33 @@ function checkRateResponse({ rateKey = RATE_KEY, net = '100.00', rateComments = 
             rateComments
         }] }]
     } };
+}
+
+function confirmedBookingResponse(reference) {
+    return { status: 200, data: { booking: {
+        reference,
+        clientReference: 'RMLTEST00000000001',
+        status: 'CONFIRMED',
+        holder: { name: 'Ada', surname: 'Lovelace' },
+        hotel: {
+            code: 74001,
+            checkIn: '2026-11-10',
+            checkOut: '2026-11-12',
+            supplier: { name: 'Fixture Supplier', vatNumber: 'FIXTURE-VAT' },
+            rooms: [{
+                code: 'DBL.ST',
+                name: 'Double Standard',
+                paxes: [
+                    { name: 'Ada', surname: 'Lovelace', type: 'AD' },
+                    { name: 'Charles', surname: 'Babbage', type: 'AD' }
+                ],
+                rates: [{
+                    boardCode: 'BB',
+                    boardName: 'Bed and Breakfast'
+                }]
+            }]
+        }
+    } } };
 }
 
 function createMemoryAttemptStore() {
@@ -254,6 +288,7 @@ function makeServices({
     persistBooking = async () => ({})
 } = {}) {
     const Model = createMemoryModel();
+    const RateReviewModel = createMemoryHotelbedsRateReviewModel();
     const attemptStore = createMemoryAttemptStore();
     const offerCacheService = createOfferCacheService({
         Model,
@@ -270,15 +305,29 @@ function makeServices({
         agentFactory: () => ({ destroy() {} }),
         http: { request: httpRequest }
     });
+    const rateReviewService = createHotelbedsRateReviewService({
+        Model: RateReviewModel,
+        database: {},
+        client: hotelbedsClient,
+        offerCacheService,
+        env: bookingEnv,
+        now: () => new Date(now()),
+        testOnly: true,
+        ensureDatabaseReady: async () => {}
+    });
     const hotelbedsBookingService = createHotelbedsBookingService({
         client: hotelbedsClient,
         attemptStore,
+        rateReviewService,
         env: bookingEnv,
         now: () => new Date(now()),
         createClientReference: () => 'RMLTEST00000000001',
         persistBooking
     });
-    return { Model, attemptStore, offerCacheService, hotelbedsClient, hotelbedsBookingService, rateType };
+    return {
+        Model, RateReviewModel, attemptStore, offerCacheService, hotelbedsClient,
+        rateReviewService, hotelbedsBookingService, rateType, now
+    };
 }
 
 async function withBookingServer({ offerCacheService, hotelbedsBookingService, run }) {
@@ -308,29 +357,37 @@ async function seedOffer(offerCacheService, offer = normalizedOffer()) {
     await offerCacheService.storeOffers([offer]);
 }
 
-function bookingBody(services, publicOfferId = PUBLIC_OFFER_ID, overrides = {}, termsAccepted = true) {
+async function bookingBody(services, publicOfferId = PUBLIC_OFFER_ID, overrides = {}, termsAccepted = true) {
     const record = services.Model.records.get(publicOfferId);
+    let review;
+    if (publicOfferId === PUBLIC_OFFER_ID && record?.paymentType === 'AT_HOTEL'
+        && record.expiresAt > new Date(services.now())) {
+        review = await services.rateReviewService.createReview({
+            publicOfferId,
+            ownerSubject: 'test-fixture-owner',
+            idempotencyKey: 'booking-flow-review-key-0001'
+        });
+    }
     return JSON.stringify({
         publicOfferId,
         guestDetails: GUEST_DETAILS,
         termsAccepted,
-        acceptedTermsVersion: record?.termsVersion || '0'.repeat(64),
+        acceptedTermsVersion: review?.termsVersion || record?.termsVersion || '0'.repeat(64),
+        ...(review ? {
+            reviewId: review.reviewId,
+            sourceTermsVersion: review.sourceTermsVersion
+        } : {}),
         ...overrides
     });
 }
 
-test('booking flow retrieves cache, rechecks the rate, maps the Hotelbeds payload, and sanitizes confirmation', async () => {
+test('booking flow retrieves cache, reviews and accepts the exact rate terms before booking', async () => {
     const calls = [];
     const services = makeServices({ httpRequest: async request => {
         calls.push(request);
-        if (request.url.endsWith('/checkrates')) {
-            return { status: 200, data: checkRateResponse() };
-        }
+        if (request.url.endsWith('/checkrates')) return { status: 200, data: checkRateResponse() };
         return { status: 200, data: { booking: {
-            reference: 'HBX-BOOKING-90001',
-            status: 'CONFIRMED',
-            totalNet: '100.00',
-            currency: 'EUR'
+            reference: 'HBX-BOOKING-90001', status: 'CONFIRMED', totalNet: '100.00', currency: 'EUR'
         } } };
     } });
     await seedOffer(services.offerCacheService);
@@ -346,19 +403,23 @@ test('booking flow retrieves cache, rechecks the rate, maps the Hotelbeds payloa
     assert.equal(services.Model.records.get(PUBLIC_OFFER_ID).bookingMetadata.checkOut, '2026-11-12');
 
     await withBookingServer({ ...services, run: async url => {
+        const requestBody = await bookingBody(services);
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
+            body: requestBody
         });
         const body = await response.json();
 
         assert.equal(response.status, 200, JSON.stringify(body));
-        assert.deepEqual(calls.map(call => call.url.split('/').at(-1)), ['checkrates', 'bookings']);
+        assert.deepEqual(calls.map(call => call.url.split('/').at(-1)),
+            ['checkrates', 'bookings']);
         assert.deepEqual(calls[0].data, { rooms: [{ rateKey: RATE_KEY }], upselling: false });
-        assert.equal(services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID).acceptedTermsVersion,
-            services.Model.records.get(PUBLIC_OFFER_ID).termsVersion);
-        assert.ok(services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID).termsAcceptedAt instanceof Date);
+        const attempt = services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID);
+        assert.equal(attempt.acceptedTermsVersion,
+            services.RateReviewModel.records.values().next().value.termsVersion);
+        assert.equal(attempt.rateReviewCheckRateRequests, 1);
+        assert.ok(attempt.termsAcceptedAt instanceof Date);
         assert.deepEqual(calls[1].data, {
             holder: { name: 'Ada', surname: 'Lovelace' },
             rooms: [{
@@ -372,16 +433,134 @@ test('booking flow retrieves cache, rechecks the rate, maps the Hotelbeds payloa
             clientReference: 'RMLTEST00000000001'
         });
         assert.deepEqual(body, {
-            success: true,
-            bookingReference: 'HBX-BOOKING-90001',
-            status: 'CONFIRMED'
+            success: true, bookingReference: 'HBX-BOOKING-90001', status: 'CONFIRMED'
         });
         for (const forbidden of [RATE_KEY, '100.00', 'totalNet', 'EUR', 'opaqueToken', 'net']) {
-            assert.equal(JSON.stringify(body).includes(forbidden), false, `booking response leaked ${forbidden}`);
+            assert.equal(JSON.stringify(body).includes(forbidden), false,
+                `booking response leaked ${forbidden}`);
         }
-        assert.equal(services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID).state, 'confirmed');
-        assert.equal(services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID).clientReference, 'RMLTEST00000000001');
+        assert.equal(attempt.state, 'confirmed');
+        assert.equal(attempt.clientReference, 'RMLTEST00000000001');
     } });
+});
+
+test('review idempotency, ownership, expiration and single-use consumption are enforced', async () => {
+    let now = new Date(NOW);
+    const services = makeServices({ now: () => now, httpRequest: async () => ({
+        status: 200, data: checkRateResponse()
+    }) });
+    await seedOffer(services.offerCacheService);
+
+    const input = {
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        idempotencyKey: 'rate-review-idempotency-0001'
+    };
+    const first = await services.rateReviewService.createReview(input);
+    const retry = await services.rateReviewService.createReview(input);
+    assert.equal(retry.reviewId, first.reviewId);
+    assert.equal(retry.cached, true);
+    assert.equal(services.RateReviewModel.records.size, 1);
+    assert.equal(services.RateReviewModel.records.get(first.reviewId).checkRateRequests, 1);
+
+    await assert.rejects(services.rateReviewService.consumeForBooking({
+        reviewId: first.reviewId,
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'another-fixture-owner',
+        sourceTermsVersion: first.sourceTermsVersion,
+        acceptedTermsVersion: first.termsVersion,
+        termsAccepted: true
+    }), error => error.code === 'hotelbeds_rate_review_acceptance_required');
+
+    const reviewedRecord = services.RateReviewModel.records.get(first.reviewId);
+    now = new Date(reviewedRecord.reviewExpiresAt.getTime() + 1);
+    await assert.rejects(services.rateReviewService.consumeForBooking({
+        reviewId: first.reviewId,
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: input.ownerSubject,
+        sourceTermsVersion: first.sourceTermsVersion,
+        acceptedTermsVersion: first.termsVersion,
+        termsAccepted: true
+    }), error => error.httpStatus === 409);
+    now = new Date(NOW);
+
+    const second = await services.rateReviewService.createReview({
+        ...input, idempotencyKey: 'rate-review-idempotency-0002'
+    });
+    const consent = {
+        reviewId: second.reviewId,
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: input.ownerSubject,
+        sourceTermsVersion: second.sourceTermsVersion,
+        acceptedTermsVersion: second.termsVersion,
+        termsAccepted: true
+    };
+    const consumed = await services.rateReviewService.consumeForBooking(consent);
+    assert.equal(consumed.checkRateRequests, 1);
+    assert.equal(services.RateReviewModel.records.get(second.reviewId).state, 'consumed');
+    await assert.rejects(services.rateReviewService.consumeForBooking(consent),
+        error => error.code === 'hotelbeds_rate_review_already_consumed');
+});
+
+test('concurrent rate-review deliveries reserve and CheckRate exactly once', async () => {
+    let now = new Date(NOW);
+    let checks = 0;
+    let releaseCheck;
+    const waitingForCheck = new Promise(resolve => { releaseCheck = resolve; });
+    const services = makeServices({ now: () => now, httpRequest: async request => {
+        if (request.url.endsWith('/checkrates')) {
+            checks += 1;
+            await waitingForCheck;
+            return { status: 200, data: checkRateResponse() };
+        }
+        assert.fail('booking must not happen during review creation');
+    } });
+    await seedOffer(services.offerCacheService);
+
+    const input = {
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        idempotencyKey: 'rate-review-concurrency-0001'
+    };
+    const firstPromise = services.rateReviewService.createReview(input);
+    while (checks === 0) await new Promise(resolve => setImmediate(resolve));
+    await assert.rejects(services.rateReviewService.createReview(input),
+        error => error.code === 'hotelbeds_rate_review_in_progress');
+    releaseCheck();
+    const first = await firstPromise;
+    assert.equal(first.success, true);
+    assert.equal(checks, 1);
+    assert.equal(services.RateReviewModel.records.size, 1);
+});
+
+test('a review consumed after its window is rejected before any Booking POST', async () => {
+    let now = new Date(NOW);
+    let bookingCalls = 0;
+    const services = makeServices({ now: () => now, httpRequest: async request => {
+        if (request.url.endsWith('/checkrates')) return { status: 200, data: checkRateResponse() };
+        bookingCalls += 1;
+        return { status: 200, data: { booking: { reference: 'HBX-NEVER', status: 'CONFIRMED' } } };
+    } });
+    await seedOffer(services.offerCacheService);
+    const review = await services.rateReviewService.createReview({
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        idempotencyKey: 'rate-review-expiry-race-0001'
+    });
+    const record = services.RateReviewModel.records.get(review.reviewId);
+    record.reviewExpiresAt = new Date(NOW.getTime() + 1000);
+    now = new Date(NOW.getTime() + 1001);
+    await assert.rejects(services.rateReviewService.consumeForBooking({
+        reviewId: review.reviewId,
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        sourceTermsVersion: review.sourceTermsVersion,
+        acceptedTermsVersion: review.termsVersion,
+        termsAccepted: true
+    }), error => error.httpStatus === 409);
+    assert.equal(bookingCalls, 0);
+    assert.equal(services.attemptStore.recordsByOfferId.size, 0);
+    assert.equal(record.checkRateRequests, 1);
 });
 
 test('invalid and expired offer IDs fail without calling Hotelbeds', async () => {
@@ -397,21 +576,21 @@ test('invalid and expired offer IDs fail without calling Hotelbeds', async () =>
         for (const id of ['bad-id', 'e'.repeat(64)]) {
             const response = await fetch(url, {
                 method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-                body: bookingBody(services, id)
+            body: await bookingBody(services, id)
             });
             assert.equal(response.status, 404);
         }
         now = new Date(NOW.getTime() + OFFER_TTL_MS);
         const expired = await fetch(url, {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
+            body: await bookingBody(services)
         });
         assert.equal(expired.status, 404);
     } });
     assert.equal(supplierCalls, 0);
 });
 
-test('a CheckRate price change blocks Booking and leaves the durable claim consumed', async () => {
+test('a CheckRate price change at review creation blocks Booking entirely', async () => {
     const calls = [];
     const services = makeServices({ httpRequest: async request => {
         calls.push(request);
@@ -419,19 +598,18 @@ test('a CheckRate price change blocks Booking and leaves the durable claim consu
     } });
     await seedOffer(services.offerCacheService);
 
-    await withBookingServer({ ...services, run: async url => {
-        const response = await fetch(url, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
-        });
-        assert.equal(response.status, 409);
-        assert.deepEqual(await response.json(), { success: false, error: 'booking_rate_changed' });
-    } });
+    await assert.rejects(services.rateReviewService.createReview({
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        idempotencyKey: 'booking-flow-review-key-0001'
+    }), error => error.code === 'hotelbeds_rate_review_rate_changed');
+
     assert.deepEqual(calls.map(call => call.url.split('/').at(-1)), ['checkrates']);
-    assert.equal(services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID).state, 'preflight_failed');
+    assert.equal(calls.filter(call => call.url.endsWith('/bookings')).length, 0);
+    assert.equal(services.attemptStore.recordsByOfferId.size, 0);
 });
 
-test('a changed opaque CheckRate key is rejected even when the returned rate otherwise matches', async () => {
+test('a changed opaque rate key at review creation prevents Booking', async () => {
     const calls = [];
     const services = makeServices({ httpRequest: async request => {
         calls.push(request);
@@ -439,38 +617,67 @@ test('a changed opaque CheckRate key is rejected even when the returned rate oth
     } });
     await seedOffer(services.offerCacheService);
 
-    await withBookingServer({ ...services, run: async url => {
-        const response = await fetch(url, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
-        });
-        assert.equal(response.status, 409);
-        assert.deepEqual(await response.json(), { success: false, error: 'booking_rate_key_changed' });
-    } });
+    await assert.rejects(services.rateReviewService.createReview({
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        idempotencyKey: 'booking-flow-review-key-0001'
+    }), error => error.code === 'hotelbeds_rate_review_rate_changed');
+
     assert.deepEqual(calls.map(call => call.url.split('/').at(-1)), ['checkrates']);
-    assert.equal(services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID).state, 'preflight_failed');
+    assert.equal(calls.filter(call => call.url.endsWith('/bookings')).length, 0);
+    assert.equal(services.attemptStore.recordsByOfferId.size, 0);
 });
 
-test('a CheckRate condition change is checked separately from rate identity and blocks Booking', async () => {
+test('a CheckRate condition change is captured into the review and Booking proceeds once', async () => {
     const calls = [];
     const services = makeServices({ httpRequest: async request => {
         calls.push(request);
-        return { status: 200, data: checkRateResponse({
-            rateComments: ['A deposit is due at check-in.']
-        }) };
+        if (request.url.endsWith('/checkrates')) {
+            return { status: 200, data: checkRateResponse({ rateComments: ['A deposit is due at check-in.'] }) };
+        }
+        return { status: 200, data: { booking: { reference: 'HBX-BOOKING-90003', status: 'CONFIRMED' } } };
     } });
     await seedOffer(services.offerCacheService);
 
     await withBookingServer({ ...services, run: async url => {
         const response = await fetch(url, {
             method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
+            body: await bookingBody(services)
         });
-        assert.equal(response.status, 409);
-        assert.deepEqual(await response.json(), { success: false, error: 'booking_rate_terms_changed' });
+        assert.equal(response.status, 200, JSON.stringify(await response.json()));
     } });
+    assert.deepEqual(calls.map(call => call.url.split('/').at(-1)), ['checkrates', 'bookings']);
+    assert.equal(services.attemptStore.recordsByOfferId.size, 1);
+});
+
+test('full CheckRate comments remain visible in the review without a second CheckRate', async () => {
+    const calls = [];
+    const fullComments = ['***POOL CLOSURE UNTIL FURTHER NOTICE*** Airport transfer available at an additional fee. '
+        + 'Estimated total amount of taxes and fees payable on arrival. Check-in hour 15:00-00:00.'];
+    const services = makeServices({ httpRequest: async request => {
+        calls.push(request);
+        return { status: 200, data: checkRateResponse({ rateComments: fullComments }) };
+    } });
+    await seedOffer(services.offerCacheService);
+
+    const review = await services.rateReviewService.createReview({
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        idempotencyKey: 'booking-flow-review-key-0001'
+    });
+    assert.equal(review.offer.rateComments.length, 1);
+    assert.equal(review.offer.rateComments[0], fullComments[0]);
+    const consumed = await services.rateReviewService.consumeForBooking({
+        reviewId: review.reviewId,
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        sourceTermsVersion: review.sourceTermsVersion,
+        acceptedTermsVersion: review.termsVersion,
+        termsAccepted: true
+    });
+    assert.equal(consumed.offer.rateComments[0], fullComments[0]);
+    assert.equal(consumed.checkRateRequests, 1);
     assert.deepEqual(calls.map(call => call.url.split('/').at(-1)), ['checkrates']);
-    assert.equal(services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID).state, 'preflight_failed');
 });
 
 test('an unknown booking outcome is quarantined to prevent duplicate supplier bookings', async () => {
@@ -480,7 +687,8 @@ test('an unknown booking outcome is quarantined to prevent duplicate supplier bo
     const services = makeServices({
         rateType: 'BOOKABLE',
         now: () => now,
-        httpRequest: async () => {
+        httpRequest: async request => {
+            if (request.url.endsWith('/checkrates')) return { status: 200, data: checkRateResponse() };
             bookingCalls += 1;
             throw Object.assign(new Error('connection reset after request send'), { code: 'ECONNRESET' });
         }
@@ -493,7 +701,7 @@ test('an unknown booking outcome is quarantined to prevent duplicate supplier bo
     };
 
     await withBookingServer({ ...services, run: async url => {
-        const body = bookingBody(services);
+        const body = await bookingBody(services);
         const first = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY }, body });
         assert.equal(first.status, 502);
         assert.deepEqual(await first.json(), { success: false, error: 'booking_outcome_unknown' });
@@ -501,6 +709,7 @@ test('an unknown booking outcome is quarantined to prevent duplicate supplier bo
         services.hotelbedsBookingService = createHotelbedsBookingService({
             client: services.hotelbedsClient,
             attemptStore: services.attemptStore,
+            rateReviewService: services.rateReviewService,
             env: SUPPLIER_ENV,
             now: () => now,
             persistBooking: async () => ({})
@@ -520,27 +729,32 @@ test('confirmed supplier result recovers local persistence without a duplicate B
     const persisted = [];
     const services = makeServices({
         rateType: 'BOOKABLE',
-        httpRequest: async () => {
-            bookingCalls += 1;
-            return { status: 200, data: { booking: {
-                reference: 'HBX-RECOVER-PERSISTENCE', status: 'CONFIRMED'
-            } } };
-        },
         persistBooking: async input => {
             persistenceCalls += 1;
             if (persistenceCalls === 1) throw new Error('local database temporarily unavailable');
             persisted.push(input);
             return { bookingReference: input.bookingReference };
+        },
+        httpRequest: async request => {
+            if (request.url.endsWith('/checkrates')) return { status: 200, data: checkRateResponse({
+                rateComments: ['Fixture condition: check-in after 15:00.']
+            }) };
+            bookingCalls += 1;
+            return confirmedBookingResponse('HBX-RECOVER-PERSISTENCE');
         }
     });
     await seedOffer(services.offerCacheService, normalizedOffer({ rateType: 'BOOKABLE' }));
+    let acceptedBookingBody;
 
     await withBookingServer({ ...services, run: async url => {
-        const send = () => fetch(url, {
+        const send = async () => {
+            acceptedBookingBody ||= await bookingBody(services);
+            return fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
-        });
+            body: acceptedBookingBody
+            });
+        };
         const first = await send();
         assert.equal(first.status, 503);
         assert.deepEqual(await first.json(), {
@@ -560,6 +774,24 @@ test('confirmed supplier result recovers local persistence without a duplicate B
     assert.equal(bookingCalls, 1);
     assert.equal(persistenceCalls, 2);
     assert.equal(persisted[0].ownerSubject, 'test-fixture-owner');
+    assert.equal(persisted[0].offer.providerHotelCode, '74001');
+    assert.equal(persisted[0].hotelbedsVoucherSnapshotProcessed, true);
+    const snapshot = decryptBookingRecordPayload(persisted[0].hotelbedsVoucherSnapshotEncrypted, SUPPLIER_ENV);
+    assert.deepEqual(snapshot.confirmation.hotel.rooms[0].rates[0].rateComments,
+        ['Fixture condition: check-in after 15:00.']);
+    assert.equal(snapshot.confirmation.hotel.rooms[0].rates[0].rateCommentsSource, 'accepted_checkrate');
+    assert.equal(hotelbedsVoucherSnapshotMatchesBooking(snapshot, {
+        bookingReference: 'HBX-RECOVER-PERSISTENCE',
+        bookingClientReference: 'RMLTEST00000000001',
+        providerHotelCode: persisted[0].offer.providerHotelCode,
+        checkInDate: persisted[0].offer.bookingMetadata.checkIn,
+        checkOutDate: persisted[0].offer.bookingMetadata.checkOut,
+        customerName: 'Ada Lovelace',
+        ownerSubject: 'test-fixture-owner',
+        realm: hotelbedsScopeFrom({}, { testOnly: true }).realm,
+        supplierStatus: 'CONFIRMED',
+        status: 'active'
+    }, { accountId: hotelbedsScopeFrom({}, { testOnly: true }).accountId }), true);
     assert.equal(services.attemptStore.recordsByOfferId.get(PUBLIC_OFFER_ID).state, 'confirmed');
 });
 
@@ -567,7 +799,8 @@ test('concurrent direct-booking deliveries consume one durable offer claim and s
     let bookingCalls = 0;
     const services = makeServices({
         rateType: 'BOOKABLE',
-        httpRequest: async () => {
+        httpRequest: async request => {
+            if (request.url.endsWith('/checkrates')) return { status: 200, data: checkRateResponse() };
             bookingCalls += 1;
             await new Promise(resolve => setImmediate(resolve));
             return { status: 200, data: { booking: {
@@ -578,8 +811,8 @@ test('concurrent direct-booking deliveries consume one durable offer claim and s
     await seedOffer(services.offerCacheService, normalizedOffer({ rateType: 'BOOKABLE' }));
 
     await withBookingServer({ ...services, run: async url => {
-        const body = bookingBody(services);
-        const send = () => fetch(url, {
+        const body = await bookingBody(services);
+        const send = async () => fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
             body
@@ -605,9 +838,11 @@ test('concurrent direct-booking deliveries consume one durable offer claim and s
 test('failure to persist booking_processing prevents the Booking POST', async () => {
     const services = makeServices({
         rateType: 'BOOKABLE',
-        httpRequest: async () => ({ status: 200, data: { booking: {
-            reference: 'HBX-MUST-NOT-BOOK', status: 'CONFIRMED'
-        } } })
+        httpRequest: async request => request.url.endsWith('/checkrates')
+            ? { status: 200, data: checkRateResponse() }
+            : { status: 200, data: { booking: {
+                reference: 'HBX-MUST-NOT-BOOK', status: 'CONFIRMED'
+            } } }
     });
     const originalTransition = services.attemptStore.transition;
     let bookingCalls = 0;
@@ -630,7 +865,7 @@ test('failure to persist booking_processing prevents the Booking POST', async ()
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
+            body: await bookingBody(services)
         });
         assert.equal(response.status, 503);
     } });
@@ -787,18 +1022,32 @@ test('booking route rejects missing API keys without looking up an offer', async
     assert.equal(cacheLookups, 0);
 });
 
-test('direct booking requires the exact cached terms version before any supplier request or durable claim', async () => {
+test('direct booking requires the accepted review terms version before the durable claim', async () => {
     let supplierCalls = 0;
-    const services = makeServices({ httpRequest: async () => { supplierCalls += 1; return { status: 200, data: {} }; } });
+    const services = makeServices({ httpRequest: async request => {
+        supplierCalls += 1;
+        if (request.url.endsWith('/checkrates')) return { status: 200, data: checkRateResponse() };
+        assert.fail('Booking must not be called for missing or mismatched review consent');
+    } });
     await seedOffer(services.offerCacheService);
-    const termsVersion = services.Model.records.get(PUBLIC_OFFER_ID).termsVersion;
+    const review = await services.rateReviewService.createReview({
+        publicOfferId: PUBLIC_OFFER_ID,
+        ownerSubject: 'test-fixture-owner',
+        idempotencyKey: 'direct-review-consent-fixture-0001'
+    });
     await withBookingServer({ ...services, run: async url => {
         for (const body of [
             { publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS },
             { publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS,
-                termsAccepted: true, acceptedTermsVersion: 'f'.repeat(64) },
+                termsAccepted: true, acceptedTermsVersion: 'f'.repeat(64),
+                reviewId: review.reviewId, sourceTermsVersion: review.sourceTermsVersion },
             { publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS,
-                termsAccepted: false, acceptedTermsVersion: termsVersion }
+                termsAccepted: false, acceptedTermsVersion: review.termsVersion,
+                reviewId: review.reviewId, sourceTermsVersion: review.sourceTermsVersion },
+            { publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS,
+                termsAccepted: true, acceptedTermsVersion: review.termsVersion,
+                reviewId: '44444444-4444-4444-8444-444444444444',
+                sourceTermsVersion: review.sourceTermsVersion }
         ]) {
             const response = await fetch(url, {
                 method: 'POST',
@@ -806,10 +1055,10 @@ test('direct booking requires the exact cached terms version before any supplier
                 body: JSON.stringify(body)
             });
             assert.equal(response.status, 409);
-            assert.deepEqual(await response.json(), { success: false, error: 'booking_terms_acceptance_required' });
+            assert.equal((await response.json()).success, false);
         }
     } });
-    assert.equal(supplierCalls, 0);
+    assert.equal(supplierCalls, 1, 'only explicit review creation may CheckRate these rejected booking bodies');
     assert.equal(services.attemptStore.recordsByOfferId.size, 0);
 });
 
@@ -818,7 +1067,11 @@ test('booking remains disabled unless both explicit approval flags are true', as
     let cacheLookups = 0;
     const services = makeServices({
         bookingEnv: { ...SUPPLIER_ENV, HOTELBEDS_BOOKING_APPROVED: 'false' },
-        httpRequest: async () => { supplierCalls += 1; return { status: 200, data: {} }; }
+        httpRequest: async request => {
+            supplierCalls += 1;
+            if (request.url.endsWith('/checkrates')) return { status: 200, data: checkRateResponse() };
+            return { status: 200, data: {} };
+        }
     });
     const originalLookup = services.offerCacheService.getBookingOffer;
     services.offerCacheService.getBookingOffer = async id => {
@@ -830,7 +1083,7 @@ test('booking remains disabled unless both explicit approval flags are true', as
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
+            body: await bookingBody(services)
         });
         assert.equal(response.status, 503);
         assert.deepEqual(await response.json(), { success: false, error: 'hotelbeds_booking_disabled' });
@@ -853,7 +1106,7 @@ test('non-pay-at-hotel offers fail before claim or supplier calls', async () => 
         const response = await fetch(url, {
             method: 'POST',
             headers: { 'Content-Type': 'application/json', 'x-api-key': TEST_API_KEY },
-            body: bookingBody(services)
+            body: await bookingBody(services)
         });
         assert.equal(response.status, 409);
         assert.deepEqual(await response.json(), { success: false, error: 'booking_payment_flow_required' });

@@ -31,6 +31,7 @@ function createHotelbedsBookingCoordinator({ client } = {}) {
         rateKey,
         rateIdentity,
         rateTerms,
+        rateReviewValidated = false,
         clientReference,
         supplierContext,
         createBookingRequest,
@@ -86,7 +87,7 @@ function createHotelbedsBookingCoordinator({ client } = {}) {
                 });
             }
             bookingRequest = await createBookingRequest(claimed);
-            if (rateType === 'RECHECK') {
+            if (rateType === 'RECHECK' && rateReviewValidated !== true) {
                 bookingRateKey = (await checkSelectedRate(client, rateKey, rateIdentity, rateTerms)).rateKey;
             }
         } catch (error) {

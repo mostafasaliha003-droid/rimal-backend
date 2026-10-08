@@ -1,4 +1,4 @@
-const assert = require('node:assert/strict');
+﻿const assert = require('node:assert/strict');
 const path = require('node:path');
 const { createRequire } = require('node:module');
 const { pathToFileURL } = require('node:url');
@@ -9,6 +9,7 @@ const frontend = path.join(root, 'frontend');
 const sessionId = '123e4567-e89b-42d3-a456-426614174000';
 const accessToken = 'a'.repeat(64);
 const publicOfferId = 'b'.repeat(64);
+const directPublicOfferId = 'd'.repeat(64);
 const search = {
     query: 'Fixture destination',
     destination: { type: 'region', region_id: 42, label: 'Fixture destination' },
@@ -20,6 +21,7 @@ const search = {
 async function run() {
     const previousFlags = Object.fromEntries([
         'VITE_NEXT_GEN_HOTELS_ENABLED',
+        'VITE_HOTELBEDS_DIRECT_BOOKING_UI_ENABLED',
         'VITE_AGGREGATE_SEARCH_PATH',
         'VITE_API_BASE_URL',
         'VITE_REMAL_SECURE_KEY'
@@ -30,6 +32,7 @@ async function run() {
     let context;
     try {
         process.env.VITE_NEXT_GEN_HOTELS_ENABLED = 'true';
+        process.env.VITE_HOTELBEDS_DIRECT_BOOKING_UI_ENABLED = 'true';
         process.env.VITE_AGGREGATE_SEARCH_PATH = '/v1/hotels/search/aggregate';
         process.env.VITE_API_BASE_URL = '/api';
         process.env.VITE_REMAL_SECURE_KEY = 'mock-ui-key';
@@ -56,16 +59,20 @@ async function run() {
         page.setDefaultTimeout(15000);
         const pageErrors = [];
         const pageLogs = [];
-        const calls = { pilotList: 0, search: [], searchScenarios: [], suggestions: [], checkout: [], payment: [], status: [] };
+        const calls = {
+            pilotList: 0, search: [], searchScenarios: [], suggestions: [], checkout: [],
+            payment: [], status: [], rateReviews: [], directBookings: [], vouchers: []
+        };
         const searchFailureQueue = [];
-        page.on('pageerror', error => pageErrors.push(error.message));
         page.on('console', message => { if (message.type() === 'error') pageLogs.push(message.text()); });
-        page.on('requestfailed', request => pageLogs.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || ''}`));
+        page.on('pageerror', error => pageErrors.push(error.message));
+
         await page.evaluateOnNewDocument(({ search, sessionId, accessToken }) => {
             localStorage.setItem('remal_language', 'en');
             sessionStorage.setItem('remal_nextgen_search', JSON.stringify(search));
             sessionStorage.setItem(`remal_nextgen_checkout:${sessionId}`, JSON.stringify({ accessToken }));
         }, { search, sessionId, accessToken });
+        page.on('requestfailed', request => pageLogs.push(`${request.method()} ${request.url()} ${request.failure()?.errorText || ''}`));
         await page.setRequestInterception(true);
         page.on('request', async request => {
             try {
@@ -162,6 +169,64 @@ async function run() {
                                 }]
                             }]
                         };
+                    } else if (url.pathname.endsWith('/v1/hotels/offers/review') && method === 'POST') {
+                        calls.rateReviews.push({
+                            body: JSON.parse(request.postData()),
+                            idempotencyKey: request.headers()['idempotency-key'],
+                            authorization: request.headers().authorization
+                        });
+                        const expiresAt = new Date(Date.now() + 120_000).toISOString();
+                        body = {
+                            success: true,
+                            reviewId: '123e4567-e89b-42d3-a456-426614174000',
+                            publicOfferId: directPublicOfferId,
+                            sourceTermsVersion: 'e'.repeat(64),
+                            termsVersion: 'f'.repeat(64),
+                            expiresAt,
+                            checkRateRequests: 1,
+                            cached: false,
+                            offer: {
+                                provider: 'hotelbeds',
+                                publicOfferId: directPublicOfferId,
+                                termsVersion: 'f'.repeat(64),
+                                hotel: { name: 'Direct fixture hotel', category: { name: '4 stars' } },
+                                room: { name: 'Direct fixture double room' },
+                                availability: { rateType: 'BOOKABLE' },
+                                payment: { type: 'AT_HOTEL' },
+                                stay: { checkIn: '2099-10-15', checkOut: '2099-10-17' },
+                                occupancy: { rooms: 1, adults: 2, children: 0 },
+                                price: { customerDisplay: { amount: '495.00', currency: 'AED' } },
+                                cancellation: {
+                                    refundability: 'conditional',
+                                    schedule: [{
+                                        startsAt: {
+                                            source: '2099-10-14T18:30:00+04:00',
+                                            utc: '2099-10-14T14:30:00.000Z',
+                                            timezoneKnown: true
+                                        },
+                                        endsAt: null,
+                                        penalty: { amount: '100.00', currency: 'AED' }
+                                    }]
+                                },
+                                rateComments: [{ description: 'Direct fixture rate condition.' }],
+                                contractTerms: { rateCommentsResolved: true, issues: [], mandatoryFacilities: [] },
+                                taxes: { status: 'provided', allIncluded: true, items: [] },
+                                promotions: []
+                            }
+                        };
+                    } else if (url.pathname.endsWith('/v1/hotels/book') && method === 'POST') {
+                        calls.directBookings.push({
+                            body: JSON.parse(request.postData()),
+                            authorization: request.headers().authorization
+                        });
+                        body = { success: true, bookingReference: 'HBX-DIRECT-FIXTURE-1', status: 'CONFIRMED' };
+                    } else if (url.pathname === '/api/owned/bookings/pdf/HBX-DIRECT-FIXTURE-1' && method === 'GET') {
+                        calls.vouchers.push({ authorization: request.headers().authorization });
+                        return request.respond({
+                            status: 200,
+                            headers: { 'Content-Type': 'application/pdf' },
+                            body: Buffer.from('%PDF-1.4\n% Local UI voucher fixture\n%%EOF\n')
+                        });
                     } else if (url.pathname.endsWith('/v1/hotels/checkout') && method === 'POST') {
                         calls.checkout.push({
                             body: JSON.parse(request.postData()),
@@ -200,12 +265,31 @@ async function run() {
                 }
             }
         });
-
         await page.goto(`${base}/next-gen?lang=en`, { waitUntil: 'networkidle0' });
         await page.select('#language-select', 'en');
         await page.waitForFunction(() => document.body.dataset.language === 'en');
         await page.waitForFunction(() => document.querySelector('#hotelbeds-pilot-hotel option[value="900001"]'));
         assert.match(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /Next-Gen Sandbox/);
+        const translationCoverage = await page.evaluate(async () => {
+            const translations = await import('/src/i18n.jsx');
+            return translations.validateNextgenTranslations();
+        });
+        assert.deepEqual(translationCoverage, {
+            ar: { missing: [], unexpected: [] },
+            en: { missing: [], unexpected: [] },
+            es: { missing: [], unexpected: [] }
+        });
+        await page.select('#language-select', 'es');
+        assert.equal(await page.evaluate(() => document.documentElement.lang), 'es');
+        assert.equal(await page.evaluate(() => document.body.dataset.language), 'es');
+        assert.match(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /Selector de hoteles piloto de Hotelbeds/);
+        assert.doesNotMatch(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /Try the new mock hotels experience/);
+        await page.select('#language-select', 'ar');
+        assert.equal(await page.evaluate(() => document.documentElement.lang), 'ar');
+        assert.match(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /اختيار فنادق Pilot لـHotelbeds/);
+        assert.doesNotMatch(await page.$eval('[data-next-gen-hotels]', element => element.innerText), /Hotelbeds Pilot Hotel Selector/);
+        await page.select('#language-select', 'en');
+        await page.waitForFunction(() => document.body.dataset.language === 'en');
         await page.select('#hotelbeds-pilot-hotel', '900001');
         const setDate = async (selector, value) => page.$eval(selector, (input, nextValue) => {
             const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
@@ -227,6 +311,8 @@ async function run() {
         assert.match(resultText, /(?:Fee unknown|Tarifa desconocida)/);
         assert.match(resultText, /(?:Amount unknown|Importe desconocido)/);
         assert.match(resultText, /(?:Conditions unknown|Condiciones desconocidas)/);
+        assert.doesNotMatch(resultText, /Buscando ofertas de hotel/);
+        assert.doesNotMatch(resultText, /Buscar ahora/);
         assert.match(resultText, /2099-10-14T18:30:00\+04:00/);
         assert.equal(await page.$$eval('[data-next-gen-hotels] img', images => images.length), 0,
             'unverified mock images must not render');
@@ -326,8 +412,77 @@ async function run() {
         assert.deepEqual(calls.payment[0], { action: 'complete' });
         assert(calls.status.length >= 2);
         assert(calls.status.every(call => call.authorization === `Bearer ${accessToken}`));
+
+        // Exercise the separately gated direct flow using a server-shaped local
+        // fixture. The rateType projection itself is covered by the backend test.
+        await page.evaluate(({ directPublicOfferId, accessToken }) => {
+            sessionStorage.setItem('rimal_user_access_token', accessToken);
+            sessionStorage.setItem('remal_nextgen_selected_offer', JSON.stringify({
+                provider: 'hotelbeds',
+                mock: false,
+                publicOfferId: directPublicOfferId,
+                termsVersion: 'e'.repeat(64),
+                paymentFlow: 'PAY_AT_PROPERTY',
+                availability: { rateType: 'BOOKABLE' },
+                stay: { checkIn: '2099-10-15', checkOut: '2099-10-17' },
+                occupancy: { rooms: 1, adults: 2, children: 0 },
+                price: { amount: '495.00', currency: 'AED' },
+                hotel: { name: 'Direct fixture hotel' },
+                room: { name: 'Direct fixture double room' }
+            }));
+            history.pushState({}, '', '/next-gen/checkout');
+            window.dispatchEvent(new PopStateEvent('popstate'));
+        }, { directPublicOfferId, accessToken });
+        await page.waitForFunction(() => location.pathname === '/next-gen/checkout');
+        await page.waitForSelector('[data-direct-booking-flow]');
+        assert.equal(calls.rateReviews.length, 0, 'rate review requires an explicit customer action');
+        assert.equal(calls.directBookings.length, 0, 'booking is not submitted before review and consent');
+        await page.click('[data-request-rate-review]');
+        await page.waitForSelector('input[name="directAcceptedTerms"]');
+        assert.equal(calls.rateReviews.length, 1);
+        assert.equal(calls.rateReviews[0].body.publicOfferId, directPublicOfferId);
+        assert.match(calls.rateReviews[0].idempotencyKey, /^[A-Za-z0-9_-]{16,128}$/);
+        assert.equal(calls.rateReviews[0].authorization, `Bearer ${accessToken}`);
+        assert.match(await page.$eval('[data-direct-booking-flow]', element => element.innerText), /Direct fixture rate condition/);
+        assert.equal(await page.$eval('[data-submit-direct-booking]', button => button.disabled), true);
+        await page.click('input[name="directAcceptedTerms"]');
+        assert.equal(await page.$eval('[data-submit-direct-booking]', button => button.disabled), false);
+        await page.type('input[name="firstName"]', 'Ada');
+        await page.type('input[name="lastName"]', 'Lovelace');
+        await page.type('input[name="email"]', 'ada@example.test');
+        await page.type('input[name="additionalGuests.0.firstName"]', 'Grace');
+        await page.type('input[name="additionalGuests.0.lastName"]', 'Hopper');
+        await page.evaluate(() => {
+            const form = document.querySelector('[data-direct-booking-flow] form');
+            const first = new Event('submit', { bubbles: true, cancelable: true });
+            form.dispatchEvent(first);
+            form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true }));
+        });
+        await page.waitForSelector('[data-direct-booking-result="confirmed"]');
+        assert.equal(calls.directBookings.length, 1);
+        assert.equal(calls.directBookings[0].authorization, `Bearer ${accessToken}`);
+        assert.equal(calls.directBookings[0].body.publicOfferId, directPublicOfferId);
+        assert.equal(calls.directBookings[0].body.termsAccepted, true);
+        assert.equal(calls.directBookings[0].body.acceptedTermsVersion, 'f'.repeat(64));
+        assert.equal(calls.directBookings[0].body.reviewId, '123e4567-e89b-42d3-a456-426614174000');
+        assert.equal(calls.directBookings[0].body.guestDetails.rooms[0].guests.length, 2);
+        assert.equal(Object.keys(calls.directBookings[0].body).some(key => /ratekey|token/i.test(key)), false);
+        assert.equal(await page.$eval('[data-download-booking-voucher]', button => button.disabled), false);
+        const voucherResponsePromise = page.waitForResponse(response =>
+            new URL(response.url()).pathname === '/api/owned/bookings/pdf/HBX-DIRECT-FIXTURE-1');
+        await page.click('[data-download-booking-voucher]');
+        const voucherResponse = await voucherResponsePromise;
+        assert.equal(voucherResponse.status(), 200);
+        assert.match(voucherResponse.headers()['content-type'], /application\/pdf/i);
+        assert.equal(calls.vouchers.length, 1);
+        assert.equal(calls.vouchers[0].authorization, `Bearer ${accessToken}`);
+
+        await page.reload({ waitUntil: 'networkidle0' });
+        await page.waitForFunction(() => location.pathname === '/next-gen/checkout');
+        await page.waitForSelector('[data-direct-booking-locked]');
+        assert.equal(calls.directBookings.length, 1, 'a reload must not allow a duplicate booking POST');
         assert.deepEqual(pageErrors, []);
-        console.log('PASS: verified fixture DTO, mock-image exclusion, rate fee/time display, 429 cooldown/manual-only retry, 503/403 UX, mock checkout, and secure confirmed status.');
+        console.log('PASS: UI-only intercepted API fixture flow, three-language dictionaries, mock checkout, direct review/consent, confirmed result, authenticated voucher request, one-time booking, reload quarantine, 429 cooldown, and 503/403 UX.');
     } finally {
         await context?.close();
         await browser?.close();

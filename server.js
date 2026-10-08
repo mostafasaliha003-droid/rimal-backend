@@ -1,4 +1,5 @@
 require('dotenv').config(); 
+const { getDeploymentReadiness, readinessHttpStatus } = require('./services/deploymentReadiness');
 const express = require('express');
 const cors = require('cors');
 const nodemailer = require('nodemailer');
@@ -60,8 +61,18 @@ const { createAdminBookingRouter } = require('./services/adminBookingRoutes');
 const createAdminHotelbedsSupplierTestController = require('./controllers/adminHotelbedsSupplierTestController');
 const createAdminHotelbedsSupplierTestRouter = require('./services/adminHotelbedsSupplierTestRoutes');
 const { createAdminHotelbedsSupplierTestService } = require('./services/adminHotelbedsSupplierTest');
-const { createBookingRecordPersistence } = require('./services/bookingRecordPersistence');
+const { createBookingRecordPersistence, createEncryptedBookingRecordPayloadSchema } = require('./services/bookingRecordPersistence');
+const HotelbedsVerifiedHotelContent = require('./models/HotelbedsVerifiedHotelContent');
+const hotelbedsMockDatabase = require('./services/hotelbedsMockDatabase');
 const { createHotelbedsBookingService } = require('./services/hotelbedsBookingService');
+const { createHotelbedsRateReviewService } = require('./services/hotelbedsRateReviewService');
+const createHotelbedsRateReviewController = require('./controllers/hotelbedsRateReviewController');
+const createHotelbedsRateReviewRouter = require('./services/hotelbedsRateReviewRoutes');
+const createHotelbedsReconciliationController = require('./controllers/hotelbedsReconciliationController');
+const createHotelbedsReconciliationRouter = require('./services/hotelbedsReconciliationRoutes');
+const { createHotelbedsBookingReconciliationService } = require('./services/hotelbedsBookingReconciliationService');
+const { createHotelbedsBookingAttemptStore } = require('./services/hotelbedsBookingAttemptStore');
+const hotelbedsClient = require('./services/hotelbedsClient');
 const createCheckoutSessionController = require('./controllers/checkoutSessionController');
 const createCheckoutSessionRouter = require('./services/checkoutSessionRoutes');
 const { createHotelbedsMockCheckoutBookingService } = require('./services/hotelbedsMockCheckoutBookingService');
@@ -127,6 +138,17 @@ app.use(express.json());
 // 🛡️ تطبيق جدار الحماية العام على كل السيرفر
 app.use(securityService.globalLimiter);
 
+// Keep internal readiness diagnostics outside browser CORS handling while still
+// applying the same server-to-server credential checks before inspecting Origin.
+app.use('/api/v1/internal/health/readiness', verifyInternalAPIKey);
+app.use('/api/v1/internal/health/readiness', (req, res, next) => {
+    res.set('Cache-Control', 'no-store');
+    if (req.get('Origin')) {
+        return res.status(403).json({ success: false, error: 'server_to_server_only' });
+    }
+    return next();
+});
+
 // ==========================================
 // 🛡️ 2. إعدادات الحماية (CORS Policy)
 // ==========================================
@@ -181,6 +203,14 @@ const bookingSchema = new mongoose.Schema({
     status: { type: String, default: 'active' },
     cancellationPolicy: { type: String, default: 'شروط المورد مطبقة' },
     supplierPaymentType: { type: String, default: 'unknown' },
+    bookingClientReference: { type: String, default: undefined, select: false, maxlength: 100 },
+    providerHotelCode: { type: String, default: undefined, select: false, match: /^\d{1,10}$/ },
+    hotelbedsVoucherSnapshotEncrypted: {
+        type: createEncryptedBookingRecordPayloadSchema(mongoose),
+        default: undefined,
+        select: false
+    },
+    hotelbedsVoucherSnapshotProcessed: { type: Boolean, default: false, select: false },
     checkInDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     checkOutDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     confirmedAt: Date,
@@ -233,6 +263,23 @@ app.use('/api/v1/admin/hotelbeds', createAdminHotelbedsSupplierTestRouter({
     requireAdmin,
     searchLimiter: securityService.searchLimiter
 }));
+
+// Read-only BookingList reconciliation for operators. It never mutates booking
+// attempts, and it stays unmounted unless the explicit operational approval
+// flag is set; resolution itself remains a separate human workflow.
+if (process.env.HOTELBEDS_RECONCILIATION_OPERATOR_ENABLED === 'true') {
+    app.use('/api/v1/admin/hotelbeds', createHotelbedsReconciliationRouter({
+        controller: createHotelbedsReconciliationController({
+            service: createHotelbedsBookingReconciliationService({
+                client: hotelbedsClient,
+                attemptStore: createHotelbedsBookingAttemptStore(),
+                env: process.env
+            })
+        }),
+        requireAdmin,
+        searchLimiter: securityService.searchLimiter
+    }));
+}
 app.use('/api/v1/admin', requireAdmin);
 app.use('/api/auth', createUserAuthRouter({
     UserModel: User,
@@ -258,8 +305,15 @@ const hotelbedsSearchRouter = createSearchRouter({
     controller: hotelbedsSearchController,
     searchLimiter: securityService.searchLimiter
 });
+const hotelbedsRateReviewService = createHotelbedsRateReviewService({ env: process.env });
+app.use('/api/v1/hotels', createHotelbedsRateReviewRouter({
+    controller: createHotelbedsRateReviewController({ service: hotelbedsRateReviewService }),
+    requireUser,
+    bookingLimiter: securityService.bookingLimiter
+}));
 const hotelbedsBookingController = createBookingController({
     hotelbedsBookingService: createHotelbedsBookingService({
+        rateReviewService: hotelbedsRateReviewService,
         persistBooking: bookingRecordPersistence.persist
     })
 });
@@ -399,6 +453,15 @@ app.get('/api/v1/health', (req, res) => {
         database: DB_STATES[readyState] || 'unknown',
         databaseState: readyState
     });
+});
+
+// Configuration diagnostics only: never contact suppliers or reveal credentials.
+app.get('/api/v1/internal/health/readiness', (req, res) => {
+    const readiness = getDeploymentReadiness(process.env);
+    const states = { 0: 'disconnected', 1: 'connected', 2: 'connecting', 3: 'disconnecting', 99: 'uninitialized' };
+    const databaseState = states[mongoose.connection.readyState] || 'unknown';
+    readiness.runtime = { database: databaseState };
+    return res.status(readinessHttpStatus(readiness, databaseState)).json(readiness);
 });
 
 // 🌍 قائمة الوجهات لقائمة البحث المنسدلة (كانت مفقودة وتُرجع 404)
@@ -1078,8 +1141,12 @@ app.post('/api/v1/hotels/book', requireUser, securityService.bookingLimiter, hot
 
 app.use('/api/owned', createOwnedBookingPdfRouter({
     BookingModel: Booking,
+    HotelbedsContentModel: HotelbedsVerifiedHotelContent,
+    hotelbedsDatabase: hotelbedsMockDatabase,
+    env: process.env,
     puppeteer,
     templatePath: path.join(__dirname, 'voucher-template.html'),
+    hotelbedsTemplatePath: path.join(__dirname, 'hotelbeds-voucher-template.html'),
     requireUser,
     requireAdmin,
     sanitizeText
@@ -1141,12 +1208,17 @@ app.use(createFrontendRouter(path.resolve(__dirname), { Hotel }));
 // 🚀 11. تشغيل السيرفر المدمج
 // ==========================================
 const PORT = process.env.PORT || 10000;
+const STARTUP_PROBE = process.env.NODE_ENV === 'test' && process.env.RIMAL_STARTUP_PROBE === 'true';
+const HOST = STARTUP_PROBE ? '127.0.0.1' : '0.0.0.0';
 
 // 🚀 ابدأ سيرفر HTTP فورًا حتى لا يسقط الموقع بالكامل إذا تأخّر اتصال قاعدة البيانات.
 // (سابقًا كان server.listen داخل mongoose.connect().then فيؤدي فشل الاتصال إلى توقّف الموقع كليًا.)
-server.listen(PORT, '0.0.0.0', () => {
+server.listen(PORT, HOST, () => {
     console.log(`========================================`);
-    console.log(`🚀 السيرفر المدمج يعمل على المنفذ ${PORT} مع دعم Live Chat`);
+    if (STARTUP_PROBE) {
+        console.log(`server-startup-probe-listening:${server.address()?.port}`);
+    }
+    console.log(`🚀 السيرفر المدمج يعمل على المنفذ ${server.address()?.port || PORT} مع دعم Live Chat`);
     console.log(`🌐 Multi-Supplier Engine (RateHawk + Dubai Link) is Active`);
     console.log(`🛡️  API Security Guard & Rate Limiters are Armed`);
 });

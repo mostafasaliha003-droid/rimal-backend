@@ -8,7 +8,7 @@ function validContentDate(value, nowMs) {
     return Number.isFinite(date) && date <= nowMs && nowMs - date <= MAX_PUBLIC_CONTENT_AGE_MS;
 }
 
-function isVerifiedHotelbedsContent(hotel, { hotelCode, language, now = new Date() } = {}) {
+function isVerifiedHotelbedsContent(hotel, { hotelCode, language, now = new Date(), requireCategory = true } = {}) {
     const content = hotel?.content;
     const nowMs = new Date(now).getTime();
     const rowCode = String(hotel?.contentHotelCode ?? '');
@@ -24,7 +24,7 @@ function isVerifiedHotelbedsContent(hotel, { hotelCode, language, now = new Date
         && (hotelCode === undefined || rowCode === String(hotelCode))
         && Boolean(expectedLanguage) && contentLanguage === expectedLanguage
         && content?.contentStatus === 'complete'
-        && Boolean(name) && Boolean(categoryName)
+        && Boolean(name) && (!requireCategory || Boolean(categoryName))
         && validContentDate(hotel.contentSyncedAt, nowMs);
 }
 

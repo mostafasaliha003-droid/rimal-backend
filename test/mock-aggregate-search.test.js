@@ -67,6 +67,8 @@ test('mock aggregate endpoint returns v2 server-priced AED and never calls a sup
         assert.equal(offer.price.amount, '403.70');
         assert.equal(offer.price.currency, 'AED');
         assert.equal(offer.paymentFlow, 'UNKNOWN');
+        assert.equal(offer.availability.rateType, 'BOOKABLE');
+        assert.deepEqual(Object.keys(offer.availability), ['rateType']);
         assert.equal(offer.mock, true);
         assert.equal(offer.publicOfferId, null);
         assert.equal(stored.length, 0, 'default mock search must not create executable checkout offers');
@@ -101,6 +103,7 @@ test('mock checkout offer caching requires the independent sandbox checkout gate
     const offer = result.hotels[0].offers[0];
     assert.equal(result.mock, true);
     assert.equal(offer.paymentFlow, 'PAY_NOW');
+    assert.equal(offer.availability.rateType, 'BOOKABLE');
     assert.equal(offer.publicOfferId, 'c'.repeat(64));
     assert.equal(stored.length, 1);
     assert.equal(stored[0].booking.opaqueToken, 'MOCK-NEXTGEN-RATE-900001-BOOKABLE');

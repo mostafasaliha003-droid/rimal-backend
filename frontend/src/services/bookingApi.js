@@ -1,7 +1,8 @@
 import axios from 'axios';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
-    || (import.meta.env.PROD ? 'https://rimal-api.onrender.com/api' : '/api');
+// Browser traffic is BFF-only: never let a Vite variable redirect API calls to
+// a supplier or another caller-controlled origin.
+const apiBaseUrl = import.meta.env.PROD ? 'https://rimal-api.onrender.com/api' : '/api';
 import { userAccessToken } from './authSession.js';
 
 const api = axios.create({
@@ -189,6 +190,21 @@ export const searchMockAggregateHotels = async (criteria, { signal } = {}) =>
         timeout: 75000
     }));
 
+/** Create a short-lived Hotelbeds direct-booking rate review for the signed-in customer. */
+export const createHotelbedsRateReview = async (reviewData, idempotencyKey) =>
+    responseData(await api.post('/v1/hotels/offers/review', reviewData, {
+        authScope: 'user',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        timeout: 30000
+    }));
+
+/** Confirm a Hotelbeds pay-at-hotel booking using the customer's accepted review terms. */
+export const bookHotelbedsDirect = async bookingData =>
+    responseData(await api.post('/v1/hotels/book', bookingData, {
+        authScope: 'user',
+        timeout: 75000
+    }));
+
 /** Read the server-approved Hotelbeds pilot IDs; this endpoint performs no supplier call. */
 export const getHotelbedsPilotList = async ({ signal } = {}) =>
     responseData(await api.get('/v1/hotels/pilot-list', { signal, timeout: 15000 }));
@@ -262,6 +278,8 @@ export default {
     completeMockHotelPayment,
     searchAggregateHotels,
     searchMockAggregateHotels,
+    createHotelbedsRateReview,
+    bookHotelbedsDirect,
     getHotelbedsPilotList,
     lookupRate,
     login,

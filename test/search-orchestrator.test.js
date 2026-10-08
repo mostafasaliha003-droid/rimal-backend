@@ -34,7 +34,7 @@ function availabilityResponse() {
             contentHotelCode: 74001,
             contentLanguage: 'ENG',
             contentSource: 'hotelbeds_content_api',
-            contentSyncedAt: '2026-10-01T12:00:00.000Z',
+            contentSyncedAt: new Date().toISOString(),
             currency: 'EUR',
             name: 'Supplier property name',
             categoryCode: '4EST',

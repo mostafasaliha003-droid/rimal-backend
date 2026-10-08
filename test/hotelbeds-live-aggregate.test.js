@@ -114,7 +114,7 @@ function memoryOfferCacheModel(connection) {
     return Model;
 }
 
-function availabilityFixture(env, contentSyncedAt) {
+function availabilityFixture(env, contentSyncedAt, { paymentType = 'AT_WEB' } = {}) {
     const searchAvailabilityCalls = [];
     return {
         searchAvailabilityCalls,
@@ -142,7 +142,7 @@ function availabilityFixture(env, contentSyncedAt) {
                                 rateClass: 'NOR',
                                 packaging: false,
                                 hotelMandatory: false,
-                                paymentType: 'AT_WEB',
+                                paymentType,
                                 boardCode: 'BB',
                                 boardName: 'Breakfast',
                                 net: '100.00',
@@ -277,10 +277,10 @@ test('legacy IDs, missing IDs, and mixed unapproved Hotelbeds IDs fail before DB
     assert.equal(availability.searchAvailabilityCalls.length, 0);
 });
 
-function createService({ env = enabledEnv(), database = fakeDatabase(), CacheModel, FxService } = {}) {
+function createService({ env = enabledEnv(), database = fakeDatabase(), CacheModel, FxService, paymentType } = {}) {
     const cache = CacheModel || memoryOfferCacheModel(database.connection);
     const now = new Date();
-    const availability = availabilityFixture(env, now);
+    const availability = availabilityFixture(env, now, { paymentType });
     const fxCalls = [];
     const fx = FxService || {
         async getRate(from, to) {
@@ -336,9 +336,22 @@ test('live route composition injects only Hotelbeds, live FX, and isolated schem
     assert.equal(result.currency, 'AED');
     assert.equal(result.offerCount, 1);
     assert.equal(result.hotels[0].offers[0].price.currency, 'AED');
+    assert.equal(result.hotels[0].offers[0].availability.rateType, 'BOOKABLE');
     assert.match(result.hotels[0].offers[0].termsVersion, /^[a-f\d]{64}$/i);
     assert.equal(JSON.stringify(result).includes('private-rate-key-fixture'), false);
     assert.equal(JSON.stringify(result).includes('supplierAmount'), false);
+});
+
+test('real live aggregate response carries rateType through to direct-booking eligibility', async () => {
+    const { service } = createService({ paymentType: 'AT_HOTEL' });
+    const response = await service.performSearch(searchCriteria());
+    const selectedOffer = response.hotels[0].offers[0];
+    const { canStartDirectHotelbedsBooking } = await import('../frontend/src/services/hotelbedsRateReview.js');
+
+    assert.equal(selectedOffer.availability.rateType, 'BOOKABLE');
+    assert.equal(selectedOffer.paymentFlow, 'PAY_AT_PROPERTY');
+    assert.equal(canStartDirectHotelbedsBooking(selectedOffer), true,
+        'the unmodified backend response must be directly eligible without filling in rateType in a fixture');
 });
 
 test('live Availability receives only the selected approved Hotelbeds ID even when legacy IDs are present', async () => {
