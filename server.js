@@ -49,6 +49,9 @@ const { createAuthSessionService } = require('./services/authSessionService');
 const { createSessionAuthMiddleware } = require('./services/sessionAuthMiddleware');
 const { registerChatSocketHandlers } = require('./services/chatSocketHandlers');
 const { createInternalApiKeyMiddleware } = require('./services/internalApiKeyMiddleware');
+const { validateHotelId, validateRegionId, validateGeoCoordinates } = require('./services/ratehawkSearchValidation');
+const createLegacyMixedSearchController = require('./controllers/legacyMixedSearchController');
+const { validateRatehawkPublicSearchCriteria } = require('./services/ratehawkPublicSearchCriteria');
 const { createUserAuthRouter, createUserProfileRouter } = require('./services/userAuthRoutes');
 const createAdminAuthRouter = require('./services/adminAuthRoutes');
 const createDisplayCurrencyRouter = require('./services/displayCurrencyRoutes');
@@ -511,26 +514,13 @@ app.get('/api/hotels/:hid/live', publicSearchGuard, async (req, res) => {
 // ==========================================
 app.post('/api/search/rates', publicSearchGuard, async (req, res) => {
     const body = req.body || {};
-    const { checkin, checkout, hids, guests } = body;
-    const displayLanguage = body.display_language || body.language || 'en';
-    if (!['ar', 'en', 'es'].includes(displayLanguage)) return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE' });
-    if (!Array.isArray(hids) || guests === undefined || guests === null) {
-        return res.status(400).json({
-            success: false,
-            error: 'INVALID_SEARCH_CRITERIA',
-            message: 'hids must be an array and guests are required.'
-        });
-    }
-
+    let displayLanguage = 'en';
     try {
+        const criteria = validateRatehawkPublicSearchCriteria('hotel_ids', body, ratehawkService);
+        displayLanguage = criteria.requestedLanguage;
+        delete criteria.requestedLanguage;
         const result = await ratehawkService.searchLiveRates({
-            checkin,
-            checkout,
-            hids,
-            residency: body.residency || 'ae',
-            language: body.language || 'en',
-            currency: body.currency || 'USD',
-            guests
+            ...criteria
         });
         const hotels = Array.isArray(result)
             ? result
@@ -555,29 +545,15 @@ app.post('/api/search/rates', publicSearchGuard, async (req, res) => {
 
 app.post('/api/search/rates/geo', publicSearchGuard, async (req, res) => {
     const body = req.body || {};
-    const { checkin, checkout, latitude, longitude, guests } = body;
-    if (latitude === undefined || latitude === null || longitude === undefined || longitude === null
-        || guests === undefined || guests === null) {
-        return res.status(400).json({
-            success: false,
-            error: 'INVALID_SEARCH_CRITERIA',
-            message: 'latitude, longitude, and guests are required.'
-        });
-    }
-
+    let displayLanguage = 'en';
     try {
+        const criteria = validateRatehawkPublicSearchCriteria('geo', body, ratehawkService);
+        displayLanguage = criteria.requestedLanguage;
+        delete criteria.requestedLanguage;
         const result = await ratehawkService.searchLiveRatesByGeo({
-            checkin,
-            checkout,
-            latitude: Number(latitude),
-            longitude: Number(longitude),
-            radius: body.radius === undefined || body.radius === null ? 10000 : Number(body.radius),
-            residency: body.residency || 'ae',
-            language: body.language || 'en',
-            currency: body.currency || 'USD',
-            guests
+            ...criteria
         });
-        return res.status(200).json({ success: true, ...result });
+        return res.status(200).json({ success: true, ...result, requested_language: displayLanguage });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
@@ -667,28 +643,15 @@ async function enrichRateHotels(hotels) {
 
 app.post('/api/search/rates/region', publicSearchGuard, async (req, res) => {
     const body = req.body || {};
-    const { checkin, checkout, region_id: regionId, guests } = body;
-    const displayLanguage = body.display_language || body.language || 'en';
-    if (!['ar', 'en', 'es'].includes(displayLanguage)) return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE' });
-    const numericRegionId = Number(regionId);
-    if (regionId === undefined || regionId === null || !Number.isInteger(numericRegionId)
-        || guests === undefined || guests === null) {
-        return res.status(400).json({
-            success: false,
-            error: 'INVALID_SEARCH_CRITERIA',
-            message: 'region_id and guests are required.'
-        });
-    }
-
+    let displayLanguage = 'en';
+    let numericRegionId;
     try {
+        const criteria = validateRatehawkPublicSearchCriteria('region', body, ratehawkService);
+        displayLanguage = criteria.requestedLanguage;
+        numericRegionId = criteria.region_id;
+        delete criteria.requestedLanguage;
         const result = await ratehawkService.searchLiveRatesByRegion({
-            checkin,
-            checkout,
-            region_id: numericRegionId,
-            residency: body.residency || 'ae',
-            language: body.language || 'en',
-            currency: body.currency || 'USD',
-            guests
+            ...criteria
         });
         const hotels = Array.isArray(result)
             ? result
@@ -711,20 +674,23 @@ app.post('/api/search/rates/region', publicSearchGuard, async (req, res) => {
         }
         logger.error('Live region hotel search failed', {
             error: error.message,
-            stack: error.stack,
             regionId: numericRegionId,
-            checkin,
-            checkout
+            checkin: body.checkin ?? body.checkIn ?? body.check_in ?? body.checkInDate,
+            checkout: body.checkout ?? body.checkOut ?? body.check_out ?? body.checkOutDate
         });
         return res.status(502).json({ success: false, error: 'SEARCH_UNAVAILABLE' });
     }
 });
 
 app.get('/api/search/sort/:region_id', publicSearchGuard, async (req, res) => {
-    const parsedLimit = parseInt(req.query.limit, 10);
-    const limit = Number.isInteger(parsedLimit) ? Math.min(250, Math.max(1, parsedLimit)) : 250;
     try {
-        const result = await ratehawkService.getRegionHotelSort(req.params.region_id, limit);
+        const regionId = validateRegionId(req.params.region_id);
+        const requestedLimit = req.query.limit === undefined ? 250 : Number(req.query.limit);
+        if (!Number.isSafeInteger(requestedLimit) || requestedLimit < 1 || requestedLimit > 250) {
+            throw Object.assign(new TypeError('invalid_limit'), { ratehawkError: 'invalid_params' });
+        }
+        const limit = requestedLimit;
+        const result = await ratehawkService.getRegionHotelSort(regionId, limit);
         return res.status(200).json({ success: true, hotels: result });
     } catch (error) {
         if (error.ratehawkError === 'hotels_not_found') {
@@ -753,6 +719,11 @@ app.get('/api/search/suggest', publicSearchGuard, async (req, res) => {
         });
     }
 
+    if (typeof language !== 'string' || !['ar', 'en', 'es'].includes(language)
+        || typeof displayLanguage !== 'string' || !['ar', 'en', 'es'].includes(displayLanguage)) {
+        return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE' });
+    }
+
     try {
         const result = await ratehawkService.getAutocompleteSuggestions(query, language, displayLanguage);
         return res.status(200).json({ success: true, suggestions: result });
@@ -772,28 +743,9 @@ app.get('/api/search/suggest', publicSearchGuard, async (req, res) => {
 app.post('/api/search/hotelpage', publicSearchGuard, async (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     const body = req.body || {};
-    const { checkin, checkout, hid, guests, match_hash: matchHash } = body;
-    const numericHid = Number(hid);
-    if (hid === undefined || hid === null || !Number.isSafeInteger(numericHid) || numericHid < 0 || numericHid > 9999999999
-        || guests === undefined || guests === null) {
-        return res.status(400).json({
-            success: false,
-            error: 'INVALID_HOTELPAGE_CRITERIA',
-            message: 'hid and guests are required.'
-        });
-    }
-
     try {
-        const result = await ratehawkService.getHotelPageRates({
-            checkin,
-            checkout,
-            hid: numericHid,
-            residency: body.residency || 'ae',
-            language: body.language || 'en',
-            currency: body.currency || 'USD',
-            guests,
-            ...(matchHash ? { match_hash: matchHash } : {})
-        });
+        const criteria = validateRatehawkPublicSearchCriteria('hotelpage', body, ratehawkService);
+        const result = await ratehawkService.validatedHotelPageRates(criteria);
         const hotels = Array.isArray(result)
             ? result
             : (result?.hotels || result?.data?.hotels || []);
@@ -810,7 +762,7 @@ app.post('/api/search/hotelpage', publicSearchGuard, async (req, res) => {
         if (error.ratehawkError === 'core_search_error') {
             return res.status(502).json({ success: false, error: 'CORE_SEARCH_ERROR', message: error.message });
         }
-        logger.error('Hotelpage rates lookup failed', { hid, error: error.message });
+        logger.error('Hotelpage rates lookup failed', { hid: body.hid, error: error.message });
         return res.status(502).json({ success: false, error: 'HOTELPAGE_UNAVAILABLE' });
     }
 });
@@ -954,61 +906,14 @@ app.get('/api/search/rate/:book_hash', publicSearchGuard, async (req, res) => {
 
 app.use('/api/v1/hotels', hotelbedsSearchRouter);
 
-app.post('/api/v1/hotels/search', publicSearchGuard, async (req, res) => {
-    logger.info("New live secure search request received");
-    try {
-        const [rateHawkResult, dubaiLinkResult] = await Promise.allSettled([
-            ratehawkService.fetchHotelsInChunks(req.body),
-            dubailinkService.searchAvailability(req.body)
-        ]);
-
-        const rateHawkHotels = rateHawkResult.status === 'fulfilled' && rateHawkResult.value ? rateHawkResult.value : [];
-        
-        let dubaiLinkHotels = [];
-        if (dubaiLinkResult.status === 'fulfilled' && dubaiLinkResult.value) {
-            dubaiLinkHotels = Array.isArray(dubaiLinkResult.value) ? dubaiLinkResult.value : (dubaiLinkResult.value.hotelList || []);
-        }
-
-        // 🌟 الدمج السحري مع صور حقيقية غير قابلة للحظر وبخصائص متعددة
-        if (dubaiLinkHotels.length > 0) {
-            dubaiLinkHotels = await Promise.all(dubaiLinkHotels.map(async (apiHotel) => {
-                if (apiHotel && apiHotel.hotel_code) {
-                    const dbInfo = await Hotel.findOne({ hotelId: apiHotel.hotel_code.toString() });
-                    
-                    let uniqueFallbackName = apiHotel.hotel_code.toString() === '39619181' ? 'Citymax Hotel Al Barsha' : 
-                                             apiHotel.hotel_code.toString() === '38772617' ? 'Grand Excelsior Hotel' : 
-                                             `فندق دبي المميز (${apiHotel.hotel_code})`;
-
-                    if (dbInfo) {
-                        logger.info(`✅ DB Match Found for Hotel: ${apiHotel.hotel_code}`);
-                        apiHotel.hotel = dbInfo.name || uniqueFallbackName;
-                        apiHotel.city = dbInfo.city || 'دبي';
-                        const finalImage = formatHotelImage(dbInfo.image);
-                        apiHotel.image = finalImage;
-                        apiHotel.thumb = finalImage;
-                        apiHotel.photo = finalImage;
-                    } else {
-                        logger.warn(`❌ No DB Match for Hotel: ${apiHotel.hotel_code}`);
-                        apiHotel.hotel = uniqueFallbackName;
-                        apiHotel.city = 'دبي';
-                        apiHotel.image = '';
-                        apiHotel.thumb = '';
-                        apiHotel.photo = '';
-                    }
-                }
-                return apiHotel;
-            }));
-        }
-
-        const allRawHotels = [...rateHawkHotels, ...dubaiLinkHotels]; 
-        const cleanAndCheapestHotels = mappingService.deduplicateHotels(allRawHotels);
-
-        return res.status(200).json({ success: true, hotelsData: cleanAndCheapestHotels });
-    } catch (error) { 
-        logger.error("Search Error", { error: error.message });
-        res.status(500).json({ success: false, error: "Search Failed" }); 
-    }
-});
+app.post('/api/v1/hotels/search', publicSearchGuard, createLegacyMixedSearchController({
+    ratehawkService,
+    dubailinkService,
+    Hotel,
+    mappingService,
+    formatHotelImage,
+    logger
+}));
 
 // 🏨 HP-on-selection: full rooms/rates (bookable book_hash) for a single hotel the
 // user opened. SERP powers the listing; this powers the hotel details page.
@@ -1016,7 +921,8 @@ app.post('/api/v1/hotels/:hotelId/rates', publicSearchGuard, async (req, res) =>
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     try {
         const { hotelId } = req.params;
-        const result = await ratehawkService.getHotelPricing(hotelId, req.body || {});
+        const criteria = ratehawkService.validatedSearchParams(req.body || {});
+        const result = await ratehawkService.getHotelPricing(hotelId, criteria);
         if (!result.success) {
             return res.status(404).json({ success: false, error: result.error || 'not_found', message: 'تعذّر جلب أسعار الغرف لهذا الفندق.' });
         }
@@ -1031,8 +937,11 @@ app.post('/api/v1/hotels/:hotelId/rates', publicSearchGuard, async (req, res) =>
             rooms: result.rooms
         });
     } catch (error) {
+        if (error.ratehawkError === 'invalid_params') {
+            return res.status(400).json({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: error.message });
+        }
         logger.error('Hotel rates (HP-on-selection) failed', { error: error.message });
-        return res.status(500).json({ success: false, error: 'rates_error', message: 'حدث خطأ أثناء جلب أسعار الغرف.' });
+        return res.status(502).json({ success: false, error: 'rates_error', message: 'حدث خطأ أثناء جلب أسعار الغرف.' });
     }
 });
 

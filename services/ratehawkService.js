@@ -17,6 +17,7 @@ const client = require('./ratehawkClient');
 const mappingService = require('./mappingService');
 const logger = require('./loggerService');
 const { findHotelSuggestions } = require('./hotelSearchIndex');
+const { validateRatehawkSearchCriteria } = require('./ratehawkSearchValidation');
 
 // Fallback name for hotels not yet present in our local static-content cache.
 const FALLBACK_HOTEL_NAME = 'فندق شريك لرمال وفلّها';
@@ -118,27 +119,133 @@ const FINAL_STATUS_ERRORS = new Set([
 ]);
 
 // ---- Input normalization ----------------------------------------------------
-function normalizeSearchParams(p = {}) {
-    // children ages: frontend sends `children` as a count and `childrenAges` as ages.
+function normalizeSearchParams(p = {}, options = {}) {
+    if (!p || typeof p !== 'object' || Array.isArray(p)) {
+        throw Object.assign(new TypeError('invalid_search_criteria'), { code: 'invalid_search_criteria', ratehawkError: 'invalid_params' });
+    }
+    // Preserve this legacy normalizer's permissive defaults for non-search callers.
+    // Supplier dispatches must go through validatedSearchParams below.
     const ages = Array.isArray(p.childrenAges) ? p.childrenAges
         : (Array.isArray(p.children) ? p.children : []);
     const guests = Array.isArray(p.guests) && p.guests.length
-        ? p.guests.map(g => ({ adults: Number(g.adults) || 2, children: Array.isArray(g.children) ? g.children : [] }))
-        : [{ adults: Number(p.adults) || 2, children: ages.map(a => Number(a)).filter(n => Number.isFinite(n)) }];
-
+        ? p.guests.map(room => ({ adults: Number(room?.adults) || 2, children: Array.isArray(room?.children) ? room.children : [] }))
+        : [{ adults: Number(p.adults) || 2, children: ages.map(Number).filter(Number.isFinite) }];
+    const passthroughFields = [
+        'hids', 'ids', 'latitude', 'longitude', 'radius', 'region_id', 'hid', 'id', 'match_hash',
+        'destinationCode', 'destination_code', 'destinationName', 'destination', 'query', 'display_language',
+        'hotel_id', 'hotelId', 'hotel_ids', 'hotelIds', 'hotels_limit'
+    ];
     return {
+        ...Object.fromEntries(passthroughFields.filter(field => Object.hasOwn(p, field)).map(field => [field, p[field]])),
         checkin: p.checkin || p.checkIn || p.check_in || p.checkInDate,
         checkout: p.checkout || p.checkOut || p.check_out || p.checkOutDate,
         residency: String(p.residency || process.env.RATEHAWK_RESIDENCY || 'ae').toLowerCase().slice(0, 2),
         language: p.language || 'en',
         currency: p.currency || process.env.RATEHAWK_CURRENCY || 'USD',
-        upsells: normalizeUpsells(
-            p.upsells,
+        upsells: normalizeUpsells(p.upsells,
             p.checkin || p.checkIn || p.check_in || p.checkInDate,
-            p.checkout || p.checkOut || p.check_out || p.checkOutDate
-        ),
-        guests
+            p.checkout || p.checkOut || p.check_out || p.checkOutDate),
+        guests,
+        ...(p.guests !== undefined ? { rawGuests: p.guests } : {})
     };
+}
+
+function strictInteger(value, code) {
+    const integer = typeof value === 'number' ? value
+        : typeof value === 'string' && /^\d+$/.test(value) ? Number(value) : NaN;
+    if (!Number.isSafeInteger(integer)) {
+        throw Object.assign(new TypeError(code), { code, ratehawkError: 'invalid_params' });
+    }
+    return integer;
+}
+
+function validatedSearchParams(params = {}, options) {
+    if (!params || typeof params !== 'object' || Array.isArray(params)) {
+        throw Object.assign(new TypeError('invalid_search_criteria'), { code: 'invalid_search_criteria', ratehawkError: 'invalid_params' });
+    }
+    const childrenAgesProvided = params.childrenAges !== undefined;
+    const childrenProvided = params.children !== undefined;
+    let guests = params.guests;
+    if (guests === undefined) {
+        if (childrenAgesProvided && !Array.isArray(params.childrenAges)) {
+            throw Object.assign(new TypeError('invalid_occupancy'), { code: 'invalid_occupancy', ratehawkError: 'invalid_params' });
+        }
+        if (childrenProvided && Array.isArray(params.children) && childrenAgesProvided
+            && (params.children.length !== params.childrenAges.length
+                || params.children.some((age, index) => age !== params.childrenAges[index]))) {
+            throw Object.assign(new TypeError('invalid_occupancy'), { code: 'invalid_occupancy', ratehawkError: 'invalid_params' });
+        }
+        const ages = Array.isArray(params.children) ? params.children
+            : (Array.isArray(params.childrenAges) ? params.childrenAges : []);
+        const count = childrenProvided && !Array.isArray(params.children)
+            ? strictInteger(params.children, 'invalid_occupancy') : ages.length;
+        if (count < 0 || count > 4 || count !== ages.length) {
+            throw Object.assign(new TypeError('invalid_occupancy'), { code: 'invalid_occupancy', ratehawkError: 'invalid_params' });
+        }
+        guests = [{ adults: params.adults === undefined ? 2 : strictInteger(params.adults, 'invalid_occupancy'),
+            children: ages.map(age => strictInteger(age, 'invalid_occupancy')) }];
+    } else if (Array.isArray(guests)) {
+        guests = guests.map(room => {
+            if (!room || typeof room !== 'object' || Array.isArray(room)) {
+                throw Object.assign(new TypeError('invalid_occupancy'), { code: 'invalid_occupancy', ratehawkError: 'invalid_params' });
+            }
+            return {
+                adults: strictInteger(room.adults, 'invalid_occupancy'),
+                children: Array.isArray(room.children)
+                    ? room.children.map(age => strictInteger(age, 'invalid_occupancy'))
+                    : room.children
+            };
+        });
+    }
+
+    const supplierLanguage = params.language === undefined ? 'en' : params.language;
+    const displayLanguage = params.display_language === undefined ? supplierLanguage : params.display_language;
+    if (typeof supplierLanguage !== 'string' || !['ar', 'en', 'es'].includes(supplierLanguage)
+        || typeof displayLanguage !== 'string' || !['ar', 'en', 'es'].includes(displayLanguage)) {
+        throw Object.assign(new TypeError('invalid_language'), { code: 'invalid_language', ratehawkError: 'invalid_params' });
+    }
+    const currency = params.currency === undefined ? process.env.RATEHAWK_CURRENCY || 'USD' : params.currency;
+    if (typeof currency !== 'string' || !/^[A-Za-z]{3}$/.test(currency)) {
+        throw Object.assign(new TypeError('invalid_currency'), { code: 'invalid_currency', ratehawkError: 'invalid_params' });
+    }
+    const checkin = params.checkin ?? params.checkIn ?? params.check_in ?? params.checkInDate;
+    const checkout = params.checkout ?? params.checkOut ?? params.check_out ?? params.checkOutDate;
+    const validated = validateRatehawkSearchCriteria({
+        ...params,
+        residency: params.residency === undefined ? process.env.RATEHAWK_RESIDENCY || 'ae' : params.residency,
+        guests
+    }, options);
+    const passthroughFields = [
+        'hids', 'ids', 'latitude', 'longitude', 'radius', 'region_id', 'hid', 'id', 'match_hash',
+        'destinationCode', 'destination_code', 'destinationName', 'destination', 'query', 'display_language',
+        'hotel_id', 'hotelId', 'hotel_ids', 'hotelIds', 'hotels_limit'
+    ];
+    return {
+        ...Object.fromEntries(passthroughFields.filter(field => Object.hasOwn(params, field)).map(field => [field, params[field]])),
+        checkin: validated.checkin,
+        checkout: validated.checkout,
+        residency: validated.residency,
+        language: supplierLanguage,
+        currency: currency.toUpperCase(),
+        upsells: normalizeUpsells(params.upsells, validated.checkin, validated.checkout),
+        guests: validated.guests
+    };
+}
+
+function ratehawkSearchPayload(params, extraFields = []) {
+    const payload = {
+        checkin: params.checkin,
+        checkout: params.checkout,
+        residency: params.residency,
+        language: params.language,
+        currency: params.currency,
+        upsells: params.upsells,
+        guests: params.guests
+    };
+    for (const field of extraFields) {
+        if (Object.hasOwn(params, field)) payload[field] = params[field];
+    }
+    return payload;
 }
 
 // Resolve a free-text destination (e.g. "Dubai") to an ETG region id via multicomplete.
@@ -447,9 +554,19 @@ async function getAutocompleteSuggestions(query, language = 'en', displayLanguag
         supplierLanguage
     };
 }
-const searchLiveRates = (searchCriteria = {}) => client.searchHotels(searchCriteria);
-const searchLiveRatesByGeo = (searchCriteria = {}) => client.searchHotelsByGeo(searchCriteria);
-const searchLiveRatesByRegion = (searchCriteria = {}) => client.searchHotelsByRegion(searchCriteria);
+const searchLiveRates = (searchCriteria = {}, options) => {
+    const params = validatedSearchParams(searchCriteria, options);
+    return client.searchHotels(ratehawkSearchPayload(params, ['hids', 'ids']));
+};
+const searchLiveRatesByGeo = (searchCriteria = {}, options) => {
+    const params = validatedSearchParams(searchCriteria, options);
+    const { validateGeoCoordinates } = require('./ratehawkSearchValidation');
+    return client.searchHotelsByGeo({ ...ratehawkSearchPayload(params), ...validateGeoCoordinates(searchCriteria) });
+};
+const searchLiveRatesByRegion = (searchCriteria = {}, options) => {
+    const params = validatedSearchParams(searchCriteria, options);
+    return client.searchHotelsByRegion(ratehawkSearchPayload(params, ['region_id']));
+};
 const getRegionHotelSort = (regionId, limit = 250) => {
     const parsedRegionId = parseInt(regionId, 10);
     if (!Number.isInteger(parsedRegionId)) throw new TypeError('regionId must be an integer');
@@ -461,19 +578,21 @@ const getRegionHotelSort = (regionId, limit = 250) => {
         hotels_limit: hotelsLimit
     });
 };
-const getHotelPageRates = (searchCriteria = {}) => client.getHotelPageRates(searchCriteria);
+const getHotelPageRates = (searchCriteria = {}, options) => {
+    const params = validatedSearchParams(searchCriteria, options);
+    const hotel = searchCriteria.hid ?? searchCriteria.hotel_id ?? searchCriteria.hotelId;
+    const { validateHotelId } = require('./ratehawkSearchValidation');
+    return client.getHotelPageRates({ ...ratehawkSearchPayload(params), hid: validateHotelId(hotel),
+        ...(searchCriteria.match_hash ? { match_hash: searchCriteria.match_hash } : {}) });
+};
 const getRateDetailsByHash = (bookHash, language = 'en') => client.lookupRateInfo(bookHash, language);
 
 /**
  * Search availability by region / hotel ids / geo. Returns an array of hotels
  * shaped for mappingService (id, hid, name, image, rates, provider:'ratehawk').
  */
-async function searchAvailability(rawParams = {}) {
-    const params = normalizeSearchParams(rawParams);
-    if (!params.checkin || !params.checkout) {
-        logger.warn('RateHawk search skipped: checkin/checkout are required');
-        return [];
-    }
+async function searchAvailability(rawParams = {}, options) {
+    const params = validatedSearchParams(rawParams, options);
 
     // 2a. SERP step — get the candidate hotels for the destination.
     // NOTE: When the account manager asks us to validate real billing in RateHawk's
@@ -481,9 +600,11 @@ async function searchAvailability(rawParams = {}) {
     // RATEHAWK_TEST_HOTEL_ID ('8473727') (e.g. pass hids:[RATEHAWK_TEST_HOTEL_ID]).
     let res;
     if ((rawParams.hids && rawParams.hids.length) || (rawParams.ids && rawParams.ids.length)) {
-        res = await client.serpHotels({ ...params, hids: rawParams.hids, ids: rawParams.ids });
+        res = await client.serpHotels(ratehawkSearchPayload(params, ['hids', 'ids']));
     } else if (rawParams.latitude && rawParams.longitude) {
-        res = await client.serpGeo({ ...params, latitude: Number(rawParams.latitude), longitude: Number(rawParams.longitude), radius: rawParams.radius || 5000, hotels_limit: rawParams.hotels_limit || 30 });
+        const { validateGeoCoordinates } = require('./ratehawkSearchValidation');
+        res = await client.serpGeo({ ...ratehawkSearchPayload(params), ...validateGeoCoordinates(rawParams),
+            hotels_limit: rawParams.hotels_limit || 30 });
     } else {
         // region search: resolve region_id from region_id / destinationCode (map) /
         // destination name (multicomplete) / configured default region.
@@ -494,7 +615,8 @@ async function searchAvailability(rawParams = {}) {
                 `Set RATEHAWK_DEFAULT_REGION_ID or RATEHAWK_DESTINATION_REGION_MAP, or send a destination name.`);
             return [];
         }
-        res = await client.serpRegion({ ...params, region_id: regionId, hotels_limit: rawParams.hotels_limit || 30 });
+        res = await client.serpRegion({ ...ratehawkSearchPayload(params), region_id: regionId,
+            hotels_limit: rawParams.hotels_limit || 30 });
     }
 
     if (!res.ok) {
@@ -551,13 +673,18 @@ async function searchAvailability(rawParams = {}) {
 
 // HP-on-selection: fetch full rooms/rates (with bookable book_hash) for a SINGLE
 // hotel the user opened. This is the only place we call /search/hp/.
-async function getHotelPricing(hotelId, searchParams = {}) {
-    const params = normalizeSearchParams(searchParams);
-    if (!hotelId) return { success: false, error: 'missing_hotel_id', rooms: [] };
-    if (!params.checkin || !params.checkout) return { success: false, error: 'missing_dates', rooms: [] };
+async function getHotelPricing(hotelId, searchParams = {}, options = {}) {
+    const params = validatedSearchParams(searchParams, options);
+    if (hotelId === undefined || hotelId === null || hotelId === '') {
+        throw Object.assign(new TypeError('invalid_hid'), { code: 'invalid_hid', ratehawkError: 'invalid_params' });
+    }
+    if (/^\d+$/.test(String(hotelId))) {
+        const { validateHotelId } = require('./ratehawkSearchValidation');
+        validateHotelId(hotelId);
+    }
 
     const numeric = /^\d+$/.test(String(hotelId));
-    const body = { ...params };
+    const body = ratehawkSearchPayload(params);
     if (numeric) body.hid = Number(hotelId); else body.id = String(hotelId);
     // Hotelpage prices and availability are live data: make a fresh supplier
     // request for every selected-hotel view, with no in-process rate cache.
@@ -611,11 +738,18 @@ const fetchHotelsInChunks = (searchParams) => searchAvailability(searchParams);
 /**
  * Retrieve the full hotelpage (all rates) for a single hotel the user selected.
  */
-async function getHotelPage(rawParams = {}) {
-    const params = normalizeSearchParams(rawParams);
-    const body = { ...params };
-    if (rawParams.hid) body.hid = Number(rawParams.hid);
-    if (rawParams.id) body.id = rawParams.id;
+async function getHotelPage(rawParams = {}, options) {
+    const params = validatedSearchParams(rawParams, options);
+    const hotelHid = rawParams.hid;
+    const hotelId = hotelHid ?? rawParams.id;
+    if (hotelId === undefined || hotelId === null || hotelId === '') {
+        throw Object.assign(new TypeError('invalid_hid'), { code: 'invalid_hid', ratehawkError: 'invalid_params' });
+    }
+    const { validateHotelId } = require('./ratehawkSearchValidation');
+    const body = ratehawkSearchPayload(params);
+    if (hotelHid !== undefined && hotelHid !== null) body.hid = validateHotelId(hotelHid);
+    else if (rawParams.id !== undefined && rawParams.id !== null && rawParams.id !== '') body.id = rawParams.id;
+    if (rawParams.match_hash) body.match_hash = rawParams.match_hash;
     const res = await client.hotelPage(body);
     if (!res.ok) return { success: false, error: res.error };
     const hotel = (res.data && res.data.hotels && res.data.hotels[0]) || null;
@@ -639,6 +773,17 @@ async function fetchSingleHotelPage(hotelId, searchParams = {}) {
             book_hash: r.book_hash
         }))
     };
+}
+
+async function validatedHotelPageRates(searchParams = {}, options) {
+    const params = validatedSearchParams(searchParams, options);
+    const hotelId = searchParams.hid ?? searchParams.hotel_id ?? searchParams.hotelId;
+    if (hotelId === undefined || hotelId === null || hotelId === '') {
+        throw Object.assign(new TypeError('invalid_hid'), { code: 'invalid_hid', ratehawkError: 'invalid_params' });
+    }
+    const { validateHotelId } = require('./ratehawkSearchValidation');
+    return client.getHotelPageRates({ ...ratehawkSearchPayload(params), hid: validateHotelId(hotelId),
+        ...(searchParams.match_hash ? { match_hash: searchParams.match_hash } : {}) });
 }
 
 // ---- Step 3: Prebook --------------------------------------------------------
@@ -1354,6 +1499,8 @@ module.exports = {
     buildReturnPath,
     normalizeUpsells,
     buildUpsellData,
+    normalizeSearchParams,
+    validatedSearchParams,
     getApiOverview,
     retrieveContract,
     retrieveFinancialDetails,
@@ -1377,6 +1524,7 @@ module.exports = {
     searchLiveRatesByRegion,
     getRegionHotelSort,
     getHotelPageRates,
+    validatedHotelPageRates,
     getRateDetailsByHash,
     searchAvailability,
     fetchHotelsInChunks,
