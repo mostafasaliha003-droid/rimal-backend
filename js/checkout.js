@@ -166,13 +166,11 @@ const Checkout = {
                 refundType: Checkout.currentBookingData.refundType 
             };
 
-            const API_KEY = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
-
             // إذا كان الدفع إلكتروني (Ziina)، نرسل لمسار recheck-and-pay
             if (paymentMethod === 'visa') {
                 const res = await fetch(`${API_URL}/api/v1/hotels/recheck-and-pay`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(pendingData)
                 });
                 const data = await res.json();
@@ -192,7 +190,7 @@ const Checkout = {
                 // دفع في الفندق، توجيه مباشر لتأكيد الحجز الفعلي
                 const res = await fetch(`${API_URL}/api/v1/hotels/book`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify(pendingData)
                 });
                 const data = await res.json();

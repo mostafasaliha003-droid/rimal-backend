@@ -2,17 +2,12 @@ import axios from 'axios';
 
 const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
     || (import.meta.env.PROD ? 'https://rimal-api.onrender.com/api' : '/api');
-const secureKey = import.meta.env.VITE_REMAL_SECURE_KEY || 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
-
 const api = axios.create({
     baseURL: apiBaseUrl,
     // RateHawk SERP searches can take up to the backend's configured
     // RATEHAWK_SERP_TIMEOUT_MS (60s by default), plus network overhead.
     timeout: 75000,
-    headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': secureKey
-    }
+    headers: { 'Content-Type': 'application/json' }
 });
 
 const responseData = (response) => response.data;

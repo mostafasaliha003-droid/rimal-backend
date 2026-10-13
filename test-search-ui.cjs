@@ -9,7 +9,7 @@ const root = __dirname;
 const frontend = path.join(root, 'frontend');
 const storedSearch = {
     query: 'Dubai', destination: { type: 'region', region_id: 6053839, label: 'Dubai' },
-    checkin: '2099-10-15', checkout: '2099-10-17', guests: [{ adults: 2, children: [] }]
+    checkin: '2027-10-15', checkout: '2027-10-17', residency: 'ae', guests: [{ adults: 2, children: [] }]
 };
 const rate = { book_hash: 'test-room', room_name: 'Test room', payment_options: { payment_types: [{ type: 'deposit', amount: '150', currency_code: 'USD' }] } };
 
@@ -31,7 +31,7 @@ async function run() {
         const base = `http://127.0.0.1:${server.httpServer.address().port}`;
         browser = await puppeteer.launch({ headless: true });
         const pageErrors = [];
-        const requests = { suggestions: [], searches: [], failSuggestions: true, failSearch: false, searchDelay: 0 };
+        const requests = { suggestions: [], searches: [], hotelpages: [], failSuggestions: true, failSearch: false, searchDelay: 0 };
 
         const fresh = async ({ width = 1440, language = 'en', search = null } = {}) => {
             await context?.close();
@@ -67,7 +67,18 @@ async function run() {
                             requests.searches.push(JSON.parse(request.postData()));
                             if (requests.searchDelay) await delay(requests.searchDelay);
                             status = requests.failSearch ? 503 : 200;
-                            body = { hotels: Array.from({ length: 12 }, (_, index) => ({ hid: index + 1, name: `Test Hotel ${index + 1}`, rates: [rate], stars: 4 })) };
+                            body = { hotels: Array.from({ length: 12 }, (_, index) => ({ hid: index + 1, id: index + 1, name: `Test Hotel ${index + 1}`, rates: [rate], stars: 4 })) };
+                        } else if (url.pathname.endsWith('/search/hotelpage')) {
+                            const criteria = JSON.parse(request.postData());
+                            requests.hotelpages.push(criteria);
+                            body = { success: true, hotels: [{ hid: criteria.hid, id: criteria.hid, name: `Test Hotel ${criteria.hid}`, rates: [{
+                                ...rate,
+                                book_hash: 'test-room',
+                                room_name: 'Test room',
+                                payment_options: { payment_types: [{ type: 'deposit', amount: '150', currency_code: 'USD' }] }
+                            }] }] };
+                        } else if (url.pathname.endsWith('/rates/prebook') || url.pathname.endsWith('/booking/prebook')) {
+                            body = { success: true, rate: { ...rate, book_hash: 'test-room' } };
                         }
                         return await request.respond({ status, contentType: 'application/json', body: JSON.stringify(body) });
                     }
@@ -113,6 +124,10 @@ async function run() {
         assert.equal(requests.searches.length, beforeEnter, 'Selecting an option submitted the form');
         await page.waitForFunction(() => document.getElementById('destination-search').value === 'Dubai');
         await page.click('#search-submit');
+        await focusIs(page, 'search-residency');
+        assert.equal(await page.$eval('#search-residency', input => input.getAttribute('aria-invalid')), 'true');
+        await page.select('#search-residency', 'ae');
+        await page.click('#search-submit');
         await focusIs(page, 'search-checkin');
         assert.equal(await page.$eval('#search-checkin', input => input.getAttribute('aria-invalid')), 'true');
         await page.keyboard.press('Escape');
@@ -155,17 +170,17 @@ async function run() {
 
         console.log('CHECK: dates, guests, request locking and error retry');
         page = await fresh({ search: storedSearch });
-        await type(page, '#search-checkin', '2099-10-20');
+        await type(page, '#search-checkin', '2027-10-20');
         await page.keyboard.press('Escape');
-        await page.waitForFunction(() => document.getElementById('search-checkout').value === '2099-10-21');
-        await type(page, '#search-checkout', '2099-02-30');
+        await page.waitForFunction(() => document.getElementById('search-checkout').value === '2027-10-21');
+        await type(page, '#search-checkout', '2027-02-30');
         await page.keyboard.press('Escape');
         const invalidBefore = requests.searches.length;
         await page.click('#search-submit');
         await focusIs(page, 'search-checkout');
         assert.equal(requests.searches.length, invalidBefore);
         await page.keyboard.press('Escape');
-        await type(page, '#search-checkout', '2099-10-23');
+        await type(page, '#search-checkout', '2027-10-23');
         await page.keyboard.press('Escape');
         await page.click('#search-guests');
         await page.waitForSelector('#search-guests-panel', { visible: true });
@@ -186,16 +201,63 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('search-submit').disabled);
         assert.equal(requests.searches.length, before + 1);
         assert.deepEqual(requests.searches.at(-1).guests, [{ adults: 2, children: [0] }]);
-        assert.equal(requests.searches.at(-1).checkin, '2099-10-20');
+        assert.equal(requests.searches.at(-1).checkin, '2027-10-20');
+        assert.equal(requests.searches.at(-1).residency, 'ae');
         requests.failSearch = true;
         requests.searchDelay = 0;
         await page.click('#search-submit');
         await page.waitForFunction(() => !document.getElementById('search-submit').disabled && document.getElementById('search-error'));
         assert.equal(await page.$eval('#destination-search', input => input.value), 'Dubai');
         requests.failSearch = false;
+        await page.select('#search-residency', 'xk');
         await page.click('#search-submit');
         await page.waitForFunction(() => !document.getElementById('search-submit').disabled && !document.getElementById('search-error'));
-        console.log('PASS: valid dates/guests, duplicate prevention and retry.');
+        assert.equal(requests.searches.at(-1).residency, 'xk');
+        console.log('PASS: valid dates/guests, residency forwarding, duplicate prevention and retry.');
+
+        console.log('CHECK: blank search through results and hotel details using local supplier fixtures');
+        page = await fresh();
+        const setInput = async (selector, value) => page.$eval(selector, (input, nextValue) => {
+            const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
+            setter.call(input, nextValue);
+            input.dispatchEvent(new Event('input', { bubbles: true }));
+            input.dispatchEvent(new Event('change', { bubbles: true }));
+        }, value);
+        await type(page, '#destination-search', 'Dubai');
+        await page.waitForSelector('#destination-suggestions [role="option"]', { visible: true });
+        await page.keyboard.press('ArrowDown');
+        await page.keyboard.press('Enter');
+        await setInput('#search-checkin', '2027-10-15');
+        await setInput('#search-checkout', '2027-10-17');
+        await page.select('#search-residency', 'gb');
+        await page.click('#search-submit');
+        try {
+            await page.waitForFunction(() => document.querySelector('ul[aria-label] article a.cta-red'));
+        } catch (error) {
+            console.error(JSON.stringify({
+                url: page.url(),
+                form: await page.$eval('#hotel-search-form', form => ({
+                    values: [...form.querySelectorAll('input, select')].map(input => ({ id: input.id, value: input.value, invalid: input.getAttribute('aria-invalid') })),
+                    errors: [...form.querySelectorAll('[role="alert"]')].map(element => element.textContent.trim())
+                })),
+                resultAlerts: await page.$$eval('main [role="alert"]', elements => elements.map(element => element.innerText.trim())),
+                lastSearch: requests.searches.at(-1),
+                pageErrors: pageErrors.slice(-5)
+            }, null, 2));
+            throw error;
+        }
+        assert.equal(requests.searches.at(-1).region_id, 6053839);
+        assert.equal(requests.searches.at(-1).residency, 'gb');
+        await page.click('ul[aria-label] article a.cta-red');
+        await page.waitForSelector('#hotel-room-offers article');
+        assert.equal(new URL(page.url()).searchParams.get('residency'), 'gb');
+        await page.waitForFunction(() => document.querySelector('#hotel-room-offers article h3')?.textContent.includes('Test room'));
+        assert(requests.hotelpages.length >= 1);
+        assert(requests.hotelpages.every(criteria => String(criteria.hid) === '1' && criteria.residency === 'gb'),
+            `Every hotel details request must retain the selected hotel and residency: ${JSON.stringify(requests.hotelpages)}`);
+        console.log('PASS: a blank form completed destination, dates, residency, region SERP, and hotelpage using fixtures only.');
+        await page.goBack({ waitUntil: 'networkidle0' });
+        await page.waitForSelector('#hotel-search-form', { visible: true });
 
         console.log('CHECK: responsive layout, sticky behavior and reduced motion');
         for (const language of ['ar', 'en', 'es']) {

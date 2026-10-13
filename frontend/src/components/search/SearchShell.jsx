@@ -4,6 +4,7 @@ import { LoaderCircle, Search } from 'lucide-react';
 import DestinationCombobox from './DestinationCombobox';
 import DateRangeFields from './DateRangeFields';
 import GuestSelector, { guestSummary } from './GuestSelector';
+import ResidencySelector from './ResidencySelector';
 import SearchFeedback from './SearchFeedback';
 import { SearchDialog, useMediaQuery } from './SearchOverlay';
 
@@ -38,6 +39,7 @@ function SearchForm({ controller, overlayHost, inDialog = false, onSubmitted, on
                 <DestinationCombobox controller={controller} overlayHost={overlayHost} onOpenChange={destinationOpen} />
                 <DateRangeFields controller={controller} overlayHost={overlayHost} onOpenChange={datesOpen} />
                 <GuestSelector controller={controller} overlayHost={overlayHost} inDialog={inDialog} onOpenChange={guestsOpen} />
+                <ResidencySelector controller={controller} />
                 <button id="search-submit" type="submit" disabled={busy}
                     className="search-submit inline-flex min-h-12 w-full items-center justify-center gap-2 self-center rounded-xl bg-remal-red px-5 py-3 text-base font-bold text-white transition-[transform,box-shadow] duration-300 ease-out focus-visible:ring-2 focus-visible:ring-remal-blue-strong focus-visible:ring-offset-2 disabled:cursor-wait disabled:bg-slate-200 disabled:text-slate-600 disabled:shadow-none motion-reduce:transition-none sm:col-span-2 xl:col-span-1">
                     {busy ? <LoaderCircle size={20} className="shrink-0 motion-safe:animate-spin" aria-hidden="true" /> : <Search size={20} className="shrink-0" aria-hidden="true" />}
@@ -51,7 +53,7 @@ function SearchForm({ controller, overlayHost, inDialog = false, onSubmitted, on
 }
 
 export default function SearchShell({ controller }) {
-    const { t, direction, query, dates, guests } = controller;
+    const { t, direction, query, dates, guests, residency } = controller;
     const desktop = useMediaQuery('(min-width: 1280px)');
     const contentRef = useRef(null);
     const startRef = useRef(null);
@@ -119,7 +121,7 @@ export default function SearchShell({ controller }) {
                 className="mx-auto flex min-h-12 w-full max-w-7xl items-center gap-3 rounded-xl text-start text-remal-navy">
                 <Search size={22} className="shrink-0 text-remal-blue-strong" aria-hidden="true" />
                 <span className="min-w-0 flex-1"><span className="block truncate font-bold">{query || t('search.destination', 'الوجهة أو الفندق')}</span>
-                    <span className="block truncate text-xs">{dates.checkin && dates.checkout ? `${dates.checkin} — ${dates.checkout}` : t('search.stayDates', 'تواريخ الإقامة')} · {guestSummary(guests, t)}</span></span>
+                    <span className="block truncate text-xs">{dates.checkin && dates.checkout ? `${dates.checkin} — ${dates.checkout}` : t('search.stayDates', 'تواريخ الإقامة')} · {guestSummary(guests, t)} · {residency?.toUpperCase() || t('search.residency', 'جنسية الضيف')}</span></span>
                 <span className="rounded-lg bg-remal-blue/10 px-3 py-2 text-sm font-bold text-remal-blue-strong">{t('search.edit', 'تعديل البحث')}</span>
             </button>
         </div>, document.body)}

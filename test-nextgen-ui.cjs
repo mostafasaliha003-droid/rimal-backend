@@ -21,8 +21,7 @@ async function run() {
     const previousFlags = Object.fromEntries([
         'VITE_NEXT_GEN_HOTELS_ENABLED',
         'VITE_AGGREGATE_SEARCH_PATH',
-        'VITE_API_BASE_URL',
-        'VITE_REMAL_SECURE_KEY'
+        'VITE_API_BASE_URL'
     ].map(name => [name, process.env[name]]));
     const previousCwd = process.cwd();
     let server;
@@ -32,7 +31,6 @@ async function run() {
         process.env.VITE_NEXT_GEN_HOTELS_ENABLED = 'true';
         process.env.VITE_AGGREGATE_SEARCH_PATH = '/v1/hotels/search/aggregate';
         process.env.VITE_API_BASE_URL = '/api';
-        process.env.VITE_REMAL_SECURE_KEY = 'mock-ui-key';
         process.chdir(frontend);
         const requireFrontend = createRequire(path.join(frontend, 'package.json'));
         const { createServer } = await import(pathToFileURL(requireFrontend.resolve('vite')).href);

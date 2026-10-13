@@ -1,4 +1,4 @@
-const CACHE_NAME = 'rimal-pwa-cache-v8';
+const CACHE_NAME = 'rimal-pwa-cache-v9';
 const OFFLINE_URL = '/offline.html';
 const MAX_ASSET_ENTRIES = 40;
 const DYNAMIC_PATHS = ['/checkout', '/next-gen', '/payment-status', '/mock-payment', '/account', '/loyalty', '/payment'];

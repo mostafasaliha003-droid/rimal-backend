@@ -239,7 +239,6 @@ window.onload = function() {
             
             if (pendingDataStr) {
                 const pendingData = JSON.parse(pendingDataStr);
-                const API_KEY = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e'; 
                 const baseApiUrl = typeof API_URL !== 'undefined' ? API_URL : 'https://rimal-api.onrender.com';
 
                 // تنظيف الرابط من الأعلى فوراً
@@ -256,7 +255,7 @@ window.onload = function() {
                 console.log("🚀 إرسال طلب الحجز الفعلي للسيرفر...");
                 const res = await fetch(`${baseApiUrl}/api/v1/hotels/book`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': API_KEY },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ ...pendingData, paymentStatus: 'success', paymentRef: refCode })
                 });
                 

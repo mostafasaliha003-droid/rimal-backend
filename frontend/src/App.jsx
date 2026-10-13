@@ -178,8 +178,8 @@ export default function App() {
             setLoading(true);
             setError('');
             try {
-                const { destination, checkin, checkout, guests } = searchParams;
-                const request = { checkin, checkout, guests, language: apiLanguage, display_language: language, currency: SEARCH_CURRENCY };
+                const { destination, checkin, checkout, guests, residency } = searchParams;
+                const request = { checkin, checkout, guests, residency, language: apiLanguage, display_language: language, currency: SEARCH_CURRENCY };
                 const hotelId = Number(destination.hotel_id);
                 const isHotelSearch = destination.type === 'hotel' || destination.hotel_id;
                 if (isHotelSearch && (!Number.isSafeInteger(hotelId) || hotelId < 0 || hotelId > 9999999999)) {
@@ -217,6 +217,7 @@ export default function App() {
                 checkin: searchParams.checkin,
                 checkout: searchParams.checkout,
                 guests: searchParams.guests,
+                residency: searchParams.residency,
                 language: apiLanguage,
                 currency: SEARCH_CURRENCY
             });
@@ -231,7 +232,8 @@ export default function App() {
         const params = new URLSearchParams({
             checkin: searchParams?.checkin || '',
             checkout: searchParams?.checkout || '',
-            guests: JSON.stringify(searchParams?.guests || [{ adults: 2, children: [] }])
+            guests: JSON.stringify(searchParams?.guests || [{ adults: 2, children: [] }]),
+            residency: searchParams?.residency || 'ae'
         });
         return `/hotel/${encodeURIComponent(hid)}?${params.toString()}`;
     };

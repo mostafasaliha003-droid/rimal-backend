@@ -25,6 +25,7 @@ function readSearchParams() {
     return {
         checkin: params.get('checkin') || '',
         checkout: params.get('checkout') || '',
+        residency: params.get('residency') || 'ae',
         guests: Array.isArray(guests) && guests.length ? guests : [{ adults: 2, children: [] }]
     };
 }
@@ -139,6 +140,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     checkin: searchParams.checkin,
                     checkout: searchParams.checkout,
                     guests: searchParams.guests,
+                    residency: searchParams.residency,
                     language: apiLanguage,
                     currency: SEARCH_CURRENCY
                 }),
@@ -157,6 +159,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         checkin: searchParams.checkin,
                         checkout: searchParams.checkout,
                         guests: searchParams.guests,
+                        residency: searchParams.residency,
                         language: apiLanguage,
                         currency: SEARCH_CURRENCY
                     });
@@ -182,7 +185,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
         };
         fetchHotelDetails();
         return () => { active = false; };
-    }, [hid, searchParams.checkin, searchParams.checkout, JSON.stringify(searchParams.guests), apiLanguage, language]);
+    }, [hid, searchParams.checkin, searchParams.checkout, searchParams.residency, JSON.stringify(searchParams.guests), apiLanguage, language]);
 
     const rooms = rates.map(rate => normalizeRoom(rate, hotel, searchParams.guests));
     const lowestRoom = rooms.reduce((best, room) => !best || rateAmount(room) < rateAmount(best) ? room : best, null);
