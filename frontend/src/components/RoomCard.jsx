@@ -90,7 +90,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
         setStatus('loading');
         setErrorMsg('');
         try {
-            const result = await BookingAPI.prebook(room.book_hash || room.roomId, 2);
+            const result = await BookingAPI.prebook(room.book_hash || room.roomId, 0);
             const validatedRate = result?.rate || result?.hotels?.[0]?.rates?.[0];
             const validatedRoom = {
                 ...room,

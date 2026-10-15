@@ -525,9 +525,9 @@ app.post('/api/search/rates', publicSearchGuard, async (req, res) => {
         const hotels = Array.isArray(result)
             ? result
             : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
-        const enrichedHotels = await enrichRateHotels(hotels.map(hotel => ({
+        const enrichedHotels = paymentService.decorateHotels(await enrichRateHotels(hotels.map(hotel => ({
             ...hotel, displayLanguage, supplierLanguage: body.language || 'en'
-        })));
+        }))));
         const resolvedLanguages = [...new Set(enrichedHotels.map(hotel => hotel.resolvedLanguage).filter(Boolean))];
         return res.status(200).json({ success: true, ...(Array.isArray(result) ? {} : result), hotels: enrichedHotels,
             requested_language: displayLanguage, resolved_language: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || body.language || 'en' });
@@ -553,7 +553,9 @@ app.post('/api/search/rates/geo', publicSearchGuard, async (req, res) => {
         const result = await ratehawkService.searchLiveRatesByGeo({
             ...criteria
         });
-        return res.status(200).json({ success: true, ...result, requested_language: displayLanguage });
+        const resultHotels = Array.isArray(result) ? result : (result?.hotels || result?.data?.hotels || []);
+        return res.status(200).json({ success: true, ...(Array.isArray(result) ? {} : result),
+            hotels: paymentService.decorateHotels(resultHotels), requested_language: displayLanguage });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
@@ -656,9 +658,9 @@ app.post('/api/search/rates/region', publicSearchGuard, async (req, res) => {
         const hotels = Array.isArray(result)
             ? result
             : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
-        const enrichedHotels = await enrichRateHotels(hotels.map(hotel => ({
+        const enrichedHotels = paymentService.decorateHotels(await enrichRateHotels(hotels.map(hotel => ({
             ...hotel, displayLanguage, supplierLanguage: body.language || 'en'
-        })));
+        }))));
         const resolvedLanguages = [...new Set(enrichedHotels.map(hotel => hotel.resolvedLanguage).filter(Boolean))];
         return res.status(200).json({ success: true, hotels: enrichedHotels,
             requested_language: displayLanguage, resolved_language: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || body.language || 'en' });
@@ -746,9 +748,9 @@ app.post('/api/search/hotelpage', publicSearchGuard, async (req, res) => {
     try {
         const criteria = validateRatehawkPublicSearchCriteria('hotelpage', body, ratehawkService);
         const result = await ratehawkService.validatedHotelPageRates(criteria);
-        const hotels = Array.isArray(result)
+        const hotels = paymentService.decorateHotels(Array.isArray(result)
             ? result
-            : (result?.hotels || result?.data?.hotels || []);
+            : (result?.hotels || result?.data?.hotels || []));
         return res.status(200).json({
             success: true,
             hotels,
@@ -783,7 +785,8 @@ app.post('/api/booking/prebook', publicSearchGuard, async (req, res) => {
             hash,
             body.price_increase_percent === undefined ? 0 : body.price_increase_percent
         );
-        return res.status(200).json({ success: true, ...result });
+        return res.status(200).json({ success: true, ...result,
+            ...(result?.rate ? { rate: paymentService.decorateRate(result.rate) } : {}) });
     } catch (error) {
         if (['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
             logger.warn('RateHawk hotel prebook timed out', { code: error.code });
@@ -827,7 +830,8 @@ app.post('/api/booking/prebook-serp', publicSearchGuard, async (req, res) => {
             hash,
             body.price_increase_percent === undefined ? 0 : body.price_increase_percent
         );
-        return res.status(200).json({ success: true, ...result });
+        return res.status(200).json({ success: true, ...result,
+            ...(result?.rate ? { rate: paymentService.decorateRate(result.rate) } : {}) });
     } catch (error) {
         if (['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
             logger.warn('RateHawk SERP prebook timed out', { code: error.code });
@@ -857,13 +861,32 @@ app.post('/api/booking/prebook-serp', publicSearchGuard, async (req, res) => {
 
 app.get('/api/payment/availability', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ enabled: false, reason: 'legacy_ziina_creation_temporarily_disabled' });
+    const enabled = mongoose.connection.readyState === 1 && paymentService.isCheckoutReady();
+    res.json({ enabled, ...(!enabled ? { reason: 'checkout_unavailable' } : {}) });
 });
 
 app.post('/api/payment/ziina/intent', requireUser, securityService.bookingLimiter, async (req, res) => {
     res.set('Cache-Control', 'no-store');
-    return res.status(503).json({ success: false, error: 'legacy_ziina_creation_temporarily_disabled',
-        message: 'إنشاء دفعات جديدة متوقف مؤقتًا. لا يؤثر ذلك على متابعة عمليات قائمة.' });
+    try {
+        const result = await checkoutProcessService.createCheckout(
+            req.body || {}, req.get('Idempotency-Key'), req.ip
+        );
+        return res.status(200).json(result);
+    } catch (error) {
+        const knownCode = typeof error.code === 'string' && /^[a-z][a-z0-9_]{0,79}$/.test(error.code);
+        const allowedStatuses = new Set([400, 404, 409, 429, 502, 503]);
+        const status = allowedStatuses.has(error.httpStatus) ? error.httpStatus : 503;
+        if (status === 429 && Number.isFinite(error.retry_after_ms)) {
+            res.set('Retry-After', String(Math.max(1, Math.ceil(error.retry_after_ms / 1000))));
+        }
+        logger.warn('RateHawk checkout preflight unavailable', {
+            error: knownCode ? error.code : 'checkout_unavailable'
+        });
+        return res.status(status).json({
+            success: false,
+            error: knownCode ? error.code : 'checkout_unavailable'
+        });
+    }
 });
 
 app.get('/api/payment/ziina/:reference/status', (req, res) => {
@@ -885,7 +908,7 @@ app.get('/api/search/rate/:book_hash', publicSearchGuard, async (req, res) => {
 
     try {
         const result = await ratehawkService.getRateDetailsByHash(bookHash, language);
-        return res.status(200).json({ success: true, rate: result });
+        return res.status(200).json({ success: true, rate: paymentService.decorateRate(result) });
     } catch (error) {
         if (error.ratehawkError === 'rate_not_found') {
             return res.status(404).json({ success: false, error: 'RATE_NOT_FOUND', message: error.message });
