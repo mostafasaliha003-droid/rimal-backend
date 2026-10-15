@@ -11,6 +11,23 @@ const allowedOrigins = new Set([
     'https://mostafasaliha003-droid.github.io'
 ]);
 
+// Set only on the isolated Staging API, e.g.
+// STAGING_FRONTEND_ORIGIN=https://staging.remalbookings.com
+const stagingFrontendOrigin = (() => {
+    const configured = String(process.env.STAGING_FRONTEND_ORIGIN || '').trim();
+    if (!configured) return null;
+    try {
+        const parsed = new URL(configured);
+        if (parsed.protocol !== 'https:' || parsed.origin !== configured.replace(/\/$/, '')
+            || parsed.username || parsed.password || parsed.search || parsed.hash) return null;
+        return parsed.origin;
+    } catch {
+        return null;
+    }
+})();
+
+if (stagingFrontendOrigin) allowedOrigins.add(stagingFrontendOrigin);
+
 module.exports = {
     origin(origin, callback) {
         if (!origin || allowedOrigins.has(origin)) {
