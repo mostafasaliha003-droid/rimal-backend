@@ -166,7 +166,7 @@ async function createCheckout(input, idempotencyKey, userIp) {
         const selected = (form.payment_types || []).find(option => {
             if (option.type !== 'deposit' || option.currency_code !== validated.currency
                 || option.is_need_credit_card_data !== false) return false;
-            try { return ziina.minorUnits(option.amount) === details.amount_minor; } catch { return false; }
+            try { return ziina.minorUnits(option.amount) === ziina.minorUnits(validated.amount); } catch { return false; }
         });
         if (!selected) throw fail('unsupported_supplier_payment', 409);
         const paymentType = { type: selected.type, amount: selected.amount, currency_code: selected.currency_code };
