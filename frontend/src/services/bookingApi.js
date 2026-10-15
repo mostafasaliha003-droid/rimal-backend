@@ -1,11 +1,10 @@
 import axios from 'axios';
+import { API_BASE_URL } from './apiBaseUrl.js';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
-    || (import.meta.env.PROD ? 'https://rimal-api.onrender.com/api' : '/api');
 import { userAccessToken } from './authSession.js';
 
 const api = axios.create({
-    baseURL: apiBaseUrl,
+    baseURL: API_BASE_URL,
     // RateHawk SERP searches can take up to the backend's configured
     // RATEHAWK_SERP_TIMEOUT_MS (60s by default), plus network overhead.
     timeout: 75000,

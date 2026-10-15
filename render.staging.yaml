@@ -1,0 +1,16 @@
+services:
+  - type: web
+    runtime: static
+    name: remal-staging-frontend
+    branch: feature/staging-remalbookings-frontend
+    rootDir: frontend
+    buildCommand: npm ci && npx vite build --mode staging
+    staticPublishPath: dist
+    autoDeploy: false
+    envVars:
+      - key: VITE_API_BASE_URL
+        value: https://rimal-api-staging.onrender.com/api
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
