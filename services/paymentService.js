@@ -2,6 +2,35 @@
 
 const crypto = require('node:crypto');
 const { SUPPORTED_CURRENCIES, minorUnits } = require('./ziinaClient');
+const { calculateDisplayPrice } = require('./pricingService');
+
+const B2C_MARKUP_PERCENT = '7';
+
+function customerPrice(rate) {
+    const payment = rate?.payment_options?.payment_types?.find(item => item.type === 'deposit');
+    if (!payment || !SUPPORTED_CURRENCIES.has(payment.show_currency_code)) throw new Error('RATE_CHANGED');
+    try {
+        const priced = calculateDisplayPrice({ price: { supplierAmount: {
+            amount: payment.show_amount, currency: payment.show_currency_code
+        } } }, payment.show_currency_code, { markupPercent: B2C_MARKUP_PERCENT });
+        return { amount: Number(priced.price.display.amount), currency: priced.price.display.currency };
+    } catch { throw new Error('RATE_CHANGED'); }
+}
+
+function decorateRate(rate) {
+    if (!rate || typeof rate !== 'object') return rate;
+    try {
+        const display = customerPrice(rate);
+        return { ...rate, customer_display_amount: display.amount, customer_display_currency: display.currency };
+    } catch { return rate; }
+}
+
+function decorateHotels(hotels) {
+    return (Array.isArray(hotels) ? hotels : []).map(hotel => ({
+        ...hotel,
+        rates: (hotel.rates || []).map(decorateRate)
+    }));
+}
 
 function supplierIdentity(environment = process.env) {
     if (!environment.RATEHAWK_BASE_URL || !environment.RATEHAWK_KEY_ID) return null;
@@ -73,19 +102,26 @@ function resolveValidatedPayment(result, expected) {
     const rate = rates[0];
     const payment = rate.payment_options?.payment_types?.find(item => item.type === 'deposit');
     const amount = Number(payment?.amount);
-    if (!payment || !SUPPORTED_CURRENCIES.has(payment.currency_code) || payment.currency_code !== expected.currency
+    const display = customerPrice(rate);
+    if (!payment || !SUPPORTED_CURRENCIES.has(payment.currency_code)
         || !Number.isFinite(amount) || amount <= 0 || !rate.book_hash
-        || Math.round(amount * 100) !== Math.round(Number(expected.total) * 100)) {
+        || display.currency !== expected.currency
+        || minorUnits(display.amount) !== Math.round(Number(expected.total) * 100)) {
         throw new Error('RATE_CHANGED');
     }
     try { minorUnits(amount); } catch { throw new Error('RATE_CHANGED'); }
     if (payment.currency_code === 'AED' && amount < 2) throw new Error('RATE_CHANGED');
-    return { amount, currency: payment.currency_code, book_hash: rate.book_hash };
+    return { amount, currency: payment.currency_code, customerAmount: display.amount,
+        customerCurrency: display.currency, book_hash: rate.book_hash };
 }
 
 module.exports = {
     isCheckoutReady,
     isRefundReady,
     supplierIdentity,
-    resolveValidatedPayment
+    resolveValidatedPayment,
+    customerPrice,
+    decorateRate,
+    decorateHotels,
+    B2C_MARKUP_PERCENT
 };

@@ -565,9 +565,9 @@ app.post('/api/search/rates', verifyAPIKey, securityService.searchLimiter, async
         const hotels = Array.isArray(result)
             ? result
             : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
-        const enrichedHotels = await enrichRateHotels(hotels.map(hotel => ({
+        const enrichedHotels = paymentService.decorateHotels(await enrichRateHotels(hotels.map(hotel => ({
             ...hotel, displayLanguage, supplierLanguage: body.language || 'en'
-        })));
+        }))));
         const resolvedLanguages = [...new Set(enrichedHotels.map(hotel => hotel.resolvedLanguage).filter(Boolean))];
         return res.status(200).json({ success: true, ...(Array.isArray(result) ? {} : result), hotels: enrichedHotels,
             requested_language: displayLanguage, resolved_language: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || body.language || 'en' });
@@ -607,7 +607,9 @@ app.post('/api/search/rates/geo', verifyAPIKey, securityService.searchLimiter, a
             currency: body.currency || 'USD',
             guests
         });
-        return res.status(200).json({ success: true, ...result });
+        const resultHotels = Array.isArray(result) ? result : (result?.hotels || result?.data?.hotels || []);
+        return res.status(200).json({ success: true, ...(Array.isArray(result) ? {} : result),
+            hotels: paymentService.decorateHotels(resultHotels) });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
@@ -723,9 +725,9 @@ app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter
         const hotels = Array.isArray(result)
             ? result
             : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
-        const enrichedHotels = await enrichRateHotels(hotels.map(hotel => ({
+        const enrichedHotels = paymentService.decorateHotels(await enrichRateHotels(hotels.map(hotel => ({
             ...hotel, displayLanguage, supplierLanguage: body.language || 'en'
-        })));
+        }))));
         const resolvedLanguages = [...new Set(enrichedHotels.map(hotel => hotel.resolvedLanguage).filter(Boolean))];
         return res.status(200).json({ success: true, hotels: enrichedHotels,
             requested_language: displayLanguage, resolved_language: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || body.language || 'en' });
@@ -824,9 +826,9 @@ app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, a
             guests,
             ...(matchHash ? { match_hash: matchHash } : {})
         });
-        const hotels = Array.isArray(result)
+        const hotels = paymentService.decorateHotels(Array.isArray(result)
             ? result
-            : (result?.hotels || result?.data?.hotels || []);
+            : (result?.hotels || result?.data?.hotels || []));
         return res.status(200).json({
             success: true,
             hotels,
@@ -861,7 +863,8 @@ app.post('/api/booking/prebook', verifyAPIKey, securityService.searchLimiter, as
             hash,
             body.price_increase_percent === undefined ? 0 : body.price_increase_percent
         );
-        return res.status(200).json({ success: true, ...result });
+        return res.status(200).json({ success: true, ...result,
+            ...(result?.rate ? { rate: paymentService.decorateRate(result.rate) } : {}) });
     } catch (error) {
         if (['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
             logger.warn('RateHawk hotel prebook timed out', { code: error.code });
@@ -905,7 +908,8 @@ app.post('/api/booking/prebook-serp', verifyAPIKey, securityService.searchLimite
             hash,
             body.price_increase_percent === undefined ? 0 : body.price_increase_percent
         );
-        return res.status(200).json({ success: true, ...result });
+        return res.status(200).json({ success: true, ...result,
+            ...(result?.rate ? { rate: paymentService.decorateRate(result.rate) } : {}) });
     } catch (error) {
         if (['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
             logger.warn('RateHawk SERP prebook timed out', { code: error.code });
