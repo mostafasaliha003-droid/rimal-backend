@@ -17,11 +17,11 @@ export const paymentFor = (rate) => rate?.payment_options?.payment_types?.find(p
     || rate?.payment_options?.payment_types?.[0];
 
 export function rateAmount(rate) {
-    const amount = Number(rate?.customer_display_amount ?? paymentFor(rate)?.amount ?? rate?.price);
+    const amount = Number(paymentFor(rate)?.amount ?? rate?.price);
     return Number.isFinite(amount) && amount > 0 ? amount : Infinity;
 }
 
-export const rateCurrency = (rate) => rate?.customer_display_currency || paymentFor(rate)?.currency_code || rate?.currency || '';
+export const rateCurrency = (rate) => paymentFor(rate)?.currency_code || rate?.currency || '';
 
 export function cheapestRate(rates = [], currency = SEARCH_CURRENCY) {
     return rates.filter(rate => rateCurrency(rate) === currency && Number.isFinite(rateAmount(rate)))
