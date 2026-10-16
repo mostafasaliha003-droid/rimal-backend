@@ -12,6 +12,7 @@ const INTENT_ID = 'pi_fixture_1234567890';
 const ATTEMPT_ID = '22222222-2222-4222-8222-222222222222';
 const NOW = new Date('2026-10-02T12:00:00.000Z');
 const CLIENT_REFERENCE = 'RMLTEST00000000001';
+const ACCEPTED_TERMS_VERSION = 'c'.repeat(64);
 
 function normalizedBookingOffer() {
     return {
@@ -79,6 +80,7 @@ function memoryAttemptStore() {
         manual_review: new Set()
     };
     return {
+        testOnly: true,
         bySessionId,
         async claim(input) {
             if (bySessionId.has(input.sessionId) || byClientReference.has(input.clientReference)) return null;
@@ -104,6 +106,8 @@ function memoryAttemptStore() {
 
 function sessionFixture(overrides = {}) {
     return {
+        ...require('../services/hotelbedsScope').hotelbedsScopeFrom({}, { testOnly: true }),
+        ownerSubject: 'test-fixture-owner',
         sessionId: SESSION_ID,
         publicOfferId: 'a'.repeat(64),
         provider: 'hotelbeds',
@@ -112,6 +116,8 @@ function sessionFixture(overrides = {}) {
         paymentType: 'AT_WEB',
         paymentIntentId: INTENT_ID,
         paymentVerifiedAt: new Date(NOW),
+        acceptedTermsVersion: ACCEPTED_TERMS_VERSION,
+        termsAcceptedAt: new Date(NOW),
         providerOfferRef: 'opaque-hotelbeds-rate-key',
         providerHotelCode: '74001',
         lockedNetPrice: '200.00',
@@ -224,6 +230,8 @@ test('CheckoutSession declares isolated prepaid-booking state and private correl
     }
     assert.equal(CheckoutSession.schema.path('bookingIdentity').options.select, false);
     assert.equal(CheckoutSession.schema.path('bookingTerms').options.select, false);
+    assert.equal(CheckoutSession.schema.path('acceptedTermsVersion').options.select, false);
+    assert.equal(CheckoutSession.schema.path('termsAcceptedAt').options.select, false);
     assert.ok(CheckoutSession.schema.indexes().some(([keys, options]) =>
         keys.bookingClientReference === 1 && options.unique === true && options.sparse === true));
 });
@@ -234,7 +242,8 @@ test('HotelbedsBookingAttempt scopes durable uniqueness to direct offers and pre
         && options.unique === true && options.partialFilterExpression?.scope === 'direct'));
     assert.ok(indexes.some(([keys, options]) => keys.scope === 1 && keys.sessionId === 1
         && options.unique === true && options.partialFilterExpression?.scope === 'prepaid'));
-    for (const field of ['scope', 'sessionId', 'attemptId', 'clientReference', 'rateKey', 'rateIdentity', 'rateTerms']) {
+    for (const field of ['scope', 'sessionId', 'attemptId', 'clientReference', 'rateKey', 'rateIdentity', 'rateTerms',
+        'acceptedTermsVersion', 'termsAcceptedAt']) {
         if (HotelbedsBookingAttempt.schema.path(field).options.select !== undefined) {
             assert.equal(HotelbedsBookingAttempt.schema.path(field).options.select, false);
         }
@@ -253,11 +262,16 @@ test('attempt store persists a validated Mongoose document with majority write c
         const store = createHotelbedsBookingAttemptStore({
             Model: HotelbedsBookingAttempt,
             database: {},
+            env: { ...approvedEnv(), PAYMENT_BOOKING_ENCRYPTION_KEY: 'ab'.repeat(32),
+                RIMAL_AUTH_REALM: 'attempt-store-fixture', HOTELBEDS_ACCOUNT_CONFIG: 'attempt-store-account' },
             testOnly: true,
             ensureDatabaseReady: async () => {}
         });
         const attempt = await store.claim({
             scope: 'direct',
+            provider: 'hotelbeds',
+            origin: 'live',
+            ownerSubject: 'attempt-store-fixture-owner',
             publicOfferId: 'c'.repeat(64),
             attemptId: ATTEMPT_ID,
             clientReference: CLIENT_REFERENCE,
@@ -265,6 +279,12 @@ test('attempt store persists a validated Mongoose document with majority write c
             rateType: 'RECHECK',
             rateIdentity: BOOKING_IDENTITY,
             rateTerms: BOOKING_TERMS,
+            rateReviewId: '33333333-3333-4333-8333-333333333333',
+            sourceTermsVersion: ACCEPTED_TERMS_VERSION,
+            rateReviewCheckRateRequests: 1,
+            acceptedTermsVersion: ACCEPTED_TERMS_VERSION,
+            termsAcceptedAt: new Date(NOW),
+            bookingRecordPayloadEncrypted: { iv: 'a'.repeat(24), tag: 'b'.repeat(32), ciphertext: 'YQ==' },
             state: 'claimed',
             claimedAt: new Date(NOW)
         });
@@ -272,11 +292,34 @@ test('attempt store persists a validated Mongoose document with majority write c
         assert.equal(writes.length, 1);
         assert.equal(writes[0].document.scope, 'direct');
         assert.equal(writes[0].document.publicOfferId, 'c'.repeat(64));
+        assert.equal(writes[0].document.rateReviewCheckRateRequests, 1);
         assert.equal(writes[0].options.writeConcern.w, 'majority');
         assert.equal(writes[0].options.writeConcern.j, true);
         assert.equal(writes[0].options.writeConcern.wtimeout, 10000);
     } finally {
         collection.insertOne = previousInsertOne;
+    }
+});
+
+test('prepaid booking refuses a session whose accepted terms version or timestamp is missing', async () => {
+    for (const invalidConsent of [
+        { acceptedTermsVersion: undefined },
+        { acceptedTermsVersion: 'invalid-version' },
+        { termsAcceptedAt: null }
+    ]) {
+        const Model = memoryModel(sessionFixture(invalidConsent));
+        let supplierCalls = 0;
+        const { service } = createService({
+            Model,
+            client: {
+                async checkRates() { supplierCalls += 1; throw new Error('must_not_call'); },
+                async createBooking() { supplierCalls += 1; throw new Error('must_not_call'); }
+            }
+        });
+        await assert.rejects(service.confirmBooking({ sessionId: SESSION_ID }), error =>
+            error.code === 'hotelbeds_prepaid_booking_session_invalid');
+        assert.equal(supplierCalls, 0);
+        assert.equal(Model.claims, 0);
     }
 });
 

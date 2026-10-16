@@ -14,6 +14,7 @@ const {
 } = require('../services/hotelbedsLiveAggregateSearchService');
 const createAggregateSearchController = require('../controllers/aggregateSearchController');
 const createAggregateSearchRouter = require('../services/aggregateSearchRoutes');
+const { createInternalApiKeyMiddleware } = require('../services/internalApiKeyMiddleware');
 const express = require('express');
 
 const MOCK_URI = 'mongodb://mock.example:27017/rimal_hotelbeds_mock';
@@ -24,6 +25,8 @@ function enabledEnv() {
         HOTELBEDS_MOCK_DATABASE_ENABLED: 'true',
         HOTELBEDS_MOCK_MONGO_URI: MOCK_URI,
         MONGO_URI: DEFAULT_URI,
+        RIMAL_AUTH_REALM: 'hotelbeds-live-aggregate-test',
+        HOTELBEDS_ACCOUNT_CONFIG: 'hotelbeds-live-aggregate-fixture-account',
         HOTELBEDS_LIVE_AGGREGATE_SEARCH_ENABLED: 'true',
         MULTI_SUPPLIER_SEARCH_ENABLED: 'true',
         MULTI_SUPPLIER_PRICE_POLICY_APPROVED: 'true',
@@ -111,7 +114,7 @@ function memoryOfferCacheModel(connection) {
     return Model;
 }
 
-function availabilityFixture(env, contentSyncedAt) {
+function availabilityFixture(env, contentSyncedAt, { paymentType = 'AT_WEB' } = {}) {
     const searchAvailabilityCalls = [];
     return {
         searchAvailabilityCalls,
@@ -139,7 +142,7 @@ function availabilityFixture(env, contentSyncedAt) {
                                 rateClass: 'NOR',
                                 packaging: false,
                                 hotelMandatory: false,
-                                paymentType: 'AT_WEB',
+                                paymentType,
                                 boardCode: 'BB',
                                 boardName: 'Breakfast',
                                 net: '100.00',
@@ -274,10 +277,10 @@ test('legacy IDs, missing IDs, and mixed unapproved Hotelbeds IDs fail before DB
     assert.equal(availability.searchAvailabilityCalls.length, 0);
 });
 
-function createService({ env = enabledEnv(), database = fakeDatabase(), CacheModel, FxService } = {}) {
+function createService({ env = enabledEnv(), database = fakeDatabase(), CacheModel, FxService, paymentType } = {}) {
     const cache = CacheModel || memoryOfferCacheModel(database.connection);
     const now = new Date();
-    const availability = availabilityFixture(env, now);
+    const availability = availabilityFixture(env, now, { paymentType });
     const fxCalls = [];
     const fx = FxService || {
         async getRate(from, to) {
@@ -333,8 +336,22 @@ test('live route composition injects only Hotelbeds, live FX, and isolated schem
     assert.equal(result.currency, 'AED');
     assert.equal(result.offerCount, 1);
     assert.equal(result.hotels[0].offers[0].price.currency, 'AED');
+    assert.equal(result.hotels[0].offers[0].availability.rateType, 'BOOKABLE');
+    assert.match(result.hotels[0].offers[0].termsVersion, /^[a-f\d]{64}$/i);
     assert.equal(JSON.stringify(result).includes('private-rate-key-fixture'), false);
     assert.equal(JSON.stringify(result).includes('supplierAmount'), false);
+});
+
+test('real live aggregate response carries rateType through to direct-booking eligibility', async () => {
+    const { service } = createService({ paymentType: 'AT_HOTEL' });
+    const response = await service.performSearch(searchCriteria());
+    const selectedOffer = response.hotels[0].offers[0];
+    const { canStartDirectHotelbedsBooking } = await import('../frontend/src/services/hotelbedsRateReview.js');
+
+    assert.equal(selectedOffer.availability.rateType, 'BOOKABLE');
+    assert.equal(selectedOffer.paymentFlow, 'PAY_AT_PROPERTY');
+    assert.equal(canStartDirectHotelbedsBooking(selectedOffer), true,
+        'the unmodified backend response must be directly eligible without filling in rateType in a fixture');
 });
 
 test('live Availability receives only the selected approved Hotelbeds ID even when legacy IDs are present', async () => {
@@ -441,7 +458,7 @@ function withServer(app, run) {
     });
 }
 
-test('live aggregate HTTP route enforces API key, closed rollout gate, no-cache, and schema v2', async () => {
+test('live aggregate HTTP route enforces server-side internal auth, rollout gate, no-cache, and schema v2', async () => {
     const app = express();
     app.use(express.json());
     const searchCalls = [];
@@ -449,28 +466,47 @@ test('live aggregate HTTP route enforces API key, closed rollout gate, no-cache,
         searchCalls.push(criteria);
         return { success: true, schemaVersion: 2, currency: 'AED', hotels: [], hotelCount: 0, offerCount: 0 };
     } };
-    const verifyAPIKey = (req, res, next) => req.get('x-api-key') === 'fixture-key'
-        ? next() : res.status(403).json({ success: false, error: 'api_key_invalid' });
+    const internalAuth = createInternalApiKeyMiddleware({ env: {
+        RIMAL_INTERNAL_API_KEY: 'hotelbeds-live-aggregate-internal-key-fixture'
+    } });
     let enabled = false;
     app.use('/api/v1/hotels', createAggregateSearchRouter({
         routePath: '/search/aggregate/live',
         controller: createAggregateSearchController({ service, enabled: () => enabled, requiredSchemaVersion: 2 }),
-        verifyAPIKey
+        access: 'internal',
+        internalAuth
     }));
 
     await withServer(app, async base => {
         const url = `${base}/api/v1/hotels/search/aggregate/live`;
         const denied = await fetch(url, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: '{}' });
-        assert.equal(denied.status, 403);
+        assert.equal(denied.status, 401);
+        assert.equal(searchCalls.length, 0);
+        const browserDenied = await fetch(url, {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'x-internal-api-key': 'hotelbeds-live-aggregate-internal-key-fixture',
+                Origin: 'https://customer.example.test'
+            },
+            body: '{}'
+        });
+        assert.equal(browserDenied.status, 403);
         assert.equal(searchCalls.length, 0);
         const disabled = await fetch(url, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': 'fixture-key' }, body: '{}'
+            method: 'POST', headers: {
+                'Content-Type': 'application/json',
+                'x-internal-api-key': 'hotelbeds-live-aggregate-internal-key-fixture'
+            }, body: '{}'
         });
         assert.equal(disabled.status, 404);
         assert.equal(searchCalls.length, 0);
         enabled = true;
         const response = await fetch(url, {
-            method: 'POST', headers: { 'Content-Type': 'application/json', 'x-api-key': 'fixture-key' }, body: '{}'
+            method: 'POST', headers: {
+                'Content-Type': 'application/json',
+                'x-internal-api-key': 'hotelbeds-live-aggregate-internal-key-fixture'
+            }, body: '{}'
         });
         assert.equal(response.status, 200);
         assert.equal(response.headers.get('cache-control'), 'no-store, no-cache, must-revalidate');
@@ -489,7 +525,8 @@ test('live aggregate controller rejects a non-v2 response', async () => {
             enabled: () => true,
             requiredSchemaVersion: 2
         }),
-        verifyAPIKey: (_req, _res, next) => next()
+        access: 'internal',
+        internalAuth: (_req, _res, next) => next()
     }));
     await withServer(app, async base => {
         const response = await fetch(`${base}/api/v1/hotels/search/aggregate/live`, {

@@ -1660,7 +1660,8 @@ test('a provider key and checkout flag alone do not make collection ready', () =
     assert.equal(isCheckoutReady({ PAYMENT_CHECKOUT_ENABLED: 'true', ZIINA_API_KEY: 'test-key' }), false);
     const sandbox = {
         PAYMENT_CHECKOUT_ENABLED: 'true', RATEHAWK_BOOKING_ENABLED: 'true', ZIINA_REFUNDS_ENABLED: 'true',
-        ZIINA_WEBHOOK_CONFIGURED: 'true', PAYMENT_ETG_SANDBOX_ISOLATED: 'true', MONGO_URI: 'fixture-mongo',
+        ZIINA_WEBHOOK_CONFIGURED: 'true', PAYMENT_ETG_SANDBOX_ISOLATED: 'true',
+        MONGO_URI: 'mongodb://127.0.0.1/rimal_sandbox', PAYMENT_SANDBOX_DATABASE: 'rimal_sandbox',
         ZIINA_API_KEY: 'fixture-key', ZIINA_ACCOUNT_ID: 'fixture-account', ZIINA_WEBHOOK_SECRET: 's'.repeat(32),
         RATEHAWK_KEY_ID: 'supplier-fixture', RATEHAWK_API_KEY: 'supplier-secret-fixture',
         PAYMENT_BOOKING_ENCRYPTION_KEY: 'ab'.repeat(32), ZIINA_TEST_MODE: 'true', PAYMENT_SANDBOX_ENABLED: 'true',

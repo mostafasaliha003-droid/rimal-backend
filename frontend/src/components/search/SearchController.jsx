@@ -3,7 +3,7 @@ import { addDays, format } from 'date-fns';
 import BookingAPI from '../../services/bookingApi';
 import { trackBookingEvent } from '../../services/analytics';
 import { useLanguage } from '../../i18n';
-import { initialGuests, normalizeSuggestions, parseSearchDate, validateSearch } from './searchModel';
+import { initialGuests, initialResidency, normalizeSuggestions, parseSearchDate, validateSearch } from './searchModel';
 import SearchShell from './SearchShell';
 
 export default function SearchController({ initialSearch, onSearch, isSearching = false, searchError = '' }) {
@@ -12,6 +12,7 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
     const [destination, setDestination] = useState(initialSearch?.destination || null);
     const [dates, setDates] = useState({ checkin: initialSearch?.checkin || '', checkout: initialSearch?.checkout || '' });
     const [guests, setGuests] = useState(() => initialGuests(initialSearch?.guests));
+    const [residency, setResidency] = useState(() => initialResidency(initialSearch?.residency));
     const [suggestions, setSuggestions] = useState([]);
     const [suggestionStatus, setSuggestionStatus] = useState('idle');
     const [retry, setRetry] = useState(0);
@@ -103,11 +104,13 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
     };
 
     const changeGuests = next => { setGuests(next); clearError('guests'); };
+    const changeResidency = next => { setResidency(initialResidency(next)); clearError('residency'); };
     const messages = {
         destinationRequired: t('search.destinationRequired', 'اختر وجهة أو فندقاً من قائمة الاقتراحات.'),
+        residencyRequired: t('search.residencyRequired', 'اختر جنسية الضيف (بلد جواز السفر).'),
         datesRequired: t('search.datesRequired', 'حدد تاريخ الوصول والمغادرة.'),
-        invalidDates: t('search.invalidDates', 'اختر وصولاً من اليوم فصاعداً ومغادرة بعده بيوم على الأقل.'),
-        invalidGuests: t('search.invalidGuests', 'حدد من غرفة إلى أربع غرف، ومن بالغ واحد إلى ستة بالغين لكل غرفة.'),
+        invalidDates: t('search.invalidDates', 'اختر وصولاً خلال 730 يوماً، وإقامة من ليلة إلى 30 ليلة.'),
+        invalidGuests: t('search.invalidGuests', 'حدد من غرفة إلى تسع غرف، ومن بالغ واحد إلى ستة بالغين وأربعة أطفال كحد أقصى لكل غرفة.'),
         childAgeRequired: t('search.childAgeRequired', 'حدد عمر كل طفل وقت تسجيل الوصول.')
     };
     const suggestionMessage = suggestionStatus === 'loading' ? t('search.suggestionLoading', 'جارٍ تحميل اقتراحات الوجهة.')
@@ -117,7 +120,7 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
 
     const submit = async () => {
         if (submissionLock.current || busy) return false;
-        const codes = validateSearch({ query, destination, ...dates, guests });
+        const codes = validateSearch({ query, destination, ...dates, guests, residency });
         const nextErrors = Object.fromEntries(Object.entries(codes).map(([field, code]) => [field, messages[code]]));
         if (nextErrors.destination && ['empty', 'error', 'loading'].includes(suggestionStatus)) nextErrors.destination = suggestionMessage;
         setErrors(nextErrors);
@@ -136,7 +139,7 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
         setDispatching(true);
         try {
             trackBookingEvent('search_cta_clicked', { room_count: guests.length });
-            await onSearch?.({ query: destination.label, destination, ...dates, guests });
+            await onSearch?.({ query: destination.label, destination, ...dates, guests, residency });
             return true;
         } catch {
             setSubmitError(t('search.submitFailed', 'تعذر تنفيذ البحث. بياناتك محفوظة؛ أعد المحاولة.'));
@@ -148,9 +151,9 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
     };
 
     return <SearchShell controller={{
-        t, language, direction, query, destination, dates, guests, errors, suggestions, suggestionStatus,
+        t, language, direction, query, destination, dates, guests, residency, errors, suggestions, suggestionStatus,
         suggestionMessage, busy, online, searchError: submitError || searchError,
-        changeQuery, selectDestination, changeDate, changeGuests, submit,
+        changeQuery, selectDestination, changeDate, changeGuests, changeResidency, submit,
         retrySuggestions: () => setRetry(value => value + 1)
     }} />;
 }

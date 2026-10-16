@@ -18,6 +18,7 @@ const CRITERIA = Object.freeze({
 
 const PRIVATE_TOKEN = 'fixture-private-hotelbeds-rate-key';
 const SUPPLIER_NET = '218.50';
+const FIXTURE_NOW = new Date('2026-10-04T12:00:00.000Z');
 
 function approvedEnv() {
     return Object.fromEntries([
@@ -34,7 +35,7 @@ function availabilityResponse() {
             contentHotelCode: 74001,
             contentLanguage: 'ENG',
             contentSource: 'hotelbeds_content_api',
-            contentSyncedAt: '2026-10-01T12:00:00.000Z',
+            contentSyncedAt: FIXTURE_NOW.toISOString(),
             currency: 'EUR',
             name: 'Supplier property name',
             categoryCode: '4EST',
@@ -127,6 +128,7 @@ test('Hotelbeds search route returns only the safe, priced customer DTO after th
     });
     const orchestrator = createSearchOrchestrator({
         env: approvedEnv(),
+        now: () => FIXTURE_NOW,
         // The integration exercises the live-pricing adapter with a deterministic
         // FX fixture; it never calls the public FX provider.
         priceOffer: createLivePricingService({
@@ -206,6 +208,7 @@ test('unapproved public pricing gates fail closed before Availability or cache a
     delete env.HOTELBEDS_PUBLIC_PRICING_APPROVED;
     const orchestrator = createSearchOrchestrator({
         env,
+        now: () => FIXTURE_NOW,
         availabilityService: { async searchAvailability() { availabilityCalls += 1; return availabilityResponse(); } },
         cacheOffers: async () => { cacheCalls += 1; return []; }
     });
@@ -235,6 +238,7 @@ test('live FX provider failures stop search before offers are cached', async () 
     let cacheCalls = 0;
     const orchestrator = createSearchOrchestrator({
         env: approvedEnv(),
+        now: () => FIXTURE_NOW,
         priceOffer: async () => {
             throw Object.assign(new Error('fx_provider_unavailable'), {
                 code: 'fx_provider_unavailable',
@@ -269,6 +273,7 @@ test('unsupported children are rejected before Availability is called', async ()
     let availabilityCalls = 0;
     const orchestrator = createSearchOrchestrator({
         env: approvedEnv(),
+        now: () => FIXTURE_NOW,
         availabilityService: { async searchAvailability() { availabilityCalls += 1; return availabilityResponse(); } },
         cacheOffers: async () => []
     });
@@ -296,6 +301,7 @@ test('requests without explicit Hotelbeds provider selection stay outside the or
     let availabilityCalls = 0;
     const orchestrator = createSearchOrchestrator({
         env: approvedEnv(),
+        now: () => FIXTURE_NOW,
         availabilityService: { async searchAvailability() { availabilityCalls += 1; return availabilityResponse(); } },
         cacheOffers: async () => []
     });
@@ -328,6 +334,7 @@ test('incomplete and synthetic Hotelbeds content is excluded before caching', as
     });
     const orchestrator = createSearchOrchestrator({
         env: approvedEnv(),
+        now: () => FIXTURE_NOW,
         priceOffer: calculateDisplayPrice,
         availabilityService: {
             async searchAvailability() {

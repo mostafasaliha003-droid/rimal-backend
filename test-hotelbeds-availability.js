@@ -94,6 +94,7 @@ test('availability makes one supplier request, reads content with one $in query,
     const service = createHotelbedsAvailabilityService({
         env,
         testOnly: true,
+        now: () => new Date('2026-10-06T12:00:00.000Z'),
         ensureModelConnected: async () => {},
         client: { availability: async payload => {
             supplierCalls.push(payload);

@@ -120,8 +120,6 @@ const Hotels = {
 
             window.lastSearchOccupancy = { adults: adultsCount, childrenAges };
 
-            const apiKey = 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
-
             const reqBody = JSON.stringify({ checkIn, checkOut, checkInDate: checkIn, checkOutDate: checkOut, adults: adultsCount, children: childrenCount, childrenAges, boardBasis, destinationCode, destinationName, query });
 
             // 🔁 مقاومة "البدء البارد" لسيرفر Render: أول طلب بعد الخمول قد يعيد 502 مؤقتًا،
@@ -129,7 +127,7 @@ const Hotels = {
             const runSearch = async () => {
                 const res = await fetch(`${API_URL}/api/v1/hotels/search`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': apiKey },
+                    headers: { 'Content-Type': 'application/json' },
                     body: reqBody
                 });
                 if (!res.ok) throw new Error('HTTP ' + res.status);
@@ -379,7 +377,7 @@ const Hotels = {
                 const occ = (typeof window.lastSearchOccupancy !== 'undefined' && window.lastSearchOccupancy) ? window.lastSearchOccupancy : { adults: 2, childrenAges: [] };
                 const rr = await fetch(`${API_URL}/api/v1/hotels/${encodeURIComponent(hotelId)}/rates`, {
                     method: 'POST',
-                    headers: { 'Content-Type': 'application/json', 'x-api-key': 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e' },
+                    headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ checkIn: ci, checkOut: co, adults: occ.adults, childrenAges: occ.childrenAges })
                 });
                 const rd = await rr.json();

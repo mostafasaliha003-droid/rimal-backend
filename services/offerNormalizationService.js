@@ -442,6 +442,11 @@ function toCustomerDisplayOffer(offer, options = {}) {
             room: {
                 name: offer.room?.name ?? null
             },
+            availability: {
+                rateType: offer.provider === 'hotelbeds'
+                    && ['BOOKABLE', 'RECHECK'].includes(offer.availability?.rateType)
+                    ? offer.availability.rateType : null
+            },
             stay: offer.stay,
             occupancy: offer.occupancy,
             price: {

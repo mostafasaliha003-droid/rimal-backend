@@ -5,13 +5,19 @@ import { resolve } from 'node:path';
 
 const githubPagesFallbackPlugin = () => ({
     name: 'github-pages-fallback',
-    closeBundle() {
-        const dist = resolve(process.cwd(), 'dist');
+    apply: 'build',
+    writeBundle(outputOptions) {
+        const dist = resolve(outputOptions.dir || 'dist');
         const index = resolve(dist, 'index.html');
         writeFileSync(index, readFileSync(index, 'utf8').replace(/\r+\n/g, '\n'));
         copyFileSync(index, resolve(dist, '404.html'));
     }
 });
+
+function configuredBuildOutput(env) {
+    const configured = env.REMAL_VITE_OUT_DIR;
+    return configured ? resolve(configured) : 'dist';
+}
 
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '..', '');
@@ -19,7 +25,16 @@ export default defineConfig(({ mode }) => {
     return {
         base: '/',
         envDir: '..',
-        plugins: [react(), githubPagesFallbackPlugin()],
+        plugins: [react(), {
+            name: 'remal-release-revision',
+            transformIndexHtml() {
+                const revision = process.env.RENDER_GIT_COMMIT || process.env.GITHUB_SHA || '';
+                return /^[a-f\d]{40}$/i.test(revision)
+                    ? [{ tag: 'meta', attrs: { name: 'remal-revision', content: revision }, injectTo: 'head' }]
+                    : [];
+            }
+        }, githubPagesFallbackPlugin()],
+        build: { outDir: configuredBuildOutput(env) },
         server: {
             port: 5173,
             proxy: {

@@ -1,4 +1,11 @@
 import { format, isValid, parseISO, startOfDay } from 'date-fns';
+import residencyCodes from '../../../../shared/ratehawkResidencies.json' with { type: 'json' };
+
+export const SEARCH_MAX_ARRIVAL_DAYS = 730;
+export const SEARCH_MAX_STAY_DAYS = 30;
+export const SEARCH_MAX_ROOMS = 9;
+export const SUPPORTED_RESIDENCY_CODES = Object.freeze(residencyCodes);
+const residencyCodeSet = new Set(SUPPORTED_RESIDENCY_CODES);
 
 export function parseSearchDate(value) {
     if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -43,27 +50,59 @@ export function normalizeSuggestions(response) {
 
 export function initialGuests(guests) {
     if (!Array.isArray(guests) || !guests.length) return [{ adults: 2, children: [] }];
-    return guests.slice(0, 4).map(room => ({
+    return guests.slice(0, SEARCH_MAX_ROOMS).map(room => ({
         adults: Number.isInteger(Number(room?.adults)) ? Math.max(1, Math.min(6, Number(room.adults))) : 2,
         children: (Array.isArray(room?.children) ? room.children : []).slice(0, 4)
             .map(age => age !== '' && age !== null && Number.isInteger(Number(age)) && Number(age) >= 0 && Number(age) <= 17 ? Number(age) : '')
     }));
 }
 
-export function validateSearch({ query, destination, checkin, checkout, guests }, now = new Date()) {
+export function validResidency(value) {
+    return typeof value === 'string' && residencyCodeSet.has(value.trim().toLowerCase());
+}
+
+export function initialResidency(value) {
+    return validResidency(value) ? value.trim().toLowerCase() : '';
+}
+
+export function latestArrivalDate(now = new Date()) {
+    const latest = startOfDay(now);
+    latest.setDate(latest.getDate() + SEARCH_MAX_ARRIVAL_DAYS);
+    return latest;
+}
+
+export function earliestCheckoutDate(checkin) {
+    const arrival = typeof checkin === 'string' ? parseSearchDate(checkin) : checkin;
+    return addCalendarDays(arrival || startOfDay(new Date()), 1);
+}
+
+export function latestCheckoutDate(checkin) {
+    const arrival = typeof checkin === 'string' ? parseSearchDate(checkin) : checkin;
+    return addCalendarDays(arrival || startOfDay(new Date()), SEARCH_MAX_STAY_DAYS);
+}
+
+export function validateSearch({ query, destination, checkin, checkout, guests, residency }, now = new Date()) {
     const errors = {};
-    if (!validDestination(destination) || query.trim() !== destination.label.trim()) errors.destination = 'destinationRequired';
+    if (!validDestination(destination) || typeof query !== 'string' || query.trim() !== destination.label.trim()) errors.destination = 'destinationRequired';
+    if (!validResidency(residency)) errors.residency = 'residencyRequired';
     const arrival = parseSearchDate(checkin);
     const departure = parseSearchDate(checkout);
+    const latestArrival = latestArrivalDate(now);
     if (!arrival) errors.checkin = checkin ? 'invalidDates' : 'datesRequired';
-    else if (arrival < startOfDay(now)) errors.checkin = 'invalidDates';
+    else if (arrival < startOfDay(now) || arrival > latestArrival) errors.checkin = 'invalidDates';
     if (!departure) errors.checkout = checkout ? 'invalidDates' : 'datesRequired';
-    else if (arrival && departure <= arrival) errors.checkout = 'invalidDates';
-    if (!Array.isArray(guests) || !guests.length || guests.length > 4 || guests.some(room =>
+    else if (arrival && (departure <= arrival || departure > addCalendarDays(arrival, SEARCH_MAX_STAY_DAYS))) errors.checkout = 'invalidDates';
+    if (!Array.isArray(guests) || !guests.length || guests.length > SEARCH_MAX_ROOMS || guests.some(room =>
         !Number.isInteger(room.adults) || room.adults < 1 || room.adults > 6 || !Array.isArray(room.children) || room.children.length > 4)) {
         errors.guests = 'invalidGuests';
     } else if (guests.some(room => room.children.some(age => !Number.isInteger(age) || age < 0 || age > 17))) {
         errors.guests = 'childAgeRequired';
     }
     return errors;
+}
+
+function addCalendarDays(date, days) {
+    const result = new Date(date);
+    result.setDate(result.getDate() + days);
+    return result;
 }

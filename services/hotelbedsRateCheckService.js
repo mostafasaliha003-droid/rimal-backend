@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { normalizeHotelbedsRateComments } = require('./hotelbedsRateComments');
 
 function fail(code) {
     return Object.assign(new Error(code), { code });
@@ -89,13 +90,8 @@ function promotionTerms(value) {
 }
 
 function commentTerms(value, normalized = false) {
-    if (value == null) return [];
-    const comments = typeof value === 'string' ? [value]
-        : Array.isArray(value) ? value.map(comment => typeof comment === 'string' ? comment : comment?.description)
-            : null;
-    if (!comments || comments.length > 50 || comments.some(comment =>
-        typeof comment !== 'string' || !comment.trim() || comment.length > 4000)) return null;
-    return comments.map(comment => comment.trim()).sort();
+    const comments = normalizeHotelbedsRateComments(value);
+    return comments === null ? null : comments.sort();
 }
 
 function identityFromNormalizedOffer(offer) {
@@ -157,12 +153,13 @@ function singleton(value) {
     return value && typeof value === 'object' && !Array.isArray(value) ? value : null;
 }
 
-function matchCheckedRate(response, expected, availabilityRateKey, expectedTerms) {
+function matchCheckedRate(response, expected, availabilityRateKey, expectedTerms,
+    { allowCommentChanges = false, allowTermsChanges = false } = {}) {
     if (!isValidRateIdentity(expected)) throw fail('booking_rate_identity_unavailable');
     if (!isValidRateTerms(expectedTerms)) {
         throw fail('booking_rate_terms_unavailable');
     }
-    if (!expectedTerms.rateCommentsResolved) throw fail('booking_rate_terms_unavailable');
+    if (!expectedTerms.rateCommentsResolved && !allowCommentChanges) throw fail('booking_rate_terms_unavailable');
     if (!response || response.error != null) throw fail('booking_checkrate_unavailable');
     const hotel = singleton(response.hotels ?? response.hotel);
     if (!hotel || identifier(hotel.code) !== expected.hotelCode
@@ -204,15 +201,18 @@ function matchCheckedRate(response, expected, availabilityRateKey, expectedTerms
     const rate = candidates[0];
     const cancellation = cancellationTerms(rate.cancellationPolicies, expected.currency);
     const promotions = promotionTerms(rate.promotions);
-    if (!cancellation || fingerprint(cancellation) !== expectedTerms.cancellationFingerprint
-        || !promotions || fingerprint(promotions) !== expectedTerms.promotionsFingerprint) {
+    if (!cancellation || !promotions || !allowTermsChanges
+        && (fingerprint(cancellation) !== expectedTerms.cancellationFingerprint
+            || fingerprint(promotions) !== expectedTerms.promotionsFingerprint)) {
         throw fail('booking_checkrate_terms_changed');
     }
-    if (expectedTerms.rateCommentsResolved) {
+    if (expectedTerms.rateCommentsResolved && !allowCommentChanges) {
         const comments = commentTerms(rate.rateComments);
         if (!comments || fingerprint(comments) !== expectedTerms.rateCommentsFingerprint) {
             throw fail('booking_checkrate_terms_changed');
         }
+    } else if (expectedTerms.rateCommentsResolved) {
+        if (commentTerms(rate.rateComments) === null) throw fail('booking_checkrate_terms_changed');
     }
     if (availabilityRateKey !== undefined
         && (typeof availabilityRateKey !== 'string' || !availabilityRateKey.trim())) {
@@ -238,11 +238,103 @@ async function checkSelectedRate(client, rateKey, rateIdentity, rateTerms) {
     return matchCheckedRate(response.data, rateIdentity, rateKey, rateTerms);
 }
 
+async function checkSelectedRateForReview(client, rateKey, rateIdentity, rateTerms) {
+    if (!client || typeof client.checkRates !== 'function'
+        || typeof rateKey !== 'string' || !rateKey.trim()) {
+        throw fail('booking_checkrate_request_invalid');
+    }
+    const response = await client.checkRates({ rooms: [{ rateKey }], upselling: false });
+    if (!response?.ok || !response.data || response.data.error != null) {
+        throw fail('booking_checkrate_unavailable');
+    }
+    const matched = matchCheckedRate(response.data, rateIdentity, rateKey, rateTerms, {
+        allowCommentChanges: true,
+        allowTermsChanges: true
+    });
+    return { ...matched, response: response.data };
+}
+
+function rateTermsWithCheckedComments(rateTerms, value) {
+    if (!isValidRateTerms(rateTerms) || rateTerms.rateCommentsResolved !== true) {
+        throw fail('booking_rate_terms_unavailable');
+    }
+    const comments = commentTerms(value);
+    if (!comments) throw fail('booking_checkrate_terms_changed');
+    return { ...rateTerms, rateCommentsFingerprint: fingerprint(comments) };
+}
+
+function rateTermsFromCheckedRate(rateTerms, rate, rateCurrency) {
+    if (!isValidRateTerms(rateTerms)
+        || !rate || typeof rate !== 'object' || Array.isArray(rate)) {
+        throw fail('booking_rate_terms_unavailable');
+    }
+    const cancellation = cancellationTerms(rate.cancellationPolicies, rateCurrency);
+    const promotions = promotionTerms(rate.promotions);
+    const comments = commentTerms(rate.rateComments);
+    if (!cancellation || !promotions || !comments) throw fail('booking_checkrate_terms_changed');
+    return {
+        ...rateTerms,
+        rateCommentsResolved: true,
+        cancellationFingerprint: fingerprint(cancellation),
+        promotionsFingerprint: fingerprint(promotions),
+        rateCommentsFingerprint: fingerprint(comments)
+    };
+}
+
+function normalizedCheckRateTerms(response) {
+    if (!response || response.error != null) throw fail('booking_checkrate_unavailable');
+    let snapshot;
+    try { snapshot = JSON.parse(JSON.stringify(response)); }
+    catch { throw fail('booking_checkrate_terms_invalid'); }
+    if (Buffer.byteLength(JSON.stringify(snapshot), 'utf8') > 128 * 1024) {
+        throw fail('booking_checkrate_terms_too_large');
+    }
+    const hotel = singleton(snapshot.hotels ?? snapshot.hotel);
+    const rate = hotel?.rooms?.[0]?.rates?.[0];
+    if (!rate || typeof rate !== 'object' || Array.isArray(rate)) throw fail('booking_checkrate_terms_invalid');
+    return snapshot;
+}
+
+function checkRateTermsFingerprint(response) {
+    const normalized = normalizedCheckRateTerms(response);
+    const hotel = singleton(normalized.hotels ?? normalized.hotel);
+    if (!hotel || !Array.isArray(hotel.rooms) || hotel.rooms.length !== 1
+        || !hotel.rooms[0] || !Array.isArray(hotel.rooms[0].rates) || hotel.rooms[0].rates.length !== 1) {
+        throw fail('booking_checkrate_terms_invalid');
+    }
+    const selectedTerms = {
+        hotel: {
+            code: hotel.code,
+            checkIn: hotel.checkIn,
+            checkOut: hotel.checkOut,
+            currency: hotel.currency,
+            paymentDataRequired: hotel.paymentDataRequired ?? null,
+            rooms: [{ code: hotel.rooms[0].code, rates: hotel.rooms[0].rates }],
+            upselling: hotel.upselling ?? null
+        }
+    };
+    const stable = value => {
+        if (Array.isArray(value)) return value.map(stable);
+        if (value && typeof value === 'object') {
+            return Object.fromEntries(Object.keys(value).sort()
+                .map(key => [key, stable(value[key])]));
+        }
+        return value;
+    };
+    return crypto.createHash('sha256')
+        .update(JSON.stringify(stable(selectedTerms)), 'utf8').digest('hex');
+}
+
 module.exports = {
     identityFromNormalizedOffer,
     isValidRateIdentity,
     termsFromNormalizedOffer,
     isValidRateTerms,
     matchCheckedRate,
-    checkSelectedRate
+    checkSelectedRate,
+    checkSelectedRateForReview,
+    rateTermsWithCheckedComments,
+    rateTermsFromCheckedRate,
+    normalizedCheckRateTerms,
+    checkRateTermsFingerprint
 };

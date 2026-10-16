@@ -1,6 +1,7 @@
 const PUBLIC_OFFER_ID_PATTERN = /^[a-f\d]{64}$/i;
 const SESSION_ID_PATTERN = /^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i;
 const ACCESS_TOKEN_PATTERN = /^[a-f\d]{64}$/i;
+const TERMS_VERSION_PATTERN = /^[a-f\d]{64}$/i;
 const AED_AMOUNT_PATTERN = /^\d+(?:\.\d{1,2})?$/;
 
 export function validateUnifiedSearchResponse(response) {
@@ -13,6 +14,11 @@ export function validateUnifiedSearchResponse(response) {
         for (const offer of hotel.offers) {
             if (!offer || !offer.price || typeof offer.price.amount !== 'string'
                 || offer.price.currency !== 'AED' || !AED_AMOUNT_PATTERN.test(offer.price.amount)) {
+                throw new Error('aggregate_response_invalid');
+            }
+            if (offer.provider === 'hotelbeds' && offer.publicOfferId !== null
+                && (!PUBLIC_OFFER_ID_PATTERN.test(offer.publicOfferId || '')
+                    || !TERMS_VERSION_PATTERN.test(offer.termsVersion || ''))) {
                 throw new Error('aggregate_response_invalid');
             }
         }
@@ -31,6 +37,7 @@ export function canStartPrepaidCheckout(offer) {
     return Boolean(offer && offer.provider === 'hotelbeds' && offer.paymentFlow === 'PAY_NOW'
         && typeof offer.publicOfferId === 'string'
         && PUBLIC_OFFER_ID_PATTERN.test(offer.publicOfferId)
+        && TERMS_VERSION_PATTERN.test(offer.termsVersion || '')
         && formatAedPrice(offer.price?.amount, offer.price?.currency));
 }
 

@@ -1,6 +1,10 @@
 const express = require('express');
 
-function createAffiliateBookingRouter({ service, securityService, verifyAPIKey }) {
+function createAffiliateBookingRouter({ service, securityService, requireUser }) {
+    if (!service || !securityService || typeof securityService.searchLimiter !== 'function'
+        || typeof securityService.bookingLimiter !== 'function' || typeof requireUser !== 'function') {
+        throw new TypeError('affiliate_booking_route_dependencies_invalid');
+    }
     const router = express.Router();
     router.use((req, res, next) => {
         res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
@@ -16,11 +20,11 @@ function createAffiliateBookingRouter({ service, securityService, verifyAPIKey }
             ? error.code : 'affiliate_booking_unavailable';
         return res.status(status).json({ success: false, error: code });
     };
-    const accessToken = req => /^Bearer ([a-f\d]{64})$/i.exec(req.get('Authorization') || '')?.[1];
+    const accessToken = req => /^([a-f\d]{64})$/i.exec(req.get('X-Affiliate-Status-Token') || '')?.[1];
 
     router.get('/availability', (req, res) => res.json(service.getAvailability()));
 
-    router.post('/hotels/:hid/rates', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+    router.post('/hotels/:hid/rates', securityService.searchLimiter, async (req, res) => {
         try {
             const result = await service.getHotelPageRates({ ...(req.body || {}), hid: req.params.hid });
             return res.status(200).json(result);
@@ -29,14 +33,15 @@ function createAffiliateBookingRouter({ service, securityService, verifyAPIKey }
         }
     });
 
-    router.post('/bookings', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+    router.post('/bookings', requireUser, securityService.bookingLimiter, async (req, res) => {
         try {
-            const created = await service.createProcess(req.body || {}, req.get('Idempotency-Key'), req.ip);
+            const owner = { ownerSubject: req.auth.subject };
+            const created = await service.createProcess(req.body || {}, req.get('Idempotency-Key'), req.ip, owner);
             // The server owns the one-shot finish transition. If the response is
             // lost, idempotent replay reads this state and cannot resend finish.
             if (created.status === 'form_ready') {
                 try {
-                    const finished = await service.finishProcess(created.process_id, created.access_token);
+                    const finished = await service.finishProcess(created.process_id, created.access_token, owner);
                     const result = { ...created, ...finished, access_token: created.access_token };
                     return res.status(result.status === 'processing' ? 202 : 200).json(result);
                 } catch (error) {
@@ -52,10 +57,12 @@ function createAffiliateBookingRouter({ service, securityService, verifyAPIKey }
         }
     });
 
-    router.get('/bookings/:processId/status', verifyAPIKey, async (req, res) => {
+    router.get('/bookings/:processId/status', requireUser, async (req, res) => {
         res.set('Vary', 'Authorization');
         try {
-            const result = await service.checkStatus(req.params.processId, accessToken(req));
+            const identity = await req.reauthenticate?.();
+            if (!identity?.subject) return res.status(401).json({ success: false, error: 'unauthorized' });
+            const result = await service.checkStatus(req.params.processId, accessToken(req), { ownerSubject: identity.subject });
             return res.status(200).json(result);
         } catch (error) {
             const status = error?.httpStatus === 503 ? 503 : 404;

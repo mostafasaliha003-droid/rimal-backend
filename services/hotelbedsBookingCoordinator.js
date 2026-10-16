@@ -31,7 +31,9 @@ function createHotelbedsBookingCoordinator({ client } = {}) {
         rateKey,
         rateIdentity,
         rateTerms,
+        rateReviewValidated = false,
         clientReference,
+        supplierContext,
         createBookingRequest,
         beforeBooking,
         onPreflightFailure,
@@ -42,8 +44,24 @@ function createHotelbedsBookingCoordinator({ client } = {}) {
             || typeof beforeBooking !== 'function'
             || typeof rateKey !== 'string' || !rateKey.trim()
             || !['BOOKABLE', 'RECHECK'].includes(rateType)
-            || typeof clientReference !== 'string' || !/^RML[A-Z0-9]{10,17}$/.test(clientReference)) {
+            || typeof clientReference !== 'string' || !/^RML[A-Z0-9]{10,17}$/.test(clientReference)
+            || supplierContext?.provider !== 'hotelbeds' || supplierContext.origin !== 'live'
+            || supplierContext.environment !== 'test'
+            || typeof supplierContext.realm !== 'string' || !supplierContext.realm.trim()
+            || typeof supplierContext.accountId !== 'string' || !/^[a-f\d]{64}$/i.test(supplierContext.accountId)
+            || typeof supplierContext.ownerSubject !== 'string' || !supplierContext.ownerSubject.trim()) {
             throw fail('hotelbeds_booking_coordinator_request_invalid', 400);
+        }
+
+        function assertClaimScope(claimed) {
+            if (!claimed || claimed.provider !== 'hotelbeds' || claimed.origin !== 'live'
+                || claimed.environment !== supplierContext.environment
+                || claimed.accountId !== supplierContext.accountId
+                || claimed.realm !== supplierContext.realm
+                || claimed.ownerSubject !== supplierContext.ownerSubject
+                || typeof claimed.realm !== 'string' || !claimed.realm.trim()) {
+                throw fail('booking_fixture_or_scope_mismatch', 409);
+            }
         }
 
         // A caller supplies its durable, atomic claim (offer-attempt or verified
@@ -52,6 +70,12 @@ function createHotelbedsBookingCoordinator({ client } = {}) {
         if (!claimed) {
             if (typeof onClaimConflict === 'function') return onClaimConflict();
             throw fail('hotelbeds_booking_attempt_already_claimed', 409);
+        }
+
+        try { assertClaimScope(claimed); }
+        catch (error) {
+            await bestEffort(onPreflightFailure, claimed);
+            throw error;
         }
 
         let bookingRateKey = rateKey;
@@ -63,7 +87,7 @@ function createHotelbedsBookingCoordinator({ client } = {}) {
                 });
             }
             bookingRequest = await createBookingRequest(claimed);
-            if (rateType === 'RECHECK') {
+            if (rateType === 'RECHECK' && rateReviewValidated !== true) {
                 bookingRateKey = (await checkSelectedRate(client, rateKey, rateIdentity, rateTerms)).rateKey;
             }
         } catch (error) {

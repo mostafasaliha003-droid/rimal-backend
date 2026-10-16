@@ -450,8 +450,13 @@ function ratePriceSummary(rate) {
 }
 
 function getComparablePrice(rate) {
-    const amount = rate?.show_amount ?? rate?.amount;
-    const currency = rate?.show_currency_code ?? rate?.currency_code;
+    // Search/prebook prices are nested under the selected payment option in
+    // ETG v3; reading only top-level fields rejects every real hotelpage rate.
+    const payment = rate?.payment_options?.payment_types?.find(item =>
+        ['deposit', 'hotel'].includes(item?.type) && item.is_need_credit_card_data !== true);
+    const source = payment || rate;
+    const amount = source?.show_amount ?? source?.amount;
+    const currency = source?.show_currency_code ?? source?.currency_code;
     if (amount === undefined || amount === null || typeof currency !== 'string') return null;
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount < 0) return null;

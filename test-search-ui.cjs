@@ -9,7 +9,7 @@ const root = __dirname;
 const frontend = path.join(root, 'frontend');
 const storedSearch = {
     query: 'Dubai', destination: { type: 'region', region_id: 6053839, label: 'Dubai' },
-    checkin: '2099-10-15', checkout: '2099-10-17', guests: [{ adults: 2, children: [] }]
+    checkin: '2027-10-15', checkout: '2027-10-17', residency: 'ae', guests: [{ adults: 2, children: [] }]
 };
 const rate = { book_hash: 'test-room', room_name: 'Test room', payment_options: { payment_types: [{ type: 'deposit', amount: '150', currency_code: 'USD' }] } };
 
@@ -113,6 +113,10 @@ async function run() {
         assert.equal(requests.searches.length, beforeEnter, 'Selecting an option submitted the form');
         await page.waitForFunction(() => document.getElementById('destination-search').value === 'Dubai');
         await page.click('#search-submit');
+        await focusIs(page, 'search-residency');
+        assert.equal(await page.$eval('#search-residency', input => input.getAttribute('aria-invalid')), 'true');
+        await page.select('#search-residency', 'ae');
+        await page.click('#search-submit');
         await focusIs(page, 'search-checkin');
         assert.equal(await page.$eval('#search-checkin', input => input.getAttribute('aria-invalid')), 'true');
         await page.keyboard.press('Escape');
@@ -155,17 +159,17 @@ async function run() {
 
         console.log('CHECK: dates, guests, request locking and error retry');
         page = await fresh({ search: storedSearch });
-        await type(page, '#search-checkin', '2099-10-20');
+        await type(page, '#search-checkin', '2027-10-20');
         await page.keyboard.press('Escape');
-        await page.waitForFunction(() => document.getElementById('search-checkout').value === '2099-10-21');
-        await type(page, '#search-checkout', '2099-02-30');
+        await page.waitForFunction(() => document.getElementById('search-checkout').value === '2027-10-21');
+        await type(page, '#search-checkout', '2027-02-30');
         await page.keyboard.press('Escape');
         const invalidBefore = requests.searches.length;
         await page.click('#search-submit');
         await focusIs(page, 'search-checkout');
         assert.equal(requests.searches.length, invalidBefore);
         await page.keyboard.press('Escape');
-        await type(page, '#search-checkout', '2099-10-23');
+        await type(page, '#search-checkout', '2027-10-23');
         await page.keyboard.press('Escape');
         await page.click('#search-guests');
         await page.waitForSelector('#search-guests-panel', { visible: true });
@@ -186,16 +190,19 @@ async function run() {
         await page.waitForFunction(() => !document.getElementById('search-submit').disabled);
         assert.equal(requests.searches.length, before + 1);
         assert.deepEqual(requests.searches.at(-1).guests, [{ adults: 2, children: [0] }]);
-        assert.equal(requests.searches.at(-1).checkin, '2099-10-20');
+        assert.equal(requests.searches.at(-1).checkin, '2027-10-20');
+        assert.equal(requests.searches.at(-1).residency, 'ae');
         requests.failSearch = true;
         requests.searchDelay = 0;
         await page.click('#search-submit');
         await page.waitForFunction(() => !document.getElementById('search-submit').disabled && document.getElementById('search-error'));
         assert.equal(await page.$eval('#destination-search', input => input.value), 'Dubai');
         requests.failSearch = false;
+        await page.select('#search-residency', 'xk');
         await page.click('#search-submit');
         await page.waitForFunction(() => !document.getElementById('search-submit').disabled && !document.getElementById('search-error'));
-        console.log('PASS: valid dates/guests, duplicate prevention and retry.');
+        assert.equal(requests.searches.at(-1).residency, 'xk');
+        console.log('PASS: valid dates/guests, residency forwarding, duplicate prevention and retry.');
 
         console.log('CHECK: responsive layout, sticky behavior and reduced motion');
         for (const language of ['ar', 'en', 'es']) {

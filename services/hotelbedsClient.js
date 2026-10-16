@@ -52,25 +52,39 @@ function configurationFrom(env = process.env, { readFileSync = fs.readFileSync }
         || parsedBookingUrl.pathname !== '/' && parsedBookingUrl.pathname !== '') {
         throw fail('hotelbeds_mtls_endpoint_invalid');
     }
-    const configuredCertPath = String(env.HOTELBEDS_MTLS_CERT_PATH || '').trim();
-    const configuredKeyPath = String(env.HOTELBEDS_MTLS_KEY_PATH || '').trim();
-    if (!configuredCertPath || !configuredKeyPath) {
-        throw fail('hotelbeds_mtls_certificate_unavailable');
-    }
-    // Relative local paths are resolved from the backend project root, not the
-    // process working directory, so the documented ./certs paths work reliably.
-    const certPath = path.isAbsolute(configuredCertPath)
-        ? configuredCertPath : path.resolve(__dirname, '..', configuredCertPath);
-    const keyPath = path.isAbsolute(configuredKeyPath)
-        ? configuredKeyPath : path.resolve(__dirname, '..', configuredKeyPath);
     let cert;
     let key;
-    try {
-        cert = readFileSync(certPath);
-        key = readFileSync(keyPath);
-        if (!cert.length || !key.length) throw new Error('empty_client_certificate');
-    } catch {
-        throw fail('hotelbeds_mtls_certificate_unavailable');
+
+    const certContent = typeof env.HOTELBEDS_MTLS_CERT_CONTENT === 'string'
+        ? env.HOTELBEDS_MTLS_CERT_CONTENT.trim() : '';
+    const keyContent = typeof env.HOTELBEDS_MTLS_KEY_CONTENT === 'string'
+        ? env.HOTELBEDS_MTLS_KEY_CONTENT.trim() : '';
+
+    if (certContent || keyContent) {
+        // Cloud hosts can inject PEM material directly. Require the pair so a
+        // certificate can never be combined with a key from a different source.
+        if (!certContent || !keyContent) throw fail('hotelbeds_mtls_certificate_unavailable');
+        cert = certContent.replace(/\\n/g, '\n');
+        key = keyContent.replace(/\\n/g, '\n');
+    } else {
+        const configuredCertPath = String(env.HOTELBEDS_MTLS_CERT_PATH || '').trim();
+        const configuredKeyPath = String(env.HOTELBEDS_MTLS_KEY_PATH || '').trim();
+        if (!configuredCertPath || !configuredKeyPath) {
+            throw fail('hotelbeds_mtls_certificate_unavailable');
+        }
+        // Relative local paths are resolved from the backend project root, not
+        // the process working directory, so ./certs paths work reliably.
+        const certPath = path.isAbsolute(configuredCertPath)
+            ? configuredCertPath : path.resolve(__dirname, '..', configuredCertPath);
+        const keyPath = path.isAbsolute(configuredKeyPath)
+            ? configuredKeyPath : path.resolve(__dirname, '..', configuredKeyPath);
+        try {
+            cert = readFileSync(certPath);
+            key = readFileSync(keyPath);
+            if (!cert.length || !key.length) throw new Error('empty_client_certificate');
+        } catch {
+            throw fail('hotelbeds_mtls_certificate_unavailable');
+        }
     }
 
     return {

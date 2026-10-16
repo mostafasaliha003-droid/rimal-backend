@@ -228,10 +228,7 @@
                     <p>Remal & Chill</p>
                 </div>
             </div>
-            <div class="status-badge">
-                <svg viewBox="0 0 512 512" style="width:14px;height:14px;fill:white;"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zM369 209L241 337c-9.4 9.4-24.6 9.4-33.9 0l-64-64c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l47 47L335 175c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9z"/></svg>
-                قسيمة حجز مؤكدة
-            </div>
+            <div class="status-badge"><span>{{bookingStatus}}</span></div>
         </header>
 
         <!-- الجسم الأساسي -->
@@ -291,6 +288,11 @@
                             <bdi dir="auto">الوجبات: {{boardType}}</bdi>
                         </span>
                     </div>
+
+                    <div class="tags-row">
+                        <span class="feature-tag tag-bed"><bdi dir="auto">تاريخ الوصول: {{checkInDate}}</bdi></span>
+                        <span class="feature-tag tag-bed"><bdi dir="auto">تاريخ المغادرة: {{checkOutDate}}</bdi></span>
+                    </div>
                 </div>
 
                 <div class="policy-card">
@@ -338,8 +340,8 @@
                 </div>
                 
                 <div class="price-box">
-                    <span class="price-label">إجمالي المدفوع (TOTAL)</span>
-                    <p class="price-value">AED {{price}}</p>
+                    <span class="price-label">{{priceLabel}}</span>
+                    <p class="price-value"><bdi dir="ltr">{{price}} {{priceCurrency}}</bdi></p>
                 </div>
             </div>
 

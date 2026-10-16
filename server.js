@@ -10,6 +10,7 @@ const fs = require('fs');
 const http = require('http'); 
 const { Server } = require('socket.io'); 
 const Hotel = require('./models/Hotel');
+const AuthSession = require('./models/AuthSession');
 
 // ==========================================
 // 🧩 1. استدعاء خدمات المحرك الجديد
@@ -17,6 +18,7 @@ const Hotel = require('./models/Hotel');
 const ratehawkService = require('./services/ratehawkService');
 const dubailinkService = require('./services/dubailinkService'); 
 const paymentService = require('./services/paymentService');
+const { getReleaseReadiness, releaseRevision } = require('./services/releaseReadiness');
 const notificationService = require('./services/notificationService'); 
 const webhookService = require('./services/webhookService'); 
 const { createMidofficeWebhookRouter } = require('./services/midofficeWebhookService');
@@ -44,18 +46,43 @@ const {
 const createBookingController = require('./controllers/bookingController');
 const { normalizeSupplierImage, collectSupplierImages } = require('./services/supplierImages');
 const createFrontendRouter = require('./services/frontendService');
+const { createAuthSessionService } = require('./services/authSessionService');
+const { createSessionAuthMiddleware } = require('./services/sessionAuthMiddleware');
+const { registerChatSocketHandlers } = require('./services/chatSocketHandlers');
+const { createInternalApiKeyMiddleware } = require('./services/internalApiKeyMiddleware');
+const { createUserAuthRouter, createUserProfileRouter } = require('./services/userAuthRoutes');
+const createAdminAuthRouter = require('./services/adminAuthRoutes');
 const createDisplayCurrencyRouter = require('./services/displayCurrencyRoutes');
 const { createDisplayCurrencyService } = require('./services/displayCurrencyService');
 const corsPolicy = require('./services/corsPolicy');
 const createBookingRouter = require('./services/bookingRoutes');
+const { createOwnedBookingPdfRouter } = require('./services/ownedBookingPdfRoutes');
+const { createAdminBookingRouter } = require('./services/adminBookingRoutes');
+const createAdminHotelbedsSupplierTestController = require('./controllers/adminHotelbedsSupplierTestController');
+const createAdminHotelbedsSupplierTestRouter = require('./services/adminHotelbedsSupplierTestRoutes');
+const { createAdminHotelbedsSupplierTestService } = require('./services/adminHotelbedsSupplierTest');
+const { createBookingRecordPersistence, createEncryptedBookingRecordPayloadSchema } = require('./services/bookingRecordPersistence');
+const HotelbedsVerifiedHotelContent = require('./models/HotelbedsVerifiedHotelContent');
+const hotelbedsMockDatabase = require('./services/hotelbedsMockDatabase');
+const { createHotelbedsBookingService } = require('./services/hotelbedsBookingService');
+const { createHotelbedsRateReviewService } = require('./services/hotelbedsRateReviewService');
+const createHotelbedsRateReviewController = require('./controllers/hotelbedsRateReviewController');
+const createHotelbedsRateReviewRouter = require('./services/hotelbedsRateReviewRoutes');
+const createLegacyMixedSearchController = require('./controllers/legacyMixedSearchController');
+const createHotelbedsReconciliationController = require('./controllers/hotelbedsReconciliationController');
+const createHotelbedsReconciliationRouter = require('./services/hotelbedsReconciliationRoutes');
+const { createHotelbedsBookingReconciliationService } = require('./services/hotelbedsBookingReconciliationService');
+const { createHotelbedsBookingAttemptStore } = require('./services/hotelbedsBookingAttemptStore');
+const hotelbedsClient = require('./services/hotelbedsClient');
+const createCheckoutSessionController = require('./controllers/checkoutSessionController');
+const createCheckoutSessionRouter = require('./services/checkoutSessionRoutes');
+const { createHotelbedsMockCheckoutBookingService } = require('./services/hotelbedsMockCheckoutBookingService');
+const { createSocketSessionAuth } = require('./services/socketSessionAuth');
 const bookingProcessService = require('./services/bookingProcessService');
 const checkoutProcessService = require('./services/checkoutProcessService');
 const checkoutReconciliationService = require('./services/checkoutReconciliationService');
 const ziinaWebhookService = require('./services/ziinaWebhookService');
 const checkoutSessionService = require('./services/checkoutSessionService');
-const createCheckoutSessionController = require('./controllers/checkoutSessionController');
-const createCheckoutSessionRouter = require('./services/checkoutSessionRoutes');
-const { createHotelbedsMockCheckoutBookingService } = require('./services/hotelbedsMockCheckoutBookingService');
 const { createZiinaWebhookHandler } = require('./services/ziinaWebhookHandler');
 const { createMockHotelCheckoutPaymentController } = require('./controllers/mockHotelCheckoutPaymentController');
 
@@ -74,7 +101,20 @@ app.use((req, res, next) => {
 app.set('trust proxy', 1);
 
 const server = http.createServer(app);
-const io = new Server(server, { cors: { origin: "*" } });
+const io = new Server(server, {
+    cors: { origin: corsPolicy.origin, credentials: true, methods: ['GET', 'POST'] },
+    maxHttpBufferSize: 16 * 1024
+});
+const authSessionService = createAuthSessionService({ Model: AuthSession, database: mongoose.connection });
+const sessionAuth = createSessionAuthMiddleware({ sessions: authSessionService });
+io.use(createSocketSessionAuth({ sessions: authSessionService }));
+const requireUser = sessionAuth.requireRole('user');
+const requireAdmin = sessionAuth.requireRole('admin');
+const verifyInternalAPIKey = createInternalApiKeyMiddleware({ env: process.env, logger });
+const internalSearchLimiter = (req, res, next) => {
+    if (req.get('Origin')) return res.status(403).json({ success: false, error: 'server_to_server_only' });
+    return securityService.searchLimiter(req, res, next);
+};
 
 app.use('/api/v1/documents', securityService.globalLimiter, createBookingRouter.createDocumentRouter());
 app.use('/api/v1/order-groups', securityService.globalLimiter, createBookingRouter.createOrderGroupRouter());
@@ -122,7 +162,7 @@ const MONGO_URI = process.env.MONGO_URI;
 const userSchema = new mongoose.Schema({
     name: { type: String, required: true },
     email: { type: String, required: true, unique: true, lowercase: true },
-    password: { type: String, required: true },
+    password: { type: String, required: true, select: false },
     phone: String,
     nationality: String,
     birthYear: Number,
@@ -133,6 +173,8 @@ const userSchema = new mongoose.Schema({
 
 const bookingSchema = new mongoose.Schema({
     bookingReference: { type: String, required: true, unique: true },
+    ownerSubject: { type: String, immutable: true, index: true, default: undefined },
+    realm: { type: String, immutable: true, index: true, default: undefined },
     ziinaPaymentId: { type: String, default: '' }, 
     supplierReference: { type: String, default: 'Pending' }, 
     hotelConfirmationNumber: { type: String, default: '' },
@@ -145,10 +187,23 @@ const bookingSchema = new mongoose.Schema({
     roomType: String, 
     boardType: String, 
     price: Number, 
+    priceCurrency: { type: String, default: 'AED', match: /^[A-Z]{3}$/ },
     paymentMethod: String,
     companions: String, 
     status: { type: String, default: 'active' },
     cancellationPolicy: { type: String, default: 'شروط المورد مطبقة' },
+    supplierPaymentType: { type: String, default: 'unknown' },
+    bookingClientReference: { type: String, default: undefined, select: false, maxlength: 100 },
+    providerHotelCode: { type: String, default: undefined, select: false, match: /^\d{1,10}$/ },
+    hotelbedsVoucherSnapshotEncrypted: {
+        type: createEncryptedBookingRecordPayloadSchema(mongoose),
+        default: undefined,
+        select: false
+    },
+    hotelbedsVoucherSnapshotProcessed: { type: Boolean, default: false, select: false },
+    checkInDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
+    checkOutDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
+    confirmedAt: Date,
     freeCancelDeadline: { type: Date }, 
     refundType: { type: String, default: 'full_100' },
     createdAt: { type: Date, default: Date.now }
@@ -163,38 +218,102 @@ const reviewSchema = new mongoose.Schema({
 const User = mongoose.model('User', userSchema);
 const Booking = mongoose.model('Booking', bookingSchema);
 const Review = mongoose.model('Review', reviewSchema);
+const bookingRecordPersistence = createBookingRecordPersistence({
+    BookingModel: Booking,
+    realm: process.env.RIMAL_AUTH_REALM,
+    env: process.env
+});
 
-let verificationCodes = {}; let passwordResetCodes = {}; let updateEmailCodes = {}; let updatePasswordCodes = {};  
-const ADMIN_EMAIL = 'management@remaltourismllc.com';
-const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH;
-let activeChatRooms = new Set();
+const verificationCodes = new Map();
+const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || 'management@remaltourismllc.com').trim().toLowerCase();
+const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
 
-// ==========================================
-// 🛡️ 4. حارس الأمن (API Security Guard)
-// ==========================================
-const verifyAPIKey = (req, res, next) => {
-    const clientKey = req.headers['x-api-key'];
-    const serverKey = process.env.REMAL_SECURE_KEY; 
-    
-    if (!serverKey || !clientKey || clientKey !== serverKey) {
-        logger.warn(`Blocked unauthorized access attempt`, { ip: req.ip }); 
-        return res.status(403).json({ success: false, error: "Access Denied: Invalid API Key" });
-    }
-    next(); 
-};
+// Public search keys are not authentication. Customer-facing routes are protected
+// with IP limits; private operations use a separate server-only credential or role.
+const publicSearchGuard = securityService.searchLimiter;
+
+const adminAuthRouter = createAdminAuthRouter({
+    sessions: authSessionService,
+    auth: sessionAuth,
+    adminEmail: ADMIN_EMAIL,
+    adminPasswordHash: ADMIN_PASSWORD_HASH,
+    comparePassword: (password, hash) => bcrypt.compare(password, hash),
+    bookingLimiter: securityService.authLimiter
+});
+
+app.use('/api/v1/admin', adminAuthRouter);
+app.get('/api/v1/admin/readiness', requireAdmin, (_req, res) => {
+    res.set('Cache-Control', 'no-store');
+    const report = getReleaseReadiness({ databaseState: mongoose.connection.readyState });
+    res.status(report.configurationReady ? 200 : 503).json(report);
+});
+app.use('/api/v1/admin/data', createAdminBookingRouter({ BookingModel: Booking, requireAdmin }));
+app.use('/api/v1/admin/hotelbeds', createAdminHotelbedsSupplierTestRouter({
+    controller: createAdminHotelbedsSupplierTestController({
+        service: createAdminHotelbedsSupplierTestService({
+            availabilityService: createHotelbedsAvailabilityService(),
+            env: process.env
+        })
+    }),
+    requireAdmin,
+    searchLimiter: securityService.searchLimiter
+}));
+
+// Read-only BookingList reconciliation for operators. It never mutates booking
+// attempts, and it stays unmounted unless the explicit operational approval
+// flag is set; resolution itself remains a separate human workflow.
+if (process.env.HOTELBEDS_RECONCILIATION_OPERATOR_ENABLED === 'true') {
+    app.use('/api/v1/admin/hotelbeds', createHotelbedsReconciliationRouter({
+        controller: createHotelbedsReconciliationController({
+            service: createHotelbedsBookingReconciliationService({
+                client: hotelbedsClient,
+                attemptStore: createHotelbedsBookingAttemptStore(),
+                env: process.env
+            })
+        }),
+        requireAdmin,
+        searchLimiter: securityService.searchLimiter
+    }));
+}
+app.use('/api/v1/admin', requireAdmin);
+app.use('/api/auth', createUserAuthRouter({
+    UserModel: User,
+    BookingModel: Booking,
+    sessions: authSessionService,
+    auth: sessionAuth,
+    verificationCodes,
+    sendVerificationEmail: (email, code) => sendProfessionalEmail(
+        email,
+        'رمز التحقق لتفعيل حسابك - رمال!',
+        `<h2 dir="rtl">الكود: ${code}</h2>`
+    ),
+    hashPassword: password => bcrypt.hash(password, 12),
+    comparePassword: (password, hash) => bcrypt.compare(password, hash),
+    authLimiter: securityService.authLimiter
+}));
+app.use('/api/user', createUserProfileRouter({ UserModel: User, BookingModel: Booking, auth: sessionAuth }));
 
 const hotelbedsSearchController = createSearchController({
     orchestrator: createSearchOrchestrator()
 });
 const hotelbedsSearchRouter = createSearchRouter({
     controller: hotelbedsSearchController,
-    verifyAPIKey,
     searchLimiter: securityService.searchLimiter
 });
-const hotelbedsBookingController = createBookingController();
+const hotelbedsRateReviewService = createHotelbedsRateReviewService({ env: process.env });
+app.use('/api/v1/hotels', createHotelbedsRateReviewRouter({
+    controller: createHotelbedsRateReviewController({ service: hotelbedsRateReviewService }),
+    requireUser,
+    bookingLimiter: securityService.bookingLimiter
+}));
+const hotelbedsBookingController = createBookingController({
+    hotelbedsBookingService: createHotelbedsBookingService({
+        rateReviewService: hotelbedsRateReviewService,
+        persistBooking: bookingRecordPersistence.persist
+    })
+});
 app.use('/api/v1/hotels', createHotelbedsPilotListRouter({
     controller: createHotelbedsPilotListController(),
-    verifyAPIKey,
     searchLimiter: securityService.searchLimiter
 }));
 app.use('/api/v1/hotels', createCheckoutSessionRouter({
@@ -206,7 +325,7 @@ app.use('/api/v1/hotels', createCheckoutSessionRouter({
             hotelbedsBookingService: createHotelbedsMockCheckoutBookingService()
         })
     }),
-    verifyAPIKey,
+    requireUser,
     bookingLimiter: securityService.bookingLimiter
 }));
 
@@ -218,7 +337,7 @@ app.use('/api/v1/hotels', createAggregateSearchRouter({
         service: createMockAggregateSearchService(),
         enabled: () => process.env.MULTI_SUPPLIER_MOCK_SEARCH_ENABLED === 'true'
     }),
-    verifyAPIKey,
+    access: 'public',
     searchLimiter: securityService.searchLimiter
 }));
 
@@ -232,14 +351,16 @@ app.use('/api/v1/hotels', createAggregateSearchRouter({
         enabled: () => liveAggregateSearchGatesEnabled(process.env),
         requiredSchemaVersion: 2
     }),
-    verifyAPIKey,
+    access: 'internal',
+    internalAuth: verifyInternalAPIKey,
     searchLimiter: securityService.searchLimiter
 }));
 
+app.use('/api/v1/admin', requireAdmin);
 app.use('/api/affiliate', createAffiliateBookingRouter({
     service: affiliateBookingService,
     securityService,
-    verifyAPIKey
+    requireUser
 }));
 
 // This mock-only route never calls a supplier and remains independent from
@@ -256,7 +377,7 @@ if (process.env.HOTELBEDS_MOCK_CERTIFICATION_ENABLED === 'true') {
 if (process.env.HOTELBEDS_AVAILABILITY_PILOT_ENABLED === 'true') {
     app.use('/api/hotelbeds', createHotelbedsAvailabilityRouter({
         service: createHotelbedsAvailabilityService(),
-        verifyAPIKey,
+        verifyAPIKey: verifyInternalAPIKey,
         searchLimiter: securityService.searchLimiter
     }));
 }
@@ -298,39 +419,7 @@ const sanitizeText = (str) => {
 // ==========================================
 // 💬 6. نظام الدردشة الفورية (Live Chat Socket.io)
 // ==========================================
-io.on('connection', (socket) => {
-    socket.on('join_chat', async (data) => {
-        const { referenceCode, clientName } = data;
-        try {
-            const booking = await Booking.findOne({ bookingReference: (referenceCode || '').trim(), customerName: new RegExp((clientName || '').trim(), 'i') });
-            if (booking) {
-                socket.join(referenceCode); activeChatRooms.add(referenceCode);
-                socket.emit('chat_joined', { success: true, message: 'تم التحقق من الحجز بنجاح. أهلاً بك.' });
-                io.to('admin_chat_room').emit('new_chat_room', { referenceCode, customerName: booking.customerName });
-            } else {
-                socket.emit('chat_joined', { success: false, message: 'عذراً، بيانات الحجز أو الاسم غير مطابقة.' });
-            }
-        } catch (e) { socket.emit('chat_joined', { success: false, message: 'حدث خطأ.' }); }
-    });
-
-    socket.on('admin_join', () => { socket.join('admin_chat_room'); socket.emit('active_rooms_list', Array.from(activeChatRooms)); });
-
-    socket.on('send_message', async (data) => {
-        const { referenceCode, sender, message } = data;
-        if(!referenceCode) return;
-        activeChatRooms.add(referenceCode);
-        io.to(referenceCode).emit('receive_message', { sender, message, time: new Date() });
-        io.to('admin_chat_room').emit('receive_message', { referenceCode, sender, message, time: new Date() });
-        
-        try {
-            const booking = await Booking.findOne({ bookingReference: referenceCode });
-            if (booking && sender !== 'الإدارة (Remal)') {
-                const adminChatEmailHtml = `<div dir="rtl" style="font-family:Cairo; padding:20px; background:#f0f8ff;"><h2>💬 استفسار شات جديد!</h2><p><b>مرجع:</b> ${booking.bookingReference}</p><p><b>العميل:</b> ${booking.customerName}</p><p><b>رسالة:</b> ${message}</p></div>`;
-                await sendProfessionalEmail(ADMIN_EMAIL, `استفسار شات جديد من ${booking.customerName}`, adminChatEmailHtml);
-            }
-        } catch (mailErr) {}
-    });
-});
+registerChatSocketHandlers(io, { BookingModel: Booking, sendEmail: sendProfessionalEmail, adminEmail: ADMIN_EMAIL });
 
 app.get('/.well-known/apple-developer-merchantid-domain-association', (req, res) => {
     res.type('text/plain'); res.send('7b2276657273696f6e223a312c227073704964223a2230363037433038433936323146303343413343384645434133434536373733323032343633453942384639453632433843453634413741433834423943344341222c22637265617465644f6e223a313735383739313636383133377d');
@@ -357,78 +446,9 @@ app.get('/api/v1/health', (req, res) => {
         uptime: process.uptime(),
         timestamp: new Date().toISOString(),
         database: DB_STATES[readyState] || 'unknown',
-        databaseState: readyState
+        databaseState: readyState,
+        revision: releaseRevision()
     });
-});
-
-app.post('/api/auth/register-send-code', async (req, res) => {
-    try {
-        const body = req.body && typeof req.body === 'object' ? req.body : {};
-        const name = String(body.name || '').trim();
-        const email = String(body.email || '').toLowerCase().trim();
-        const password = String(body.password || '');
-        const phone = String(body.phone || '').trim();
-        if (name.length < 2) {
-            return res.status(400).json({ success: false, error: 'INVALID_NAME', message: 'يرجى إدخال الاسم الكامل.' });
-        }
-        if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
-            return res.status(400).json({ success: false, error: 'INVALID_EMAIL', message: 'يرجى إدخال بريد إلكتروني صحيح.' });
-        }
-        if (password.length < 6) {
-            return res.status(400).json({ success: false, error: 'INVALID_PASSWORD', message: 'يجب أن تتكون كلمة المرور من 6 أحرف أو أكثر.' });
-        }
-        const existingUser = await User.findOne({ email });
-        if (existingUser) return res.status(400).json({ success: false, error: 'EMAIL_ALREADY_REGISTERED', message: 'هذا البريد الإلكتروني مسجل مسبقاً.' });
-        
-        const code = Math.floor(100000 + Math.random() * 900000).toString();
-        verificationCodes[email] = {
-            name,
-            email,
-            phone,
-            password: bcrypt.hashSync(password, 8),
-            code,
-            expires: Date.now() + 10 * 60000
-        };
-
-        const emailSent = await sendProfessionalEmail(email, 'رمز التحقق لتفعيل حسابك - رمال!', `<h2 dir="rtl">الكود: ${code}</h2>`);
-        if (!emailSent) {
-            delete verificationCodes[email];
-            return res.status(503).json({ success: false, error: 'VERIFICATION_EMAIL_UNAVAILABLE', message: 'تعذر إرسال البريد الإلكتروني حالياً. يرجى المحاولة مرة أخرى.' });
-        }
-        res.json({ success: true, message: 'تم إرسال كود التحقق!' });
-    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
-});
-
-app.post('/api/auth/verify-and-register', async (req, res) => {
-    try {
-        const email = (req.body.email || '').toLowerCase().trim();
-        const record = verificationCodes[email];
-        if (!record || record.code !== req.body.code || Date.now() > record.expires) return res.status(400).json({ success: false, error: 'كود غير صحيح' });
-        
-        let user = new User({ name: record.name, email, password: record.password, phone: record.phone, nationality: record.nationality, birthYear: record.birthYear, points: 500 });
-        await user.save();
-        delete verificationCodes[email];
-        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points } });
-    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
-});
-
-app.post('/api/auth/login', async (req, res) => {
-    try {
-        const email = (req.body.email || '').toLowerCase().trim();
-        let user = await User.findOne({ email });
-        if (!user || !bcrypt.compareSync(req.body.password, user.password)) return res.status(400).json({ success: false, error: 'بيانات الدخول غير صحيحة' });
-        res.json({ success: true, user: { name: user.name, email: user.email, points: user.points, phone: user.phone, savedCards: user.savedCards } });
-    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
-});
-
-app.get('/api/user/profile', async (req, res) => {
-    try {
-        const email = (req.query.email || '').toLowerCase().trim();
-        let user = await User.findOne({ email });
-        if(!user) return res.status(404).json({ success: false, error: 'المستخدم غير موجود' });
-        let bookings = await Booking.find({ email: email }).sort({ createdAt: -1 });
-        res.json({ success: true, profile: { name: user.name, email: user.email, points: user.points, phone: user.phone, savedCards: user.savedCards }, bookings });
-    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
 });
 
 // 🌍 قائمة الوجهات لقائمة البحث المنسدلة (كانت مفقودة وتُرجع 404)
@@ -441,7 +461,7 @@ app.get('/api/v1/hotels/destinations', (req, res) => {
     });
 });
 
-app.get('/api/v1/hotels/filters', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.get('/api/v1/hotels/filters', publicSearchGuard, async (req, res) => {
     try {
         const result = await ratehawkService.getFilterValues();
         return res.status(200).json({
@@ -466,7 +486,7 @@ app.get('/api/v1/hotels/filters', verifyAPIKey, securityService.searchLimiter, a
     }
 });
 
-app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.get('/api/v1/hotels/:hid', publicSearchGuard, async (req, res) => {
     const hid = String(req.params.hid || '').trim();
     const language = req.query.language || 'en';
     if (!['ar', 'en', 'es'].includes(language)) return res.status(400).json({ success: false, error: 'INVALID_LANGUAGE' });
@@ -520,7 +540,7 @@ app.get('/api/v1/hotels/:hid', verifyAPIKey, securityService.searchLimiter, asyn
     }
 });
 
-app.get('/api/hotels/:hid/live', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.get('/api/hotels/:hid/live', publicSearchGuard, async (req, res) => {
     try {
         const hotel = await ratehawkService.getSingleHotelInfo(req.params.hid);
         return res.status(200).json({ success: true, hotel });
@@ -539,7 +559,7 @@ app.get('/api/hotels/:hid/live', verifyAPIKey, securityService.searchLimiter, as
 // ==========================================
 // 🌟 9. المحرك الجديد الشامل (RateHawk + Dubai Link) مع دمج صور متعددة الخصائص
 // ==========================================
-app.post('/api/search/rates', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.post('/api/search/rates', publicSearchGuard, async (req, res) => {
     const body = req.body || {};
     const { checkin, checkout, hids, guests } = body;
     const displayLanguage = body.display_language || body.language || 'en';
@@ -557,7 +577,7 @@ app.post('/api/search/rates', verifyAPIKey, securityService.searchLimiter, async
             checkin,
             checkout,
             hids,
-            residency: body.residency || 'ae',
+            residency: body.residency,
             language: body.language || 'en',
             currency: body.currency || 'USD',
             guests
@@ -583,7 +603,7 @@ app.post('/api/search/rates', verifyAPIKey, securityService.searchLimiter, async
     }
 });
 
-app.post('/api/search/rates/geo', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.post('/api/search/rates/geo', publicSearchGuard, async (req, res) => {
     const body = req.body || {};
     const { checkin, checkout, latitude, longitude, guests } = body;
     if (latitude === undefined || latitude === null || longitude === undefined || longitude === null
@@ -602,7 +622,7 @@ app.post('/api/search/rates/geo', verifyAPIKey, securityService.searchLimiter, a
             latitude: Number(latitude),
             longitude: Number(longitude),
             radius: body.radius === undefined || body.radius === null ? 10000 : Number(body.radius),
-            residency: body.residency || 'ae',
+            residency: body.residency,
             language: body.language || 'en',
             currency: body.currency || 'USD',
             guests
@@ -697,7 +717,7 @@ async function enrichRateHotels(hotels) {
     });
 }
 
-app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.post('/api/search/rates/region', publicSearchGuard, async (req, res) => {
     const body = req.body || {};
     const { checkin, checkout, region_id: regionId, guests } = body;
     const displayLanguage = body.display_language || body.language || 'en';
@@ -717,7 +737,7 @@ app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter
             checkin,
             checkout,
             region_id: numericRegionId,
-            residency: body.residency || 'ae',
+            residency: body.residency,
             language: body.language || 'en',
             currency: body.currency || 'USD',
             guests
@@ -752,7 +772,7 @@ app.post('/api/search/rates/region', verifyAPIKey, securityService.searchLimiter
     }
 });
 
-app.get('/api/search/sort/:region_id', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.get('/api/search/sort/:region_id', publicSearchGuard, async (req, res) => {
     const parsedLimit = parseInt(req.query.limit, 10);
     const limit = Number.isInteger(parsedLimit) ? Math.min(250, Math.max(1, parsedLimit)) : 250;
     try {
@@ -773,7 +793,7 @@ app.get('/api/search/sort/:region_id', verifyAPIKey, securityService.searchLimit
     }
 });
 
-app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.get('/api/search/suggest', publicSearchGuard, async (req, res) => {
     const query = req.query.query;
     const language = req.query.language || 'en';
     const displayLanguage = req.query.display_language || language;
@@ -801,7 +821,7 @@ app.get('/api/search/suggest', verifyAPIKey, securityService.searchLimiter, asyn
     }
 });
 
-app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.post('/api/search/hotelpage', publicSearchGuard, async (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     const body = req.body || {};
     const { checkin, checkout, hid, guests, match_hash: matchHash } = body;
@@ -820,7 +840,7 @@ app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, a
             checkin,
             checkout,
             hid: numericHid,
-            residency: body.residency || 'ae',
+            residency: body.residency,
             language: body.language || 'en',
             currency: body.currency || 'USD',
             guests,
@@ -847,7 +867,7 @@ app.post('/api/search/hotelpage', verifyAPIKey, securityService.searchLimiter, a
     }
 });
 
-app.post('/api/booking/prebook', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.post('/api/booking/prebook', publicSearchGuard, async (req, res) => {
     const body = req.body || {};
     const hash = body.hash;
     if (typeof hash !== 'string' || !hash.trim()) {
@@ -892,7 +912,7 @@ app.post('/api/booking/prebook', verifyAPIKey, securityService.searchLimiter, as
     }
 });
 
-app.post('/api/booking/prebook-serp', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.post('/api/booking/prebook-serp', publicSearchGuard, async (req, res) => {
     const body = req.body || {};
     const hash = body.hash;
     if (typeof hash !== 'string' || !hash.trim()) {
@@ -939,23 +959,33 @@ app.post('/api/booking/prebook-serp', verifyAPIKey, securityService.searchLimite
 
 app.get('/api/payment/availability', (req, res) => {
     res.setHeader('Cache-Control', 'no-store');
-    res.json({ enabled: mongoose.connection.readyState === 1 && paymentService.isCheckoutReady() });
+    const enabled = paymentService.isCheckoutReady() && mongoose.connection.readyState === 1;
+    res.json({ enabled, ...(!enabled ? { reason: 'checkout_unavailable' } : {}) });
 });
 
-app.post('/api/payment/ziina/intent', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+app.post('/api/payment/ziina/intent', requireUser, securityService.bookingLimiter, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     try {
-        const result = await checkoutProcessService.createCheckout(req.body, req.get('Idempotency-Key'), req.ip);
-        return res.status(result.payment_url ? 200 : 202).json(result);
+        const result = await checkoutProcessService.createCheckout(
+            req.body || {}, req.get('Idempotency-Key'), req.ip, req.auth
+        );
+        return res.status(200).json(result);
     } catch (error) {
-        const status = [400, 409, 502, 503].includes(error.httpStatus) ? error.httpStatus : 503;
-        if (status >= 500) logger.error('Checkout preparation unavailable', { code: error.code || 'checkout_error' });
-        return res.status(status).json({ success: false, error: /^[a-z_]+$/.test(error.code) ? error.code : 'checkout_unavailable',
-            message: status === 409 ? 'تغير العرض أو لم يعد متاحاً. اختر عرضاً جديداً.'
-                : 'تعذر تجهيز الدفع. لا تعاود الدفع قبل التحقق من حالة المحاولة مع فريق الحجوزات.' });
+        const knownCode = typeof error.code === 'string' && /^[a-z][a-z0-9_]{0,79}$/.test(error.code);
+        const allowedStatuses = new Set([400, 404, 409, 429, 502, 503]);
+        const status = allowedStatuses.has(error.httpStatus) ? error.httpStatus : 503;
+        if (status === 429 && Number.isFinite(error.retry_after_ms)) {
+            res.set('Retry-After', String(Math.max(1, Math.ceil(error.retry_after_ms / 1000))));
+        }
+        logger.warn('RateHawk checkout preflight unavailable', {
+            error: knownCode ? error.code : 'checkout_unavailable'
+        });
+        return res.status(status).json({
+            success: false,
+            error: knownCode ? error.code : 'checkout_unavailable'
+        });
     }
 });
-
 app.get('/api/payment/ziina/:reference/status', (req, res) => {
     res.set('Cache-Control', 'no-store');
     res.set('Vary', 'Authorization');
@@ -966,7 +996,7 @@ app.get('/api/payment/ziina/:reference/status', (req, res) => {
     });
 });
 
-app.get('/api/search/rate/:book_hash', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.get('/api/search/rate/:book_hash', publicSearchGuard, async (req, res) => {
     const bookHash = String(req.params.book_hash || '').trim();
     const language = req.query.language || 'en';
     if (!bookHash) {
@@ -996,65 +1026,18 @@ app.get('/api/search/rate/:book_hash', verifyAPIKey, securityService.searchLimit
 
 app.use('/api/v1/hotels', hotelbedsSearchRouter);
 
-app.post('/api/v1/hotels/search', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
-    logger.info("New live secure search request received");
-    try {
-        const [rateHawkResult, dubaiLinkResult] = await Promise.allSettled([
-            ratehawkService.fetchHotelsInChunks(req.body),
-            dubailinkService.searchAvailability(req.body)
-        ]);
-
-        const rateHawkHotels = rateHawkResult.status === 'fulfilled' && rateHawkResult.value ? rateHawkResult.value : [];
-        
-        let dubaiLinkHotels = [];
-        if (dubaiLinkResult.status === 'fulfilled' && dubaiLinkResult.value) {
-            dubaiLinkHotels = Array.isArray(dubaiLinkResult.value) ? dubaiLinkResult.value : (dubaiLinkResult.value.hotelList || []);
-        }
-
-        // 🌟 الدمج السحري مع صور حقيقية غير قابلة للحظر وبخصائص متعددة
-        if (dubaiLinkHotels.length > 0) {
-            dubaiLinkHotels = await Promise.all(dubaiLinkHotels.map(async (apiHotel) => {
-                if (apiHotel && apiHotel.hotel_code) {
-                    const dbInfo = await Hotel.findOne({ hotelId: apiHotel.hotel_code.toString() });
-                    
-                    let uniqueFallbackName = apiHotel.hotel_code.toString() === '39619181' ? 'Citymax Hotel Al Barsha' : 
-                                             apiHotel.hotel_code.toString() === '38772617' ? 'Grand Excelsior Hotel' : 
-                                             `فندق دبي المميز (${apiHotel.hotel_code})`;
-
-                    if (dbInfo) {
-                        logger.info(`✅ DB Match Found for Hotel: ${apiHotel.hotel_code}`);
-                        apiHotel.hotel = dbInfo.name || uniqueFallbackName;
-                        apiHotel.city = dbInfo.city || 'دبي';
-                        const finalImage = formatHotelImage(dbInfo.image);
-                        apiHotel.image = finalImage;
-                        apiHotel.thumb = finalImage;
-                        apiHotel.photo = finalImage;
-                    } else {
-                        logger.warn(`❌ No DB Match for Hotel: ${apiHotel.hotel_code}`);
-                        apiHotel.hotel = uniqueFallbackName;
-                        apiHotel.city = 'دبي';
-                        apiHotel.image = '';
-                        apiHotel.thumb = '';
-                        apiHotel.photo = '';
-                    }
-                }
-                return apiHotel;
-            }));
-        }
-
-        const allRawHotels = [...rateHawkHotels, ...dubaiLinkHotels]; 
-        const cleanAndCheapestHotels = mappingService.deduplicateHotels(allRawHotels);
-
-        return res.status(200).json({ success: true, hotelsData: cleanAndCheapestHotels });
-    } catch (error) { 
-        logger.error("Search Error", { error: error.message });
-        res.status(500).json({ success: false, error: "Search Failed" }); 
-    }
-});
+app.post('/api/v1/hotels/search', publicSearchGuard, createLegacyMixedSearchController({
+    ratehawkService,
+    dubailinkService,
+    Hotel,
+    mappingService,
+    formatHotelImage,
+    logger
+}));
 
 // 🏨 HP-on-selection: full rooms/rates (bookable book_hash) for a single hotel the
 // user opened. SERP powers the listing; this powers the hotel details page.
-app.post('/api/v1/hotels/:hotelId/rates', verifyAPIKey, securityService.searchLimiter, async (req, res) => {
+app.post('/api/v1/hotels/:hotelId/rates', publicSearchGuard, async (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     try {
         const { hotelId } = req.params;
@@ -1073,12 +1056,15 @@ app.post('/api/v1/hotels/:hotelId/rates', verifyAPIKey, securityService.searchLi
             rooms: result.rooms
         });
     } catch (error) {
+        if (error.ratehawkError === 'invalid_params') {
+            return res.status(400).json({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: error.message });
+        }
         logger.error('Hotel rates (HP-on-selection) failed', { error: error.message });
         return res.status(500).json({ success: false, error: 'rates_error', message: 'حدث خطأ أثناء جلب أسعار الغرف.' });
     }
 });
 
-app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.bookingLimiter, async (req, res) => {
+app.post('/api/v1/hotels/recheck-and-pay', (_req, res) => {
     return res.status(410).json({ success: false, error: 'LEGACY_CHECKOUT_DISABLED', message: 'يرجى استخدام تجربة الحجز الجديدة.' });
     /*
     const { hotelId, oldPriceAED, provider, roomId } = req.body; 
@@ -1116,70 +1102,40 @@ app.post('/api/v1/hotels/recheck-and-pay', verifyAPIKey, securityService.booking
     */
 });
 
-app.post('/api/v1/hotels/book', verifyAPIKey, securityService.bookingLimiter, hotelbedsBookingController);
+app.post('/api/v1/hotels/book', requireUser, securityService.bookingLimiter, hotelbedsBookingController);
 
-app.get('/api/bookings/pdf/:reference', async (req, res) => {
-    let browser;
+app.use('/api/owned', createOwnedBookingPdfRouter({
+    BookingModel: Booking,
+    HotelbedsContentModel: HotelbedsVerifiedHotelContent,
+    hotelbedsDatabase: hotelbedsMockDatabase,
+    env: process.env,
+    puppeteer,
+    templatePath: path.join(__dirname, 'voucher-template.html'),
+    hotelbedsTemplatePath: path.join(__dirname, 'hotelbeds-voucher-template.html'),
+    requireUser,
+    requireAdmin,
+    sanitizeText
+}));
+
+// The public legacy lookup and PDF were removed; vouchers now require a live
+// user session and an owner+realm match (or an administrator session).
+app.post('/api/bookings/lookup', requireUser, (_req, res) =>
+    res.status(410).json({ success: false, error: 'legacy_booking_lookup_disabled' }));
+
+app.post('/api/v1/reviews/create', requireUser, async (req, res) => {
     try {
-        const booking = await Booking.findOne({ bookingReference: req.params.reference });
-        if(!booking) return res.status(404).send('Booking not found');
-
-        let voucherHtml = fs.readFileSync(path.join(__dirname, 'voucher-template.html'), 'utf8');
-        
-        let cleanHotelName = sanitizeText(booking.hotelName);
-
-        // 🔴 تعبئة كافة الحقول المطلوبة في القالب الفاخر
-        voucherHtml = voucherHtml
-            .replace(/{{bookingReference}}/g, booking.bookingReference)
-            .replace(/{{hotelName}}/g, cleanHotelName)
-            .replace(/{{encodedHotelName}}/g, encodeURIComponent(cleanHotelName))
-            .replace('{{customerName}}', booking.customerName || 'N/A')
-            .replace('{{customerPhone}}', booking.phone || 'N/A')
-            .replace('{{customerEmail}}', booking.email || 'N/A')
-            .replace('{{roomBed}}', booking.roomType || 'غرفة فندقية')
-            .replace('{{boardType}}', booking.boardType || 'N/A')
-            .replace('{{price}}', booking.price)
-            .replace('{{policyText}}', sanitizeText(booking.cancellationPolicy));
-
-        browser = await puppeteer.launch({ 
-            headless: true, 
-            executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath(),
-            args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage'] 
-        });
-        
-        const page = await browser.newPage();
-        await page.setContent(voucherHtml, { waitUntil: 'networkidle0' });
-
-        const pdfBuffer = await page.pdf({ format: 'A4', printBackground: true, margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' } });
-        res.setHeader('Content-Type', 'application/pdf');
-        res.setHeader('Content-Disposition', `inline; filename=Rimal-Voucher-${booking.bookingReference}.pdf`);
-        res.send(pdfBuffer);
-    } catch (e) { 
-        res.status(500).send('Error generating PDF'); 
-    } finally { 
-        if (browser) await browser.close(); 
-    }
-});
-
-app.post('/api/v1/reviews/create', async (req, res) => {
-    try {
-        const { email, customerName, hotelName, rating, comment } = req.body;
-        const newReview = new Review({ hotelName, customerName, email: email.toLowerCase().trim(), rating: Number(rating), comment });
+        const { hotelName, rating, comment } = req.body || {};
+        const user = await User.findById(req.auth.subject).lean();
+        if (!user) return res.status(401).json({ success: false, error: 'unauthorized' });
+        const newReview = new Review({ hotelName, customerName: user.name, email: user.email,
+            rating: Number(rating), comment });
         await newReview.save();
         res.status(201).json({ success: true, message: 'تم الإضافة بنجاح!' });
-    } catch (error) { res.status(500).json({ success: false, error: error.message }); }
-});
-
-app.get('/api/v1/admin/stats', async (req, res) => {
-    try {
-        const totalBookings = await Booking.countDocuments();
-        const activeBookings = await Booking.countDocuments({ status: 'active' });
-        res.json({ success: true, stats: { totalBookings, activeBookings } });
     } catch (error) { res.status(500).json({ success: false }); }
 });
 
 // 📊 مراقبة حدود RateHawk API الحية (Rate Limits) — لفريق العمليات
-app.get('/api/v1/admin/ratehawk-limits', verifyAPIKey, async (req, res) => {
+app.get('/api/v1/admin/ratehawk-limits', requireAdmin, async (req, res) => {
     try {
         // Array of { endpoint, is_active, is_limited, requests_number, seconds_number }
         const limits = await ratehawkService.getApiOverview();
@@ -1190,7 +1146,7 @@ app.get('/api/v1/admin/ratehawk-limits', verifyAPIKey, async (req, res) => {
     }
 });
 
-app.get('/api/v1/admin/logs/:partnerOrderId', verifyAPIKey, (req, res) => {
+app.get('/api/v1/admin/logs/:partnerOrderId', requireAdmin, (req, res) => {
     const partnerOrderId = String(req.params.partnerOrderId || '').trim();
     if (!partnerOrderId || partnerOrderId.length > 200) {
         return res.status(400).json({ success: false, error: 'invalid_partner_order_id' });

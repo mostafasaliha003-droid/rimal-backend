@@ -163,6 +163,32 @@ test('mTLS configuration accepts only the documented test host and resolves rela
     assert.equal(require('node:path').isAbsolute(relative.baseUrl), false);
 });
 
+test('mTLS configuration prefers environment PEM contents and expands escaped newlines', () => {
+    let fileReads = 0;
+    const certContent = '-----BEGIN CERTIFICATE-----\\nfixture-cert\\n-----END CERTIFICATE-----';
+    const keyContent = '-----BEGIN PRIVATE KEY-----\\nfixture-key\\n-----END PRIVATE KEY-----';
+    const config = clientModule.configurationFrom({
+        ...credentials,
+        HOTELBEDS_MTLS_CERT_CONTENT: certContent,
+        HOTELBEDS_MTLS_KEY_CONTENT: keyContent
+    }, { readFileSync: () => { fileReads += 1; throw new Error('file_fallback_not_expected'); } });
+
+    assert.equal(config.cert, certContent.replace(/\\n/g, '\n'));
+    assert.equal(config.key, keyContent.replace(/\\n/g, '\n'));
+    assert.equal(fileReads, 0);
+});
+
+test('mTLS configuration rejects partial environment PEM content without reading files', () => {
+    let fileReads = 0;
+    assert.throws(() => clientModule.configurationFrom({
+        ...credentials,
+        HOTELBEDS_MTLS_CERT_CONTENT: '-----BEGIN CERTIFICATE-----\\nfixture-cert',
+        HOTELBEDS_MTLS_KEY_CONTENT: ''
+    }, { readFileSync: () => { fileReads += 1; return Buffer.from('fixture'); } }),
+    error => error.code === 'hotelbeds_mtls_certificate_unavailable');
+    assert.equal(fileReads, 0);
+});
+
 test('fails closed when disabled, production is requested, or credentials are missing', async () => {
     let outboundCalls = 0;
     const makeClient = env => clientModule.createHotelbedsClient({
@@ -333,8 +359,35 @@ test('separate Content API client signs and bounds a static hotel page request',
     assert.equal(captured.timeout, 60000);
 });
 
+test('Content API client requests the official Categories dictionary endpoint with codes filter', async () => {
+    let captured;
+    const client = contentClientModule.createHotelbedsContentClient({
+        http: { request: async config => {
+            captured = config;
+            return { status: 200, data: { categories: [{ code: '4EST' }] } };
+        } },
+        requestLimiter: { acquire: async () => {} },
+        env: credentials,
+        now: () => 1700000000000,
+        log: { logEtgExchange() {} }
+    });
+
+    const result = await client.getCategoriesPage({
+        language: 'eng', from: 1, to: 1, fields: 'all', codes: ['4EST']
+    });
+
+    assert.equal(result.ok, true);
+    assert.equal(captured.url, `https://api.test.hotelbeds.com${contentClientModule.HOTEL_CATEGORIES_PATH}`);
+    assert.deepEqual(captured.params, {
+        fields: 'all', language: 'ENG', from: 1, to: 1, codes: '4EST'
+    });
+});
+
 test('Content API page builder rejects oversized or invalid pages and impossible dates', () => {
     assert.throws(() => contentClientModule.buildHotelContentQuery({ language: 'en', from: 1, to: 1001 }), /hotelbeds_content_query_invalid/);
     assert.throws(() => contentClientModule.buildHotelContentQuery({ language: 'en', from: 2, to: 1 }), /hotelbeds_content_query_invalid/);
     assert.throws(() => contentClientModule.buildHotelContentQuery({ language: 'en', from: 1, to: 1, lastUpdateTime: '2026-02-30' }), /hotelbeds_content_last_update_invalid/);
+    assert.throws(() => contentClientModule.buildHotelContentQuery({
+        language: 'en', from: 1, to: 1, codes: [1, '1']
+    }), /hotelbeds_content_codes_invalid/);
 });

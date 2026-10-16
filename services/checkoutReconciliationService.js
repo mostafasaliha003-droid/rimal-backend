@@ -9,6 +9,7 @@ const checkout = require('./checkoutProcessService');
 const ratehawk = require('./ratehawkService');
 const notification = require('./notificationService');
 const logger = require('./loggerService');
+const bookingPersistence = require('./ratehawkCheckoutBookingPersistence');
 
 const RECONCILE_STATES = [
     'preparing', 'intent_creating', 'awaiting_payment', 'payment_verified', 'booking_pending',
@@ -132,6 +133,13 @@ async function reconcileBooking(record) {
         }
     }
     if (result.status === 'confirmed' && result.partner_order_id) {
+        try {
+            await bookingPersistence.persistConfirmedCheckout({ ...record, partner_order_id: result.partner_order_id });
+        } catch {
+            await releaseClaim(record, { state: 'booking_confirmed', partner_order_id: result.partner_order_id,
+                notification_status: 'record_pending', action_required: 'persist_confirmed_booking', next_check_at: followUp(60000) });
+            return;
+        }
         let notification;
         try {
             notification = contactDetails(record);
@@ -393,7 +401,8 @@ async function reconcileAttempt(id) {
     } else if (['payment_verified', 'booking_pending'].includes(claimed.state)) {
         await reconcileBooking(claimed);
     } else if (claimed.state === 'booking_confirmed') {
-        await reconcileConfirmation(claimed);
+        if (claimed.notification_status === 'record_pending') await reconcileBooking(claimed);
+        else await reconcileConfirmation(claimed);
     } else if (claimed.state === 'refund_completed') {
         await reconcileRefundNotification(claimed);
     } else {

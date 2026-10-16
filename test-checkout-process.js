@@ -3,7 +3,10 @@ const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
 const mongoose = require('mongoose');
 const store = require('./models/CheckoutAttempt');
-const checkout = require('./services/checkoutProcessService');
+const checkoutService = require('./services/checkoutProcessService');
+const checkout = { ...checkoutService, createCheckout(input, key, ip, identity = {
+    role: 'user', subject: 'fixture-owner', realm: process.env.RIMAL_AUTH_REALM || 'fixture-staging'
+}) { return checkoutService.createCheckout(input, key, ip, identity); } };
 const booking = require('./services/bookingProcessService');
 const ratehawk = require('./services/ratehawkService');
 const payment = require('./services/paymentService');
@@ -121,6 +124,11 @@ test('preflight persists an encrypted, idempotent checkout and refuses changed r
     assert.equal(form.mock.callCount(), 1);
     assert.equal(createIntent.mock.callCount(), 1);
     assert.equal(scenario.record.partner_order_id, 'partner-1');
+    assert.equal(scenario.record.ownerSubject, 'fixture-owner');
+    await assert.rejects(checkoutService.createCheckout(details(), key, '192.0.2.10'), /unauthorized/);
+    await assert.rejects(checkout.createCheckout(details(), key, '192.0.2.10', {
+        role: 'user', subject: 'other-owner', realm: scenario.record.realm
+    }), /checkout_conflict/);
     assert.equal(scenario.record.supplier_identity, payment.supplierIdentity());
     assert.equal(JSON.stringify(scenario.record).includes('test@example.com'), false);
     assert.equal(checkout.decryptDetails(scenario.record).user.email, 'test@example.com');

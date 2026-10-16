@@ -6,6 +6,38 @@ const mongoose = require('mongoose');
 const store = require('./models/CheckoutAttempt');
 const webhook = require('./services/ziinaWebhookService');
 
+test('real Ziina webhook fails closed unless explicitly configured', async context => {
+    const oldEnabled = process.env.ZIINA_WEBHOOK_CONFIGURED;
+    delete process.env.ZIINA_WEBHOOK_CONFIGURED;
+    const descriptor = Object.getOwnPropertyDescriptor(mongoose.connection, 'readyState');
+    Object.defineProperty(mongoose.connection, 'readyState', { configurable: true, get: () => 1 });
+    context.after(() => {
+        if (oldEnabled === undefined) delete process.env.ZIINA_WEBHOOK_CONFIGURED;
+        else process.env.ZIINA_WEBHOOK_CONFIGURED = oldEnabled;
+        if (descriptor) Object.defineProperty(mongoose.connection, 'readyState', descriptor);
+        else delete mongoose.connection.readyState;
+    });
+
+    const update = context.mock.method(store, 'updateOne', async () => ({ matchedCount: 1 }));
+    const headers = {};
+    const response = {
+        set(name, value) { headers[name] = value; return this; },
+        statusCode: 200,
+        status(value) { this.statusCode = value; return this; },
+        json(value) { this.body = value; return this; }
+    };
+    await webhook.receiveZiinaWebhook({
+        body: Buffer.from('{}'),
+        get() { return ''; },
+        ip: '127.0.0.1'
+    }, response);
+
+    assert.equal(response.statusCode, 503);
+    assert.deepEqual(response.body, { received: false });
+    assert.equal(headers['Cache-Control'], 'no-store');
+    assert.equal(update.mock.callCount(), 0);
+});
+
 test('signed Ziina webhooks wake durable records without accepting reported payment state', async context => {
     const oldSecret = process.env.ZIINA_WEBHOOK_SECRET;
     const oldEnabled = process.env.ZIINA_WEBHOOK_CONFIGURED;

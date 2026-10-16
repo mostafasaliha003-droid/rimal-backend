@@ -7,6 +7,7 @@ const OFFER_CACHE_PROVIDERS = Object.freeze(['hotelbeds', 'ratehawk']);
 
 const offerCacheSchema = new mongoose.Schema({
     schemaVersion: { type: Number, enum: [1, 2], required: true, default: 1, immutable: true },
+    publicReviewOffer: { type: mongoose.Schema.Types.Mixed, default: undefined, select: false, immutable: true },
     origin: {
         type: String,
         enum: ['mock_fixture', 'live'],
@@ -27,6 +28,11 @@ const offerCacheSchema = new mongoose.Schema({
         enum: OFFER_CACHE_PROVIDERS,
         immutable: true
     },
+    termsVersion: { type: String, default: undefined, immutable: true, select: false, match: /^[a-f\d]{64}$/i },
+    realm: { type: String, immutable: true, select: false, match: /^[a-z0-9:_-]{1,100}$/i },
+    environment: { type: String, immutable: true, select: false, enum: ['test', 'live'] },
+    accountId: { type: String, immutable: true, select: false, match: /^[a-f\d]{64}$/i },
+    bookingMetadata: { type: mongoose.Schema.Types.Mixed, immutable: true, select: false },
     providerHotelCode: {
         type: String,
         required: true,

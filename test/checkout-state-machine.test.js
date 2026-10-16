@@ -13,6 +13,7 @@ const createCheckoutSessionController = require('../controllers/checkoutSessionC
 const createCheckoutSessionRouter = require('../services/checkoutSessionRoutes');
 const { createHotelbedsMockCheckoutBookingService } = require('../services/hotelbedsMockCheckoutBookingService');
 const { createMockHotelCheckoutPaymentController } = require('../controllers/mockHotelCheckoutPaymentController');
+const { hotelbedsScopeFrom } = require('../services/hotelbedsScope');
 const {
     createMockWebhookSignature,
     createZiinaWebhookHandler
@@ -24,6 +25,8 @@ const SESSION_ID = '11111111-2222-4333-8444-555555555555';
 const PAYMENT_INTENT_ID = 'mock_11111111222243338444555555555555';
 const ENCRYPTION_KEY = 'ab'.repeat(32);
 const WEBHOOK_SECRET = 'checkout-mock-webhook-secret-'.padEnd(40, 'x');
+const TERMS_VERSION = 'e'.repeat(64);
+const FIXTURE_SCOPE = hotelbedsScopeFrom({}, { testOnly: true });
 const GUEST_DETAILS = Object.freeze({
     firstName: 'Ada',
     lastName: 'Lovelace',
@@ -51,12 +54,14 @@ function activeOffer({ paymentType = 'AT_WEB', rateType = 'RECHECK', expiresAt =
         publicOfferId: PUBLIC_OFFER_ID,
         provider: 'hotelbeds',
         origin: 'mock_fixture',
+        ...FIXTURE_SCOPE,
         providerHotelCode: '74001',
         opaqueToken: 'private-rate-key-fixture',
         lockedNetPrice: '200.00',
         currency: 'EUR',
         lockedSellAmount: '495.25',
         lockedSellCurrency: 'AED',
+        termsVersion: TERMS_VERSION,
         paymentType,
         rateType,
         roomCount: 1,
@@ -209,6 +214,8 @@ test('CheckoutSession is durable, strict, and has no TTL index', () => {
     assert.ok(CheckoutSession.schema.path('publicOfferId'));
     assert.ok(CheckoutSession.schema.path('providerOfferRef'));
     assert.equal(CheckoutSession.schema.path('providerOfferRef').options.select, false);
+    assert.equal(CheckoutSession.schema.path('acceptedTermsVersion').options.select, false);
+    assert.equal(CheckoutSession.schema.path('termsAcceptedAt').options.select, false);
     assert.ok(CheckoutSession.schema.path('totalAmount'));
     assert.ok(CheckoutSession.schema.path('guestDetailsEncrypted'));
     assert.ok(CheckoutSession.schema.path('status'));
@@ -228,7 +235,35 @@ test('CheckoutSession is durable, strict, and has no TTL index', () => {
     assert.equal(CheckoutSession.schema.indexes().some(([, options]) =>
         Object.hasOwn(options || {}, 'expireAfterSeconds')), false);
     const valid = new CheckoutSession({
+        ...FIXTURE_SCOPE,
+        ownerSubject: 'test-fixture-owner',
         sessionId: SESSION_ID,
+        publicOfferId: PUBLIC_OFFER_ID,
+        provider: 'hotelbeds',
+        offerOrigin: 'mock_fixture',
+        providerOfferRef: 'private-rate-key',
+        providerHotelCode: '74001',
+        totalAmount: 49525,
+        currency: 'AED',
+        offerExpiresAt: new Date(NOW.getTime() + OFFER_TTL_MS),
+        paymentProvider: 'mock',
+        paymentType: 'AT_WEB',
+        acceptedTermsVersion: TERMS_VERSION,
+        termsAcceptedAt: new Date(NOW),
+        guestDetailsEncrypted: { iv: 'a'.repeat(24), tag: 'b'.repeat(32), ciphertext: 'YQ==' },
+        rateType: 'RECHECK',
+        lockedNetPrice: '200.00',
+        lockedNetCurrency: 'EUR',
+        occupancy: { rooms: 1, adults: 2, children: 0 },
+        idempotencyKeyHash: 'c'.repeat(64),
+        requestFingerprint: 'd'.repeat(64),
+        status: 'awaiting_payment'
+    });
+    assert.equal(valid.validateSync(), undefined);
+    const withoutTermsAcceptance = new CheckoutSession({
+        ...FIXTURE_SCOPE,
+        ownerSubject: 'test-fixture-owner',
+        sessionId: '22222222-3333-4333-8333-222222222222',
         publicOfferId: PUBLIC_OFFER_ID,
         provider: 'hotelbeds',
         offerOrigin: 'mock_fixture',
@@ -248,7 +283,7 @@ test('CheckoutSession is durable, strict, and has no TTL index', () => {
         requestFingerprint: 'd'.repeat(64),
         status: 'awaiting_payment'
     });
-    assert.equal(valid.validateSync(), undefined);
+    assert.equal(withoutTermsAcceptance.validateSync().errors.acceptedTermsVersion.kind, 'required');
     assert.throws(() => new CheckoutSession({ unexpected: true }), /not in schema/);
 });
 
@@ -257,26 +292,22 @@ test('checkout creates a server-priced mock intent, encrypts guests, and is idem
     const { service, calls } = makeCheckoutService();
     const app = express();
     app.use(express.json());
-    const verifyFixtureApiKey = (req, res, next) => {
-        if (req.get('x-api-key') !== 'checkout-fixture-key') return res.status(403).json({ success: false });
-        next();
-    };
     app.use('/api/v1/hotels', createCheckoutSessionRouter({
         controller: createCheckoutSessionController({ service }),
         statusController: createCheckoutSessionController.createStatusController({ service }),
-        verifyAPIKey: verifyFixtureApiKey,
+        requireUser: (req, _res, next) => { req.auth = { subject: 'test-fixture-owner' }; next(); },
         bookingLimiter: (_req, _res, next) => next()
     }));
 
     await withCheckoutHttpServer(app, async baseUrl => {
-        const request = () => fetch(`${baseUrl}/api/v1/hotels/checkout`, {
+        const request = (acceptedTermsVersion = activeOffer().termsVersion) => fetch(`${baseUrl}/api/v1/hotels/checkout`, {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Idempotency-Key': 'checkout-test-idempotency-0001',
-                'x-api-key': 'checkout-fixture-key'
+                'Idempotency-Key': 'checkout-test-idempotency-0001'
             },
-            body: JSON.stringify({ publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS })
+            body: JSON.stringify({ publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS,
+                termsAccepted: true, acceptedTermsVersion })
         });
         const first = await request();
         const body = await first.json();
@@ -287,6 +318,11 @@ test('checkout creates a server-priced mock intent, encrypts guests, and is idem
         assert.equal(body.status, 'awaiting_payment');
         assert.equal(body.totalAmount, 49525);
         assert.equal(body.currency, 'AED');
+
+        const staleReplay = await request('f'.repeat(64));
+        assert.equal(staleReplay.status, 409);
+        assert.equal((await staleReplay.json()).error, 'checkout_terms_acceptance_required');
+        assert.equal(calls.intents, 1, 'stale terms replay must not create another payment intent');
         assert.equal(body.payment_url, `https://pay.example.test/mock/${SESSION_ID}`);
         assert.equal(JSON.stringify(body).includes('private-rate-key-fixture'), false);
         assert.equal(JSON.stringify(body).includes(GUEST_DETAILS.email), false);
@@ -316,6 +352,8 @@ test('checkout creates a server-priced mock intent, encrypts guests, and is idem
         assert.equal(session.totalAmount, 49525);
         assert.equal(session.lockedNetPrice, '200.00');
         assert.equal(session.lockedNetCurrency, 'EUR');
+        assert.equal(session.acceptedTermsVersion, TERMS_VERSION);
+        assert.ok(session.termsAcceptedAt instanceof Date);
         assert.equal(session.providerOfferRef, 'private-rate-key-fixture');
         assert.equal(Object.hasOwn(session.guestDetailsEncrypted, 'email'), false);
         assert.deepEqual(decryptGuestDetails(session.guestDetailsEncrypted, approvedEnv()), GUEST_DETAILS);
@@ -330,21 +368,45 @@ test('checkout creates a server-priced mock intent, encrypts guests, and is idem
 
 test('checkout rejects pay-at-hotel rates, missing final AED sell price, and unapproved gates', async context => {
     MemoryCheckoutSessionModel.reset();
-    const atHotel = makeCheckoutService({ offer: activeOffer({ paymentType: 'AT_HOTEL' }) });
+    const atHotelOffer = activeOffer({ paymentType: 'AT_HOTEL' });
+    const atHotel = makeCheckoutService({ offer: atHotelOffer });
     await assert.rejects(atHotel.service.createSession({
-        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, idempotencyKey: 'checkout-test-idempotency-0002'
+        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, termsAccepted: true,
+        acceptedTermsVersion: atHotelOffer.termsVersion, idempotencyKey: 'checkout-test-idempotency-0002'
     }), error => error.code === 'checkout_payment_flow_unsupported');
 
-    const noSellPrice = makeCheckoutService({ offer: { ...activeOffer(), lockedSellAmount: null } });
+    const noSellPriceOffer = { ...activeOffer(), lockedSellAmount: null };
+    const noSellPrice = makeCheckoutService({ offer: noSellPriceOffer });
     await assert.rejects(noSellPrice.service.createSession({
-        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, idempotencyKey: 'checkout-test-idempotency-0003'
+        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, termsAccepted: true,
+        acceptedTermsVersion: noSellPriceOffer.termsVersion, idempotencyKey: 'checkout-test-idempotency-0003'
     }), error => error.code === 'checkout_offer_price_unavailable');
 
     const env = { ...approvedEnv(), HOTELBEDS_PREPAID_CHECKOUT_ENABLED: 'false' };
     const disabled = makeCheckoutService({ env });
     await assert.rejects(disabled.service.createSession({
-        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, idempotencyKey: 'checkout-test-idempotency-0004'
+        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, termsAccepted: true,
+        acceptedTermsVersion: activeOffer().termsVersion, idempotencyKey: 'checkout-test-idempotency-0004'
     }), error => error.code === 'hotelbeds_prepaid_checkout_disabled');
+});
+
+test('checkout rejects missing or stale terms consent before creating a payment intent', async () => {
+    for (const consent of [
+        {},
+        { termsAccepted: false, acceptedTermsVersion: activeOffer().termsVersion },
+        { termsAccepted: true, acceptedTermsVersion: 'f'.repeat(64) }
+    ]) {
+        MemoryCheckoutSessionModel.reset();
+        const { service, calls } = makeCheckoutService();
+        await assert.rejects(service.createSession({
+            publicOfferId: PUBLIC_OFFER_ID,
+            guestDetails: GUEST_DETAILS,
+            idempotencyKey: 'checkout-test-terms-rejection-0001',
+            ...consent
+        }), error => error.code === 'checkout_terms_acceptance_required' && error.httpStatus === 409);
+        assert.equal(calls.intents, 0);
+        assert.equal(MemoryCheckoutSessionModel.records.size, 0);
+    }
 });
 
 test('checkout session survives OfferCache expiry while returning status is independently protected', async context => {
@@ -353,13 +415,16 @@ test('checkout session survives OfferCache expiry while returning status is inde
     const offer = activeOffer({ expiresAt: new Date(NOW.getTime() + OFFER_TTL_MS) });
     const { service, calls } = makeCheckoutService({ now: () => currentTime, offer });
     const first = await service.createSession({
-        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, idempotencyKey: 'checkout-test-idempotency-0005'
+        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, termsAccepted: true,
+        acceptedTermsVersion: offer.termsVersion, idempotencyKey: 'checkout-test-idempotency-0005'
     });
     currentTime = new Date(NOW.getTime() + OFFER_TTL_MS + 1);
     await assert.rejects(service.getSession(first.sessionId, '0'.repeat(64)), error => error.code === 'checkout_session_not_found');
     const resumed = await service.createSession({
         publicOfferId: PUBLIC_OFFER_ID,
         guestDetails: GUEST_DETAILS,
+        termsAccepted: true,
+        acceptedTermsVersion: TERMS_VERSION,
         idempotencyKey: 'checkout-test-idempotency-0005'
     });
     assert.equal(resumed.sessionId, first.sessionId);
@@ -372,7 +437,8 @@ test('valid signed mock payment confirms one booking and duplicate webhooks neve
     MemoryCheckoutSessionModel.reset();
     const { service, env } = makeCheckoutService();
     const checkout = await service.createSession({
-        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, idempotencyKey: 'checkout-test-idempotency-0006'
+        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, termsAccepted: true,
+        acceptedTermsVersion: TERMS_VERSION, idempotencyKey: 'checkout-test-idempotency-0006'
     });
     const booking = bookingFixture(context);
     const bookingService = createHotelbedsMockCheckoutBookingService({
@@ -415,6 +481,8 @@ test('valid signed mock payment confirms one booking and duplicate webhooks neve
         assert.equal(duplicate.status, 200);
         const record = MemoryCheckoutSessionModel.records.get(checkout.sessionId);
         assert.equal(record.status, 'confirmed');
+        assert.equal(record.acceptedTermsVersion, TERMS_VERSION);
+        assert.ok(record.termsAcceptedAt instanceof Date);
         assert.equal(record.bookingReference, 'HBX-CONFIRMED-FIXTURE');
         assert.equal(booking.calls, 1);
     }, context);
@@ -426,6 +494,8 @@ test('session-authorized mock payment endpoint signs server-owned amount and nev
     const checkout = await service.createSession({
         publicOfferId: PUBLIC_OFFER_ID,
         guestDetails: GUEST_DETAILS,
+        termsAccepted: true,
+        acceptedTermsVersion: TERMS_VERSION,
         idempotencyKey: 'checkout-test-idempotency-ui-mock-001'
     });
     let bookingCalls = 0;
@@ -449,15 +519,13 @@ test('session-authorized mock payment endpoint signs server-owned amount and nev
         now: () => NOW.getTime(),
         enabled: () => true
     });
-    const verifyFixtureApiKey = (req, res, next) => req.get('x-api-key') === 'checkout-fixture-key'
-        ? next() : res.status(403).json({ success: false });
     const app = express();
     app.use(express.json());
     app.use('/api/v1/hotels', createCheckoutSessionRouter({
         controller: (_req, res) => res.sendStatus(200),
         statusController: createCheckoutSessionController.createStatusController({ service }),
         mockPaymentController,
-        verifyAPIKey: verifyFixtureApiKey
+        requireUser: (req, _res, next) => { req.auth = { subject: 'test-fixture-owner' }; next(); }
     }));
 
     await withCheckoutHttpServer(app, async baseUrl => {
@@ -466,7 +534,6 @@ test('session-authorized mock payment endpoint signs server-owned amount and nev
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': 'checkout-fixture-key',
                 Authorization: `Bearer ${'0'.repeat(64)}`
             },
             body: JSON.stringify({ action: 'complete' })
@@ -478,7 +545,6 @@ test('session-authorized mock payment endpoint signs server-owned amount and nev
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': 'checkout-fixture-key',
                 Authorization: `Bearer ${checkout.access_token}`
             },
             // These untrusted fields must have no effect; only action is accepted.
@@ -554,15 +620,13 @@ test('checkout mock-payment HTTP route authenticates the session then runs the s
         now: () => NOW.getTime(),
         enabled: () => true
     });
-    const verifyFixtureApiKey = (req, res, next) => req.get('x-api-key') === 'checkout-fixture-key'
-        ? next() : res.status(403).json({ success: false });
     const app = express();
     app.use(express.json());
     app.use('/api/v1/hotels', createCheckoutSessionRouter({
         controller: createCheckoutSessionController({ service }),
         statusController: createCheckoutSessionController.createStatusController({ service }),
         mockPaymentController,
-        verifyAPIKey: verifyFixtureApiKey
+        requireUser: (req, _res, next) => { req.auth = { subject: 'test-fixture-owner' }; next(); }
     }));
 
     await withCheckoutHttpServer(app, async baseUrl => {
@@ -570,10 +634,10 @@ test('checkout mock-payment HTTP route authenticates the session then runs the s
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'Idempotency-Key': 'checkout-test-ui-mock-payment-0001',
-                'x-api-key': 'checkout-fixture-key'
+                'Idempotency-Key': 'checkout-test-ui-mock-payment-0001'
             },
-            body: JSON.stringify({ publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS })
+            body: JSON.stringify({ publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS,
+                termsAccepted: true, acceptedTermsVersion: TERMS_VERSION })
         });
         const created = await createdResponse.json();
         assert.equal(createdResponse.status, 201);
@@ -584,7 +648,6 @@ test('checkout mock-payment HTTP route authenticates the session then runs the s
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                'x-api-key': 'checkout-fixture-key',
                 Authorization: `Bearer ${created.access_token}`
             },
             body: JSON.stringify({ action: 'complete', amount: 1, currency: 'USD', status: 'failed' })
@@ -613,7 +676,8 @@ test('a strictly changed RECHECK price enters refund_review and is never retried
     MemoryCheckoutSessionModel.reset();
     const { service, env } = makeCheckoutService();
     const checkout = await service.createSession({
-        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, idempotencyKey: 'checkout-test-idempotency-0007'
+        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, termsAccepted: true,
+        acceptedTermsVersion: TERMS_VERSION, idempotencyKey: 'checkout-test-idempotency-0007'
     });
     const booking = bookingFixture(context);
     const mockBooking = createHotelbedsMockCheckoutBookingService({
@@ -645,7 +709,8 @@ test('an awaited payment after offer expiry is refunded for review and never rea
     MemoryCheckoutSessionModel.reset();
     const { service, env } = makeCheckoutService();
     const checkout = await service.createSession({
-        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, idempotencyKey: 'checkout-test-idempotency-0009'
+        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, termsAccepted: true,
+        acceptedTermsVersion: TERMS_VERSION, idempotencyKey: 'checkout-test-idempotency-0009'
     });
     const booking = bookingFixture(context);
     const handler = createTestWebhookHandler({
@@ -694,7 +759,8 @@ test('invalid HMAC and stale timestamps do not verify or start booking', async c
     MemoryCheckoutSessionModel.reset();
     const { service, env } = makeCheckoutService();
     await service.createSession({
-        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, idempotencyKey: 'checkout-test-idempotency-0008'
+        publicOfferId: PUBLIC_OFFER_ID, guestDetails: GUEST_DETAILS, termsAccepted: true,
+        acceptedTermsVersion: TERMS_VERSION, idempotencyKey: 'checkout-test-idempotency-0008'
     });
     const booking = bookingFixture(context);
     const handler = createTestWebhookHandler({ Model: MemoryCheckoutSessionModel, hotelbedsBookingService: booking.bookingService, env, now: () => NOW });

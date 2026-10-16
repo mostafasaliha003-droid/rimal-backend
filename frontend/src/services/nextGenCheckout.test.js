@@ -22,6 +22,7 @@ const offer = (overrides = {}) => ({
     provider: 'hotelbeds',
     paymentFlow: 'PAY_NOW',
     publicOfferId: offerId,
+    termsVersion: 'c'.repeat(64),
     occupancy: { rooms: 1, adults: 2, children: 0 },
     price: { amount: '495.25', currency: 'AED' },
     ...overrides
@@ -61,6 +62,8 @@ test('checkout eligibility requires pay-now, an opaque public ID, and supported 
     assert.equal(canCreateHotelbedsCheckout(offer({ occupancy: { rooms: 2, adults: 2, children: 0 } })), false);
     assert.equal(canCreateHotelbedsCheckout(offer({ occupancy: { rooms: 1, adults: 2, children: 1 } })), false);
     assert.equal(canStartPrepaidCheckout(offer({ publicOfferId: 'not-a-public-id' })), false);
+    assert.equal(canStartPrepaidCheckout(offer({ termsVersion: undefined })), false);
+    assert.equal(canStartPrepaidCheckout(offer({ termsVersion: 'stale' })), false);
     assert.equal(checkoutIdempotencyStorageKey(offerId), `remal_nextgen_checkout_idempotency:${offerId}`);
     assert.equal(checkoutIdempotencyStorageKey('net'), null);
 });

@@ -169,12 +169,15 @@ test('CORS preflight permits the public site and known local preview origins', a
     for (const origin of ['https://remalbookings.com', 'https://www.remalbookings.com', 'http://127.0.0.1:5178', 'http://localhost:5178', 'http://localhost:5173']) {
         const response = await fetch(`${base}/api/search/suggest?query=DUBAI&language=ar`, {
             method: 'OPTIONS',
-            headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'content-type,x-api-key' }
+            headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'content-type,authorization,idempotency-key' }
         });
         assert.equal(response.status, 204, origin);
         assert.equal(response.headers.get('access-control-allow-origin'), origin);
+        const allowedHeaders = response.headers.get('access-control-allow-headers');
+        assert.match(allowedHeaders, /authorization/i);
+        assert.match(allowedHeaders, /idempotency-key/i);
+        assert.doesNotMatch(allowedHeaders, /x-api-key/i);
         assert.equal(response.headers.get('access-control-allow-credentials'), 'true');
-        assert.match(response.headers.get('access-control-allow-headers'), /x-api-key/i);
         assert.match(response.headers.get('vary'), /origin/i);
         const actual = await fetch(`${base}/api/missing`, { headers: { Origin: origin } });
         assert.equal(actual.headers.get('access-control-allow-origin'), origin);
@@ -186,7 +189,7 @@ test('CORS rejects untrusted domains, misleading hostnames and unapproved ports'
     for (const origin of ['https://untrusted.example', 'https://www.remalbookings.com.untrusted.example', 'http://127.0.0.1:9999', 'http://localhost.untrusted.example:5178']) {
         const response = await fetch(`${base}/api/search/suggest`, {
             method: 'OPTIONS',
-            headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'x-api-key' }
+            headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization' }
         });
         assert.equal(response.status, 403, origin);
         assert.equal(response.headers.get('access-control-allow-origin'), null);

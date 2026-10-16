@@ -31,6 +31,7 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
     const [busy, setBusy] = useState(false);
     const [error, setError] = useState('');
     const [validation, setValidation] = useState('');
+    const [acceptedTerms, setAcceptedTerms] = useState(false);
     const price = formatAedPrice(offer?.price?.amount, offer?.price?.currency);
     const stay = useMemo(() => offer?.stay || {}, [offer]);
     const labels = {
@@ -45,6 +46,8 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
         stay: t('nextgen.stay', 'الإقامة'),
         total: t('nextgen.total', 'إجمالي الإقامة'),
         secure: t('nextgen.secure', 'بيانات الضيوف مشفرة عند حفظها، والسعر مثبت من الخادم.'),
+        terms: t('nextgen.termsAcceptance', 'أؤكد أنني راجعت السعر الإجمالي والضرائب والرسوم الإضافية وشروط الإلغاء والعرض أعلاه.'),
+        termsRequired: t('nextgen.termsAcceptanceRequired', 'يرجى مراجعة الشروط وقبولها قبل المتابعة.'),
         continue: t('nextgen.continuePayment', 'المتابعة إلى الدفع التجريبي'),
         preparing: t('nextgen.preparingPayment', 'جار تجهيز جلسة الدفع...'),
         unavailable: t('nextgen.paymentUnavailable', 'الدفع المسبق غير متاح لهذا العرض.'),
@@ -65,6 +68,10 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
         setError('');
         setValidation('');
         const details = normalizeCheckoutGuestDetails({ ...guest, additionalGuests });
+        if (!acceptedTerms) {
+            setValidation(labels.termsRequired);
+            return;
+        }
         if (!eligible || !details.firstName || !details.lastName
             || !/^\S+@\S+\.\S+$/.test(details.email)
             || details.phone.length > 40
@@ -89,7 +96,9 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
             }
             const response = await BookingAPI.createHotelCheckoutSession({
                 publicOfferId: offer.publicOfferId,
-                guestDetails: details
+                guestDetails: details,
+                termsAccepted: true,
+                acceptedTermsVersion: offer.termsVersion
             }, idempotencyKey);
             const session = validateCheckoutSessionResponse(response);
             try { sessionStorage.removeItem(idempotencyStorageKey); } catch {}
@@ -149,6 +158,14 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
                             </fieldset>
                         ))}
 
+                        <label className="flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50/80 p-4 text-sm font-bold leading-6 text-amber-950">
+                            <input type="checkbox" name="acceptedTerms" checked={acceptedTerms}
+                                aria-label={labels.terms}
+                                onChange={event => { setAcceptedTerms(event.target.checked); setValidation(''); }}
+                                className="mt-1 h-5 w-5 shrink-0 accent-cyan-700" />
+                            <span>{labels.terms}</span>
+                        </label>
+
                         {offer.occupancy.adults > 1 && additionalGuests.length < offer.occupancy.adults - 1 && (
                             <button type="button" onClick={() => setAdditionalGuests(current => [...current, { firstName: '', lastName: '' }])} className="glass-light inline-flex min-h-11 w-full items-center justify-center gap-2 rounded-xl border border-remal-blue/20 px-4 py-2.5 font-black text-remal-blue hover:bg-white/90 sm:w-auto">
                                 <UserPlus size={17} />{labels.addGuest}
@@ -161,7 +178,7 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
                         </div>
                         <div className="flex flex-col-reverse gap-3 pt-2 sm:flex-row sm:justify-between">
                             {onBack && <button type="button" onClick={onBack} className="glass-light inline-flex min-h-12 items-center justify-center gap-2 rounded-xl border border-remal-navy/10 px-5 py-3 font-black text-remal-navy"><ArrowLeft size={17} />{labels.back}</button>}
-                            <button type="submit" disabled={!eligible || busy} className="cta-red inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3 font-black text-white disabled:opacity-60">
+                            <button type="submit" disabled={!eligible || busy || !acceptedTerms} className="cta-red inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl px-6 py-3 font-black text-white disabled:opacity-60">
                                 {busy ? <LoaderCircle size={18} className="animate-spin" /> : <CreditCard size={18} />}
                                 {busy ? labels.preparing : labels.continue}
                                 {!busy && <ArrowRight size={17} />}

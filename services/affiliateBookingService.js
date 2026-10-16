@@ -5,6 +5,8 @@ const AffiliateBookingProcess = require('../models/AffiliateBookingProcess');
 const AffiliateBookingRecord = require('../models/AffiliateBookingRecord');
 const client = require('./ratehawkAffiliateClient');
 const logger = require('./loggerService');
+const { ownerSubjectFrom } = require('./hotelbedsScope');
+const { normalizeRatehawkResidency } = require('./ratehawkSearchValidation');
 
 const ACTIVE_STATES = ['finishing', 'processing'];
 const FINAL_ERRORS = new Set([
@@ -14,6 +16,19 @@ const FINAL_ERRORS = new Set([
     'not_allowed_host', 'order_not_found', 'overdue_debt', 'provider', 'soldout', 'unexpected_method'
 ]);
 const sha256 = value => crypto.createHash('sha256').update(value).digest('hex');
+
+function ownerContextFrom(subject) {
+    let ownerSubject;
+    try { ownerSubject = ownerSubjectFrom(subject); }
+    catch (error) { throw fail(error.code || 'booking_owner_required', error.httpStatus || 401); }
+    const realm = typeof process.env.RIMAL_AUTH_REALM === 'string' ? process.env.RIMAL_AUTH_REALM.trim() : '';
+    if (!/^[a-z0-9:_-]{1,100}$/i.test(realm)) throw fail('affiliate_booking_scope_unavailable', 503);
+    return { owner_subject: ownerSubject, realm };
+}
+
+function processFilter(processId, ownerContext) {
+    return { _id: processId, ...ownerContext };
+}
 
 function enabled() {
     return process.env.RATEHAWK_AFFILIATE_BOOKING_ENABLED === 'true';
@@ -201,7 +216,7 @@ function verifyOffer(token, details, identity) {
 
 function statusToken(record) {
     return crypto.createHmac('sha256', encryptionKey())
-        .update(`affiliate-booking-v1:${record.reference}:${record.request_hash}`).digest('hex');
+        .update(`affiliate-booking-v2:${record.realm}:${record.owner_subject}:${record.reference}:${record.request_hash}`).digest('hex');
 }
 
 function tokenMatches(record, token) {
@@ -247,14 +262,14 @@ function buildFinish(details, form) {
     };
 }
 
-async function processForm(processId) {
+async function processForm(processId, ownerContext) {
     const now = new Date();
     const leaseId = crypto.randomUUID();
-    const record = await AffiliateBookingProcess.findOneAndUpdate({ _id: processId, state: 'creating',
+    const record = await AffiliateBookingProcess.findOneAndUpdate({ ...processFilter(processId, ownerContext), state: 'creating',
         $or: [{ lease_until: { $exists: false } }, { lease_until: { $lte: now } }] },
     { $set: { lease_id: leaseId, lease_until: new Date(now.getTime() + 120000) } }, { new: true }).lean();
     if (!record) {
-        const current = await AffiliateBookingProcess.findById(processId).lean();
+        const current = await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean();
         if (!current) throw fail('affiliate_booking_not_found', 404);
         return publicView(current, true);
     }
@@ -293,7 +308,7 @@ async function processForm(processId) {
         const remainingAttempts = Math.max(0, 10 - attemptedIds);
         for (let attempt = 0; attempt < remainingAttempts; attempt += 1) {
             const partnerOrderId = crypto.randomUUID();
-            const claimed = await AffiliateBookingProcess.findOneAndUpdate({ _id: processId, state: 'creating', lease_id: leaseId }, {
+            const claimed = await AffiliateBookingProcess.findOneAndUpdate({ ...processFilter(processId, ownerContext), state: 'creating', lease_id: leaseId }, {
                 $set: { partner_order_id: partnerOrderId, hotel: {
                     hid: details.hid, name: details.hotelName, room_name: details.roomName, meal: details.meal,
                     expected_price: details.expected.amount, expected_currency: details.expected.currency,
@@ -333,7 +348,7 @@ async function processForm(processId) {
             }
         }
         if (!form) throw fail('affiliate_booking_form_unavailable', 502);
-        const updated = await AffiliateBookingProcess.findOneAndUpdate({ _id: processId, state: 'creating', lease_id: leaseId }, {
+        const updated = await AffiliateBookingProcess.findOneAndUpdate({ ...processFilter(processId, ownerContext), state: 'creating', lease_id: leaseId }, {
             $set: { state: 'form_ready', form, form_expires_at: new Date(Date.now() + 60 * 60 * 1000), next_check_at: null },
             $unset: { lease_id: '', lease_until: '', error: '' }
         }, { new: true }).lean();
@@ -341,10 +356,10 @@ async function processForm(processId) {
         return publicView(updated, true);
     } catch (error) {
         const code = /^[a-z][a-z0-9_]{0,79}$/.test(error.code || '') ? error.code : 'affiliate_booking_unavailable';
-        const latest = await AffiliateBookingProcess.findById(processId).lean();
+        const latest = await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean();
         const terminal = [400, 409, 429].includes(error.httpStatus) || code === 'affiliate_contract_changed'
             || (latest?.attempt_order_ids?.length || 0) >= 10;
-        await AffiliateBookingProcess.updateOne({ _id: processId, state: 'creating', lease_id: leaseId }, {
+        await AffiliateBookingProcess.updateOne({ ...processFilter(processId, ownerContext), state: 'creating', lease_id: leaseId }, {
             $set: { state: terminal ? (code.includes('price') ? 'price_changed' : 'failed') : 'creating', error: code,
                 next_check_at: terminal ? null : new Date(Date.now() + 5000) },
             $unset: { lease_id: '', lease_until: '', ...(terminal ? { encrypted_details: '' } : {}) }
@@ -353,8 +368,9 @@ async function processForm(processId) {
     }
 }
 
-async function createProcess(input, idempotencyKey, userIp) {
+async function createProcess(input, idempotencyKey, userIp, { ownerSubject } = {}) {
     const identity = requireBookingEnabled();
+    const ownerContext = ownerContextFrom(ownerSubject);
     if (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) throw fail('invalid_idempotency_key');
     if (typeof userIp !== 'string' || !isIP(userIp)) throw fail('invalid_user_ip');
     const details = normalizeDetails(input);
@@ -366,19 +382,19 @@ async function createProcess(input, idempotencyKey, userIp) {
     details.residency = offer.residency;
     details.search_language = offer.search_language;
     details.search_currency = offer.search_currency;
-    const requestIdentity = { ...details, contract_identity: identity };
+    const requestIdentity = { ...details, contract_identity: identity, ...ownerContext };
     delete requestIdentity.user_ip;
     const requestHash = crypto.createHmac('sha256', encryptionKey())
         .update(JSON.stringify(requestIdentity)).digest('hex');
-    const processId = sha256(`affiliate-v1:${idempotencyKey}`);
-    let record = await AffiliateBookingProcess.findById(processId).lean();
+    const processId = sha256(`affiliate-v2:${ownerContext.realm}:${ownerContext.owner_subject}:${idempotencyKey}`);
+    let record = await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean();
     if (record) {
-        if (record.request_hash !== requestHash || record.contract_identity !== identity) throw fail('idempotency_conflict', 409);
-        if (record.state === 'creating') return processForm(processId);
+        if (record.state === 'creating') return processForm(processId, ownerContext);
         return publicView(record, true);
     }
     try {
         await AffiliateBookingProcess.create({
+            ...ownerContext,
             _id: processId, reference: crypto.randomUUID(), request_hash: requestHash, contract_identity: identity,
             book_hash: details.book_hash, state: 'creating', hotel: {
                 hid: details.hid, name: details.hotelName, room_name: details.roomName,
@@ -388,10 +404,11 @@ async function createProcess(input, idempotencyKey, userIp) {
         });
     } catch (error) {
         if (error.code !== 11000) throw error;
-        record = await AffiliateBookingProcess.findById(processId).lean();
-        if (!record || record.request_hash !== requestHash) throw fail('idempotency_conflict', 409);
+        record = await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean();
+        if (!record || record.request_hash !== requestHash || record.owner_subject !== ownerContext.owner_subject
+            || record.realm !== ownerContext.realm) throw fail('idempotency_conflict', 409);
     }
-    return processForm(processId);
+    return processForm(processId, ownerContext);
 }
 
 function finishPayload(details, form) {
@@ -410,14 +427,15 @@ function finishPayload(details, form) {
     };
 }
 
-async function finishProcess(processId, token) {
+async function finishProcess(processId, token, { ownerSubject } = {}) {
     requireConfigured();
+    const ownerContext = ownerContextFrom(ownerSubject);
     const record = typeof processId === 'string' && /^[a-f\d]{64}$/.test(processId)
-        ? await AffiliateBookingProcess.findById(processId).lean() : null;
+        ? await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean() : null;
     if (!record || !tokenMatches(record, token)) throw fail('affiliate_booking_not_found', 404);
     if (record.state !== 'form_ready') return publicView(record);
     if (!record.form_expires_at || Date.now() >= new Date(record.form_expires_at).getTime()) {
-        await AffiliateBookingProcess.updateOne({ _id: processId, state: 'form_ready' }, {
+        await AffiliateBookingProcess.updateOne({ ...processFilter(processId, ownerContext), state: 'form_ready' }, {
             $set: { state: 'expired', error: 'booking_form_expired' }, $unset: { encrypted_details: '' }
         });
         throw fail('booking_form_expired', 409);
@@ -428,16 +446,16 @@ async function finishProcess(processId, token) {
     const finishHash = sha256(JSON.stringify(payload));
     const leaseId = crypto.randomUUID();
     const deadline = Date.now() + Math.min(15 * 60 * 1000, Math.max(5000, Number(process.env.RATEHAWK_AFFILIATE_BOOK_WAIT_MS) || 90000));
-    const claimed = await AffiliateBookingProcess.findOneAndUpdate({ _id: processId, state: 'form_ready', finish_hash: { $exists: false } }, {
+    const claimed = await AffiliateBookingProcess.findOneAndUpdate({ ...processFilter(processId, ownerContext), state: 'form_ready', finish_hash: { $exists: false } }, {
         $set: { state: 'finishing', finish_hash: finishHash, finish_sent_at: new Date(), booking_deadline_at: new Date(deadline),
             next_check_at: new Date(Date.now() + 5000), lease_id: leaseId, lease_until: new Date(Date.now() + 90000) }
     }, { new: true }).lean();
-    if (!claimed) return publicView(await AffiliateBookingProcess.findById(processId).lean());
+    if (!claimed) return publicView(await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean());
     let result;
     try { result = await client.bookingFinish(payload); }
     catch (error) {
         if (!transient(null, error)) {
-            await AffiliateBookingProcess.updateOne({ _id: processId, state: 'finishing', lease_id: leaseId }, {
+            await AffiliateBookingProcess.updateOne({ ...processFilter(processId, ownerContext), state: 'finishing', lease_id: leaseId }, {
                 $set: { state: 'failed', error: 'affiliate_booking_finish_failed', next_check_at: null },
                 $unset: { lease_id: '', lease_until: '', encrypted_details: '' }
             });
@@ -450,41 +468,43 @@ async function finishProcess(processId, token) {
         || result.httpStatus === 429 || result.httpStatus >= 500 || result.status === '3ds';
     const state = finalFailure ? 'failed' : ambiguous ? 'processing' : 'failed';
     const error = finalFailure ? result.error : state === 'failed' ? 'affiliate_booking_finish_failed' : undefined;
-    await AffiliateBookingProcess.updateOne({ _id: processId, state: 'finishing', lease_id: leaseId }, {
+    await AffiliateBookingProcess.updateOne({ ...processFilter(processId, ownerContext), state: 'finishing', lease_id: leaseId }, {
         $set: { state, ...(error ? { error } : {}), next_check_at: state === 'processing' ? new Date(Date.now() + 5000) : null },
         $unset: { lease_id: '', lease_until: '', ...(state === 'failed' ? { encrypted_details: '' } : {}) }
     });
-    return publicView(await AffiliateBookingProcess.findById(processId).lean());
+    return publicView(await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean());
 }
 
-async function recordBooking(record) {
+async function recordBooking(record, ownerContext = { realm: record.realm, owner_subject: record.owner_subject }) {
     if (record.booking_recorded) return;
     const details = decrypt(record.encrypted_details);
     const guestData = encrypt({ user: details.user, rooms: details.rooms });
-    await AffiliateBookingRecord.updateOne({ process_id: record._id }, { $setOnInsert: {
+    await AffiliateBookingRecord.updateOne({ process_id: record._id, ...ownerContext }, { $setOnInsert: {
+        ...ownerContext,
         contract_identity: record.contract_identity, process_id: record._id, reference: record.reference,
         partner_order_id: record.partner_order_id, hotel: record.hotel, checkin: details.checkin,
         checkout: details.checkout, guests: details.guests, encrypted_details: guestData,
         status: 'confirmed', confirmed_at: new Date()
     } }, { upsert: true });
-    await AffiliateBookingProcess.updateOne({ _id: record._id, state: 'confirmed' }, {
+    await AffiliateBookingProcess.updateOne({ ...processFilter(record._id, ownerContext), state: 'confirmed' }, {
         $set: { booking_recorded: true }, $unset: { encrypted_details: '', form: '', attempt_order_ids: '' }
     });
 }
 
-async function checkStatus(processId, token) {
+async function checkStatus(processId, token, { ownerSubject } = {}) {
     requireExistingProcessAccess();
+    const ownerContext = ownerContextFrom(ownerSubject);
     const record = typeof processId === 'string' && /^[a-f\d]{64}$/.test(processId)
-        ? await AffiliateBookingProcess.findById(processId).lean() : null;
+        ? await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean() : null;
     if (!record || !tokenMatches(record, token)) throw fail('affiliate_booking_not_found', 404);
     if (!ACTIVE_STATES.includes(record.state)) {
-        if (record.state === 'confirmed' && !record.booking_recorded && record.encrypted_details) await recordBooking(record);
-        return publicView(await AffiliateBookingProcess.findById(processId).lean());
+        if (record.state === 'confirmed' && !record.booking_recorded && record.encrypted_details) await recordBooking(record, ownerContext);
+        return publicView(await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean());
     }
     if (contractIdentity() !== record.contract_identity) throw fail('affiliate_contract_changed', 503);
     const now = new Date();
     const leaseId = crypto.randomUUID();
-    const claimed = await AffiliateBookingProcess.findOneAndUpdate({ _id: processId, state: { $in: ACTIVE_STATES },
+    const claimed = await AffiliateBookingProcess.findOneAndUpdate({ ...processFilter(processId, ownerContext), state: { $in: ACTIVE_STATES },
         $and: [{ $or: [{ next_check_at: { $lte: now } }, { next_check_at: { $exists: false } }] },
             { $or: [{ check_lease_until: { $exists: false } }, { check_lease_until: { $lte: now } }] }] },
     { $set: { check_lease_id: leaseId, check_lease_until: new Date(now.getTime() + 35000) } }, { new: true }).lean();
@@ -493,7 +513,7 @@ async function checkStatus(processId, token) {
     try { result = await client.bookingFinishStatus({ partner_order_id: claimed.partner_order_id }, { timeout: 30000 }); }
     catch { result = { status: 'processing', error: 'timeout', httpStatus: 503 }; }
     if (result.data?.partner_order_id && result.data.partner_order_id !== claimed.partner_order_id) {
-        await AffiliateBookingProcess.updateOne({ _id: processId, state: { $in: ACTIVE_STATES }, check_lease_id: leaseId }, {
+        await AffiliateBookingProcess.updateOne({ ...processFilter(processId, ownerContext), state: { $in: ACTIVE_STATES }, check_lease_id: leaseId }, {
             $set: { state: 'failed', error: 'booking_status_order_mismatch', next_check_at: null },
             $unset: { check_lease_id: '', check_lease_until: '', encrypted_details: '' }
         });
@@ -508,16 +528,18 @@ async function checkStatus(processId, token) {
     if (state === 'processing' && Number.isFinite(deadline) && Date.now() >= deadline) {
         state = 'failed'; error = 'affiliate_booking_timeout';
     }
-    await AffiliateBookingProcess.updateOne({ _id: processId, state: { $in: ACTIVE_STATES }, check_lease_id: leaseId }, {
+    await AffiliateBookingProcess.updateOne({ ...processFilter(processId, ownerContext), state: { $in: ACTIVE_STATES }, check_lease_id: leaseId }, {
         $set: { state, ...(error ? { error } : {}), next_check_at: state === 'processing' ? new Date(Date.now() + 5000) : null },
         $unset: { check_lease_id: '', check_lease_until: '', ...(error ? {} : { error: '' }) }
     });
-    const updated = await AffiliateBookingProcess.findById(processId).lean();
-    if (updated.state === 'confirmed') await recordBooking({ ...updated, encrypted_details: record.encrypted_details });
+    const updated = await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean();
+    if (updated.state === 'confirmed') await recordBooking({ ...updated, encrypted_details: record.encrypted_details }, ownerContext);
     else if (['failed', 'action_required'].includes(updated.state)) {
-        await AffiliateBookingProcess.updateOne({ _id: processId, state: updated.state }, { $unset: { encrypted_details: '' } });
+        await AffiliateBookingProcess.updateOne({ ...processFilter(processId, ownerContext), state: updated.state }, {
+            $unset: { encrypted_details: '' }
+        });
     }
-    return publicView(await AffiliateBookingProcess.findById(processId).lean());
+    return publicView(await AffiliateBookingProcess.findOne(processFilter(processId, ownerContext)).lean());
 }
 
 async function reconcilePendingProcesses() {
@@ -529,17 +551,19 @@ async function reconcilePendingProcesses() {
                 { state: { $in: ACTIVE_STATES }, next_check_at: { $lte: now } },
                 { state: 'confirmed', booking_recorded: { $ne: true } }
             ] },
-            { $or: [{ check_lease_until: { $exists: false } }, { check_lease_until: { $lte: now } }] }
+            { $or: [
+                { check_lease_until: { $exists: false } },
+                { check_lease_until: { $lte: now } }
+            ] }
         ]
-    })
-        .select('_id').sort({ next_check_at: 1 }).limit(10).lean();
+    }).select('_id realm owner_subject').sort({ next_check_at: 1 }).limit(10).lean();
     const results = await Promise.allSettled(records.map(async item => {
-        const record = await AffiliateBookingProcess.findById(item._id).lean();
-        if (record) return checkStatus(record._id, statusToken(record));
+        const ownerContext = { realm: item.realm, owner_subject: item.owner_subject };
+        const record = await AffiliateBookingProcess.findOne(processFilter(item._id, ownerContext)).lean();
+        if (record) return checkStatus(record._id, statusToken(record), { ownerSubject: record.owner_subject });
     }));
     return { checked: records.length, failed: results.filter(item => item.status === 'rejected').length };
 }
-
 function startStatusWorker() {
     let running = false;
     const timer = setInterval(async () => {
@@ -572,8 +596,13 @@ async function getHotelPageRates(params = {}) {
         throw fail('invalid_hotelpage_criteria');
     }
     const guests = normalizeOccupancy(params.guests);
-    const residency = String(params.residency || process.env.RATEHAWK_AFFILIATE_RESIDENCY || 'ae').toLowerCase();
-    if (!/^[a-z]{2}$/.test(residency)) throw fail('invalid_residency');
+    let residency;
+    try {
+        residency = normalizeRatehawkResidency(params.residency,
+            process.env.RATEHAWK_AFFILIATE_RESIDENCY || 'ae');
+    } catch {
+        throw fail('invalid_residency');
+    }
     const language = ['ar', 'en'].includes(params.language) ? params.language : 'en';
     const currency = /^[A-Z]{3}$/.test(params.currency || '') ? params.currency : 'USD';
     const response = await client.hotelPage({ hid, checkin: params.checkin, checkout: params.checkout,

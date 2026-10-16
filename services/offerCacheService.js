@@ -3,6 +3,8 @@ const mongoose = require('mongoose');
 const OfferCache = require('../models/OfferCache');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
 const { identityFromNormalizedOffer, termsFromNormalizedOffer } = require('./hotelbedsRateCheckService');
+const { hotelbedsScopeFrom } = require('./hotelbedsScope');
+const { offerTermsVersion, validOfferTermsVersion } = require('./offerTermsVersion');
 
 const OFFER_TTL_MS = 30 * 60 * 1000;
 
@@ -306,6 +308,16 @@ function createOfferCacheService({
         return { provider: providerScope === 'hotelbeds' ? 'hotelbeds' : 'ratehawk', origin: { $exists: true } };
     }
 
+    function hotelbedsScope() {
+        try { return hotelbedsScopeFrom(env, { testOnly }); }
+        catch (error) { throw fail(error.code || 'offer_cache_scope_unavailable', 503); }
+    }
+
+    function offerScopeFilter(provider) {
+        return providerScope === 'hotelbeds' || testOnly && provider === 'hotelbeds'
+            ? hotelbedsScope() : {};
+    }
+
     async function storeOffers(normalizedOffersArray, { schemaVersion } = {}) {
         if (!Array.isArray(normalizedOffersArray)) throw fail('offer_cache_offers_invalid');
         if (normalizedOffersArray.length === 0) return [];
@@ -339,6 +351,33 @@ function createOfferCacheService({
             const lockedSellPrice = lockedSellPriceFrom(offer);
             const bookingIdentity = provider === 'hotelbeds' ? identityFromNormalizedOffer(offer) : null;
             const bookingTerms = provider === 'hotelbeds' ? termsFromNormalizedOffer(offer) : null;
+            const supplierScope = provider === 'hotelbeds' ? hotelbedsScope() : null;
+            const bookingMetadata = provider === 'hotelbeds' ? {
+                hotelName: typeof offer.hotel?.name === 'string' ? offer.hotel.name.slice(0, 200) : '',
+                contentLanguage: offer.hotel?.contentSource === 'hotelbeds_content_api'
+                    && String(offer.hotel?.contentHotelCode) === String(offer.providerHotelId)
+                    && typeof offer.hotel?.contentLanguage === 'string'
+                    && /^[A-Z]{2,12}$/i.test(offer.hotel.contentLanguage.trim())
+                    ? offer.hotel.contentLanguage.trim().toUpperCase() : null,
+                roomName: typeof offer.room?.name === 'string' ? offer.room.name.slice(0, 160) : '',
+                boardName: typeof offer.board?.supplierName === 'string' ? offer.board.supplierName.slice(0, 120) : '',
+                checkIn: typeof offer.stay?.checkIn === 'string' ? offer.stay.checkIn : '',
+                checkOut: typeof offer.stay?.checkOut === 'string' ? offer.stay.checkOut : '',
+                cancellationPolicy: publicCancellation(offer.cancellation, provider)?.refundability || 'unknown',
+                paymentType: typeof offer.payment?.type === 'string'
+                    ? offer.payment.type.trim().toUpperCase() : 'unknown'
+            } : null;
+
+            const publicOffer = {
+                ...clientSafeOffer(offer, publicOfferId),
+                schemaVersion: recordSchemaVersion
+            };
+            const publicReviewOffer = provider === 'hotelbeds'
+                ? {
+                    ...structuredClone(publicOffer),
+                    termsVersion: offerTermsVersion(publicOffer)
+                } : undefined;
+            const termsVersion = provider === 'hotelbeds' ? offerTermsVersion(publicOffer) : null;
 
             return {
                 document: {
@@ -346,6 +385,10 @@ function createOfferCacheService({
                     origin: trustedOriginFrom(offer),
                     publicOfferId,
                     provider,
+                    ...(termsVersion ? { termsVersion } : {}),
+                    ...(supplierScope || {}),
+                    ...(publicReviewOffer ? { publicReviewOffer } : {}),
+                    ...(bookingMetadata ? { bookingMetadata } : {}),
                     providerHotelCode: providerHotelCodeFrom(offer),
                     opaqueToken: opaqueTokenFrom(offer),
                     lockedNetPrice: lockedPriceFrom(offer),
@@ -364,7 +407,7 @@ function createOfferCacheService({
                     bookingState: 'available',
                     expiresAt
                 },
-                publicOffer: { ...clientSafeOffer(offer, publicOfferId), schemaVersion: recordSchemaVersion }
+                publicOffer: { ...publicOffer, ...(termsVersion ? { termsVersion } : {}) }
             };
         });
 
@@ -410,17 +453,26 @@ function createOfferCacheService({
         const record = await Model.findOne({
             publicOfferId,
             ...providerFilter(),
+            ...offerScopeFilter(),
             expiresAt: { $gt: retrievedAt }
         })
             .select([
-                '+opaqueToken', '+lockedNetPrice', '+currency', '+paymentType', '+rateType',
-                '+roomCount', '+adultCount', '+childCount', '+origin', '+bookingIdentity', '+bookingTerms'
+                '+opaqueToken', '+lockedNetPrice', '+lockedSellAmount', '+lockedSellCurrency',
+                '+currency', '+paymentType', '+rateType', '+origin',
+                '+roomCount', '+adultCount', '+childCount', '+realm', '+environment', '+accountId',
+                '+bookingIdentity', '+bookingTerms', '+bookingMetadata', '+publicReviewOffer', '+termsVersion'
             ].join(' ')).lean().exec();
         if (!record) return null;
         return {
             publicOfferId: record.publicOfferId,
             provider: record.provider,
+            origin: record.origin,
+            realm: record.realm,
+            environment: record.environment,
+            accountId: record.accountId,
+            termsVersion: validOfferTermsVersion(record.termsVersion) ? record.termsVersion : null,
             opaqueToken: record.opaqueToken,
+            providerHotelCode: record.providerHotelCode,
             lockedNetPrice: record.lockedNetPrice,
             currency: record.currency,
             paymentType: record.paymentType,
@@ -430,6 +482,10 @@ function createOfferCacheService({
             childCount: record.childCount,
             bookingIdentity: record.bookingIdentity || null,
             bookingTerms: record.bookingTerms || null,
+            bookingMetadata: record.bookingMetadata || null,
+            publicReviewOffer: record.publicReviewOffer || null,
+            lockedSellAmount: record.lockedSellAmount,
+            lockedSellCurrency: record.lockedSellCurrency,
             expiresAt: new Date(record.expiresAt)
         };
     }
@@ -445,17 +501,23 @@ function createOfferCacheService({
         const record = await Model.findOne({
             publicOfferId,
             ...providerFilter(),
+            ...offerScopeFilter(),
             expiresAt: { $gt: retrievedAt }
         })
             .select([
                 '+opaqueToken', '+lockedNetPrice', '+currency', '+lockedSellAmount', '+lockedSellCurrency',
-                '+paymentType', '+rateType', '+roomCount', '+adultCount', '+childCount', '+origin', '+bookingIdentity', '+bookingTerms'
+                '+paymentType', '+rateType', '+roomCount', '+adultCount', '+childCount', '+origin',
+                '+realm', '+environment', '+accountId', '+bookingIdentity', '+bookingTerms', '+termsVersion'
             ].join(' ')).lean().exec();
         if (!record || record.origin === undefined) return null;
         return {
             publicOfferId: record.publicOfferId,
             provider: record.provider,
             origin: record.origin,
+            realm: record.realm,
+            environment: record.environment,
+            accountId: record.accountId,
+            termsVersion: validOfferTermsVersion(record.termsVersion) ? record.termsVersion : null,
             providerHotelCode: record.providerHotelCode,
             opaqueToken: record.opaqueToken,
             lockedNetPrice: record.lockedNetPrice,
@@ -469,6 +531,51 @@ function createOfferCacheService({
             childCount: record.childCount,
             bookingIdentity: record.bookingIdentity || null,
             bookingTerms: record.bookingTerms || null,
+            expiresAt: new Date(record.expiresAt)
+        };
+    }
+
+    async function getRateReviewOffer(publicOfferId) {
+        if (providerScope !== 'hotelbeds' && !testOnly) {
+            throw fail('offer_cache_provider_scope_mismatch', 503);
+        }
+        if (!validPublicOfferId(publicOfferId)) throw fail('offer_cache_public_id_invalid', 404);
+        const retrievedAt = new Date(now());
+        if (Number.isNaN(retrievedAt.getTime())) throw fail('offer_cache_clock_invalid', 503);
+        await ensureDatabaseReady();
+        const record = await Model.findOne({
+            publicOfferId,
+            ...providerFilter(),
+            ...offerScopeFilter(),
+            expiresAt: { $gt: retrievedAt }
+        }).select([
+            '+opaqueToken', '+lockedNetPrice', '+lockedSellAmount', '+lockedSellCurrency', '+currency',
+            '+paymentType', '+rateType', '+origin', '+roomCount', '+adultCount', '+childCount',
+            '+realm', '+environment', '+accountId', '+bookingIdentity', '+bookingTerms',
+            '+publicReviewOffer', '+termsVersion'
+        ].join(' ')).lean().exec();
+        if (!record) return null;
+        return {
+            publicOfferId: record.publicOfferId,
+            provider: record.provider,
+            origin: record.origin,
+            realm: record.realm,
+            environment: record.environment,
+            accountId: record.accountId,
+            termsVersion: validOfferTermsVersion(record.termsVersion) ? record.termsVersion : null,
+            opaqueToken: record.opaqueToken,
+            lockedNetPrice: record.lockedNetPrice,
+            currency: record.currency,
+            paymentType: record.paymentType,
+            rateType: record.rateType,
+            roomCount: record.roomCount,
+            adultCount: record.adultCount,
+            childCount: record.childCount,
+            bookingIdentity: record.bookingIdentity || null,
+            bookingTerms: record.bookingTerms || null,
+            publicReviewOffer: record.publicReviewOffer || null,
+            lockedSellAmount: record.lockedSellAmount,
+            lockedSellCurrency: record.lockedSellCurrency,
             expiresAt: new Date(record.expiresAt)
         };
     }
@@ -553,7 +660,10 @@ function createOfferCacheService({
         return true;
     }
 
-    return { storeOffers, retrieveOffer, getBookingOffer, getCheckoutOffer, claimBookingOffer, finishBookingOffer };
+    return {
+        storeOffers, retrieveOffer, getBookingOffer, getCheckoutOffer, getRateReviewOffer,
+        claimBookingOffer, finishBookingOffer
+    };
 }
 
 const defaultService = createOfferCacheService();
@@ -574,6 +684,7 @@ const hotelbeds = Object.freeze({
     retrieveOffer: hotelbedsService.retrieveOffer,
     getBookingOffer: hotelbedsService.getBookingOffer,
     getCheckoutOffer: hotelbedsService.getCheckoutOffer,
+    getRateReviewOffer: hotelbedsService.getRateReviewOffer,
     claimBookingOffer: hotelbedsService.claimBookingOffer,
     finishBookingOffer: hotelbedsService.finishBookingOffer
 });

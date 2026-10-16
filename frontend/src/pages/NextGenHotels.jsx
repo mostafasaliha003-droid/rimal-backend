@@ -4,6 +4,7 @@ import UnifiedSearchResults from '../components/UnifiedSearchResults';
 import BookingAPI from '../services/bookingApi';
 import { validateUnifiedSearchResponse } from '../services/nextGenCheckout';
 import { buildHotelbedsPilotSearch, normalizeHotelbedsPilotList, sanitizeHotelbedsPilotSearch } from '../services/hotelbedsPilotSearch';
+import { canStartDirectHotelbedsBooking } from '../services/hotelbedsRateReview.js';
 import { useLanguage } from '../i18n';
 
 function defaultDates() {
@@ -83,6 +84,7 @@ function searchErrorMessage(status, code, t) {
 
 export default function NextGenHotels({ initialSearch = null }) {
     const { t, apiLanguage, language, direction } = useLanguage();
+    const directBookingUiEnabled = import.meta.env.VITE_HOTELBEDS_DIRECT_BOOKING_UI_ENABLED === 'true';
     const [pilotHotels, setPilotHotels] = useState([]);
     const [listLoading, setListLoading] = useState(true);
     const [listError, setListError] = useState('');
@@ -316,7 +318,11 @@ export default function NextGenHotels({ initialSearch = null }) {
                     onRetry={retrySearch}
                     cooldownSeconds={cooldownSeconds}
                     onChooseOffer={offer => {
-                        if (offer?.mock !== true || response?.mock !== true) return;
+                        const isMockOffer = offer?.mock === true && response?.mock === true;
+                        const isGatedDirectOffer = directBookingUiEnabled
+                            && offer?.mock !== true && response?.mock !== true
+                            && canStartDirectHotelbedsBooking(offer);
+                        if (!isMockOffer && !isGatedDirectOffer) return;
                         try { sessionStorage.setItem('remal_nextgen_selected_offer', JSON.stringify(offer)); } catch {}
                         window.history.pushState({}, '', '/next-gen/checkout');
                         window.dispatchEvent(new PopStateEvent('popstate'));

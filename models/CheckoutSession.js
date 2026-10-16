@@ -15,6 +15,10 @@ const CHECKOUT_SESSION_STATUSES = Object.freeze([
 ]);
 
 const checkoutSessionSchema = new mongoose.Schema({
+    realm: { type: String, required: true, immutable: true, match: /^[a-z0-9:_-]{1,100}$/i },
+    environment: { type: String, required: true, immutable: true, enum: ['test', 'live'] },
+    accountId: { type: String, required: true, immutable: true, match: /^[a-f\d]{64}$/i },
+    ownerSubject: { type: String, required: true, immutable: true, maxlength: 254 },
     sessionId: { type: String, required: true, immutable: true, match: /^[a-f\d]{8}-[a-f\d]{4}-4[a-f\d]{3}-[89ab][a-f\d]{3}-[a-f\d]{12}$/i },
     publicOfferId: { type: String, required: true, immutable: true, match: /^[a-f\d]{64}$/i },
     offerExpiresAt: { type: Date, required: true, immutable: true },
@@ -22,6 +26,10 @@ const checkoutSessionSchema = new mongoose.Schema({
     offerOrigin: { type: String, required: true, enum: ['mock_fixture', 'live'], immutable: true },
     paymentProvider: { type: String, required: true, enum: ['mock', 'ziina'], immutable: true },
     paymentType: { type: String, required: true, enum: ['AT_WEB'], immutable: true },
+    acceptedTermsVersion: {
+        type: String, required: true, immutable: true, select: false, match: /^[a-f\d]{64}$/i
+    },
+    termsAcceptedAt: { type: Date, required: true, immutable: true, select: false },
     providerOfferRef: { type: String, required: true, select: false, immutable: true, minlength: 1, maxlength: 8192 },
     providerHotelCode: { type: String, required: true, select: false, immutable: true, minlength: 1, maxlength: 200 },
     totalAmount: { type: Number, required: true, min: 1, validate: Number.isSafeInteger, immutable: true },
@@ -81,8 +89,9 @@ const checkoutSessionSchema = new mongoose.Schema({
 });
 
 checkoutSessionSchema.index({ sessionId: 1 }, { unique: true });
-checkoutSessionSchema.index({ idempotencyKeyHash: 1 }, { unique: true });
+checkoutSessionSchema.index({ realm: 1, environment: 1, accountId: 1, ownerSubject: 1, idempotencyKeyHash: 1 }, { unique: true });
 checkoutSessionSchema.index({ publicOfferId: 1 });
+checkoutSessionSchema.index({ realm: 1, environment: 1, accountId: 1, ownerSubject: 1, sessionId: 1 });
 checkoutSessionSchema.index({ paymentIntentId: 1 }, { unique: true, sparse: true });
 checkoutSessionSchema.index({ bookingClientReference: 1 }, { unique: true, sparse: true });
 checkoutSessionSchema.index({ status: 1, updatedAt: 1 });

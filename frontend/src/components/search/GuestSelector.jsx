@@ -45,7 +45,7 @@ function GuestEditor({ controller, onClose }) {
                     requestAnimationFrame(() => document.getElementById('guests-0-adults')?.focus());
                 }}>{t('search.removeRoom', 'إزالة الغرفة')} {index + 1}</button>}
         </fieldset>)}
-        {guests.length < 4 && <button type="button" onClick={() => {
+        {guests.length < 9 && <button type="button" onClick={() => {
             changeGuests([...guests, { adults: 2, children: [] }]);
             requestAnimationFrame(() => document.getElementById(`guests-${guests.length}-adults`)?.focus());
         }} className="min-h-12 w-full rounded-xl bg-remal-blue/10 px-4 font-bold text-remal-blue-strong">{t('search.addRoom', 'إضافة غرفة')}</button>}

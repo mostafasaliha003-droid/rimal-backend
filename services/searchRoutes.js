@@ -1,7 +1,7 @@
 const express = require('express');
 
-function createSearchRouter({ controller, verifyAPIKey, searchLimiter }) {
-    if (typeof controller !== 'function' || typeof verifyAPIKey !== 'function') {
+function createSearchRouter({ controller, searchLimiter }) {
+    if (typeof controller !== 'function') {
         throw new TypeError('search_route_dependencies_invalid');
     }
 
@@ -13,9 +13,9 @@ function createSearchRouter({ controller, verifyAPIKey, searchLimiter }) {
     router.post('/search', (req, res, next) => {
         if (String(req.body?.provider || '').trim().toLowerCase() === 'hotelbeds') return next();
         return next('route');
-    }, verifyAPIKey, limiter, controller);
+    }, limiter, controller);
 
-    router.post('/search/hotelbeds', verifyAPIKey, limiter, controller);
+    router.post('/search/hotelbeds', limiter, controller);
     return router;
 }
 

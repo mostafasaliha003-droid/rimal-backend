@@ -1,6 +1,7 @@
 node_modules/
 .env
 .env.*
+sandbox-access.local.json
 !.env.example
 logs/
 certs/

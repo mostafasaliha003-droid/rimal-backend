@@ -7,6 +7,7 @@ const { operationBudgetFor } = require('./hotelbedsRateLimiter');
 
 const TEST_CONTENT_BASE_URL = 'https://api.test.hotelbeds.com';
 const HOTEL_CONTENT_PATH = '/hotel-content-api/1.0/hotels';
+const HOTEL_CATEGORIES_PATH = '/hotel-content-api/1.0/types/categories';
 const MAX_PAGE_SIZE = 1000;
 
 function fail(code, httpStatus = 400) {
@@ -31,7 +32,7 @@ function contentConfigurationFrom(env = process.env) {
     return { apiKey, secret, accountConfig, baseUrl: TEST_CONTENT_BASE_URL };
 }
 
-function buildHotelContentQuery({ language, from, to, lastUpdateTime, fields = 'all' } = {}) {
+function buildPagedContentQuery({ language, from, to, lastUpdateTime, fields = 'all', codes } = {}, normalizeCode) {
     const normalizedLanguage = String(language || '').trim().toUpperCase();
     const first = Number(from);
     const last = Number(to);
@@ -43,6 +44,17 @@ function buildHotelContentQuery({ language, from, to, lastUpdateTime, fields = '
 
     const query = { fields: String(fields).trim(), language: normalizedLanguage, from: first, to: last };
     if (!query.fields || query.fields.length > 100) throw fail('hotelbeds_content_fields_invalid');
+    if (codes !== undefined) {
+        if (typeof normalizeCode !== 'function' || !Array.isArray(codes) || codes.length < 1 || codes.length > MAX_PAGE_SIZE) {
+            throw fail('hotelbeds_content_codes_invalid');
+        }
+        const normalizedCodes = codes.map(normalizeCode);
+        if (normalizedCodes.some(code => code === null) || new Set(normalizedCodes).size !== normalizedCodes.length) {
+            throw fail('hotelbeds_content_codes_invalid');
+        }
+        // The Content API declares `codes` as a non-exploded query array.
+        query.codes = normalizedCodes.join(',');
+    }
     if (lastUpdateTime !== undefined && lastUpdateTime !== null && lastUpdateTime !== '') {
         const value = String(lastUpdateTime).trim();
         const parsed = /^\d{4}-\d{2}-\d{2}$/.test(value) ? new Date(`${value}T00:00:00Z`) : null;
@@ -54,6 +66,20 @@ function buildHotelContentQuery({ language, from, to, lastUpdateTime, fields = '
     return query;
 }
 
+function buildHotelContentQuery(options = {}) {
+    return buildPagedContentQuery(options, value => {
+        const code = Number(value);
+        return Number.isSafeInteger(code) && code > 0 && code <= 2147483647 ? String(code) : null;
+    });
+}
+
+function buildHotelCategoryQuery(options = {}) {
+    return buildPagedContentQuery(options, value => {
+        const code = typeof value === 'string' || typeof value === 'number' ? String(value).trim() : '';
+        return /^[A-Za-z0-9._-]{1,40}$/.test(code) ? code : null;
+    });
+}
+
 function createHotelbedsContentClient({
     http = axios.create({ validateStatus: () => true }),
     requestLimiter = limiter,
@@ -61,10 +87,9 @@ function createHotelbedsContentClient({
     now = () => Date.now(),
     log = logger
 } = {}) {
-    async function getHotelsPage(options) {
-        const params = buildHotelContentQuery(options);
+    async function requestContentPage(path, params) {
         const config = contentConfigurationFrom(env);
-        const url = `${config.baseUrl}${HOTEL_CONTENT_PATH}`;
+        const url = `${config.baseUrl}${path}`;
         const operation = 'contentsync';
         const operationDailyMaxRequests = operationBudgetFor(env, operation);
         await requestLimiter.acquire({
@@ -118,20 +143,31 @@ function createHotelbedsContentClient({
         };
     }
 
-    return { getHotelsPage };
+    async function getHotelsPage(options) {
+        return requestContentPage(HOTEL_CONTENT_PATH, buildHotelContentQuery(options));
+    }
+
+    async function getCategoriesPage(options) {
+        return requestContentPage(HOTEL_CATEGORIES_PATH, buildHotelCategoryQuery(options));
+    }
+
+    return { getHotelsPage, getCategoriesPage };
 }
 
 const defaultClient = createHotelbedsContentClient();
 
 module.exports = {
     HOTEL_CONTENT_PATH,
+    HOTEL_CATEGORIES_PATH,
     TEST_CONTENT_BASE_URL,
     MAX_PAGE_SIZE,
     contentConfigurationFrom,
     // Retain the existing exported name for consumers while sharing one
     // implementation with the Booking API client.
     signatureFor: generateSignature,
+    buildPagedContentQuery,
     buildHotelContentQuery,
+    buildHotelCategoryQuery,
     createHotelbedsContentClient,
     getHotelsPage: defaultClient.getHotelsPage
 };

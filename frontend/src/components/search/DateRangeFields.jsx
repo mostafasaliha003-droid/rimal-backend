@@ -6,7 +6,7 @@ import { addDays, format, startOfDay } from 'date-fns';
 import { arSA, enUS, es } from 'date-fns/locale';
 import 'react-datepicker/dist/react-datepicker.css';
 import { FieldError } from './SearchFeedback';
-import { parseSearchDate } from './searchModel';
+import { earliestCheckoutDate, latestArrivalDate, latestCheckoutDate, parseSearchDate } from './searchModel';
 
 export default function DateRangeFields({ controller, overlayHost, onOpenChange }) {
     const { t, dates, errors, language, direction, changeDate } = controller;
@@ -26,7 +26,8 @@ export default function DateRangeFields({ controller, overlayHost, onOpenChange 
                             value={dates[field]} onChange={date => changeDate(field, date ? format(date, 'yyyy-MM-dd') : '')}
                             onChangeRaw={event => { if (typeof event?.target?.value === 'string') changeDate(field, event.target.value); }}
                             dateFormat="yyyy-MM-dd" strictParsing locale={locale} autoComplete="off"
-                            minDate={field === 'checkin' ? startOfDay(new Date()) : addDays(arrival || startOfDay(new Date()), 1)}
+                            minDate={field === 'checkin' ? startOfDay(new Date()) : earliestCheckoutDate(arrival)}
+                            maxDate={field === 'checkin' ? latestArrivalDate() : latestCheckoutDate(arrival)}
                             startDate={arrival} endDate={departure} selectsStart={field === 'checkin'} selectsEnd={field === 'checkout'}
                             ariaRequired="true" ariaInvalid={String(Boolean(errors[field]))}
                             ariaDescribedBy={errors[field] ? `search-${field}-error` : `search-${field}-hint`}

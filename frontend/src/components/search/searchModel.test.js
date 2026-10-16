@@ -1,10 +1,10 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { hotelId, initialGuests, normalizeSuggestions, parseSearchDate, validDestination, validateSearch } from './searchModel.js';
+import { hotelId, initialGuests, initialResidency, normalizeSuggestions, parseSearchDate, validDestination, validateSearch } from './searchModel.js';
 
 const destination = { label: 'Dubai', type: 'region', region_id: 6053839 };
-const search = { query: 'Dubai', destination, checkin: '2099-10-15', checkout: '2099-10-17', guests: [{ adults: 2, children: [] }] };
-const now = new Date(2026, 8, 26);
+const search = { query: 'Dubai', destination, checkin: '2027-10-15', checkout: '2027-10-17', guests: [{ adults: 2, children: [] }], residency: 'ae' };
+const now = new Date(2026, 9, 13, 12);
 
 test('dates require a real calendar date in the exact input format', () => {
     for (const value of ['', null, 'invalid', '2099-02-29', '2099-10-15T00:00:00']) assert.equal(parseSearchDate(value), null);
@@ -37,19 +37,34 @@ test('a selected ID must still match the edited query', () => {
     assert.equal(validateSearch({ ...search, destination: null }, now).destination, 'destinationRequired');
 });
 
+test('residency must be an assigned ISO alpha-2 code and is normalized safely', () => {
+    assert.equal(initialResidency(' GB '), 'gb');
+    assert.equal(initialResidency('xk'), 'xk');
+    assert.equal(initialResidency('eng'), '');
+    assert.equal(validateSearch({ ...search, residency: '' }, now).residency, 'residencyRequired');
+    assert.equal(validateSearch({ ...search, residency: 'zz' }, now).residency, 'residencyRequired');
+});
+
 test('both dates are checked and past/invalid ranges are rejected', () => {
     assert.deepEqual(validateSearch({ ...search, checkin: '', checkout: '' }, now), { checkin: 'datesRequired', checkout: 'datesRequired' });
     assert.equal(validateSearch({ ...search, checkin: '2026-09-25' }, now).checkin, 'invalidDates');
     assert.equal(validateSearch({ ...search, checkout: search.checkin }, now).checkout, 'invalidDates');
     assert.equal(validateSearch({ ...search, checkout: 'invalid' }, now).checkout, 'invalidDates');
-    assert.deepEqual(validateSearch({ ...search, checkin: '2026-09-26', checkout: '2026-09-27' }, now), {});
+    assert.deepEqual(validateSearch({ ...search, checkin: '2026-10-13', checkout: '2026-10-14' }, now), {});
+    assert.deepEqual(validateSearch({ ...search, checkin: '2026-10-13', checkout: '2026-11-12' }, now), {});
+    assert.equal(validateSearch({ ...search, checkin: '2026-10-13', checkout: '2026-11-13' }, now).checkout, 'invalidDates');
+    assert.deepEqual(validateSearch({ ...search, checkin: '2028-10-12', checkout: '2028-10-13' }, now), {});
+    assert.equal(validateSearch({ ...search, checkin: '2028-10-13', checkout: '2028-10-14' }, now).checkin, 'invalidDates');
+    assert.deepEqual(validateSearch({ ...search, checkin: '2027-01-01', checkout: '2027-01-31' }, now), {});
+    assert.equal(validateSearch({ ...search, checkin: '2027-01-01', checkout: '2027-02-01' }, now).checkout, 'invalidDates');
 });
 
 test('guest ages include infants, exclude missing/invalid ages, and preserve room limits', () => {
     assert.deepEqual(validateSearch({ ...search, guests: [{ adults: 1, children: [0, 17] }] }, now), {});
     for (const age of ['', null, -1, 18, 1.5]) assert.equal(validateSearch({ ...search, guests: [{ adults: 2, children: [age] }] }, now).guests, 'childAgeRequired');
     assert.equal(validateSearch({ ...search, guests: [{ adults: 0, children: [] }] }, now).guests, 'invalidGuests');
-    assert.equal(validateSearch({ ...search, guests: Array(5).fill({ adults: 2, children: [] }) }, now).guests, 'invalidGuests');
+    assert.equal(validateSearch({ ...search, guests: Array(10).fill({ adults: 2, children: [] }) }, now).guests, 'invalidGuests');
     assert.deepEqual(initialGuests(null), [{ adults: 2, children: [] }]);
     assert.deepEqual(initialGuests([{ adults: 20, children: [0, '', null, 18, 7] }]), [{ adults: 6, children: [0, '', '', ''] }]);
+    assert.equal(validateSearch({ ...search, guests: [{ adults: 2, children: [5] }] }, now).guests, undefined);
 });

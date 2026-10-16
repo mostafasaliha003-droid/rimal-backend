@@ -2,28 +2,8 @@ import { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, LoaderCircle, LogIn, Mail, Phone, ShieldCheck, UserPlus } from 'lucide-react';
 import BookingAPI from '../services/bookingApi';
 import { trackBookingEvent } from '../services/analytics';
+import { clearUserSession, readCurrentUser, saveUserSession } from '../services/authSession.js';
 import { useLanguage } from '../i18n';
-
-const USER_STORAGE_KEY = 'rimal_current_user';
-
-function readStoredUser() {
-    try {
-        const raw = localStorage.getItem(USER_STORAGE_KEY);
-        return raw ? JSON.parse(raw) : null;
-    } catch {
-        return null;
-    }
-}
-
-function saveUser(user) {
-    try { localStorage.setItem(USER_STORAGE_KEY, JSON.stringify(user)); } catch {}
-    window.dispatchEvent(new CustomEvent('remal:user-changed', { detail: user }));
-}
-
-function clearUser() {
-    try { localStorage.removeItem(USER_STORAGE_KEY); } catch {}
-    window.dispatchEvent(new CustomEvent('remal:user-changed', { detail: null }));
-}
 
 function requestErrorMessage(requestError, fallback, translate) {
     const code = requestError?.response?.data?.error;
@@ -31,7 +11,7 @@ function requestErrorMessage(requestError, fallback, translate) {
         EMAIL_ALREADY_REGISTERED: translate('account.emailAlreadyRegistered', 'هذا البريد الإلكتروني مسجل مسبقاً.'),
         INVALID_NAME: translate('account.invalidName', 'يرجى إدخال الاسم الكامل.'),
         INVALID_EMAIL: translate('account.invalidEmail', 'يرجى إدخال بريد إلكتروني صحيح.'),
-        INVALID_PASSWORD: translate('account.passwordLength', 'استخدم كلمة مرور من 6 أحرف أو أكثر.'),
+        INVALID_PASSWORD: translate('account.passwordLength', 'استخدم كلمة مرور من 10 أحرف أو أكثر.'),
         VERIFICATION_EMAIL_UNAVAILABLE: translate('account.emailUnavailable', 'تعذر إرسال البريد الإلكتروني حالياً. يرجى المحاولة مرة أخرى.')
     }[code];
     return knownMessage
@@ -55,22 +35,39 @@ function Field({ label, icon: Icon, ...props }) {
 
 export default function AccountCenter({ onNavigate }) {
     const { t, direction } = useLanguage();
-    const [user, setUser] = useState(readStoredUser);
+    const [user, setUser] = useState(null);
+    const [sessionChecking, setSessionChecking] = useState(true);
     const [mode, setMode] = useState('login');
     const [registerStep, setRegisterStep] = useState('details');
     const [busy, setBusy] = useState(false);
     const [message, setMessage] = useState('');
     const [error, setError] = useState('');
     const [profile, setProfile] = useState(null);
+    const [bookings, setBookings] = useState([]);
     const [loginForm, setLoginForm] = useState({ email: '', password: '' });
     const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', phone: '' });
     const [verificationCode, setVerificationCode] = useState('');
 
     useEffect(() => {
         const handleUserChange = event => setUser(event.detail || null);
-        const handleStorage = () => setUser(readStoredUser());
+        const handleStorage = () => setUser(readCurrentUser());
         window.addEventListener('remal:user-changed', handleUserChange);
         window.addEventListener('storage', handleStorage);
+        BookingAPI.getUserSession().then(result => {
+            if (result?.success === true && result.user) {
+                setUser(result.user);
+            } else {
+                clearUserSession();
+                setUser(null);
+            }
+        }).catch(error => {
+            if (error?.response?.status === 401) {
+                clearUserSession();
+                setUser(null);
+            } else {
+                setUser(null);
+            }
+        }).finally(() => setSessionChecking(false));
         return () => {
             window.removeEventListener('remal:user-changed', handleUserChange);
             window.removeEventListener('storage', handleStorage);
@@ -80,13 +77,16 @@ export default function AccountCenter({ onNavigate }) {
     useEffect(() => {
         if (!user?.email) {
             setProfile(null);
+            setBookings([]);
             return undefined;
         }
+        setProfile(null);
+        setBookings([]);
         let active = true;
-        BookingAPI.getUserProfile(user.email).then(result => {
+        BookingAPI.getUserProfile().then(result => {
             if (active && result?.success) {
                 setProfile(result.profile);
-                saveUser({ ...user, ...result.profile });
+                setBookings(Array.isArray(result.bookings) ? result.bookings : []);
             }
         }).catch(() => {});
         return () => { active = false; };
@@ -104,7 +104,7 @@ export default function AccountCenter({ onNavigate }) {
         try {
             const result = await BookingAPI.login(loginForm);
             if (!result?.success) throw new Error(result?.error || t('account.loginError', 'تعذر تسجيل الدخول'));
-            saveUser(result.user);
+            saveUserSession(result.user, result.access_token);
             setUser(result.user);
             trackBookingEvent('login_succeeded');
             setMessage(t('account.loginSuccess', 'مرحباً بعودتك. تم تسجيل الدخول بنجاح.'));
@@ -118,8 +118,8 @@ export default function AccountCenter({ onNavigate }) {
     const handleRegisterStart = async event => {
         event.preventDefault();
         clearFeedback();
-        if (registerForm.password.length < 6) {
-            setError(t('account.passwordLength', 'استخدم كلمة مرور من 6 أحرف أو أكثر.'));
+        if (registerForm.password.length < 10) {
+            setError(t('account.passwordLength', 'استخدم كلمة مرور من 10 أحرف أو أكثر.'));
             return;
         }
         setBusy(true);
@@ -142,7 +142,7 @@ export default function AccountCenter({ onNavigate }) {
         try {
             const result = await BookingAPI.verifyRegistration(registerForm.email, verificationCode);
             if (!result?.success) throw new Error(result?.error || t('account.invalidCode', 'رمز التحقق غير صحيح'));
-            saveUser(result.user);
+            saveUserSession(result.user, result.access_token);
             setUser(result.user);
             trackBookingEvent('register_succeeded');
             setMessage(t('account.accountCreated', 'تم إنشاء حسابك وإضافة نقاط البداية إلى برنامج الولاء.'));
@@ -152,6 +152,12 @@ export default function AccountCenter({ onNavigate }) {
             setBusy(false);
         }
     };
+
+    if (sessionChecking) {
+        return <main dir={direction} className="grid min-h-[calc(100vh-72px)] place-items-center bg-[#f7f9fc]" role="status">
+            <LoaderCircle className="animate-spin text-[var(--remal-blue)]" size={28} />
+        </main>;
+    }
 
     if (user) {
         const points = Number(profile?.points ?? user.points ?? 500);
@@ -164,7 +170,13 @@ export default function AccountCenter({ onNavigate }) {
                             <h1 className="mt-2 text-4xl font-black text-[var(--remal-navy)]">{t('account.welcome', `أهلاً، ${user.name?.split(' ')[0] || 'بك'}`, { name: user.name?.split(' ')[0] || 'بك' })}</h1>
                             <p className="mt-2 text-sm font-medium text-slate-500">{t('account.subtitle', 'أدر حسابك، تابع حجوزاتك، واستفد من برنامج الولاء.')}</p>
                         </div>
-                        <button type="button" onClick={() => { clearUser(); setUser(null); }} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700">{t('account.logout', 'تسجيل الخروج')}</button>
+                        <button type="button" onClick={async () => {
+                            try { await BookingAPI.logoutUser(); } catch {}
+                            clearUserSession();
+                            setUser(null);
+                            setProfile(null);
+                            setBookings([]);
+                        }} className="rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 transition hover:border-red-200 hover:bg-red-50 hover:text-red-700">{t('account.logout', 'تسجيل الخروج')}</button>
                     </div>
 
                     {(message || error) && <div role={error ? 'alert' : 'status'} className={`mb-6 rounded-2xl border p-4 text-sm font-bold ${error ? 'border-red-100 bg-red-50 text-red-700' : 'border-emerald-100 bg-emerald-50 text-emerald-700'}`}>{error || message}</div>}
@@ -194,6 +206,94 @@ export default function AccountCenter({ onNavigate }) {
                             <button type="button" onClick={() => onNavigate?.('/loyalty')} className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-[var(--remal-navy)] transition hover:bg-cyan-50">{t('account.viewTiers', 'عرض الـ Tiers')} <ArrowLeft size={17} /></button>
                         </section>
                     </div>
+
+                    <section className="surface-card mt-6 rounded-3xl p-6 sm:p-8" aria-labelledby="account-bookings-title">
+                        <div className="flex flex-wrap items-center justify-between gap-3">
+                            <div>
+                                <p className="eyebrow">{t('account.bookingsEyebrow', 'حجوزاتك')}</p>
+                                <h2 id="account-bookings-title" className="mt-2 text-2xl font-black text-slate-900">
+                                    {t('account.bookingsTitle', 'متابعة الحجوزات')}
+                                </h2>
+                            </div>
+                            <span className="rounded-full bg-cyan-50 px-3 py-1 text-sm font-black text-cyan-800">
+                                {bookings.length}
+                            </span>
+                        </div>
+                        {bookings.length === 0 ? (
+                            <p className="mt-5 rounded-2xl bg-slate-50 p-5 text-sm font-semibold text-slate-600" role="status">
+                                {t('account.noBookings', 'لا توجد حجوزات مرتبطة بحسابك حتى الآن.')}
+                            </p>
+                        ) : (
+                            <ul className="mt-5 space-y-4">
+                                {bookings.map(booking => {
+                                    const status = String(booking.status || '').toLowerCase();
+                                    const supplierStatus = String(booking.supplierStatus || '').toUpperCase();
+                                    const cancelled = ['cancelled', 'canceled'].includes(status);
+                                    const pending = !cancelled && ['ON_REQUEST', 'PENDING'].includes(supplierStatus);
+                                    const confirmed = !cancelled && !pending
+                                        && (status === 'active' || supplierStatus === 'CONFIRMED');
+                                    const awaitingConfirmation = !cancelled && !confirmed && status === 'pending';
+                                    const statusLabel = cancelled
+                                        ? t('account.bookingCancelled', 'ملغي')
+                                        : pending || awaitingConfirmation
+                                            ? t('account.bookingPending', 'بانتظار تأكيد الفندق — غير مؤكّد بعد')
+                                            : confirmed
+                                                ? t('account.bookingConfirmed', 'مؤكد')
+                                                : t('account.bookingReview', 'الحالة قيد المراجعة');
+                                    const statusClass = cancelled
+                                        ? 'bg-red-50 text-red-700'
+                                        : pending || awaitingConfirmation
+                                            ? 'bg-amber-50 text-amber-800'
+                                            : confirmed
+                                                ? 'bg-emerald-50 text-emerald-700'
+                                                : 'bg-slate-100 text-slate-700';
+
+                                    return (
+                                        <li key={booking.bookingReference} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+                                            <div className="flex flex-wrap items-start justify-between gap-4">
+                                                <div className="min-w-0">
+                                                    <h3 className="font-black text-slate-900">{booking.hotelName || t('account.hotel', 'فندق')}</h3>
+                                                    <p className="mt-1 break-all text-xs font-semibold text-slate-500">
+                                                        {t('account.bookingReference', 'مرجع الحجز')}: {booking.bookingReference}
+                                                    </p>
+                                                    {(booking.checkInDate || booking.checkOutDate) && (
+                                                        <p className="mt-2 text-sm font-semibold text-slate-600">
+                                                            {booking.checkInDate || '—'} – {booking.checkOutDate || '—'}
+                                                        </p>
+                                                    )}
+                                                    {Number.isFinite(Number(booking.price)) && booking.priceCurrency && (
+                                                        <p className="mt-2 text-sm font-black text-slate-800">
+                                                            {Number(booking.price).toLocaleString('en-US', { maximumFractionDigits: 2 })} {booking.priceCurrency}
+                                                        </p>
+                                                    )}
+                                                </div>
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <span className={`rounded-full px-3 py-1.5 text-xs font-black ${statusClass}`} role="status">
+                                                        {statusLabel}
+                                                    </span>
+                                                    <button type="button" onClick={async () => {
+                                                        try {
+                                                            const response = await BookingAPI.getOwnedBookingVoucher(booking.bookingReference);
+                                                            const url = URL.createObjectURL(response.data);
+                                                            const anchor = document.createElement('a');
+                                                            anchor.href = url;
+                                                            anchor.download = `Rimal-Voucher-${booking.bookingReference}.pdf`;
+                                                            anchor.click();
+                                                            URL.revokeObjectURL(url);
+                                                        } catch {
+                                                            setError(t('account.voucherUnavailable', 'تعذر تحميل القسيمة حالياً.'));
+                                                        }
+                                                    }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-800">
+                                                        {t('account.downloadVoucher', 'تحميل القسيمة')}
+                                                    </button>
+                                                </div>
+                                            </div>
+                                        </li>
+                                    );
+                                })}
+                            </ul>
+                        )}
+                    </section>
                 </div>
             </main>
         );

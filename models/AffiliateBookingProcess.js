@@ -2,6 +2,8 @@ const mongoose = require('mongoose');
 
 const affiliateBookingProcessSchema = new mongoose.Schema({
     _id: String,
+    realm: { type: String, required: true, immutable: true, match: /^[a-z0-9:_-]{1,100}$/i },
+    owner_subject: { type: String, required: true, immutable: true, maxlength: 254 },
     reference: { type: String, required: true, unique: true },
     request_hash: { type: String, required: true },
     contract_identity: { type: String, required: true },

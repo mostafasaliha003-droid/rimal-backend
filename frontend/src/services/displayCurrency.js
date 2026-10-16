@@ -1,7 +1,5 @@
 import { DISPLAY_CURRENCIES, SEARCH_CURRENCY } from './offers.js';
-
-const API_BASE_URL = import.meta.env?.VITE_API_BASE_URL
-    || (import.meta.env?.PROD ? 'https://rimal-api.onrender.com/api' : '/api');
+import { API_BASE_URL } from './apiBaseUrl.js';
 const CACHE_KEY = 'remal_usd_display_rates';
 const CACHE_LIFETIME_MS = 6 * 60 * 60 * 1000;
 const RATE_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;

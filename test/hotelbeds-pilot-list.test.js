@@ -38,25 +38,21 @@ test('pilot list parses only canonical numeric configured IDs and requires all p
     });
 });
 
-test('authenticated pilot-list route exposes approved IDs without secrets, DB access, or supplier calls', async context => {
+test('pilot-list route is public and rate-limited while exposing approved IDs without secrets, DB access, or supplier calls', async context => {
     const app = express();
     let limiterCalls = 0;
-    const verifyAPIKey = (req, res, next) => req.get('x-api-key') === 'fixture-api-key'
-        ? next() : res.status(403).json({ success: false, error: 'api_key_invalid' });
     app.use('/api/v1/hotels', createHotelbedsPilotListRouter({
         controller: createHotelbedsPilotListController({ env: approvedEnv }),
-        verifyAPIKey,
         searchLimiter: (_req, _res, next) => { limiterCalls += 1; next(); }
     }));
     const server = await listen(app);
     context.after(() => new Promise(resolve => server.close(resolve)));
     const base = `http://127.0.0.1:${server.address().port}/api/v1/hotels/pilot-list`;
 
-    const denied = await fetch(base);
-    assert.equal(denied.status, 403);
-    assert.equal(limiterCalls, 0);
-
-    const response = await fetch(base, { headers: { 'x-api-key': 'fixture-api-key' } });
+    // The browser must never hold a supplier or shared key, so this endpoint is
+    // intentionally reachable without credentials: it performs no DB or supplier
+    // work and returns only the approved ID list behind the search rate limiter.
+    const response = await fetch(base);
     const body = await response.json();
     assert.equal(response.status, 200);
     assert.equal(response.headers.get('cache-control'), 'no-store, no-cache, must-revalidate');
@@ -72,6 +68,10 @@ test('authenticated pilot-list route exposes approved IDs without secrets, DB ac
     });
     assert.equal(JSON.stringify(body).includes('never-return-this'), false);
     assert.equal(limiterCalls, 1);
+
+    const second = await fetch(base);
+    assert.equal(second.status, 200);
+    assert.equal(limiterCalls, 2, 'every public pilot-list request must pass the rate limiter');
 });
 
 test('pilot-list route fails closed on malformed hotel-code configuration', async context => {
@@ -80,7 +80,6 @@ test('pilot-list route fails closed on malformed hotel-code configuration', asyn
         controller: createHotelbedsPilotListController({
             env: { ...approvedEnv, HOTELBEDS_PILOT_HOTEL_CODES: '74,invalid' }
         }),
-        verifyAPIKey: (_req, _res, next) => next()
     }));
     const server = await listen(app);
     context.after(() => new Promise(resolve => server.close(resolve)));
@@ -99,7 +98,6 @@ test('pilot-list route reports unavailable when operational preflight is incompl
         controller: createHotelbedsPilotListController({
             env: { ...approvedEnv, HOTELBEDS_PILOT_OPERATOR_KEY: '' }
         }),
-        verifyAPIKey: (_req, _res, next) => next()
     }));
     const server = await listen(app);
     context.after(() => new Promise(resolve => server.close(resolve)));

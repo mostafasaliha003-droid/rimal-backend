@@ -2,6 +2,9 @@ import { useMemo, useState } from 'react';
 import { AlertCircle, ArrowRight, BedDouble, CheckCircle2, Clock3, MapPin, RefreshCw, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { useLanguage } from '../i18n';
 import { canCreateHotelbedsCheckout, formatAedPrice, hotelbedsCheckoutUnavailableReason, validateUnifiedSearchResponse } from '../services/nextGenCheckout';
+import { canStartDirectHotelbedsBooking } from '../services/hotelbedsRateReview.js';
+
+const DIRECT_BOOKING_UI_ENABLED = import.meta.env.VITE_HOTELBEDS_DIRECT_BOOKING_UI_ENABLED === 'true';
 
 function SkeletonCard() {
     return (
@@ -34,6 +37,8 @@ function SearchSkeleton({ label }) {
 function OfferCard({ offer, onChoose, labels, allowVerifiedImages, taxesUnknown }) {
     const amount = formatAedPrice(offer?.price?.amount, offer?.price?.currency);
     const canCheckout = Boolean(amount && canCreateHotelbedsCheckout(offer));
+    const canDirectCheckout = DIRECT_BOOKING_UI_ENABLED
+        && Boolean(amount && canStartDirectHotelbedsBooking(offer));
     const payAtProperty = offer.paymentFlow === 'PAY_AT_PROPERTY';
     const paymentFlowKnown = offer.paymentFlow === 'PAY_NOW' || payAtProperty;
     const refundable = offer.cancellation?.refundability;
@@ -127,7 +132,7 @@ function OfferCard({ offer, onChoose, labels, allowVerifiedImages, taxesUnknown 
                             ? ` · ${labels.fee}: ${policy.currency} ${policy.feeAmount}` : ''}
                     </span>
                 ))}
-                {canCheckout ? (
+                {canCheckout || canDirectCheckout ? (
                     <button type="button" onClick={() => onChoose?.(offer)} className="cta-red inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white">
                         {labels.choose} <ArrowRight size={16} />
                     </button>

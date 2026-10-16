@@ -2,6 +2,8 @@ const crypto = require('node:crypto');
 const CheckoutSession = require('../models/CheckoutSession');
 const defaultOfferCacheService = require('./offerCacheService');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
+const { hotelbedsScopeFrom, ownerSubjectFrom, sameHotelbedsScope } = require('./hotelbedsScope');
+const { validOfferTermsVersion, normalizeTermsConsent } = require('./offerTermsVersion');
 
 const CHECKOUT_GATES = Object.freeze([
     'HOTELBEDS_MOCK_DATABASE_ENABLED',
@@ -103,8 +105,12 @@ function publicSession(session) {
 
 function sessionAccessToken(session, env) {
     return crypto.createHmac('sha256', encryptionKey(env))
-        .update(`hotelbeds-checkout-session-v1:${session.sessionId}:${session.requestFingerprint}`)
+        .update(`hotelbeds-checkout-session-v2:${session.realm}:${session.environment}:${session.accountId}:${session.ownerSubject}:${session.sessionId}:${session.requestFingerprint}`)
         .digest('hex');
+}
+
+function checkoutSessionScopeFilter(context, idempotencyKeyHash) {
+    return { ...context, idempotencyKeyHash };
 }
 
 function createCheckoutSessionService({
@@ -147,24 +153,44 @@ function createCheckoutSessionService({
         await ensureDatabaseReady();
     }
 
-    async function createSession({ publicOfferId, guestDetails, idempotencyKey } = {}) {
+    function trustedScope() {
+        try { return hotelbedsScopeFrom(env, { testOnly }); }
+        catch (error) { throw fail(error.code || 'checkout_scope_unavailable', error.httpStatus || 503); }
+    }
+
+    function trustedContext(ownerSubject) {
+        try { return { ...trustedScope(), ownerSubject: ownerSubjectFrom(ownerSubject, { testOnly }) }; }
+        catch (error) { throw fail(error.code || 'checkout_scope_unavailable', error.httpStatus || 503); }
+    }
+
+    async function createSession({ publicOfferId, guestDetails, idempotencyKey, ownerSubject,
+        termsAccepted, acceptedTermsVersion } = {}) {
         await assertReady();
+        const context = trustedContext(ownerSubject);
         if (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) {
             throw fail('invalid_idempotency_key');
         }
         if (typeof publicOfferId !== 'string' || !/^[a-f\d]{64}$/i.test(publicOfferId)) {
             throw fail('offer_cache_public_id_invalid', 404);
         }
-        const idempotencyKeyHash = fingerprint(idempotencyKey, env);
-        const existing = await Model.findOne({ idempotencyKeyHash })
-            .select('+idempotencyKeyHash +requestFingerprint +mockPaymentUrl').lean();
+        const idempotencyKeyHash = fingerprint(JSON.stringify({ ...context, idempotencyKey }), env);
+        const existing = await Model.findOne(checkoutSessionScopeFilter(context, idempotencyKeyHash))
+            .select('+idempotencyKeyHash +requestFingerprint +mockPaymentUrl +acceptedTermsVersion').lean();
         if (existing) {
+            if (termsAccepted !== true || !validOfferTermsVersion(acceptedTermsVersion)
+                || acceptedTermsVersion !== existing.acceptedTermsVersion) {
+                throw fail('checkout_terms_acceptance_required', 409);
+            }
             const existingGuests = sanitizeGuestDetails(guestDetails, {
                 roomCount: existing.occupancy?.rooms,
                 adultCount: existing.occupancy?.adults,
                 childCount: existing.occupancy?.children
             });
-            const requestFingerprint = fingerprint(JSON.stringify({ publicOfferId, guests: existingGuests }), env);
+            if (!sameHotelbedsScope(existing, context) || existing.ownerSubject !== context.ownerSubject) {
+                throw fail('checkout_session_not_found', 404);
+            }
+            const requestFingerprint = fingerprint(JSON.stringify({ ...context, publicOfferId,
+                acceptedTermsVersion, guests: existingGuests }), env);
             if (existing.requestFingerprint !== requestFingerprint) throw fail('checkout_idempotency_conflict', 409);
             return { ...publicSession(existing), access_token: sessionAccessToken(existing, env) };
         }
@@ -172,6 +198,18 @@ function createCheckoutSessionService({
         const offer = await offerCacheService.getCheckoutOffer(publicOfferId);
         if (!offer || offer.provider !== 'hotelbeds') throw fail('checkout_offer_not_found', 404);
         if (offer.origin !== 'mock_fixture') throw fail('checkout_live_offer_forbidden', 409);
+        if (!sameHotelbedsScope(offer, context)) throw fail('checkout_offer_scope_mismatch', 409);
+        let termsConsent;
+        try {
+            termsConsent = normalizeTermsConsent({
+                termsAccepted,
+                acceptedTermsVersion,
+                expectedTermsVersion: offer.termsVersion,
+                now
+            });
+        } catch {
+            throw fail('checkout_terms_acceptance_required', 409);
+        }
         if (offer.paymentType !== 'AT_WEB') throw fail('checkout_payment_flow_unsupported', 409);
         if (!['BOOKABLE', 'RECHECK'].includes(offer.rateType)) throw fail('checkout_rate_not_bookable', 409);
         if (typeof offer.opaqueToken !== 'string' || !offer.opaqueToken.trim()) throw fail('checkout_offer_reference_missing', 409);
@@ -208,7 +246,8 @@ function createCheckoutSessionService({
         const paymentUrl = new URL(intent.paymentUrl);
         if (paymentUrl.protocol !== 'https:' || paymentUrl.hostname !== 'pay.example.test'
             || paymentUrl.username || paymentUrl.password) throw fail('mock_payment_intent_invalid', 503);
-        const requestFingerprint = fingerprint(JSON.stringify({ publicOfferId, guests }), env);
+        const requestFingerprint = fingerprint(JSON.stringify({ ...context, publicOfferId,
+            acceptedTermsVersion: termsConsent.acceptedTermsVersion, guests }), env);
         const createdAt = new Date(now());
         const offerExpiresAt = new Date(offer.expiresAt);
         if (Number.isNaN(createdAt.getTime()) || Number.isNaN(offerExpiresAt.getTime())
@@ -217,13 +256,16 @@ function createCheckoutSessionService({
         let session;
         try {
             session = await Model.create({
+                ...context,
                 sessionId,
                 publicOfferId: offer.publicOfferId,
                 offerExpiresAt,
                 provider: 'hotelbeds',
                 offerOrigin: offer.origin,
+                ...termsConsent,
                 paymentProvider: 'mock',
                 paymentType: offer.paymentType,
+                acceptedTermsVersion: offer.termsVersion,
                 providerOfferRef: offer.opaqueToken,
                 providerHotelCode: offer.providerHotelCode,
                 totalAmount,
@@ -244,9 +286,10 @@ function createCheckoutSessionService({
             });
         } catch (error) {
             if (error.code !== 11000) throw error;
-            const duplicate = await Model.findOne({ idempotencyKeyHash })
-                .select('+idempotencyKeyHash +requestFingerprint +mockPaymentUrl').lean();
-            if (duplicate?.requestFingerprint === requestFingerprint) {
+            const duplicate = await Model.findOne(checkoutSessionScopeFilter(context, idempotencyKeyHash))
+                .select('+idempotencyKeyHash +requestFingerprint +mockPaymentUrl +acceptedTermsVersion').lean();
+            if (duplicate && sameHotelbedsScope(duplicate, context) && duplicate.ownerSubject === context.ownerSubject
+                && duplicate.requestFingerprint === requestFingerprint) {
                 return { ...publicSession(duplicate), access_token: sessionAccessToken(duplicate, env) };
             }
             throw fail('checkout_idempotency_conflict', 409);
@@ -261,21 +304,23 @@ function createCheckoutSessionService({
 
     async function getSession(sessionId, accessToken) {
         await ensureDatabaseReady();
+        const context = trustedScope();
         if (typeof sessionId !== 'string' || !/^[a-f\d-]{36}$/i.test(sessionId)) {
             throw fail('checkout_session_not_found', 404);
         }
         if (typeof accessToken !== 'string' || !/^[a-f\d]{64}$/i.test(accessToken)) {
             throw fail('checkout_session_not_found', 404);
         }
-        const session = await Model.findOne({ sessionId }).select('+mockPaymentUrl +requestFingerprint').lean();
-        if (!session) throw fail('checkout_session_not_found', 404);
+        const session = await Model.findOne({ sessionId, ...context }).select('+mockPaymentUrl +requestFingerprint').lean();
+        if (!session || !sameHotelbedsScope(session, context)
+            || typeof session.ownerSubject !== 'string' || !session.ownerSubject) throw fail('checkout_session_not_found', 404);
         const expected = Buffer.from(sessionAccessToken(session, env), 'hex');
         const supplied = Buffer.from(accessToken, 'hex');
         if (!crypto.timingSafeEqual(expected, supplied)) throw fail('checkout_session_not_found', 404);
         return publicSession(session);
     }
 
-    return { createSession, getSession };
+    return { createSession, getSession, getScope: trustedScope };
 }
 
 const defaultService = createCheckoutSessionService();
@@ -289,6 +334,7 @@ module.exports = {
     minorUnits,
     publicSession,
     sessionAccessToken,
+    checkoutSessionScopeFilter,
     createSession: input => defaultService.createSession(input),
     getSession: (sessionId, accessToken) => defaultService.getSession(sessionId, accessToken)
 };

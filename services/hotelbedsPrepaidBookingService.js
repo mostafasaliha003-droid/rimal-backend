@@ -6,6 +6,8 @@ const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
 const { isValidRateIdentity, isValidRateTerms } = require('./hotelbedsRateCheckService');
 const bookingAttemptStoreModule = require('./hotelbedsBookingAttemptStore');
 const { createHotelbedsBookingCoordinator } = require('./hotelbedsBookingCoordinator');
+const { hotelbedsScopeFrom, ownerSubjectFrom } = require('./hotelbedsScope');
+const { validOfferTermsVersion } = require('./offerTermsVersion');
 
 const PREPAID_BOOKING_GATES = Object.freeze([
     'HOTELBEDS_PREPAID_BOOKING_ENABLED',
@@ -68,17 +70,18 @@ function assertApproved(env) {
     }
 }
 
-function sessionQuery(Model, sessionId) {
-    return Model.findOne({ sessionId }).select([
+function sessionQuery(Model, sessionId, scope) {
+    return Model.findOne({ sessionId, ...scope }).select([
         '+paymentIntentId', '+providerOfferRef', '+providerHotelCode', '+lockedNetPrice',
         '+lockedNetCurrency', '+guestDetailsEncrypted', '+bookingAttemptId',
-        '+bookingClientReference', '+bookingRateKey', '+bookingIdentity', '+bookingTerms'
+            '+bookingClientReference', '+bookingRateKey', '+bookingIdentity', '+bookingTerms',
+            '+acceptedTermsVersion', '+termsAcceptedAt'
     ].join(' ')).lean();
 }
 
-async function readSession(Model, sessionId) {
+async function readSession(Model, sessionId, scope) {
     try {
-        const session = await sessionQuery(Model, sessionId);
+        const session = await sessionQuery(Model, sessionId, scope);
         if (!session) throw fail('checkout_session_not_found', 404);
         return session;
     } catch (error) {
@@ -87,9 +90,10 @@ async function readSession(Model, sessionId) {
     }
 }
 
-function updateSession(Model, sessionId, expectedStatus, attemptId, fields) {
+function updateSession(Model, sessionId, expectedStatus, attemptId, fields, scope) {
     return Model.findOneAndUpdate({
         sessionId,
+        ...scope,
         status: expectedStatus,
         bookingAttemptId: attemptId
     }, { $set: fields }, { new: true }).lean();
@@ -134,6 +138,14 @@ function createHotelbedsPrepaidBookingService({
         }
         await database.ensureModelConnected(Model, { env, errorCode: 'checkout_database_unavailable' });
     };
+    const scopeForSession = session => ({
+        realm: session.realm, environment: session.environment,
+        accountId: session.accountId, ownerSubject: session.ownerSubject
+    });
+    function trustedSupplierScope() {
+        try { return hotelbedsScopeFrom(env, { testOnly }); }
+        catch (error) { throw fail(error.code || 'checkout_scope_unavailable', 503); }
+    }
     if (!client || typeof client.checkRates !== 'function' || typeof client.createBooking !== 'function'
         || !Model || typeof Model.findOne !== 'function' || typeof Model.findOneAndUpdate !== 'function'
         || !attemptStore || typeof attemptStore.claim !== 'function'
@@ -146,7 +158,9 @@ function createHotelbedsPrepaidBookingService({
         throw new TypeError('hotelbeds_prepaid_booking_dependencies_invalid');
     }
 
-    async function finalize(sessionId, attemptId, status, lastError, fields = {}) {
+    async function finalize(session, attemptId, status, lastError, fields = {}) {
+        const { sessionId } = session;
+        const scope = scopeForSession(session);
         const at = new Date(now());
         if (Number.isNaN(at.getTime())) throw fail('checkout_clock_invalid', 503);
         const updateFields = {
@@ -159,7 +173,7 @@ function createHotelbedsPrepaidBookingService({
         if (status !== 'booking_pending') updateFields.completedAt = at;
         const saved = await updateSession(Model, sessionId, 'booking_processing', attemptId, {
             ...updateFields
-        });
+        }, scope);
         if (!saved) throw fail('checkout_session_state_conflict', 503);
         return publicResult(sessionId, status);
     }
@@ -171,9 +185,23 @@ function createHotelbedsPrepaidBookingService({
             throw fail('checkout_session_not_found', 404);
         }
 
-        const session = await readSession(Model, sessionId);
-        const existingAttempt = await attemptStore.getBySessionId(sessionId);
+        const supplierScope = trustedSupplierScope();
+        const sessionQueryForScope = supplierScope;
+        const session = await readSession(Model, sessionId, sessionQueryForScope);
+        const bookingOwnerSubject = ownerSubjectFrom(session.ownerSubject, { testOnly });
+        const sessionScope = scopeForSession(session);
+        if (session.realm !== supplierScope.realm || session.environment !== supplierScope.environment
+            || session.accountId !== supplierScope.accountId || session.ownerSubject !== bookingOwnerSubject) {
+            throw fail('checkout_session_scope_mismatch', 404);
+        }
+        const existingAttempt = await attemptStore.getBySessionId(sessionId, bookingOwnerSubject);
         if (existingAttempt) {
+            if (!validOfferTermsVersion(existingAttempt.acceptedTermsVersion)
+                || existingAttempt.acceptedTermsVersion !== session.acceptedTermsVersion
+                || !(existingAttempt.termsAcceptedAt instanceof Date)
+                || Number.isNaN(existingAttempt.termsAcceptedAt.getTime())) {
+                throw fail('hotelbeds_prepaid_booking_session_invalid');
+            }
             return publicResult(sessionId, duplicateStatus(existingAttempt, session.status), true);
         }
         if (['booking_preflight', 'booking_processing', 'booking_pending', 'confirmed', 'outcome_unknown', 'refund_review'].includes(session.status)) {
@@ -181,7 +209,7 @@ function createHotelbedsPrepaidBookingService({
         }
         if (session.status !== 'payment_verified' || session.paymentProvider !== 'ziina'
             || session.paymentType !== 'AT_WEB' || !session.paymentVerifiedAt
-            || session.offerOrigin !== 'live'
+                || session.offerOrigin !== 'live'
             || typeof session.paymentIntentId !== 'string' || !session.paymentIntentId
             || session.provider !== 'hotelbeds' || !['BOOKABLE', 'RECHECK'].includes(session.rateType)
             || typeof session.providerOfferRef !== 'string' || !session.providerOfferRef.trim()
@@ -189,6 +217,8 @@ function createHotelbedsPrepaidBookingService({
             || !/^[A-Z]{3}$/.test(session.lockedNetCurrency || '')
             || !isValidRateIdentity(session.bookingIdentity)
             || !isValidRateTerms(session.bookingTerms)
+            || !validOfferTermsVersion(session.acceptedTermsVersion)
+            || !(session.termsAcceptedAt instanceof Date) || Number.isNaN(session.termsAcceptedAt.getTime())
             || session.bookingIdentity.net !== decimalKey(session.lockedNetPrice)
             || session.bookingIdentity.currency !== session.lockedNetCurrency
             || session.bookingIdentity.paymentType !== session.paymentType
@@ -211,6 +241,10 @@ function createHotelbedsPrepaidBookingService({
         try {
             durableClaim = await attemptStore.claim({
                 scope: 'prepaid',
+                provider: 'hotelbeds',
+                origin: 'live',
+                ...supplierScope,
+                ownerSubject: bookingOwnerSubject,
                 publicOfferId: session.publicOfferId,
                 sessionId,
                 attemptId,
@@ -219,6 +253,9 @@ function createHotelbedsPrepaidBookingService({
                 rateType: session.rateType,
                 rateIdentity: session.bookingIdentity,
                 rateTerms: session.bookingTerms,
+                acceptedTermsVersion: session.acceptedTermsVersion,
+                termsAcceptedAt: session.termsAcceptedAt,
+                bookingRecordPayloadEncrypted: session.guestDetailsEncrypted,
                 state: 'claimed',
                 claimedAt
             });
@@ -226,7 +263,7 @@ function createHotelbedsPrepaidBookingService({
             throw fail('checkout_database_unavailable', 503);
         }
         if (!durableClaim) {
-            const existing = await attemptStore.getBySessionId(sessionId);
+            const existing = await attemptStore.getBySessionId(sessionId, bookingOwnerSubject);
             return publicResult(sessionId, duplicateStatus(existing, session.status), true);
         }
 
@@ -234,6 +271,7 @@ function createHotelbedsPrepaidBookingService({
         try {
             claimed = await Model.findOneAndUpdate({
                 sessionId,
+                ...sessionScope,
                 status: 'payment_verified',
                 provider: 'hotelbeds',
                 offerOrigin: 'live',
@@ -247,11 +285,13 @@ function createHotelbedsPrepaidBookingService({
                 bookingStartedAt: startedAt
             } }, { new: true }).select([
                 '+providerOfferRef', '+providerHotelCode', '+lockedNetPrice',
-                '+lockedNetCurrency', '+guestDetailsEncrypted', '+bookingIdentity', '+bookingTerms'
+                '+lockedNetCurrency', '+guestDetailsEncrypted', '+bookingIdentity', '+bookingTerms',
+                '+realm', '+environment', '+accountId', '+ownerSubject', '+offerOrigin'
             ].join(' ')).lean();
         } catch {
             await attemptStore.transition({
                 attemptId,
+                ownerSubject: bookingOwnerSubject,
                 expectedState: 'claimed',
                 nextState: 'preflight_failed',
                 fields: { lastError: 'checkout_claim_persistence_failed' }
@@ -261,22 +301,24 @@ function createHotelbedsPrepaidBookingService({
         if (!claimed) {
             await attemptStore.transition({
                 attemptId,
+                ownerSubject: bookingOwnerSubject,
                 expectedState: 'claimed',
                 nextState: 'preflight_failed',
                 fields: { lastError: 'checkout_claim_conflict' }
             }).catch(() => {});
-            const current = await readSession(Model, sessionId);
+            const current = await readSession(Model, sessionId, sessionScope);
             return publicResult(sessionId, current?.status || 'payment_verified', true);
         }
 
         try {
             const result = await coordinator.book({
-                claim: async () => claimed,
+                claim: async () => durableClaim,
                 rateType: claimed.rateType,
                 rateKey: claimed.providerOfferRef,
                 rateIdentity: claimed.bookingIdentity,
                 rateTerms: claimed.bookingTerms,
                 clientReference: durableClaim.clientReference,
+                supplierContext: { provider: 'hotelbeds', origin: 'live', ...supplierScope, ownerSubject: bookingOwnerSubject },
                 createBookingRequest: async () => {
                     if (claimed.offerExpiresAt <= new Date(now())) throw fail('checkout_offer_expired', 409);
                     const guests = bookingGuestPayload(
@@ -290,19 +332,21 @@ function createHotelbedsPrepaidBookingService({
                 beforeBooking: async ({ bookingRateKey }) => {
                     await attemptStore.transition({
                         attemptId,
+                        ownerSubject: bookingOwnerSubject,
                         expectedState: 'claimed',
                         nextState: 'booking_processing',
                         fields: { bookingStartedAt: new Date(now()), bookingRateKey }
                     });
                     const saved = await updateSession(Model, sessionId, 'booking_preflight', attemptId, {
                         status: 'booking_processing', bookingRateKey
-                    });
+                    }, sessionScope);
                     if (!saved) throw fail('checkout_session_state_conflict', 503);
                 },
                 onPreflightFailure: async () => {
                     const at = new Date(now());
                     await attemptStore.transition({
                         attemptId,
+                        ownerSubject: bookingOwnerSubject,
                         expectedState: 'claimed',
                         nextState: 'preflight_failed',
                         fields: { lastError: 'booking_preflight_failed' }
@@ -312,21 +356,23 @@ function createHotelbedsPrepaidBookingService({
                         lastError: 'booking_preflight_failed',
                         completedAt: at,
                         webhookProcessedAt: at
-                    });
+                    }, sessionScope);
                 },
                 onOutcomeUnknown: async () => {
                     await attemptStore.transition({
                         attemptId,
+                        ownerSubject: bookingOwnerSubject,
                         expectedState: 'booking_processing',
                         nextState: 'outcome_unknown',
                         fields: { lastError: 'booking_outcome_unknown' }
                     }).catch(() => {});
-                    return finalize(sessionId, attemptId, 'outcome_unknown', 'booking_outcome_unknown');
+                    return finalize(session, attemptId, 'outcome_unknown', 'booking_outcome_unknown');
                 },
                 onResult: async ({ confirmation, bookingRateKey }) => {
                     const status = confirmation.status === 'CONFIRMED' ? 'confirmed' : 'booking_pending';
                     await attemptStore.transition({
                         attemptId,
+                        ownerSubject: bookingOwnerSubject,
                         expectedState: 'booking_processing',
                         nextState: status,
                         fields: {
@@ -335,7 +381,7 @@ function createHotelbedsPrepaidBookingService({
                             bookingRateKey
                         }
                     });
-                    return finalize(sessionId, attemptId, status, null, {
+                    return finalize(session, attemptId, status, null, {
                         bookingReference: confirmation.bookingReference,
                         hotelbedsBookingStatus: confirmation.status,
                         bookingRateKey
@@ -347,7 +393,7 @@ function createHotelbedsPrepaidBookingService({
                     : ['ON_REQUEST', 'PENDING'].includes(result.status) ? 'booking_pending' : result.status);
         } catch (error) {
             let currentAttempt = null;
-            try { currentAttempt = await attemptStore.getBySessionId(sessionId); } catch { /* Keep the failure quarantined. */ }
+            try { currentAttempt = await attemptStore.getBySessionId(sessionId, bookingOwnerSubject); } catch { /* Keep the failure quarantined. */ }
             if (currentAttempt?.state === 'outcome_unknown' || currentAttempt?.state === 'booking_processing'
                 || error?.code === 'booking_outcome_unknown') {
                 return publicResult(sessionId, 'outcome_unknown');

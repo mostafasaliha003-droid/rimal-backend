@@ -5,6 +5,7 @@ function fail(code, httpStatus = 503) {
 const PAGE_SIZE = 25;
 const MAX_PAGES = 5;
 const MAX_LOOKBACK_DAYS = 30;
+const { hotelbedsScopeFrom } = require('./hotelbedsScope');
 
 function dateOnly(value) {
     if (!(value instanceof Date) || !Number.isFinite(value.getTime())) return null;
@@ -32,10 +33,12 @@ function normalizeBooking(booking) {
 function createHotelbedsBookingReconciliationService({
     client,
     attemptStore,
+    env = process.env,
     now = () => new Date()
 } = {}) {
     if (!client || typeof client.getBookingList !== 'function'
         || !attemptStore || typeof attemptStore.getByClientReference !== 'function'
+        || !env || typeof env !== 'object'
         || typeof now !== 'function') {
         throw new TypeError('hotelbeds_reconciliation_dependencies_invalid');
     }
@@ -44,9 +47,16 @@ function createHotelbedsBookingReconciliationService({
         if (typeof clientReference !== 'string' || !/^RML[A-Z0-9]{10,17}$/.test(clientReference)) {
             throw fail('hotelbeds_reconciliation_reference_invalid', 400);
         }
-        const attempt = await attemptStore.getByClientReference(clientReference);
+        let scope;
+        try { scope = hotelbedsScopeFrom(env); }
+        catch { return { state: 'response_ambiguous', clientReference }; }
+        const attempt = await attemptStore.getByClientReference(clientReference, { ...scope, allowAnyOwner: true });
         if (!attempt || attempt.clientReference !== clientReference) {
             throw fail('hotelbeds_reconciliation_attempt_not_found', 404);
+        }
+        if (attempt.environment !== scope.environment || attempt.accountId !== scope.accountId
+            || attempt.realm !== scope.realm || !attempt.ownerSubject || attempt.origin !== 'live') {
+            return { state: 'response_ambiguous', clientReference };
         }
 
         const createdAt = dateOnly(attempt.claimedAt);

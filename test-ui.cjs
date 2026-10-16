@@ -1,7 +1,11 @@
 const assert = require('node:assert/strict');
+const fs = require('node:fs/promises');
+const os = require('node:os');
+const path = require('node:path');
 const puppeteer = require('puppeteer');
 
 const base = process.env.REMAL_UI_TEST_BASE || 'http://127.0.0.1:5178';
+const configuredScreenshotDirectory = process.env.REMAL_UI_SCREENSHOT_DIR;
 const checkoutReference = '11111111-1111-4111-8111-111111111111';
 const accessToken = 'a'.repeat(64);
 const affiliateProcessId = 'f'.repeat(64);
@@ -18,15 +22,17 @@ const hotels = [
     { hid: 2, name: 'Test Hotel 60', stars: 3, rates: [rate(312), rate(1, 'AED'), rate(60)] },
     { hid: 3, name: 'Test Hotel 68', stars: 5, rates: [rate(68)] }
 ];
-const search = { query: 'Dubai', destination: { label: 'Dubai', type: 'region', region_id: 6053839 }, checkin: '2099-10-15', checkout: '2099-10-17', guests: [{ adults: 2, children: [] }] };
+const search = { query: 'Dubai', destination: { label: 'Dubai', type: 'region', region_id: 6053839 }, checkin: '2027-10-15', checkout: '2027-10-17', guests: [{ adults: 2, children: [] }], residency: 'ae' };
 
 async function run() {
     const { formatMoney, normalizeRoom } = await import('./frontend/src/services/offers.js');
-    const browser = await puppeteer.launch({ headless: true });
-    const page = await browser.newPage();
+    let browser;
+    let screenshotDirectory;
+    let ownsScreenshotDirectory = false;
     const errors = [];
     let lastSearch;
     let lastHotelPage;
+    let lastAffiliateHotelPage;
     let paymentEnabled = false;
     let paymentRequests = 0;
     let paymentPayload;
@@ -40,14 +46,20 @@ async function run() {
     let exchangeAvailable = true;
     let exchangeRequests = 0;
     const suggestionRequests = [];
-    page.on('pageerror', error => errors.push(error.message));
     try {
+        screenshotDirectory = configuredScreenshotDirectory
+            || await fs.mkdtemp(path.join(os.tmpdir(), 'remal-ui-screenshots-'));
+        ownsScreenshotDirectory = !configuredScreenshotDirectory;
+        await fs.mkdir(screenshotDirectory, { recursive: true });
+        browser = await puppeteer.launch({ headless: true });
+        const page = await browser.newPage();
+        page.on('pageerror', error => errors.push(error.message));
         await page.setBypassServiceWorker(true);
         await page.setRequestInterception(true);
         page.on('request', request => {
             const url = new URL(request.url());
             if (url.pathname.includes('/api/')) {
-                const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key,authorization,idempotency-key', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
+                const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key,authorization,idempotency-key,x-affiliate-status-token', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
                 if (request.method() === 'OPTIONS') return request.respond({ status: 204, headers });
                 let body;
                 if (url.pathname.endsWith('/display-rates')) {
@@ -75,6 +87,7 @@ async function run() {
                 else if (url.pathname.endsWith('/affiliate/hotels/2/rates')) {
                     affiliateRateRequests++;
                     const criteria = JSON.parse(request.postData());
+                    lastAffiliateHotelPage = criteria;
                     assert.equal(criteria.currency, 'USD');
                     body = { success: true, rates: [{
                         book_hash: 'affiliate-hotel-rate', room_name: 'Test Hotel Double Room', meal: 'breakfast',
@@ -100,7 +113,7 @@ async function run() {
                 }
                 else if (url.pathname.endsWith(`/affiliate/bookings/${affiliateProcessId}/status`)) {
                     affiliateBookingStatusRequests++;
-                    assert.equal(request.headers().authorization, `Bearer ${affiliateAccessToken}`);
+                    assert.equal(request.headers()['x-affiliate-status-token'], affiliateAccessToken);
                     body = { process_id: affiliateProcessId, status: 'confirmed', confirmed: true, supplier_reference: 'TEST-AFFILIATE-ORDER' };
                 }
                 else if (url.pathname.includes('/v1/hotels/')) body = { hotel: hotels[1] };
@@ -122,7 +135,9 @@ async function run() {
                 else { paymentRequests++; return request.abort(); }
                 return request.respond({ status: 200, contentType: 'application/json', headers, body: JSON.stringify(body) });
             }
-            if (url.origin === base || ['images.unsplash.com', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)) return request.continue();
+            // This suite exercises the local build with intercepted APIs. External
+            // fonts and photos must not make navigation depend on the network.
+            if (url.origin === base) return request.continue();
             return request.abort();
         });
         await page.setViewport({ width: 1440, height: 1000 });
@@ -149,6 +164,9 @@ async function run() {
         assert.equal(await page.$('#search-destination-error'), null);
         await page.click('#destination-suggestions [role="option"]');
         assert.equal(await page.$eval('#destination-search', element => element.value), 'Dubai');
+        await page.click('form button[type="submit"]');
+        assert.match(await page.$eval('#search-error', element => element.textContent), /اختر جنسية الضيف/);
+        await page.select('#search-residency', 'gb');
         await page.click('form button[type="submit"]');
         assert.match(await page.$eval('#search-error', element => element.textContent), /حدد تاريخ الوصول والمغادرة/);
         assert(suggestionRequests.length >= 3);
@@ -197,7 +215,7 @@ async function run() {
         assert((await page.$$eval('article', cards => cards.find(card => card.textContent.includes('Test Hotel 60'))?.textContent)).includes(formatMoney(60, 'USD')));
         exchangeAvailable = true;
         await page.select('select[aria-label="عملة عرض السعر"]', 'USD');
-        await page.screenshot({ path: 'frontend/dist/test-desktop.png', fullPage: true });
+        await page.screenshot({ path: path.join(screenshotDirectory, 'test-desktop.png'), fullPage: true });
 
         for (const width of [390, 320]) {
             await page.setViewport({ width, height: 844 });
@@ -215,13 +233,13 @@ async function run() {
             element.dispatchEvent(new Event('change', { bubbles: true }));
         });
         await page.waitForFunction(() => document.querySelector('#search-filters input[type="number"]')?.value === '70');
-        await page.waitForFunction(() => document.querySelectorAll('#results-heading article').length === 2);
+        await page.waitForFunction(() => document.querySelectorAll('#results-heading ul[aria-label] article').length === 2);
         assert.equal(await page.$$eval('article', cards => cards.length), 2);
         const mobileResults = await page.$('#results-heading ul[aria-label]');
         assert(mobileResults, 'Expected semantic hotel results list');
         assert.equal(await page.$eval('#results-heading ul[aria-label]', list => getComputedStyle(list).scrollSnapType.includes('x')), true);
         assert.equal(await page.$$eval('#results-heading ul[aria-label] > li', items => items.length), 2);
-        await page.screenshot({ path: 'frontend/dist/test-mobile.png', fullPage: true });
+        await page.screenshot({ path: path.join(screenshotDirectory, 'test-mobile.png'), fullPage: true });
         const openGuestEditor = async () => {
             const guestButton = await page.$('#search-guests');
             if (guestButton) {
@@ -243,12 +261,13 @@ async function run() {
         await page.click('form button[type="submit"]');
         await page.waitForFunction(() => document.querySelector('#search-submit')?.disabled === false);
         assert.deepEqual(lastSearch.guests, [{ adults: 2, children: [5] }]);
-        const hotelSearch = { ...search, query: 'Test Hotel 60', guests: lastSearch.guests, destination: { type: 'hotel', hotel_id: 2, label: 'Test Hotel 60' } };
+        const hotelSearch = { ...search, query: 'Test Hotel 60', residency: 'gb', guests: lastSearch.guests, destination: { type: 'hotel', hotel_id: 2, label: 'Test Hotel 60' } };
         await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), hotelSearch);
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForSelector('article');
         assert.deepEqual(lastSearch.hids, [2]);
         assert.equal(lastSearch.currency, 'USD');
+        assert.equal(lastSearch.residency, 'gb');
         await page.click('#results-heading article a.cta-red');
         await page.waitForFunction(() => location.pathname.startsWith('/hotel/'));
         await page.waitForSelector('article[aria-labelledby^="room-"] button', { visible: true });
@@ -259,6 +278,8 @@ async function run() {
         assert.deepEqual(await page.$$eval('link[rel="alternate"][data-remal-hreflang]', links => links.map(link => link.hreflang).sort()), ['en', 'x-default']);
         assert.equal(await page.$eval('main', element => element.innerText.includes('كاش باك')), false);
         assert.equal(lastHotelPage.currency, 'USD');
+        assert.equal(lastHotelPage.residency, 'gb');
+        assert.equal(lastAffiliateHotelPage.residency, 'gb');
         assert(affiliateRateRequests > 0, 'Affiliate rates should be fetched through their separate endpoint');
         assert.equal(await page.$$eval('article[data-contract-source="affiliate"]', cards => cards.length), 1);
         assert.equal(await page.$$eval('article[data-contract-source="b2b"]', cards => cards.length), 1);
@@ -294,7 +315,7 @@ async function run() {
         assert.equal(await page.$eval('#guest-first-name', element => element.value), 'Local');
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), true);
         assert.match(await page.$eval('main', element => element.innerText), /طفل، 5 سنوات/);
-        await page.screenshot({ path: 'frontend/dist/test-checkout.png', fullPage: true });
+        await page.screenshot({ path: path.join(screenshotDirectory, 'test-checkout.png'), fullPage: true });
         paymentEnabled = true;
         const mockGuestCount = [{ adults: 1, children: [] }];
         booking.guests = mockGuestCount;
@@ -417,19 +438,43 @@ async function run() {
         assert(cached.includes('/offline.html'));
         assert(cached.includes('/icon-192.png'));
         assert.equal(cached.some(path => path.includes('/api/') || path.includes('/checkout')), false);
+        const workerTarget = await browser.waitForTarget(target =>
+            target.type() === 'service_worker' && target.url().startsWith(base), { timeout: 15000 });
         await page.setOfflineMode(true);
-        const workerTarget = browser.targets().find(target => target.type() === 'service_worker' && target.url().startsWith(base));
-        assert(workerTarget);
         const workerSession = await workerTarget.createCDPSession();
         await workerSession.send('Network.enable');
         await workerSession.send('Network.emulateNetworkConditions', { offline: true, latency: 0, downloadThroughput: 0, uploadThroughput: 0 });
         await page.goto(`${base}/offline-check`, { waitUntil: 'domcontentloaded' });
         assert.match(await page.$eval('h1', heading => heading.textContent), /غير متصل بالإنترنت/);
-        await page.screenshot({ path: 'frontend/dist/test-offline.png', fullPage: true });
+        await page.screenshot({ path: path.join(screenshotDirectory, 'test-offline.png'), fullPage: true });
         console.log('PASS: install manifest, cached icons/offline page, no API or checkout caching, and offline navigation fallback.');
+    } catch (error) {
+        // Keep failures actionable without relying on Puppeteer's generic timeout stack.
+        const pages = browser ? await browser.pages().catch(() => []) : [];
+        const activePage = pages.at(-1);
+        if (activePage && !activePage.isClosed()) {
+            console.error('UI failure context:', await activePage.evaluate(() => ({
+                path: location.pathname,
+                destination: document.querySelector('#destination-search')?.value,
+                feedback: document.querySelector('#search-error')?.textContent,
+                title: document.title
+            })).catch(() => ({ page: 'unavailable' })));
+        }
+        console.error('UI page errors:', errors);
+        throw error;
     } finally {
-        await browser.close();
+        try {
+            if (browser) await browser.close();
+        } finally {
+            if (ownsScreenshotDirectory && screenshotDirectory) {
+                await fs.rm(screenshotDirectory, { recursive: true, force: true });
+            }
+        }
     }
 }
 
-run().catch(error => { console.error(error); process.exitCode = 1; });
+module.exports = { run };
+
+if (require.main === module) {
+    run().catch(error => { console.error(error); process.exitCode = 1; });
+}

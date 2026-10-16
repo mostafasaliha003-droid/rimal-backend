@@ -53,6 +53,17 @@ const bookingLimiter = rateLimit({
     }
 });
 
+const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 8,
+    standardHeaders: true,
+    legacyHeaders: false,
+    handler: (_req, res, _next, options) => {
+        res.set('Cache-Control', 'no-store');
+        res.status(options.statusCode).json({ success: false, error: 'authentication_rate_limited' });
+    }
+});
+
 
 // ==========================================
 // 🌍 3. جدار الحماية العام (Global Limiter)
@@ -76,5 +87,6 @@ module.exports = {
     retryAfterSecondsFromResetTime,
     searchLimiter,
     bookingLimiter,
+    authLimiter,
     globalLimiter
 };

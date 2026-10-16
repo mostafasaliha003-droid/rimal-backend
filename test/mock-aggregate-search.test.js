@@ -34,25 +34,23 @@ test('mock aggregate endpoint returns v2 server-priced AED and never calls a sup
         createHotelGroupId: () => 'mock-hotel-group',
         cacheOffers: async offers => {
             stored.push(...offers);
-            return offers.map(() => ({ publicOfferId: 'a'.repeat(64) }));
+            return offers.map(() => ({ publicOfferId: 'a'.repeat(64), termsVersion: '1'.repeat(64) }));
         }
     });
     const app = express();
     app.use(express.json());
-    const verifyAPIKey = (req, res, next) => req.get('x-api-key') === 'mock-search-key'
-        ? next() : res.status(403).json({ success: false, error: 'api_key_invalid' });
     app.use('/api/v1/hotels', createAggregateSearchRouter({
         controller: createAggregateSearchController({
             service,
             enabled: () => env.MULTI_SUPPLIER_MOCK_SEARCH_ENABLED === 'true'
         }),
-        verifyAPIKey
+        access: 'public'
     }));
 
     await withServer(app, async base => {
         const response = await fetch(`${base}/api/v1/hotels/search/aggregate`, {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'x-api-key': 'mock-search-key' },
+            headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(CRITERIA)
         });
         const body = await response.json();
@@ -69,6 +67,8 @@ test('mock aggregate endpoint returns v2 server-priced AED and never calls a sup
         assert.equal(offer.price.amount, '403.70');
         assert.equal(offer.price.currency, 'AED');
         assert.equal(offer.paymentFlow, 'UNKNOWN');
+        assert.equal(offer.availability.rateType, 'BOOKABLE');
+        assert.deepEqual(Object.keys(offer.availability), ['rateType']);
         assert.equal(offer.mock, true);
         assert.equal(offer.publicOfferId, null);
         assert.equal(stored.length, 0, 'default mock search must not create executable checkout offers');
@@ -96,13 +96,14 @@ test('mock checkout offer caching requires the independent sandbox checkout gate
         env,
         cacheOffers: async offers => {
             stored.push(...offers);
-            return offers.map(() => ({ publicOfferId: 'c'.repeat(64) }));
+            return offers.map(() => ({ publicOfferId: 'c'.repeat(64), termsVersion: '2'.repeat(64) }));
         }
     });
     const result = await service.performSearch(CRITERIA);
     const offer = result.hotels[0].offers[0];
     assert.equal(result.mock, true);
     assert.equal(offer.paymentFlow, 'PAY_NOW');
+    assert.equal(offer.availability.rateType, 'BOOKABLE');
     assert.equal(offer.publicOfferId, 'c'.repeat(64));
     assert.equal(stored.length, 1);
     assert.equal(stored[0].booking.opaqueToken, 'MOCK-NEXTGEN-RATE-900001-BOOKABLE');
@@ -113,10 +114,9 @@ test('mock aggregate endpoint and service fail closed unless their explicit flag
     const service = { async performSearch() { serviceCalls += 1; return {}; } };
     const app = express();
     app.use(express.json());
-    const verifyAPIKey = (_req, _res, next) => next();
     app.use('/api/v1/hotels', createAggregateSearchRouter({
         controller: createAggregateSearchController({ service, enabled: () => false }),
-        verifyAPIKey
+        access: 'public'
     }));
     await withServer(app, async base => {
         const response = await fetch(`${base}/api/v1/hotels/search/aggregate`, {

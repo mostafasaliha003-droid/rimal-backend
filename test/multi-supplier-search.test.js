@@ -3,13 +3,16 @@ const assert = require('node:assert/strict');
 const {
     GLOBAL_GATES,
     SUPPLIER_GATES,
-    createMultiSupplierSearchOrchestrator
+    createMultiSupplierSearchOrchestrator: createMultiSupplierSearchOrchestratorWithClock
 } = require('../services/multiSupplierSearchOrchestrator');
+
+const FIXTURE_NOW = new Date('2026-10-13T12:00:00.000Z');
 
 const CRITERIA = Object.freeze({
     checkin: '2026-11-10',
     checkout: '2026-11-12',
     guests: [{ adults: 2, children: [] }],
+    residency: 'gb',
     destination: { type: 'region', region_id: 42, label: 'Fixture region' }
 });
 
@@ -52,7 +55,7 @@ function offer(provider, providerHotelId, {
                 contentSource: 'hotelbeds_content_api',
                 contentHotelCode: providerHotelId,
                 contentLanguage: 'ENG',
-                contentSyncedAt: '2026-10-01T12:00:00.000Z',
+                contentSyncedAt: FIXTURE_NOW.toISOString(),
                 sourceContent: {
                     contentStatus: 'complete',
                     name,
@@ -91,7 +94,10 @@ function cacheOffers() {
         calls,
         async cache(offers) {
             calls.push(offers);
-            return offers.map((_, index) => ({ publicOfferId: String(index + 1).padStart(64, '0') }));
+            return offers.map((item, index) => ({
+                publicOfferId: String(index + 1).padStart(64, '0'),
+                ...(item.provider === 'hotelbeds' ? { termsVersion: String(index + 101).padStart(64, '0') } : {})
+            }));
         }
     };
 }
@@ -101,6 +107,13 @@ function priceFixture(offer) {
         ...offer,
         price: { ...offer.price, display: { amount: offer.price.supplierAmount.amount, currency: 'AED' } }
     };
+}
+
+function createMultiSupplierSearchOrchestrator(options) {
+    return createMultiSupplierSearchOrchestratorWithClock({
+        ...options,
+        now: options?.now || (() => FIXTURE_NOW)
+    });
 }
 
 test('aggregate search starts both suppliers concurrently and groups only explicitly mapped hotel identities', async () => {
@@ -115,9 +128,11 @@ test('aggregate search starts both suppliers concurrently and groups only explic
             if (provider === 'hotelbeds') {
                 assert.deepEqual(criteria.occupancies, [{ rooms: 1, adults: 2, children: 0 }]);
                 assert.deepEqual(criteria.hotelCodes, ['74001']);
+                assert.equal(Object.hasOwn(criteria, 'residency'), false);
             } else {
                 assert.deepEqual(criteria.guests, [{ adults: 2, children: [] }]);
                 assert.deepEqual(criteria.hids, ['rh-991', 'rh-992']);
+                assert.equal(criteria.residency, 'gb');
             }
             active += 1;
             maxActive = Math.max(maxActive, active);
@@ -153,6 +168,9 @@ test('aggregate search starts both suppliers concurrently and groups only explic
     assert.equal(result.currency, 'AED');
     assert.equal(result.hotelCount, 2);
     assert.equal(result.offerCount, 3);
+    assert.deepEqual(result.hotels.flatMap(hotel => hotel.offers)
+        .filter(item => item.provider === 'hotelbeds')
+        .map(item => item.availability.rateType), ['BOOKABLE']);
     const mappedGroups = new Map();
     for (const hotel of result.hotels) {
         const group = mappedGroups.get(hotel.hotelGroupId) || [];
@@ -205,6 +223,66 @@ test('aggregate gates fail closed before any supplier or cache call', async () =
     assert.equal(cacheCalls, 0);
 });
 
+test('invalid residency fails before supplier calls; XK and defaults reach RateHawk without reaching Hotelbeds', async () => {
+    let supplierCalls = 0;
+    let cacheCalls = 0;
+    const dispatchedResidencies = [];
+    const env = { ...approvedEnv(), RATEHAWK_RESIDENCY: 'gb' };
+    const orchestrator = createMultiSupplierSearchOrchestrator({
+        suppliers: [
+            supplier('hotelbeds', {
+                search: async request => {
+                    supplierCalls += 1;
+                    assert.equal(Object.hasOwn(request, 'residency'), false);
+                    return {};
+                },
+                normalize: () => []
+            }),
+            supplier('ratehawk', {
+                search: async request => {
+                    supplierCalls += 1;
+                    dispatchedResidencies.push(request.residency);
+                    return {};
+                },
+                normalize: () => []
+            })
+        ],
+        env,
+        priceOffer: async item => priceFixture(item),
+        cacheOffers: async () => { cacheCalls += 1; return []; }
+    });
+
+    await assert.rejects(orchestrator.performSearch({ ...CRITERIA, residency: 'zz' }), error =>
+        error.code === 'search_invalid_residency' && error.httpStatus === 400);
+    assert.equal(supplierCalls, 0);
+    assert.equal(cacheCalls, 0);
+
+    await orchestrator.performSearch({ ...HOTEL_CRITERIA, residency: undefined });
+    assert.equal(supplierCalls, 2);
+    assert.equal(cacheCalls, 1);
+    await orchestrator.performSearch({ ...HOTEL_CRITERIA, residency: 'XK' });
+    assert.equal(supplierCalls, 4);
+    assert.equal(cacheCalls, 2);
+    assert.deepEqual(dispatchedResidencies, ['gb', 'xk']);
+});
+
+test('live hotel content expires at the freshness boundary and remains fail-closed', async () => {
+    const latestAllowed = new Date(FIXTURE_NOW.getTime() - 7 * 24 * 60 * 60 * 1000);
+    const expired = offer('hotelbeds', '74001');
+    expired.hotel.contentSyncedAt = new Date(latestAllowed.getTime() - 1).toISOString();
+    let cacheCalls = 0;
+    const orchestrator = createMultiSupplierSearchOrchestrator({
+        suppliers: [supplier('hotelbeds', { search: async () => ({}), normalize: () => [expired] })],
+        env: approvedEnv(['hotelbeds']),
+        priceOffer: async item => priceFixture(item),
+        cacheOffers: async () => { cacheCalls += 1; return []; }
+    });
+
+    const result = await orchestrator.performSearch(HOTEL_CRITERIA);
+    assert.equal(result.offerCount, 0);
+    assert.equal(cacheCalls, 1);
+});
+
 test('a supplier whose own approval gates are closed is skipped while the approved supplier is searched', async () => {
     let hotelbedsCalls = 0;
     let ratehawkCalls = 0;
@@ -242,7 +320,10 @@ test('public responses preserve pay-now versus pay-at-property without exposing 
         ],
         env: approvedEnv(['hotelbeds']),
         priceOffer: async item => priceFixture(item),
-        cacheOffers: async offers => offers.map((_, index) => ({ publicOfferId: String(index + 1).padStart(64, '0') }))
+        cacheOffers: async offers => offers.map((item, index) => ({
+            publicOfferId: String(index + 1).padStart(64, '0'),
+            ...(item.provider === 'hotelbeds' ? { termsVersion: String(index + 101).padStart(64, '0') } : {})
+        }))
     });
 
     const result = await orchestrator.performSearch(HOTEL_CRITERIA);
@@ -280,6 +361,51 @@ test('supplier failure is isolated and an all-supplier failure returns a safe ga
     });
     await assert.rejects(allFailing.performSearch(HOTEL_CRITERIA), error =>
         error.code === 'multi_supplier_search_unavailable' && error.httpStatus === 502);
+});
+
+test('RateHawk failure is isolated in a mixed search and Hotelbeds receives no residency', async () => {
+    const cache = cacheOffers();
+    let ratehawkRequest;
+    let hotelbedsRequest;
+    const orchestrator = createMultiSupplierSearchOrchestrator({
+        suppliers: [
+            supplier('hotelbeds', {
+                search: async request => { hotelbedsRequest = request; return {}; },
+                normalize: () => [offer('hotelbeds', '74001')]
+            }),
+            supplier('ratehawk', {
+                search: async request => {
+                    ratehawkRequest = request;
+                    throw new Error('private RateHawk failure');
+                }
+            })
+        ],
+        env: approvedEnv(),
+        priceOffer: async item => priceFixture(item),
+        cacheOffers: cache.cache
+    });
+
+    const result = await orchestrator.performSearch(HOTEL_CRITERIA);
+
+    assert.deepEqual(ratehawkRequest, {
+        checkin: HOTEL_CRITERIA.checkin,
+        checkout: HOTEL_CRITERIA.checkout,
+        residency: 'gb',
+        guests: [{ adults: 2, children: [] }],
+        hids: ['rh-991', 'rh-992']
+    });
+    assert.deepEqual(hotelbedsRequest, {
+        checkIn: HOTEL_CRITERIA.checkin,
+        checkOut: HOTEL_CRITERIA.checkout,
+        occupancies: [{ rooms: 1, adults: 2, children: 0 }],
+        hotelCodes: ['74001']
+    });
+    assert.equal(Object.hasOwn(hotelbedsRequest, 'residency'), false);
+    assert.equal(result.success, true);
+    assert.equal(result.partialResults, true);
+    assert.equal(result.offerCount, 1);
+    assert.equal(result.hotels[0].offers[0].provider, 'hotelbeds');
+    assert.equal(cache.calls.length, 1);
 });
 
 test('supplier timeout covers normalization/pricing work and signals cooperative cancellation', async () => {
@@ -323,6 +449,29 @@ test('unmapped cross-supplier IDs remain separate and invalid searches fail befo
     assert.equal(result.hotels.length, 2);
     assert.notEqual(result.hotels[0].hotelGroupId, result.hotels[1].hotelGroupId);
     assert.ok(result.hotels.every(hotel => !Object.hasOwn(hotel, 'canonicalId')));
+});
+
+test('aggregate criteria reject coercive occupancy, null children, and conflicting date aliases before suppliers', async () => {
+    let calls = 0;
+    const orchestrator = createMultiSupplierSearchOrchestrator({
+        suppliers: [supplier('ratehawk', {
+            search: async () => { calls += 1; return {}; },
+            normalize: () => []
+        })],
+        env: approvedEnv(['ratehawk']),
+        cacheOffers: async () => { throw new Error('invalid criteria must not reach cache'); }
+    });
+
+    for (const criteria of [
+        { ...CRITERIA, destination: { type: 'region', region_id: 42 }, guests: [{ adults: true, children: [] }] },
+        { ...CRITERIA, destination: { type: 'region', region_id: 42 }, guests: [{ adults: 2, children: null }] },
+        { ...CRITERIA, destination: { type: 'region', region_id: 42 }, checkIn: '', checkin: CRITERIA.checkin },
+        { ...CRITERIA, destination: { type: 'region', region_id: 42 }, checkOut: null, checkout: CRITERIA.checkout }
+    ]) {
+        await assert.rejects(orchestrator.performSearch(criteria), error =>
+            ['search_occupancy_invalid', 'search_check_in_invalid', 'search_check_out_invalid'].includes(error.code));
+    }
+    assert.equal(calls, 0);
 });
 
 test('Hotelbeds is not called for region searches or hotel IDs outside its approved pilot list', async () => {

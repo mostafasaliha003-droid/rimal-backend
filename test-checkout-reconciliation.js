@@ -9,8 +9,10 @@ const payment = require('./services/paymentService');
 const ziina = require('./services/ziinaClient');
 const checkout = require('./services/checkoutProcessService');
 const notification = require('./services/notificationService');
+const bookingPersistence = require('./services/ratehawkCheckoutBookingPersistence');
 
 function fixture(context) {
+    context.mock.method(bookingPersistence, 'persistConfirmedCheckout', async () => ({}));
     const previousAccountId = process.env.ZIINA_ACCOUNT_ID;
     const previousTestMode = process.env.ZIINA_TEST_MODE;
     const previousEncryptionKey = process.env.PAYMENT_BOOKING_ENCRYPTION_KEY;

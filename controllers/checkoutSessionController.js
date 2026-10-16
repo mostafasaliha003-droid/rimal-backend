@@ -13,7 +13,10 @@ function createCheckoutSessionController({ service }) {
             const result = await service.createSession({
                 publicOfferId: body.publicOfferId,
                 guestDetails: body.guestDetails,
-                idempotencyKey: req.get('Idempotency-Key')
+                termsAccepted: body.termsAccepted,
+                acceptedTermsVersion: body.acceptedTermsVersion,
+                idempotencyKey: req.get('Idempotency-Key'),
+                ownerSubject: req.auth?.subject
             });
             return res.status(201).json({ success: true, ...result });
         } catch (error) {

@@ -79,7 +79,7 @@ function normalizedCheckout(input = {}) {
         ...(person.is_child === true ? { age: person.age } : {}),
         ...(person.gender ? { gender: person.gender } : {})
     })) }));
-    return { hid, book_hash: bookHash, roomName, checkin, checkout, currency: input.currency, amount_minor: amountMinor,
+    return { hid, book_hash: bookHash, roomName, hotelName: text(input.hotelName || 'Hotel', 'hotel_name', 256), checkin, checkout, currency: input.currency, amount_minor: amountMinor,
         guests, user: { email, phone, ...(holder.specialRequests ? { comment: text(holder.specialRequests, 'comment', 1000) } : {}) }, rooms: bookingRooms };
 }
 
@@ -133,13 +133,16 @@ async function getCheckout(reference, token) {
     return publicView(record);
 }
 
-async function createCheckout(input, idempotencyKey, userIp) {
+async function createCheckout(input, idempotencyKey, userIp, identity) {
     if (!payment.isCheckoutReady() || mongoose.connection.readyState !== 1) throw fail('checkout_unavailable', 503);
+    if (!identity || identity.role !== 'user' || typeof identity.subject !== 'string' || !identity.subject
+        || identity.subject.length > 254 || !/^[a-z0-9:_-]{1,100}$/i.test(identity.realm || '')
+        || process.env.RIMAL_AUTH_REALM && identity.realm !== process.env.RIMAL_AUTH_REALM) throw fail('unauthorized', 401);
     if (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) throw fail('invalid_idempotency_key');
     const details = normalizedCheckout(input);
     const hash = value => crypto.createHmac('sha256', encryptionKey()).update(value).digest('hex');
     const processId = hash(idempotencyKey);
-    const requestHash = hash(JSON.stringify(details));
+    const requestHash = hash(JSON.stringify({ details, ownerSubject: identity.subject, realm: identity.realm }));
     let record = await CheckoutAttempt.findById(processId).lean();
     if (record) {
         if (record.request_hash !== requestHash) throw fail('checkout_conflict', 409);
@@ -148,6 +151,7 @@ async function createCheckout(input, idempotencyKey, userIp) {
     const reference = crypto.randomUUID();
     try {
         record = await CheckoutAttempt.create({ _id: processId, reference, request_hash: requestHash,
+            ownerSubject: identity.subject, realm: identity.realm,
             encrypted_details: encryptDetails(details), state: 'preparing', next_check_at: new Date(Date.now() + 30000) });
     } catch (error) {
         if (error.code !== 11000) throw error;

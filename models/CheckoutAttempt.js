@@ -4,6 +4,8 @@ const checkoutAttemptSchema = new mongoose.Schema({
     _id: String,
     reference: { type: String, required: true, unique: true },
     request_hash: { type: String, required: true, unique: true },
+    ownerSubject: { type: String, immutable: true, index: true },
+    realm: { type: String, immutable: true, index: true },
     state: {
         type: String, required: true,
         enum: ['preparing', 'preflight_failed', 'intent_creating', 'intent_unknown', 'awaiting_payment',

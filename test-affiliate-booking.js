@@ -7,7 +7,7 @@ const keys = [
     'RATEHAWK_BASE_URL', 'RATEHAWK_KEY_ID', 'RATEHAWK_API_KEY', 'RATEHAWK_AFFILIATE_ENABLED',
     'RATEHAWK_AFFILIATE_BOOKING_ENABLED', 'RATEHAWK_AFFILIATE_CURRENCY', 'RATEHAWK_AFFILIATE_RESIDENCY',
     'AFFILIATE_BOOKING_ENCRYPTION_KEY', 'AFFILIATE_BOOKING_TOKEN', 'PAYMENT_BOOKING_ENCRYPTION_KEY',
-    'RATEHAWK_BOOKING_TOKEN', 'REMAL_SECURE_KEY'
+    'RATEHAWK_BOOKING_TOKEN', 'REMAL_SECURE_KEY', 'RIMAL_AUTH_REALM'
 ];
 
 function configure(context) {
@@ -25,6 +25,7 @@ function configure(context) {
     process.env.RATEHAWK_API_KEY = 'b2b-fixture-api-key';
     process.env.RATEHAWK_AFFILIATE_ENABLED = 'true';
     process.env.RATEHAWK_AFFILIATE_BOOKING_ENABLED = 'true';
+    process.env.RIMAL_AUTH_REALM = 'affiliate-fixture-realm';
     process.env.AFFILIATE_BOOKING_ENCRYPTION_KEY = 'ac'.repeat(32);
     process.env.AFFILIATE_BOOKING_TOKEN = 'affiliate-private-token-fixture-32-chars';
     process.env.REMAL_SECURE_KEY = 'public-browser-key';
@@ -133,20 +134,30 @@ test('Affiliate offer signatures bind contract, dates, occupancy, room and displ
 
 test('Affiliate hotelpage marks its own contract, exposes shown amount and signs only eligible no-card hotel rates', async context => {
     configure(context);
+    process.env.RATEHAWK_AFFILIATE_RESIDENCY = 'gb';
     const service = require('./services/affiliateBookingService');
     const client = require('./services/ratehawkAffiliateClient');
     const rates = [hotelRate(), { ...hotelRate({ bookHash: 'card-rate' }), payment_options: {
         payment_types: [{ type: 'hotel', amount: '80.00', currency_code: 'AED', is_need_credit_card_data: true }]
     } }];
+    const dispatched = [];
     const request = context.mock.method(client, 'hotelPage', async body => {
         assert.equal(body.hid, 7001);
         assert.equal(body.currency, 'USD');
         assert.equal(body.guests[0].children[0], 5);
+        dispatched.push(body);
         return envelope({ hotels: [{ hid: 7001, id: 'fixture-hotel', name: 'Fixture Hotel', rates }] });
     });
     const result = await service.getHotelPageRates({ hid: 7001, checkin: '2099-10-15', checkout: '2099-10-17',
-        guests: [{ adults: 1, children: [5] }], currency: 'USD', residency: 'ae', language: 'en' });
-    assert.equal(request.mock.callCount(), 1);
+        guests: [{ adults: 1, children: [5] }], currency: 'USD', language: 'en' });
+    assert.equal(dispatched[0].residency, 'gb', 'configured Affiliate default should be used when nationality is absent');
+    await service.getHotelPageRates({ hid: 7001, checkin: '2099-10-15', checkout: '2099-10-17',
+        guests: [{ adults: 1, children: [5] }], currency: 'USD', residency: 'xk', language: 'en' });
+    assert.equal(dispatched[1].residency, 'xk', 'explicit nationality should reach the Affiliate endpoint');
+    await assert.rejects(service.getHotelPageRates({ hid: 7001, checkin: '2099-10-15', checkout: '2099-10-17',
+        guests: [{ adults: 1, children: [5] }], currency: 'USD', residency: 'zz', language: 'en' }), error =>
+        error.code === 'invalid_residency' && error.httpStatus === 400);
+    assert.equal(request.mock.callCount(), 2, 'invalid nationality must be rejected before Affiliate request');
     assert.equal(result.rates.length, 1);
     assert.equal(result.rates[0].contract_source, 'affiliate');
     assert.equal(result.rates[0].display_amount, '100');
@@ -165,10 +176,11 @@ test('B2B hotelpage pricing always refreshes live rates instead of reusing an in
     });
     context.mock.method(Hotel, 'findOne', () => ({ lean: async () => null }));
     context.mock.method(mappingService, 'deduplicateHotels', hotels => hotels);
-    const criteria = { checkin: '2099-10-15', checkout: '2099-10-17', guests: [{ adults: 1, children: [] }] };
+    const criteria = { checkin: '2027-10-15', checkout: '2027-10-17', guests: [{ adults: 1, children: [] }], residency: 'gb' };
     await service.getHotelPricing(7001, criteria);
     await service.getHotelPricing(7001, criteria);
     assert.equal(request.mock.callCount(), 2);
+    assert.equal(request.mock.calls[0].arguments[0].residency, 'gb');
 });
 
 test('Affiliate booking persists one idempotent form and never resends finish after an ambiguous result', async context => {
@@ -191,12 +203,15 @@ test('Affiliate booking persists one idempotent form and never resends finish af
         for (const [key, value] of Object.entries(update.$push || {})) target[key] = [...(target[key] || []), value];
         for (const key of Object.keys(update.$unset || {})) delete target[key];
     };
-    context.mock.method(store, 'findById', () => ({ lean: async () => copy(record) }));
+    context.mock.method(store, 'findOne', filter => ({ lean: async () =>
+        record && record._id === filter._id && record.realm === filter.realm
+            && record.owner_subject === filter.owner_subject ? copy(record) : null }));
     context.mock.method(store, 'create', async value => { record = copy(value); });
     context.mock.method(store, 'findOneAndUpdate', (filter, update) => ({ lean: async () => {
         const stateMatches = !filter.state || filter.state === record?.state
             || Array.isArray(filter.state.$in) && filter.state.$in.includes(record?.state);
-        if (!record || record._id !== filter._id || !stateMatches) return null;
+        if (!record || record._id !== filter._id || record.realm !== filter.realm
+            || record.owner_subject !== filter.owner_subject || !stateMatches) return null;
         if (filter.lease_id && record.lease_id !== filter.lease_id) return null;
         if (filter.finish_hash?.$exists === false && record.finish_hash) return null;
         if (filter.state?.$in && !filter.state.$in.includes(record.state)) return null;
@@ -206,7 +221,7 @@ test('Affiliate booking persists one idempotent form and never resends finish af
     context.mock.method(store, 'updateOne', async (filter, update) => {
         const stateMatches = !filter.state || filter.state === record?.state
             || Array.isArray(filter.state.$in) && filter.state.$in.includes(record?.state);
-        if (record && stateMatches
+        if (record && record.realm === filter.realm && record.owner_subject === filter.owner_subject && stateMatches
             && (!filter.lease_id || record.lease_id === filter.lease_id)) apply(record, update);
         return { matchedCount: record ? 1 : 0 };
     });
@@ -237,28 +252,32 @@ test('Affiliate booking persists one idempotent form and never resends finish af
     const rawOffer = offerPayload();
     const token = signFixtureOffer(service, rawOffer);
     const input = details(token);
-    const first = await service.createProcess(input, 'fixture-affiliate-idempotency-key', '192.0.2.8');
+    const owner = { ownerSubject: 'affiliate-fixture-owner' };
+    const first = await service.createProcess(input, 'fixture-affiliate-idempotency-key', '192.0.2.8', owner);
     assert.equal(first.status, 'form_ready');
     assert.equal(first.confirmed, false);
     assert.match(first.access_token, /^[a-f\d]{64}$/);
     assert.equal(JSON.stringify(record).includes('guest@example.test'), false);
     assert.equal(record.contract_identity, rawOffer.contract_identity);
+    assert.equal(record.owner_subject, owner.ownerSubject);
+    assert.equal(record.realm, process.env.RIMAL_AUTH_REALM);
 
-    const second = await service.createProcess(input, 'fixture-affiliate-idempotency-key', '192.0.2.8');
+    const second = await service.createProcess(input, 'fixture-affiliate-idempotency-key', '192.0.2.8', owner);
     assert.equal(second.process_id, first.process_id);
     assert.equal(client.bookingForm.mock.callCount(), 1);
-    await assert.rejects(service.createProcess({ ...input, expected_price: '101.00' }, 'fixture-affiliate-idempotency-key', '192.0.2.8'), /invalid_affiliate_offer/);
+    await assert.rejects(service.createProcess({ ...input, expected_price: '101.00' }, 'fixture-affiliate-idempotency-key', '192.0.2.8', owner), /invalid_affiliate_offer/);
 
-    const pending = await service.finishProcess(first.process_id, first.access_token);
+    await assert.rejects(service.finishProcess(first.process_id, first.access_token, { ownerSubject: 'another-owner' }), /affiliate_booking_not_found/);
+    const pending = await service.finishProcess(first.process_id, first.access_token, owner);
     assert.equal(pending.status, 'processing');
     assert.equal(client.bookingFinish.mock.callCount(), 1);
-    const repeat = await service.finishProcess(first.process_id, first.access_token);
+    const repeat = await service.finishProcess(first.process_id, first.access_token, owner);
     assert.equal(repeat.status, 'processing');
     assert.equal(client.bookingFinish.mock.callCount(), 1);
 
     record.next_check_at = new Date(0);
     statusResponse = { ok: true, status: 'ok', error: null, httpStatus: 200, data: { partner_order_id: record.partner_order_id } };
-    const confirmed = await service.checkStatus(first.process_id, first.access_token);
+    const confirmed = await service.checkStatus(first.process_id, first.access_token, owner);
     assert.equal(confirmed.status, 'confirmed');
     assert.equal(confirmed.confirmed, true);
     assert.equal(client.bookingFinish.mock.callCount(), 1);
@@ -271,18 +290,24 @@ test('Affiliate status requires per-process token and final non-success statuses
     const service = require('./services/affiliateBookingService');
     const store = require('./models/AffiliateBookingProcess');
     const client = require('./services/ratehawkAffiliateClient');
-    const record = { _id: 'a'.repeat(64), reference: 'fixture-reference', request_hash: 'f'.repeat(64),
+    const owner = { ownerSubject: 'affiliate-fixture-owner' };
+    const record = { _id: 'a'.repeat(64), realm: process.env.RIMAL_AUTH_REALM, owner_subject: owner.ownerSubject,
+        reference: 'fixture-reference', request_hash: 'f'.repeat(64),
         contract_identity: crypto.createHash('sha256').update('https://api-sandbox.ratehawk.com|affiliate-fixture-id').digest('hex'),
         state: 'processing', partner_order_id: 'fixture-order', next_check_at: new Date(0), booking_deadline_at: new Date(Date.now() + 60000) };
     const copy = value => structuredClone(value);
-    context.mock.method(store, 'findById', () => ({ lean: async () => copy(record) }));
+    context.mock.method(store, 'findOne', filter => ({ lean: async () =>
+        record._id === filter._id && record.realm === filter.realm && record.owner_subject === filter.owner_subject
+            ? copy(record) : null }));
     context.mock.method(store, 'findOneAndUpdate', (filter, update) => ({ lean: async () => {
-        if (filter._id !== record._id || !filter.state.$in.includes(record.state)) return null;
+        if (filter._id !== record._id || filter.realm !== record.realm || filter.owner_subject !== record.owner_subject
+            || !filter.state.$in.includes(record.state)) return null;
         Object.assign(record, update.$set);
         return copy(record);
     } }));
     context.mock.method(store, 'updateOne', async (filter, update) => {
-        if (filter.check_lease_id !== record.check_lease_id) return { matchedCount: 0 };
+        if (filter.realm !== record.realm || filter.owner_subject !== record.owner_subject
+            || filter.check_lease_id !== record.check_lease_id) return { matchedCount: 0 };
         Object.assign(record, update.$set || {});
         for (const key of Object.keys(update.$unset || {})) delete record[key];
         return { matchedCount: 1 };
@@ -290,10 +315,10 @@ test('Affiliate status requires per-process token and final non-success statuses
     const status = context.mock.method(client, 'bookingFinishStatus', async () => ({
         ok: false, status: '3ds', error: '3ds', httpStatus: 200, data: { data_3ds: { secret: 'never-forward' } }
     }));
-    await assert.rejects(service.checkStatus(record._id, '0'.repeat(64)), /affiliate_booking_not_found/);
+    await assert.rejects(service.checkStatus(record._id, '0'.repeat(64), owner), /affiliate_booking_not_found/);
     const token = crypto.createHmac('sha256', Buffer.from(process.env.AFFILIATE_BOOKING_ENCRYPTION_KEY, 'hex'))
-        .update(`affiliate-booking-v1:${record.reference}:${record.request_hash}`).digest('hex');
-    const action = await service.checkStatus(record._id, token);
+        .update(`affiliate-booking-v2:${record.realm}:${record.owner_subject}:${record.reference}:${record.request_hash}`).digest('hex');
+    const action = await service.checkStatus(record._id, token, owner);
     assert.equal(action.status, 'action_required');
     assert.equal(action.confirmed, false);
     assert.equal(action.error, 'supplier_action_required');

@@ -1,18 +1,31 @@
 import { useState } from 'react';
 import CheckoutFlow from '../components/CheckoutFlow';
+import DirectBookingFlow from '../components/DirectBookingFlow.jsx';
 import { canCreateHotelbedsCheckout } from '../services/nextGenCheckout';
+import { canStartDirectHotelbedsBooking } from '../services/hotelbedsRateReview.js';
 import { useLanguage } from '../i18n';
 
 export default function NextGenCheckout({ onBack }) {
     const { t, direction } = useLanguage();
-    const [offer] = useState(() => {
+    const directBookingUiEnabled = import.meta.env.VITE_HOTELBEDS_DIRECT_BOOKING_UI_ENABLED === 'true';
+    const [selection] = useState(() => {
         try {
             const selected = JSON.parse(sessionStorage.getItem('remal_nextgen_selected_offer') || 'null');
-            return selected?.mock === true && canCreateHotelbedsCheckout(selected) ? selected : null;
+            if (selected?.mock === true && canCreateHotelbedsCheckout(selected)) {
+                return { flow: 'mock', offer: selected };
+            }
+            if (directBookingUiEnabled && selected?.mock !== true
+                && canStartDirectHotelbedsBooking(selected)) {
+                return { flow: 'direct', offer: selected };
+            }
+            return null;
         } catch { return null; }
     });
 
-    if (offer) return <CheckoutFlow offer={offer} onBack={onBack} />;
+    if (selection?.flow === 'mock') return <CheckoutFlow offer={selection.offer} onBack={onBack} />;
+    if (selection?.flow === 'direct') {
+        return <DirectBookingFlow offer={selection.offer} onBack={onBack} />;
+    }
     return (
         <main dir={direction} className="flex min-h-[calc(100vh-72px)] items-center justify-center bg-remal-bg px-5 py-10">
             <section role="alert" className="glass-surface max-w-xl rounded-3xl border border-white/80 p-8 text-center shadow-float">

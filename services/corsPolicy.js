@@ -11,9 +11,26 @@ const allowedOrigins = new Set([
     'https://mostafasaliha003-droid.github.io'
 ]);
 
+// Configure only on the isolated Staging API, for example:
+// STAGING_FRONTEND_ORIGIN=https://staging.remalbookings.com
+const stagingFrontendOrigin = (() => {
+    const configured = String(process.env.STAGING_FRONTEND_ORIGIN || '').trim();
+    if (!configured) return null;
+    try {
+        const parsed = new URL(configured);
+        if (parsed.protocol !== 'https:' || parsed.origin !== configured.replace(/\/$/, '')
+            || parsed.username || parsed.password || parsed.search || parsed.hash) return null;
+        return parsed.origin;
+    } catch {
+        return null;
+    }
+})();
+
+if (stagingFrontendOrigin) allowedOrigins.add(stagingFrontendOrigin);
+
 module.exports = {
     origin(origin, callback) {
-        if (!origin || allowedOrigins.has(origin) || origin === 'null') {
+        if (!origin || allowedOrigins.has(origin)) {
             callback(null, true);
         } else {
             const error = new Error('CORS origin is not allowed.');
@@ -22,6 +39,6 @@ module.exports = {
         }
     },
     methods: ['GET', 'POST', 'PUT', 'DELETE'],
-    allowedHeaders: ['Content-Type', 'x-api-key', 'Authorization', 'Idempotency-Key'],
+    allowedHeaders: ['Content-Type', 'Authorization', 'Idempotency-Key'],
     credentials: true
 };

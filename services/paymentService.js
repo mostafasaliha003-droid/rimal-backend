@@ -3,6 +3,7 @@
 const crypto = require('node:crypto');
 const { SUPPORTED_CURRENCIES, minorUnits } = require('./ziinaClient');
 const { calculateDisplayPrice } = require('./pricingService');
+const { sandboxDatabaseConfigured } = require('./sandboxDatabase');
 
 const B2C_MARKUP_PERCENT = '7';
 
@@ -54,40 +55,49 @@ function supplierHost(value, hostname) {
         && ['/', '/api/b2b/v3', '/api/b2b/v3/'].includes(url.pathname);
 }
 
-function isCheckoutReady(environment = process.env) {
-    const required = environment.PAYMENT_ROLLOUT_APPROVED === 'true'
-        && environment.PAYMENT_CHECKOUT_ENABLED === 'true'
-        && environment.RATEHAWK_BOOKING_ENABLED === 'true'
-        && environment.ZIINA_REFUNDS_ENABLED === 'true'
-        && environment.ZIINA_WEBHOOK_CONFIGURED === 'true'
-        && typeof environment.MONGO_URI === 'string' && environment.MONGO_URI.length > 0
-        && typeof environment.RATEHAWK_KEY_ID === 'string' && environment.RATEHAWK_KEY_ID.length > 0
-        && typeof environment.RATEHAWK_API_KEY === 'string' && environment.RATEHAWK_API_KEY.length > 0
-        && typeof environment.ZIINA_API_KEY === 'string' && environment.ZIINA_API_KEY.length > 0
-        && typeof environment.ZIINA_ACCOUNT_ID === 'string' && /^[a-zA-Z0-9_-]{1,128}$/.test(environment.ZIINA_ACCOUNT_ID)
-        && typeof environment.ZIINA_WEBHOOK_SECRET === 'string' && environment.ZIINA_WEBHOOK_SECRET.length >= 32
-        && /^[a-f\d]{64}$/i.test(environment.PAYMENT_BOOKING_ENCRYPTION_KEY || '');
-    if (!required) return false;
-    let frontend;
-    try { frontend = new URL(environment.FRONTEND_URL); } catch { return false; }
-    if (frontend.username || frontend.password) return false;
-    if (environment.ZIINA_TEST_MODE === 'true') {
-        return environment.PAYMENT_SANDBOX_ENABLED === 'true'
-            && environment.PAYMENT_ETG_SANDBOX_ISOLATED === 'true'
-            && supplierHost(environment.RATEHAWK_BASE_URL, 'api-sandbox.ratehawk.com')
-            && (frontend.protocol === 'https:' || frontend.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(frontend.hostname))
-            && !['remalbookings.com', 'www.remalbookings.com'].includes(frontend.hostname);
+function getCheckoutReadiness(environment = process.env) {
+    const blockers = [];
+    const check = (field, valid) => { if (!valid) blockers.push(field); };
+    for (const field of ['PAYMENT_ROLLOUT_APPROVED', 'PAYMENT_CHECKOUT_ENABLED', 'RATEHAWK_BOOKING_ENABLED',
+        'ZIINA_REFUNDS_ENABLED', 'ZIINA_WEBHOOK_CONFIGURED']) check(field, environment[field] === 'true');
+    for (const field of ['MONGO_URI', 'RATEHAWK_KEY_ID', 'RATEHAWK_API_KEY', 'ZIINA_API_KEY']) {
+        check(field, typeof environment[field] === 'string' && environment[field].length > 0);
     }
-    return environment.ZIINA_TEST_MODE === 'false'
-        && environment.PAYMENT_PRODUCTION_APPROVED === 'true'
-        && environment.PAYMENT_SANDBOX_ENABLED === 'false'
-        && environment.PAYMENT_ETG_SANDBOX_ISOLATED === 'false'
-        && environment.RATEHAWK_CANCELLATION_ENABLED === 'true'
-        && typeof environment.RATEHAWK_BOOKING_TOKEN === 'string' && environment.RATEHAWK_BOOKING_TOKEN.length >= 32
-        && environment.RATEHAWK_BOOKING_TOKEN !== environment.REMAL_SECURE_KEY
-        && Boolean(environment.SMTP_USER && environment.SMTP_PASSWORD)
-        && supplierHost(environment.RATEHAWK_BASE_URL, 'api.ratehawk.com')
-        && frontend.origin === 'https://remalbookings.com';
+    check('ZIINA_ACCOUNT_ID', typeof environment.ZIINA_ACCOUNT_ID === 'string'
+        && /^[a-zA-Z0-9_-]{1,128}$/.test(environment.ZIINA_ACCOUNT_ID));
+    check('ZIINA_WEBHOOK_SECRET', typeof environment.ZIINA_WEBHOOK_SECRET === 'string' && environment.ZIINA_WEBHOOK_SECRET.length >= 32);
+    check('PAYMENT_BOOKING_ENCRYPTION_KEY', /^[a-f\d]{64}$/i.test(environment.PAYMENT_BOOKING_ENCRYPTION_KEY || ''));
+    let frontend;
+    try { frontend = new URL(environment.FRONTEND_URL); } catch { /* Report below. */ }
+    check('FRONTEND_URL', Boolean(frontend && !frontend.username && !frontend.password));
+    const sandbox = environment.ZIINA_TEST_MODE === 'true';
+    check('ZIINA_TEST_MODE', ['true', 'false'].includes(environment.ZIINA_TEST_MODE));
+    if (environment.ZIINA_TEST_MODE === 'true') {
+        check('PAYMENT_SANDBOX_DATABASE', sandboxDatabaseConfigured(environment));
+        check('PAYMENT_SANDBOX_ENABLED', environment.PAYMENT_SANDBOX_ENABLED === 'true');
+        check('PAYMENT_ETG_SANDBOX_ISOLATED', environment.PAYMENT_ETG_SANDBOX_ISOLATED === 'true');
+        check('RATEHAWK_BASE_URL', supplierHost(environment.RATEHAWK_BASE_URL, 'api-sandbox.ratehawk.com'));
+        check('FRONTEND_URL', Boolean(frontend && (frontend.protocol === 'https:'
+            || frontend.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(frontend.hostname))
+            && !['remalbookings.com', 'www.remalbookings.com'].includes(frontend.hostname)));
+    } else {
+        check('PAYMENT_PRODUCTION_APPROVED', environment.PAYMENT_PRODUCTION_APPROVED === 'true');
+        check('PAYMENT_SANDBOX_ENABLED', environment.PAYMENT_SANDBOX_ENABLED === 'false');
+        check('PAYMENT_ETG_SANDBOX_ISOLATED', environment.PAYMENT_ETG_SANDBOX_ISOLATED === 'false');
+        check('RATEHAWK_CANCELLATION_ENABLED', environment.RATEHAWK_CANCELLATION_ENABLED === 'true');
+        check('RATEHAWK_BOOKING_TOKEN', typeof environment.RATEHAWK_BOOKING_TOKEN === 'string'
+            && environment.RATEHAWK_BOOKING_TOKEN.length >= 32 && environment.RATEHAWK_BOOKING_TOKEN !== environment.REMAL_SECURE_KEY);
+        check('SMTP_USER', Boolean(environment.SMTP_USER));
+        check('SMTP_PASSWORD', Boolean(environment.SMTP_PASSWORD));
+        check('RATEHAWK_BASE_URL', supplierHost(environment.RATEHAWK_BASE_URL, 'api.ratehawk.com'));
+        check('FRONTEND_URL', frontend?.origin === 'https://remalbookings.com');
+    }
+    return { ready: blockers.length === 0, mode: sandbox ? 'sandbox' : environment.ZIINA_TEST_MODE === 'false' ? 'production' : 'unconfigured',
+        blockers: [...new Set(blockers)] };
+}
+
+function isCheckoutReady(environment = process.env) {
+    return getCheckoutReadiness(environment).ready;
 }
 
 function isRefundReady(environment = process.env) {
@@ -122,6 +132,7 @@ function resolveValidatedPayment(result, expected) {
 }
 
 module.exports = {
+    getCheckoutReadiness,
     isCheckoutReady,
     isRefundReady,
     supplierIdentity,

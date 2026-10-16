@@ -21,6 +21,11 @@ function createBookingController({
             const result = await hotelbedsBookingService.confirmBooking({
                 publicOfferId: body.publicOfferId,
                 guestDetails: body.guestDetails,
+                termsAccepted: body.termsAccepted,
+                acceptedTermsVersion: body.acceptedTermsVersion,
+                reviewId: body.reviewId,
+                sourceTermsVersion: body.sourceTermsVersion,
+                ownerSubject: req.auth?.subject,
                 offerCacheService
             });
             return res.status(200).json({

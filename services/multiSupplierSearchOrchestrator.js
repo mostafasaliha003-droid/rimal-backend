@@ -3,12 +3,13 @@ const { OFFER_TTL_MS, storeOffers, hotelbeds: hotelbedsOfferCache } = require('.
 const { providerIdentifier, toCustomerDisplayOffer } = require('./offerNormalizationService');
 const { configuredHotelbedsPilotCodes } = require('./hotelbedsPilotList');
 const { isVerifiedHotelbedsContent } = require('./hotelbedsContentPolicy');
+const { validateRatehawkSearchCriteria } = require('./ratehawkSearchValidation');
 
 function fail(code, httpStatus = 400) {
     return Object.assign(new Error(code), { code, httpStatus });
 }
 
-function safeLiveOfferForDisplay(source, projected, env) {
+function safeLiveOfferForDisplay(source, projected, env, now = new Date()) {
     if (source?.provider !== 'hotelbeds') return true;
     const availability = source.availability || {};
     const terms = source.contractTerms || {};
@@ -22,7 +23,7 @@ function safeLiveOfferForDisplay(source, projected, env) {
     }, {
         hotelCode: source.providerHotelId,
         language: source.hotel?.contentLanguage,
-        now: new Date()
+        now
     })) return false;
     if (env.HOTELBEDS_COMMISSION_NET_CONTRACT_APPROVED !== 'true'
         || availability.rateClass === 'NRF' || availability.packaging !== false
@@ -98,8 +99,12 @@ const SUPPLIER_GATES = Object.freeze({
 });
 
 function positiveInteger(value, code, { allowZero = false, max = Number.MAX_SAFE_INTEGER } = {}) {
-    if (typeof value === 'string' && !/^\d+$/.test(value.trim())) throw fail(code);
-    const number = Number(value);
+    if (typeof value === 'string') {
+        if (!/^\d+$/.test(value.trim())) throw fail(code);
+    } else if (typeof value !== 'number') {
+        throw fail(code);
+    }
+    const number = typeof value === 'string' ? Number(value.trim()) : value;
     if (!Number.isSafeInteger(number) || number < (allowZero ? 0 : 1) || number > max) throw fail(code);
     return number;
 }
@@ -111,10 +116,18 @@ function validDate(value, code) {
     return value;
 }
 
+function searchDateAlias(input, primary, alias, code) {
+    const supplied = [primary, alias].filter(field => Object.hasOwn(input, field));
+    if (!supplied.length) return validDate(undefined, code);
+    const value = input[supplied[0]];
+    if (supplied.some(field => input[field] !== value)) throw fail(code);
+    return validDate(value, code);
+}
+
 function normalizedCriteria(input = {}) {
     if (!input || typeof input !== 'object' || Array.isArray(input)) throw fail('search_criteria_invalid');
-    const checkIn = validDate(input.checkIn ?? input.checkin, 'search_check_in_invalid');
-    const checkOut = validDate(input.checkOut ?? input.checkout, 'search_check_out_invalid');
+    const checkIn = searchDateAlias(input, 'checkIn', 'checkin', 'search_check_in_invalid');
+    const checkOut = searchDateAlias(input, 'checkOut', 'checkout', 'search_check_out_invalid');
     if (checkOut <= checkIn) throw fail('search_stay_invalid');
 
     if (!Array.isArray(input.guests) || input.guests.length < 1 || input.guests.length > 9) {
@@ -122,7 +135,7 @@ function normalizedCriteria(input = {}) {
     }
     const guests = input.guests.map(room => {
         const adults = positiveInteger(room?.adults, 'search_occupancy_invalid', { max: 36 });
-        const children = room?.children ?? [];
+        const children = room?.children === undefined ? [] : room.children;
         if (!Array.isArray(children) || children.length > 36
             || children.some(age => !Number.isSafeInteger(age) || age < 0 || age > 17)) {
             throw fail('search_occupancy_invalid');
@@ -211,6 +224,7 @@ function normalizedCriteria(input = {}) {
     return {
         checkIn,
         checkOut,
+        residency: input.residency,
         guests,
         rooms: guests.length,
         adults: guests.reduce((total, room) => total + room.adults, 0),
@@ -277,6 +291,7 @@ function supplierSearchRequest(supplier, criteria) {
     return {
         checkin: criteria.checkIn,
         checkout: criteria.checkOut,
+        residency: criteria.residency,
         guests: criteria.guests,
         ...(criteria.destination.regionId ? { region_id: criteria.destination.regionId } : {}),
         ...(criteria.destination.destinationCode ? { destinationCode: criteria.destination.destinationCode } : {}),
@@ -398,7 +413,7 @@ function createMultiSupplierSearchOrchestrator({
                 missingGates: GLOBAL_GATES.filter(gate => env[gate] !== 'true')
             });
         }
-        const criteria = freezeCriteria(normalizedCriteria(input));
+        let criteria = normalizedCriteria(input);
         const enabledSuppliers = mockOnly ? suppliers : suppliers.filter(supplier =>
             allGatesEnabled(env, SUPPLIER_GATES[supplier.provider]));
         const eligibleSuppliers = enabledSuppliers.filter(supplier => {
@@ -416,12 +431,31 @@ function createMultiSupplierSearchOrchestrator({
             }
         });
         if (!eligibleSuppliers.length) throw fail('multi_supplier_search_not_approved', 503);
+        const ratehawkEligible = eligibleSuppliers.some(supplier => supplier.provider === 'ratehawk');
+        let ratehawkCriteria = null;
+        if (ratehawkEligible) {
+            try {
+                ratehawkCriteria = validateRatehawkSearchCriteria({
+                    checkin: criteria.checkIn,
+                    checkout: criteria.checkOut,
+                    residency: input.residency,
+                    guests: criteria.guests
+                }, { now: now(), defaultResidency: env.RATEHAWK_RESIDENCY || 'ae' });
+            } catch (error) {
+                throw fail(`search_${error.code || 'ratehawk_criteria_invalid'}`, 400);
+            }
+        }
+        freezeCriteria(criteria);
         if (eligibleSuppliers.some(supplier => typeof (supplier.priceOffer || priceOffer) !== 'function')) {
             throw fail('aggregate_supplier_pricing_unapproved', 503);
         }
 
-        const settled = await Promise.allSettled(eligibleSuppliers.map(supplier =>
-            searchSupplier(supplier, criteria)));
+        const settled = await Promise.allSettled(eligibleSuppliers.map(supplier => {
+            const request = supplier.provider === 'ratehawk'
+                ? { ...criteria, residency: ratehawkCriteria.residency, guests: ratehawkCriteria.guests }
+                : criteria;
+            return searchSupplier(supplier, request);
+        }));
         const successful = settled.filter(result => result.status === 'fulfilled');
         const normalizedOffers = successful.flatMap(result => result.value);
         if (successful.length === 0) {
@@ -450,7 +484,8 @@ function createMultiSupplierSearchOrchestrator({
             if (mockCheckoutEnabled && (!Array.isArray(cachedOffers)
                 || cachedOffers.length !== normalizedOffers.length
                 || cachedOffers.some(item => typeof item?.publicOfferId !== 'string'
-                    || !/^[a-f\d]{64}$/i.test(item.publicOfferId)))) {
+                    || !/^[a-f\d]{64}$/i.test(item.publicOfferId)
+                    || !/^[a-f\d]{64}$/i.test(item.termsVersion || '')))) {
                 throw fail('offer_cache_response_invalid', 503);
             }
             const hotels = normalizedOffers.map((offer, index) => {
@@ -475,6 +510,7 @@ function createMultiSupplierSearchOrchestrator({
                         paymentFlow: mockCheckoutEnabled
                             ? publicPaymentFlow(offer.payment?.type) : 'UNKNOWN',
                         publicOfferId: mockCheckoutEnabled ? cachedOffers[index].publicOfferId : null,
+                        ...(mockCheckoutEnabled ? { termsVersion: cachedOffers[index].termsVersion } : {}),
                         expiresAt: null
                     }]
                 };
@@ -492,6 +528,9 @@ function createMultiSupplierSearchOrchestrator({
             };
         }
 
+        const contentCheckAt = new Date(now());
+        if (Number.isNaN(contentCheckAt.getTime())) throw fail('aggregate_search_clock_invalid', 503);
+
         const eligibleOffers = normalizedOffers.map(offer => ({
             offer,
             identity: offerHotelIdentity(offer),
@@ -500,7 +539,7 @@ function createMultiSupplierSearchOrchestrator({
             && item.projection.offer.price?.currency === 'AED'
             && typeof item.projection.offer.price?.amount === 'string'
             && /^\d+(?:\.\d{1,2})?$/.test(item.projection.offer.price.amount)
-            && (mockOnly || safeLiveOfferForDisplay(item.offer, item.projection.offer, env)));
+            && (mockOnly || safeLiveOfferForDisplay(item.offer, item.projection.offer, env, contentCheckAt)));
 
         const hotelGroups = new Map();
         for (const { offer, identity, projection } of eligibleOffers) {
@@ -531,8 +570,10 @@ function createMultiSupplierSearchOrchestrator({
         const expiresAt = new Date(storedAt.getTime() + OFFER_TTL_MS).toISOString();
         const cachedOffers = await cacheOffers(eligibleOffers.map(item => item.offer));
         if (!Array.isArray(cachedOffers) || cachedOffers.length !== eligibleOffers.length
-            || cachedOffers.some(offer => typeof offer?.publicOfferId !== 'string'
-                || !/^[a-f\d]{64}$/i.test(offer.publicOfferId))) {
+            || cachedOffers.some((cached, index) => typeof cached?.publicOfferId !== 'string'
+                || !/^[a-f\d]{64}$/i.test(cached.publicOfferId)
+                || eligibleOffers[index].offer.provider === 'hotelbeds'
+                    && !/^[a-f\d]{64}$/i.test(cached.termsVersion || ''))) {
             throw fail('offer_cache_response_invalid', 503);
         }
 
@@ -546,6 +587,7 @@ function createMultiSupplierSearchOrchestrator({
                 provider: offer.provider,
                 paymentFlow: publicPaymentFlow(offer.payment?.type),
                 publicOfferId: cachedOffers[cachedIndex].publicOfferId,
+                ...(offer.provider === 'hotelbeds' ? { termsVersion: cachedOffers[cachedIndex].termsVersion } : {}),
                 expiresAt
             };
             cachedIndex += 1;

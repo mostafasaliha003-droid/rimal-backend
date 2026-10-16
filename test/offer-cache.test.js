@@ -214,8 +214,12 @@ test('storeOffers saves opaque tokens privately and returns strictly allowlisted
     assert.equal(Model.inserted[0].documents[0].opaqueToken, TOKENS[0]);
     assert.equal(Model.inserted[0].documents[0].lockedNetPrice, '218.50');
     assert.equal(Model.inserted[0].documents[0].currency, 'EUR');
+    assert.match(Model.inserted[0].documents[0].termsVersion, /^[a-f\d]{64}$/i);
     assert.equal(publicOffers[0].publicOfferId, '0'.repeat(63) + '1');
     assert.equal(publicOffers[1].publicOfferId, '0'.repeat(63) + '2');
+    assert.equal(publicOffers[0].termsVersion, Model.inserted[0].documents[0].termsVersion);
+    assert.equal(Object.hasOwn(publicOffers[1], 'termsVersion'), false,
+        'terms versions are created only for Hotelbeds offer snapshots');
 
     const serialized = JSON.stringify(publicOffers);
     for (const secret of [

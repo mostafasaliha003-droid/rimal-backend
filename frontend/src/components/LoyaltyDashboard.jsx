@@ -3,8 +3,8 @@ import { ArrowLeft, Check, Crown, Gem, LockKeyhole, Sparkles, Trophy } from 'luc
 import BookingAPI from '../services/bookingApi';
 import { trackBookingEvent } from '../services/analytics';
 import { useLanguage } from '../i18n';
+import { readCurrentUser } from '../services/authSession.js';
 
-const USER_STORAGE_KEY = 'rimal_current_user';
 const TIERS = [
     { key: 'explorer', name: 'Explorer', arabic: 'المستكشف', min: 0, color: 'slate', icon: Sparkles, benefits: ['جمع نقاط مع الحساب المؤهل', 'عروض ومحتوى مخصص', 'متابعة الحجوزات من حسابك'] },
     { key: 'voyager', name: 'Voyager', arabic: 'المسافر', min: 1000, color: 'cyan', icon: Gem, benefits: ['مزايا أفضل للحجوزات المؤهلة', 'أولوية في العروض المخصصة', 'مكافآت أكبر مع الوقت'] },
@@ -12,7 +12,7 @@ const TIERS = [
 ];
 
 function readUser() {
-    try { return JSON.parse(localStorage.getItem(USER_STORAGE_KEY) || 'null'); } catch { return null; }
+    return readCurrentUser();
 }
 
 function tierFor(points) {
@@ -34,7 +34,7 @@ export default function LoyaltyDashboard({ onNavigate }) {
     useEffect(() => {
         if (!user?.email) return undefined;
         let active = true;
-        BookingAPI.getUserProfile(user.email).then(result => {
+        BookingAPI.getUserProfile().then(result => {
             if (active && result?.success) setProfile(result.profile);
         }).catch(() => {});
         return () => { active = false; };

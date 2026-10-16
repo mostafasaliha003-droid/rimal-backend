@@ -1,18 +1,28 @@
 import axios from 'axios';
+import { API_BASE_URL } from './apiBaseUrl.js';
 
-const apiBaseUrl = import.meta.env.VITE_API_BASE_URL
-    || (import.meta.env.PROD ? 'https://rimal-api.onrender.com/api' : '/api');
-const secureKey = import.meta.env.VITE_REMAL_SECURE_KEY || 'rml_live_9f8b7c6d5e4a3b2c1d0e9f8a7b6c5d2e';
+// Browser traffic is BFF-only: never let a Vite variable redirect API calls to
+// a supplier or another caller-controlled origin.
+import { userAccessToken } from './authSession.js';
 
 const api = axios.create({
-    baseURL: apiBaseUrl,
+    baseURL: API_BASE_URL,
     // RateHawk SERP searches can take up to the backend's configured
     // RATEHAWK_SERP_TIMEOUT_MS (60s by default), plus network overhead.
     timeout: 75000,
     headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': secureKey
+        'Content-Type': 'application/json'
     }
+});
+
+api.interceptors.request.use(config => {
+    // Operation capabilities (checkout/affiliate status) are deliberately passed
+    // explicitly and must never be replaced by a customer identity token.
+    if (config.authScope === 'user') {
+        const token = userAccessToken();
+        if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`;
+    }
+    return config;
 });
 
 const responseData = (response) => response.data;
@@ -76,12 +86,14 @@ export const getAffiliateHotelPage = async (hid, hotelData) =>
 
 export const createAffiliateBooking = async (bookingData, idempotencyKey) =>
     responseData(await api.post('/affiliate/bookings', bookingData, {
+        authScope: 'user',
         headers: { 'Idempotency-Key': idempotencyKey }, timeout: 75000
     }));
 
 export const getAffiliateBookingStatus = async (processId, accessToken) =>
     responseData(await api.get(`/affiliate/bookings/${encodeURIComponent(processId)}/status`, {
-        headers: { Authorization: `Bearer ${accessToken}` }
+        authScope: 'user',
+        headers: { 'X-Affiliate-Status-Token': accessToken }
     }));
 
 /**
@@ -123,7 +135,9 @@ export const prebookSerp = async (hash, priceIncreasePercent = 0) =>
  * @returns {Promise<object>} Ziina payment URL response.
  */
 export const createZiinaIntent = async (paymentData, idempotencyKey) =>
-    responseData(await api.post('/payment/ziina/intent', paymentData, { headers: { 'Idempotency-Key': idempotencyKey } }));
+    responseData(await api.post('/payment/ziina/intent', paymentData, {
+        authScope: 'user', headers: { 'Idempotency-Key': idempotencyKey }
+    }));
 
 export const paymentAvailability = async () => responseData(await api.get('/payment/availability'));
 
@@ -135,6 +149,7 @@ export const getCheckoutStatus = async (reference, accessToken) =>
 /** Create a long-lived Hotelbeds prepaid checkout session (mock payment only). */
 export const createHotelCheckoutSession = async (checkoutData, idempotencyKey) =>
     responseData(await api.post('/v1/hotels/checkout', checkoutData, {
+        authScope: 'user',
         headers: { 'Idempotency-Key': idempotencyKey },
         timeout: 30000
     }));
@@ -175,9 +190,30 @@ export const searchMockAggregateHotels = async (criteria, { signal } = {}) =>
         timeout: 75000
     }));
 
+/** Create a short-lived Hotelbeds direct-booking rate review for the signed-in customer. */
+export const createHotelbedsRateReview = async (reviewData, idempotencyKey) =>
+    responseData(await api.post('/v1/hotels/offers/review', reviewData, {
+        authScope: 'user',
+        headers: { 'Idempotency-Key': idempotencyKey },
+        timeout: 30000
+    }));
+
+/** Confirm a Hotelbeds pay-at-hotel booking using the customer's accepted review terms. */
+export const bookHotelbedsDirect = async bookingData =>
+    responseData(await api.post('/v1/hotels/book', bookingData, {
+        authScope: 'user',
+        timeout: 75000
+    }));
+
 /** Read the server-approved Hotelbeds pilot IDs; this endpoint performs no supplier call. */
 export const getHotelbedsPilotList = async ({ signal } = {}) =>
     responseData(await api.get('/v1/hotels/pilot-list', { signal, timeout: 15000 }));
+
+/** Admin-only Hotelbeds TEST Availability probe; credentials remain server-side. */
+export const runAdminHotelbedsSupplierTest = async (criteria, { signal } = {}) =>
+    responseData(await api.post('/v1/admin/hotelbeds/supplier-test', criteria, {
+        authScope: 'admin', signal, timeout: 75000
+    }));
 
 /**
  * Look up rate details by ETG book hash.
@@ -199,8 +235,24 @@ export const registerSendCode = async registration =>
 export const verifyRegistration = async (email, code) =>
     responseData(await api.post('/auth/verify-and-register', { email, code }));
 
-export const getUserProfile = async email =>
-    responseData(await api.get('/user/profile', { params: { email } }));
+export const getUserProfile = async () =>
+    responseData(await api.get('/user/profile', { authScope: 'user' }));
+
+export const getUserSession = async () =>
+    responseData(await api.get('/auth/session', { authScope: 'user' }));
+
+export const logoutUser = async () =>
+    responseData(await api.post('/auth/logout', {}, { authScope: 'user' }));
+
+/** Download a booking voucher only for the authenticated owner of that booking. */
+export const getOwnedBookingVoucher = async reference => {
+    if (typeof reference !== 'string' || !reference.trim()) throw new Error('booking_reference_invalid');
+    return api.get(`/owned/bookings/pdf/${encodeURIComponent(reference)}`, {
+        authScope: 'user',
+        responseType: 'blob',
+        timeout: 30000
+    });
+};
 
 export { api };
 
@@ -226,10 +278,15 @@ export default {
     completeMockHotelPayment,
     searchAggregateHotels,
     searchMockAggregateHotels,
+    createHotelbedsRateReview,
+    bookHotelbedsDirect,
     getHotelbedsPilotList,
     lookupRate,
     login,
     registerSendCode,
     verifyRegistration,
-    getUserProfile
+    getUserProfile,
+    getUserSession,
+    logoutUser,
+    getOwnedBookingVoucher
 };

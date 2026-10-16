@@ -2,6 +2,8 @@ const crypto = require('node:crypto');
 const CheckoutSession = require('../models/CheckoutSession');
 const { decryptGuestDetails } = require('./checkoutSessionService');
 const hotelbedsMockDatabase = require('./hotelbedsMockDatabase');
+const { hotelbedsScopeFrom, ownerSubjectFrom } = require('./hotelbedsScope');
+const { validOfferTermsVersion } = require('./offerTermsVersion');
 
 const MAX_WEBHOOK_BYTES = 64 * 1024;
 const MAX_WEBHOOK_AGE_MS = 5 * 60 * 1000;
@@ -65,6 +67,10 @@ function createZiinaWebhookHandler({
         const at = new Date(now());
         return Model.findOneAndUpdate({
             sessionId: session.sessionId,
+            realm: session.realm,
+            environment: session.environment,
+            accountId: session.accountId,
+            ownerSubject: session.ownerSubject,
             status: 'booking_processing',
             bookingAttemptId: attemptId
         }, {
@@ -83,6 +89,9 @@ function createZiinaWebhookHandler({
             throw fail('hotelbeds_prepaid_mock_flow_disabled', 503);
         }
         await ensureDatabaseReady();
+        let supplierScope;
+        try { supplierScope = hotelbedsScopeFrom(env, { testOnly }); }
+        catch { throw fail('checkout_scope_unavailable', 503); }
         if (!event || typeof event !== 'object' || Array.isArray(event)
             || event.event !== 'payment_intent.status.updated'
             || event.data?.status !== 'completed'
@@ -91,12 +100,27 @@ function createZiinaWebhookHandler({
             || !Number.isSafeInteger(event.data?.amount) || event.data.amount < 1
             || event.data.currency !== 'AED') throw fail('invalid_mock_payment_event', 400);
 
-        const session = await Model.findOne({ sessionId: event.data.sessionId })
+        const session = await Model.findOne({ sessionId: event.data.sessionId, ...supplierScope })
             .select([
-                '+paymentIntentId', '+providerOfferRef', '+providerHotelCode',
-                '+lockedNetPrice', '+lockedNetCurrency', '+guestDetailsEncrypted'
+                '+paymentIntentId', '+providerOfferRef', '+providerHotelCode', '+lockedNetPrice',
+                '+lockedNetCurrency', '+guestDetailsEncrypted', '+realm', '+environment', '+accountId',
+                '+ownerSubject', '+provider', '+offerOrigin', '+acceptedTermsVersion', '+termsAcceptedAt'
             ].join(' ')).lean();
         if (!session) throw fail('checkout_session_not_found', 404);
+        try { ownerSubjectFrom(session.ownerSubject, { testOnly }); }
+        catch { throw fail('checkout_session_not_found', 404); }
+        const sessionFilter = {
+            sessionId: session.sessionId,
+            ...supplierScope,
+            ownerSubject: session.ownerSubject
+        };
+        if (session.provider !== 'hotelbeds' || session.offerOrigin !== 'mock_fixture'
+            || session.environment !== 'test'
+            || !validOfferTermsVersion(session.acceptedTermsVersion)
+            || !(session.termsAcceptedAt instanceof Date)
+            || Number.isNaN(session.termsAcceptedAt.getTime())) {
+            throw fail('checkout_terms_acceptance_required', 409);
+        }
         if (session.paymentIntentId !== event.data.id || session.totalAmount !== event.data.amount
             || session.currency !== event.data.currency) throw fail('mock_payment_identity_mismatch', 409);
         if (['confirmed', 'outcome_unknown', 'refund_review'].includes(session.status)) {
@@ -109,7 +133,7 @@ function createZiinaWebhookHandler({
         // Do not attempt to book a provider token after the source offer expired.
         if (!(session.offerExpiresAt instanceof Date) || session.offerExpiresAt <= verifiedAt) {
             const verified = await Model.findOneAndUpdate({
-                sessionId: session.sessionId,
+                ...sessionFilter,
                 paymentIntentId: event.data.id,
                 status: 'awaiting_payment'
             }, {
@@ -120,10 +144,11 @@ function createZiinaWebhookHandler({
                 }
             }, { new: true }).lean();
             if (!verified) {
-                const current = await Model.findOne({ sessionId: session.sessionId }).lean();
+                const current = await Model.findOne(sessionFilter).lean();
                 return { sessionId: session.sessionId, status: current?.status || 'payment_verified', duplicate: true };
             }
             const review = await Model.findOneAndUpdate({
+                ...sessionFilter,
                 sessionId: verified.sessionId,
                 status: 'payment_verified'
             }, {
@@ -139,7 +164,7 @@ function createZiinaWebhookHandler({
 
         // Atomic compare-and-set admits exactly one delivery to booking.
         const verified = await Model.findOneAndUpdate({
-            sessionId: session.sessionId,
+            ...sessionFilter,
             paymentIntentId: event.data.id,
             totalAmount: event.data.amount,
             currency: event.data.currency,
@@ -148,7 +173,7 @@ function createZiinaWebhookHandler({
             $set: { status: 'payment_verified', paymentVerifiedAt: verifiedAt, webhookProcessedAt: verifiedAt }
         }, { new: true }).lean();
         if (!verified) {
-            const current = await Model.findOne({ sessionId: session.sessionId }).lean();
+            const current = await Model.findOne(sessionFilter).lean();
             if (current && current.status !== 'awaiting_payment') {
                 return { sessionId: current.sessionId, status: current.status, duplicate: true };
             }
@@ -158,16 +183,18 @@ function createZiinaWebhookHandler({
         const attemptId = crypto.randomUUID();
         const bookingStartedAt = new Date(now());
         const claimed = await Model.findOneAndUpdate({
+            ...sessionFilter,
             sessionId: verified.sessionId,
             status: 'payment_verified'
         }, {
             $set: { status: 'booking_processing', bookingAttemptId: attemptId, bookingStartedAt }
         }, { new: true }).select([
             '+offerOrigin', '+providerOfferRef', '+providerHotelCode', '+lockedNetPrice',
-            '+lockedNetCurrency', '+guestDetailsEncrypted'
+            '+lockedNetCurrency', '+guestDetailsEncrypted', '+realm', '+environment',
+            '+accountId', '+ownerSubject', '+provider'
         ].join(' ')).lean();
         if (!claimed) {
-            const current = await Model.findOne({ sessionId: verified.sessionId }).lean();
+            const current = await Model.findOne(sessionFilter).lean();
             return { sessionId: verified.sessionId, status: current?.status || 'booking_processing', duplicate: true };
         }
 
@@ -197,6 +224,8 @@ function createZiinaWebhookHandler({
                     lockedNetCurrency: claimed.lockedNetCurrency,
                     rateType: claimed.rateType,
                     occupancy: claimed.occupancy,
+                    acceptedTermsVersion: claimed.acceptedTermsVersion,
+                    termsAcceptedAt: claimed.termsAcceptedAt,
                     offerExpiresAt: claimed.offerExpiresAt
                 },
                 guestDetails,
@@ -225,6 +254,7 @@ function createZiinaWebhookHandler({
 
         const confirmedAt = new Date(now());
         const confirmed = await Model.findOneAndUpdate({
+            ...sessionFilter,
             sessionId: claimed.sessionId,
             status: 'booking_processing',
             bookingAttemptId: attemptId

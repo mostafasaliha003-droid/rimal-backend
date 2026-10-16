@@ -63,11 +63,13 @@ function createSearchOrchestrator({
     priceOffer = defaultLivePricing,
     cacheOffers = hotelbedsOfferCache.storeOffers,
     displayOffer = toCustomerDisplayOffer,
-    env = process.env
+    env = process.env,
+    now = () => new Date()
 } = {}) {
     if (!availabilityService || typeof availabilityService.searchAvailability !== 'function'
-        || typeof normalizeHotel !== 'function'
-        || typeof cacheOffers !== 'function' || typeof displayOffer !== 'function') {
+        || !normalizeHotel || typeof normalizeHotel !== 'function'
+        || typeof cacheOffers !== 'function' || typeof displayOffer !== 'function'
+        || typeof now !== 'function') {
         throw new TypeError('search_orchestrator_dependencies_invalid');
     }
 
@@ -92,7 +94,8 @@ function createSearchOrchestrator({
 
         // 2. Normalize each supplier hotel/rate; only supplier offers are passed
         //    downstream, never the original hotel response object.
-        const contentCheckAt = new Date();
+        const contentCheckAt = new Date(now());
+        if (Number.isNaN(contentCheckAt.getTime())) throw fail('hotelbeds_search_clock_invalid', 503);
         const publicHotels = availability.hotels
             .filter(hotel => isVerifiedHotelbedsContent(hotel, {
                 hotelCode: hotel?.code, language: availability.contentLanguage, now: contentCheckAt
@@ -142,8 +145,10 @@ function createSearchOrchestrator({
         // 4. Cache provider tokens before projecting any client-visible data.
         const cachedOffers = await cacheOffers(pricedOffers);
         if (!Array.isArray(cachedOffers) || cachedOffers.length !== pricedOffers.length
-            || cachedOffers.some(offer => typeof offer?.publicOfferId !== 'string'
-                || !/^[a-f\d]{64}$/i.test(offer.publicOfferId))) {
+            || cachedOffers.some((cached, index) => typeof cached?.publicOfferId !== 'string'
+                || !/^[a-f\d]{64}$/i.test(cached.publicOfferId)
+                || pricedOffers[index].provider === 'hotelbeds'
+                    && !/^[a-f\d]{64}$/i.test(cached.termsVersion || ''))) {
             throw fail('offer_cache_response_invalid', 503);
         }
 
@@ -155,7 +160,11 @@ function createSearchOrchestrator({
                 displayCurrency: 'AED'
             });
             if (!result?.eligible || !result.offer) return null;
-            return { ...result.offer, publicOfferId: cachedOffers[index].publicOfferId };
+            return {
+                ...result.offer,
+                publicOfferId: cachedOffers[index].publicOfferId,
+                ...(offer.provider === 'hotelbeds' ? { termsVersion: cachedOffers[index].termsVersion } : {})
+            };
         }).filter(Boolean);
 
         return {
