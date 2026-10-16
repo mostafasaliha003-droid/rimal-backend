@@ -10,12 +10,19 @@ https://rimal-api-staging.onrender.com. Production checkout stays disabled.
 - Isolated frontend build and browser tests passed: destination search, room
   selection, simulated payments, booking/refund states, Affiliate routing and PWA
   offline fallback. Deployment files were unchanged by these tests.
+- Additional search UI tests passed (keyboard, responsive layout, dialogs,
+  focus return and offline handling), as did the Next-Gen UI fixture suite.
 - A real ETG Sandbox standard booking reached `confirmed`.
 - The ETG `unknown_then_soldout` scenario reached its expected final failure;
   the certification runner reported zero unmet expectations.
 - A Ziina intent was created with `test: true` and retrieved successfully.
   No real card or real payment was submitted. The returned intent does not expose
   a `test` field, so it is not reported as independent confirmation of test mode.
+- The Sandbox release was deployed to the Staging service. Its health endpoint
+  reported a connected database, and the frontend/backend release revisions
+  matched. The isolated fixture job succeeded. Real admin/customer login and a
+  BFF hotelpage search succeeded, returning 18 bookable rates; a BFF checkout
+  reached `awaiting_payment` with a hosted test-payment URL.
 
 Supplier evidence containing test guest information is kept in ignored `logs/`:
 `sandbox-standard-confirmed-20261016.json` and
@@ -45,7 +52,7 @@ Supplier evidence containing test guest information is kept in ignored `logs/`:
 ```sh
 npm test
 npm run test:frontend-isolated
-npm run check:readiness -- --remote=https://rimal-api-staging.onrender.com
+npm run check:readiness -- --env-file=.env.sandbox --remote=https://rimal-api-staging.onrender.com
 node scripts/seed-sandbox.js --env-file=.env.sandbox
 npm run verify:sandbox
 npm run verify:sandbox -- --create-test-checkout
@@ -55,6 +62,10 @@ The last command creates a test checkout on the fixed Staging host only. It save
 the operation key and exact payload before submission in the ignored
 `logs/sandbox-app-checkout.json`, allowing recovery without a new operation key.
 It never automatically submits a card or changes Production.
+
+GitHub Actions runs the fixture suite and frontend build for this Sandbox branch.
+Render tracks `codex/sandbox-readiness-20261016` with automatic deploy disabled,
+so later Staging configuration deploys do not restore the old source branch.
 
 `sandbox-access.local.json` contains the private Sandbox QA/admin credentials.
 `.env.sandbox` contains the private Staging configuration. Both are ignored by Git.
@@ -68,5 +79,10 @@ The user chose real SMTP delivery. Configure `SMTP_USER` and `SMTP_PASSWORD` on
 emails. A hosted test payment must be completed before the complete Ziina → ETG
 → voucher/email lifecycle can be marked verified. ETG Production certification
 has not been granted and is outside this Sandbox release.
+
+The hosted Ziina page accepted the officially documented test-card fields, but
+its Cloudflare human-verification challenge kept the Pay button disabled. No
+payment was submitted. Complete that challenge manually in the hosted page;
+never simulate payment success or bypass provider verification.
 
 Configuration readiness and passing fixture tests are not supplier certification.

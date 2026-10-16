@@ -1,0 +1,31 @@
+name: Sandbox validation
+
+on:
+  pull_request:
+  push:
+    branches:
+      - codex/sandbox-readiness-20261016
+
+permissions:
+  contents: read
+
+jobs:
+  fixtures-and-build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      PUPPETEER_SKIP_DOWNLOAD: 'true'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: |
+            package-lock.json
+            frontend/package-lock.json
+      - run: npm ci
+      - run: npm --prefix frontend ci --include=dev
+      - run: npm test
+      - run: npm run build
+      - run: npm run check:site

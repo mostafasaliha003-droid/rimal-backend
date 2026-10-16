@@ -265,7 +265,8 @@ async function run() {
                 }
             }
         });
-        await page.goto(`${base}/next-gen?lang=en`, { waitUntil: 'networkidle0' });
+        await page.goto(`${base}/next-gen?lang=en`, { waitUntil: 'domcontentloaded', timeout: 60000 });
+        await page.waitForSelector('#language-select');
         await page.select('#language-select', 'en');
         await page.waitForFunction(() => document.body.dataset.language === 'en');
         await page.waitForFunction(() => document.querySelector('#hotelbeds-pilot-hotel option[value="900001"]'));
@@ -477,7 +478,7 @@ async function run() {
         assert.equal(calls.vouchers.length, 1);
         assert.equal(calls.vouchers[0].authorization, `Bearer ${accessToken}`);
 
-        await page.reload({ waitUntil: 'networkidle0' });
+        await page.reload({ waitUntil: 'domcontentloaded', timeout: 60000 });
         await page.waitForFunction(() => location.pathname === '/next-gen/checkout');
         await page.waitForSelector('[data-direct-booking-locked]');
         assert.equal(calls.directBookings.length, 1, 'a reload must not allow a duplicate booking POST');

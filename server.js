@@ -451,6 +451,11 @@ app.get('/api/v1/health', (req, res) => {
     });
 });
 
+app.get('/api/v1/ready', (_req, res) => {
+    const ready = mongoose.connection.readyState === 1;
+    res.set('Cache-Control', 'no-store').status(ready ? 200 : 503).json({ ready, revision: releaseRevision() });
+});
+
 // 🌍 قائمة الوجهات لقائمة البحث المنسدلة (كانت مفقودة وتُرجع 404)
 app.get('/api/v1/hotels/destinations', (req, res) => {
     res.json({

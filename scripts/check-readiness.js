@@ -29,7 +29,8 @@ async function checkRemote(origin, { fetcher = fetch } = {}) {
 }
 
 async function main(argv = process.argv.slice(2)) {
-    require('dotenv').config();
+    const envFile = argv.find(value => value.startsWith('--env-file='));
+    require('dotenv').config(envFile ? { path: envFile.slice('--env-file='.length) } : {});
     const remoteArgument = argv.find(value => value.startsWith('--remote='));
     const report = { local: getReleaseReadiness() };
     if (remoteArgument) report.remote = await checkRemote(remoteArgument.slice('--remote='.length));
