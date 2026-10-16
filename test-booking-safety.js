@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { resolveValidatedPayment } = require('./services/paymentService');
 
-const expected = { hid: 123, total: 250, currency: 'AED' };
+const expected = { hid: 123, total: 267.5, currency: 'AED' };
 const result = () => ({ hotels: [{ hid: 123, rates: [{ book_hash: 'verified', payment_options: { payment_types: [{ type: 'deposit', amount: '250.00', currency_code: 'AED' }] } }] }] });
 
 test('Content sync fails closed on supplier errors and malformed ID responses', async context => {
@@ -1650,7 +1650,9 @@ test('durable cancellation requires the current penalty, claims once and recover
 });
 
 test('payment uses the supplier amount and refreshed hash', () => {
-    assert.deepEqual(resolveValidatedPayment(result(), expected), { amount: 250, currency: 'AED', book_hash: 'verified' });
+    assert.deepEqual(resolveValidatedPayment(result(), expected), {
+        amount: 250, currency: 'AED', customerAmount: 267.5, customerCurrency: 'AED', book_hash: 'verified'
+    });
 });
 
 test('a provider key and checkout flag alone do not make collection ready', () => {

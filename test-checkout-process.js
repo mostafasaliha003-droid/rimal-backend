@@ -11,7 +11,7 @@ const ziina = require('./services/ziinaClient');
 
 const details = () => ({
     hid: 123, book_hash: 'fixture-hash', roomName: 'Test Double Room',
-    checkin: '2099-10-15', checkout: '2099-10-17', currency: 'USD', total: 100,
+    checkin: '2099-10-15', checkout: '2099-10-17', currency: 'USD', total: 107,
     guests: [{ adults: 1, children: [5] }],
     guest: { firstName: 'Test', lastName: 'Guest', email: 'test@example.com', phone: '+971500000000' },
     rooms: [{ guests: [
@@ -89,7 +89,7 @@ function fixture(context) {
     const createIntent = context.mock.method(ziina, 'createIntent', async data => {
         assert.equal(data.test, process.env.ZIINA_TEST_MODE === 'true');
         assert.equal(data.currency, 'USD');
-        assert.equal(data.amount, 100);
+        assert.equal(data.amount, 107);
         return { id: 'fixture-intent', accountId: 'fixture-account', operationId: crypto.randomUUID(),
             redirectUrl: 'https://pay.ziina.com/test', status: 'pending' };
     });

@@ -8,11 +8,17 @@ const B2C_MARKUP_PERCENT = '7';
 
 function customerPrice(rate) {
     const payment = rate?.payment_options?.payment_types?.find(item => item.type === 'deposit');
-    if (!payment || !SUPPORTED_CURRENCIES.has(payment.show_currency_code)) throw new Error('RATE_CHANGED');
+    // ETG sends show_* fields for customer-facing offers, but B2B prebook
+    // responses may contain only the documented amount/currency_code pair.
+    // Both describe the same supplier payment here; the customer amount is
+    // calculated server-side and verified again before a Ziina intent exists.
+    const sourceAmount = payment?.show_amount ?? payment?.amount;
+    const sourceCurrency = payment?.show_currency_code ?? payment?.currency_code;
+    if (!payment || !SUPPORTED_CURRENCIES.has(sourceCurrency)) throw new Error('RATE_CHANGED');
     try {
         const priced = calculateDisplayPrice({ price: { supplierAmount: {
-            amount: payment.show_amount, currency: payment.show_currency_code
-        } } }, payment.show_currency_code, { markupPercent: B2C_MARKUP_PERCENT });
+            amount: sourceAmount, currency: sourceCurrency
+        } } }, sourceCurrency, { markupPercent: B2C_MARKUP_PERCENT });
         return { amount: Number(priced.price.display.amount), currency: priced.price.display.currency };
     } catch { throw new Error('RATE_CHANGED'); }
 }
