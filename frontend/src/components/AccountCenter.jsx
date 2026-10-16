@@ -47,6 +47,13 @@ export default function AccountCenter({ onNavigate }) {
     const [loginForm, setLoginForm] = useState({ email: '', password: '' });
     const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', phone: '' });
     const [verificationCode, setVerificationCode] = useState('');
+    const returnAfterSignIn = () => {
+        // Only the fixed checkout route is accepted; never redirect to a URL
+        // supplied by a caller. The selected offer and guest draft stay stored.
+        if (new URLSearchParams(window.location.search).get('returnTo') !== '/checkout') return;
+        if (typeof onNavigate === 'function') onNavigate('/checkout');
+        else window.location.assign('/checkout');
+    };
 
     useEffect(() => {
         const handleUserChange = event => setUser(event.detail || null);
@@ -56,6 +63,7 @@ export default function AccountCenter({ onNavigate }) {
         BookingAPI.getUserSession().then(result => {
             if (result?.success === true && result.user) {
                 setUser(result.user);
+                returnAfterSignIn();
             } else {
                 clearUserSession();
                 setUser(null);
@@ -107,6 +115,7 @@ export default function AccountCenter({ onNavigate }) {
             saveUserSession(result.user, result.access_token);
             setUser(result.user);
             trackBookingEvent('login_succeeded');
+            returnAfterSignIn();
             setMessage(t('account.loginSuccess', 'مرحباً بعودتك. تم تسجيل الدخول بنجاح.'));
         } catch (requestError) {
             setError(requestErrorMessage(requestError, t('account.invalidCredentials', 'بيانات الدخول غير صحيحة'), t));
@@ -145,6 +154,7 @@ export default function AccountCenter({ onNavigate }) {
             saveUserSession(result.user, result.access_token);
             setUser(result.user);
             trackBookingEvent('register_succeeded');
+            returnAfterSignIn();
             setMessage(t('account.accountCreated', 'تم إنشاء حسابك وإضافة نقاط البداية إلى برنامج الولاء.'));
         } catch (requestError) {
             setError(requestErrorMessage(requestError, t('account.invalidCode', 'رمز التحقق غير صحيح أو منتهي'), t));

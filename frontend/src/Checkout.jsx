@@ -6,6 +6,7 @@ import { CancellationPolicy } from './components/RoomCard';
 import PriceDisplay from './components/PriceDisplay';
 import { trackBookingEvent } from './services/analytics';
 import { useLanguage } from './i18n';
+import { clearUserSession, userAccessToken } from './services/authSession';
 
 const initialGuest = { firstName: '', lastName: '', email: '', phone: '', specialRequests: '' };
 const pendingStatuses = new Set([
@@ -124,6 +125,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
     const [affiliateAvailable, setAffiliateAvailable] = useState(false);
     const [status, setStatus] = useState('idle');
     const [error, setError] = useState('');
+    const [requiresLogin, setRequiresLogin] = useState(false);
     const [checkoutStatus, setCheckoutStatus] = useState(null);
     const [affiliateStatus, setAffiliateStatus] = useState(null);
     const paymentFailureTracked = useRef(false);
@@ -273,10 +275,18 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         && ['AED', 'USD', 'SAR', 'EUR'].includes(currency) && Number.isFinite(total) && total > 0;
     const isSubmitting = status === 'loading' || status === 'success';
 
+    const requireSignIn = () => {
+        clearUserSession();
+        setRequiresLogin(true);
+        setStatus('error');
+        setError(t('checkout.signInRequired', 'سجّل الدخول أو أعد تسجيل الدخول للمتابعة إلى الدفع. احتفظنا ببيانات حجزك، ولم تُنشأ عملية دفع بهذا الطلب.'));
+    };
+
     const submitPayment = async event => {
         event.preventDefault();
         if (isAffiliate) return;
         if (!canPay || isSubmitting) return;
+        if (!userAccessToken()) { requireSignIn(); return; }
         trackBookingEvent('payment_started');
         setStatus('loading');
         setError('');
@@ -309,6 +319,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
             window.location.assign(response.payment_url);
         } catch (requestError) {
             trackBookingEvent('payment_failed');
+            if (requestError.response?.status === 401) { requireSignIn(); return; }
             setStatus('error');
             setError(requestError.response?.data?.message || 'تعذر تجهيز الدفع، يرجى المحاولة مرة أخرى');
         }
@@ -317,6 +328,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
     const submitAffiliateBooking = async event => {
         event.preventDefault();
         if (!isAffiliate || !canBookAffiliate || isSubmitting) return;
+        if (!userAccessToken()) { requireSignIn(); return; }
         setStatus('loading');
         setError('');
         try {
@@ -352,6 +364,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
             // was lost, this idempotent replay returns the saved process state.
             window.location.assign(`/checkout?affiliate=pending&ref=${encodeURIComponent(process.process_id)}`);
         } catch (requestError) {
+            if (requestError.response?.status === 401) { requireSignIn(); return; }
             setStatus('error');
             setError(requestError.response?.data?.error || requestError.message || 'تعذر إنشاء الحجز، يرجى المحاولة مرة أخرى');
         }
@@ -375,7 +388,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
 
                 <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)]">
                     <div className="order-2 min-w-0 lg:order-1">
-                        {error && <div role="alert" aria-live="assertive" className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800"><Info size={20} className="mt-0.5 shrink-0" /><p className="text-sm font-bold leading-6">{error}</p></div>}
+                        {error && <div role="alert" aria-live="assertive" className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800"><Info size={20} className="mt-0.5 shrink-0" /><div><p className="text-sm font-bold leading-6">{error}</p>{requiresLogin && <a data-checkout-sign-in href="/account?returnTo=%2Fcheckout" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-white px-4 py-2 text-sm font-bold underline">{t('checkout.signInReturn', 'تسجيل الدخول والعودة للحجز')}</a>}</div></div>}
                         <GuestForm
                             guestDetails={guest}
                             onGuestDetailsChange={setGuest}

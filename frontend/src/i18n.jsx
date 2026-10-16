@@ -10,6 +10,8 @@ const LANGUAGE_STORAGE_KEY = 'remal_language';
 
 const translations = {
     ar: {
+        'checkout.signInRequired': 'سجّل الدخول أو أعد تسجيل الدخول للمتابعة إلى الدفع. احتفظنا ببيانات حجزك، ولم تُنشأ عملية دفع بهذا الطلب.',
+        'checkout.signInReturn': 'تسجيل الدخول والعودة للحجز',
         'hotel.back': 'العودة للنتائج',
         'hotel.stars': '{{count}} نجوم',
         'hotel.photos': 'صور الفندق',
@@ -373,6 +375,8 @@ const translations = {
         'checkout.subtitle': 'Two clear steps to confirm your stay: enter guest details, then review the price and continue to secure payment.',
         'checkout.noPaymentTitle': 'Electronic payment is currently unavailable for this offer.',
         'checkout.noPaymentBody': 'No payment was created. Choose another offer or contact our reservations team.',
+        'checkout.signInRequired': 'Sign in or sign in again to continue to payment. Your booking details are saved, and this request did not create a payment.',
+        'checkout.signInReturn': 'Sign in and return to booking',
         'checkout.summary': 'Booking summary',
         'checkout.checkin': 'Check-in',
         'checkout.checkout': 'Check-out',
@@ -854,6 +858,8 @@ const translations = {
         'checkout.subtitle': 'Dos pasos claros para confirmar tu estancia: introduce los datos y continúa al pago seguro.',
         'checkout.noPaymentTitle': 'El pago electrónico no está disponible para esta oferta.',
         'checkout.noPaymentBody': 'No se creó ningún pago. Elige otra oferta o contacta con reservas.',
+        'checkout.signInRequired': 'Inicia sesión de nuevo para continuar al pago. Guardamos los datos de tu reserva y esta solicitud no creó ningún pago.',
+        'checkout.signInReturn': 'Iniciar sesión y volver a la reserva',
         'checkout.summary': 'Resumen de reserva',
         'checkout.checkin': 'Entrada',
         'checkout.checkout': 'Salida',

@@ -8,6 +8,8 @@ const base = process.env.REMAL_UI_TEST_BASE || 'http://127.0.0.1:5178';
 const configuredScreenshotDirectory = process.env.REMAL_UI_SCREENSHOT_DIR;
 const checkoutReference = '11111111-1111-4111-8111-111111111111';
 const accessToken = 'a'.repeat(64);
+const userToken = 'e'.repeat(64);
+const fixtureUser = { name: 'Local Test', email: 'local@example.test', points: 0 };
 const affiliateProcessId = 'f'.repeat(64);
 const affiliateAccessToken = 'd'.repeat(64);
 const rate = (amount, currency = 'USD') => ({
@@ -35,6 +37,8 @@ async function run() {
     let lastAffiliateHotelPage;
     let paymentEnabled = false;
     let paymentRequests = 0;
+    let paymentUnauthorized = false;
+    let rejectedPaymentRequests = 0;
     let paymentPayload;
     let affiliateBookingRequests = 0;
     let affiliateBookingPayload;
@@ -62,7 +66,15 @@ async function run() {
                 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key,authorization,idempotency-key,x-affiliate-status-token', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
                 if (request.method() === 'OPTIONS') return request.respond({ status: 204, headers });
                 let body;
-                if (url.pathname.endsWith('/display-rates')) {
+                if (url.pathname.endsWith('/auth/login')) {
+                    body = { success: true, user: fixtureUser, access_token: userToken };
+                }
+                else if (url.pathname.endsWith('/auth/session')) {
+                    if (request.headers().authorization !== `Bearer ${userToken}`) return request.respond({ status: 401, contentType: 'application/json', headers, body: JSON.stringify({ error: 'unauthorized' }) });
+                    body = { success: true, user: fixtureUser };
+                }
+                else if (url.pathname.endsWith('/user/profile')) body = { success: true, profile: fixtureUser, bookings: [] };
+                else if (url.pathname.endsWith('/display-rates')) {
                     exchangeRequests++;
                     if (!exchangeAvailable) return request.respond({ status: 503, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'DISPLAY_RATES_UNAVAILABLE' }) });
                     body = { success: true, date: new Date().toISOString().slice(0, 10), rates: { AED: 3.6725, SAR: 3.75, EUR: 0.87088 } };
@@ -125,6 +137,12 @@ async function run() {
                         ...(checkoutStatus === 'booking_confirmed' ? { supplier_reference: 'TEST-SUPPLIER-ORDER' } : {}) };
                 }
                 else if (url.pathname.endsWith('/payment/ziina/intent')) {
+                    if (paymentUnauthorized) {
+                        rejectedPaymentRequests++;
+                        paymentUnauthorized = false;
+                        return request.respond({ status: 401, contentType: 'application/json', headers, body: JSON.stringify({ error: 'unauthorized' }) });
+                    }
+                    assert.equal(request.headers().authorization, `Bearer ${userToken}`);
                     paymentRequests++;
                     paymentPayload = JSON.parse(request.postData());
                     assert.match(request.headers()['idempotency-key'], /^[a-f\d-]{36}$/);
@@ -336,6 +354,32 @@ async function run() {
         await page.type('#guest-phone', '+971501234567');
         await page.click('form input[type="checkbox"]');
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), false);
+        await page.click('button[type="submit"]');
+        await page.waitForSelector('[data-checkout-sign-in]');
+        assert.equal(paymentRequests, 0, 'Missing authentication must not create a payment request');
+        const signInAndReturn = async () => {
+            await page.click('[data-checkout-sign-in]');
+            await page.waitForSelector('input[type="password"]');
+            await page.type('input[type="email"]', fixtureUser.email);
+            await page.type('input[type="password"]', 'fixture-password');
+            await page.click('form button');
+            await page.waitForSelector('#guest-first-name');
+            assert.equal(await page.$eval('#guest-first-name', element => element.value), 'Local');
+            assert.equal(await page.$eval('#guest-email', element => element.value), fixtureUser.email);
+            assert.equal(await page.evaluate(() => location.pathname), '/checkout');
+            await page.click('form input[type="checkbox"]');
+        };
+        await signInAndReturn();
+        paymentUnauthorized = true;
+        await page.click('button[type="submit"]');
+        await page.waitForSelector('[data-checkout-sign-in]');
+        assert.equal(rejectedPaymentRequests, 1);
+        assert.equal(paymentRequests, 0, 'An expired session must not trigger another payment request');
+        const savedOperationKey = await page.evaluate(() => sessionStorage.getItem('remal_checkout_idempotency_key'));
+        assert.equal(await page.evaluate(() => sessionStorage.getItem('rimal_user_access_token')), null);
+        await signInAndReturn();
+        assert.equal(await page.evaluate(() => sessionStorage.getItem('remal_checkout_idempotency_key')), savedOperationKey);
+        console.log('PASS: missing and expired checkout sessions require sign-in, preserve guest details and the operation key, and never retry payment automatically.');
         await page.click('button[type="submit"]');
         await page.waitForFunction(() => location.search.includes('payment=success'));
         assert.equal(paymentRequests, 1);
