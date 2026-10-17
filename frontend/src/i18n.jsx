@@ -10,6 +10,8 @@ const LANGUAGE_STORAGE_KEY = 'remal_language';
 
 const translations = {
     ar: {
+        'checkout.offerUnavailable': 'العرض لم يعد متاحًا بهذا السعر',
+        'checkout.offerUnavailableBody': 'تعذر اعتماد العرض الحالي قبل إنشاء الدفع. لم تُنشأ عملية دفع لهذه المحاولة. ارجع للبحث واختر عرضًا محدثًا، ثم راجع السعر قبل المتابعة.',
         'checkout.signInRequired': 'سجّل الدخول أو أعد تسجيل الدخول للمتابعة إلى الدفع. احتفظنا ببيانات حجزك، ولم تُنشأ عملية دفع بهذا الطلب.',
         'checkout.signInReturn': 'تسجيل الدخول والعودة للحجز',
         'hotel.back': 'العودة للنتائج',
@@ -214,6 +216,8 @@ const translations = {
         'search.residencyRequired': 'اختر جنسية الضيف (بلد جواز السفر).'
     },
     en: {
+        'checkout.offerUnavailable': 'This offer is no longer available at this price',
+        'checkout.offerUnavailableBody': 'The current offer could not be validated before payment creation. No payment was created for this attempt. Return to search, select an updated offer, and review the price before continuing.',
         'nav.explore': 'Explore hotels',
         'nav.contact': 'Contact us',
         'nav.account': 'Account',
@@ -683,6 +687,8 @@ const translations = {
         ,'loyalty.tierElite': 'Elite',
     },
     es: {
+        'checkout.offerUnavailable': 'Esta oferta ya no está disponible a este precio',
+        'checkout.offerUnavailableBody': 'No se pudo validar la oferta antes de crear el pago. No se creó ningún pago para este intento. Vuelve a buscar, elige una oferta actualizada y revisa el precio antes de continuar.',
         'nav.explore': 'Explorar hoteles',
         'nav.contact': 'Contacto',
         'nav.account': 'Cuenta',

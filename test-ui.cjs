@@ -398,6 +398,14 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('TEST-SUPPLIER-ORDER'));
         assert.match(await page.$eval('main', element => element.innerText), /TEST-SUPPLIER-ORDER/);
         assert.equal(paymentRequests, 1);
+        checkoutStatus = 'preflight_failed';
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('العرض لم يعد متاحًا بهذا السعر'));
+        const rejectedOffer = await page.$eval('main', element => element.innerText);
+        assert.match(rejectedOffer, /لم تُنشأ عملية دفع لهذه المحاولة/);
+        assert.doesNotMatch(rejectedOffer, /بانتظار التحقق/);
+        assert.equal(paymentRequests, 1);
+        console.log('PASS: a failed supplier preflight is terminal, explains no payment was created, and never starts another payment.');
         paymentEnabled = false;
         await page.goto(`${base}/checkout?payment=success`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('main h1');

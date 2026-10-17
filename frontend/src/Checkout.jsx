@@ -217,15 +217,16 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         const returnStatus = isAffiliateReturn ? affiliateStatus : checkoutStatus;
         const state = returnStatus?.status;
         const confirmed = ['booking_confirmed', 'confirmed'].includes(state);
+        const preflightFailed = !isAffiliateReturn && state === 'preflight_failed';
         const affiliateFailed = isAffiliateReturn && ['failed', 'expired', 'price_changed'].includes(state);
-        const title = confirmed ? t('checkout.confirmed', 'تم تأكيد الحجز لدى المورد')
+        const title = preflightFailed ? t('checkout.offerUnavailable') : confirmed ? t('checkout.confirmed', 'تم تأكيد الحجز لدى المورد')
             : state === 'action_required' ? t('checkout.affiliateActionRequired', 'يتطلب الحجز متابعة من فريقنا')
                 : state === 'payment_failed' ? t('checkout.paymentFailed', 'لم يكتمل الدفع')
                     : affiliateFailed ? t('checkout.affiliateFailed', 'تعذر تأكيد الحجز')
                         : state === 'refund_completed' ? t('checkout.refundCompleted', 'تم تأكيد الاسترداد')
                             : ['refund_review', 'manual_review', 'intent_unknown'].includes(state) ? t('checkout.review', 'تحتاج العملية إلى مراجعة')
                                 : t('checkout.pending', 'بانتظار التحقق من الدفع والحجز...');
-        const details = confirmed
+        const details = preflightFailed ? t('checkout.offerUnavailableBody') : confirmed
             ? t('checkout.supplierReference', `مرجع المورد: ${returnStatus.supplier_reference}`, { reference: returnStatus.supplier_reference })
             : state === 'action_required' ? t('checkout.affiliateActionBody', 'لم نعرض هذه العملية كحجز مؤكد. يرجى التواصل مع الدعم لمراجعة حالة المورد.')
                 : affiliateFailed ? t('checkout.affiliateFailedBody', 'لم يؤكد المورد الحجز. يرجى مراجعة الدعم قبل إعادة الطلب.')
@@ -321,6 +322,10 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
             trackBookingEvent('payment_failed');
             if (requestError.response?.status === 401) { requireSignIn(); return; }
             setStatus('error');
+            if (['rate_changed', 'supplier_preflight_failed', 'offer_identity_mismatch', 'booking_form_expired', 'booking_form_unavailable', 'unsupported_supplier_payment'].includes(requestError.response?.data?.error)) {
+                setError(t('checkout.offerUnavailableBody'));
+                return;
+            }
             setError(requestError.response?.data?.message || 'تعذر تجهيز الدفع، يرجى المحاولة مرة أخرى');
         }
     };

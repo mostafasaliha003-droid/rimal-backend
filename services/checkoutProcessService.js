@@ -116,6 +116,9 @@ function accessToken(record) {
 }
 
 function checkoutResponse(record) {
+    if (record.state === 'preflight_failed') {
+        throw fail(record.error === 'rate_changed' ? 'rate_changed' : 'supplier_preflight_failed', 409);
+    }
     return {
         ...publicView(record), access_token: accessToken(record),
         ...(record.state === 'awaiting_payment' && record.redirect_url ? { payment_url: record.redirect_url } : {})
@@ -189,8 +192,10 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
         } }, { new: true }).lean();
         if (!record) throw fail('checkout_state_conflict', 409);
     } catch (error) {
+        const code = ['RATE_CHANGED', 'rate_not_found', 'rate_changed'].includes(error.code || error.message)
+            ? 'rate_changed' : 'supplier_preflight_failed';
         await CheckoutAttempt.updateOne({ _id: processId, state: 'preparing' }, {
-            $set: { state: 'preflight_failed', error: 'supplier_preflight_failed' }, $unset: { encrypted_details: '' }
+            $set: { state: 'preflight_failed', error: code, next_check_at: null }, $unset: { encrypted_details: '' }
         });
         throw fail(['RATE_CHANGED', 'rate_not_found'].includes(error.message) ? 'rate_changed' : error.code || 'supplier_preflight_failed', 409);
     }

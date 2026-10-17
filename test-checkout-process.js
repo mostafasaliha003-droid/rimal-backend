@@ -152,8 +152,17 @@ test('unknown Ziina create outcome is held for review and not charged twice', { 
 });
 
 test('preflight refuses price tampering or an expired supplier form before Ziina', { timeout: 5000 }, async context => {
-    const { form, createIntent } = fixture(context);
-    await assert.rejects(checkout.createCheckout({ ...details(), total: 101 }, crypto.randomUUID(), '192.0.2.10'), /rate_changed/);
+    const scenario = fixture(context);
+    const { form, createIntent } = scenario;
+    const key = crypto.randomUUID();
+    const input = { ...details(), total: 101 };
+    await assert.rejects(checkout.createCheckout(input, key, '192.0.2.10'), /rate_changed/);
+    const reference = scenario.record.reference;
+    await assert.rejects(checkout.createCheckout(input, key, '192.0.2.10'), error => error.code === 'rate_changed' && error.httpStatus === 409);
+    assert.equal(scenario.record.reference, reference);
+    assert.equal(scenario.record.next_check_at, null);
+    scenario.record.error = 'supplier_preflight_failed';
+    await assert.rejects(checkout.createCheckout(input, key, '192.0.2.10'), error => error.code === 'supplier_preflight_failed' && error.httpStatus === 409);
     assert.equal(form.mock.callCount(), 0);
     assert.equal(createIntent.mock.callCount(), 0);
 });
