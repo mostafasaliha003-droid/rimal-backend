@@ -163,8 +163,12 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
         throw fail('checkout_conflict', 409);
     }
     try {
-        verifyRateIdentity(await ratehawk.getRateDetailsByHash(details.book_hash), details);
-        const prebook = await ratehawk.validatePrebookRate(details.book_hash, 0);
+        const rateInfo = await ratehawk.getRateDetailsByHash(details.book_hash);
+        verifyRateIdentity(rateInfo, details);
+        // Hotel prebook exchanges an h- hash for a p- hash. The latter is
+        // already ready for booking/form and cannot be prebooked again.
+        const prebook = details.book_hash.startsWith('p-')
+            ? rateInfo : await ratehawk.validatePrebookRate(details.book_hash, 0);
         const validated = payment.resolveValidatedPayment(prebook, {
             hid: details.hid, total: details.amount_minor / 100, currency: details.currency, roomName: details.roomName
         });

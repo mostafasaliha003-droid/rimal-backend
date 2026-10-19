@@ -39,7 +39,7 @@ test('hotel prebook keeps the customer price through room selection and checkout
     assert.equal(payment.decoratePrebook({ rate }).rate.customer_display_amount, 166.92);
 });
 
-function fixture(context) {
+function fixture(context, { bookHash = 'fixture-hash', formHash = 'fresh-hash' } = {}) {
     const previous = process.env.PAYMENT_BOOKING_ENCRYPTION_KEY;
     const testMode = process.env.ZIINA_TEST_MODE;
     const originalSupplier = process.env.RATEHAWK_BASE_URL;
@@ -85,10 +85,10 @@ function fixture(context) {
         return { matchedCount: 1 };
     });
     const rateInfo = context.mock.method(ratehawk, 'getRateDetailsByHash', async hash => {
-        assert.equal(hash, 'fixture-hash');
+        assert.equal(hash, bookHash);
         return { original_request_params: { checkin: '2099-10-15', checkout: '2099-10-17',
             guests: [{ adults: 1, children: [5] }] },
-        hotels: [{ hid: 123, rates: [{ room_name: 'Test Double Room', book_hash: 'fixture-hash',
+        hotels: [{ hid: 123, rates: [{ room_name: 'Test Double Room', book_hash: bookHash,
             payment_options: { payment_types: [{ type: 'deposit', amount: '100.00', currency_code: 'USD' }] } }] }] };
     });
     context.mock.method(ratehawk, 'validatePrebookRate', async hash => {
@@ -97,7 +97,7 @@ function fixture(context) {
             payment_options: { payment_types: [{ type: 'deposit', amount: '100.00', currency_code: 'USD' }] } }] }] };
     });
     const form = context.mock.method(booking, 'createProcess', async (request, reference) => {
-        assert.equal(request.book_hash, 'fresh-hash');
+        assert.equal(request.book_hash, formHash);
         assert.equal(request.user_ip, '192.0.2.10');
         assert.equal(request.guests[0].children[0], 5);
         assert.match(reference, /^[0-9a-f-]{36}$/);
@@ -149,6 +149,21 @@ test('preflight persists an encrypted, idempotent checkout and refuses changed r
     assert.equal(JSON.stringify(scenario.record).includes('test@example.com'), false);
     assert.equal(checkout.decryptDetails(scenario.record).user.email, 'test@example.com');
     await assert.rejects(checkout.createCheckout({ ...details(), total: 200 }, key, '192.0.2.10'), /checkout_conflict/);
+});
+
+test('a supplier-verified prebook hash proceeds to form without repeating hotel prebook', async context => {
+    const scenario = fixture(context, { bookHash: 'p-fixture', formHash: 'p-fixture' });
+    const prebook = context.mock.method(ratehawk, 'validatePrebookRate', async () => { throw new Error('must not re-prebook'); });
+    const input = { ...details(), book_hash: 'p-fixture' };
+    const result = await checkout.createCheckout(input, crypto.randomUUID(), '192.0.2.10');
+    assert.equal(result.status, 'awaiting_payment');
+    assert.equal(prebook.mock.callCount(), 0);
+    assert.equal(scenario.rateInfo.mock.callCount(), 1);
+    assert.equal(scenario.form.mock.callCount(), 1);
+    assert.equal(scenario.createIntent.mock.callCount(), 1);
+    const info = await scenario.rateInfo('p-fixture');
+    assert.throws(() => checkout.verifyRateIdentity(info, checkout.normalizedCheckout({ ...input, total: 101 })), /RATE_CHANGED/);
+    assert.equal(scenario.createIntent.mock.callCount(), 1);
 });
 
 test('unknown Ziina create outcome is held for review and not charged twice', { timeout: 5000 }, async context => {
