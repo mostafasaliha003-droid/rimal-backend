@@ -39,6 +39,12 @@ function decorateHotels(hotels) {
     }));
 }
 
+function decoratePrebook(result) {
+    return { ...result,
+        ...(Array.isArray(result?.hotels) ? { hotels: decorateHotels(result.hotels) } : {}),
+        ...(result?.rate ? { rate: decorateRate(result.rate) } : {}) };
+}
+
 function supplierIdentity(environment = process.env) {
     if (!environment.RATEHAWK_BASE_URL || !environment.RATEHAWK_KEY_ID) return null;
     let url;
@@ -140,5 +146,6 @@ module.exports = {
     customerPrice,
     decorateRate,
     decorateHotels,
+    decoratePrebook,
     B2C_MARKUP_PERCENT
 };

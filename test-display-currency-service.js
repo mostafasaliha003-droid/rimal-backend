@@ -11,6 +11,15 @@ const rows = [
     { date: '2026-09-26', base: 'USD', quote: 'EUR', rate: 0.87 }
 ];
 
+test('independent quote dates are accepted only while every currency remains recent', async () => {
+    const quotes = rows.map(row => ({ ...row, date: row.quote === 'EUR' ? '2026-09-25' : row.date }));
+    const service = createDisplayCurrencyService({ fetcher: async () => ({ ok: true, json: async () => quotes }) });
+    assert.equal((await service.getRates({ now })).date, '2026-09-25');
+    quotes[2].date = '2026-09-01';
+    const expired = createDisplayCurrencyService({ fetcher: async () => ({ ok: true, json: async () => quotes }) });
+    await assert.rejects(expired.getRates({ now }), /Invalid display exchange rates/);
+});
+
 test('server shares one validated FX fetch across concurrent calls and caches fresh rates', async () => {
     let calls = 0;
     const service = createDisplayCurrencyService({ fetcher: async (url, options) => {

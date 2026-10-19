@@ -888,8 +888,7 @@ app.post('/api/booking/prebook', publicSearchGuard, async (req, res) => {
             hash,
             body.price_increase_percent === undefined ? 0 : body.price_increase_percent
         );
-        return res.status(200).json({ success: true, ...result,
-            ...(result?.rate ? { rate: paymentService.decorateRate(result.rate) } : {}) });
+        return res.status(200).json({ success: true, ...paymentService.decoratePrebook(result) });
     } catch (error) {
         if (['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
             logger.warn('RateHawk hotel prebook timed out', { code: error.code });

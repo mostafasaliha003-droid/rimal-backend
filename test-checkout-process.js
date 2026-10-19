@@ -23,6 +23,22 @@ const details = () => ({
     ] }]
 });
 
+test('hotel prebook keeps the customer price through room selection and checkout verification', () => {
+    const rate = { room_name: 'Test Room', book_hash: 'fresh-hash', payment_options: { payment_types: [
+        { type: 'deposit', amount: '156.00', currency_code: 'USD', show_amount: '156.00', show_currency_code: 'USD' }
+    ] } };
+    const supplier = { hotels: [{ hid: 123, rates: [rate] }], changes: { price_changed: false } };
+    const response = payment.decoratePrebook(supplier);
+    const selected = response.hotels[0].rates[0];
+    assert.equal(selected.customer_display_amount, 166.92);
+    assert.equal(selected.customer_display_currency, 'USD');
+    assert.equal(rate.customer_display_amount, undefined);
+    assert.equal(payment.resolveValidatedPayment(supplier, { hid: 123, total: selected.customer_display_amount,
+        currency: selected.customer_display_currency, roomName: selected.room_name }).amount, 156);
+    assert.throws(() => payment.resolveValidatedPayment(supplier, { hid: 123, total: 156, currency: 'USD' }), /RATE_CHANGED/);
+    assert.equal(payment.decoratePrebook({ rate }).rate.customer_display_amount, 166.92);
+});
+
 function fixture(context) {
     const previous = process.env.PAYMENT_BOOKING_ENCRYPTION_KEY;
     const testMode = process.env.ZIINA_TEST_MODE;

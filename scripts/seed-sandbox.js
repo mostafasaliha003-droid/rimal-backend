@@ -18,7 +18,7 @@ async function seedSandbox(env = process.env) {
     const Hotel = require('../models/Hotel');
     const client = require('../services/ratehawkClient');
     const { extractHotels, toHotelOperation } = require('../syncFilteredHotels');
-    const ids = [10004834, 8819557];
+    const ids = [10004834, 8819557, 10484558];
     try {
         await mongoose.connect(env.MONGO_URI, { serverSelectionTimeoutMS: 15000, connectTimeoutMS: 10000 });
         if (mongoose.connection.name !== env.PAYMENT_SANDBOX_DATABASE) throw new Error('sandbox_database_mismatch');

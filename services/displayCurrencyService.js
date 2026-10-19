@@ -12,12 +12,15 @@ function parseUsdDisplayRates(rows, now = Date.now()) {
     if (matches.some(quoteRows => quoteRows.length !== 1)) return null;
 
     const values = matches.map(([row]) => row);
-    const date = values[0].date;
-    if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)
-        || values.some(row => row.date !== date)) return null;
-    const publishedAt = Date.parse(`${date}T00:00:00Z`);
-    if (!Number.isFinite(publishedAt) || new Date(publishedAt).toISOString().slice(0, 10) !== date
-        || now - publishedAt > MAX_RATE_AGE_MS || publishedAt - now > DAY_MS) return null;
+    for (const { date } of values) {
+        if (typeof date !== 'string' || !/^\d{4}-\d{2}-\d{2}$/.test(date)) return null;
+        const publishedAt = Date.parse(`${date}T00:00:00Z`);
+        if (!Number.isFinite(publishedAt) || new Date(publishedAt).toISOString().slice(0, 10) !== date
+            || now - publishedAt > MAX_RATE_AGE_MS || publishedAt - now > DAY_MS) return null;
+    }
+    // Each currency is published on its own schedule. Report the oldest
+    // validated date so clients never treat older quotes as newly published.
+    const date = values.map(row => row.date).sort()[0];
 
     const rates = Object.fromEntries(values.map(row => [row.quote, Number(row.rate)]));
     if (Object.values(rates).some(rate => !Number.isFinite(rate) || rate <= 0)) return null;
