@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Check, CheckCheck, CreditCard, Hotel, Mail, MessageCircle, ShieldCheck, ArrowUpRight } from 'lucide-react';
 import { useLanguage } from '../i18n';
 import './LiveBookingStatus.css';
+import SupportContactLink from './SupportContactLink';
 
 export default function LiveBookingStatus({ status, reference, connection, updatedAt }) {
     const { t, direction, language } = useLanguage();
@@ -63,7 +64,7 @@ export default function LiveBookingStatus({ status, reference, connection, updat
                 <div className="booking-live__reference"><span>{t('checkout.requestReference')}</span><span dir="ltr">{reference}</span></div>
                 {confirmed && status.supplier_reference && <p className="booking-live__supplier">{t('checkout.supplierReference', 'مرجع المورد: {{reference}}', { reference: status.supplier_reference })}</p>}
                 <footer className="booking-live__footer">
-                    <a href="mailto:management@remaltourismllc.com"><MessageCircle size={16} aria-hidden="true" />{t('checkout.paymentHelp')}</a>
+                    <SupportContactLink reference={reference}><MessageCircle size={16} aria-hidden="true" />{t('checkout.paymentHelp')}</SupportContactLink>
                     <a href="/">{t('checkout.home', 'العودة للرئيسية')}<ArrowUpRight size={15} aria-hidden="true" /></a>
                 </footer>
             </section>

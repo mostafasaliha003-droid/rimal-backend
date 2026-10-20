@@ -50,11 +50,10 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
     const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', phone: '' });
     const [verificationCode, setVerificationCode] = useState('');
     const returnAfterSignIn = () => {
-        // Only the fixed checkout route is accepted; never redirect to a URL
-        // supplied by a caller. The selected offer and guest draft stay stored.
-        if (new URLSearchParams(window.location.search).get('returnTo') !== '/checkout') return;
-        if (typeof onNavigate === 'function') onNavigate('/checkout');
-        else window.location.assign('/checkout');
+        const target = new URLSearchParams(window.location.search).get('returnTo');
+        if (target !== '/checkout' && !/^\/support(?:\?reference=[A-Za-z0-9_-]{1,120})?$/.test(target || '')) return;
+        if (typeof onNavigate === 'function') onNavigate(target);
+        else window.location.assign(target);
     };
 
     useEffect(() => {
@@ -285,6 +284,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                                                         {statusLabel}
                                                     </span>
                                                     <button data-booking-cancellation type="button" onClick={() => setCancellationBooking(booking)} className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-bold text-red-700 transition hover:border-red-300 hover:bg-red-50">{t(cancelled ? 'cancel.details' : 'cancel.options')}</button>
+                                                    <a data-booking-support href={`/support?reference=${encodeURIComponent(booking.bookingReference)}`} className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-bold text-cyan-800">{t('checkout.paymentHelp')}</a>
                                                     <button type="button" onClick={async () => {
                                                         try {
                                                             const response = await BookingAPI.getOwnedBookingVoucher(booking.bookingReference);

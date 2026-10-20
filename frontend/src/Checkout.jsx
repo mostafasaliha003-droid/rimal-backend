@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { ArrowRight, CalendarDays, CreditCard, Info, MapPin, ShieldCheck } from 'lucide-react';
 import GuestForm from './components/GuestForm';
 import LiveBookingStatus from './components/LiveBookingStatus';
+import SupportContactLink from './components/SupportContactLink';
 import BookingAPI from './services/bookingApi';
 import { CancellationPolicy } from './components/RoomCard';
 import PriceDisplay from './components/PriceDisplay';
@@ -301,7 +302,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                             {statusUnavailable && <p className="mt-6 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-6 text-slate-600">{t('checkout.paymentCheckNote')}</p>}
                             {paymentReference && <div className="mt-7 rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-medium text-slate-500">{t('checkout.requestReference')}</p><p dir="ltr" className="mt-2 select-all break-all font-mono text-xs leading-5 text-slate-700">{paymentReference}</p></div>}
                             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-slate-100 pt-6 text-sm">
-                                <a href="mailto:management@remaltourismllc.com" className="font-semibold text-[var(--remal-blue)] underline-offset-4 hover:underline">{t('checkout.paymentHelp')}</a>
+                                <SupportContactLink reference={paymentReference} className="font-semibold text-[var(--remal-blue)] underline-offset-4 hover:underline" />
                                 <a href="/" className="text-slate-500 underline-offset-4 hover:underline">{t('checkout.home', 'العودة للرئيسية')}</a>
                             </div>
                         </div>
@@ -318,7 +319,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                     <p className="mx-auto mt-4 max-w-md text-sm font-medium leading-7 text-slate-600">{details}</p>
                     {paymentReference && <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-400">{t('checkout.followupReference', 'مرجع المتابعة')}</p><p className="mt-1 font-mono text-sm font-bold text-slate-700">{paymentReference}</p></div>}
                     <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
-                        <a className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800 sm:w-auto" href="mailto:management@remaltourismllc.com">{t('checkout.support', 'التواصل مع الدعم')}</a>
+                        <SupportContactLink reference={paymentReference} className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800 sm:w-auto">{t('checkout.support', 'التواصل مع الدعم')}</SupportContactLink>
                         <a href="/" className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:text-[var(--remal-blue)] sm:w-auto">{t('checkout.home', 'العودة للرئيسية')}</a>
                     </div>
                 </div>

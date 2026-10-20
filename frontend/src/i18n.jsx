@@ -1570,7 +1570,7 @@ export function LanguageProvider({ children }) {
 
     useEffect(() => {
         const hotelRoute = /^\/hotel\/[^/]+$/.test(window.location.pathname);
-        const privatePage = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/loyalty'].includes(window.location.pathname);
+        const privatePage = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/support', '/customer-service', '/loyalty'].includes(window.location.pathname);
         if (!hotelRoute) {
             document.documentElement.lang = metadata.code;
             document.documentElement.dir = metadata.direction;

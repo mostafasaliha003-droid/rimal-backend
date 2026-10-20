@@ -8,6 +8,7 @@ import PriceDisplay from './components/PriceDisplay';
 const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
 const AccountCenter = lazy(() => import('./components/AccountCenter'));
+const CustomerSupport = lazy(() => import('./pages/CustomerSupport'));
 const LoyaltyDashboard = lazy(() => import('./components/LoyaltyDashboard'));
 const NextGenHotels = lazy(() => import('./pages/NextGenHotels'));
 const NextGenCheckout = lazy(() => import('./pages/NextGenCheckout'));
@@ -101,7 +102,7 @@ export default function App() {
 
     useEffect(() => {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
-        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/loyalty'].includes(pathname);
+        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/support', '/customer-service', '/loyalty'].includes(pathname);
         const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
         const title = t('meta.title', 'رمال وفِلّها | حجوزات الفنادق');
         const description = t('meta.description', 'ابحث عن إقامة مناسبة مع رمال وقارن عروض الفنادق.');
@@ -275,11 +276,14 @@ export default function App() {
     const accountRoute = pathname === '/account' || pathname === '/bookings';
     const loyaltyRoute = pathname === '/loyalty';
     const navigateTo = path => {
-        const pathnameOnly = path.split('#')[0] || '/';
+        const pathnameOnly = new URL(path, window.location.origin).pathname;
         window.history.pushState({}, '', path);
         setPathname(pathnameOnly);
     };
 
+    if (pathname === '/support' || pathname === '/customer-service') {
+        return <CustomerSupport staff={pathname === '/customer-service'} />;
+    }
     if (paymentStatusRoute) {
         return <>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />

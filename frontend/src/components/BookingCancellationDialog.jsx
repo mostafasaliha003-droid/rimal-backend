@@ -4,6 +4,7 @@ import BookingAPI from '../services/bookingApi';
 import { useLanguage } from '../i18n';
 import { formatMoney } from '../services/offers';
 import CancellationOutcome from './CancellationOutcome';
+import SupportContactLink from './SupportContactLink';
 
 const needsTracking = value => value.pending || value.customer_refund_status === 'pending'
     || ['pending', 'sending'].includes(value.receipt_status);
@@ -107,7 +108,6 @@ export default function BookingCancellationDialog({ booking, onClose, onCancelle
     const money = value => value ? formatMoney(Number(value.amount), value.currency_code) : '—';
     const cancelled = result?.status === 'cancelled';
     const canClose = phase !== 'submitting';
-    const support = `mailto:management@remaltourismllc.com?subject=${encodeURIComponent(`Booking cancellation: ${booking.bookingReference}`)}`;
     return (
         <dialog ref={dialog} dir={direction} onCancel={event => { if (!canClose) event.preventDefault(); else onClose(); }}
             aria-labelledby="cancellation-title" className="m-auto max-h-[90vh] w-[calc(100%_-_2rem)] max-w-xl overflow-y-auto rounded-3xl border border-slate-200 bg-white p-6 text-slate-800 shadow-2xl backdrop:bg-slate-950/50 backdrop:backdrop-blur-sm sm:p-8">
@@ -135,7 +135,7 @@ export default function BookingCancellationDialog({ booking, onClose, onCancelle
                     : (phase === 'tracking' || result) && <div className="rounded-2xl bg-slate-50 p-5 text-sm leading-7"><p className="font-bold">{t(phase === 'tracking' ? 'cancel.tracking' : 'cancel.needsReview')}</p></div>}
                 {phase === 'error' && <button onClick={load} className="rounded-xl border px-5 py-3 text-sm font-bold">{t('cancel.refresh')}</button>}
             </div>
-            <footer className="mt-6 border-t border-slate-100 pt-5"><a href={support} className="text-sm font-bold text-cyan-800 underline-offset-4 hover:underline">{t('checkout.paymentHelp')}</a></footer>
+            <footer className="mt-6 border-t border-slate-100 pt-5"><SupportContactLink reference={booking.bookingReference} className="text-sm font-bold text-cyan-800 underline-offset-4 hover:underline" /></footer>
         </dialog>
     );
 }

@@ -249,6 +249,11 @@ app.get('/api/v1/admin/readiness', requireAdmin, (_req, res) => {
     res.status(report.configurationReady ? 200 : 503).json(report);
 });
 app.use('/api/v1/admin/data', createAdminBookingRouter({ BookingModel: Booking, requireAdmin }));
+const supportRouters = require('./services/customerSupportRoutes').createCustomerSupportRouters({
+    BookingModel: Booking, requireUser: sessionAuth.requireRole('user'), requireAdmin
+});
+app.use('/api/support', supportRouters.customer);
+app.use('/api/v1/admin/support', supportRouters.staff);
 app.use('/api/v1/admin/hotelbeds', createAdminHotelbedsSupplierTestRouter({
     controller: createAdminHotelbedsSupplierTestController({
         service: createAdminHotelbedsSupplierTestService({
