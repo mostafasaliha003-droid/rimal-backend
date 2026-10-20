@@ -1,4 +1,5 @@
 node_modules/
+.cache/
 .env
 .env.*
 sandbox-access.local.json
