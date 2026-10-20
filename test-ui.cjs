@@ -395,11 +395,12 @@ async function run() {
         assert.equal(paymentPayload.total, 60);
         assert.equal(paymentPayload.book_hash, 'test-AED-60');
         assert.deepEqual(paymentPayload.guests, mockGuestCount);
-        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('بانتظار التحقق من الدفع والحجز'));
-        assert.match(await page.$eval('main', element => element.innerText), /بانتظار التحقق من الدفع والحجز/);
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('جارٍ التحقق من طلبك'));
+        assert.match(await page.$eval('main', element => element.innerText), /جارٍ التحقق من طلبك/);
         assert.doesNotMatch(await page.$eval('main', element => element.innerText), /تم تأكيد الحجز/);
         await page.waitForFunction(reference => document.querySelector('main')?.innerText.includes(reference), {}, checkoutReference);
-        assert.match(await page.$eval('main', element => element.innerText), /مرجع المتابعة/);
+        assert.match(await page.$eval('main', element => element.innerText), /مرجع الطلب/);
+        assert.equal(await page.$('[data-checkout-resume-payment]'), null);
         assert(statusRequests > 0);
         checkoutStatus = 'awaiting_payment';
         await page.reload({ waitUntil: 'domcontentloaded' });
@@ -427,10 +428,20 @@ async function run() {
         await page.goto(`${base}/checkout?payment=success`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('main h1');
         const returned = await page.$eval('main', element => element.innerText);
-        assert.match(returned, /بانتظار التحقق/);
+        assert.match(returned, /متابعة حالة طلبك/);
+        assert.doesNotMatch(returned, /ستُحدَّث هذه الصفحة تلقائيًا|checkout\.[a-zA-Z]+/);
+        assert.equal(await page.$('[data-checkout-resume-payment]'), null);
         assert.doesNotMatch(returned, /تم الدفع بنجاح/);
         assert.equal(paymentRequests, 1);
         paymentEnabled = true;
+        await page.evaluate(() => sessionStorage.removeItem('remal_payment_attempt'));
+        await page.goto(`${base}/checkout?payment=success&ref=${checkoutReference}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => document.querySelector('main h1')?.innerText.includes('متابعة حالة طلبك'));
+        const missingSessionStatus = await page.$eval('main', element => element.innerText);
+        assert.match(missingSessionStatus, /المتصفح الذي بدأت منه الدفع/);
+        assert.doesNotMatch(missingSessionStatus, /جارٍ التحقق من طلبك|ستُحدَّث هذه الصفحة تلقائيًا/);
+        assert.equal(await page.$('[data-checkout-resume-payment]'), null);
+        assert.equal(paymentRequests, 1);
         checkoutStatus = 'booking_pending';
         booking.room = normalizeRoom(rate(60), hotels[1], mockGuestCount);
         await page.evaluate(value => {

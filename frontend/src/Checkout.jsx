@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowRight, CalendarDays, CreditCard, Info, MapPin, ShieldCheck } from 'lucide-react';
+import { ArrowRight, CalendarDays, Clock3, CreditCard, Info, MapPin, ShieldCheck } from 'lucide-react';
 import GuestForm from './components/GuestForm';
 import BookingAPI from './services/bookingApi';
 import { CancellationPolicy } from './components/RoomCard';
@@ -255,15 +255,18 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         const confirmed = ['booking_confirmed', 'confirmed'].includes(state);
         const preflightFailed = !isAffiliateReturn && state === 'preflight_failed';
         const awaitingPayment = !isAffiliateReturn && state === 'awaiting_payment';
+        const statusUnavailable = !isAffiliateReturn && (!paymentReference || state === 'unavailable');
+        const verificationPending = !isAffiliateReturn && !statusUnavailable
+            && (!state || ['preparing', 'intent_creating', 'payment_verified', 'booking_pending'].includes(state));
         const affiliateFailed = isAffiliateReturn && ['failed', 'expired', 'price_changed'].includes(state);
-        const title = awaitingPayment ? t('checkout.awaitingPayment') : preflightFailed ? t('checkout.offerUnavailable') : confirmed ? t('checkout.confirmed', 'تم تأكيد الحجز لدى المورد')
+        const title = statusUnavailable ? t('checkout.statusUnavailable') : verificationPending ? t('checkout.verifying') : awaitingPayment ? t('checkout.awaitingPayment') : preflightFailed ? t('checkout.offerUnavailable') : confirmed ? t('checkout.confirmed', 'تم تأكيد الحجز لدى المورد')
             : state === 'action_required' ? t('checkout.affiliateActionRequired', 'يتطلب الحجز متابعة من فريقنا')
                 : state === 'payment_failed' ? t('checkout.paymentFailed', 'لم يكتمل الدفع')
                     : affiliateFailed ? t('checkout.affiliateFailed', 'تعذر تأكيد الحجز')
                         : state === 'refund_completed' ? t('checkout.refundCompleted', 'تم تأكيد الاسترداد')
                             : ['refund_review', 'manual_review', 'intent_unknown'].includes(state) ? t('checkout.review', 'تحتاج العملية إلى مراجعة')
                                 : t('checkout.pending', 'بانتظار التحقق من الدفع والحجز...');
-        const details = awaitingPayment ? t(returnStatus.payment_url ? 'checkout.awaitingPaymentBody' : 'checkout.awaitingPaymentSupport') : preflightFailed ? t('checkout.offerUnavailableBody') : confirmed
+        const details = statusUnavailable ? t('checkout.statusUnavailableBody') : verificationPending ? t('checkout.verifyingBody') : awaitingPayment ? t(returnStatus.payment_url ? 'checkout.awaitingPaymentBody' : 'checkout.awaitingPaymentSupport') : preflightFailed ? t('checkout.offerUnavailableBody') : confirmed
             ? t('checkout.supplierReference', `مرجع المورد: ${returnStatus.supplier_reference}`, { reference: returnStatus.supplier_reference })
             : state === 'action_required' ? t('checkout.affiliateActionBody', 'لم نعرض هذه العملية كحجز مؤكد. يرجى التواصل مع الدعم لمراجعة حالة المورد.')
                 : affiliateFailed ? t('checkout.affiliateFailedBody', 'لم يؤكد المورد الحجز. يرجى مراجعة الدعم قبل إعادة الطلب.')
@@ -274,20 +277,21 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
             : state === 'payment_failed' ? 'text-red-500 bg-red-50'
                 : 'text-amber-500 bg-amber-50';
 
-        if (awaitingPayment) {
+        if (awaitingPayment || verificationPending || statusUnavailable) {
             return (
                 <main dir={direction} className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-4 py-16 sm:px-6">
                     <section aria-labelledby="payment-status-title" className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
                         <div className="h-1.5 bg-[var(--remal-blue)]" />
                         <div className="px-6 py-9 text-center sm:px-10 sm:py-10">
                             <p className="mb-7 text-sm font-bold tracking-wide text-[var(--remal-blue)]">REMAL</p>
-                            <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-cyan-50 text-[var(--remal-blue)]"><CreditCard size={30} aria-hidden="true" /></div>
+                            <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-cyan-50 text-[var(--remal-blue)]">{awaitingPayment ? <CreditCard size={30} aria-hidden="true" /> : statusUnavailable ? <Info size={30} aria-hidden="true" /> : <Clock3 size={30} aria-hidden="true" />}</div>
                             <h1 id="payment-status-title" className="text-2xl font-extrabold leading-normal text-slate-900 sm:text-3xl">{title}</h1>
                             <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-slate-600">{details}</p>
-                            {returnStatus.payment_url && <>
+                            {awaitingPayment && returnStatus?.payment_url && <>
                                 <a data-checkout-resume-payment href={returnStatus.payment_url} className="cta-orange mt-7 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl px-6 py-3.5 text-sm font-bold text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-4 focus-visible:outline-slate-900"><ShieldCheck size={18} aria-hidden="true" />{t('checkout.resumePayment')}</a>
                                 <p className="mt-4 text-xs leading-6 text-slate-500">{t('checkout.alreadyPaid')}</p>
                             </>}
+                            {(verificationPending || statusUnavailable) && <p className="mt-6 rounded-xl bg-slate-50 px-4 py-3 text-xs leading-6 text-slate-600">{t('checkout.paymentCheckNote')}</p>}
                             {paymentReference && <div className="mt-7 rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-medium text-slate-500">{t('checkout.requestReference')}</p><p dir="ltr" className="mt-2 select-all break-all font-mono text-xs leading-5 text-slate-700">{paymentReference}</p></div>}
                             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-slate-100 pt-6 text-sm">
                                 <a href="mailto:management@remaltourismllc.com" className="font-semibold text-[var(--remal-blue)] underline-offset-4 hover:underline">{t('checkout.paymentHelp')}</a>
