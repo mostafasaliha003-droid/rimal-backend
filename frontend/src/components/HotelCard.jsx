@@ -43,7 +43,7 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                 <div className="group/carousel relative h-56 w-full shrink-0 touch-auto overflow-hidden bg-slate-100 md:h-auto md:w-1/4 md:min-w-0">
                     {images.length > 0 && !imageFailed ? (
                         <>
-                            <picture>
+                            <picture className="block h-full w-full">
                                 {imageSource?.sources?.map(source => <source key={source.type} type={source.type} srcSet={source.srcSet} />)}
                                 <img
                                     src={imageSource?.src || images[currentImageIndex]}

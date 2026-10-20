@@ -1,4 +1,4 @@
-import { Menu, Search, Mail, X, ShieldCheck, UserRound, Gift } from 'lucide-react';
+import { Menu, Search, Mail, X, ShieldCheck, UserRound, Gift, Tickets } from 'lucide-react';
 import { useEffect, useState } from 'react';
 import PwaStatus from './PwaStatus';
 import { DISPLAY_CURRENCIES, SEARCH_CURRENCY } from '../services/offers';
@@ -6,13 +6,15 @@ import { trackBookingEvent } from '../services/analytics';
 import { useLanguage } from '../i18n';
 
 const links = [
-    { key: 'nav.explore', href: '/#search', active: true, icon: Search },
+    { key: 'nav.explore', href: '/#search', icon: Search },
+    { key: 'nav.bookings', href: '/bookings', icon: Tickets },
     { key: 'nav.contact', href: 'mailto:management@remaltourismllc.com', active: false, icon: Mail }
 ];
 
 export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrencyChange, onNavigate }) {
     const { t, language, languages, setLanguage } = useLanguage();
     const [open, setOpen] = useState(false);
+    const activePath = window.location.pathname;
     const [user, setUser] = useState(() => {
         try { return JSON.parse(localStorage.getItem('rimal_current_user') || 'null'); } catch { return null; }
     });
@@ -53,9 +55,9 @@ export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrenc
                 </div>
 
                 <nav className="hidden flex-wrap items-center gap-6 lg:flex">
-                    {links.map(({ key, href, active, icon: Icon }) => (
-                        <a key={key} href={href} onClick={event => href.startsWith('/') && navigate(event, href)} className={`group flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] font-bold transition ${active ? 'bg-white/10 text-white' : 'text-white/60 hover:bg-white/10 hover:text-white'}`}>
-                            {Icon && <Icon size={15} className={active ? 'text-remal-blue' : 'text-white/40'} />}
+                    {links.map(({ key, href, icon: Icon }) => (
+                        <a key={key} data-nav-bookings={href === '/bookings' ? '' : undefined} href={href} aria-current={activePath === href || href === '/#search' && activePath === '/' ? 'page' : undefined} onClick={event => href.startsWith('/') && navigate(event, href)} className={`group flex items-center gap-2 rounded-full px-4 py-2.5 text-[13px] font-bold transition ${activePath === href || href === '/#search' && activePath === '/' ? 'bg-white/10 text-white ring-1 ring-white/15' : 'text-white/75 hover:bg-white/10 hover:text-white'}`}>
+                            {Icon && <Icon size={15} className="text-cyan-200" />}
                             {t(key, key)}
                         </a>
                     ))}
@@ -79,7 +81,7 @@ export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrenc
                 </div>
             </div>
             {open && <nav id="mobile-navigation" aria-label={t('nav.mainMenu', 'القائمة الرئيسية')} className="border-t border-white/10 bg-slate-950/80 px-5 py-3 lg:hidden">
-                {links.map(({ key, href, icon: Icon }) => <a key={key} href={href} onClick={event => href.startsWith('/') ? navigate(event, href) : setOpen(false)} className="flex min-h-12 items-center gap-3"><Icon size={18} />{t(key, key)}</a>)}
+                {links.map(({ key, href, icon: Icon }) => <a key={key} data-nav-bookings={href === '/bookings' ? '' : undefined} href={href} aria-current={activePath === href ? 'page' : undefined} onClick={event => href.startsWith('/') ? navigate(event, href) : setOpen(false)} className={`flex min-h-12 items-center gap-3 rounded-xl px-3 ${activePath === href ? 'bg-white/10 text-cyan-100' : 'text-white/85'}`}><Icon size={18} />{t(key, key)}</a>)}
                 <a href="/account" onClick={event => navigate(event, '/account')} className="flex min-h-12 items-center gap-3"><UserRound size={18} />{user ? t('nav.account', 'حسابي') : t('nav.login', 'تسجيل الدخول')}</a>
                 <a href="/loyalty" onClick={event => navigate(event, '/loyalty')} className="flex min-h-12 items-center gap-3"><Gift size={18} />{t('nav.loyalty', 'برنامج الولاء')}</a>
             </nav>}

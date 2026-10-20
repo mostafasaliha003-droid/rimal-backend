@@ -1,18 +1,22 @@
 const mongoose = require('mongoose');
 const checkout = require('./checkoutProcessService');
 
-async function persistConfirmedCheckout(record, { Model = mongoose.models.Booking } = {}) {
+async function persistConfirmedCheckout(record, { Model = mongoose.models.Booking,
+    HotelModel = mongoose.connection.readyState === 1 ? require('../models/Hotel') : null } = {}) {
     if (!Model || !record.ownerSubject || !record.realm || !record.partner_order_id || !record.payment_verified_at) {
         throw new Error('confirmed_booking_persistence_unavailable');
     }
     const details = checkout.decryptDetails(record);
     const guest = details.rooms?.[0]?.guests?.[0];
+    const hotel = HotelModel && Number.isSafeInteger(details.hid)
+        ? await HotelModel.findOne({ hid: String(details.hid) }).select('name staticData.name').lean() : null;
+    const hotelName = require('./hotelPresentationService').resolveHotelName(hotel?.name, hotel?.staticData?.name, details.hotelName) || 'Hotel';
     if (!guest || !details.user?.email) throw new Error('confirmed_booking_guest_unavailable');
     const value = {
         bookingReference: record.reference, ownerSubject: record.ownerSubject, realm: record.realm,
         supplierReference: record.partner_order_id, supplierStatus: 'CONFIRMED', provider: 'ratehawk',
         ziinaPaymentId: record.ziina_intent_id, email: details.user.email, phone: details.user.phone,
-        customerName: `${guest.first_name} ${guest.last_name}`, hotelName: details.hotelName,
+        customerName: `${guest.first_name} ${guest.last_name}`, hotelName,
         ...(Number.isSafeInteger(details.hid) ? { providerHotelCode: String(details.hid) } : {}),
         roomType: details.roomName, price: require('./ziinaClient').majorUnits(record.amount_minor, record.currency), priceCurrency: record.currency,
         paymentMethod: 'ziina', supplierPaymentType: record.supplier_payment?.type || 'deposit',

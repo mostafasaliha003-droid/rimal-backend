@@ -19,6 +19,7 @@ import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, cheapestRate, rateAmount, rateCurr
 import { loadUsdDisplayRates } from './services/displayCurrency';
 import { trackBookingEvent } from './services/analytics';
 import { hotelImages } from './services/hotelImages.js';
+import { resolveHotelName } from './services/hotelPresentation';
 import { useLanguage } from './i18n';
 import { setPageSeo } from './services/seo.js';
 
@@ -47,8 +48,7 @@ const getHotels = (response) => {
     return (hotels || []).filter(Boolean).map((hotel) => {
         const staticData = hotel.staticData || {};
         const images = hotelImages({ ...hotel, staticData });
-        const name = [hotel.name, hotel.hotel_name, staticData.name, staticData.hotel_name]
-            .find((value) => typeof value === 'string' && value.trim());
+        const name = resolveHotelName(hotel.name, hotel.hotel_name, staticData.name, staticData.hotel_name);
         const detailedRatings = hotel.detailed_ratings || staticData.detailed_ratings || {};
         const reviewScore = [
             hotel.review_score, hotel.guest_rating, hotel.rating,
@@ -101,7 +101,7 @@ export default function App() {
 
     useEffect(() => {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
-        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/loyalty'].includes(pathname);
+        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/loyalty'].includes(pathname);
         const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
         const title = t('meta.title', 'رمال وفِلّها | حجوزات الفنادق');
         const description = t('meta.description', 'ابحث عن إقامة مناسبة مع رمال وقارن عروض الفنادق.');
@@ -272,7 +272,7 @@ export default function App() {
     const nextGenCheckoutRoute = nextGenEnabled && pathname === '/next-gen/checkout';
     const paymentStatusRoute = nextGenEnabled && pathname === '/payment-status';
     const mockPaymentRoute = nextGenEnabled && pathname === '/mock-payment';
-    const accountRoute = pathname === '/account';
+    const accountRoute = pathname === '/account' || pathname === '/bookings';
     const loyaltyRoute = pathname === '/loyalty';
     const navigateTo = path => {
         const pathnameOnly = path.split('#')[0] || '/';
@@ -306,7 +306,7 @@ export default function App() {
     if (accountRoute) {
         return <>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
-            <AccountCenter onNavigate={navigateTo} />
+            <AccountCenter onNavigate={navigateTo} bookingsOnly={pathname === '/bookings'} />
         </>;
     }
     if (loyaltyRoute) {

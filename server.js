@@ -501,7 +501,11 @@ app.get('/api/v1/hotels/:hid', publicSearchGuard, async (req, res) => {
     }
 
     try {
-        const hotel = await Hotel.findOne({ hid }).lean();
+        let hotel = await Hotel.findOne({ hid }).lean();
+        if (!hotel || !require('./services/hotelPresentationService').resolveHotelName(hotel.name, hotel.staticData?.name)) {
+            const hydrated = await require('./services/hotelContentCacheService').hydrateHotelContent([hid]);
+            hotel = hydrated.find(item => String(item.hid) === String(hid)) || hotel;
+        }
         if (!hotel) {
             return res.status(404).json({ success: false, message: 'Hotel is no longer available.' });
         }
@@ -523,7 +527,7 @@ app.get('/api/v1/hotels/:hid', publicSearchGuard, async (req, res) => {
             success: true,
             hotel: {
                 ...staticData,
-                name: approvedTranslation?.name || staticData.name || hotel.name || '',
+                name: require('./services/hotelPresentationService').resolveHotelName(approvedTranslation?.name, staticData.name, hotel.name, staticData.hotel_name),
                 description: approvedTranslation?.description || staticData.description || '',
                 city: approvedTranslation?.city || staticData.city || hotel.city || '',
                 address: approvedTranslation?.address || staticData.address || hotel.address || '',
@@ -681,6 +685,11 @@ async function enrichRateHotels(hotels) {
         logger.warn('Static hotel enrichment skipped', { error: error.message });
     }
 
+    const missingContent = hids.filter(id => /^\d{1,10}$/.test(id) && !staticById.has(id));
+    if (missingContent.length) {
+        const hydrated = await require('./services/hotelContentCacheService').hydrateHotelContent(missingContent);
+        hydrated.forEach(hotel => [hotel.hid, hotel.hotelId].filter(Boolean).forEach(id => staticById.set(String(id), hotel)));
+    }
     return hotels.filter(hotel => {
         const staticHotel = staticById.get(String(hotel?.hid || hotel?.hotel_id || hotel?.id));
         return !ratehawkService.isDeletedHotel(staticHotel);
@@ -710,7 +719,7 @@ async function enrichRateHotels(hotels) {
         return {
             ...hotel,
             hid,
-            name: firstHotelString(approvedTranslation?.name, hotel?.name, staticHotel.name, staticData.name, staticData.hotel_name) || 'Hotel',
+            name: require('./services/hotelPresentationService').resolveHotelName(approvedTranslation?.name, hotel?.name, staticHotel.name, staticData.name, staticData.hotel_name) || 'Hotel',
             description: firstHotelString(approvedTranslation?.description, hotel?.description, staticHotel.description, staticData.description),
             city: firstHotelString(approvedTranslation?.city, hotel?.city, staticHotel.city, staticData.city),
             address: firstHotelString(approvedTranslation?.address, hotel?.address, staticHotel.address, staticData.address),

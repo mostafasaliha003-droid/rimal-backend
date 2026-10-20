@@ -190,7 +190,7 @@ function createUserAuthRouter({
     return router;
 }
 
-function createUserProfileRouter({ UserModel, BookingModel, auth } = {}) {
+function createUserProfileRouter({ UserModel, BookingModel, auth, HotelModel = require('../models/Hotel') } = {}) {
     if (!UserModel || typeof UserModel.findOne !== 'function'
         || !BookingModel || typeof BookingModel.find !== 'function'
         || !auth || typeof auth.requireRole !== 'function') {
@@ -203,12 +203,12 @@ function createUserProfileRouter({ UserModel, BookingModel, auth } = {}) {
             const user = await UserModel.findOne({ _id: req.auth.subject, email: req.auth.email }).lean();
             if (!user) return res.status(401).json({ success: false, error: 'unauthorized' });
             const bookings = await BookingModel.find({ ownerSubject: req.auth.subject, realm: req.auth.realm }).sort({ createdAt: -1 })
-                .select('bookingReference supplierReference hotelConfirmationNumber supplierStatus provider customerName hotelName roomType boardType price priceCurrency checkInDate checkOutDate paymentMethod supplierPaymentType status cancellationPolicy confirmedAt freeCancelDeadline refundType createdAt')
+                .select('bookingReference supplierReference hotelConfirmationNumber supplierStatus provider customerName hotelName +providerHotelCode roomType boardType price priceCurrency checkInDate checkOutDate paymentMethod supplierPaymentType status cancellationPolicy confirmedAt freeCancelDeadline refundType createdAt')
                 .lean();
             return res.status(200).json({
                 success: true,
                 profile: publicUser(user),
-                bookings: bookings.map(publicBooking)
+                bookings: (await require('./hotelPresentationService').enrichBookingNames(bookings, HotelModel)).map(publicBooking)
             });
         } catch {
             return res.status(503).json({ success: false, error: 'profile_unavailable' });

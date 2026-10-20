@@ -3,6 +3,21 @@ const assert = require('node:assert/strict');
 const checkout = require('./services/checkoutProcessService');
 const { persistConfirmedCheckout } = require('./services/ratehawkCheckoutBookingPersistence');
 
+test('booking persistence derives the property name from the exact verified hotel id', async context => {
+    context.mock.method(checkout, 'decryptDetails', () => ({ hid: 123, hotelName: 'Wrong client label', roomName: 'Double',
+        user: { email: 'guest@example.test' }, rooms: [{ guests: [{ first_name: 'Guest', last_name: 'Test' }] }] }));
+    let saved;
+    const Model = { updateOne: async (_filter, update) => { saved = update.$setOnInsert; }, findOne: () => ({ lean: async () => saved }) };
+    const HotelModel = { findOne(filter) {
+        assert.deepEqual(filter, { hid: '123' });
+        return { select: () => ({ lean: async () => ({ name: 'Official Supplier Hotel' }) }) };
+    } };
+    await persistConfirmedCheckout({ reference: 'booking', ownerSubject: 'owner', realm: 'sandbox', partner_order_id: 'supplier',
+        payment_verified_at: new Date(), amount_minor: 10000, currency: 'USD', supplier_payment: { type: 'deposit' } }, { Model, HotelModel });
+    assert.equal(saved.hotelName, 'Official Supplier Hotel');
+    assert.equal(saved.providerHotelCode, '123');
+});
+
 test('confirmed paid bookings persist the authenticated owner and survive retries without reactivating cancellation', async context => {
     let saved;
     context.mock.method(checkout, 'decryptDetails', () => ({

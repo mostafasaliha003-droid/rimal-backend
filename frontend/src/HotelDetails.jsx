@@ -1,11 +1,13 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CheckCircle2, CalendarDays, Users } from 'lucide-react';
 import HotelRoomCard from './components/HotelRoomCard';
+import HotelPhotoGallery from './components/HotelPhotoGallery';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom, rateAmount, rateCurrency } from './services/offers';
 import PriceDisplay from './components/PriceDisplay';
 import { trackBookingEvent } from './services/analytics';
-import { hotelImages } from './services/hotelImages.js';
+import { hotelImages, collectImages } from './services/hotelImages.js';
+import { resolveHotelName } from './services/hotelPresentation';
 import { responsiveImageSources } from './services/hotelImages.js';
 import { useLanguage } from './i18n';
 import { setPageSeo } from './services/seo.js';
@@ -55,7 +57,7 @@ function LoadingSkeleton({ label }) {
 function SupplierPicture({ source, fallback, alt, loading = 'lazy', fetchPriority, className = '' }) {
     if (!source && !fallback) return <div role="img" aria-label={alt} className="flex h-full items-center justify-center text-slate-400"><ImageOff size={40} /></div>;
     return (
-        <picture>
+        <picture className="block h-full w-full">
             {source?.sources?.map(item => <source key={item.type} type={item.type} srcSet={item.srcSet} />)}
             <img
                 src={source?.src || fallback}
@@ -76,6 +78,8 @@ function SupplierPicture({ source, fallback, alt, loading = 'lazy', fetchPriorit
 export default function HotelDetails({ hid, onBack, displayCurrency, displayRates }) {
     const { t, apiLanguage, language, direction } = useLanguage();
     const [hotel, setHotel] = useState(null);
+    const [galleryIndex, setGalleryIndex] = useState(null);
+    useEffect(() => { setGalleryIndex(null); }, [hid]);
     const [rates, setRates] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -173,12 +177,14 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                 setError(t('hotel.loadFailed', 'تعذر تحميل الأسعار الحالية، يرجى العودة للبحث والمحاولة مرة أخرى'));
             } else {
                 const mergedHotel = { ...staticHotel, ...liveHotel, hid };
+                mergedHotel.name = resolveHotelName(staticHotel?.name, staticHotel?.staticData?.name,
+                    liveHotel?.name, liveHotel?.hotel_name, liveHotel?.staticData?.name);
                 if (staticHotel?.resolvedLanguage === language && staticHotel?.name) {
                     for (const field of ['name', 'description', 'city', 'address']) {
                         if (staticHotel[field]) mergedHotel[field] = staticHotel[field];
                     }
                 }
-                setHotel({ ...mergedHotel, images: toImages(mergedHotel) });
+                setHotel({ ...mergedHotel, images: collectImages(toImages(staticHotel || {}), toImages(liveHotel)) });
                 setRates(Array.isArray(liveRates) ? liveRates : []);
             }
             setLoading(false);
@@ -256,18 +262,18 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                     {images.length > 1 ? (
                         <div className="grid h-full grid-cols-1 gap-2 md:grid-cols-4">
                             {/* Main Image (Right side in RTL) */}
-                            <div className="group relative h-full md:col-span-2 overflow-hidden bg-slate-200">
+                            <button type="button" onClick={() => setGalleryIndex(0)} aria-label={t('gallery.open')} className="group relative h-full md:col-span-2 overflow-hidden bg-slate-200">
                                 <SupplierPicture source={mainImageSource} fallback={images[0]} fetchPriority="high" alt={hotel?.name || hotel?.staticData?.name || t('hotel.name', 'الفندق')} className="h-full w-full object-cover transition-transform duration-500 ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-[1.03]" />
                                 <div className="absolute inset-0 bg-gradient-to-t from-slate-900/30 to-transparent opacity-0 transition-opacity duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100" />
-                            </div>
+                            </button>
                             
                             {/* 4 Small Images (Left side) */}
                             <div className="hidden h-full grid-cols-2 grid-rows-2 gap-2 md:grid md:col-span-2">
                                 {Array.from({ length: 4 }).map((_, index) => images[index + 1] ? (
-                                    <div key={images[index + 1]} className="group relative overflow-hidden bg-slate-200">
+                                    <button type="button" key={images[index + 1]} onClick={() => setGalleryIndex(index + 1)} aria-label={t('gallery.select', 'Photo {{current}}', { current: index + 2 })} className="group relative overflow-hidden bg-slate-200">
                                         <SupplierPicture source={responsiveImageSources(images[index + 1], 'gallery')} fallback={images[index + 1]} alt={`${t('hotel.photoAlt', 'صورة')} ${index + 2}`} className="h-full w-full object-cover transition-transform duration-500 ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-[1.03]" />
                                         <div className="absolute inset-0 bg-slate-900/10 opacity-0 transition-opacity duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:opacity-100" />
-                                    </div>
+                                    </button>
                                 ) : (
                                     <div key={index} role="img" aria-label={t('hotel.missingPhoto', 'لا توجد صورة')} className="flex h-full items-center justify-center bg-slate-100/50 text-slate-300">
                                         <ImageOff size={28} />
@@ -276,11 +282,13 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             </div>
                         </div>
                     ) : (
-                        <div className="h-full w-full bg-slate-200">
+                        <button type="button" onClick={() => images.length && setGalleryIndex(0)} aria-label={t('gallery.open')} className="h-full w-full bg-slate-200">
                             <SupplierPicture source={mainImageSource} fallback={images[0]} fetchPriority="high" alt={hotel?.name || hotel?.staticData?.name || t('hotel.name', 'الفندق')} className="h-full w-full object-cover" />
-                        </div>
+                        </button>
                     )}
+                    {images.length > 0 && <button data-open-hotel-gallery type="button" onClick={() => setGalleryIndex(0)} className="absolute bottom-4 left-4 inline-flex min-h-11 items-center gap-2 rounded-xl border border-white/70 bg-white/95 px-4 py-2 text-xs font-bold text-slate-800 shadow-sm backdrop-blur-sm hover:bg-white">{t('gallery.viewAll', 'View all {{count}} photos', { count: images.length })}</button>}
                 </section>
+                {galleryIndex !== null && images.length > 0 && <HotelPhotoGallery images={images} name={hotel?.name} initialIndex={galleryIndex} onClose={() => setGalleryIndex(null)} />}
 
                 {/* 3. Main Content & Sticky Widget */}
                 <section className="mt-8 grid min-w-0 items-start gap-8 lg:mt-12 lg:grid-cols-[minmax(0,1fr)_minmax(15rem,22.5rem)] lg:gap-12">

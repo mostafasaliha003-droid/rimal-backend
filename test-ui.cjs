@@ -118,7 +118,7 @@ async function run() {
                 else if (url.pathname.endsWith('/search/hotelpage')) {
                     lastHotelPage = JSON.parse(request.postData());
                     if (lastHotelPage.currency !== 'USD') return request.respond({ status: 400, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: 'unknown currency' }) });
-                    body = { hotel: hotels[1], rates: [rate(60)] };
+                    body = { hotel: { ...hotels[1], name: 'Hotel', images: [`${base}/icon-192.png?photo=live`] }, rates: [rate(60)] };
                 }
                 else if (url.pathname.endsWith('/affiliate/availability')) body = { search: true, booking: true };
                 else if (url.pathname.endsWith('/affiliate/hotels/2/rates')) {
@@ -153,7 +153,7 @@ async function run() {
                     assert.equal(request.headers()['x-affiliate-status-token'], affiliateAccessToken);
                     body = { process_id: affiliateProcessId, status: 'confirmed', confirmed: true, supplier_reference: 'TEST-AFFILIATE-ORDER' };
                 }
-                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: hotels[1] };
+                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: { ...hotels[1], images: Array.from({ length: 6 }, (_, index) => `${base}/icon-512.png?photo=${index}`) } };
                 else if (url.pathname.endsWith('/payment/availability')) body = { enabled: paymentEnabled };
                 else if (url.pathname.endsWith('/payment/quote')) {
                     const data = JSON.parse(request.postData());
@@ -328,6 +328,17 @@ async function run() {
         assert.match(await page.$eval('main', element => element.textContent), /عن هذا المكان/);
         assert.deepEqual(await page.$$eval('link[rel="alternate"][data-remal-hreflang]', links => links.map(link => link.hreflang).sort()), ['en', 'x-default']);
         assert.equal(await page.$eval('main', element => element.innerText.includes('كاش باك')), false);
+        assert.match(await page.$eval('main h1', node => node.innerText), /Test Hotel 60/);
+        await page.click('[data-open-hotel-gallery]');
+        await page.waitForSelector('[data-hotel-gallery]');
+        assert.equal(await page.$$eval('[data-hotel-gallery] nav button', nodes => nodes.length), 7, 'Retain all static photos and live photos');
+        assert.equal(await page.$eval('[data-gallery-photo]', node => getComputedStyle(node).objectFit), 'contain');
+        await page.keyboard.press('End');
+        await page.waitForFunction(() => document.querySelector('[data-gallery-photo]')?.src.includes('photo=live'));
+        await page.click('[data-gallery-next]');
+        await page.waitForFunction(() => document.querySelector('[data-gallery-photo]')?.src.includes('photo=0'));
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('[data-hotel-gallery]'));
         assert.equal(lastHotelPage.currency, 'USD');
         assert.equal(lastHotelPage.residency, 'gb');
         assert.equal(lastAffiliateHotelPage.residency, 'gb');
@@ -548,7 +559,14 @@ async function run() {
             localStorage.setItem('rimal_current_user', JSON.stringify(fixtureUser));
             sessionStorage.setItem('rimal_user_access_token', userToken);
         }, { fixtureUser, userToken });
-        await page.goto(`${base}/account?lang=ar`, { waitUntil: 'domcontentloaded' });
+        await page.goto(`${base}/bookings?lang=ar`, { waitUntil: 'domcontentloaded' });
+        await page.waitForFunction(() => document.querySelector('main h1')?.innerText.includes('حجوزاتي'));
+        assert.equal(await page.$('main input[type="email"]'), null);
+        await page.click('button[aria-controls="mobile-navigation"]');
+        await page.waitForSelector('#mobile-navigation [data-nav-bookings]');
+        await page.click('#mobile-navigation [data-nav-bookings]');
+        assert.equal(await page.$('#mobile-navigation'), null);
+        assert.equal(new URL(page.url()).pathname, '/bookings');
         await page.waitForSelector('[data-booking-cancellation]');
         await page.click('[data-booking-cancellation]');
         await page.waitForSelector('[data-cancellation-confirm]');
