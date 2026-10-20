@@ -497,6 +497,14 @@ app.get('/api/v1/hotels/filters', publicSearchGuard, async (req, res) => {
     }
 });
 
+app.use('/api/v1/hotels', require('./services/googleHotelReviewRoutes')({
+    reviews: require('./services/googleHotelReviews').createGoogleHotelReviews({ HotelModel: Hotel,
+        PlaceModel: require('./models/GoogleHotelPlace'), UsageModel: require('./models/GooglePlacesUsage') }),
+    limiter: require('express-rate-limit').rateLimit({ windowMs: 60000, limit: 8,
+        standardHeaders: true, legacyHeaders: false,
+        handler: (_req, res) => res.set({ 'Cache-Control': 'no-store', 'Retry-After': '60' }).status(429).json({ status: 'limited' }) })
+}));
+
 app.get('/api/v1/hotels/:hid', publicSearchGuard, async (req, res) => {
     const hid = String(req.params.hid || '').trim();
     const language = req.query.language || 'en';

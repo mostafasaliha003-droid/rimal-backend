@@ -9,6 +9,7 @@ const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
 const AccountCenter = lazy(() => import('./components/AccountCenter'));
 const CustomerSupport = lazy(() => import('./pages/CustomerSupport'));
+const LegalPage = lazy(() => import('./pages/LegalPage'));
 const LoyaltyDashboard = lazy(() => import('./components/LoyaltyDashboard'));
 const NextGenHotels = lazy(() => import('./pages/NextGenHotels'));
 const NextGenCheckout = lazy(() => import('./pages/NextGenCheckout'));
@@ -281,6 +282,9 @@ export default function App() {
         setPathname(pathnameOnly);
     };
 
+    if (pathname === '/privacy' || pathname === '/terms') {
+        return <><TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} /><LegalPage kind={pathname.slice(1)} /></>;
+    }
     if (pathname === '/support' || pathname === '/customer-service') {
         return <CustomerSupport staff={pathname === '/customer-service'} />;
     }

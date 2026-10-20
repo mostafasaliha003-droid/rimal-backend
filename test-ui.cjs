@@ -57,6 +57,7 @@ async function run() {
     let statusRequests = 0;
     let exchangeAvailable = true;
     let exchangeRequests = 0;
+    let googleReviewsRequests = 0;
     const suggestionRequests = [];
     try {
         screenshotDirectory = configuredScreenshotDirectory
@@ -159,6 +160,15 @@ async function run() {
                     affiliateBookingStatusRequests++;
                     assert.equal(request.headers()['x-affiliate-status-token'], affiliateAccessToken);
                     body = { process_id: affiliateProcessId, status: 'confirmed', confirmed: true, supplier_reference: 'TEST-AFFILIATE-ORDER' };
+                }
+                else if (url.pathname.endsWith('/reviews/google/availability')) body = { enabled: true };
+                else if (url.pathname.endsWith('/reviews/google')) {
+                    googleReviewsRequests++;
+                    assert.equal(url.searchParams.get('language'), 'ar');
+                    body = { status: 'ready', source: 'google', rating: 4.3, count: 321, url: 'https://www.google.com/maps?cid=123&reviews=1',
+                        reviews: [{ rating: 1, text: 'Fixture translated review', textLanguage: 'en', originalText: 'Fixture original review', originalLanguage: 'es',
+                            publishedAt: '2026-10-01T12:00:00Z', visitDate: { year: 2026, month: 9 }, url: 'https://www.google.com/maps/reviews/fixture',
+                            author: { name: 'Fixture Google Author', url: 'https://www.google.com/maps/contrib/fixture', photo: '' } }], attributions: [] };
                 }
                 else if (url.pathname.includes('/v1/hotels/')) body = { hotel: { ...hotels[1], images: Array.from({ length: 6 }, (_, index) => `${base}/icon-512.png?photo=${index}`), room_groups: [
                     { room_group_id: 90, name: 'Test Double Room', rg_ext: doubleClassification, images: [`${base}/missing-hotel-photo.jpg`, `${base}/icon-512.png?room=double`] },
@@ -356,6 +366,19 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('[data-gallery-photo]')?.src.includes('photo=0'));
         await page.keyboard.press('Escape');
         await page.waitForFunction(() => !document.querySelector('[data-hotel-gallery]'));
+        await page.waitForSelector('[data-load-google-reviews]');
+        assert.equal(googleReviewsRequests, 0, 'Do not prefetch paid Google reviews before the visitor asks');
+        await page.click('[data-load-google-reviews]');
+        await page.waitForSelector('[data-google-rating]');
+        assert.equal(googleReviewsRequests, 1);
+        assert.match(await page.$eval('[data-google-rating]', n => n.textContent), /4\.3/);
+        assert.match(await page.$eval('[data-google-review]', n => n.textContent), /Fixture Google Author/);
+        assert.match(await page.$eval('[data-google-review]', n => n.textContent), /1\/5/, 'Never hide a negative review');
+        assert.equal(await page.$eval('[data-google-review] a', n => n.href), 'https://www.google.com/maps/contrib/fixture');
+        await page.click('[data-google-original]');
+        await page.waitForFunction(() => document.querySelector('[data-google-review]')?.textContent.includes('Fixture original review'));
+        assert.equal(await page.$eval('[data-google-all-reviews]', n => n.href), 'https://www.google.com/maps?cid=123&reviews=1');
+        assert.equal(await page.evaluate(() => document.documentElement.scrollWidth > innerWidth), false);
         assert.equal(lastHotelPage.currency, 'USD');
         assert.equal(lastHotelPage.residency, 'gb');
         assert.equal(lastAffiliateHotelPage.residency, 'gb');
