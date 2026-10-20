@@ -49,6 +49,7 @@ async function run() {
     let voucherDelivery = 'pending';
     let profileBookings = [];
     let cancellationRequests = 0;
+    let cancellationPolicyRequests = 0;
     let cancellationStatusRequests = 0;
     let cancellationReceiptRequests = 0;
     let statusRequests = 0;
@@ -95,7 +96,8 @@ async function run() {
                         cancellationRequests++;
                         assert.deepEqual(JSON.parse(request.postData()), { confirm_cancellation: true, quote_token: 'fixture-cancellation-quote' });
                         body = { status: 'cancelled', success: true, customer_refund_status: 'pending' };
-                    } else body = { mode: 'automatic', policy: 'Fixture supplier cancellation policy',
+                    } else if (++cancellationPolicyRequests === 1) body = { mode: 'checking', retry_after_ms: 3000 };
+                    else body = { mode: 'automatic', policy: 'Fixture supplier cancellation policy',
                         fee: { amount: '36.73', currency_code: 'AED' }, refund: { amount: '330.52', currency_code: 'AED' },
                         quote_token: 'fixture-cancellation-quote', expires_at: Date.now() + 300000 };
                 }
@@ -569,7 +571,12 @@ async function run() {
         assert.equal(new URL(page.url()).pathname, '/bookings');
         await page.waitForSelector('[data-booking-cancellation]');
         await page.click('[data-booking-cancellation]');
+        await page.waitForSelector('[data-cancellation-policy-wait]');
+        await page.waitForFunction(() => document.querySelector('[data-cancellation-policy-wait]')?.innerText.includes('نعيد التحقق تلقائيًا'));
+        assert.equal(await page.$('[data-cancellation-confirm]'), null, 'No cancellation action before a verified supplier quote');
+        assert.equal(cancellationRequests, 0);
         await page.waitForSelector('[data-cancellation-confirm]');
+        assert.equal(cancellationPolicyRequests, 2, 'Slow supplier policy is checked automatically');
         assert.equal(await page.$eval('[data-cancellation-confirm]', node => node.disabled), true);
         assert.match(await page.$eval('dialog', node => node.innerText), /36.73|٣٦٫٧٣/);
         assert.match(await page.$eval('dialog', node => node.innerText), /330.52|٣٣٠٫٥٢/);

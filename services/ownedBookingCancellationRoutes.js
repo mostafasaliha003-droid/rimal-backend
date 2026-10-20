@@ -14,6 +14,7 @@ function createOwnedBookingCancellationRouter({ BookingModel, requireUser, Check
     operations = postBooking, refundReady = payment.isRefundReady, env = process.env, now = Date.now,
     limiter = bookingLimiter, readLimiter = cancellationReadLimiter } = {}) {
     const router = express.Router();
+    const readPolicy = require('./cancellationPolicyReader').createCancellationPolicyReader(id => operations.getBookingInfo(id));
     const fail = (code, httpStatus = 409) => Object.assign(new Error(code), { code, httpStatus });
     function sign(payload) {
         if (!/^[a-f\d]{64}$/i.test(env.PAYMENT_BOOKING_ENCRYPTION_KEY || '')) throw fail('cancellation_unavailable', 503);
@@ -37,6 +38,7 @@ function createOwnedBookingCancellationRouter({ BookingModel, requireUser, Check
         try { res.json(await fn(req)); }
         catch (error) {
             const known = /^[a-z][a-z0-9_]{0,79}$/.test(error.code || '');
+            if (error.httpStatus === 429) res.set('Retry-After', String(Math.max(1, Math.ceil((error.retry_after_ms || 60000) / 1000))));
             res.status(known && [400, 401, 404, 409, 429, 502, 503].includes(error.httpStatus) ? error.httpStatus : 503)
                 .json({ error: known ? error.code : 'cancellation_unavailable' });
         }
@@ -48,7 +50,8 @@ function createOwnedBookingCancellationRouter({ BookingModel, requireUser, Check
         const checkout = await checkoutFor(booking, req);
         if (checkout?.cancellation_request_hash) return { ...base, mode: 'tracking', cancellation: await operations.checkCancellation(booking.supplierReference) };
         if (booking.status !== 'active') return base;
-        const info = await operations.getBookingInfo(booking.supplierReference);
+        const info = await readPolicy(booking.supplierReference);
+        if (info.checking || info.pending) return { ...base, mode: 'checking', retry_after_ms: info.retry_after_ms || 3000 };
         const penalty = info.current_penalty;
         if (info.pending || info.status !== 'completed' || info.isCancellable !== true || !penalty) return base;
         const result = { ...base, penalty, upsells: info.upsells_require_manual_cancellation === true };

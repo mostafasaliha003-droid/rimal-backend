@@ -20,25 +20,46 @@ export default function BookingCancellationDialog({ booking, onClose, onCancelle
     lastResult.current = result;
     const [expired, setExpired] = useState(false);
     const [connection, setConnection] = useState('connected');
+    const [policyDelayed, setPolicyDelayed] = useState(false);
+    const [reload, setReload] = useState(0);
     const submitted = useRef(false);
     useEffect(() => {
         const node = dialog.current;
         node.showModal();
         return () => node.close();
     }, []);
-    const load = async () => {
-        setPhase('loading'); setError(''); setAccepted(false); setExpired(false);
-        try {
-            const value = await BookingAPI.getOwnedCancellationQuote(booking.bookingReference);
-            setQuote(value);
-            if (value.mode === 'tracking') {
-                setResult(value.cancellation); submitted.current = true;
-                setPhase(needsTracking(value.cancellation) ? 'tracking' : 'result');
-            } else setPhase('review');
-        }
-        catch { setPhase('error'); setError(t('cancel.loadError')); }
-    };
-    useEffect(() => { void load(); }, [booking.bookingReference]);
+    const load = () => setReload(value => value + 1);
+    useEffect(() => {
+        let active = true, timer;
+        const started = Date.now();
+        setPhase('loading'); setError(''); setQuote(null); setAccepted(false); setExpired(false); setPolicyDelayed(false);
+        const retry = delay => {
+            const pause = Math.max(3000, Number(delay) || 3000);
+            if (Date.now() - started + pause >= 120000) { setPhase('error'); setError(t('cancel.loadError')); return; }
+            setPolicyDelayed(true);
+            timer = setTimeout(check, pause);
+        };
+        const check = async () => {
+            try {
+                const value = await BookingAPI.getOwnedCancellationQuote(booking.bookingReference);
+                if (!active) return;
+                if (value.mode === 'checking') { retry(value.retry_after_ms); return; }
+                setQuote(value);
+                if (value.mode === 'tracking') {
+                    setResult(value.cancellation); submitted.current = true;
+                    setPhase(needsTracking(value.cancellation) ? 'tracking' : 'result');
+                } else setPhase('review');
+            } catch (failure) {
+                if (!active) return;
+                if (!failure.response || [429, 502, 503, 504].includes(failure.response.status)) {
+                    retry(Number(failure.response?.headers?.['retry-after']) * 1000); return;
+                }
+                setPhase('error'); setError(t('cancel.loadError'));
+            }
+        };
+        void check();
+        return () => { active = false; clearTimeout(timer); };
+    }, [booking.bookingReference, reload]);
     useEffect(() => {
         if (!quote?.expires_at) return;
         const timer = setTimeout(() => setExpired(true), Math.max(0, quote.expires_at - Date.now()));
@@ -94,6 +115,7 @@ export default function BookingCancellationDialog({ booking, onClose, onCancelle
             {!cancelled && <><p className="mt-5 font-bold">{booking.hotelName}</p><p dir="ltr" className="mt-1 break-all text-xs text-slate-500">{booking.bookingReference}</p></>}
             <div aria-live="polite" className="mt-6 space-y-4">
                 {['loading', 'submitting'].includes(phase) && <p className="flex items-center gap-3 rounded-2xl bg-slate-50 p-5 text-sm"><LoaderCircle className="motion-safe:animate-spin" size={20} />{t(phase === 'loading' ? 'cancel.loading' : 'cancel.submitting')}</p>}
+                {phase === 'loading' && <p data-cancellation-policy-wait className="rounded-xl border border-cyan-100 bg-cyan-50/60 p-4 text-sm leading-7 text-cyan-950">{t(policyDelayed ? 'cancel.policyDelayed' : 'cancel.policyHint')}</p>}
                 {error && <p role="alert" className="rounded-xl bg-amber-50 p-4 text-sm leading-7 text-amber-900">{error}</p>}
                 {phase === 'review' && quote && <>
                     {quote.policy && <p className="whitespace-pre-wrap rounded-xl bg-slate-50 p-4 text-sm leading-7">{quote.policy}</p>}

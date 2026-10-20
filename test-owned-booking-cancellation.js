@@ -8,7 +8,7 @@ async function fixture(t) {
     const checkout = { state: 'booking_confirmed', payment_verified_at: new Date(), amount_minor: 36725, currency: 'AED', ziina_test: true,
         payment_quote: { rates: { USD: 1, AED: 3.6725 } } };
     const info = { status: 'completed', isCancellable: true, current_penalty: { amount: '10.00', currency_code: 'USD' } };
-    let clock = 1000, cancellations = 0, lastOptions;
+    let clock = 1000, cancellations = 0, lastOptions, policyFailure;
     const model = { findOne(filter) {
         assert.equal(filter.ownerSubject, 'owner'); assert.equal(filter.realm, 'sandbox');
         return { lean: async () => filter.bookingReference === 'other-booking' ? null : booking };
@@ -19,7 +19,7 @@ async function fixture(t) {
         requireUser(req, res, next) { if (req.headers.authorization !== 'Bearer user') return res.sendStatus(401); req.auth = { subject: 'owner', realm: 'sandbox' }; next(); },
         env: { RIMAL_AUTH_REALM: 'sandbox', PAYMENT_BOOKING_ENCRYPTION_KEY: 'ab'.repeat(32), RATEHAWK_CANCELLATION_ENABLED: 'true', ZIINA_TEST_MODE: 'true' },
         operations: {
-            getBookingInfo: async () => info,
+            getBookingInfo: async () => { if (policyFailure) throw policyFailure; return info; },
             cancelBooking: async (id, options) => { assert.equal(id, 'supplier-1'); cancellations++; lastOptions = options; return { status: 'cancelled', customer_refund_status: 'pending' }; },
             checkCancellation: async () => ({ status: 'cancelled', customer_refund_status: 'completed' })
         },
@@ -34,8 +34,22 @@ async function fixture(t) {
         return { status: response.status, body: response.status === 401 ? null : response.headers.get('content-type')?.includes('application/pdf')
             ? Buffer.from(await response.arrayBuffer()) : await response.json(), headers: response.headers };
     };
-    return { booking, checkout, info, request, expire: () => { clock += 300001; }, count: () => cancellations, options: () => lastOptions };
+    return { booking, checkout, info, request, expire: () => { clock += 300001; }, count: () => cancellations, options: () => lastOptions,
+        failPolicy: error => { policyFailure = error; } };
 }
+
+test('an unsettled or failed supplier lookup never exposes a cancellation token or submits cancellation', async t => {
+    const s = await fixture(t);
+    s.info.pending = true;
+    const waiting = await s.request();
+    assert.equal(waiting.body.mode, 'checking'); assert.equal(waiting.body.quote_token, undefined);
+    s.failPolicy(Object.assign(new Error('invalid supplier response'), { code: 'order_info_mismatch', httpStatus: 502 }));
+    const failed = await s.request();
+    assert.equal(failed.status, 502); assert.equal(failed.body.quote_token, undefined); assert.equal(s.count(), 0);
+    s.failPolicy(Object.assign(new Error('rate limited'), { code: 'rate_limit', httpStatus: 429, retry_after_ms: 65000 }));
+    const limited = await s.request();
+    assert.equal(limited.status, 429); assert.equal(limited.headers.get('retry-after'), '65'); assert.equal(s.count(), 0);
+});
 test('owned cancellation prices supplier fees at the original FX and binds the exact refund to the authenticated quote', async t => {
     const s = await fixture(t);
     const quote = await s.request();
