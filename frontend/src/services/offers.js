@@ -1,6 +1,7 @@
 export const SEARCH_CURRENCY = 'USD';
 export const DISPLAY_CURRENCIES = ['USD', 'AED', 'SAR', 'EUR'];
 import { roomImagesForRate } from './hotelImages.js';
+import { roomGroupForRate } from './supplierRoomTypes.js';
 import paymentCurrencies from '../../../shared/paymentCurrencies.json' with { type: 'json' };
 
 export function displayAmount(amount, sourceCurrency, displayCurrency, usdRates) {
@@ -40,23 +41,15 @@ export function normalizeRoom(rate, hotel, guests) {
         ? rate.payment_options?.payment_types?.find(item => item?.type === 'hotel')
         : paymentFor(rate);
     const roomImages = roomImagesForRate(rate, hotel);
-    const roomName = rate.room_name || rate.name || 'غرفة';
-    const roomNameLower = String(roomName).toLowerCase();
-    const textualBed = rate.room_info?.bed
+    const group = roomGroupForRate(rate, hotel);
+    const roomName = rate.room_name || rate.room_data_trans?.main_name || rate.name || group?.name || '';
+    const bed = rate.room_data_trans?.bedding_type
+        || rate.room_info?.bed
         || rate.room_info?.bedding_type
         || rate.name_struct?.bedding_type
         || rate.bedding
-        || rate.bed;
-    const bed = textualBed || (
-        roomNameLower.includes('king') ? 'King bed'
-            : roomNameLower.includes('triple') ? 'Triple bed'
-                : roomNameLower.includes('double') || roomNameLower.includes('dbl') ? 'Double bed'
-                    : roomNameLower.includes('twin') ? 'Twin beds'
-                        : roomNameLower.includes('single') ? 'Single bed'
-                            : rate.rg_ext?.capacity === 3 ? 'Triple bed'
-                                : rate.rg_ext?.capacity === 2 ? 'Double bed'
-                                    : undefined
-    );
+        || rate.bed
+        || group?.name_struct?.bedding_type;
     return {
         name: roomName,
         price: contractSource === 'affiliate'

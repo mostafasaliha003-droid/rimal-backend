@@ -3,7 +3,7 @@ import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldChe
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelCard from './components/HotelCard';
-import HotelRoomCard from './components/HotelRoomCard';
+import RoomOfferGroups from './components/RoomOfferGroups';
 import PriceDisplay from './components/PriceDisplay';
 const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
@@ -496,7 +496,7 @@ export default function App() {
                                         </div>
                                     )}
                                     {error && <p role="alert" className="rounded-2xl bg-red-50 p-6 text-sm font-bold text-red-600 border border-red-100">{error}</p>}
-                                    {rooms.map((room, index) => <HotelRoomCard key={room.book_hash || index} room={room} displayCurrency={displayCurrency} displayRates={displayRates} />)}
+                                    <RoomOfferGroups rooms={rooms} displayCurrency={displayCurrency} displayRates={displayRates} />
                                 </>
                             ) : loading ? (
                                 <div role="status" className="flex flex-col items-center justify-center gap-4 rounded-3xl bg-white p-24 shadow-sm border border-slate-100">

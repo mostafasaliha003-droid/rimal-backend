@@ -100,7 +100,7 @@ test('room photos follow the selected supplier rate and exclude placeholders', (
     assert.notDeepEqual(roomImagesForRate(kingRate, hotel), roomImagesForRate(doubleRate, hotel));
     assert.deepEqual(roomImagesForRate({ room_group_id: 'missing', room_name: 'Deluxe King Room' }, hotel), []);
     assert.deepEqual(roomImagesForRate({ room_group_id: '', room_name: 'Deluxe King Room' }, hotel), []);
-    assert.deepEqual(roomImagesForRate({ room_group_id: '', id: 'king' }, hotel), ['https://cdn.worldota.net/t/1920x1080/content/king.jpg']);
+    assert.deepEqual(roomImagesForRate({ room_group_id: '', id: 'king' }, hotel), []);
     assert.deepEqual(roomImagesForRate({ room_group: { id: 'king' } }, hotel), ['https://cdn.worldota.net/t/1920x1080/content/king.jpg']);
     assert.deepEqual(roomImagesForRate({ images: ['https://cdn.worldota.net/offer-room.jpg'], room_group_id: 'missing' }, hotel), ['https://cdn.worldota.net/offer-room.jpg']);
     assert.deepEqual(hotelImages({ images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945'] }), []);
@@ -108,18 +108,14 @@ test('room photos follow the selected supplier rate and exclude placeholders', (
     assert.deepEqual(hotelImages({ images: ['https://cdn.worldota.net/property.jpg'] }), ['https://cdn.worldota.net/property.jpg']);
 });
 
-test('room card photos prefer room images, label property fallback, and allow no-photo state', () => {
+test('room cards use only matched room photos and never substitute property photos', () => {
     assert.deepEqual(roomCardImages(['room.jpg'], ['property.jpg']), [
-        { url: 'room.jpg', isPropertyPhoto: false },
-        { url: 'property.jpg', isPropertyPhoto: true }
+        { url: 'room.jpg', isPropertyPhoto: false }
     ]);
-    assert.deepEqual(roomCardImages([], ['property.jpg']), [
-        { url: 'property.jpg', isPropertyPhoto: true }
-    ]);
+    assert.deepEqual(roomCardImages([], ['property.jpg']), []);
     assert.deepEqual(roomCardImages([], []), []);
     assert.deepEqual(roomCardImages(['shared.jpg'], ['shared.jpg', 'property.jpg']), [
-        { url: 'shared.jpg', isPropertyPhoto: false },
-        { url: 'property.jpg', isPropertyPhoto: true }
+        { url: 'shared.jpg', isPropertyPhoto: false }
     ]);
 });
 

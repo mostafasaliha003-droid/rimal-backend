@@ -1,3 +1,5 @@
+import { roomGroupForRate } from './supplierRoomTypes.js';
+
 const PLACEHOLDER_IMAGE_PATTERNS = [
     /images\.unsplash\.com/i,
     /photo-1566073771259-6a8506099945/i,
@@ -153,28 +155,9 @@ export function collectImages(...values) {
     return [...new Set(images)];
 }
 
-export function roomCardImages(roomImages = [], propertyPhotoImages = []) {
+export function roomCardImages(roomImages = []) {
     const supplierImages = Array.isArray(roomImages) ? roomImages : [];
-    const propertyImages = Array.isArray(propertyPhotoImages) ? propertyPhotoImages : [];
-    const propertyFallbackImages = propertyImages.filter(image => !supplierImages.includes(image));
-    return [
-        ...supplierImages.map(url => ({ url, isPropertyPhoto: false })),
-        ...propertyFallbackImages.map(url => ({ url, isPropertyPhoto: true }))
-    ];
-}
-
-function roomGroupId(value) {
-    const id = [value?.room_group_id, value?.id]
-        .find(candidate => candidate !== undefined && candidate !== null && String(candidate).trim() !== '');
-    return id === undefined ? null : String(id);
-}
-
-function roomGroupMatches(rate, group) {
-    if (!rate || !group) return false;
-
-    const rateId = roomGroupId(rate.room_group) ?? roomGroupId(rate);
-    const groupId = roomGroupId(group);
-    return rateId !== null && groupId !== null && rateId === groupId;
+    return [...new Set(supplierImages)].map(url => ({ url, isPropertyPhoto: false }));
 }
 
 export function roomImagesForRate(rate = {}, hotel = {}) {
@@ -195,17 +178,7 @@ export function roomImagesForRate(rate = {}, hotel = {}) {
     );
     if (directImages.length) return directImages;
 
-    const staticData = hotel.staticData || {};
-    const roomGroupValues = [
-        ...(Array.isArray(hotel.room_groups) ? hotel.room_groups : []),
-        ...(Array.isArray(hotel.rooms) ? hotel.rooms : []),
-        ...(Array.isArray(staticData.room_groups) ? staticData.room_groups : []),
-        ...(Array.isArray(staticData.rooms) ? staticData.rooms : [])
-    ];
-    const roomGroups = roomGroupValues.length
-        ? roomGroupValues
-        : Object.values(hotel.room_groups || staticData.room_groups || {}).filter(Boolean);
-    const group = roomGroups.find(candidate => roomGroupMatches(rate, candidate));
+    const group = roomGroupForRate(rate, hotel);
     return group ? collectImages(group.images, group.images_ext) : [];
 }
 

@@ -1,9 +1,9 @@
-import { useRef, useState } from 'react';
+import { useEffect, useId, useRef, useState } from 'react';
 import { ArrowLeft, Check, Wifi, Info, Coffee, Ban, AlertCircle, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
-import { BedIcon, UsersIcon, StarIcon } from './Icons'; // تأكد أن StarIcon متوفر هنا
+import { BedIcon, UsersIcon } from './Icons';
 import PriceDisplay from './PriceDisplay';
 import BookingAPI from '../services/bookingApi'; // تأكد من مسار API الخاص بك
-import { hotelImages, responsiveImageSources, roomCardImages } from '../services/hotelImages.js';
+import { responsiveImageSources, roomCardImages } from '../services/hotelImages.js';
 import { paymentFor, rateAmount, rateCurrency } from '../services/offers';
 import { useLanguage } from '../i18n';
 
@@ -50,21 +50,25 @@ export function CancellationPolicy({ cancellation, currency }) {
     );
 }
 
-export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', displayRates = null }) {
+export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', displayRates = null, headingLevel = 'h3' }) {
     const { t } = useLanguage();
     const [status, setStatus] = useState('idle');
     const [errorMsg, setErrorMsg] = useState('');
     const [prebookResult, setPrebookResult] = useState(null);
-    const [activeImageIndex, setActiveImageIndex] = useState(0);
+    const [selectedImageIndex, setActiveImageIndex] = useState(0);
+    const [failedPhotos, setFailedPhotos] = useState({ key: '', urls: [] });
+    const headingId = `room-${useId()}`;
+    const Heading = headingLevel;
     const touchStartX = useRef(null);
 
-    const hotel = room.hotel || {};
     const name = room.name || t('room.defaultName', 'غرفة فندقية');
     const roomImages = Array.isArray(room.images) ? room.images : [];
-    const allImages = roomCardImages(roomImages, hotelImages(hotel));
+    const photoKey = JSON.stringify([room.contract_source, room.book_hash, roomImages]);
+    const allImages = roomCardImages(roomImages).filter(item => failedPhotos.key !== photoKey || !failedPhotos.urls.includes(item.url));
+    const activeImageIndex = Math.min(selectedImageIndex, Math.max(0, allImages.length - 1));
+    useEffect(() => { setActiveImageIndex(0); }, [photoKey]);
     const activeImage = allImages[activeImageIndex];
     const image = activeImage?.url;
-    const isPropertyImage = activeImage?.isPropertyPhoto === true;
     const imageSource = responsiveImageSources(image, 'room');
     const price = room.price ?? '-';
     const amenities = room.amenities || [];
@@ -124,35 +128,39 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
         const delta = event.changedTouches[0]?.clientX - touchStartX.current;
         touchStartX.current = null;
         if (Math.abs(delta) < 36) return;
-        setActiveImageIndex((index) => delta < 0
-            ? (index === allImages.length - 1 ? 0 : index + 1)
-            : (index === 0 ? allImages.length - 1 : index - 1));
+        setActiveImageIndex(delta < 0
+            ? (activeImageIndex === allImages.length - 1 ? 0 : activeImageIndex + 1)
+            : (activeImageIndex === 0 ? allImages.length - 1 : activeImageIndex - 1));
     };
 
     return (
         <article
-            aria-labelledby={`room-${room.book_hash || room.roomId || room.name}`}
+            aria-labelledby={headingId}
             data-contract-source={room.contract_source || 'b2b'}
             className="room-card surface-card group relative mb-6 overflow-hidden rounded-3xl transition-[transform,box-shadow,border-color] duration-[350ms] ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:border-remal-blue/30 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:shadow-[0_1rem_2.5rem_rgba(16,42,67,0.10)]"
         >
             <div className="flex flex-col lg:flex-row h-full">
                 
-                {/* Room photos come first; property photos are explicitly labeled as property-level. */}
+                {/* Only photographs tied to this supplier room type belong here. */}
                 <div onTouchStart={handleImageTouchStart} onTouchEnd={handleImageTouchEnd} className="relative w-full touch-pan-y lg:w-1/4 lg:min-w-0 shrink-0 overflow-hidden bg-slate-100 h-48 lg:h-auto">
                     {image ? (
-                        <picture>
+                        <picture className="block h-full w-full">
                             {imageSource?.sources?.map(source => <source key={source.type} type={source.type} srcSet={source.srcSet} />)}
                             <img
+                                key={image}
+                                data-room-photo
                                 src={imageSource?.src || image}
                                 srcSet={imageSource?.srcSet}
                                 sizes={imageSource?.sizes}
                                 width={imageSource?.width}
                                 height={imageSource?.height}
-                                alt={isPropertyImage ? t('room.propertyPhoto', 'صورة للممتلكات، وليست للغرفة') : name}
+                                alt={name}
                                 loading="lazy"
                                 decoding="async"
                                 className="h-full w-full object-cover transition-transform duration-500 ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:scale-[1.03]"
-                                onError={() => setActiveImageIndex(index => index + 1)}
+                                onError={() => setFailedPhotos(previous => ({ key: photoKey, urls: [...new Set([
+                                    ...(previous.key === photoKey ? previous.urls : []), image
+                                ])] }))}
                             />
                         </picture>
                     ) : (
@@ -161,15 +169,10 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             <span className="px-4 text-center text-xs font-bold">{t('room.photoUnavailable', 'لا توجد صورة حقيقية متاحة لهذه الغرفة')}</span>
                         </div>
                     )}
-                    {isPropertyImage && (
-                        <span className="absolute bottom-3 left-3 rounded-full bg-black/65 px-2.5 py-1 text-[10px] font-bold text-white">
-                            {t('room.propertyPhoto', 'صورة للممتلكات، وليست للغرفة')}
-                        </span>
-                    )}
                     {allImages.length > 1 && image && (
                         <>
-                            <button type="button" onClick={() => setActiveImageIndex(index => index === 0 ? allImages.length - 1 : index - 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute left-2 top-1/2 rounded-full bg-black/45 text-white" aria-label={t('room.previousPhoto', 'الصورة السابقة')}><ChevronLeft size={16} /></button>
-                            <button type="button" onClick={() => setActiveImageIndex(index => index === allImages.length - 1 ? 0 : index + 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute right-2 top-1/2 rounded-full bg-black/45 text-white" aria-label={t('room.nextPhoto', 'الصورة التالية')}><ChevronRight size={16} /></button>
+                            <button type="button" onClick={() => setActiveImageIndex(activeImageIndex === 0 ? allImages.length - 1 : activeImageIndex - 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute left-2 top-1/2 rounded-full bg-black/45 text-white" aria-label={t('room.previousPhoto', 'الصورة السابقة')}><ChevronLeft size={16} /></button>
+                            <button type="button" onClick={() => setActiveImageIndex(activeImageIndex === allImages.length - 1 ? 0 : activeImageIndex + 1)} className="flex min-h-10 min-w-10 items-center justify-center absolute right-2 top-1/2 rounded-full bg-black/45 text-white" aria-label={t('room.nextPhoto', 'الصورة التالية')}><ChevronRight size={16} /></button>
                             <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1">
                                 {allImages.slice(0, 5).map((roomImage, index) => <span key={roomImage.url} className={`h-1.5 rounded-full ${index === activeImageIndex ? 'w-4 bg-white' : 'w-1.5 bg-white/60'}`} />)}
                             </div>
@@ -180,16 +183,10 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 {/* Right Side: Room Details */}
                 <div className="flex-1 p-5 sm:p-6 lg:p-7 min-w-0 flex flex-col justify-between">
                     <div>
-                        <div className="mb-2 flex flex-wrap items-center gap-2">
-                            {!roomImages.length && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)]">{t('room.comparable', 'عرض قابل للمقارنة')}</span>}
-                            <div className="flex gap-0.5 text-amber-400">
-                                {Array.from({ length: 5 }).map((_, index) => <StarIcon key={index} size={14} fill="currentColor" />)}
-                            </div>
-                        </div>
                         
-                        <h3 id={`room-${room.book_hash || room.roomId || room.name}`} className="mb-4 text-2xl font-black leading-snug text-slate-900 transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:text-blue-700">
+                        <Heading id={headingId} className="mb-4 text-2xl font-black leading-snug text-slate-900 transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:text-blue-700">
                             {name}
-                        </h3>
+                        </Heading>
                         
                         {/* Masterstroke Badges for Amenities */}
                         <div className="flex flex-wrap gap-2 text-xs font-bold text-slate-700">

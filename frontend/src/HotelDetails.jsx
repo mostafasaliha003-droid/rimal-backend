@@ -1,6 +1,6 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CheckCircle2, CalendarDays, Users } from 'lucide-react';
-import HotelRoomCard from './components/HotelRoomCard';
+import RoomOfferGroups from './components/RoomOfferGroups';
 import HotelPhotoGallery from './components/HotelPhotoGallery';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom, rateAmount, rateCurrency } from './services/offers';
@@ -322,9 +322,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                 <p className="mt-1 text-sm font-medium text-slate-500">{t('hotel.recheckNotice', 'سيُعاد التحقق من السعر والتوفر قبل إتمام الحجز. اختر عرض الدفع الآن أو الدفع في الفندق عند توفره.')}</p>
                             </div>
                             {rooms.length ? (
-                                rooms.map((room, index) => (
-                                    <HotelRoomCard key={`${room.contract_source || 'b2b'}:${room.book_hash || index}`} room={room} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />
-                                ))
+                                <RoomOfferGroups rooms={rooms} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />
                             ) : (
                                 <div className="rounded-3xl bg-white p-12 text-center border border-slate-100 shadow-sm">
                                     <BedDouble className="mx-auto text-slate-300" size={48} />

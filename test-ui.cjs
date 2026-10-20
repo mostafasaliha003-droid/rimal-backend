@@ -12,8 +12,10 @@ const userToken = 'e'.repeat(64);
 const fixtureUser = { name: 'Local Test', email: 'local@example.test', points: 0 };
 const affiliateProcessId = 'f'.repeat(64);
 const affiliateAccessToken = 'd'.repeat(64);
+const doubleClassification = { class: 3, quality: 2, sex: 0, bathroom: 2, bedding: 3, family: 0, capacity: 2, club: 0, bedrooms: 0, balcony: 0, view: 0, floor: 0 };
 const rate = (amount, currency = 'USD') => ({
     book_hash: `test-${currency}-${amount}`, room_name: 'Test Double Room', meal: 'breakfast',
+    rg_ext: doubleClassification,
     payment_options: { payment_types: [{ type: 'deposit', amount: String(amount), currency_code: currency,
         cancellation_penalties: { free_cancellation_before: '2099-10-10T12:00:00', policies: [] },
         tax_data: { taxes: [{ name: 'Local tax', amount: '15', currency_code: 'AED', included_by_supplier: false }] }
@@ -120,7 +122,10 @@ async function run() {
                 else if (url.pathname.endsWith('/search/hotelpage')) {
                     lastHotelPage = JSON.parse(request.postData());
                     if (lastHotelPage.currency !== 'USD') return request.respond({ status: 400, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: 'unknown currency' }) });
-                    body = { hotel: { ...hotels[1], name: 'Hotel', images: [`${base}/icon-192.png?photo=live`] }, rates: [rate(60)] };
+                    body = { hotel: { ...hotels[1], name: 'Hotel', images: [`${base}/icon-192.png?photo=live`] }, rates: [
+                        rate(60), { ...rate(70), meal: 'nomeal' },
+                        { ...rate(80), room_name: 'Supplier Twin Room', rg_ext: { ...doubleClassification, bedding: 4 } }
+                    ] };
                 }
                 else if (url.pathname.endsWith('/affiliate/availability')) body = { search: true, booking: true };
                 else if (url.pathname.endsWith('/affiliate/hotels/2/rates')) {
@@ -155,7 +160,10 @@ async function run() {
                     assert.equal(request.headers()['x-affiliate-status-token'], affiliateAccessToken);
                     body = { process_id: affiliateProcessId, status: 'confirmed', confirmed: true, supplier_reference: 'TEST-AFFILIATE-ORDER' };
                 }
-                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: { ...hotels[1], images: Array.from({ length: 6 }, (_, index) => `${base}/icon-512.png?photo=${index}`) } };
+                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: { ...hotels[1], images: Array.from({ length: 6 }, (_, index) => `${base}/icon-512.png?photo=${index}`), room_groups: [
+                    { room_group_id: 90, name: 'Test Double Room', rg_ext: doubleClassification, images: [`${base}/missing-hotel-photo.jpg`, `${base}/icon-512.png?room=double`] },
+                    { room_group_id: 91, name: 'Supplier Twin Room', rg_ext: { ...doubleClassification, bedding: 4 }, images: [`${base}/icon-512.png?room=twin`] }
+                ] } };
                 else if (url.pathname.endsWith('/payment/availability')) body = { enabled: paymentEnabled };
                 else if (url.pathname.endsWith('/payment/quote')) {
                     const data = JSON.parse(request.postData());
@@ -353,7 +361,16 @@ async function run() {
         assert.equal(lastAffiliateHotelPage.residency, 'gb');
         assert(affiliateRateRequests > 0, 'Affiliate rates should be fetched through their separate endpoint');
         assert.equal(await page.$$eval('article[data-contract-source="affiliate"]', cards => cards.length), 1);
-        assert.equal(await page.$$eval('article[data-contract-source="b2b"]', cards => cards.length), 1);
+        assert.equal(await page.$$eval('article[data-contract-source="b2b"]', cards => cards.length), 3);
+        assert.equal(await page.$$eval('[data-room-type]', groups => groups.length), 3, 'Separate room types and supplier contracts');
+        assert.deepEqual(await page.$$eval('[data-room-type]', groups => groups.map(group => group.querySelectorAll('article').length)), [2, 1, 1]);
+        await page.$eval('article[data-contract-source="b2b"]', card => card.scrollIntoView());
+        await page.waitForFunction(() => {
+            const image = document.querySelector('article[data-contract-source="b2b"] [data-room-photo]');
+            return image?.src.includes('room=double') && image.complete && image.naturalWidth > 0;
+        });
+        assert.deepEqual(await page.$$eval('article[data-contract-source="b2b"] [data-room-photo]', images => images.map(image => new URL(image.src).searchParams.get('room'))), ['double', 'double', 'twin']);
+        assert.equal(await page.$$eval('article[data-contract-source="affiliate"] [data-room-photo]', images => images.length), 0, 'No property photo is substituted for an unclassified room');
         assert.equal(await page.$eval('article[aria-labelledby^="room-"] button', element => element.disabled), false);
         assert((await page.$eval('article[aria-labelledby^="room-"]', element => element.textContent)).includes(formatMoney(60, 'USD')));
         assert.match(await page.$eval('article[aria-labelledby^="room-"]', element => element.textContent), /Local tax 15 AED/);
