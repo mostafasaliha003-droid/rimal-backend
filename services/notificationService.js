@@ -5,6 +5,7 @@ const fs = require('fs');
 const path = require('path');
 const nodemailer = require('nodemailer'); 
 const logger = require('./loggerService'); 
+const reservationConfirmation = require('./reservationConfirmationService');
 
 // 🌟 فلتر ذكي لتنظيف النصوص من الإيموجيز قبل حقنها في الـ PDF
 const sanitizeText = (str) => {
@@ -27,17 +28,35 @@ function escapeHtml(value) {
     })[character]);
 }
 
-async function sendVoucherConfirmation({ email, guestName, checkin, reference, amountMinor, currency, pdfBuffer }) {
+async function sendVoucherConfirmation(input) {
+    const { email, reference, pdfBuffer, ownerSubject, realm, supplierReference, sandbox } = input;
     if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Buffer.isBuffer(pdfBuffer)
         || pdfBuffer.subarray(0, 5).toString('ascii') !== '%PDF-') throw new Error('confirmation_email_unavailable');
-    const amount = (amountMinor / 100).toFixed(2);
-    const text = `Your reservation is confirmed. Reference: ${reference}. Check-in: ${checkin}. Payment: ${amount} ${currency}. Your supplier voucher is attached.`;
-    const html = `<p>Dear ${escapeHtml(guestName)},</p><p>Your reservation is confirmed. Reference: ${escapeHtml(reference)}.</p>`
-        + `<p>Check-in: ${escapeHtml(checkin)}. Payment: ${escapeHtml(amount)} ${escapeHtml(currency)}.</p>`
-        + '<p>Your supplier voucher is attached.</p>';
+    const Model = require('mongoose').models.Booking;
+    if (!Model || !ownerSubject || !realm || !supplierReference || typeof sandbox !== 'boolean') {
+        throw new Error('confirmed_reservation_details_unavailable');
+    }
+    let query = Model.findOne({ bookingReference: reference, ownerSubject, realm,
+        supplierReference, provider: 'ratehawk', status: 'active', supplierStatus: 'CONFIRMED' });
+    if (typeof query.select === 'function') query = query.select('+providerHotelCode');
+    const booking = await query.lean();
+    if (booking?.hotelName === 'Hotel' && /^\d+$/.test(booking.providerHotelCode || '')) {
+        const result = await require('./ratehawkClient').hotelContentByIds({ language: 'en', hids: [Number(booking.providerHotelCode)] });
+        const hotel = result.ok && require('../syncFilteredHotels').extractHotels(result.data)
+            .find(item => String(item.hid) === booking.providerHotelCode && item.name && !item.deleted && !item.is_closed);
+        if (!hotel) throw new Error('confirmed_reservation_hotel_unavailable');
+        booking.hotelName = hotel.name;
+    }
+    const details = reservationConfirmation.confirmationDetails(booking, input);
+    const supplierVoucherAttached = !reservationConfirmation.isKnownBlankSupplierVoucher(pdfBuffer);
+    if (!sandbox && !supplierVoucherAttached) throw new Error('supplier_voucher_blank');
+    const confirmationPdf = await reservationConfirmation.generateConfirmationPdf(details);
+    const { subject, text, html } = reservationConfirmation.renderConfirmationEmail(details, { supplierVoucherAttached });
     const result = await transporter.sendMail({
-        from: process.env.SMTP_USER, to: email, subject: 'Reservation confirmation', text, html,
-        attachments: [{ filename: 'voucher.pdf', content: pdfBuffer, contentType: 'application/pdf' }]
+        from: { name: 'Remal | رمال', address: process.env.SMTP_USER }, to: email,
+        replyTo: 'management@remaltourismllc.com', subject, text, html,
+        attachments: [{ filename: `Remal-Confirmation-${reference}.pdf`, content: confirmationPdf, contentType: 'application/pdf' },
+            ...(supplierVoucherAttached ? [{ filename: `Supplier-Voucher-${reference}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }] : [])]
     });
     if (!result.messageId || !result.accepted?.includes(email)) throw new Error('confirmation_email_outcome_unknown');
     return { messageId: result.messageId };

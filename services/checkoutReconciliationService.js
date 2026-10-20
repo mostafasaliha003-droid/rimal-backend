@@ -368,6 +368,8 @@ async function reconcileConfirmation(record) {
         next_check_at: followUp(120000) }, {}, { cancellation_request_hash: { $exists: false }, notification_status: 'voucher_pending' });
     try {
         await notification.sendVoucherConfirmation({ ...contact, reference: claimed.reference,
+            ownerSubject: claimed.ownerSubject, realm: claimed.realm,
+            supplierReference: claimed.partner_order_id, sandbox: claimed.ziina_test,
             currency: claimed.currency, amountMinor: claimed.amount_minor, pdfBuffer });
         await releaseClaim(claimed, { notification_status: 'sent', notification_sent_at: new Date(),
             next_check_at: null },

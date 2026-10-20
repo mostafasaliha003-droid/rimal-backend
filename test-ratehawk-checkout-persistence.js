@@ -8,7 +8,7 @@ test('confirmed paid bookings persist the authenticated owner and survive retrie
     context.mock.method(checkout, 'decryptDetails', () => ({
         rooms: [{ guests: [{ first_name: 'Sandbox', last_name: 'Guest' }] }],
         user: { email: 'sandbox@example.test', phone: '+971500000001' },
-        hotelName: 'Sandbox Hotel', roomName: 'Double', checkin: '2026-11-10', checkout: '2026-11-12'
+        hid: 123, hotelName: 'Sandbox Hotel', roomName: 'Double', checkin: '2026-11-10', checkout: '2026-11-12'
     }));
     const Model = {
         async updateOne(filter, update, options) {
@@ -24,6 +24,7 @@ test('confirmed paid bookings persist the authenticated owner and survive retrie
     assert.equal(saved.ownerSubject, 'owner-1');
     assert.equal(saved.priceCurrency, 'USD');
     assert.equal(saved.price, 107);
+    assert.equal(saved.providerHotelCode, '123');
     saved.status = 'cancelled';
     await persistConfirmedCheckout(record, { Model });
     assert.equal(saved.status, 'cancelled');
