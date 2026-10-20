@@ -92,7 +92,7 @@ const displayCurrencyService = createDisplayCurrencyService();
 const checkoutSessionController = createCheckoutSessionController({ service: checkoutSessionService });
 const checkoutSessionStatusController = createCheckoutSessionController.createStatusController({ service: checkoutSessionService });
 
-const frontendContentSecurityPolicy = "default-src 'self'; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: blob: https:; connect-src 'self' https: wss: https://pay.google.com;";
+const frontendContentSecurityPolicy = "default-src 'self'; frame-src 'self' blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; script-src-elem 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com https://maps.googleapis.com https://cdn.tailwindcss.com https://cdn.jsdelivr.net https://cdnjs.cloudflare.com https://npmcdn.com; style-src 'self' 'unsafe-inline' https:; font-src 'self' data: https:; img-src 'self' data: blob: https:; connect-src 'self' https: wss: https://pay.google.com;";
 app.use((req, res, next) => {
     res.setHeader('Content-Security-Policy', frontendContentSecurityPolicy);
     next();
@@ -250,7 +250,7 @@ app.get('/api/v1/admin/readiness', requireAdmin, (_req, res) => {
 });
 app.use('/api/v1/admin/data', createAdminBookingRouter({ BookingModel: Booking, requireAdmin }));
 const supportRouters = require('./services/customerSupportRoutes').createCustomerSupportRouters({
-    BookingModel: Booking, requireUser: sessionAuth.requireRole('user'), requireAdmin
+    BookingModel: Booking, UserModel: User, requireUser: sessionAuth.requireRole('user'), requireAdmin
 });
 app.use('/api/support', supportRouters.customer);
 app.use('/api/v1/admin/support', supportRouters.staff);

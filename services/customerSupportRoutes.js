@@ -17,6 +17,7 @@ const conversationView = (row, staff) => ({ id: row._id, reference: row.referenc
     ...(staff ? { assignedTo: row.assignedTo || null } : {}) });
 
 function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('../models/CheckoutAttempt'),
+    UserModel = require('mongoose').models.User,
     Conversation = require('../models/SupportConversation'), Message = require('../models/SupportMessage'),
     requireUser, requireAdmin, env = process.env, readLimiter, writeLimiter } = {}) {
     const customer = express.Router(), staff = express.Router();
@@ -35,19 +36,28 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
     const owner = req => ({ ownerSubject: req.auth.subject, realm: req.auth.realm });
     // A typed reference or unpaid intent is never an entitlement. Match a real
     // owned booking or a payment verified by the server against the gateway.
-    async function eligible(req, reference) {
+    async function eligible(req, reference, isStaff = false) {
         if (!ref(reference)) throw error('support_reference_not_found', 404);
         const booking = await BookingModel.findOne({ ...owner(req), bookingReference: reference }).lean();
         const payment = await CheckoutModel.findOne({ ...owner(req), reference,
             ziina_intent_id: { $type: 'string' }, payment_verified_at: { $type: 'date' } }).lean();
         if (!booking && !payment) throw error('support_reference_not_found', 404);
+        const profile = isStaff && UserModel ? await UserModel.findOne({ _id: req.auth.subject }).select('name email phone').lean() : null;
+        const provider = booking?.provider || (payment ? 'ratehawk' : null);
+        const voucherAvailable = booking?.status === 'active' && ['CONFIRMED', 'COMPLETED'].includes(String(booking.supplierStatus).toUpperCase());
         return { reference, hotelName: booking?.hotelName || '', customerName: booking?.customerName || '',
             bookingStatus: booking?.status || null, paymentStatus: payment?.state || null,
             paid: !!payment?.payment_verified_at, amount: payment?.amount_minor != null
                 ? require('./ziinaClient').formatAmountMinor(payment.amount_minor, payment.currency) : booking?.price,
             currency: payment?.currency || booking?.priceCurrency,
             checkIn: booking?.checkInDate || null, checkOut: booking?.checkOutDate || null,
-            refundStatus: payment?.refund_status || null, voucherStatus: payment?.notification_status || null };
+            refundStatus: payment?.refund_status || null, voucherStatus: payment?.notification_status || null,
+            documents: { voucher: !!voucherAvailable,
+                cancellation: !!(payment?.cancellation_request_hash && booking?.status === 'cancelled') },
+            ...(isStaff ? { customer: profile ? { name: profile.name || null, email: profile.email || null, phone: profile.phone || null, source: 'account' }
+                : { name: booking?.customerName || null, email: booking?.email || null, phone: booking?.phone || null, source: 'booking' },
+                bookingContact: { name: booking?.customerName || null, email: booking?.email || null, phone: booking?.phone || null },
+                provider, supplierReference: booking?.supplierReference || payment?.partner_order_id || null } : {}) };
     }
     async function caseFor(req, isStaff) {
         if (!/^[a-f\d]{64}$/.test(req.params.id || '')) throw error('support_not_found', 404);
@@ -114,7 +124,7 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
             const messages = await Message.find(filter).sort({ createdAt: -1, _id: -1 }).limit(101).lean();
             if (!req.query.before && req.query.read !== '0') await Conversation.updateOne({ _id: row._id, realm: req.auth.realm },
                 { $max: { [isStaff ? 'staffReadAt' : 'customerReadAt']: snapshot } }, { timestamps: false });
-            const context = await eligible({ auth: { ...req.auth, subject: row.ownerSubject } }, row.reference);
+            const context = await eligible({ auth: { ...req.auth, subject: row.ownerSubject } }, row.reference, isStaff);
             return { conversation: conversationView(row, isStaff), context,
                 messages: messages.slice(0, 100).reverse().map(messageView), hasMore: messages.length > 100 };
         }));
@@ -145,6 +155,20 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
             return { message: messageView(message) };
         }));
     }
+    staff.get('/conversations/:id/cancellation-receipt', readLimiter, async (req, res) => {
+        res.set({ 'Cache-Control': 'private, no-store', Vary: 'Authorization', 'X-Content-Type-Options': 'nosniff' });
+        try {
+            if (!req.auth?.subject || req.auth.realm !== env.RIMAL_AUTH_REALM) throw error('unauthorized', 401);
+            const row = await caseFor(req, true);
+            const booking = await BookingModel.findOne({ bookingReference: row.reference,
+                ownerSubject: row.ownerSubject, realm: row.realm }).lean();
+            if (!booking || booking.provider !== 'ratehawk' || booking.status !== 'cancelled' || !booking.supplierReference) throw error('support_document_unavailable', 404);
+            const { details, buffer } = await require('./cancellationReceiptService').generateReceipt(booking.supplierReference);
+            if (details.reference !== row.reference || details.owner !== row.ownerSubject || details.realm !== row.realm) throw error('support_document_unavailable', 404);
+            res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="Remal-Cancellation-${row.reference}.pdf"` });
+            res.send(buffer);
+        } catch (failure) { res.status([401, 404].includes(failure.httpStatus) ? failure.httpStatus : 503).json({ error: 'support_document_unavailable' }); }
+    });
     staff.patch('/conversations/:id', writeLimiter, wrap(async req => {
         const row = await caseFor(req, true), changes = {};
         if (req.body?.status !== undefined) { if (!statuses.includes(req.body.status)) throw error('support_invalid_status'); changes.status = req.body.status; }

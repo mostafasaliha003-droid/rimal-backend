@@ -40,12 +40,13 @@ function model(seed = []) {
     };
 }
 async function fixture(t) {
-    const BookingModel = model([{ bookingReference: 'owned-booking', ownerSubject: 'customer', realm: 'sandbox', hotelName: 'Actual Hotel', customerName: 'Guest', status: 'active', price: 100, priceCurrency: 'AED' },
+    const BookingModel = model([{ bookingReference: 'owned-booking', ownerSubject: 'customer', realm: 'sandbox', hotelName: 'Actual Hotel', customerName: 'Guest', email: 'booking@example.test', phone: '+971500000002', provider: 'ratehawk', supplierReference: 'supplier-1', supplierStatus: 'CONFIRMED', status: 'active', price: 100, priceCurrency: 'AED' },
         { bookingReference: 'foreign-booking', ownerSubject: 'other', realm: 'sandbox', status: 'active' }]);
     const CheckoutModel = model([{ reference: 'owned-payment', ownerSubject: 'customer', realm: 'sandbox', ziina_intent_id: 'recorded-intent', payment_verified_at: new Date(), state: 'booking_pending', amount_minor: 10000, currency: 'AED' },
         { reference: 'unpaid-intent', ownerSubject: 'customer', realm: 'sandbox', ziina_intent_id: 'unpaid-intent', state: 'awaiting_payment' },
         { reference: 'unstarted', ownerSubject: 'customer', realm: 'sandbox', state: 'preparing' }]);
     const Conversation = model(), Message = model();
+    const UserModel = model([{ _id: 'customer', name: 'Registered Guest', email: 'registered@example.test', phone: '+971500000001' }]);
     const auth = role => (req, res, next) => {
         const token = req.headers.authorization?.replace('Bearer ', '');
         const identities = { customer: { subject: 'customer', realm: 'sandbox', role: 'user' }, other: { subject: 'other', realm: 'sandbox', role: 'user' },
@@ -53,7 +54,7 @@ async function fixture(t) {
         if (identities[token]?.role !== role) return res.sendStatus(401);
         req.auth = identities[token]; next();
     };
-    const routers = createCustomerSupportRouters({ BookingModel, CheckoutModel, Conversation, Message,
+    const routers = createCustomerSupportRouters({ BookingModel, CheckoutModel, UserModel, Conversation, Message,
         requireUser: auth('user'), requireAdmin: auth('admin'), env: { RIMAL_AUTH_REALM: 'sandbox' },
         readLimiter: (_req, _res, next) => next(), writeLimiter: (_req, _res, next) => next() });
     const app = express(); app.use(express.json()); app.use('/customer', routers.customer); app.use('/staff', routers.staff);
@@ -65,8 +66,35 @@ async function fixture(t) {
         return { status: r.status, headers: r.headers, body: r.headers.get('content-type')?.includes('json') ? await r.json() : null };
     };
     const open = async reference => (await request('/customer/conversations', { method: 'POST', body: { reference } })).body.conversation;
-    return { request, open, Conversation, Message };
+    return { request, open, Conversation, Message, BookingModel, CheckoutModel, UserModel };
 }
+
+test('staff see registered contact details, supplier identity and real document availability without leaking them to customers', async t => {
+    const s = await fixture(t), conversation = await s.open('owned-booking');
+    const staff = (await s.request(`/staff/conversations/${conversation.id}`, { token: 'admin' })).body.context;
+    assert.deepEqual(staff.customer, { name: 'Registered Guest', email: 'registered@example.test', phone: '+971500000001', source: 'account' });
+    assert.equal(staff.bookingContact.email, 'booking@example.test'); assert.equal(staff.bookingContact.phone, '+971500000002');
+    assert.equal(staff.provider, 'ratehawk'); assert.equal(staff.supplierReference, 'supplier-1'); assert.equal(staff.documents.voucher, true);
+    const customer = (await s.request(`/customer/conversations/${conversation.id}`)).body.context;
+    assert.equal(customer.customer, undefined); assert.equal(customer.provider, undefined); assert.equal(customer.supplierReference, undefined);
+    delete s.UserModel.rows[0].phone;
+    assert.equal((await s.request(`/staff/conversations/${conversation.id}`, { token: 'admin' })).body.context.customer.phone, null, 'Never label the booking phone as the registered account phone');
+    const payment = await s.open('owned-payment');
+    assert.equal((await s.request(`/staff/conversations/${payment.id}`, { token: 'admin' })).body.context.documents.voucher, false, 'A verified payment alone is not a confirmed hotel voucher');
+});
+test('staff cancellation PDFs verify conversation realm, booking ownership and generated receipt binding', async t => {
+    const s = await fixture(t), conversation = await s.open('owned-booking');
+    s.BookingModel.rows[0].status = 'cancelled';
+    let receiptOwner = 'customer';
+    t.mock.method(require('./services/cancellationReceiptService'), 'generateReceipt', async id => {
+        assert.equal(id, 'supplier-1'); return { details: { owner: receiptOwner, realm: 'sandbox', reference: 'owned-booking' }, buffer: Buffer.from('%PDF-1.4 fixture') };
+    });
+    const good = await s.request(`/staff/conversations/${conversation.id}/cancellation-receipt`, { token: 'admin' });
+    assert.equal(good.status, 200); assert.match(good.headers.get('content-type'), /application\/pdf/); assert.match(good.headers.get('cache-control'), /no-store/);
+    receiptOwner = 'other';
+    assert.equal((await s.request(`/staff/conversations/${conversation.id}/cancellation-receipt`, { token: 'admin' })).status, 404);
+    assert.equal((await s.request(`/staff/conversations/${conversation.id}/cancellation-receipt`, { token: 'customer' })).status, 401);
+});
 
 test('chat eligibility requires a real owned booking or recorded payment; knowing a reference grants no access', async t => {
     const s = await fixture(t);
