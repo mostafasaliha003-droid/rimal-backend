@@ -66,9 +66,11 @@ async function sendRefundConfirmation({ email, guestName, reference, amountMinor
     if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Number.isSafeInteger(amountMinor)
         || amountMinor <= 0 || !/^[A-Z]{3}$/.test(currency)) throw new Error('refund_email_unavailable');
     const amount = require('./ziinaClient').formatAmountMinor(amountMinor, currency);
-    const text = `Your refund has been confirmed. Reference: ${reference}. Refunded amount: ${amount} ${currency}.`;
+    const text = `Your refund has been confirmed. Reference: ${reference}. Refunded amount: ${amount} ${currency}. Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.`;
     const html = `<p>Dear ${escapeHtml(guestName)},</p><p>Your refund has been confirmed for reservation ${escapeHtml(reference)}.</p>`
-        + `<p>Refunded amount: ${escapeHtml(amount)} ${escapeHtml(currency)}.</p>`;
+        + `<p>Refunded amount: ${escapeHtml(amount)} ${escapeHtml(currency)}.</p>`
+        + '<p dir="rtl">يُقدَّر ظهور المبلغ في بطاقتك خلال 5 إلى 14 يوم عمل بعد تأكيد بوابة الدفع معالجة الاسترداد، حسب البنك ودون احتساب عطلاته. إذا لم يظهر بعد هذه المدة، تواصل معنا بمرجع الطلب.</p>'
+        + '<p>Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.</p>';
     const result = await transporter.sendMail({
         from: process.env.SMTP_USER, to: email, subject: 'Reservation refund confirmation', text, html
     });
@@ -197,7 +199,7 @@ module.exports = {
         const result = await transporter.sendMail({ from: `Remal Reservations <${process.env.SMTP_USER}>`,
             to: details.email, replyTo: 'management@remaltourismllc.com',
             subject: `Remal | تأكيد الإلغاء وطلب الاسترداد | ${details.reference}`,
-            text: `Cancellation confirmed: ${details.reference}. Refund status: ${details.refundStatus}. Amount: ${details.refund} ${details.currency}. Bank posting times vary. Your cancellation receipt is attached.`,
+            text: `Cancellation confirmed: ${details.reference}. Refund status: ${details.refundStatus}. Amount: ${details.refund} ${details.currency}. Estimated card-credit time: 5–14 business days after the gateway confirms refund processing, depending on your bank and excluding bank non-working days. Your cancellation receipt is attached.`,
             html: require('./cancellationReceiptService').renderReceipt(details),
             attachments: [{ filename: `Remal-Cancellation-${details.reference}.pdf`, content: buffer, contentType: 'application/pdf' }] });
         if (!result.messageId || !result.accepted?.includes(details.email)) throw new Error('cancellation_email_outcome_unknown');
