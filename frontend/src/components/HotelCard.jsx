@@ -1,9 +1,9 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, Check, ChevronLeft, ChevronRight, ImageOff, MapPin } from 'lucide-react';
 import PriceDisplay from './PriceDisplay';
 import { StarIcon } from './Icons';
 import { cheapestRate, paymentFor, rateAmount, rateCurrency } from '../services/offers';
-import { responsiveImageSources } from '../services/hotelImages.js';
+import { hotelImages, responsiveImageSources } from '../services/hotelImages.js';
 import { useLanguage } from '../i18n';
 
 function getAmenities(rate) {
@@ -15,9 +15,13 @@ function getAmenities(rate) {
 export default function HotelCard({ hotel, href, onSelect, displayCurrency, displayRates, priority = false }) {
     const { t } = useLanguage();
     const rate = cheapestRate(hotel.rates);
-    const images = hotel.images || [];
-    const [currentImageIndex, setCurrentImageIndex] = useState(0);
-    const [imageFailed, setImageFailed] = useState(false);
+    const suppliedImages = hotelImages(hotel);
+    const photoKey = JSON.stringify([hotel.hid || hotel.id, suppliedImages]);
+    const [failedPhotos, setFailedPhotos] = useState({ key: photoKey, urls: [] });
+    const images = suppliedImages.filter(url => failedPhotos.key !== photoKey || !failedPhotos.urls.includes(url));
+    const [selectedImageIndex, setCurrentImageIndex] = useState(0);
+    const currentImageIndex = Math.min(selectedImageIndex, Math.max(0, images.length - 1));
+    useEffect(() => { setCurrentImageIndex(0); }, [photoKey]);
     const imageSource = responsiveImageSources(images[currentImageIndex], 'card');
     const hasFreeCancellation = Boolean(rate && paymentFor(rate)?.cancellation_penalties?.free_cancellation_before);
     const reviewScore = Number(hotel.reviewScore ?? hotel.review_score ?? hotel.guest_rating ?? hotel.rating);
@@ -29,23 +33,24 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
 
     const nextImage = (event) => {
         event.stopPropagation();
-        setCurrentImageIndex(previousIndex => previousIndex === images.length - 1 ? 0 : previousIndex + 1);
+        setCurrentImageIndex(currentImageIndex === images.length - 1 ? 0 : currentImageIndex + 1);
     };
 
     const previousImage = (event) => {
         event.stopPropagation();
-        setCurrentImageIndex(previousIndex => previousIndex === 0 ? images.length - 1 : previousIndex - 1);
+        setCurrentImageIndex(currentImageIndex === 0 ? images.length - 1 : currentImageIndex - 1);
     };
 
     return (
         <article aria-labelledby={`hotel-${hotel.hid || hotel.id}`} className="hotel-card surface-card group/card relative overflow-hidden rounded-3xl transition-[transform,box-shadow,border-color] duration-[350ms] ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:-translate-y-0.5 [@media(hover:hover)_and_(pointer:fine)]:hover:border-remal-blue/30 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:shadow-[0_1rem_2.5rem_rgba(16,42,67,0.10)]">
             <div className="flex h-full flex-col md:flex-row">
                 <div className="group/carousel relative h-56 w-full shrink-0 touch-auto overflow-hidden bg-slate-100 md:h-auto md:w-1/4 md:min-w-0">
-                    {images.length > 0 && !imageFailed ? (
+                    {images.length > 0 ? (
                         <>
                             <picture className="block h-full w-full">
                                 {imageSource?.sources?.map(source => <source key={source.type} type={source.type} srcSet={source.srcSet} />)}
                                 <img
+                                    key={images[currentImageIndex]}
                                     src={imageSource?.src || images[currentImageIndex]}
                                     srcSet={imageSource?.srcSet}
                                     sizes={imageSource?.sizes}
@@ -56,7 +61,12 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                                     fetchPriority={priority ? 'high' : 'auto'}
                                     decoding="async"
                                     className="h-full w-full object-cover transition-transform duration-500 ease-out motion-reduce:transition-none motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover/carousel:scale-[1.03]"
-                                    onError={() => setImageFailed(true)}
+                                    onError={() => {
+                                        const failedUrl = images[currentImageIndex];
+                                        setFailedPhotos(previous => ({ key: photoKey, urls: [...new Set([
+                                            ...(previous.key === photoKey ? previous.urls : []), failedUrl
+                                        ])] }));
+                                    }}
                                 />
                             </picture>
                             {images.length > 1 && (
@@ -82,7 +92,7 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                     ) : (
                         <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
                             <ImageOff size={32} />
-                            <span className="text-sm font-medium">الصورة غير متاحة</span>
+                            <span className="px-4 text-center text-sm font-medium">{t('hotel.photosUnavailable', 'صور الفندق غير متوفرة حاليًا')}</span>
                         </div>
                     )}
 

@@ -1,6 +1,22 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { hydrateHotelContent } = require('./services/hotelContentCacheService');
+const { hydrateHotelContent, hotelContentNeedsRefresh } = require('./services/hotelContentCacheService');
+
+test('cached hotels with names but missing photos qualify for supplier repair', () => {
+    assert.equal(hotelContentNeedsRefresh({ name: 'Sapphire Plaza Hotel', image: '', staticData: { images: [] } }), true);
+    assert.equal(hotelContentNeedsRefresh({ name: 'Official Hotel', staticData: { images_ext: [{ url: 'https://example.test/real.jpg' }] } }), false);
+    assert.equal(hotelContentNeedsRefresh({ name: 'Official Hotel' }, { images: ['https://example.test/live.jpg'] }), false);
+    assert.equal(hotelContentNeedsRefresh({ name: 'Hotel', image: 'https://example.test/real.jpg' }), true);
+});
+
+test('image collection handles nested supplier records and insecure or protocol-relative CDN links', async () => {
+    const backend = require('./services/supplierImages');
+    const frontend = await import('./frontend/src/services/hotelImages.js');
+    const records = [{url:{source:'http://images.worldota.net/t/{size}/real.jpg'}}, '//images.ratehawk.net/t/640x480/second.jpg'];
+    const expected = ['https://cdn.worldota.net/t/1920x1080/real.jpg', 'https://cdn.worldota.net/t/640x480/second.jpg'];
+    assert.deepEqual(backend.collectSupplierImages(records), expected);
+    assert.deepEqual(frontend.collectImages(records), expected);
+});
 
 test('missing hotel content is fetched once, matched to requested identity and cached without inventing names', async () => {
     let reads = 0, writes = [];
@@ -23,6 +39,19 @@ test('interactive content loading has a bounded wait while the cache can complet
     finish({ ok: true, data: [{ hid: 1234567803, id: 'delayed-hotel', name: 'Delayed Hotel' }] });
     await new Promise(resolve => setImmediate(resolve));
     assert.equal(cached, true);
+});
+
+test('a supplier response without photos is cached without inventing imagery or repeatedly fetching it', async () => {
+    let reads = 0;
+    const client = { hotelContentByIds: async () => {
+        reads++;
+        return { ok: true, data: [{ hid: 1234567804, id: 'no-photos', name: 'Official Hotel', images_ext: [] }] };
+    } };
+    const options = { client, HotelModel: { bulkWrite: async () => {} } };
+    const rows = await hydrateHotelContent(['1234567804'], options);
+    assert.equal(rows[0].image, '');
+    assert.deepEqual(await hydrateHotelContent(['1234567804'], options), []);
+    assert.equal(reads, 1);
 });
 
 test('search hydration batches more than one hundred missing hotels within provider batch limits', async () => {

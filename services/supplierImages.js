@@ -11,7 +11,7 @@ const PLACEHOLDER_IMAGE_PATTERNS = [
 function rawImageValue(value) {
     if (typeof value === 'string') return value;
     if (!value || typeof value !== 'object') return '';
-    return value.url || value.src || value.image || value.photo || '';
+    return [value.url, value.src, value.image, value.photo, value.source].find(item => typeof item === 'string' && item.trim()) || '';
 }
 
 function isPlaceholderImage(value) {
@@ -30,6 +30,7 @@ function normalizeSupplierImage(value) {
         try {
             const url = new URL(image);
             if (/\.(?:worldota|ratehawk)\.net$/i.test(url.hostname)) {
+                url.protocol = 'https:';
                 url.hostname = 'cdn.worldota.net';
                 return url.toString();
             }

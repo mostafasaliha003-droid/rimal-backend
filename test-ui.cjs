@@ -20,7 +20,7 @@ const rate = (amount, currency = 'USD') => ({
     }] }
 });
 const hotels = [
-    { hid: 1, name: 'Test Hotel 312', stars: 4, rates: [rate(312)], images: [`${base}/icon-512.png`] },
+    { hid: 1, name: 'Test Hotel 312', stars: 4, rates: [rate(312)], images: [`${base}/missing-hotel-photo.jpg`, `${base}/icon-512.png`] },
     { hid: 2, name: 'Test Hotel 60', stars: 3, rates: [rate(312), rate(1, 'AED'), rate(60)] },
     { hid: 3, name: 'Test Hotel 68', stars: 5, rates: [rate(68)] }
 ];
@@ -190,6 +190,7 @@ async function run() {
             }
             // This suite exercises the local build with intercepted APIs. External
             // fonts and photos must not make navigation depend on the network.
+            if (url.pathname === '/missing-hotel-photo.jpg') return request.respond({ status: 404, body: '' });
             if (url.origin === base) return request.continue();
             return request.abort();
         });
@@ -260,6 +261,12 @@ async function run() {
         await page.waitForSelector('article');
         assert.equal(await page.$eval('select[aria-label="عملة عرض السعر"]', element => element.value), 'EUR');
         assert(exchangeRequests > 0);
+        await page.$eval('article[aria-labelledby="hotel-1"]', node => node.scrollIntoView());
+        await page.waitForFunction(() => {
+            const img = document.querySelector('article[aria-labelledby="hotel-1"] img');
+            return img?.src.endsWith('/icon-512.png') && img.complete && img.naturalWidth > 0;
+        });
+        await page.evaluate(() => window.scrollTo(0, 0));
         exchangeAvailable = false;
         await page.evaluate(() => localStorage.removeItem('remal_usd_display_rates'));
         await page.select('select[aria-label="عملة عرض السعر"]', 'USD');

@@ -24,7 +24,7 @@ const IMAGE_PRESETS = {
 function rawImageValue(value) {
     if (typeof value === 'string') return value;
     if (!value || typeof value !== 'object') return '';
-    return value.url || value.src || value.image || value.photo || value.source || '';
+    return [value.url, value.src, value.image, value.photo, value.source].find(item => typeof item === 'string' && item.trim()) || '';
 }
 
 function imageRecord(value) {
@@ -43,11 +43,12 @@ export function normalizeImageUrl(value) {
     if (!raw || isPlaceholderImage(raw)) return '';
 
     let image = raw.replace(/\{size\}/gi, SUPPLIER_IMAGE_SIZE);
-    if (image.startsWith('//')) return `https:${image}`;
+    if (image.startsWith('//')) image = `https:${image}`;
     if (/^https?:\/\//i.test(image)) {
         try {
             const url = new URL(image);
             if (/\.(?:worldota|ratehawk)\.net$/i.test(url.hostname)) {
+                url.protocol = 'https:';
                 url.hostname = 'cdn.worldota.net';
                 return url.toString();
             }

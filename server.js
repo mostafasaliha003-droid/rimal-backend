@@ -507,9 +507,10 @@ app.get('/api/v1/hotels/:hid', publicSearchGuard, async (req, res) => {
 
     try {
         let hotel = await Hotel.findOne({ hid }).lean();
-        if (!hotel || !require('./services/hotelPresentationService').resolveHotelName(hotel.name, hotel.staticData?.name)) {
+        if (require('./services/hotelContentCacheService').hotelContentNeedsRefresh(hotel)) {
             const hydrated = await require('./services/hotelContentCacheService').hydrateHotelContent([hid]);
-            hotel = hydrated.find(item => String(item.hid) === String(hid)) || hotel;
+            const refreshed = hydrated.find(item => String(item.hid) === String(hid));
+            if (refreshed) hotel = { ...hotel, ...refreshed };
         }
         if (!hotel) {
             return res.status(404).json({ success: false, message: 'Hotel is no longer available.' });
@@ -690,10 +691,16 @@ async function enrichRateHotels(hotels) {
         logger.warn('Static hotel enrichment skipped', { error: error.message });
     }
 
-    const missingContent = hids.filter(id => /^\d{1,10}$/.test(id) && !staticById.has(id));
+    const missingContent = hotels.filter(hotel => {
+        const id = String(hotel?.hid || hotel?.hotel_id || hotel?.id);
+        return /^\d{1,10}$/.test(id) && require('./services/hotelContentCacheService')
+            .hotelContentNeedsRefresh(staticById.get(id), hotel);
+    }).map(hotel => String(hotel.hid || hotel.hotel_id || hotel.id));
     if (missingContent.length) {
         const hydrated = await require('./services/hotelContentCacheService').hydrateHotelContent(missingContent);
-        hydrated.forEach(hotel => [hotel.hid, hotel.hotelId].filter(Boolean).forEach(id => staticById.set(String(id), hotel)));
+        hydrated.forEach(hotel => [hotel.hid, hotel.hotelId].filter(Boolean).forEach(id => {
+            staticById.set(String(id), { ...staticById.get(String(id)), ...hotel });
+        }));
     }
     return hotels.filter(hotel => {
         const staticHotel = staticById.get(String(hotel?.hid || hotel?.hotel_id || hotel?.id));
@@ -715,6 +722,7 @@ async function enrichRateHotels(hotels) {
             hotel?.images_ext,
             hotel?.image,
             staticHotel.images,
+            staticHotel.images_ext,
             staticHotel.image,
             staticData.images,
             staticData.images_ext,
