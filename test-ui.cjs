@@ -404,9 +404,10 @@ async function run() {
         checkoutStatus = 'awaiting_payment';
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-checkout-resume-payment]');
-        assert.match(await page.$eval('main h1', element => element.innerText), /بانتظار إتمام الدفع/);
+        assert.match(await page.$eval('main h1', element => element.innerText), /متابعة الدفع/);
         assert.equal(await page.$eval('[data-checkout-resume-payment]', element => element.href), 'https://pay.ziina.com/test');
         assert.equal(paymentRequests, 1);
+        await page.screenshot({ path: path.join(screenshotDirectory, 'test-awaiting-payment-mobile.png'), fullPage: true });
         checkoutStatus = 'booking_confirmed';
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('TEST-SUPPLIER-ORDER'));
