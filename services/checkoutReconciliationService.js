@@ -441,6 +441,7 @@ function startCheckoutWorker() {
             const result = await reconcilePendingCheckouts();
             if (result.failed) logger.warn('Checkout reconciliation needs retry', { failed: result.failed });
             await purgeExpiredNotificationContacts();
+            await require('./cancellationReceiptService').processPendingReceipts();
         } catch {
             logger.error('Checkout reconciliation unavailable');
         } finally {

@@ -52,6 +52,10 @@ function renderConfirmationPdf(details) {
 }
 
 async function generateConfirmationPdf(details, { puppeteer = require('puppeteer') } = {}) {
+    return generateHtmlPdf(renderConfirmationPdf(details), { puppeteer });
+}
+
+async function generateHtmlPdf(html, { puppeteer = require('puppeteer') } = {}) {
     let browser;
     try {
         browser = await puppeteer.launch({ headless: true,
@@ -60,11 +64,11 @@ async function generateConfirmationPdf(details, { puppeteer = require('puppeteer
         const page = await browser.newPage();
         await page.setRequestInterception(true);
         page.on('request', request => request.abort().catch(() => {}));
-        await page.setContent(renderConfirmationPdf(details), { waitUntil: 'domcontentloaded' });
+        await page.setContent(html, { waitUntil: 'domcontentloaded' });
         await page.evaluate(() => document.fonts.ready);
         return Buffer.from(await page.pdf({ format: 'A4', printBackground: true }));
     } finally { if (browser) await browser.close(); }
 }
 
 module.exports = { confirmationDetails, renderConfirmationEmail, renderConfirmationPdf,
-    generateConfirmationPdf, isKnownBlankSupplierVoucher };
+    generateConfirmationPdf, generateHtmlPdf, isKnownBlankSupplierVoucher };

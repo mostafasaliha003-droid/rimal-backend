@@ -49,6 +49,8 @@ async function run() {
     let voucherDelivery = 'pending';
     let profileBookings = [];
     let cancellationRequests = 0;
+    let cancellationStatusRequests = 0;
+    let cancellationReceiptRequests = 0;
     let statusRequests = 0;
     let exchangeAvailable = true;
     let exchangeRequests = 0;
@@ -77,7 +79,16 @@ async function run() {
                     body = { success: true, user: fixtureUser };
                 }
                 else if (url.pathname.endsWith('/user/profile')) body = { success: true, profile: fixtureUser, bookings: profileBookings };
-                else if (url.pathname.endsWith('/owned/bookings/fixture-cancellation/cancellation/status')) body = { status: 'cancelled', success: true, customer_refund_status: 'completed' };
+                else if (url.pathname.endsWith('/owned/bookings/fixture-cancellation/cancellation/receipt')) {
+                    cancellationReceiptRequests++;
+                    assert.equal(request.headers().authorization, `Bearer ${userToken}`);
+                    return request.respond({ status: 200, contentType: 'application/pdf', headers, body: '%PDF-1.4\nfixture cancellation receipt\n%%EOF' });
+                }
+                else if (url.pathname.endsWith('/owned/bookings/fixture-cancellation/cancellation/status')) {
+                    cancellationStatusRequests++;
+                    body = { status: 'cancelled', success: true, customer_refund_status: cancellationStatusRequests > 1 ? 'completed' : 'pending',
+                        customer_refund: { amount: '330.52', currency_code: 'AED' }, cancellation_reference: 'CAN-FIXTURE', receipt_status: cancellationStatusRequests > 1 ? 'sent' : 'pending' };
+                }
                 else if (url.pathname.endsWith('/owned/bookings/fixture-cancellation/cancellation')) {
                     assert.equal(request.headers().authorization, `Bearer ${userToken}`);
                     if (request.method() === 'POST') {
@@ -552,7 +563,20 @@ async function run() {
         await page.waitForSelector('[data-cancellation-accept]');
         await page.click('[data-cancellation-accept]');
         await page.$eval('[data-cancellation-confirm]', node => { node.click(); node.click(); });
-        await page.waitForFunction(() => document.querySelector('dialog')?.innerText.includes('أكدت بوابة الدفع اكتمال الاسترداد'));
+        await page.waitForSelector('[data-cancellation-outcome][data-refund-state="pending"]');
+        assert.match(await page.$eval('dialog', node => node.innerText), /طلب الاسترداد قيد المعالجة/);
+        await page.evaluate(() => {
+            const original = HTMLAnchorElement.prototype.click;
+            HTMLAnchorElement.prototype.click = function () {
+                if (this.download?.startsWith('Remal-Cancellation-')) { window.receiptFilename = this.download; return; }
+                return original.call(this);
+            };
+        });
+        await page.click('[data-cancellation-receipt]');
+        await page.waitForFunction(() => window.receiptFilename === 'Remal-Cancellation-fixture-cancellation.pdf');
+        assert.equal(cancellationReceiptRequests, 1);
+        await page.waitForSelector('[data-cancellation-outcome][data-refund-state="completed"]', { timeout: 15000 });
+        assert.match(await page.$eval('dialog', node => node.innerText), /أُرسلت قسيمة الإلغاء/);
         assert.equal(cancellationRequests, 1, 'Repeated clicks cannot submit duplicate cancellation requests');
         assert.doesNotMatch(await page.$eval('dialog', node => node.innerText), /cancel\.[a-zA-Z]+/);
         await page.click('dialog button[aria-label="إغلاق"]');

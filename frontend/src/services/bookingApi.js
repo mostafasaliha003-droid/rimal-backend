@@ -265,11 +265,14 @@ export const cancelOwnedBooking = async (reference, quoteToken) =>
     }, { authScope: 'user', timeout: 45000 }));
 export const getOwnedCancellationStatus = async reference =>
     responseData(await api.get(`/owned/bookings/${encodeURIComponent(reference)}/cancellation/status`, { authScope: 'user', timeout: 45000 }));
+export const getOwnedCancellationReceipt = async reference =>
+    api.get(`/owned/bookings/${encodeURIComponent(reference)}/cancellation/receipt`, { authScope: 'user', responseType: 'blob', timeout: 45000 });
 
 export default {
     getOwnedCancellationQuote,
     cancelOwnedBooking,
     getOwnedCancellationStatus,
+    getOwnedCancellationReceipt,
     paymentAvailability,
     suggest,
     searchByIds,

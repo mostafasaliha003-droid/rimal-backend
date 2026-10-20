@@ -27,11 +27,12 @@ async function fixture(t) {
     }));
     const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
     t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
-    const request = async (method = 'GET', body, reference = 'booking-1', authorization = 'Bearer user') => {
-        const response = await fetch(`http://127.0.0.1:${server.address().port}/bookings/${reference}/cancellation`, {
+    const request = async (method = 'GET', body, reference = 'booking-1', authorization = 'Bearer user', suffix = '') => {
+        const response = await fetch(`http://127.0.0.1:${server.address().port}/bookings/${reference}/cancellation${suffix}`, {
             method, headers: { authorization, 'Content-Type': 'application/json' }, ...(body ? { body: JSON.stringify(body) } : {})
         });
-        return { status: response.status, body: response.status === 401 ? null : await response.json(), headers: response.headers };
+        return { status: response.status, body: response.status === 401 ? null : response.headers.get('content-type')?.includes('application/pdf')
+            ? Buffer.from(await response.arrayBuffer()) : await response.json(), headers: response.headers };
     };
     return { booking, checkout, info, request, expire: () => { clock += 300001; }, count: () => cancellations, options: () => lastOptions };
 }
@@ -78,5 +79,20 @@ test('free, zero-refund, unavailable FX, upsells and pending requests have expli
     assert.equal((await s.request()).body.mode, 'support');
     s.checkout.cancellation_request_hash = 'already-requested';
     assert.equal((await s.request()).body.mode, 'tracking');
+    assert.equal(s.count(), 0);
+});
+
+test('cancellation receipt download is private and rejects a mismatched receipt owner', async t => {
+    const s = await fixture(t);
+    let owner = 'owner';
+    t.mock.method(require('./services/cancellationReceiptService'), 'generateReceipt', async () => ({
+        details: { reference: 'booking-1', owner, realm: 'sandbox' }, buffer: Buffer.from('%PDF-fixture')
+    }));
+    const valid = await s.request('GET', null, 'booking-1', 'Bearer user', '/receipt');
+    assert.equal(valid.status, 200); assert.match(valid.headers.get('cache-control'), /no-store/);
+    assert.match(valid.body.toString(), /^%PDF/);
+    assert.equal((await s.request('GET', null, 'other-booking', 'Bearer user', '/receipt')).status, 404);
+    owner = 'other-owner';
+    assert.equal((await s.request('GET', null, 'booking-1', 'Bearer user', '/receipt')).status, 404);
     assert.equal(s.count(), 0);
 });

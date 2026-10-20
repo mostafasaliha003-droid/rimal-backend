@@ -193,6 +193,16 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
 }
 
 module.exports = {
+    async sendCancellationReceipt({ details, buffer }) {
+        const result = await transporter.sendMail({ from: `Remal Reservations <${process.env.SMTP_USER}>`,
+            to: details.email, replyTo: 'management@remaltourismllc.com',
+            subject: `Remal | تأكيد الإلغاء وطلب الاسترداد | ${details.reference}`,
+            text: `Cancellation confirmed: ${details.reference}. Refund status: ${details.refundStatus}. Amount: ${details.refund} ${details.currency}. Bank posting times vary. Your cancellation receipt is attached.`,
+            html: require('./cancellationReceiptService').renderReceipt(details),
+            attachments: [{ filename: `Remal-Cancellation-${details.reference}.pdf`, content: buffer, contentType: 'application/pdf' }] });
+        if (!result.messageId || !result.accepted?.includes(details.email)) throw new Error('cancellation_email_outcome_unknown');
+        return { messageId: result.messageId };
+    },
     generateVoucher,
     sendEmailConfirmation,
     sendVoucherConfirmation,

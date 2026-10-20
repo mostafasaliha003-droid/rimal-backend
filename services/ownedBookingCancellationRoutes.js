@@ -99,6 +99,16 @@ function createOwnedBookingCancellationRouter({ BookingModel, requireUser, Check
         if (booking.provider !== 'ratehawk' || !booking.supplierReference) throw fail('cancellation_unavailable');
         return operations.checkCancellation(booking.supplierReference);
     }));
+    router.get('/bookings/:reference/cancellation/receipt', requireUser, readLimiter, async (req, res) => {
+        res.set({ 'Cache-Control': 'private, no-store', Vary: 'Authorization', 'X-Content-Type-Options': 'nosniff' });
+        try {
+            const booking = await owned(req);
+            const { details, buffer } = await require('./cancellationReceiptService').generateReceipt(booking.supplierReference);
+            if (details.reference !== booking.bookingReference || details.owner !== req.auth.subject || details.realm !== req.auth.realm) throw fail('booking_not_found', 404);
+            res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="Remal-Cancellation-${booking.bookingReference}.pdf"` });
+            res.send(buffer);
+        } catch (error) { res.status(error.httpStatus === 404 ? 404 : 503).json({ error: 'cancellation_receipt_unavailable' }); }
+    });
     return router;
 }
 

@@ -50,6 +50,7 @@ function currentPenalty(order) {
 
 async function view(record) {
     let customerRefundStatus = 'not_processed';
+    let amounts = {};
     if (record.checkout_attempt_id && record.state === 'cancelled') {
         const checkout = await CheckoutAttempt.findById(record.checkout_attempt_id).lean();
         customerRefundStatus = !checkout || checkout.partner_order_id !== record._id
@@ -58,6 +59,12 @@ async function view(record) {
                 ? 'completed' : checkout.state === 'refund_review' || checkout.state === 'manual_review'
                     ? 'review' : checkout.state === 'booking_cancelled' || ['refund_creating', 'refund_unknown', 'refund_pending'].includes(checkout.state)
                         ? 'pending' : 'review';
+        if (checkout?.partner_order_id === record._id && Number.isSafeInteger(record.customer_refund_amount_minor)
+            && record.customer_refund_amount_minor >= 0 && record.customer_refund_amount_minor <= checkout.amount_minor) {
+            const ziina = require('./ziinaClient');
+            amounts = { customer_refund: { amount: ziina.formatAmountMinor(record.customer_refund_amount_minor, checkout.currency), currency_code: checkout.currency },
+                customer_fee: { amount: ziina.formatAmountMinor(checkout.amount_minor - record.customer_refund_amount_minor, checkout.currency), currency_code: checkout.currency } };
+        }
     }
     return {
         partner_order_id: record._id,
@@ -68,6 +75,9 @@ async function view(record) {
         amountPayable: record.amount_payable || null,
         amountSell: record.amount_sell || null,
         customer_refund_status: customerRefundStatus,
+        ...amounts,
+        cancellation_reference: `CAN-${record.request_hash.slice(0, 12).toUpperCase()}`,
+        receipt_status: record.receipt_status || 'not_requested',
         upsells_require_manual_cancellation: record.upsells_require_manual_cancellation === true,
         action_required: record.action_required,
         ...(record.error ? { error: record.error } : {}),
@@ -183,6 +193,7 @@ async function cancelBooking(partnerOrderId, options = {}) {
         ...(checkout ? { checkout_attempt_id: checkout._id, customer_refund_amount_minor: refundAmountMinor } : {}),
         accepted_penalty: info.current_penalty || { amount: options.expected_penalty.amount, currency_code: options.expected_penalty.currency_code },
         upsells_require_manual_cancellation: info.upsells_require_manual_cancellation,
+        ...(checkout ? { receipt_status: 'pending', receipt_next_check_at: new Date() } : {}),
         action_required: 'verify_supplier_cancellation',
         next_check_at: new Date(Date.now() + 120000)
     };
