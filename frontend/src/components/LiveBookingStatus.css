@@ -1,0 +1,52 @@
+.booking-live{position:relative;isolation:isolate;min-height:100vh;overflow:hidden;display:flex;flex-direction:column;align-items:center;justify-content:center;padding:112px 20px 40px;background:#edf4f6;color:#123644}
+.booking-live__ambient{position:absolute;inset:0;z-index:-1;background:radial-gradient(ellipse at 12% 24%,#c4e8e7b0,transparent 52%),radial-gradient(ellipse at 90% 75%,#d4dfefb0,transparent 48%),linear-gradient(140deg,#f8fbfb,#e9f1f4)}
+.booking-live__card{width:100%;max-width:600px;padding:32px 40px 0;border:1px solid #ffffffd9;border-radius:28px;background:#ffffffb8;backdrop-filter:blur(24px);box-shadow:0 24px 80px -36px #193c4d40,inset 0 1px 0 #fff}
+.booking-live__header{display:flex;align-items:center;justify-content:space-between;gap:16px}
+.booking-live__brand{font-size:20px;font-weight:900;letter-spacing:3px;line-height:1.3;color:#123b49;direction:ltr;text-align:left}
+.booking-live__brand>span{display:block;letter-spacing:0;font-size:9px;font-weight:500;color:#6b858f;margin-top:5px}
+.booking-live__badge{display:inline-flex;align-items:center;gap:7px;border:1px solid #bce5db;border-radius:30px;padding:7px 11px;background:#e6f6f0;font-size:11px;font-weight:700;color:#23725f}
+.booking-live__badge>span,.booking-live__update-dot{height:6px;width:6px;flex-shrink:0;border-radius:50%;background:#329c80}
+.booking-live__badge.is-reconnecting{border-color:#eadfc3;background:#faf5e9;color:#866d31}
+.booking-live .is-reconnecting>span,.booking-live__update-dot.is-reconnecting{background:#aa8843}
+.booking-live .is-pulsing{animation:booking-live-pulse 2.5s ease-in-out infinite}
+.booking-live__hero{text-align:center;padding-top:28px}
+.booking-live__orbit{position:relative;width:112px;height:112px;margin:0 auto 22px;display:grid;place-items:center;border:1px solid #d1e7e9;border-radius:50%;background:radial-gradient(circle,#e3f3f3,transparent 70%)}
+.booking-live__orbit>div{position:absolute;inset:7px;border:1px dashed #8cbfc6;border-radius:50%;animation:booking-live-orbit 24s linear infinite}
+.booking-live__orbit>div:after{content:'';position:absolute;width:7px;height:7px;border-radius:50%;background:#2095a3;top:9px;left:9px;box-shadow:0 0 0 5px #2195a312}
+.booking-live__orbit>span{display:grid;place-items:center;width:70px;height:70px;border:1px solid #fff;border-radius:22px;color:#168493;background:#ffffffd9;box-shadow:0 8px 24px #27656b12}
+.booking-live__orbit.is-confirmed{background:#e6f4ed;border-color:#cde5d8}
+.booking-live__orbit.is-confirmed>div{animation:none;border-style:solid;border-color:#b7d9c8}
+.booking-live__orbit.is-confirmed>div:after{display:none}
+.booking-live__orbit.is-confirmed>span{color:#2a8865}
+.booking-live__eyebrow{font-size:11px;font-weight:700;letter-spacing:.6px;color:#4b8992;margin-bottom:10px}
+.booking-live__hero h1{font-size:30px;font-weight:800;line-height:1.5;letter-spacing:-.6px;margin:0;color:#113745}
+.booking-live__description{font-size:14px;line-height:2;max-width:420px;margin:13px auto 0;color:#627f8b}
+.booking-live__steps{list-style:none;margin:28px 0 0;padding:6px 20px;border:1px solid #dbe6e9;border-radius:18px;background:#ffffff80}
+.booking-live__steps li{position:relative;display:flex;gap:14px;align-items:center;padding:17px 0}
+.booking-live__steps li+li{border-top:1px solid #e4edef}
+.booking-live__step-icon{display:grid;place-items:center;flex-shrink:0;width:38px;height:38px;background:#eef2f4;border:1px solid #e0e8eb;border-radius:12px;color:#9aafb7}
+.booking-live__steps .is-done .booking-live__step-icon{background:#e6f4ee;border-color:#d2e8de;color:#318268}
+.booking-live__steps .is-active .booking-live__step-icon{background:#e3f2f4;border-color:#b4d8dd;color:#168493}
+.booking-live__step-copy{display:flex;flex:1;min-width:0;flex-direction:column;gap:4px}
+.booking-live__step-copy strong{font-size:13px;font-weight:700;color:#8b9fa8}
+.booking-live__steps .is-done strong,.booking-live__steps .is-active strong{color:#214858}
+.booking-live__step-copy>span{font-size:11px;color:#8ca2aa}
+.booking-live__steps .is-active .booking-live__step-copy>span{color:#238798}
+.booking-live__step-number{font-size:11px;font-variant-numeric:tabular-nums;color:#9aafb7}
+.booking-live__update{display:flex;align-items:center;justify-content:center;gap:8px;font-size:11px;line-height:1.8;color:#718c96;margin-top:18px}
+.booking-live__update time{flex-shrink:0;color:#94a7af;font-size:10px;direction:ltr}
+.booking-live__assurance{display:flex;justify-content:center;align-items:center;gap:8px;font-size:11px;line-height:1.9;color:#63828d;margin:19px 0}
+.booking-live__assurance svg{flex-shrink:0;color:#69969c}
+.booking-live__reference{display:flex;align-items:center;justify-content:space-between;gap:10px;border-top:1px solid #dde8eb;padding:18px 0;font-size:11px;color:#78919b}
+.booking-live__reference>span:last-child{font-family:ui-monospace,monospace;font-size:10px;overflow-wrap:anywhere;user-select:all;color:#567480}
+.booking-live__supplier{font-size:11px;color:#67838f;overflow-wrap:anywhere;margin:0 0 15px}
+.booking-live__footer{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:15px;padding:20px 0;border-top:1px solid #dde8eb}
+.booking-live__footer a{display:inline-flex;align-items:center;gap:7px;font-size:12px;font-weight:600;color:#2a7382;text-decoration:none}
+.booking-live__footer a:last-child{color:#78909b;font-weight:400}
+.booking-live__footer a:hover{text-decoration:underline;text-underline-offset:4px}
+.booking-live__footer a:focus-visible{outline:2px solid #247e8d;outline-offset:5px;border-radius:3px}
+.booking-live__signature{display:flex;align-items:center;gap:9px;font-size:10px;letter-spacing:.5px;color:#859ca6;margin-top:22px}
+@keyframes booking-live-pulse{50%{box-shadow:0 0 0 4px #329c8015}}
+@keyframes booking-live-orbit{to{transform:rotate(360deg)}}
+@media(max-width:600px){.booking-live{padding:100px 16px 30px}.booking-live__card{padding:24px 22px 0;border-radius:24px}.booking-live__hero h1{font-size:25px}.booking-live__description{font-size:13px}.booking-live__steps{padding:3px 15px}.booking-live__reference{align-items:flex-start;flex-direction:column;gap:7px}.booking-live__update{align-items:flex-start}.booking-live__update-dot{margin-top:6px}.booking-live__update time{margin-top:2px}.booking-live__footer a{font-size:11px}.booking-live__brand{font-size:18px}}
+@media(prefers-reduced-motion:reduce){.booking-live .is-pulsing,.booking-live__orbit>div{animation:none}}

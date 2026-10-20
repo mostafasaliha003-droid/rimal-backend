@@ -46,6 +46,7 @@ async function run() {
     let affiliateRateRequests = 0;
     let b2bPrebookRequests = 0;
     let checkoutStatus = 'booking_pending';
+    let voucherDelivery = 'pending';
     let statusRequests = 0;
     let exchangeAvailable = true;
     let exchangeRequests = 0;
@@ -142,7 +143,7 @@ async function run() {
                     assert.equal(request.headers().authorization, `Bearer ${accessToken}`);
                     body = { reference: checkoutReference, status: checkoutStatus, confirmed: checkoutStatus === 'booking_confirmed',
                         ...(checkoutStatus === 'awaiting_payment' ? { payment_url: 'https://pay.ziina.com/test' } : {}),
-                        ...(checkoutStatus === 'booking_confirmed' ? { supplier_reference: 'TEST-SUPPLIER-ORDER' } : {}) };
+                        ...(checkoutStatus === 'booking_confirmed' ? { supplier_reference: 'TEST-SUPPLIER-ORDER', voucher_delivery: voucherDelivery } : {}) };
                 }
                 else if (url.pathname.endsWith('/payment/ziina/intent')) {
                     if (paymentUnauthorized) {
@@ -395,8 +396,8 @@ async function run() {
         assert.equal(paymentPayload.total, 60);
         assert.equal(paymentPayload.book_hash, 'test-AED-60');
         assert.deepEqual(paymentPayload.guests, mockGuestCount);
-        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('جارٍ التحقق من طلبك'));
-        assert.match(await page.$eval('main', element => element.innerText), /جارٍ التحقق من طلبك/);
+        await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('نعمل على تأكيد حجزك'));
+        assert.match(await page.$eval('main', element => element.innerText), /نعمل على تأكيد حجزك/);
         assert.doesNotMatch(await page.$eval('main', element => element.innerText), /تم تأكيد الحجز/);
         await page.waitForFunction(reference => document.querySelector('main')?.innerText.includes(reference), {}, checkoutReference);
         assert.match(await page.$eval('main', element => element.innerText), /مرجع الطلب/);
@@ -414,6 +415,15 @@ async function run() {
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('TEST-SUPPLIER-ORDER'));
         assert.match(await page.$eval('main', element => element.innerText), /TEST-SUPPLIER-ORDER/);
+        assert.equal(await page.$eval('[data-booking-live]', node => node.dataset.trackingState), 'confirmed');
+        assert.equal(await page.$$eval('.booking-live__steps .is-done', nodes => nodes.length), 2);
+        const confirmedStatusRequests = statusRequests;
+        voucherDelivery = 'sent';
+        await page.waitForSelector('[data-tracking-state="sent"]', { timeout: 15000 });
+        assert(statusRequests > confirmedStatusRequests, 'Keep polling after confirmation until voucher email is sent');
+        assert.equal(await page.$$eval('.booking-live__steps .is-done', nodes => nodes.length), 3);
+        assert.doesNotMatch(await page.$eval('main', node => node.innerText), /tracking\.[a-zA-Z]+|checkout\.[a-zA-Z]+/);
+        await page.screenshot({ path: path.join(screenshotDirectory, 'test-live-confirmation-mobile.png'), fullPage: true });
         assert.equal(await page.$('[data-checkout-resume-payment]'), null);
         assert.equal(paymentRequests, 1);
         checkoutStatus = 'preflight_failed';

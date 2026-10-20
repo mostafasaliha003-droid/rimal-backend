@@ -105,6 +105,11 @@ function publicView(record) {
         reference: record.reference,
         status: record.state,
         confirmed: record.state === 'booking_confirmed',
+        ...(record.payment_verified_at ? { payment_verified: true } : {}),
+        ...(record.state === 'booking_confirmed' ? {
+            voucher_delivery: record.notification_status === 'sent' ? 'sent'
+                : ['review', 'unknown'].includes(record.notification_status) ? 'review' : 'pending'
+        } : {}),
         ...(record.state === 'booking_confirmed' ? { supplier_reference: record.partner_order_id } : {}),
         ...(record.action_required ? { action_required: record.action_required } : {})
     };

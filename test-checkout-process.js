@@ -12,6 +12,24 @@ const ratehawk = require('./services/ratehawkService');
 const payment = require('./services/paymentService');
 const ziina = require('./services/ziinaClient');
 
+test('checkout tracking exposes only verified payment and normalized voucher delivery milestones', () => {
+    const record = { reference: 'tracking-reference', state: 'booking_confirmed', partner_order_id: 'supplier-ref',
+        payment_verified_at: new Date(), encrypted_notification: { ciphertext: 'private' }, email: 'private@example.test' };
+    for (const [notification, expected] of [['voucher_pending', 'pending'], ['record_pending', 'pending'], ['sending', 'pending'],
+        ['sent', 'sent'], ['review', 'review'], ['unknown', 'review'], [undefined, 'pending']]) {
+        const view = checkout.publicView({ ...record, notification_status: notification });
+        assert.equal(view.voucher_delivery, expected);
+        assert.equal(view.payment_verified, true);
+        assert.equal(view.confirmed, true);
+        assert.equal(view.email, undefined);
+        assert.equal(view.encrypted_notification, undefined);
+    }
+    const pending = checkout.publicView({ reference: 'pending', state: 'awaiting_payment', notification_status: 'sent' });
+    assert.equal(pending.voucher_delivery, undefined);
+    assert.equal(pending.payment_verified, undefined);
+    assert.equal(pending.confirmed, false);
+});
+
 const details = () => ({
     hid: 123, book_hash: 'fixture-hash', roomName: 'Test Double Room',
     checkin: '2099-10-15', checkout: '2099-10-17', currency: 'USD', total: 107,
