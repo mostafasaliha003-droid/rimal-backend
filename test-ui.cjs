@@ -405,6 +405,7 @@ async function run() {
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForSelector('[data-checkout-resume-payment]');
         assert.match(await page.$eval('main h1', element => element.innerText), /متابعة الدفع/);
+        assert.doesNotMatch(await page.$eval('main', element => element.innerText), /checkout\.[a-zA-Z]+/);
         assert.equal(await page.$eval('[data-checkout-resume-payment]', element => element.href), 'https://pay.ziina.com/test');
         assert.equal(paymentRequests, 1);
         await page.screenshot({ path: path.join(screenshotDirectory, 'test-awaiting-payment-mobile.png'), fullPage: true });

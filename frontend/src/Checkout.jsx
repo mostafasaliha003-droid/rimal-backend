@@ -291,7 +291,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                             {paymentReference && <div className="mt-7 rounded-xl bg-slate-50 px-4 py-3"><p className="text-xs font-medium text-slate-500">{t('checkout.requestReference')}</p><p dir="ltr" className="mt-2 select-all break-all font-mono text-xs leading-5 text-slate-700">{paymentReference}</p></div>}
                             <div className="mt-7 flex flex-wrap items-center justify-center gap-x-6 gap-y-3 border-t border-slate-100 pt-6 text-sm">
                                 <a href="mailto:management@remaltourismllc.com" className="font-semibold text-[var(--remal-blue)] underline-offset-4 hover:underline">{t('checkout.paymentHelp')}</a>
-                                <a href="/" className="text-slate-500 underline-offset-4 hover:underline">{t('checkout.home')}</a>
+                                <a href="/" className="text-slate-500 underline-offset-4 hover:underline">{t('checkout.home', 'العودة للرئيسية')}</a>
                             </div>
                         </div>
                     </section>
