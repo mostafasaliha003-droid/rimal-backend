@@ -95,20 +95,39 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
     }));
     staff.get('/conversations', readLimiter, wrap(async req => {
         const filter = { realm: req.auth.realm };
+        const unreadFilter = { realm: req.auth.realm, $expr: { $gt: ['$lastCustomerAt', { $ifNull: ['$staffReadAt', new Date(0)] }] } };
+        let contactMatchesLimited = false;
+        if (req.query.inbox && !['all', 'mine', 'unassigned', 'unread'].includes(req.query.inbox)) throw error('support_invalid_inbox');
+        if (req.query.inbox === 'mine') filter.assignedTo = req.auth.subject;
+        if (req.query.inbox === 'unassigned') filter.assignedTo = { $in: [null, ''] };
+        if (req.query.inbox === 'unread') filter.$expr = unreadFilter.$expr;
         if (req.query.status && req.query.status !== 'all') {
             if (!statuses.includes(req.query.status)) throw error('support_invalid_status');
             filter.status = req.query.status;
         }
         if (req.query.q) {
             if (typeof req.query.q !== 'string' || req.query.q.length > 100) throw error('support_invalid_search');
-            const pattern = req.query.q.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const query = req.query.q.trim();
+            const pattern = query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+            const digits = query.replace(/\D/g, '');
+            const phonePattern = digits.length >= 5 && /^[+()\d\s-]+$/.test(query) ? digits.split('').join('[^0-9]*') : pattern;
             filter.$or = ['reference', 'hotelName', 'customerName'].map(field => ({ [field]: { $regex: pattern, $options: 'i' } }));
+            const contactFilter = [{ email: { $regex: pattern, $options: 'i' } }, { phone: { $regex: phonePattern, $options: 'i' } }];
+            const [profiles, bookings] = await Promise.all([
+                UserModel ? UserModel.find({ $or: [...contactFilter, { name: { $regex: pattern, $options: 'i' } }] })
+                    .limit(500).select('_id').lean() : [],
+                BookingModel.find({ realm: req.auth.realm, $or: contactFilter }).limit(500).select('bookingReference').lean()
+            ]);
+            if (profiles.length) filter.$or.push({ ownerSubject: { $in: profiles.map(profile => String(profile._id)) } });
+            if (bookings.length) filter.$or.push({ reference: { $in: bookings.map(booking => booking.bookingReference) } });
+            contactMatchesLimited = profiles.length === 500 || bookings.length === 500;
         }
         const [rows, counts] = await Promise.all([
-            Conversation.find(filter).sort({ priority: 1, updatedAt: -1 }).limit(100).lean(),
-            Promise.all(statuses.map(status => Conversation.countDocuments({ realm: req.auth.realm, status })))
+            Conversation.find(filter).sort({ priority: 1, updatedAt: -1 }).limit(101).lean(),
+            Promise.all([...statuses.map(status => Conversation.countDocuments({ realm: req.auth.realm, status })), Conversation.countDocuments(unreadFilter)])
         ]);
-        return { conversations: rows.map(row => conversationView(row, true)), counts: Object.fromEntries(statuses.map((s, i) => [s, counts[i]])) };
+        return { conversations: rows.slice(0, 100).map(row => conversationView(row, true)), hasMore: rows.length > 100 || contactMatchesLimited,
+            counts: { ...Object.fromEntries(statuses.map((s, i) => [s, counts[i]])), unread: counts[3] } };
     }));
     for (const [router, isStaff] of [[customer, false], [staff, true]]) {
         router.get('/conversations/:id', readLimiter, wrap(async req => {

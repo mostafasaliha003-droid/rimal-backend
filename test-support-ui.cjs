@@ -43,10 +43,14 @@ async function run() {
                     if (request.method() === 'POST') {
                         assert.equal(JSON.parse(request.postData()).reference, 'owned-booking');
                         caseRecord ||= { id, reference: 'owned-booking', customerName: 'Test Guest', hotelName: context.hotelName,
-                            topic: 'booking', status: 'open', priority: 'normal', updatedAt: new Date().toISOString() };
+                            topic: 'booking', status: 'open', priority: 'normal', unread: true, updatedAt: new Date().toISOString() };
                         return respond({ conversation: caseRecord, context });
                     }
-                    return respond({ conversations: caseRecord ? [caseRecord] : [], counts: { open: caseRecord?.status === 'open' ? 1 : 0, waiting: caseRecord?.status === 'waiting' ? 1 : 0, resolved: caseRecord?.status === 'resolved' ? 1 : 0 } });
+                    const q = url.searchParams.get('q'), inbox = url.searchParams.get('inbox'), status = url.searchParams.get('status');
+                    const visible = caseRecord && (!staff || ((!q || [caseRecord.customerName, caseRecord.hotelName, caseRecord.reference, staffContext.customer.email, staffContext.customer.phone].some(value => value?.toLowerCase().includes(q.toLowerCase())))
+                        && (!inbox || inbox === 'all' || inbox === 'mine' && caseRecord.assignedTo || inbox === 'unassigned' && !caseRecord.assignedTo || inbox === 'unread' && caseRecord.unread)
+                        && (!status || status === 'all' || status === caseRecord.status)));
+                    return respond({ conversations: visible ? [caseRecord] : [], counts: { open: caseRecord?.status === 'open' ? 1 : 0, waiting: caseRecord?.status === 'waiting' ? 1 : 0, resolved: caseRecord?.status === 'resolved' ? 1 : 0, unread: caseRecord?.unread ? 1 : 0 } });
                 }
                 if (url.pathname.endsWith('/messages')) {
                     const body = JSON.parse(request.postData());
@@ -66,6 +70,7 @@ async function run() {
                         Object.assign(caseRecord, changes, changes.assignToMe ? { assignedTo: 'staff@example.test' } : {});
                         return respond({ conversation: caseRecord });
                     }
+                    if (staff) caseRecord.unread = false;
                     return respond({ conversation: caseRecord, context: staff ? staffContext : context, hasMore: false,
                         messages: stored.filter(row => staff || row.kind === 'message') });
                 }
@@ -100,9 +105,21 @@ async function run() {
         await operator.waitForSelector('[data-support-login]');
         await operator.type('[data-support-email]', 'staff@example.test'); await operator.type('[data-support-password]', 'fixture-only');
         await operator.click('[data-support-login]');
+        await operator.waitForSelector('[data-support-case]');
+        await operator.click('[data-support-notifications]');
+        await operator.waitForFunction(() => document.querySelector('[data-support-inbox-filter]')?.value === 'unread');
+        await operator.click('[data-support-clear-filters]');
+        const searchResponse = operator.waitForResponse(response => new URL(response.url()).pathname.endsWith('/conversations') && new URL(response.url()).searchParams.get('q') === 'registered@example.test');
+        await operator.type('[data-support-inbox-search]', 'registered@example.test'); await searchResponse;
         await operator.waitForSelector('[data-support-case]'); await operator.click('[data-support-case]');
         console.log('Support UI: staff signed in and opened conversation');
         await operator.waitForSelector('[data-support-draft]');
+        await operator.click('[data-support-clear-filters]');
+        await operator.select('[data-support-inbox-filter]', 'mine');
+        await operator.waitForFunction(() => !document.querySelector('[data-support-case]'));
+        await operator.click('.support-tools button:first-child');
+        await operator.waitForSelector('[data-support-case]');
+        assert.equal(caseRecord.assignedTo, 'staff@example.test');
         await operator.waitForSelector('[data-support-client-email]');
         assert.match(await operator.$eval('[data-support-client]', node => node.innerText), /registered@example.test/);
         assert.match(await operator.$eval('[data-support-client-phone]', node => node.innerText), /971500000001/);

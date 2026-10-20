@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { ArrowUpRight, Check, CheckCheck, ChevronDown, Copy, FileText, Headphones, LockKeyhole, Mail, MessageCircle, Phone, Search, Send, ShieldCheck, StickyNote, X } from 'lucide-react';
+import { ArrowUpRight, Bell, Check, CheckCheck, ChevronDown, Copy, FileText, Headphones, LockKeyhole, Mail, MessageCircle, Phone, Search, Send, ShieldCheck, StickyNote, X } from 'lucide-react';
 import SupportDocumentViewer from '../components/SupportDocumentViewer';
 import { useLanguage } from '../i18n';
 import { supportRequest, STAFF_TOKEN_KEY } from '../services/customerSupport';
@@ -157,10 +157,17 @@ export default function CustomerSupport({ staff = false }) {
     const [authenticated, setAuthenticated] = useState(false), [ready, setReady] = useState(false), [denied, setDenied] = useState(false);
     const [references, setReferences] = useState([]), [cases, setCases] = useState([]), [selected, setSelected] = useState(null);
     const [counts, setCounts] = useState({}), [filter, setFilter] = useState('all'), [search, setSearch] = useState('');
+    const [inbox, setInbox] = useState('all'), [searchQuery, setSearchQuery] = useState(''), [hasMore, setHasMore] = useState(false);
+    useEffect(() => { const timer = setTimeout(() => setSearchQuery(search.trim()), 350); return () => clearTimeout(timer); }, [search]);
     const [error, setError] = useState(''), [busy, setBusy] = useState(false), [refresh, setRefresh] = useState(0), [topic, setTopic] = useState('booking');
     const [email, setEmail] = useState(''), [password, setPassword] = useState('');
     const [showInbox, setShowInbox] = useState(false);
     const opening = useRef(false), initialOpened = useRef(false), requested = new URLSearchParams(location.search).get('reference');
+    const unread = staff ? counts.unread || 0 : cases.filter(row => row.unread).length;
+    useEffect(() => { if (!authenticated) return; const prior = document.title;
+        document.title = `${unread ? `(${unread}) ` : ''}${staff ? L.dashboard : L.myRequests} | REMAL`;
+        return () => { document.title = prior; };
+    }, [unread, authenticated, staff, language]);
     const unauthorized = () => { setAuthenticated(false); setDenied(true); if (staff) sessionStorage.removeItem(STAFF_TOKEN_KEY); };
     useEffect(() => {
         let active = true;
@@ -176,11 +183,11 @@ export default function CustomerSupport({ staff = false }) {
     }, [staff, refresh]);
     useLive(async alive => {
         if (!authenticated) return;
-        try { const result = await supportRequest(`/conversations${staff ? `?status=${filter}&q=${encodeURIComponent(search)}` : ''}`, { staff });
-            if (alive()) { setCases(result.conversations); setCounts(result.counts || {}); setError(''); }
+        try { const result = await supportRequest(`/conversations${staff ? `?status=${filter}&inbox=${inbox}&q=${encodeURIComponent(searchQuery)}` : ''}`, { staff });
+            if (alive()) { setCases(result.conversations); setCounts(result.counts || {}); setHasMore(result.hasMore === true); setError(''); }
             if (!staff) { const eligibility = await supportRequest('/eligibility'); if (alive()) setReferences(eligibility.references); }
         } catch (failure) { if (alive()) { if (failure.status === 401) unauthorized(); else setError(L.connection); } }
-    }, [authenticated, staff, filter, search, refresh]);
+    }, [authenticated, staff, filter, inbox, searchQuery, refresh]);
     const open = async reference => {
         if (opening.current) return; opening.current = true; setBusy(true); setError('');
         try { const result = await supportRequest('/conversations', { method: 'POST', body: { reference, topic } });
@@ -203,7 +210,7 @@ export default function CustomerSupport({ staff = false }) {
         unauthorized(); setSelected(null);
     };
     return <main dir={direction} className={`support-page ${staff ? 'support-page-staff' : ''}`} data-support-workspace={staff ? 'staff' : 'customer'}>
-        <header className="support-page-header"><a href="/" className="support-brand">REMAL<span>{L.eyebrow}</span></a><div className="support-header-actions"><a href={staff ? '/admin.html' : '/bookings'}>{staff ? 'REMAL ADMIN' : L.bookings}<ArrowUpRight size={16} /></a>{staff && authenticated && <button onClick={logout}>{L.logout}</button>}</div></header>
+        <header className="support-page-header"><a href="/" className="support-brand">REMAL<span>{L.eyebrow}</span></a><div className="support-header-actions">{authenticated && <button data-support-notifications className="support-notifications" aria-label={`${L.notifications}: ${unread}`} onClick={() => { if (staff) { setInbox('unread'); setFilter('all'); setSearch(''); } setShowInbox(true); }}><Bell size={18} /><span aria-live="polite">{unread}</span></button>}<a href={staff ? '/admin.html' : '/bookings'}>{staff ? 'REMAL ADMIN' : L.bookings}<ArrowUpRight size={16} /></a>{staff && authenticated && <button onClick={logout}>{L.logout}</button>}</div></header>
         <section className={`support-intro ${staff ? '' : 'support-concierge-hero'}`}><div><p className="support-kicker"><Headphones size={16} />{L.eyebrow}</p><h1>{staff ? L.dashboard : L.title}</h1><p>{staff ? L.staffSubtitle : L.subtitle}</p>{!staff && <div className="support-trust-row"><span><ShieldCheck size={15} />{L.journey}</span><span><LockKeyhole size={15} />{L.secure}</span><span><MessageCircle size={15} />{L.live}</span></div>}</div>{!staff && <div className="support-concierge-mark" aria-hidden="true"><Headphones size={48} strokeWidth={1.2} /></div>}</section>
         {error && <p role="alert" className="support-alert support-page-error">{error}<button onClick={() => setRefresh(value => value + 1)}>{L.retry}</button></p>}
         {!ready ? <p role="status" className="support-gate">{L.pending}</p> : !authenticated ? <section className="support-gate"><LockKeyhole size={32} /><h2>{staff ? L.staffLogin : L.login}</h2><p>{staff ? L.staffLoginHint : L.loginHint}</p>
@@ -213,9 +220,10 @@ export default function CustomerSupport({ staff = false }) {
             {staff && <section className="support-metrics" aria-label={L.dashboard}>{['open', 'waiting', 'resolved'].map(status => <button key={status} onClick={() => setFilter(status)} aria-pressed={filter === status}><span>{L[status]}</span><strong>{counts[status] || 0}</strong></button>)}</section>}
             {!staff && !references.length ? <section className="support-gate"><ShieldCheck size={32} /><p>{L.noAccess}</p><a href="/">{L.home}</a></section> : <>{selected && <button className="support-mobile-switch" onClick={() => setShowInbox(value => !value)}><MessageCircle size={16} />{showInbox ? L.backToChat : L.myRequests}<ChevronDown size={15} /></button>}<div className={`support-layout ${selected ? 'has-selection' : ''} ${showInbox ? 'show-inbox' : ''}`}>
                 <aside className="support-inbox"><div className="support-inbox-heading"><MessageCircle size={19} /><h2>{staff ? L.all : L.myRequests}</h2></div>
-                    {staff ? <><label className="support-search"><Search size={16} /><input aria-label={L.search} placeholder={L.search} value={search} onChange={event => setSearch(event.target.value)} /></label><select aria-label={L.all} value={filter} onChange={event => setFilter(event.target.value)}>{['all', 'open', 'waiting', 'resolved'].map(status => <option key={status} value={status}>{L[status]}</option>)}</select></>
+                    {staff ? <><label className="support-search"><Search size={16} /><input data-support-inbox-search maxLength={100} aria-label={L.search} placeholder={L.search} value={search} onChange={event => setSearch(event.target.value)} /></label><select data-support-status-filter aria-label={L.all} value={filter} onChange={event => setFilter(event.target.value)}>{['all', 'open', 'waiting', 'resolved'].map(status => <option key={status} value={status}>{L[status]}</option>)}</select><select data-support-inbox-filter aria-label={L.inbox} value={inbox} onChange={event => setInbox(event.target.value)}>{['all', 'mine', 'unassigned', 'unread'].map(value => <option key={value} value={value}>{value === 'all' ? L.all : L[value]}</option>)}</select>
+                        {(filter !== 'all' || inbox !== 'all' || search) && <button data-support-clear-filters className="support-clear-filters" onClick={() => { setFilter('all'); setInbox('all'); setSearch(''); }}>{L.clearFilters}</button>}{hasMore && <p role="status" className="support-empty">{L.refineSearch}</p>}</>
                         : references.some(row => !cases.some(item => item.reference === row.reference)) && <div className="support-reference-picker"><label>{L.topic}<select value={topic} onChange={event => setTopic(event.target.value)}>{Object.entries(L.topics).map(([key, label]) => <option key={key} value={key}>{label}</option>)}</select></label>{references.filter(row => !cases.some(item => item.reference === row.reference)).map(row => <button data-support-reference disabled={busy} key={row.reference} onClick={() => open(row.reference)}><span>{row.hotelName || L.payment}</span><small dir="ltr">{row.reference}</small></button>)}</div>}
-                    <div className="support-cases">{!cases.length && <p className="support-empty">{L.empty}</p>}{cases.map(row => <button data-support-case className={selected === row.id ? 'is-selected' : ''} key={row.id} onClick={() => { setSelected(row.id); setShowInbox(false); }}>
+                    <div className="support-cases">{!cases.length && <p className="support-empty">{staff && (filter !== 'all' || inbox !== 'all' || searchQuery) ? L.noResults : L.empty}</p>}{cases.map(row => <button data-support-case className={selected === row.id ? 'is-selected' : ''} key={row.id} onClick={() => { setSelected(row.id); setShowInbox(false); }}>
                         <span className="support-case-title">{staff ? row.customerName || L.guest : row.hotelName || L.team}{row.unread && <i aria-label={L.newReply} />}</span>
                         <small dir="ltr">{row.reference}</small><p>{row.lastMessage || L.topics[row.topic]}</p><span className={`support-state is-${row.status}`}>{L[row.status]}</span>{row.priority === 'high' && <span className="support-priority">{L.high}</span>}
                     </button>)}</div>

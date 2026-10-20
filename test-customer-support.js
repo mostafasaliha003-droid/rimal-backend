@@ -6,13 +6,17 @@ const { createCustomerSupportRouters } = require('./services/customerSupportRout
 
 function model(seed = []) {
     const rows = structuredClone(seed);
+    const value = (row, expression) => typeof expression === 'string' && expression.startsWith('$') ? row[expression.slice(1)]
+        : expression?.$ifNull ? value(row, expression.$ifNull[0]) ?? value(row, expression.$ifNull[1]) : expression;
     const matches = (row, filter) => Object.entries(filter).every(([key, value]) => {
         if (key === '$or') return value.some(option => matches(row, option));
+        if (key === '$expr') return evalExpression(row, value);
         if (value && typeof value === 'object' && !(value instanceof Date)) return Object.entries(value).every(([op, operand]) =>
             op === '$type' ? operand === 'date' ? row[key] instanceof Date : typeof row[key] === operand : op === '$lt' ? row[key] < operand : op === '$lte' ? row[key] <= operand
-                : op === '$regex' ? new RegExp(operand, value.$options).test(row[key] || '') : op === '$options');
+                : op === '$in' ? operand.includes(row[key] ?? null) : op === '$regex' ? new RegExp(operand, value.$options).test(row[key] || '') : op === '$options');
         return value instanceof Date ? +row[key] === +value : row[key] === value;
     });
+    const evalExpression = (row, expression) => expression.$gt && value(row, expression.$gt[0]) > value(row, expression.$gt[1]);
     const query = (filter, single) => {
         let ordering, count = Infinity;
         return { select() { return this; }, sort(value) { ordering = value; return this; }, limit(value) { count = value; return this; },
@@ -81,6 +85,26 @@ test('staff see registered contact details, supplier identity and real document 
     assert.equal((await s.request(`/staff/conversations/${conversation.id}`, { token: 'admin' })).body.context.customer.phone, null, 'Never label the booking phone as the registered account phone');
     const payment = await s.open('owned-payment');
     assert.equal((await s.request(`/staff/conversations/${payment.id}`, { token: 'admin' })).body.context.documents.voucher, false, 'A verified payment alone is not a confirmed hotel voucher');
+});
+test('staff search registered and booking contact details, filter assignments and unread cases, and never cross realm boundaries', async t => {
+    const s = await fixture(t), conversation = await s.open('owned-booking');
+    const list = async query => (await s.request(`/staff/conversations?${query}`, { token: 'admin' })).body;
+    for (const query of ['registered@example.test', 'booking@example.test', '+971 50 000 0001', '971500000002']) {
+        assert.equal((await list(`q=${encodeURIComponent(query)}`)).conversations[0]?.id, conversation.id);
+    }
+    assert.equal((await list('inbox=unassigned')).conversations.length, 1);
+    assert.equal((await list('inbox=mine')).conversations.length, 0);
+    assert.equal((await list('inbox=unread')).conversations.length, 0);
+    await s.request(`/customer/conversations/${conversation.id}/messages`, { method: 'POST', body: { body: 'Need assistance', clientId: crypto.randomUUID() } });
+    assert.equal((await list('inbox=unread')).conversations.length, 1); assert.equal((await list('')).counts.unread, 1);
+    await s.request(`/staff/conversations/${conversation.id}`, { token: 'admin' });
+    assert.equal((await list('inbox=unread')).conversations.length, 0); assert.equal((await list('')).counts.unread, 0);
+    await s.request(`/staff/conversations/${conversation.id}`, { token: 'admin', method: 'PATCH', body: { assignToMe: true } });
+    assert.equal((await list('inbox=mine')).conversations.length, 1); assert.equal((await list('inbox=unassigned')).conversations.length, 0);
+    s.UserModel.rows.push({ _id: 'production-owner', email: 'private@production.test', phone: '+966500000000' });
+    s.Conversation.rows.push({ _id: 'c'.repeat(64), realm: 'production', ownerSubject: 'production-owner', reference: 'secret-booking', status: 'open' });
+    assert.equal((await list('q=private%40production.test')).conversations.length, 0);
+    assert.equal((await s.request('/staff/conversations?inbox=invalid', { token: 'admin' })).status, 400);
 });
 test('staff cancellation PDFs verify conversation realm, booking ownership and generated receipt binding', async t => {
     const s = await fixture(t), conversation = await s.open('owned-booking');
