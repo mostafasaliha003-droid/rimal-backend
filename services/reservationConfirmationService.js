@@ -1,4 +1,5 @@
 const crypto = require('node:crypto');
+const { minorUnits, formatAmountMinor } = require('./ziinaClient');
 
 // ETG Sandbox's known placeholder: one empty page, titled "Blank PDF Document".
 const BLANK_SANDBOX_PDF = '0622971147486e1900037eff229d921d14f5b51aac7171729b2b66f81cdf6585';
@@ -14,7 +15,7 @@ function confirmationDetails(booking, input) {
         || booking.provider !== 'ratehawk' || booking.bookingReference !== input.reference
         || booking.supplierReference !== input.supplierReference || booking.email !== input.email
         || !Number.isSafeInteger(input.amountMinor) || input.amountMinor <= 0
-        || Math.round(Number(booking.price) * 100) !== input.amountMinor || booking.priceCurrency !== input.currency
+        || minorUnits(booking.price, input.currency) !== input.amountMinor || booking.priceCurrency !== input.currency
         || !/^[A-Z]{3}$/.test(input.currency) || typeof input.sandbox !== 'boolean'
         || !booking.hotelName || !booking.roomType || !booking.customerName
         || !/^\d{4}-\d{2}-\d{2}$/.test(booking.checkInDate || '')
@@ -22,7 +23,7 @@ function confirmationDetails(booking, input) {
     return { reference: input.reference, supplierReference: input.supplierReference, sandbox: input.sandbox,
         guestName: booking.customerName, hotelName: booking.hotelName, roomName: booking.roomType,
         checkin: booking.checkInDate, checkout: booking.checkOutDate,
-        amount: (input.amountMinor / 100).toFixed(2), currency: input.currency };
+        amount: formatAmountMinor(input.amountMinor, input.currency), currency: input.currency };
 }
 
 function rows(details) {

@@ -31,6 +31,14 @@ test('confirmation contains actual reservation facts and escapes HTML without in
     }
 });
 
+test('a KWD confirmation displays the actual charged currency and three-decimal amount', () => {
+    const details = service.confirmationDetails({ ...booking(), price: 8.51, priceCurrency: 'KWD' },
+        { ...input(), amountMinor: 8510, currency: 'KWD' });
+    assert.equal(details.amount, '8.510');
+    assert.match(service.renderConfirmationPdf(details), /8.510 KWD/);
+    assert.match(service.renderConfirmationEmail(details).html, /8.510 KWD/);
+});
+
 for (const [name, sandbox, blank] of [
     ['sandbox replaces the known blank placeholder with a marked Remal confirmation', true, true],
     ['production preserves the original supplier PDF alongside the Remal confirmation', false, false],

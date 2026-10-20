@@ -14,6 +14,7 @@ const checkoutAttemptSchema = new mongoose.Schema({
     },
     amount_minor: Number,
     currency: String,
+    payment_quote: mongoose.Schema.Types.Mixed,
     ziina_test: Boolean,
     ziina_intent_id: { type: String, unique: true, sparse: true },
     ziina_account_id: String,

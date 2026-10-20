@@ -14,7 +14,7 @@ async function persistConfirmedCheckout(record, { Model = mongoose.models.Bookin
         ziinaPaymentId: record.ziina_intent_id, email: details.user.email, phone: details.user.phone,
         customerName: `${guest.first_name} ${guest.last_name}`, hotelName: details.hotelName,
         ...(Number.isSafeInteger(details.hid) ? { providerHotelCode: String(details.hid) } : {}),
-        roomType: details.roomName, price: record.amount_minor / 100, priceCurrency: record.currency,
+        roomType: details.roomName, price: require('./ziinaClient').majorUnits(record.amount_minor, record.currency), priceCurrency: record.currency,
         paymentMethod: 'ziina', supplierPaymentType: record.supplier_payment?.type || 'deposit',
         status: 'active', checkInDate: details.checkin, checkOutDate: details.checkout,
         confirmedAt: new Date()

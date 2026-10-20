@@ -125,13 +125,16 @@ function resolveValidatedPayment(result, expected) {
     const payment = rate.payment_options?.payment_types?.find(item => item.type === 'deposit');
     const amount = Number(payment?.amount);
     const display = customerPrice(rate);
+    let amountMatches = false;
+    try { amountMatches = minorUnits(display.amount, display.currency) === minorUnits(expected.total, expected.currency); }
+    catch { /* A malformed or unsupported amount cannot match the offer. */ }
     if (!payment || !SUPPORTED_CURRENCIES.has(payment.currency_code)
         || !Number.isFinite(amount) || amount <= 0 || !rate.book_hash
         || display.currency !== expected.currency
-        || minorUnits(display.amount) !== Math.round(Number(expected.total) * 100)) {
+        || !amountMatches) {
         throw new Error('RATE_CHANGED');
     }
-    try { minorUnits(amount); } catch { throw new Error('RATE_CHANGED'); }
+    try { minorUnits(amount, payment.currency_code); } catch { throw new Error('RATE_CHANGED'); }
     if (payment.currency_code === 'AED' && amount < 2) throw new Error('RATE_CHANGED');
     return { amount, currency: payment.currency_code, customerAmount: display.amount,
         customerCurrency: display.currency, book_hash: rate.book_hash };

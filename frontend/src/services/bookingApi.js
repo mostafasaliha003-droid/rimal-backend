@@ -140,6 +140,7 @@ export const createZiinaIntent = async (paymentData, idempotencyKey) =>
     }));
 
 export const paymentAvailability = async () => responseData(await api.get('/payment/availability'));
+export const createPaymentQuote = async data => responseData(await api.post('/payment/quote', data, { authScope: 'user', timeout: 45000 }));
 
 export const getCheckoutStatus = async (reference, accessToken) =>
     responseData(await api.get(`/payment/ziina/${encodeURIComponent(reference)}/status`, {
@@ -272,6 +273,7 @@ export default {
     prebook,
     prebookSerp,
     createZiinaIntent,
+    createPaymentQuote,
     getCheckoutStatus,
     createHotelCheckoutSession,
     getHotelCheckoutSessionStatus,

@@ -130,6 +130,13 @@ async function run() {
                 }
                 else if (url.pathname.includes('/v1/hotels/')) body = { hotel: hotels[1] };
                 else if (url.pathname.endsWith('/payment/availability')) body = { enabled: paymentEnabled };
+                else if (url.pathname.endsWith('/payment/quote')) {
+                    const data = JSON.parse(request.postData());
+                    assert.equal(request.headers().authorization, `Bearer ${userToken}`);
+                    const rates = { USD: 1, AED: 3.6725, SAR: 3.75, KWD: 0.3068, BHD: 0.376, OMR: 0.384, QAR: 3.64, EUR: 0.87088, GBP: 0.77, INR: 83 };
+                    body = { currency: data.payment_currency, amount: Math.round(data.total / rates[data.currency] * rates[data.payment_currency] * 100) / 100,
+                        expires_at: Date.now() + 1200000, token: 'fixture-payment-quote' };
+                }
                 else if (url.pathname.endsWith(`/payment/ziina/${checkoutReference}/status`)) {
                     statusRequests++;
                     assert.equal(request.headers().authorization, `Bearer ${accessToken}`);
@@ -318,7 +325,7 @@ async function run() {
         assert.equal(await page.$eval('meta[name="robots"]', element => element.content), 'noindex,follow');
         assert.match(await page.$eval('link[rel="canonical"]', link => link.href), /\/checkout\?lang=ar$/);
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), true);
-        assert.match(await page.$eval('main', element => element.textContent), /عملة العرض: USD/);
+        assert.equal(await page.$eval('[data-payment-currency]', element => element.value), 'AED');
         assert.doesNotMatch(await page.$eval('main', element => element.textContent), /عملة الخصم: الدرهم/);
         await page.$eval('form', form => form.dispatchEvent(new Event('submit', { bubbles: true, cancelable: true })));
         await page.waitForSelector('#guest-first-name');
@@ -344,11 +351,10 @@ async function run() {
             sessionStorage.removeItem('remal_guest_draft');
         }, booking);
         await page.reload({ waitUntil: 'domcontentloaded' });
-        await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(60 / 3.6725, 'USD'));
-        assert((await page.$eval('aside', element => element.textContent)).includes(formatMoney(60, 'AED')));
+        await page.waitForSelector('[data-payment-currency]');
+        assert.equal(await page.$eval('[data-payment-currency]', element => element.value), 'AED');
         await page.select('select[aria-label="عملة عرض السعر"]', 'EUR');
-        await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(60 / 3.6725 * 0.87088, 'EUR'));
-        assert((await page.$eval('aside', element => element.textContent)).includes(formatMoney(60, 'AED')));
+        assert.equal(await page.$eval('[data-payment-currency]', element => element.value), 'AED');
         await page.type('#guest-first-name', 'Local');
         await page.type('#guest-last-name', 'Test');
         await page.type('#guest-email', 'local@example.test');
@@ -369,6 +375,7 @@ async function run() {
             assert.equal(await page.$eval('#guest-email', element => element.value), fixtureUser.email);
             assert.equal(await page.evaluate(() => location.pathname), '/checkout');
             await page.click('form input[type="checkbox"]');
+            await page.waitForFunction(() => document.querySelector('button[type="submit"]')?.disabled === false);
         };
         await signInAndReturn();
         paymentUnauthorized = true;
@@ -433,7 +440,14 @@ async function run() {
         await page.goto(`${base}/checkout`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('#guest-first-name');
         await page.select('select[aria-label="عملة عرض السعر"]', 'AED');
-        assert((await page.$eval('aside', element => element.textContent)).includes(formatMoney(60, 'USD')));
+        await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(220.35, 'AED'));
+        await page.select('[data-payment-currency]', 'KWD');
+        await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(18.41, 'KWD'));
+        assert.equal(paymentRequests, 1, 'Changing currency must not create a payment');
+        await page.select('[data-payment-currency]', 'SAR');
+        await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(225, 'SAR'));
+        await page.select('[data-payment-currency]', 'AED');
+        await page.waitForFunction(value => document.querySelector('aside')?.textContent.includes(value), {}, formatMoney(220.35, 'AED'));
         await page.type('#guest-first-name', 'Local');
         await page.type('#guest-last-name', 'Test');
         await page.type('#guest-email', 'local@example.test');

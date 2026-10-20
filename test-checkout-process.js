@@ -169,6 +169,34 @@ test('a supplier-verified prebook hash proceeds to form without repeating hotel 
     assert.equal(scenario.createIntent.mock.callCount(), 1);
 });
 
+test('a signed KWD quote charges KWD while the supplier form remains in USD, without duplicate intents', async context => {
+    const scenario = fixture(context);
+    const fx = require('./services/checkoutCurrencyService');
+    const identity = { role: 'user', subject: 'fixture-owner', realm: process.env.RIMAL_AUTH_REALM || 'fixture-staging' };
+    const quote = await fx.createQuote({ ...details(), payment_currency: 'KWD' }, identity, {
+        fetcher: async () => ({ ok: true, json: async () => [{ base: 'USD', quote: 'KWD', date: new Date().toISOString().slice(0, 10), rate: 0.3068 }] })
+    });
+    assert.equal(quote.amount_formatted, '32.830');
+    const normalized = checkout.normalizedCheckout(details());
+    assert.throws(() => fx.readQuote(quote.token, normalized, { ...identity, subject: 'other-owner' }));
+    assert.throws(() => fx.readQuote(quote.token + '0', normalized, identity));
+    assert.throws(() => fx.readQuote(quote.token, { ...normalized, amount_minor: 10100 }, identity));
+    assert.throws(() => fx.readQuote(quote.token, normalized, identity, quote.expires_at + 1));
+    scenario.createIntent.mock.mockImplementation(async data => {
+        assert.equal(data.currency, 'KWD'); assert.equal(data.amount, 32.83);
+        return { id: 'fixture-intent', accountId: 'fixture-account', operationId: 'fixture-operation', redirectUrl: 'https://pay.ziina.com/fixture' };
+    });
+    const key = crypto.randomUUID(), input = { ...details(), payment_quote: quote.token };
+    const first = await checkout.createCheckout(input, key, '192.0.2.10');
+    assert.equal(scenario.record.amount_minor, 32830);
+    assert.equal(scenario.record.currency, 'KWD');
+    assert.equal(scenario.record.supplier_payment.currency_code, 'USD');
+    assert.equal(scenario.record.supplier_payment.amount, '100.00');
+    const now = Date.now(); context.mock.method(Date, 'now', () => now + 3600000);
+    assert.equal((await checkout.createCheckout(input, key, '192.0.2.10')).reference, first.reference);
+    assert.equal(scenario.createIntent.mock.callCount(), 1);
+});
+
 test('unknown Ziina create outcome is held for review and not charged twice', { timeout: 5000 }, async context => {
     const scenario = fixture(context);
     const { createIntent } = scenario;

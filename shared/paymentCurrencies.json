@@ -1,0 +1,12 @@
+{
+  "AED": { "decimals": 2, "step": 1, "countries": ["ae"] },
+  "SAR": { "decimals": 2, "step": 1, "countries": ["sa"] },
+  "KWD": { "decimals": 3, "step": 10, "countries": ["kw"] },
+  "BHD": { "decimals": 3, "step": 10, "countries": ["bh"] },
+  "OMR": { "decimals": 3, "step": 10, "countries": ["om"] },
+  "QAR": { "decimals": 2, "step": 1, "countries": ["qa"] },
+  "USD": { "decimals": 2, "step": 1, "countries": ["us"] },
+  "EUR": { "decimals": 2, "step": 1, "countries": ["at", "be", "bg", "hr", "cy", "ee", "fi", "fr", "de", "gr", "ie", "it", "lv", "lt", "lu", "mt", "nl", "pt", "sk", "si", "es"] },
+  "GBP": { "decimals": 2, "step": 1, "countries": ["gb"] },
+  "INR": { "decimals": 2, "step": 1, "countries": ["in"] }
+}

@@ -253,7 +253,7 @@ async function reconcileRefund(record) {
             refund_status: 'pending', refund_sent_at: new Date(), next_check_at: followUp(15000) });
         try {
             const refund = await ziina.createRefund({ id: claimed.refund_id, intentId: claimed.ziina_intent_id,
-                amount: claimed.refund_amount_minor / 100, currency: claimed.currency, test: claimed.ziina_test });
+                amount: ziina.majorUnits(claimed.refund_amount_minor, claimed.currency), currency: claimed.currency, test: claimed.ziina_test });
             ziina.validateRefund(refund, { id: claimed.refund_id, intentId: claimed.ziina_intent_id,
                 amount: claimed.refund_amount_minor, currency: claimed.currency });
             await releaseClaim(claimed, { state: 'refund_pending', refund_status: 'pending', next_check_at: followUp(5000) },

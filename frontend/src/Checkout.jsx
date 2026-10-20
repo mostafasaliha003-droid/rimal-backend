@@ -7,6 +7,7 @@ import PriceDisplay from './components/PriceDisplay';
 import { trackBookingEvent } from './services/analytics';
 import { useLanguage } from './i18n';
 import { clearUserSession, userAccessToken } from './services/authSession';
+import { PAYMENT_CURRENCIES, paymentCurrencyForCountry } from './services/paymentCurrency';
 
 const initialGuest = { firstName: '', lastName: '', email: '', phone: '', specialRequests: '' };
 const pendingStatuses = new Set([
@@ -63,7 +64,7 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
                         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 pb-5">
                             <div className="min-w-0">
                                 <p className="text-sm font-black text-slate-900">{t('checkout.priceBreakdown', 'تفصيل السعر')}</p>
-                                <p className="mt-1 text-xs font-medium text-slate-500">{t('checkout.originalCurrency', 'بالعملة الأصلية للعرض')}</p>
+                                <p className="mt-1 text-xs font-medium text-slate-500">{isAffiliate ? t('checkout.originalCurrency', 'بالعملة الأصلية للعرض') : t('checkout.paymentCurrency')}</p>
                             </div>
                             {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="max-w-full text-3xl font-black tracking-tight text-[var(--remal-blue)]" /> : <span className="font-bold text-slate-400">غير متاح</span>}
                         </div>
@@ -90,7 +91,7 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
                             : canPay ? t('checkout.offerCurrency', `عملة العرض: ${currency}. سيتم خصم هذا المبلغ عبر Ziina، وتظهر الرسوم المحلية غير المشمولة أعلاه.`, { currency }) : t('checkout.noOnlinePayment', `عملة العرض: ${currency || 'غير محددة'}. الدفع الإلكتروني لهذا العرض غير متاح حالياً.`, { currency: currency || 'غير محددة' })}</p>
                     </div>
 
-                    <CancellationPolicy cancellation={room.cancellation} currency={currency} />
+                    <CancellationPolicy cancellation={room.cancellation} currency={room.currency} />
                 </div>
             </div>
         </aside>
@@ -98,8 +99,13 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
 }
 
 export default function Checkout({ booking, onBack, displayCurrency, displayRates }) {
-    const { t, direction } = useLanguage();
+    const { t, direction, language } = useLanguage();
     const [selectedBooking] = useState(() => readStoredBooking(booking));
+    const [paymentCurrency, setPaymentCurrency] = useState(() => paymentCurrencyForCountry(readStoredBooking(booking)?.residency || 'ae'));
+    const [paymentQuote, setPaymentQuote] = useState(null);
+    const [quoteError, setQuoteError] = useState('');
+    const [quoteRefresh, setQuoteRefresh] = useState(0);
+    const sessionToken = userAccessToken();
     const query = new URLSearchParams(window.location.search);
     const paymentReturn = query.get('payment');
     const affiliateReturn = query.get('affiliate');
@@ -129,6 +135,36 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
     const [checkoutStatus, setCheckoutStatus] = useState(null);
     const [affiliateStatus, setAffiliateStatus] = useState(null);
     const paymentFailureTracked = useRef(false);
+
+    useEffect(() => {
+        if (paymentReturn || affiliateReturn || !selectedBooking || selectedBooking.room?.contract_source === 'affiliate' || !sessionToken) return undefined;
+        let active = true;
+        const room = selectedBooking.room;
+        const source = { hid: selectedBooking.hid, book_hash: room.book_hash, roomName: room.name,
+            checkin: selectedBooking.checkin, checkout: selectedBooking.checkout, guests: selectedBooking.guests,
+            currency: room.currency, total: Number(room.price), payment_currency: paymentCurrency };
+        const cacheKey = JSON.stringify(source);
+        setPaymentQuote(null); setQuoteError('');
+        try {
+            const saved = JSON.parse(sessionStorage.getItem('remal_checkout_payment_quote') || 'null');
+            if (saved?.key === cacheKey && saved.quote?.expires_at > Date.now()) {
+                setPaymentQuote(saved.quote); return undefined;
+            }
+        } catch { /* Obtain a new authenticated quote. */ }
+        BookingAPI.createPaymentQuote(source).then(quote => {
+            if (!active) return;
+            if (!quote.token || quote.currency !== paymentCurrency || !Number.isFinite(quote.amount) || quote.amount <= 0
+                || quote.expires_at <= Date.now()) throw new Error('invalid_quote');
+            sessionStorage.setItem('remal_checkout_payment_quote', JSON.stringify({ key: cacheKey, quote }));
+            setPaymentQuote(quote);
+        }).catch(error => {
+            if (!active) return;
+            if (error.response?.status === 401) {
+                clearUserSession(); setRequiresLogin(true); setError(t('checkout.signInRequired'));
+            } else setQuoteError(t('checkout.quoteUnavailable'));
+        });
+        return () => { active = false; };
+    }, [selectedBooking, paymentCurrency, paymentReturn, affiliateReturn, sessionToken, quoteRefresh]);
 
     useEffect(() => {
         let active = true;
@@ -272,8 +308,11 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
     const total = Number(room.price);
     const currency = room.currency || '';
     const isAffiliate = room.contract_source === 'affiliate';
-    const canPay = !isAffiliate && paymentAvailable && ['AED', 'USD', 'SAR', 'EUR'].includes(currency)
+    const offerPayable = !isAffiliate && paymentAvailable && ['AED', 'USD', 'SAR', 'EUR'].includes(currency)
         && room.paymentType === 'deposit' && room.book_hash && Number.isFinite(total) && total > 0;
+    const canPay = offerPayable && (!sessionToken || paymentQuote?.currency === paymentCurrency && paymentQuote.expires_at > Date.now());
+    const chargeTotal = isAffiliate ? total : paymentQuote?.currency === paymentCurrency ? paymentQuote.amount : NaN;
+    const chargeCurrency = isAffiliate ? currency : paymentCurrency;
     const canBookAffiliate = isAffiliate && affiliateAvailable && Boolean(room.affiliate_offer_token)
         && ['AED', 'USD', 'SAR', 'EUR'].includes(currency) && Number.isFinite(total) && total > 0;
     const isSubmitting = status === 'loading' || status === 'success';
@@ -302,6 +341,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
             const response = await BookingAPI.createZiinaIntent({
                 total,
                 currency,
+                payment_quote: paymentQuote?.token,
                 hid: selectedBooking.hid,
                 book_hash: room.book_hash,
                 hotelName: selectedBooking.hotelName,
@@ -391,10 +431,21 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                 </header>
 
                 {isAffiliate && !canBookAffiliate && <div role="status" className="mb-8 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800 shadow-sm"><Info size={24} className="mt-0.5 shrink-0 text-amber-500" /><div><p className="font-bold text-amber-900">{t('checkout.affiliateUnavailable', 'الحجز بالدفع في الفندق غير متاح لهذا العرض حالياً.')}</p><p className="mt-1 text-sm font-medium leading-6">{t('checkout.noPaymentBody', 'لم يتم إنشاء عملية دفع. يرجى اختيار عرض آخر أو التواصل مع فريق الحجوزات.')}</p></div></div>}
-                {!isAffiliate && !canPay && <div role="status" className="mb-8 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800 shadow-sm"><Info size={24} className="mt-0.5 shrink-0 text-amber-500" /><div><p className="font-bold text-amber-900">{t('checkout.noPaymentTitle', 'الدفع الإلكتروني غير متاح لهذا العرض حالياً.')}</p><p className="mt-1 text-sm font-medium leading-6">{t('checkout.noPaymentBody', 'لم يتم إنشاء عملية دفع. يرجى اختيار عرض آخر أو التواصل مع فريق الحجوزات.')}</p></div></div>}
+                {!isAffiliate && !offerPayable && <div role="status" className="mb-8 flex items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 p-5 text-amber-800 shadow-sm"><Info size={24} className="mt-0.5 shrink-0 text-amber-500" /><div><p className="font-bold text-amber-900">{t('checkout.noPaymentTitle', 'الدفع الإلكتروني غير متاح لهذا العرض حالياً.')}</p><p className="mt-1 text-sm font-medium leading-6">{t('checkout.noPaymentBody', 'لم يتم إنشاء عملية دفع. يرجى اختيار عرض آخر أو التواصل مع فريق الحجوزات.')}</p></div></div>}
 
                 <div className="grid min-w-0 gap-8 lg:grid-cols-[minmax(0,1fr)_minmax(16rem,24rem)]">
                     <div className="order-2 min-w-0 lg:order-1">
+                        {!isAffiliate && <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5">
+                            <label htmlFor="payment-currency" className="block text-sm font-bold">{t('checkout.paymentCurrency')}</label>
+                            <select id="payment-currency" data-payment-currency value={paymentCurrency} disabled={isSubmitting || Boolean(sessionStorage.getItem('remal_checkout_idempotency_key'))}
+                                onChange={event => { setPaymentQuote(null); setPaymentCurrency(event.target.value); }} className="mt-3 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3">
+                                {PAYMENT_CURRENCIES.map(code => <option key={code} value={code}>{code} — {new Intl.DisplayNames([language], { type: 'currency' }).of(code)}</option>)}
+                            </select>
+                            <p className="mt-3 text-sm leading-7 text-slate-600">{t('checkout.paymentCurrencyNotice')}</p>
+                            {!sessionToken && <a href="/account?returnTo=%2Fcheckout" className="mt-2 inline-block text-sm font-bold underline">{t('checkout.signInToQuote')}</a>}
+                            {sessionToken && !paymentQuote && !quoteError && <p role="status" className="mt-2 text-sm">{t('checkout.quoteLoading')}</p>}
+                            {quoteError && <p role="alert" className="mt-2 text-sm text-red-700">{quoteError} <button type="button" disabled={isSubmitting || Boolean(sessionStorage.getItem('remal_checkout_idempotency_key'))} onClick={() => { sessionStorage.removeItem('remal_checkout_payment_quote'); setQuoteRefresh(value => value + 1); }} className="underline">{t('checkout.refreshQuote')}</button></p>}
+                        </section>}
                         {error && <div role="alert" aria-live="assertive" className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800"><Info size={20} className="mt-0.5 shrink-0" /><div><p className="text-sm font-bold leading-6">{error}</p>{requiresLogin && <a data-checkout-sign-in href="/account?returnTo=%2Fcheckout" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-white px-4 py-2 text-sm font-bold underline">{t('checkout.signInReturn', 'تسجيل الدخول والعودة للحجز')}</a>}</div></div>}
                         <GuestForm
                             guestDetails={guest}
@@ -403,14 +454,14 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                             isSubmitting={isSubmitting}
                             paymentAvailable={isAffiliate ? canBookAffiliate : canPay}
                             paymentMode={isAffiliate ? 'affiliate' : 'ziina'}
-                            total={total}
-                            currency={currency}
-                            displayCurrency={displayCurrency}
+                            total={chargeTotal}
+                            currency={chargeCurrency}
+                            displayCurrency={isAffiliate ? displayCurrency : chargeCurrency}
                             displayRates={displayRates}
                             onValidationError={setError}
                         />
                     </div>
-                    <BookingSummary booking={selectedBooking} room={room} total={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} canPay={isAffiliate ? canBookAffiliate : canPay} isAffiliate={isAffiliate} />
+                    <BookingSummary booking={selectedBooking} room={room} total={chargeTotal} currency={chargeCurrency} displayCurrency={isAffiliate ? displayCurrency : chargeCurrency} displayRates={displayRates} canPay={isAffiliate ? canBookAffiliate : canPay} isAffiliate={isAffiliate} />
                 </div>
             </div>
         </main>

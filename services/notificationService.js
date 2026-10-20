@@ -65,7 +65,7 @@ async function sendVoucherConfirmation(input) {
 async function sendRefundConfirmation({ email, guestName, reference, amountMinor, currency }) {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Number.isSafeInteger(amountMinor)
         || amountMinor <= 0 || !/^[A-Z]{3}$/.test(currency)) throw new Error('refund_email_unavailable');
-    const amount = (amountMinor / 100).toFixed(2);
+    const amount = require('./ziinaClient').formatAmountMinor(amountMinor, currency);
     const text = `Your refund has been confirmed. Reference: ${reference}. Refunded amount: ${amount} ${currency}.`;
     const html = `<p>Dear ${escapeHtml(guestName)},</p><p>Your refund has been confirmed for reservation ${escapeHtml(reference)}.</p>`
         + `<p>Refunded amount: ${escapeHtml(amount)} ${escapeHtml(currency)}.</p>`;

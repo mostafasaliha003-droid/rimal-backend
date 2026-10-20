@@ -201,10 +201,12 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
             checkin: searchParams.checkin,
             checkout: searchParams.checkout,
             guests: searchParams.guests,
+            residency: searchParams.residency,
             room: checkoutRoom
         };
         sessionStorage.setItem('remal_checkout', JSON.stringify(booking));
         sessionStorage.removeItem('remal_checkout_idempotency_key');
+        sessionStorage.removeItem('remal_checkout_payment_quote');
         sessionStorage.removeItem('remal_affiliate_booking_idempotency_key');
         sessionStorage.removeItem('remal_affiliate_attempt');
         sessionStorage.removeItem('remal_payment_attempt');

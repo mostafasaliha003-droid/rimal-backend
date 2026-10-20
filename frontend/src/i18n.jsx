@@ -10,6 +10,12 @@ const LANGUAGE_STORAGE_KEY = 'remal_language';
 
 const translations = {
     ar: {
+        'checkout.signInToQuote': 'سجّل الدخول لتثبيت مبلغ الدفع بالعملة المختارة',
+        'checkout.paymentCurrency': 'عملة الدفع والتأكيد',
+        'checkout.paymentCurrencyNotice': 'اختر عملة بطاقتك قبل المتابعة. سيتم تحصيل المبلغ الظاهر عبر Ziina وإصدار تأكيد رمال بالعملة نفسها. قد يحوّل البنك المبلغ إذا كانت عملة البطاقة مختلفة.',
+        'checkout.quoteLoading': 'جارٍ تثبيت مبلغ الدفع بالعملة المختارة...',
+        'checkout.quoteUnavailable': 'تعذر تثبيت مبلغ الدفع حاليًا. لم تُنشأ عملية دفع.',
+        'checkout.refreshQuote': 'تحديث السعر',
         'checkout.awaitingPayment': 'بانتظار إتمام الدفع',
         'checkout.awaitingPaymentBody': 'لم تؤكد بوابة الدفع اكتمال العملية بعد. يمكنك متابعة عملية الدفع الحالية من الزر أدناه. لا تنشئ طلب دفع آخر.',
         'checkout.awaitingPaymentSupport': 'لم تؤكد بوابة الدفع اكتمال العملية بعد. تواصل مع الدعم للتحقق من حالتها قبل بدء محاولة جديدة.',
@@ -220,6 +226,12 @@ const translations = {
         'search.residencyRequired': 'اختر جنسية الضيف (بلد جواز السفر).'
     },
     en: {
+        'checkout.signInToQuote': 'Sign in to lock the amount in your selected currency',
+        'checkout.paymentCurrency': 'Payment and confirmation currency',
+        'checkout.paymentCurrencyNotice': 'Choose your card currency before continuing. Ziina will charge the amount shown and your Remal confirmation will use the same currency. Your bank may convert payments if your card uses a different currency.',
+        'checkout.quoteLoading': 'Locking the payment amount in your selected currency...',
+        'checkout.quoteUnavailable': 'The payment amount could not be locked. No payment was created.',
+        'checkout.refreshQuote': 'Refresh price',
         'checkout.awaitingPayment': 'Waiting for payment completion',
         'checkout.awaitingPaymentBody': 'The payment gateway has not confirmed completion. Continue the existing payment using the button below. Do not create another payment request.',
         'checkout.awaitingPaymentSupport': 'The payment gateway has not confirmed completion. Contact support to check its status before starting another attempt.',
@@ -695,6 +707,12 @@ const translations = {
         ,'loyalty.tierElite': 'Elite',
     },
     es: {
+        'checkout.signInToQuote': 'Inicia sesión para fijar el importe en la moneda seleccionada',
+        'checkout.paymentCurrency': 'Moneda de pago y confirmación',
+        'checkout.paymentCurrencyNotice': 'Elige la moneda de tu tarjeta. Ziina cobrará el importe mostrado y la confirmación de Remal usará la misma moneda. Tu banco puede convertir el pago si tu tarjeta usa otra moneda.',
+        'checkout.quoteLoading': 'Fijando el importe en la moneda seleccionada...',
+        'checkout.quoteUnavailable': 'No se pudo fijar el importe. No se creó ningún pago.',
+        'checkout.refreshQuote': 'Actualizar precio',
         'checkout.awaitingPayment': 'Esperando la finalización del pago',
         'checkout.awaitingPaymentBody': 'La pasarela de pago no ha confirmado la finalización. Continúa el pago existente con el botón de abajo. No crees otra solicitud de pago.',
         'checkout.awaitingPaymentSupport': 'La pasarela de pago no ha confirmado la finalización. Contacta con soporte para verificar su estado antes de iniciar otro intento.',

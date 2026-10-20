@@ -3,6 +3,16 @@ import assert from 'node:assert/strict';
 import { SEARCH_CURRENCY, DISPLAY_CURRENCIES, displayAmount, cheapestRate, normalizeRoom, rateAmount, formatMoney } from './offers.js';
 import { hotelImages, roomCardImages, roomImagesForRate } from './hotelImages.js';
 import { trackBookingEvent } from './analytics.js';
+import { paymentCurrencyForCountry, PAYMENT_CURRENCIES } from './paymentCurrency.js';
+
+test('payment defaults use residency and KWD totals retain their three displayed decimals', () => {
+    assert.equal(paymentCurrencyForCountry('ae'), 'AED');
+    assert.equal(paymentCurrencyForCountry('kw'), 'KWD');
+    assert.equal(paymentCurrencyForCountry('sa'), 'SAR');
+    assert.equal(paymentCurrencyForCountry('unknown'), 'USD');
+    assert.equal(PAYMENT_CURRENCIES.length, 10);
+    assert.match(formatMoney(8.51, 'KWD'), /(?:8\.510|٨٫٥١٠)/);
+});
 
 const rate = (amount, currency = 'USD') => ({ book_hash: 'rate', payment_options: { payment_types: [{ amount, currency_code: currency, type: 'deposit' }] } });
 

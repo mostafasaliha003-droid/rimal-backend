@@ -50,7 +50,7 @@ function normalizedCheckout(input = {}) {
         || new Date(end).toISOString().slice(0, 10) !== checkout
         || start < Date.parse(new Date().toISOString().slice(0, 10)) || end <= start) throw fail('invalid_dates');
     if (!ziina.SUPPORTED_CURRENCIES.has(input.currency)) throw fail('unsupported_currency');
-    const amountMinor = ziina.minorUnits(input.total);
+    const amountMinor = ziina.minorUnits(input.total, input.currency);
     const occupancy = input.guests;
     const rooms = input.rooms;
     if (!Array.isArray(occupancy) || !Array.isArray(rooms) || occupancy.length === 0
@@ -96,7 +96,7 @@ function verifyRateIdentity(info, details) {
         || hotels[0].rates[0].book_hash !== details.book_hash
         || hotels[0].rates[0].room_name !== details.roomName) throw fail('offer_identity_mismatch', 409);
     payment.resolveValidatedPayment(info, {
-        hid: details.hid, total: details.amount_minor / 100, currency: details.currency, roomName: details.roomName
+        hid: details.hid, total: ziina.majorUnits(details.amount_minor, details.currency), currency: details.currency, roomName: details.roomName
     });
 }
 
@@ -148,12 +148,16 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
     const details = normalizedCheckout(input);
     const hash = value => crypto.createHmac('sha256', encryptionKey()).update(value).digest('hex');
     const processId = hash(idempotencyKey);
-    const requestHash = hash(JSON.stringify({ details, ownerSubject: identity.subject, realm: identity.realm }));
+    const requestHash = hash(JSON.stringify({ details, ownerSubject: identity.subject, realm: identity.realm,
+        ...(input.payment_quote ? { payment_quote: input.payment_quote } : {}) }));
     let record = await CheckoutAttempt.findById(processId).lean();
     if (record) {
         if (record.request_hash !== requestHash) throw fail('checkout_conflict', 409);
         return checkoutResponse(record);
     }
+    const charge = input.payment_quote
+        ? require('./checkoutCurrencyService').readQuote(input.payment_quote, details, identity)
+        : { amount_minor: details.amount_minor, currency: details.currency };
     const reference = crypto.randomUUID();
     try {
         record = await CheckoutAttempt.create({ _id: processId, reference, request_hash: requestHash,
@@ -173,14 +177,14 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
         const prebook = details.book_hash.startsWith('p-')
             ? rateInfo : await ratehawk.validatePrebookRate(details.book_hash, 0);
         const validated = payment.resolveValidatedPayment(prebook, {
-            hid: details.hid, total: details.amount_minor / 100, currency: details.currency, roomName: details.roomName
+            hid: details.hid, total: ziina.majorUnits(details.amount_minor, details.currency), currency: details.currency, roomName: details.roomName
         });
         const form = await booking.createProcess({ book_hash: validated.book_hash, language: 'en', user_ip: userIp, guests: details.guests }, reference);
         if (form.status !== 'form_ready') throw fail('booking_form_unavailable', 409);
         const selected = (form.payment_types || []).find(option => {
             if (option.type !== 'deposit' || option.currency_code !== validated.currency
                 || option.is_need_credit_card_data !== false) return false;
-            try { return ziina.minorUnits(option.amount) === ziina.minorUnits(validated.amount); } catch { return false; }
+            try { return ziina.minorUnits(option.amount, option.currency_code) === ziina.minorUnits(validated.amount, validated.currency); } catch { return false; }
         });
         if (!selected) throw fail('unsupported_supplier_payment', 409);
         const paymentType = { type: selected.type, amount: selected.amount, currency_code: selected.currency_code };
@@ -189,8 +193,10 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
             is_gender_specification_required: form.is_gender_specification_required
         });
         if (new Date(form.form_expires_at).getTime() <= Date.now() + 25 * 60 * 1000) throw fail('booking_form_expired', 409);
+        if (input.payment_quote && charge.expires_at <= Date.now()) throw fail('checkout_quote_expired_or_changed', 409);
         record = await CheckoutAttempt.findOneAndUpdate({ _id: processId, state: 'preparing' }, { $set: {
-            state: 'intent_creating', amount_minor: details.amount_minor, currency: details.currency,
+            state: 'intent_creating', amount_minor: charge.amount_minor, currency: charge.currency,
+            ...(input.payment_quote ? { payment_quote: charge } : {}),
             ziina_test: process.env.ZIINA_TEST_MODE === 'true', booking_process_id: form.process_id,
             partner_order_id: form.partner_order_id,
             supplier_identity: payment.supplierIdentity(),
@@ -207,7 +213,7 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
         throw fail(['RATE_CHANGED', 'rate_not_found'].includes(error.message) ? 'rate_changed' : error.code || 'supplier_preflight_failed', 409);
     }
     try {
-        const intent = await ziina.createIntent({ amount: details.amount_minor / 100, currency: details.currency, reference,
+        const intent = await ziina.createIntent({ amount: ziina.majorUnits(record.amount_minor, record.currency), currency: record.currency, reference,
             test: record.ziina_test, frontendUrl: process.env.FRONTEND_URL, accountId: process.env.ZIINA_ACCOUNT_ID });
         const updated = await CheckoutAttempt.findOneAndUpdate({ _id: processId, state: 'intent_creating' }, { $set: {
             ziina_intent_id: intent.id, ziina_account_id: intent.accountId, ziina_operation_id: intent.operationId,

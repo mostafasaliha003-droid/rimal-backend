@@ -155,10 +155,11 @@ async function cancelBooking(partnerOrderId, options = {}) {
             throw fail('confirmation_delivery_pending', 409);
         }
         if (options.confirm_customer_refund !== true || !customerRefund) throw fail('customer_refund_authorization_required');
-        if (customerRefund.currency_code !== checkout.currency || !/^\d+(?:\.\d{1,2})?$/.test(customerRefund.amount)) {
+        if (customerRefund.currency_code !== checkout.currency || !/^\d+(?:\.\d{1,3})?$/.test(customerRefund.amount)) {
             throw fail('invalid_customer_refund_amount');
         }
-        refundAmountMinor = Math.round(Number(customerRefund.amount) * 100);
+        try { refundAmountMinor = require('./ziinaClient').minorUnits(customerRefund.amount, checkout.currency); }
+        catch { throw fail('invalid_customer_refund_amount'); }
         if (!Number.isSafeInteger(refundAmountMinor) || refundAmountMinor <= 0 || refundAmountMinor > checkout.amount_minor) {
             throw fail('invalid_customer_refund_amount');
         }

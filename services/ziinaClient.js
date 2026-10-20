@@ -1,7 +1,8 @@
 const crypto = require('node:crypto');
 
 const API_URL = 'https://api-v2.ziina.com/api';
-const SUPPORTED_CURRENCIES = new Set(['AED', 'USD', 'SAR', 'EUR']);
+const CURRENCIES = require('../shared/paymentCurrencies.json');
+const SUPPORTED_CURRENCIES = new Set(Object.keys(CURRENCIES));
 const PAYMENT_STATUSES = new Set(['requires_payment_instrument', 'requires_user_action', 'pending', 'completed', 'failed', 'canceled']);
 const REFUND_STATUSES = new Set(['pending', 'completed', 'failed']);
 const WEBHOOK_ADDRESSES = new Set(['3.29.184.186', '3.29.190.95', '20.233.47.127', '13.202.161.181']);
@@ -10,12 +11,23 @@ function error(code) {
     return Object.assign(new Error(code), { code });
 }
 
-function minorUnits(amount) {
+function minorUnits(amount, currency = 'AED') {
+    if (!SUPPORTED_CURRENCIES.has(currency)) throw error('invalid_payment_currency');
     const value = Number(amount);
-    const minor = Math.round(value * 100);
+    const factor = 10 ** CURRENCIES[currency].decimals;
+    const minor = Math.round(value * factor);
     if (!Number.isFinite(value) || value <= 0 || !Number.isSafeInteger(minor)
-        || Math.abs(value * 100 - minor) > 0.000001) throw error('invalid_payment_amount');
+        || Math.abs(value * factor - minor) > 0.000001 || minor % CURRENCIES[currency].step !== 0) throw error('invalid_payment_amount');
     return minor;
+}
+
+function majorUnits(amount, currency) {
+    if (!SUPPORTED_CURRENCIES.has(currency) || !Number.isSafeInteger(amount) || amount < 0) throw error('invalid_payment_amount');
+    return amount / (10 ** CURRENCIES[currency].decimals);
+}
+
+function formatAmountMinor(amount, currency) {
+    return majorUnits(amount, currency).toFixed(CURRENCIES[currency].decimals);
 }
 
 function validId(value) {
@@ -72,7 +84,7 @@ function returnUrl(frontendUrl, result, reference) {
 
 async function createIntent({ amount, currency, reference, accountId = process.env.ZIINA_ACCOUNT_ID, test = false, frontendUrl = process.env.FRONTEND_URL || 'https://remalbookings.com', fetcher, token }) {
     if (!SUPPORTED_CURRENCIES.has(currency) || !validId(reference) || !validId(accountId)) throw error('invalid_payment_context');
-    const amountMinor = minorUnits(amount);
+    const amountMinor = minorUnits(amount, currency);
     const intent = validateIntent(await request('/payment_intent', {
         method: 'POST', fetcher, token, payload: {
             amount: amountMinor, currency_code: currency, test: test === true, allow_tips: false,
@@ -97,7 +109,7 @@ async function getIntent(id, options = {}) {
 
 async function createRefund({ id, intentId, amount, currency, test = false, fetcher, token }) {
     if (!validId(id) || !validId(intentId) || !SUPPORTED_CURRENCIES.has(currency)) throw error('invalid_refund_context');
-    const amountMinor = minorUnits(amount);
+    const amountMinor = minorUnits(amount, currency);
     return validateRefund(await request('/refund', {
         method: 'POST', fetcher, token, payload: { id, payment_intent_id: intentId, amount: amountMinor, currency_code: currency, test: test === true }
     }), { id, intentId, amount: amountMinor, currency });
@@ -116,4 +128,4 @@ function verifyWebhook(rawBody, signature, address, secret = process.env.ZIINA_W
     return crypto.timingSafeEqual(digest, Buffer.from(signature, 'hex'));
 }
 
-module.exports = { SUPPORTED_CURRENCIES, minorUnits, validateIntent, validateRefund, createIntent, getIntent, createRefund, getRefund, verifyWebhook };
+module.exports = { SUPPORTED_CURRENCIES, minorUnits, majorUnits, formatAmountMinor, validateIntent, validateRefund, createIntent, getIntent, createRefund, getRefund, verifyWebhook };

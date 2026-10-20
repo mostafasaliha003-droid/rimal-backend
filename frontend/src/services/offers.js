@@ -1,6 +1,7 @@
 export const SEARCH_CURRENCY = 'USD';
 export const DISPLAY_CURRENCIES = ['USD', 'AED', 'SAR', 'EUR'];
 import { roomImagesForRate } from './hotelImages.js';
+import paymentCurrencies from '../../../shared/paymentCurrencies.json' with { type: 'json' };
 
 export function displayAmount(amount, sourceCurrency, displayCurrency, usdRates) {
     const value = Number(amount);
@@ -30,7 +31,7 @@ export function cheapestRate(rates = [], currency = SEARCH_CURRENCY) {
 
 export function formatMoney(amount, currency = 'AED') {
     if (!Number.isFinite(Number(amount))) return 'السعر غير متاح';
-    return new Intl.NumberFormat('ar-AE', { style: 'currency', currency, maximumFractionDigits: 2 }).format(Number(amount));
+    return new Intl.NumberFormat('ar-AE', { style: 'currency', currency, maximumFractionDigits: paymentCurrencies[currency]?.decimals || 2 }).format(Number(amount));
 }
 
 export function normalizeRoom(rate, hotel, guests) {

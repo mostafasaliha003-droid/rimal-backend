@@ -967,6 +967,17 @@ app.get('/api/payment/availability', (req, res) => {
     res.json({ enabled, ...(!enabled ? { reason: 'checkout_unavailable' } : {}) });
 });
 
+app.post('/api/payment/quote', requireUser, securityService.searchLimiter, async (req, res) => {
+    res.set('Cache-Control', 'no-store');
+    try {
+        if (!paymentService.isCheckoutReady() || mongoose.connection.readyState !== 1) return res.status(503).json({ error: 'checkout_quote_unavailable' });
+        const quote = await require('./services/checkoutCurrencyService').createQuote(req.body || {}, req.auth);
+        return res.json(quote);
+    } catch (error) {
+        const code = /^[a-z][a-z0-9_]{0,79}$/.test(error.code || '') ? error.code : 'checkout_quote_unavailable';
+        return res.status(error.httpStatus === 409 ? 409 : 503).json({ success: false, error: code });
+    }
+});
 app.post('/api/payment/ziina/intent', requireUser, securityService.bookingLimiter, async (req, res) => {
     res.set('Cache-Control', 'no-store');
     try {
