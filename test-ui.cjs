@@ -162,6 +162,15 @@ async function run() {
                     body = { process_id: affiliateProcessId, status: 'confirmed', confirmed: true, supplier_reference: 'TEST-AFFILIATE-ORDER' };
                 }
                 else if (url.pathname.endsWith('/reviews/google/availability')) body = { enabled: true };
+                else if (url.pathname.endsWith('/reviews/ratehawk')) {
+                    const offset = Number(url.searchParams.get('offset') || 0);
+                    const reviews = Array.from({ length: 11 }, (_, index) => ({ id: String(index), author: `Fixture ETG Guest ${index}`,
+                        rating: 10 - index, positive: 'Fixture positive stay feedback', negative: 'Fixture negative stay feedback',
+                        publishedAt:'2026-10-01T12:00:00Z', roomName:'Supplier Double Room', nights:2 }));
+                    body = { status:'ready', source:'ratehawk', environment:'sandbox', scale:10, resolvedLanguage:'en', googleAvailable:true,
+                        summary:{score:5,count:11,ratedCount:11,categories:[{key:'cleanness',score:7,count:11}]}, total:11,
+                        reviews:reviews.slice(offset, offset + 10), hasMore:offset === 0, nextOffset:Math.min(offset + 10, 11) };
+                }
                 else if (url.pathname.endsWith('/reviews/google')) {
                     googleReviewsRequests++;
                     assert.equal(url.searchParams.get('language'), 'ar');
@@ -366,8 +375,19 @@ async function run() {
         await page.waitForFunction(() => document.querySelector('[data-gallery-photo]')?.src.includes('photo=0'));
         await page.keyboard.press('Escape');
         await page.waitForFunction(() => !document.querySelector('[data-hotel-gallery]'));
-        await page.waitForSelector('[data-load-google-reviews]');
+        await page.waitForSelector('[data-ratehawk-rating]');
+        assert.match(await page.$eval('[data-ratehawk-rating]', n => n.textContent), /5\.0/);
+        assert.equal(await page.$$eval('[data-ratehawk-review]', nodes => nodes.length), 10);
+        assert.match(await page.$eval('[data-ratehawk-review]', n => n.textContent), /Fixture negative stay feedback/);
+        await page.$eval('[data-more-ratehawk-reviews]', n => n.scrollIntoView({block:'center',behavior:'instant'}));
+        await page.click('[data-more-ratehawk-reviews]');
+        await page.waitForFunction(() => document.querySelectorAll('[data-ratehawk-review]').length === 11);
+        assert.match(await page.$eval('[data-ratehawk-review]:last-of-type', n => n.textContent), /0\.0/);
+        await page.$eval('[data-google-review-option] summary', n => n.scrollIntoView({block:'center',behavior:'instant'}));
+        await page.click('[data-google-review-option] summary');
+        await page.waitForSelector('[data-load-google-reviews]', { visible:true });
         assert.equal(googleReviewsRequests, 0, 'Do not prefetch paid Google reviews before the visitor asks');
+        await page.$eval('[data-load-google-reviews]', n => n.scrollIntoView({block:'center',behavior:'instant'}));
         await page.click('[data-load-google-reviews]');
         await page.waitForSelector('[data-google-rating]');
         assert.equal(googleReviewsRequests, 1);

@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CheckCircle2, CalendarDays, Users } from 'lucide-react';
 import RoomOfferGroups from './components/RoomOfferGroups';
-import GoogleHotelReviews from './components/GoogleHotelReviews';
+import HotelGuestReviews from './components/HotelGuestReviews';
 import HotelPhotoGallery from './components/HotelPhotoGallery';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom, rateAmount, rateCurrency } from './services/offers';
@@ -316,7 +316,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             </div>
                         </article>
 
-                        <GoogleHotelReviews key={`${hid}:${language}`} hid={hid} hotelName={hotel?.name} address={hotel?.address} />
+                        <HotelGuestReviews key={`${hid}:${language}`} hid={hid} hotelName={hotel?.name} address={hotel?.address} />
 
                         {/* Rooms List */}
                         <section id="hotel-room-offers" className="scroll-mt-24 space-y-5">

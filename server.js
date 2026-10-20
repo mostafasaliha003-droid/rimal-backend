@@ -505,6 +505,11 @@ app.use('/api/v1/hotels', require('./services/googleHotelReviewRoutes')({
         handler: (_req, res) => res.set({ 'Cache-Control': 'no-store', 'Retry-After': '60' }).status(429).json({ status: 'limited' }) })
 }));
 
+app.use('/api/v1/hotels', require('./services/ratehawkHotelReviewRoutes')({
+    reviews: require('./services/ratehawkHotelReviews').createRatehawkHotelReviews({ HotelModel: Hotel,
+        CacheModel: require('./models/RatehawkReviewCache') }), limiter: publicSearchGuard
+}));
+
 app.get('/api/v1/hotels/:hid', publicSearchGuard, async (req, res) => {
     const hid = String(req.params.hid || '').trim();
     const language = req.query.language || 'en';
