@@ -53,7 +53,8 @@ async function view(record) {
     if (record.checkout_attempt_id && record.state === 'cancelled') {
         const checkout = await CheckoutAttempt.findById(record.checkout_attempt_id).lean();
         customerRefundStatus = !checkout || checkout.partner_order_id !== record._id
-            ? 'review' : checkout.state === 'refund_completed' && checkout.refund_verified_at
+            ? 'review' : record.customer_refund_amount_minor === 0 && checkout.refund_status === 'not_due' ? 'not_due'
+                : checkout.state === 'refund_completed' && checkout.refund_verified_at
                 ? 'completed' : checkout.state === 'refund_review' || checkout.state === 'manual_review'
                     ? 'review' : checkout.state === 'booking_cancelled' || ['refund_creating', 'refund_unknown', 'refund_pending'].includes(checkout.state)
                         ? 'pending' : 'review';
@@ -92,7 +93,7 @@ async function syncCancelled(partnerOrderId, cancellation) {
         const checkout = await CheckoutAttempt.findById(cancellation.checkout_attempt_id).lean();
         if (!checkout || checkout.partner_order_id !== partnerOrderId || !checkout.payment_verified_at
             || !Number.isSafeInteger(cancellation.customer_refund_amount_minor)
-            || cancellation.customer_refund_amount_minor <= 0 || cancellation.customer_refund_amount_minor > checkout.amount_minor
+            || cancellation.customer_refund_amount_minor < 0 || cancellation.customer_refund_amount_minor > checkout.amount_minor
             || checkout.cancellation_request_hash !== cancellation.request_hash) {
             throw fail('customer_refund_link_mismatch', 503);
         }
@@ -102,7 +103,9 @@ async function syncCancelled(partnerOrderId, cancellation) {
         if (checkout.state === 'booking_confirmed') {
             const updated = await CheckoutAttempt.updateOne({ _id: checkout._id, state: 'booking_confirmed', partner_order_id: partnerOrderId,
                 cancellation_request_hash: cancellation.request_hash, refund_id: { $exists: false } }, { $set: { state: 'booking_cancelled',
-                refund_amount_minor: cancellation.customer_refund_amount_minor, refund_status: 'pending', next_check_at: new Date() } });
+                refund_amount_minor: cancellation.customer_refund_amount_minor,
+                refund_status: cancellation.customer_refund_amount_minor === 0 ? 'not_due' : 'pending',
+                next_check_at: cancellation.customer_refund_amount_minor === 0 ? null : new Date() } });
             if (updated.matchedCount !== 1) throw fail('customer_refund_link_mismatch', 503);
         } else if (checkout.cancellation_request_hash !== cancellation.request_hash
             || !['booking_cancelled', 'refund_creating', 'refund_unknown', 'refund_pending', 'refund_completed', 'refund_review'].includes(checkout.state)) {
@@ -158,9 +161,10 @@ async function cancelBooking(partnerOrderId, options = {}) {
         if (customerRefund.currency_code !== checkout.currency || !/^\d+(?:\.\d{1,3})?$/.test(customerRefund.amount)) {
             throw fail('invalid_customer_refund_amount');
         }
-        try { refundAmountMinor = require('./ziinaClient').minorUnits(customerRefund.amount, checkout.currency); }
+        try { refundAmountMinor = /^0(?:\.0+)?$/.test(customerRefund.amount) ? 0
+            : require('./ziinaClient').minorUnits(customerRefund.amount, checkout.currency); }
         catch { throw fail('invalid_customer_refund_amount'); }
-        if (!Number.isSafeInteger(refundAmountMinor) || refundAmountMinor <= 0 || refundAmountMinor > checkout.amount_minor) {
+        if (!Number.isSafeInteger(refundAmountMinor) || refundAmountMinor < 0 || refundAmountMinor > checkout.amount_minor) {
             throw fail('invalid_customer_refund_amount');
         }
     } else if (customerRefund || options.confirm_customer_refund !== undefined) {

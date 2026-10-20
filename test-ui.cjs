@@ -47,6 +47,8 @@ async function run() {
     let b2bPrebookRequests = 0;
     let checkoutStatus = 'booking_pending';
     let voucherDelivery = 'pending';
+    let profileBookings = [];
+    let cancellationRequests = 0;
     let statusRequests = 0;
     let exchangeAvailable = true;
     let exchangeRequests = 0;
@@ -74,7 +76,18 @@ async function run() {
                     if (request.headers().authorization !== `Bearer ${userToken}`) return request.respond({ status: 401, contentType: 'application/json', headers, body: JSON.stringify({ error: 'unauthorized' }) });
                     body = { success: true, user: fixtureUser };
                 }
-                else if (url.pathname.endsWith('/user/profile')) body = { success: true, profile: fixtureUser, bookings: [] };
+                else if (url.pathname.endsWith('/user/profile')) body = { success: true, profile: fixtureUser, bookings: profileBookings };
+                else if (url.pathname.endsWith('/owned/bookings/fixture-cancellation/cancellation/status')) body = { status: 'cancelled', success: true, customer_refund_status: 'completed' };
+                else if (url.pathname.endsWith('/owned/bookings/fixture-cancellation/cancellation')) {
+                    assert.equal(request.headers().authorization, `Bearer ${userToken}`);
+                    if (request.method() === 'POST') {
+                        cancellationRequests++;
+                        assert.deepEqual(JSON.parse(request.postData()), { confirm_cancellation: true, quote_token: 'fixture-cancellation-quote' });
+                        body = { status: 'cancelled', success: true, customer_refund_status: 'pending' };
+                    } else body = { mode: 'automatic', policy: 'Fixture supplier cancellation policy',
+                        fee: { amount: '36.73', currency_code: 'AED' }, refund: { amount: '330.52', currency_code: 'AED' },
+                        quote_token: 'fixture-cancellation-quote', expires_at: Date.now() + 300000 };
+                }
                 else if (url.pathname.endsWith('/display-rates')) {
                     exchangeRequests++;
                     if (!exchangeAvailable) return request.respond({ status: 503, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'DISPLAY_RATES_UNAVAILABLE' }) });
@@ -517,6 +530,33 @@ async function run() {
         assert.equal(b2bPrebookRequests, b2bPrebookCountBeforeAffiliate, 'Affiliate must not issue a B2B prebook request');
         assert.deepEqual(errors, []);
         console.log('PASS: Affiliate Pay at Hotel carries its signed contract and guest details only to Affiliate booking/status routes, without Ziina or B2B booking calls.');
+        profileBookings = [{ bookingReference: 'fixture-cancellation', hotelName: 'Cancellation Test Hotel',
+            provider: 'ratehawk', status: 'active', supplierStatus: 'COMPLETED', price: 367.25, priceCurrency: 'AED',
+            checkInDate: '2027-10-15', checkOutDate: '2027-10-17' }];
+        await page.evaluate(({ fixtureUser, userToken }) => {
+            localStorage.setItem('rimal_current_user', JSON.stringify(fixtureUser));
+            sessionStorage.setItem('rimal_user_access_token', userToken);
+        }, { fixtureUser, userToken });
+        await page.goto(`${base}/account?lang=ar`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('[data-booking-cancellation]');
+        await page.click('[data-booking-cancellation]');
+        await page.waitForSelector('[data-cancellation-confirm]');
+        assert.equal(await page.$eval('[data-cancellation-confirm]', node => node.disabled), true);
+        assert.match(await page.$eval('dialog', node => node.innerText), /36.73|٣٦٫٧٣/);
+        assert.match(await page.$eval('dialog', node => node.innerText), /330.52|٣٣٠٫٥٢/);
+        await page.screenshot({ path: path.join(screenshotDirectory, 'test-cancellation-review-mobile.png'), fullPage: true });
+        assert.equal(cancellationRequests, 0);
+        await page.click('dialog button[aria-label="إغلاق"]');
+        assert.equal(cancellationRequests, 0, 'Opening or dismissing policy review never cancels');
+        await page.click('[data-booking-cancellation]');
+        await page.waitForSelector('[data-cancellation-accept]');
+        await page.click('[data-cancellation-accept]');
+        await page.$eval('[data-cancellation-confirm]', node => { node.click(); node.click(); });
+        await page.waitForFunction(() => document.querySelector('dialog')?.innerText.includes('أكدت بوابة الدفع اكتمال الاسترداد'));
+        assert.equal(cancellationRequests, 1, 'Repeated clicks cannot submit duplicate cancellation requests');
+        assert.doesNotMatch(await page.$eval('dialog', node => node.innerText), /cancel\.[a-zA-Z]+/);
+        await page.click('dialog button[aria-label="إغلاق"]');
+        console.log('PASS: owned cancellation fee and refund review, explicit consent, dismissal without mutation, duplicate-click protection and refund status.');
         await page.evaluate(() => sessionStorage.clear());
         await page.setBypassServiceWorker(false);
         await page.goto(base, { waitUntil: 'domcontentloaded' });

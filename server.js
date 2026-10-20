@@ -57,6 +57,7 @@ const { createDisplayCurrencyService } = require('./services/displayCurrencyServ
 const corsPolicy = require('./services/corsPolicy');
 const createBookingRouter = require('./services/bookingRoutes');
 const { createOwnedBookingPdfRouter } = require('./services/ownedBookingPdfRoutes');
+const { createOwnedBookingCancellationRouter } = require('./services/ownedBookingCancellationRoutes');
 const { createAdminBookingRouter } = require('./services/adminBookingRoutes');
 const createAdminHotelbedsSupplierTestController = require('./controllers/adminHotelbedsSupplierTestController');
 const createAdminHotelbedsSupplierTestRouter = require('./services/adminHotelbedsSupplierTestRoutes');
@@ -1119,6 +1120,7 @@ app.post('/api/v1/hotels/recheck-and-pay', (_req, res) => {
 
 app.post('/api/v1/hotels/book', requireUser, securityService.bookingLimiter, hotelbedsBookingController);
 
+app.use('/api/owned', createOwnedBookingCancellationRouter({ BookingModel: Booking, requireUser }));
 app.use('/api/owned', createOwnedBookingPdfRouter({
     BookingModel: Booking,
     HotelbedsContentModel: HotelbedsVerifiedHotelContent,

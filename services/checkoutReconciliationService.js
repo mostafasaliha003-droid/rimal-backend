@@ -231,7 +231,7 @@ async function reconcileRefund(record) {
             const cancellation = await BookingCancellation.findById(record.partner_order_id).lean();
             if (!cancellation || cancellation.checkout_attempt_id !== record._id
                 || cancellation.request_hash !== record.cancellation_request_hash
-                || !Number.isSafeInteger(record.refund_amount_minor) || record.refund_amount_minor <= 0
+                || !Number.isSafeInteger(record.refund_amount_minor) || record.refund_amount_minor < 0
                 || record.refund_amount_minor > record.amount_minor
                 || cancellation.customer_refund_amount_minor !== record.refund_amount_minor) {
                 await releaseClaim(record, { state: 'refund_review', next_check_at: null,
@@ -242,6 +242,10 @@ async function reconcileRefund(record) {
                 await releaseClaim(record, { next_check_at: followUp(60000), action_required: 'verify_supplier_cancellation' });
                 return;
             }
+        }
+        if (record.state === 'booking_cancelled' && record.refund_amount_minor === 0) {
+            await releaseClaim(record, { refund_status: 'not_due', next_check_at: null });
+            return;
         }
         if (!payment.isRefundReady() || record.ziina_account_id !== process.env.ZIINA_ACCOUNT_ID
             || process.env.ZIINA_TEST_MODE !== String(record.ziina_test)) {

@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, LoaderCircle, LogIn, Mail, Phone, ShieldCheck, UserPlus } from 'lucide-react';
 import BookingAPI from '../services/bookingApi';
+import BookingCancellationDialog from './BookingCancellationDialog';
 import { trackBookingEvent } from '../services/analytics';
 import { clearUserSession, readCurrentUser, saveUserSession } from '../services/authSession.js';
 import { useLanguage } from '../i18n';
@@ -44,6 +45,7 @@ export default function AccountCenter({ onNavigate }) {
     const [error, setError] = useState('');
     const [profile, setProfile] = useState(null);
     const [bookings, setBookings] = useState([]);
+    const [cancellationBooking, setCancellationBooking] = useState(null);
     const [loginForm, setLoginForm] = useState({ email: '', password: '' });
     const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', phone: '' });
     const [verificationCode, setVerificationCode] = useState('');
@@ -83,6 +85,7 @@ export default function AccountCenter({ onNavigate }) {
     }, []);
 
     useEffect(() => {
+        setCancellationBooking(null);
         if (!user?.email) {
             setProfile(null);
             setBookings([]);
@@ -281,6 +284,7 @@ export default function AccountCenter({ onNavigate }) {
                                                     <span className={`rounded-full px-3 py-1.5 text-xs font-black ${statusClass}`} role="status">
                                                         {statusLabel}
                                                     </span>
+                                                    <button data-booking-cancellation type="button" onClick={() => setCancellationBooking(booking)} className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-bold text-red-700 transition hover:border-red-300 hover:bg-red-50">{t(cancelled ? 'cancel.details' : 'cancel.options')}</button>
                                                     <button type="button" onClick={async () => {
                                                         try {
                                                             const response = await BookingAPI.getOwnedBookingVoucher(booking.bookingReference);
@@ -305,6 +309,9 @@ export default function AccountCenter({ onNavigate }) {
                         )}
                     </section>
                 </div>
+                {cancellationBooking && <BookingCancellationDialog booking={cancellationBooking} onClose={() => setCancellationBooking(null)} onCancelled={() => {
+                    setBookings(current => current.map(item => item.bookingReference === cancellationBooking.bookingReference ? { ...item, status: 'cancelled', supplierStatus: 'CANCELLED' } : item));
+                }} />}
             </main>
         );
     }

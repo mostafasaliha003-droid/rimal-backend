@@ -439,6 +439,22 @@ test('failed voucher retrieval cannot reschedule an already claimed cancellation
     assert.equal(scenario.record.action_required, undefined);
 });
 
+test('zero-refund cancellation settles without creating a payment-provider refund', async context => {
+    const scenario = fixture(context);
+    const reconciliation = require('./services/checkoutReconciliationService');
+    process.env.ZIINA_TEST_MODE = 'false';
+    Object.assign(scenario.record, { ziina_test: false, state: 'booking_cancelled', partner_order_id: 'partner-fixture',
+        payment_verified_at: new Date(), cancellation_request_hash: 'consent-fixture', refund_amount_minor: 0 });
+    context.mock.method(BookingCancellation, 'findById', () => ({ lean: async () => ({ state: 'cancelled',
+        _id: 'partner-fixture', request_hash: 'consent-fixture', checkout_attempt_id: scenario.record._id,
+        customer_refund_amount_minor: 0 }) }));
+    await reconciliation.reconcileAttempt(scenario.record._id);
+    assert.equal(scenario.record.state, 'booking_cancelled');
+    assert.equal(scenario.record.refund_status, 'not_due');
+    assert.equal(scenario.record.next_check_at, null);
+    assert.equal(scenario.createRefund.mock.callCount(), 0);
+});
+
 test('cancelled checkout refunds the authorized amount only after matching supplier cancellation', async context => {
     const scenario = fixture(context);
     const reconciliation = require('./services/checkoutReconciliationService');
