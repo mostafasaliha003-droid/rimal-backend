@@ -133,7 +133,7 @@ test('preflight persists an encrypted, idempotent checkout and refuses changed r
     assert.equal(second.reference, first.reference);
     assert.match(second.access_token, /^[a-f\d]{64}$/);
     assert.deepEqual(await checkout.getCheckout(first.reference, first.access_token), {
-        reference: first.reference, status: 'awaiting_payment', confirmed: false
+        reference: first.reference, status: 'awaiting_payment', confirmed: false, payment_url: 'https://pay.ziina.com/test'
     });
     await assert.rejects(checkout.getCheckout(first.reference, '0'.repeat(64)), /checkout_not_found/);
     await assert.rejects(checkout.getCheckout('invalid', first.access_token), /checkout_not_found/);
@@ -149,6 +149,9 @@ test('preflight persists an encrypted, idempotent checkout and refuses changed r
     assert.equal(JSON.stringify(scenario.record).includes('test@example.com'), false);
     assert.equal(checkout.decryptDetails(scenario.record).user.email, 'test@example.com');
     await assert.rejects(checkout.createCheckout({ ...details(), total: 200 }, key, '192.0.2.10'), /checkout_conflict/);
+    scenario.record.payment_expires_at = new Date(Date.now() - 1000);
+    assert.equal((await checkout.getCheckout(first.reference, first.access_token)).payment_url, undefined);
+    assert.equal(createIntent.mock.callCount(), 1);
 });
 
 test('a supplier-verified prebook hash proceeds to form without repeating hotel prebook', async context => {

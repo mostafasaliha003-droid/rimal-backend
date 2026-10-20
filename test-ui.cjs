@@ -134,6 +134,7 @@ async function run() {
                     statusRequests++;
                     assert.equal(request.headers().authorization, `Bearer ${accessToken}`);
                     body = { reference: checkoutReference, status: checkoutStatus, confirmed: checkoutStatus === 'booking_confirmed',
+                        ...(checkoutStatus === 'awaiting_payment' ? { payment_url: 'https://pay.ziina.com/test' } : {}),
                         ...(checkoutStatus === 'booking_confirmed' ? { supplier_reference: 'TEST-SUPPLIER-ORDER' } : {}) };
                 }
                 else if (url.pathname.endsWith('/payment/ziina/intent')) {
@@ -393,10 +394,17 @@ async function run() {
         await page.waitForFunction(reference => document.querySelector('main')?.innerText.includes(reference), {}, checkoutReference);
         assert.match(await page.$eval('main', element => element.innerText), /مرجع المتابعة/);
         assert(statusRequests > 0);
+        checkoutStatus = 'awaiting_payment';
+        await page.reload({ waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('[data-checkout-resume-payment]');
+        assert.match(await page.$eval('main h1', element => element.innerText), /بانتظار إتمام الدفع/);
+        assert.equal(await page.$eval('[data-checkout-resume-payment]', element => element.href), 'https://pay.ziina.com/test');
+        assert.equal(paymentRequests, 1);
         checkoutStatus = 'booking_confirmed';
         await page.reload({ waitUntil: 'domcontentloaded' });
         await page.waitForFunction(() => document.querySelector('main')?.innerText.includes('TEST-SUPPLIER-ORDER'));
         assert.match(await page.$eval('main', element => element.innerText), /TEST-SUPPLIER-ORDER/);
+        assert.equal(await page.$('[data-checkout-resume-payment]'), null);
         assert.equal(paymentRequests, 1);
         checkoutStatus = 'preflight_failed';
         await page.reload({ waitUntil: 'domcontentloaded' });

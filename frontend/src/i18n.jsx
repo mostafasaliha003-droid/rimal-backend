@@ -10,6 +10,10 @@ const LANGUAGE_STORAGE_KEY = 'remal_language';
 
 const translations = {
     ar: {
+        'checkout.awaitingPayment': 'بانتظار إتمام الدفع',
+        'checkout.awaitingPaymentBody': 'لم تؤكد بوابة الدفع اكتمال العملية بعد. يمكنك متابعة عملية الدفع الحالية من الزر أدناه. لا تنشئ طلب دفع آخر.',
+        'checkout.awaitingPaymentSupport': 'لم تؤكد بوابة الدفع اكتمال العملية بعد. تواصل مع الدعم للتحقق من حالتها قبل بدء محاولة جديدة.',
+        'checkout.resumePayment': 'متابعة عملية الدفع الحالية',
         'checkout.offerUnavailable': 'العرض لم يعد متاحًا بهذا السعر',
         'checkout.offerUnavailableBody': 'تعذر اعتماد العرض الحالي قبل إنشاء الدفع. لم تُنشأ عملية دفع لهذه المحاولة. ارجع للبحث واختر عرضًا محدثًا، ثم راجع السعر قبل المتابعة.',
         'checkout.signInRequired': 'سجّل الدخول أو أعد تسجيل الدخول للمتابعة إلى الدفع. احتفظنا ببيانات حجزك، ولم تُنشأ عملية دفع بهذا الطلب.',
@@ -216,6 +220,10 @@ const translations = {
         'search.residencyRequired': 'اختر جنسية الضيف (بلد جواز السفر).'
     },
     en: {
+        'checkout.awaitingPayment': 'Waiting for payment completion',
+        'checkout.awaitingPaymentBody': 'The payment gateway has not confirmed completion. Continue the existing payment using the button below. Do not create another payment request.',
+        'checkout.awaitingPaymentSupport': 'The payment gateway has not confirmed completion. Contact support to check its status before starting another attempt.',
+        'checkout.resumePayment': 'Continue existing payment',
         'checkout.offerUnavailable': 'This offer is no longer available at this price',
         'checkout.offerUnavailableBody': 'The current offer could not be validated before payment creation. No payment was created for this attempt. Return to search, select an updated offer, and review the price before continuing.',
         'nav.explore': 'Explore hotels',
@@ -687,6 +695,10 @@ const translations = {
         ,'loyalty.tierElite': 'Elite',
     },
     es: {
+        'checkout.awaitingPayment': 'Esperando la finalización del pago',
+        'checkout.awaitingPaymentBody': 'La pasarela de pago no ha confirmado la finalización. Continúa el pago existente con el botón de abajo. No crees otra solicitud de pago.',
+        'checkout.awaitingPaymentSupport': 'La pasarela de pago no ha confirmado la finalización. Contacta con soporte para verificar su estado antes de iniciar otro intento.',
+        'checkout.resumePayment': 'Continuar el pago existente',
         'checkout.offerUnavailable': 'Esta oferta ya no está disponible a este precio',
         'checkout.offerUnavailableBody': 'No se pudo validar la oferta antes de crear el pago. No se creó ningún pago para este intento. Vuelve a buscar, elige una oferta actualizada y revisa el precio antes de continuar.',
         'nav.explore': 'Explorar hoteles',

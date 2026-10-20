@@ -133,7 +133,10 @@ async function getCheckout(reference, token) {
     if (!record || !crypto.timingSafeEqual(Buffer.from(accessToken(record), 'hex'), Buffer.from(token, 'hex'))) {
         throw fail('checkout_not_found', 404);
     }
-    return publicView(record);
+    return { ...publicView(record),
+        ...(record.state === 'awaiting_payment' && record.redirect_url
+            && new Date(record.payment_expires_at).getTime() > Date.now()
+            ? { payment_url: record.redirect_url } : {}) };
 }
 
 async function createCheckout(input, idempotencyKey, userIp, identity) {

@@ -218,15 +218,16 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         const state = returnStatus?.status;
         const confirmed = ['booking_confirmed', 'confirmed'].includes(state);
         const preflightFailed = !isAffiliateReturn && state === 'preflight_failed';
+        const awaitingPayment = !isAffiliateReturn && state === 'awaiting_payment';
         const affiliateFailed = isAffiliateReturn && ['failed', 'expired', 'price_changed'].includes(state);
-        const title = preflightFailed ? t('checkout.offerUnavailable') : confirmed ? t('checkout.confirmed', 'تم تأكيد الحجز لدى المورد')
+        const title = awaitingPayment ? t('checkout.awaitingPayment') : preflightFailed ? t('checkout.offerUnavailable') : confirmed ? t('checkout.confirmed', 'تم تأكيد الحجز لدى المورد')
             : state === 'action_required' ? t('checkout.affiliateActionRequired', 'يتطلب الحجز متابعة من فريقنا')
                 : state === 'payment_failed' ? t('checkout.paymentFailed', 'لم يكتمل الدفع')
                     : affiliateFailed ? t('checkout.affiliateFailed', 'تعذر تأكيد الحجز')
                         : state === 'refund_completed' ? t('checkout.refundCompleted', 'تم تأكيد الاسترداد')
                             : ['refund_review', 'manual_review', 'intent_unknown'].includes(state) ? t('checkout.review', 'تحتاج العملية إلى مراجعة')
                                 : t('checkout.pending', 'بانتظار التحقق من الدفع والحجز...');
-        const details = preflightFailed ? t('checkout.offerUnavailableBody') : confirmed
+        const details = awaitingPayment ? t(returnStatus.payment_url ? 'checkout.awaitingPaymentBody' : 'checkout.awaitingPaymentSupport') : preflightFailed ? t('checkout.offerUnavailableBody') : confirmed
             ? t('checkout.supplierReference', `مرجع المورد: ${returnStatus.supplier_reference}`, { reference: returnStatus.supplier_reference })
             : state === 'action_required' ? t('checkout.affiliateActionBody', 'لم نعرض هذه العملية كحجز مؤكد. يرجى التواصل مع الدعم لمراجعة حالة المورد.')
                 : affiliateFailed ? t('checkout.affiliateFailedBody', 'لم يؤكد المورد الحجز. يرجى مراجعة الدعم قبل إعادة الطلب.')
@@ -245,6 +246,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                     <p className="mx-auto mt-4 max-w-md text-sm font-medium leading-7 text-slate-600">{details}</p>
                     {paymentReference && <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-400">{t('checkout.followupReference', 'مرجع المتابعة')}</p><p className="mt-1 font-mono text-sm font-bold text-slate-700">{paymentReference}</p></div>}
                     <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
+                        {awaitingPayment && returnStatus.payment_url && <a data-checkout-resume-payment href={returnStatus.payment_url} className="cta-orange inline-flex min-h-12 items-center justify-center rounded-xl px-6 py-3 text-sm font-bold text-white">{t('checkout.resumePayment')}</a>}
                         <a className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800 sm:w-auto" href="mailto:management@remaltourismllc.com">{t('checkout.support', 'التواصل مع الدعم')}</a>
                         <a href="/" className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:text-[var(--remal-blue)] sm:w-auto">{t('checkout.home', 'العودة للرئيسية')}</a>
                     </div>
