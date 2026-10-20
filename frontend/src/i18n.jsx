@@ -19,6 +19,8 @@ const translations = {
         'checkout.awaitingPayment': 'متابعة الدفع',
         'checkout.verifying': 'جارٍ التحقق من طلبك',
         'tracking.brandLine': 'رحلتك تبدأ بالعناية',
+        'nav.explore': 'استكشف الفنادق',
+        'nav.contact': 'تواصل معنا',
         'tracking.live': 'متابعة مباشرة',
         'tracking.complete': 'اكتملت الخطوات',
         'tracking.confirmedBadge': 'الحجز مؤكد',
