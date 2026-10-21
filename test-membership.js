@@ -12,6 +12,8 @@ const env={MEMBERSHIP_DOCUMENT_ENCRYPTION_KEY:crypto.randomBytes(32).toString('h
 test('identity documents use independent authenticated encryption bound to owner context',()=>{
     const context={realm:'qa',applicationId:'one',kind:'passport'},cipher=encryptDocument(png,context,env);
     assert.ok(!cipher.ciphertext.equals(png));assert.deepEqual(decryptDocument({...context,...cipher},env),png);
+    const {Binary}=require('mongoose').mongo;
+    assert.deepEqual(decryptDocument({...context,...cipher,iv:new Binary(cipher.iv),tag:new Binary(cipher.tag),ciphertext:new Binary(cipher.ciphertext)},env),png,'MongoDB lean Binary values must decrypt without exposing the plaintext in storage');
     assert.notDeepEqual(encryptDocument(png,context,env).iv,cipher.iv);
     for(const changed of [{realm:'other'},{applicationId:'two'},{kind:'eid_front'},{tag:Buffer.alloc(16)},{ciphertext:Buffer.alloc(cipher.ciphertext.length)}])assert.throws(()=>decryptDocument({...context,...cipher,...changed},env),/document_unavailable/);
     assert.throws(()=>encryptionKey({}),/unavailable/);

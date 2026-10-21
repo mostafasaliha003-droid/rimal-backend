@@ -47,9 +47,10 @@ function encryptDocument(buffer,{realm,applicationId,kind},env){
 }
 function decryptDocument(row,env){
     try{
-        const decipher=crypto.createDecipheriv('aes-256-gcm',encryptionKey(env),Buffer.from(row.iv));
-        decipher.setAAD(Buffer.from(`${row.realm}:${row.applicationId}:${row.kind}:${row.digest}`));decipher.setAuthTag(Buffer.from(row.tag));
-        const buffer=Buffer.concat([decipher.update(Buffer.from(row.ciphertext)),decipher.final()]);
+        const bytes=value=>Buffer.isBuffer(value)||value instanceof Uint8Array?Buffer.from(value):value?._bsontype==='Binary'&&typeof value.value==='function'?Buffer.from(value.value()):(()=>{throw Error('invalid_binary');})();
+        const decipher=crypto.createDecipheriv('aes-256-gcm',encryptionKey(env),bytes(row.iv));
+        decipher.setAAD(Buffer.from(`${row.realm}:${row.applicationId}:${row.kind}:${row.digest}`));decipher.setAuthTag(bytes(row.tag));
+        const buffer=Buffer.concat([decipher.update(bytes(row.ciphertext)),decipher.final()]);
         if(crypto.createHash('sha256').update(buffer).digest('hex')!==row.digest)throw Error();
         return buffer;
     }catch{throw fail('document_unavailable',503);}

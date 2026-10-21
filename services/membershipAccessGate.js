@@ -3,7 +3,7 @@ const {rateLimit}=require('express-rate-limit');
 function publicApi(req){
     const path=req.path.replace(/\/+$/,''),method=req.method;
     if(method==='OPTIONS')return true;
-    if(method==='GET'&&['/api/v1/ready','/api/v1/health','/api/v1/health-check'].includes(path))return true;
+    if(method==='GET'&&['/api/v1/ready','/api/v1/health','/api/v1/health-check','/api/payment/availability'].includes(path))return true;
     if(path.startsWith('/api/auth/')||path.startsWith('/api/membership/'))return true;
     if(method==='POST'&&path==='/api/v1/admin/login')return true;
     if(method==='POST'&&['/api/payment/ziina/webhook','/api/v1/webhooks/ziina-mock','/api/v1/webhooks/ratehawk','/api/v1/webhooks/midoffice'].includes(path))return true;
