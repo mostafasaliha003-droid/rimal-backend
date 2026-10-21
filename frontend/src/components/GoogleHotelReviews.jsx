@@ -1,3 +1,4 @@
+import { memberHeaders } from '../services/membershipApi.js';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, MessageSquareText, Star, RotateCw } from 'lucide-react';
 import { API_BASE_URL } from '../services/apiBaseUrl.js';
@@ -44,7 +45,7 @@ export default function GoogleHotelReviews({ hid, hotelName = '', address = '' }
     useEffect(() => {
         const request = new AbortController(); controller.current = request;
         const timer = setTimeout(() => request.abort(), 10000);
-        fetch(`${API_BASE_URL}/v1/hotels/reviews/google/availability`, { signal: request.signal, cache: 'no-store' })
+        fetch(`${API_BASE_URL}/v1/hotels/reviews/google/availability`, { signal: request.signal, cache: 'no-store', headers:memberHeaders() })
             .then(response => response.json()).then(data => {
                 if (controller.current === request) setResult({ key, status: data.enabled === true ? 'idle' : 'unavailable' });
             }).catch(() => { if (controller.current === request) setResult({ key, status: 'unavailable' }); })
@@ -58,7 +59,7 @@ export default function GoogleHotelReviews({ hid, hotelName = '', address = '' }
         setResult({ key, status: 'loading' });
         const timeout = setTimeout(() => request.abort(), 25000);
         try {
-            const response = await fetch(`${API_BASE_URL}/v1/hotels/${encodeURIComponent(hid)}/reviews/google?language=${language}`, { signal: request.signal, cache: 'no-store' });
+            const response = await fetch(`${API_BASE_URL}/v1/hotels/${encodeURIComponent(hid)}/reviews/google?language=${language}`, { signal: request.signal, cache: 'no-store', headers:memberHeaders() });
             const data = await response.json();
             if (controller.current !== request) return;
             setResult({ key, ...data, status: ['ready', 'unmatched', 'limited'].includes(data.status) ? data.status : 'unavailable' });

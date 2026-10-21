@@ -1,5 +1,6 @@
 import { DISPLAY_CURRENCIES, SEARCH_CURRENCY } from './offers.js';
 import { API_BASE_URL } from './apiBaseUrl.js';
+import { memberHeaders } from './membershipApi.js';
 const CACHE_KEY = 'remal_usd_display_rates';
 const CACHE_LIFETIME_MS = 6 * 60 * 60 * 1000;
 const RATE_MAX_AGE_MS = 5 * 24 * 60 * 60 * 1000;
@@ -42,7 +43,7 @@ export async function loadUsdDisplayRates({ storage = globalThis.localStorage, f
             if (parsed) return { ...parsed, stale: cached.payload?.stale === true };
         }
     } catch {}
-    const response = await fetcher(`${API_BASE_URL.replace(/\/$/, '')}/display-rates`, { signal });
+    const response = await fetcher(`${API_BASE_URL.replace(/\/$/, '')}/display-rates`, { signal, headers:memberHeaders() });
     if (!response.ok) throw new Error('Display exchange rates unavailable');
     const payload = await response.json();
     const parsed = parseUsdDisplayRatePayload(payload, now);

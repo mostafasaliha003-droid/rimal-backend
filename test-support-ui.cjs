@@ -26,6 +26,7 @@ async function run() {
                 if (!url.pathname.includes('/api/')) return url.origin === base ? request.continue() : request.abort();
                 const headers = { 'Access-Control-Allow-Origin': base,
                     'Access-Control-Allow-Headers': 'content-type,authorization', 'Access-Control-Allow-Methods': 'GET,POST,PATCH,OPTIONS' };
+                if (url.pathname.endsWith('/membership/status')) return request.respond({status:200,contentType:'application/json',headers,body:JSON.stringify({enabled:false})});
                 if (request.method() === 'OPTIONS') return request.respond({ status: 204, headers });
                 const staff = url.pathname.includes('/v1/admin/') || url.pathname.includes('/owned/admin/');
                 const token = request.headers().authorization;

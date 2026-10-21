@@ -1,3 +1,4 @@
+import { memberHeaders } from '../services/membershipApi.js';
 import { useEffect, useRef, useState } from 'react';
 import { MessageSquareText, RotateCw, Plus, Minus } from 'lucide-react';
 import { API_BASE_URL } from '../services/apiBaseUrl.js';
@@ -12,7 +13,7 @@ async function reviewPage(hid, language, offset, signal) {
     if (signal.aborted) request.abort();
     const timer = setTimeout(cancel, 20000);
     try {
-        const response = await fetch(`${API_BASE_URL}/v1/hotels/${encodeURIComponent(hid)}/reviews/ratehawk?language=${language}&offset=${offset}`, { signal:request.signal, cache:'no-store' });
+        const response = await fetch(`${API_BASE_URL}/v1/hotels/${encodeURIComponent(hid)}/reviews/ratehawk?language=${language}&offset=${offset}`, { signal:request.signal, cache:'no-store', headers:memberHeaders() });
         return await response.json();
     } finally { clearTimeout(timer); signal.removeEventListener('abort', cancel); }
 }

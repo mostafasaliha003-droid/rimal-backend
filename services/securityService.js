@@ -72,7 +72,7 @@ const authLimiter = rateLimit({
 const globalLimiter = rateLimit({
     // Render probes run repeatedly from shared internal addresses. They must
     // not consume the same request budget as customer traffic.
-    skip: req => req.method === 'GET' && ['/api/v1/ready', '/api/v1/health'].includes(req.path),
+    skip: req => req.method === 'GET' && ['/api/v1/ready', '/api/v1/health', '/api/membership/status'].includes(req.path),
     windowMs: 15 * 60 * 1000, // الإطار الزمني: 15 دقيقة
     max: 200, // الحد الأقصى: 200 طلب من أي نوع لكل IP
     message: {

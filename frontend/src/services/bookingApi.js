@@ -18,11 +18,15 @@ const api = axios.create({
 api.interceptors.request.use(config => {
     // Operation capabilities (checkout/affiliate status) are deliberately passed
     // explicitly and must never be replaced by a customer identity token.
-    if (config.authScope === 'user') {
+    {
         const token = userAccessToken();
         if (token && !config.headers.Authorization) config.headers.Authorization = `Bearer ${token}`;
     }
     return config;
+});
+api.interceptors.response.use(response=>response,error=>{
+    if(error?.response?.data?.error==='membership_approval_required'||error?.response?.data?.error==='membership_authentication_required')globalThis.window?.dispatchEvent(new Event('remal:membership-required'));
+    return Promise.reject(error);
 });
 
 const responseData = (response) => response.data;

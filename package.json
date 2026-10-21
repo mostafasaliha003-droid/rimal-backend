@@ -9,7 +9,7 @@
     "seed:sandbox": "node scripts/seed-sandbox.js",
     "verify:sandbox": "node scripts/verify-sandbox.js",
     "start": "node server.js",
-    "build": "npm --prefix frontend run build && npm run prepare:site",
+    "build": "node scripts/prepare-membership-ocr.js && npm --prefix frontend run build && npm run prepare:site",
     "prepare:site": "node syncFrontendBuild.js",
     "check:site": "node syncFrontendBuild.js --check",
     "sync:filtered-hotels": "node syncFilteredHotels.js",
@@ -56,6 +56,7 @@
     "puppeteer": "^22.0.0",
     "simple-zstd": "^2.1.0",
     "socket.io": "^4.7.2",
-    "stripe": "^15.2.0"
+    "stripe": "^15.2.0",
+    "tesseract.js": "7.0.0"
   }
 }

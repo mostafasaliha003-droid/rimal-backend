@@ -73,6 +73,7 @@ async function run() {
             const url = new URL(request.url());
             if (url.pathname.includes('/api/')) {
                 const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'content-type,x-api-key,authorization,idempotency-key,x-affiliate-status-token', 'Access-Control-Allow-Methods': 'GET,POST,OPTIONS' };
+                if (url.pathname.endsWith('/membership/status')) return request.respond({status:200,contentType:'application/json',headers,body:JSON.stringify({enabled:false})});
                 if (request.method() === 'OPTIONS') return request.respond({ status: 204, headers });
                 let body;
                 if (url.pathname.endsWith('/auth/login')) {
@@ -544,7 +545,7 @@ async function run() {
         console.log('PASS: a failed supplier preflight is terminal, explains no payment was created, and never starts another payment.');
         paymentEnabled = false;
         await page.goto(`${base}/checkout?payment=success`, { waitUntil: 'domcontentloaded' });
-        await page.waitForSelector('main h1');
+        await page.waitForFunction(() => document.querySelector('main h1')?.innerText.includes('متابعة حالة طلبك'));
         const returned = await page.$eval('main', element => element.innerText);
         assert.match(returned, /متابعة حالة طلبك/);
         assert.doesNotMatch(returned, /ستُحدَّث هذه الصفحة تلقائيًا|checkout\.[a-zA-Z]+/);

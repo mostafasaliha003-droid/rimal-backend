@@ -6,7 +6,7 @@ const { SITE_URL, buildHomeMetadata, buildHotelMetadata, renderMetadata, buildSi
 const INDEX_CACHE_CONTROL = 'no-store, no-cache, must-revalidate, proxy-revalidate';
 const ASSET_CACHE_CONTROL = 'public, max-age=31536000, immutable';
 
-function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL } = {}) {
+function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL, privateMembership = false } = {}) {
     const projectRootPath = path.resolve(projectRoot);
     const buildRoot = path.resolve(projectRootPath, 'frontend', 'dist');
 
@@ -60,10 +60,12 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL } = {}) {
     };
 
     router.get('/robots.txt', (req, res) => {
+        if(privateMembership)return res.type('text/plain').set('Cache-Control','no-store').send('User-agent: *\nDisallow: /\n');
         res.type('text/plain').set('Cache-Control', 'public, max-age=3600').send(buildRobots(siteUrl));
     });
 
     router.get('/sitemap.xml', async (req, res) => {
+        if(privateMembership)return res.status(404).set('Cache-Control','no-store').end();
         if (!sitemapCache || Date.now() - sitemapCachedAt > 60 * 60 * 1000) {
             let hotels = [];
             if (Hotel && typeof Hotel.find === 'function') {
@@ -110,6 +112,7 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL } = {}) {
     }
 
     router.get('/hotel/:hid', async (req, res, next) => {
+        if(privateMembership)return sendSeoIndex(req,res,next,buildHomeMetadata(languageFor(req),siteUrl),{noindex:true});
         const hid = String(req.params.hid || '');
         const language = languageFor(req);
         if (!/^\d{1,10}$/.test(hid) || !Hotel || typeof Hotel.findOne !== 'function') {

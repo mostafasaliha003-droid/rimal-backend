@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import App from './App';
 import './styles.css';
 import { LanguageProvider } from './i18n';
+import MembershipBoundary from './components/MembershipBoundary';
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -13,7 +14,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 createRoot(document.getElementById('root')).render(
     <StrictMode>
         <LanguageProvider>
-            <Suspense fallback={<main role="status" className="p-10 text-center">جار تحميل الصفحة...</main>}><App /></Suspense>
+            <Suspense fallback={<main role="status" className="p-10 text-center">جار تحميل الصفحة...</main>}><MembershipBoundary><App /></MembershipBoundary></Suspense>
         </LanguageProvider>
     </StrictMode>
 );

@@ -111,6 +111,9 @@ const sessionAuth = createSessionAuthMiddleware({ sessions: authSessionService }
 io.use(createSocketSessionAuth({ sessions: authSessionService }));
 const requireUser = sessionAuth.requireRole('user');
 const requireAdmin = sessionAuth.requireRole('admin');
+let membershipAccessGate;
+app.use(cors(corsPolicy));
+app.use((req,res,next)=>membershipAccessGate?membershipAccessGate(req,res,next):next());
 const verifyInternalAPIKey = createInternalApiKeyMiddleware({ env: process.env, logger });
 const internalSearchLimiter = (req, res, next) => {
     if (req.get('Origin')) return res.status(403).json({ success: false, error: 'server_to_server_only' });
@@ -143,7 +146,6 @@ app.use(securityService.globalLimiter);
 // ==========================================
 // 🛡️ 2. إعدادات الحماية (CORS Policy)
 // ==========================================
-app.use(cors(corsPolicy));
 app.use('/api', createDisplayCurrencyRouter(displayCurrencyService));
 app.use('/api/booking', createBookingRouter());
 app.use('/api/v1/contracts', createBookingRouter.createContractRouter());
@@ -217,6 +219,14 @@ const reviewSchema = new mongoose.Schema({
 });
 
 const User = mongoose.model('User', userSchema);
+const membershipService = require('./services/membershipService').createMembershipService({ UserModel:User });
+const membershipReviewWorker = require('./services/membershipReviewWorker').createMembershipReviewWorker({service:membershipService,UserModel:User});
+membershipAccessGate = require('./services/membershipAccessGate').createMembershipAccessGate({ service:membershipService,sessions:authSessionService });
+const membershipMailer = require('./services/membershipMail').createMembershipMailer({UserModel:User,
+    transporter:nodemailer.createTransport({service:'gmail',auth:{user:process.env.SMTP_USER,pass:process.env.SMTP_PASSWORD},connectionTimeout:10000,greetingTimeout:10000,socketTimeout:20000})});
+const membershipRouters = require('./services/membershipRoutes').createMembershipRouters({service:membershipService,sessions:authSessionService,auth:sessionAuth,UserModel:User});
+app.use('/api/membership',membershipRouters.customer);
+app.use('/api/v1/admin/membership',membershipRouters.staff);
 const Booking = mongoose.model('Booking', bookingSchema);
 const Review = mongoose.model('Review', reviewSchema);
 const bookingRecordPersistence = createBookingRecordPersistence({
@@ -288,7 +298,7 @@ app.use('/api/auth', createUserAuthRouter({
     sessions: authSessionService,
     auth: sessionAuth,
     verificationCodes,
-    sendVerificationEmail: (email, code) => sendProfessionalEmail(
+    sendVerificationEmail: (email, code) => membershipService.enabled() ? membershipMailer.verification(email,code) : sendProfessionalEmail(
         email,
         'رمز التحقق لتفعيل حسابك - رمال!',
         `<h2 dir="rtl">الكود: ${code}</h2>`
@@ -1219,7 +1229,7 @@ app.get('/logo.jpg', (req, res) => { res.sendFile(path.join(__dirname, 'logo.jpg
 // The frontend router resolves frontend/dist/index.html and frontend/dist/assets
 // from this absolute project root, falling back to the committed root site when
 // a Render deployment has not produced a local frontend build.
-app.use(createFrontendRouter(path.resolve(__dirname), { Hotel }));
+app.use(createFrontendRouter(path.resolve(__dirname), { Hotel, privateMembership:membershipService.enabled() }));
 
 // ==========================================
 // 🚀 11. تشغيل السيرفر المدمج
@@ -1251,10 +1261,13 @@ mongoose.connection.on('reconnected', () => console.log('✅ MongoDB reconnected
 let stopBookingStatusWorker = () => {};
 let stopCheckoutWorker = () => {};
 let stopAffiliateBookingStatusWorker = () => {};
+let stopMembershipMailer = () => {};
+let stopMembershipReviewWorker = () => {};
 mongoose.connection.once('connected', () => {
     stopBookingStatusWorker = bookingProcessService.startBookingStatusWorker();
     stopCheckoutWorker = checkoutReconciliationService.startCheckoutWorker();
     stopAffiliateBookingStatusWorker = affiliateBookingService.startStatusWorker();
+    if(membershipService.enabled()){stopMembershipMailer=membershipMailer.start();stopMembershipReviewWorker=membershipReviewWorker.start();}
 });
-server.once('close', () => { stopBookingStatusWorker(); stopCheckoutWorker(); stopAffiliateBookingStatusWorker(); });
+server.once('close', () => { stopBookingStatusWorker(); stopCheckoutWorker(); stopAffiliateBookingStatusWorker(); stopMembershipMailer(); void stopMembershipReviewWorker(); });
 connectMongoWithRetry();

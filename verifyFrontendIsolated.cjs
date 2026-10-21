@@ -139,6 +139,7 @@ async function run() {
         const { run: runBrowserTests } = require(path.join(root, 'test-ui.cjs'));
         await runBrowserTests();
         await require(path.join(root, 'test-support-ui.cjs')).run();
+        await require(path.join(root, 'test-membership-ui.cjs')).run();
         success = true;
     } catch (error) {
         verificationError = error;
