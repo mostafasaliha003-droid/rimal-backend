@@ -8,6 +8,7 @@ import {membershipCopy} from '../services/membershipCopy';
 import countryCodes from '../../../shared/ratehawkResidencies.json';
 import './MembershipPortal.css';
 import CompanyFooter from '../components/CompanyFooter';
+import MembershipDiscover from '../components/MembershipDiscover';
 const gcc=['ae','sa','kw','qa','bh','om'];
 const professions=['doctor','engineer','nurse','manager','supervisor','administrative'];
 export function MembershipChrome({children,compact=false}){
@@ -45,7 +46,7 @@ export default function MembershipPortal({snapshot,refresh,go}){
     return <MembershipChrome>
         <div className={`membership-layout ${snapshot?.authenticated?'membership-authenticated':''}`}>
             <section className="membership-story"><div className="membership-travel-art" aria-hidden="true"><Globe2 strokeWidth={.55}/><Plane strokeWidth={1}/></div><span className="membership-eyebrow"><Sparkles size={15}/>{L.eyebrow}</span><h1>{L.title.split('\n').map((line,index)=><span key={index}>{line}</span>)}</h1><p>{L.intro}</p><div className="membership-benefits">{[[Hotel,L.benefit1],[Globe2,L.benefit2],[Tickets,L.benefit3]].map(([Icon,text])=><div key={text}><span className="membership-benefit-icon"><Icon size={19}/></span><span>{text}</span></div>)}</div><div className="membership-free"><ShieldCheck size={24}/><div><strong>{L.free}</strong><span>{L.approval}</span></div><Check size={18}/></div><small className="membership-conditions">{L.conditions}</small></section>
-            <section className="membership-panel" aria-label={L.brand}>
+            <section id="membership-application" className="membership-panel" aria-label={L.brand}>
                 {snapshot?.authenticated&&<div className="membership-accountline"><span>{snapshot.user?.name}</span><button type="button" disabled={busy} onClick={()=>void run(async()=>{await BookingAPI.logoutUser();clearUserSession();await refresh();})}><LogOut size={15}/>{L.logout}</button></div>}
                 {error&&<p role="alert" className="membership-error">{error}</p>}
                 {!snapshot?.authenticated?<>
@@ -94,5 +95,13 @@ export default function MembershipPortal({snapshot,refresh,go}){
                 </>}
             </section>
         </div>
+        {!snapshot?.authenticated && <MembershipDiscover onApply={() => {
+            setMode('apply');setVerify(false);setError('');
+            requestAnimationFrame(() => {
+                const panel=document.getElementById('membership-application');
+                panel?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
+                panel?.querySelector('input')?.focus({preventScroll:true});
+            });
+        }} />}
     </MembershipChrome>;
 }

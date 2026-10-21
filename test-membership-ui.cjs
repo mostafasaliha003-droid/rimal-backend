@@ -4,7 +4,7 @@ const puppeteer=require('puppeteer');
 async function run(){
     const browser=await puppeteer.launch({headless:true}),base=process.env.REMAL_UI_TEST_BASE||'http://127.0.0.1:5173';
     const reference='12345678-1234-4123-8123-123456789abc',token='a'.repeat(64),admin='b'.repeat(64),user={name:'Membership QA',email:'membership@example.test',phone:'+971500000000'};
-    let application=null,loggedIn=false,inventory=0,uploads=0,reviews=0,statusBroken=false,notification=null;
+    let application=null,loggedIn=false,inventory=0,uploads=0,reviews=0,statusBroken=false,notification=null,offerMode='empty';
     const errors=[];
     try{
         const page=await browser.newPage();await page.setBypassServiceWorker(true);page.on('pageerror',e=>errors.push(e.message));await page.setRequestInterception(true);
@@ -14,6 +14,7 @@ async function run(){
             const headers={'Access-Control-Allow-Origin':base,'Access-Control-Allow-Headers':'authorization,content-type','Access-Control-Allow-Methods':'GET,POST,PUT,OPTIONS'};
             const respond=(data,status=200)=>request.respond({status,headers,contentType:'application/json',body:JSON.stringify(data)});
             if(request.method()==='OPTIONS')return request.respond({status:204,headers});
+            if(p.endsWith('/membership/offers'))return offerMode==='unavailable'?respond({error:'unavailable'},503):respond({checkedAt:new Date().toISOString(),offers:offerMode==='campaign'?[{id:'fixture-offer',startsAt:new Date(Date.now()-60000).toISOString(),endsAt:new Date(Date.now()+60000).toISOString(),title:{ar:'عرض جميرا للاختبار',en:'Jumeirah fixture offer'},terms:{ar:'تواريخ وفنادق محددة',en:'Selected hotels and dates'},maxSavingPercent:30}]:[]});
             const staff=p.includes('/v1/admin/');
             if(p.endsWith('/membership/status'))return respond(statusBroken?{unexpected:true}:{enabled:true,authenticated:loggedIn,canAccess:Boolean(loggedIn&&application?.status==='approved'),user:loggedIn?user:null,application:loggedIn?application:null,notification});
             if(p.endsWith('/auth/login')){loggedIn=true;return respond({user,access_token:token});}
@@ -31,11 +32,15 @@ async function run(){
         });
         await page.goto(`${base}/hotel/123?lang=en`,{waitUntil:'networkidle0'});
         await page.waitForSelector('.membership-tabs');assert.equal(inventory,0);
+        await page.waitForSelector('.membership-discover');
+        await page.waitForFunction(()=>document.querySelector('.membership-offers-invitation'));
+        assert.equal(await page.$('.membership-campaign-saving'),null,'no fabricated discount without an approved campaign');
         assert.equal(await page.$eval('[data-membership-logo]',image=>image.complete&&image.naturalWidth>0&&new URL(image.src).pathname==='/logo.jpg'),true,'show the actual company logo');
         await page.click('.membership-audience summary');
         assert.equal(await page.$eval('.membership-audience',node=>node.open&&node.innerText.includes('UAE and GCC')),true,'eligibility is available before registration');
         await page.click('.membership-audience summary');
         await page.setViewport({width:1440,height:1000});await page.screenshot({path:path.join(__dirname,'logs/membership-desktop.png'),fullPage:true});
+        await page.$eval('.membership-discover',n=>n.scrollIntoView({block:'start',behavior:'instant'}));await page.screenshot({path:path.join(__dirname,'logs/membership-discover-desktop.png'),captureBeyondViewport:false});await page.evaluate(()=>window.scrollTo({top:0,behavior:'instant'}));
         await page.setViewport({width:390,height:844});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
         await page.screenshot({path:path.join(__dirname,'logs/membership-mobile.png'),fullPage:true});
         await page.setViewport({width:1440,height:1000});
@@ -46,6 +51,18 @@ async function run(){
         await page.screenshot({path:path.join(__dirname,'logs/membership-desktop-ar.png'),fullPage:false,captureBeyondViewport:false});
         await page.setViewport({width:390,height:844});await page.screenshot({path:path.join(__dirname,'logs/membership-mobile-ar.png'),fullPage:true});
         await page.setViewport({width:320,height:720});assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+        offerMode='campaign';
+        await page.goto(`${base}/membership?lang=en`,{waitUntil:'networkidle0'});await page.waitForSelector('.membership-campaign-saving');
+        assert.equal(await page.$eval('.membership-campaign-saving',n=>n.innerText.includes('30%')),true);
+        assert.equal(await page.$eval('.membership-campaigns',n=>n.innerText.includes('Selected hotels and dates')),true);
+        assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth+1),false);
+        await page.$eval('.membership-offers-board',n=>n.scrollIntoView({block:'center',behavior:'instant'}));await page.screenshot({path:path.join(__dirname,'logs/membership-campaign-fixture.png'),captureBeyondViewport:false});
+        offerMode='unavailable';
+        await page.goto(`${base}/membership?lang=en`,{waitUntil:'networkidle0'});await page.waitForSelector('.membership-offers-caption button');
+        assert.equal(await page.$('.membership-campaign-saving'),null,'failed refresh removes stale promotion claims');
+        offerMode='empty';await page.click('.membership-offers-caption button');await page.waitForFunction(()=>!document.querySelector('.membership-offers-caption button'));
+        await page.$eval('.membership-discover-action button',n=>n.scrollIntoView({block:'center',behavior:'instant'}));await page.click('.membership-discover-action button');
+        await page.waitForSelector('input[autocomplete=name]');assert.equal(await page.$eval('.membership-tabs button:last-child',n=>n.classList.contains('active')),true);
         await page.goto(`${base}/hotel/123?lang=en`,{waitUntil:'networkidle0'});await page.waitForSelector('.membership-tabs');await page.setViewport({width:390,height:844});
         await page.type('input[type=email]',user.email);await page.type('input[type=password]','FixturePassword123');
         const click=async selector=>{await page.$eval(selector,n=>n.scrollIntoView({block:'center',behavior:'instant'}));await page.click(selector);};

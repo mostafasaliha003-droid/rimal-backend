@@ -8,6 +8,7 @@ function createMembershipRouters({service,sessions,auth,UserModel,Application=re
     const limit=rateLimit({windowMs:60000,max:40,standardHeaders:true,legacyHeaders:false});
     const writeLimit=rateLimit({windowMs:60000,max:12,standardHeaders:true,legacyHeaders:false});
     const handle=fn=>async(req,res)=>{res.set({'Cache-Control':'no-store',Pragma:'no-cache'});try{await fn(req,res);}catch(e){res.status(e.httpStatus||503).json({error:e.code||'membership_unavailable'});}};
+    customer.get('/offers',limit,handle(async(_req,res)=>res.json({offers:require('./membershipOffers').activeMembershipOffers(),checkedAt:new Date().toISOString()})));
     customer.get('/status',limit,handle(async(req,res)=>{
         if(!service.enabled())return res.json({enabled:false});
         const token=bearerToken(req),identity=token?await sessions.resolve(token):null;
