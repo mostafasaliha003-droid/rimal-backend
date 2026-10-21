@@ -68,7 +68,9 @@ async function verifyMembershipSandbox(env=process.env){
         // Outbox uses stub SMTP and isolated collections, never the live transporter.
         let emails=0;
         const mailer=require('../services/membershipMail').createMembershipMailer({UserModel,Application,Notice,env:qaEnv,transporter:{sendMail:async message=>{assert.ok(message.to.endsWith('@example.test'));assert.equal(message.attachments,undefined);emails++;return {messageId:'synthetic-message',accepted:[message.to]};}}});
-        await mailer.flush();const first=emails;await mailer.flush();assert.equal(emails,first);assert.ok(emails>0);
+        for(let batch=0;batch<10&&await Notice.countDocuments({status:'pending'});batch++)await mailer.flush();
+        assert.equal(await Notice.countDocuments({status:'pending'}),0);
+        const first=emails;await mailer.flush();assert.equal(emails,first);assert.ok(emails>0);
         const pending=await Notice.create({applicationId:String((await Application.findOne({ownerSubject:identity(2).subject}))._id),ownerSubject:identity(2).subject,realm:prefix,revision:100,event:'submitted',status:'pending'});
         const uncertain=require('../services/membershipMail').createMembershipMailer({UserModel,Application,Notice,env:qaEnv,transporter:{sendMail:async()=>{throw Error('synthetic uncertain handoff');}}});
         await uncertain.flush();assert.equal((await Notice.findById(pending._id)).status,'unknown');await uncertain.flush();assert.equal((await Notice.findById(pending._id)).status,'unknown');
