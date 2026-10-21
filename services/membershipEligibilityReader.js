@@ -47,7 +47,18 @@ function professionalEvidence(front,back,application,user,now=new Date()){
     if(!sameName(user.name,name)||!countries.includes(application.nationality)||Object.values(gccNationality).includes(application.nationality))return {eligible:false,reason:'id_identity_needs_review'};
     const names=['en','ar'].map(language=>new Intl.DisplayNames([language],{type:'region'}).of(application.nationality.toUpperCase()));
     if(!names.some(value=>clean(nationality)===clean(value)))return {eligible:false,reason:'id_nationality_needs_review'};
-    const professions={doctor:/\b(?:doctor|physician)\b|طبيب|دكتور/,engineer:/\bengineer\b|مهندس/,nurse:/\bnurse\b|ممرض/,manager:/\bmanager\b|مدير/,supervisor:/\bsupervisor\b|مشرف/,administrative:/\b(?:administrator|administrative)\b|اداري/};
+    // A free-text occupation may be submitted, but eligibility for "other" is
+    // decided by staff. Matching the applicant's text alone never grants access.
+    if(application.profession==='other')return {eligible:false,reason:'id_other_occupation_needs_review'};
+    const professions={doctor:/\b(?:doctor|physician)\b|طبيب|دكتور/,engineer:/\bengineer\b|مهندس/,nurse:/\bnurse\b|ممرض/,manager:/\bmanager\b|مدير/,supervisor:/\bsupervisor\b|مشرف/,administrative:/\b(?:administrator|administrative)\b|اداري/,
+        student:/\bstudent\b|(?:^| )(?:طالب|طالبه)(?: |$)/,
+        teacher:/\b(?:teacher|schoolteacher|educator)\b|(?:^| )(?:مدرس|مدرسه|معلم|معلمه)(?: |$)/,
+        lecturer:/\blecturer\b|(?:^| )(?:محاضر|محاضره)(?: |$)/,
+        professor:/\bprofessor\b|(?:^| )استاذ(?:ه)? جامعي(?:ه)?(?: |$)/,
+        investor:/\binvestor\b|(?:^| )(?:مستثمر|مستثمره)(?: |$)/,
+        partner:/\bpartner\b|(?:^| )(?:شريك|شريكه)(?: |$)/,
+        accountant:/\baccountant\b|(?:^| )(?:محاسب|محاسبه)(?: |$)/,
+        lawyer:/\b(?:lawyer|advocate|attorney)\b|(?:^| )(?:محام|محامي|محاميه)(?: |$)/};
     if(!professions[application.profession]?.test(clean(occupation))||!clean(application.professionTitle)||clean(application.professionTitle)!==clean(occupation))return {eligible:false,reason:'id_occupation_needs_review'};
     return {eligible:true,reason:'uae_professional_fields_match'};
 }

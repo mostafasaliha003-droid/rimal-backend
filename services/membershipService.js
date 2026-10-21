@@ -1,7 +1,7 @@
 const crypto=require('node:crypto');
 const {fail,imageMetadata,encryptDocument,decryptDocument,encryptionKey}=require('./membershipDocuments');
 const GCC=new Set(['ae','sa','kw','qa','bh','om']);
-const PROFESSIONS=new Set(['doctor','engineer','nurse','manager','supervisor','administrative']);
+const PROFESSIONS=new Set(require('../shared/membershipProfessions.json'));
 const EDITABLE=new Set(['draft','needs_information']);
 const COUNTRIES=new Set(require('../shared/ratehawkResidencies.json'));
 const requiredDocuments=category=>category==='gcc_citizen'?['passport']:category==='uae_professional'?['eid_front','eid_back']:[];

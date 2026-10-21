@@ -67,6 +67,13 @@ async function run(){
         await page.type('input[type=email]',user.email);await page.type('input[type=password]','FixturePassword123');
         const click=async selector=>{await page.$eval(selector,n=>n.scrollIntoView({block:'center',behavior:'instant'}));await page.click(selector);};
         await click('.membership-form button[type=submit]');await page.waitForSelector('select[required]');
+        await click('input[value=uae_professional]');await page.waitForSelector('select[name=profession]');
+        assert.deepEqual(await page.$$eval('select[name=profession] option',nodes=>nodes.map(n=>n.value)),require('./shared/membershipProfessions.json'));
+        await page.select('select[name=profession]','student');await page.type('input[name=professionTitle]','Student');
+        await page.select('select[name=profession]','other');assert.equal(await page.$eval('input[name=professionTitle]',n=>n.value),'');
+        assert.equal(await page.$eval('#membership-occupation-hint',n=>n.innerText.includes('does not grant automatic approval')),true);
+        await page.type('input[name=professionTitle]','Printed occupation');
+        await click('input[value=gcc_citizen]');
         await page.select('select[required]','ae');await click('.membership-form button[type=submit]');await page.waitForSelector('input[type=file]');
         // Browser-native File objects exercise the raw image upload request without real identity documents.
         await page.evaluate(()=>{const input=document.querySelector('input[type=file]'),dt=new DataTransfer();dt.items.add(new File([new Uint8Array([137,80,78,71])],'fixture.png',{type:'image/png'}));input.files=dt.files;input.dispatchEvent(new Event('change',{bubbles:true}));});

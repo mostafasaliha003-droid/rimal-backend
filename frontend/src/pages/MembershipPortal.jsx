@@ -6,11 +6,11 @@ import {saveUserSession,clearUserSession} from '../services/authSession';
 import {membershipRequest} from '../services/membershipApi';
 import {membershipCopy} from '../services/membershipCopy';
 import countryCodes from '../../../shared/ratehawkResidencies.json';
+import professions from '../../../shared/membershipProfessions.json';
 import './MembershipPortal.css';
 import CompanyFooter from '../components/CompanyFooter';
 import MembershipDiscover from '../components/MembershipDiscover';
 const gcc=['ae','sa','kw','qa','bh','om'];
-const professions=['doctor','engineer','nurse','manager','supervisor','administrative'];
 export function MembershipChrome({children,compact=false}){
     const {language,setLanguage,direction,t}=useLanguage(),L=membershipCopy(language);
     return <main className={`membership-site ${compact?'membership-compact':''}`} dir={direction}>
@@ -83,7 +83,7 @@ export default function MembershipPortal({snapshot,refresh,go}){
                     {phase==='eligibility'?<form className="membership-form" onSubmit={save}>
                         {['gcc_citizen','uae_professional'].map(category=><label key={category} className={`membership-category ${details.category===category?'selected':''}`}><input type="radio" name="category" value={category} checked={details.category===category} onChange={()=>setDetails({...details,category,nationality:''})}/><span><strong>{category==='gcc_citizen'?L.gcc:L.professional}</strong><small>{category==='gcc_citizen'?L.gccHint:L.professionalHint}</small></span></label>)}
                         <label className="membership-field"><span>{L.nationality}</span><select required value={details.nationality} onChange={e=>setDetails({...details,nationality:e.target.value})}><option value="">{L.choose}</option>{countries.filter(c=>details.category==='gcc_citizen'?gcc.includes(c.code):!gcc.includes(c.code)).map(country=><option key={country.code} value={country.code}>{country.name}</option>)}</select></label>
-                        {details.category==='uae_professional'&&<><label className="membership-field"><span>{L.profession}</span><select required value={details.profession} onChange={e=>setDetails({...details,profession:e.target.value})}>{professions.map(profession=><option key={profession} value={profession}>{L[profession]}</option>)}</select></label><Field label={L.professionTitle} required maxLength={160} value={details.professionTitle} onChange={e=>setDetails({...details,professionTitle:e.target.value})}/></>}
+                        {details.category==='uae_professional'&&<><label className="membership-field"><span>{L.profession}</span><select name="profession" required value={details.profession} onChange={e=>setDetails({...details,profession:e.target.value,professionTitle:''})}>{professions.map(profession=><option key={profession} value={profession}>{L[profession]}</option>)}</select></label><Field name="professionTitle" label={L.professionTitle} required minLength={2} maxLength={160} aria-describedby="membership-occupation-hint" value={details.professionTitle} onChange={e=>setDetails({...details,professionTitle:e.target.value})}/><small id="membership-occupation-hint">{details.profession==='other'?L.otherProfessionHint:L.professionTitleHint}</small></>}
                         <button className="membership-primary" disabled={busy} type="submit">{busy?L.working:L.continue}<ArrowUpRight size={18}/></button>
                     </form>:<form className="membership-form" onSubmit={submit}>
                         <p className="membership-documenthint">{L.documentHint}</p>

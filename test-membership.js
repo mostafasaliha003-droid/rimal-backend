@@ -29,7 +29,9 @@ test('eligibility is validated independently of browser and requires correct doc
     assert.deepEqual(requiredDocuments('uae_professional'),['eid_front','eid_back']);
     assert.throws(()=>validateEligibility({category:'gcc_citizen',nationality:'gb'}));
     assert.throws(()=>validateEligibility({category:'uae_professional',nationality:'zz',profession:'doctor',professionTitle:'Doctor'}));
-    assert.throws(()=>validateEligibility({category:'uae_professional',nationality:'eg',profession:'other',professionTitle:'Other'}));
+    assert.throws(()=>validateEligibility({category:'uae_professional',nationality:'eg',profession:'unknown',professionTitle:'Other'}));
+    for(const profession of require('./shared/membershipProfessions.json'))assert.equal(validateEligibility({category:'uae_professional',nationality:'eg',profession,professionTitle:'Printed occupation'}).profession,profession);
+    for(const professionTitle of ['',' ', 'A', 'A'.repeat(161)])assert.throws(()=>validateEligibility({category:'uae_professional',nationality:'eg',profession:'other',professionTitle}));
     assert.equal(validateEligibility({category:'uae_professional',nationality:'eg',profession:'engineer',professionTitle:'Civil engineer'}).profession,'engineer');
 });
 test('public application never exposes internal review, ciphertext or expired documents',()=>{
@@ -92,6 +94,26 @@ test('professional eligibility requires matching ID sides, expiry, name, printed
     assert.equal(professionalEvidence(front,result(['ID Number: 784-1990-1234567-1','Occupation: Engineer']),app,user,now).eligible,false);
     assert.equal(professionalEvidence(front,back,{...app,nationality:'ae'},user,now).eligible,false);
 });
+test('new resident categories match printed occupations in either language while Other requires staff',()=>{
+    const result=values=>({lines:values.map(text=>({text,confidence:99}))});
+    const front=result(['ID Number: 784-1990-1234567-1','Name: Jane Doe','Nationality: Egypt','Expiry Date: 31/12/2030']);
+    const user={name:'Jane Doe'},now=new Date('2026-10-21');
+    const titles={student:['Student','طالب','طالبة'],teacher:['Teacher','Schoolteacher','معلم','مدرسة'],lecturer:['Lecturer','محاضر'],professor:['University Professor','أستاذ جامعي'],investor:['Investor','مستثمر'],partner:['Partner','شريك'],accountant:['Accountant','محاسب'],lawyer:['Lawyer','Attorney','محامٍ','محامية']};
+    for(const [profession,occupations] of Object.entries(titles))for(const professionTitle of occupations){
+        const back=result(['ID Number: 784-1990-1234567-1',`Occupation: ${professionTitle}`]);
+        const application={nationality:'eg',profession,professionTitle};
+        assert.equal(professionalEvidence(front,back,application,user,now).eligible,true,`${profession}: ${professionTitle}`);
+        assert.equal(professionalEvidence(front,back,{...application,professionTitle:'Different printed title'},user,now).eligible,false);
+        const uncertain={lines:back.lines.map(line=>({...line,confidence:89}))};
+        assert.equal(professionalEvidence(front,uncertain,application,user,now).eligible,false);
+        assert.equal(professionalEvidence(front,back,{...application,profession:'other'},user,now).eligible,false,'Other never auto-approves, even when the text matches');
+    }
+    for(const profession of Object.keys(titles)){
+        const back=result(['ID Number: 784-1990-1234567-1','Occupation: Unlisted occupation']);
+        assert.equal(professionalEvidence(front,back,{nationality:'eg',profession,professionTitle:'Unlisted occupation'},user,now).eligible,false);
+    }
+});
+
 test('OCR retains the lowest confidence per field and remains unavailable until explicitly configured',async()=>{
     const data=parseTsv('level\tpage_num\tblock_num\tpar_num\tline_num\tword_num\tleft\ttop\twidth\theight\tconf\ttext\n5\t1\t1\t1\t1\t1\t0\t0\t1\t1\t99\tName:\n5\t1\t1\t1\t1\t2\t0\t0\t1\t1\t40\tJane');
     assert.equal(data.lines[0].confidence,40);
