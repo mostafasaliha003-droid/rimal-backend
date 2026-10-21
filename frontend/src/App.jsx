@@ -1,6 +1,7 @@
 import { lazy, useEffect, useState } from 'react';
 import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, Sparkles, X } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
+import CompanyFooter from './components/CompanyFooter';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelCard from './components/HotelCard';
 import RoomOfferGroups from './components/RoomOfferGroups';
@@ -570,18 +571,7 @@ export default function App() {
                     </label>
                 </div>}
             </main>
-            <footer className="border-t border-slate-200 bg-white">
-                <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-5 py-8 text-sm font-bold text-slate-500">
-                    <span className="text-slate-800">© 2026 رمال وفِلّها</span>
-                    <div className="flex items-center gap-6">
-                    <a href="mailto:management@remaltourismllc.com" className="hover:text-blue-600 transition-colors">{t('footer.help', 'المساعدة والتواصل')}</a>
-                    <a href="/#security" className="hover:text-blue-600 transition-colors">{t('footer.bookingInfo', 'معلومات الحجز')}</a>
-                    </div>
-                    <button onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })} className="flex items-center gap-1.5 rounded-full bg-slate-50 px-4 py-2 text-slate-700 hover:bg-slate-100 transition-colors">
-                        {t('footer.top', 'العودة للأعلى')} <ChevronLeft size={16} className="rotate-90" />
-                    </button>
-                </div>
-            </footer>
+            <CompanyFooter />
         </div>
     );
 }

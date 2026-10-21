@@ -72,9 +72,6 @@
 .membership-audience h3 { font-size: 14px; font-weight: 800; color: var(--remal-navy); margin-bottom: 4px; }
 .membership-audience p { font-size: 12px; line-height: 1.9; color: #526477; }
 .membership-audience-note { padding: 12px; border-radius: 10px; background: rgb(var(--remal-blue-rgb) / .06); }
-.membership-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 20px; max-width: 1240px; padding: 25px 0 30px; margin: auto; border-top: 1px solid var(--membership-border); color: #526477; font-size: 12px; }
-.membership-footer > div { display: flex; flex-wrap: wrap; gap: 22px; }
-.membership-footer a:hover { text-decoration: underline; color: var(--remal-blue-strong); }
 .membership-accountline { display: flex; justify-content: space-between; align-items: center; gap: 14px; border-bottom: 1px solid var(--membership-border); padding-bottom: 16px; font-size: 14px; font-weight: 700; overflow-wrap: anywhere; }
 .membership-accountline > button { display: flex; gap: 6px; align-items: center; color: #526477; font-size: 12px; flex-shrink: 0; min-height: 44px; }
 .membership-steps { display: flex; gap: 18px; margin: 22px 0; font-size: 13px; color: #64748b; }
@@ -126,8 +123,8 @@
 .membership-analysis { margin: 22px 0; padding: 18px; border: 1px solid rgb(var(--remal-blue-rgb) / .18); background: rgb(var(--remal-blue-rgb) / .045); border-radius: 16px; text-align: start; }
 .membership-analysis strong { font-size: 13px; color: var(--remal-blue-strong); }
 .membership-analysis p { font-size: 14px; line-height: 1.9; color: #526477; margin: 8px 0 0; }
+.membership-compact > .membership-header { width: 100%; }
 .membership-compact > .membership-panel { margin: 48px auto; }
-.membership-compact > .membership-header, .membership-compact > .membership-footer { width: 100%; }
 .membership-compact .membership-admin-heading, .membership-compact .membership-admin-tools, .membership-compact .membership-admin-layout, .membership-compact > .membership-error { max-width: 1240px; margin-inline: auto; padding-inline: 32px; }
 .membership-site button:focus-visible, .membership-site a:focus-visible, .membership-site summary:focus-visible { outline: 3px solid var(--remal-focus); outline-offset: 4px; }
 .membership-site button, .membership-site input, .membership-site select { -webkit-tap-highlight-color: transparent; }
@@ -136,7 +133,6 @@
     .membership-story { padding: 30px; }
     .membership-story h1 { font-size: 34px; }
     .membership-panel { padding: 26px; }
-    .membership-footer { margin-inline: 28px; }
 }
 @media(max-width: 800px) {
     .membership-authenticated .membership-story { display: none; }
@@ -173,8 +169,6 @@
     .membership-panelheading h2, .membership-status h2 { font-size: 26px; }
     .membership-category { padding: 14px; }
     .membership-upload { padding: 15px; }
-    .membership-footer { flex-direction: column; align-items: start; gap: 15px; margin-inline: 20px; padding: 22px 0; font-size: 11px; }
-    .membership-footer > div { gap: 14px; }
     .membership-reference > b { font-size: 11px; }
     .membership-accountline > button { font-size: 11px; }
 }

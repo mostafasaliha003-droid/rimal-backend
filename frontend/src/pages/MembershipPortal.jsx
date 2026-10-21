@@ -7,6 +7,7 @@ import {membershipRequest} from '../services/membershipApi';
 import {membershipCopy} from '../services/membershipCopy';
 import countryCodes from '../../../shared/ratehawkResidencies.json';
 import './MembershipPortal.css';
+import CompanyFooter from '../components/CompanyFooter';
 const gcc=['ae','sa','kw','qa','bh','om'];
 const professions=['doctor','engineer','nurse','manager','supervisor','administrative'];
 export function MembershipChrome({children,compact=false}){
@@ -15,7 +16,7 @@ export function MembershipChrome({children,compact=false}){
         <div className="membership-grain" aria-hidden="true" />
         <header className="membership-header"><div className="membership-top"><a href="/" className="membership-brand"><img src="/logo.jpg" alt={t('nav.logoAlt','شعار رمال الدولية')} width="64" height="64" decoding="async" fetchPriority="high" data-membership-logo/><span><b>رمال <em>وفِلّها</em></b><small>{t('nav.brandTagline','إقامتك تبدأ من هنا')}</small></span></a><div className="membership-header-tools"><span className="membership-header-access"><ShieldCheck size={16}/>{L.brand}</span><label className="membership-language"><Globe2 size={16}/><select aria-label={t('nav.language','اللغة')} value={language} onChange={e=>setLanguage(e.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label></div></div></header>
         {children}
-        <footer className="membership-footer"><span>REMAL TOURISM · {new Date().getFullYear()}</span><div><a href={`/privacy?lang=${language}`}>{L.privacy}</a><a href={`/terms?lang=${language}`}>{L.terms}</a><a href="mailto:management@remaltourismllc.com">management@remaltourismllc.com</a></div></footer>
+        <CompanyFooter />
     </main>;
 }
 function Field({label,...props}){return <label className="membership-field"><span>{label}</span><input {...props}/></label>;}
