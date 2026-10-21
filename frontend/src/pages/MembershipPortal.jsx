@@ -1,5 +1,5 @@
 import {useEffect,useState} from 'react';
-import {ArrowUpRight,Check,ChevronLeft,FileImage,Globe2,LockKeyhole,LogOut,Mail,ShieldCheck,Sparkles,Upload,Copy} from 'lucide-react';
+import {ArrowUpRight,Check,ChevronLeft,FileImage,Globe2,LockKeyhole,LogOut,Mail,ShieldCheck,Sparkles,Copy,Hotel,Tickets,Plane,ChevronDown} from 'lucide-react';
 import {useLanguage} from '../i18n';
 import BookingAPI from '../services/bookingApi';
 import {saveUserSession,clearUserSession} from '../services/authSession';
@@ -10,10 +10,10 @@ import './MembershipPortal.css';
 const gcc=['ae','sa','kw','qa','bh','om'];
 const professions=['doctor','engineer','nurse','manager','supervisor','administrative'];
 export function MembershipChrome({children,compact=false}){
-    const {language,setLanguage,direction}=useLanguage(),L=membershipCopy(language);
+    const {language,setLanguage,direction,t}=useLanguage(),L=membershipCopy(language);
     return <main className={`membership-site ${compact?'membership-compact':''}`} dir={direction}>
         <div className="membership-grain" aria-hidden="true" />
-        <header className="membership-top"><a href="/" className="membership-brand"><span className="membership-mark">R</span><span><b>REMAL</b><small>{L.brand}</small></span></a><label className="membership-language"><Globe2 size={16}/><select aria-label="Language" value={language} onChange={e=>setLanguage(e.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label></header>
+        <header className="membership-header"><div className="membership-top"><a href="/" className="membership-brand"><img src="/logo.jpg" alt={t('nav.logoAlt','شعار رمال الدولية')} width="64" height="64" decoding="async" fetchPriority="high" data-membership-logo/><span><b>رمال <em>وفِلّها</em></b><small>{t('nav.brandTagline','إقامتك تبدأ من هنا')}</small></span></a><div className="membership-header-tools"><span className="membership-header-access"><ShieldCheck size={16}/>{L.brand}</span><label className="membership-language"><Globe2 size={16}/><select aria-label={t('nav.language','اللغة')} value={language} onChange={e=>setLanguage(e.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label></div></div></header>
         {children}
         <footer className="membership-footer"><span>REMAL TOURISM · {new Date().getFullYear()}</span><div><a href={`/privacy?lang=${language}`}>{L.privacy}</a><a href={`/terms?lang=${language}`}>{L.terms}</a><a href="mailto:management@remaltourismllc.com">management@remaltourismllc.com</a></div></footer>
     </main>;
@@ -42,8 +42,8 @@ export default function MembershipPortal({snapshot,refresh,go}){
     const pending=app&&!['draft','needs_information'].includes(app.status),required=details.category==='gcc_citizen'?['passport']:['eid_front','eid_back'];
     let countries=[];try{const names=new Intl.DisplayNames([language],{type:'region'});countries=countryCodes.map(code=>({code,name:names.of(code.toUpperCase())})).sort((a,b)=>a.name.localeCompare(b.name,language));}catch{}
     return <MembershipChrome>
-        <div className="membership-layout">
-            <section className="membership-story"><span className="membership-eyebrow"><Sparkles size={15}/>{L.eyebrow}</span><h1>{L.title}</h1><p>{L.intro}</p><div className="membership-benefits">{[L.benefit1,L.benefit2,L.benefit3].map(text=><div key={text}><Check size={17}/><span>{text}</span></div>)}</div><div className="membership-free"><ShieldCheck size={24}/><div><strong>{L.free}</strong><span>{L.approval}</span></div></div><small className="membership-conditions">{L.conditions}</small><div className="membership-orbit" aria-hidden="true"><i/><i/><i/><span>R</span></div></section>
+        <div className={`membership-layout ${snapshot?.authenticated?'membership-authenticated':''}`}>
+            <section className="membership-story"><div className="membership-travel-art" aria-hidden="true"><Globe2 strokeWidth={.55}/><Plane strokeWidth={1}/></div><span className="membership-eyebrow"><Sparkles size={15}/>{L.eyebrow}</span><h1>{L.title.split('\n').map((line,index)=><span key={index}>{line}</span>)}</h1><p>{L.intro}</p><div className="membership-benefits">{[[Hotel,L.benefit1],[Globe2,L.benefit2],[Tickets,L.benefit3]].map(([Icon,text])=><div key={text}><span className="membership-benefit-icon"><Icon size={19}/></span><span>{text}</span></div>)}</div><div className="membership-free"><ShieldCheck size={24}/><div><strong>{L.free}</strong><span>{L.approval}</span></div><Check size={18}/></div><small className="membership-conditions">{L.conditions}</small></section>
             <section className="membership-panel" aria-label={L.brand}>
                 {snapshot?.authenticated&&<div className="membership-accountline"><span>{snapshot.user?.name}</span><button type="button" disabled={busy} onClick={()=>void run(async()=>{await BookingAPI.logoutUser();clearUserSession();await refresh();})}><LogOut size={15}/>{L.logout}</button></div>}
                 {error&&<p role="alert" className="membership-error">{error}</p>}
@@ -62,6 +62,7 @@ export default function MembershipPortal({snapshot,refresh,go}){
                         {verify&&<button type="button" className="membership-textbutton" onClick={()=>setVerify(false)}>{L.back}</button>}
                     </form>
                     <p className="membership-trust"><LockKeyhole size={15}/>{L.submitHint}</p>
+                    <details className="membership-audience"><summary><ShieldCheck size={17}/><span>{language==='ar'?'هل العضوية مناسبة لك؟':language==='es'?'¿Quién puede solicitarla?':'Who can apply?'}</span><ChevronDown size={16}/></summary><div><section><h3>{L.gcc}</h3><p>{L.gccHint}</p></section><section><h3>{L.professional}</h3><p>{L.professionalHint}</p></section><p className="membership-audience-note">{L.eligibilityHint}</p></div></details>
                 </>:pending?<div className="membership-status" data-membership-status={app.status}>
                     <div className={`membership-statusicon ${app.status==='approved'?'approved':''}`}>{app.status==='approved'?<Check size={32}/>:<ShieldCheck size={32}/>}</div>
                     <span className="membership-live"><i/>{L.live}</span><h2>{L[app.status]}</h2><p>{app.status==='approved'?L.approvedHint:app.status==='submitted'?L.submittedHint:app.status==='under_review'?L.reviewHint:app.status==='rejected'?L.rejectedHint:L.suspendedHint}</p>
