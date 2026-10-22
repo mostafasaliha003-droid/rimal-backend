@@ -62,6 +62,10 @@ Result:
 - 0 pending, paused, or errored scenarios.
 - 0 unmet expectations.
 
+The Staging runtime readiness check reported `configurationReady: true`,
+Sandbox checkout ready, and no configuration blockers. The deployed frontend
+and backend both report revision `aaab257161456d8190817a19fa3ec40c6ffabaa1`.
+
 Covered scenarios:
 
 - standard booking;
@@ -82,11 +86,11 @@ committed to Git.
 These actions require external account configuration or ETG confirmation and
 cannot be completed by code alone:
 
-1. Configure and verify `SMTP_USER` and `SMTP_PASSWORD` on Staging, then confirm
-   receipt of registration, booking confirmation/voucher, cancellation, and
-   refund messages.
-2. Deploy the reviewed commit to Staging and verify that frontend and backend
-   report the same release revision.
+1. Confirm receipt of registration, booking confirmation/voucher, cancellation,
+   and refund messages in the approved test mailbox. Staging configuration and
+   SMTP authentication are ready, but customer receipt is external evidence.
+2. Merge the reviewed certification tooling commit into the maintained Staging
+   branch before the next certification rerun.
 3. Export the detailed certification exchange log from the controlled test
    environment and provide it securely to ETG if requested.
 4. Send ETG the callback URL if the booking-status webhook will be used, and
