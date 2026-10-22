@@ -11,9 +11,9 @@
  * financial responsibility.
  *
  * Usage:
- *   node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=standard_booking --max-approved-price=1000.00
- *   node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=standard_booking --max-approved-price=1000.00
- *   node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=prebook_price_increase_10_percent --max-approved-price=150.00
+ *   node etg-cert-sandbox-test.js --env-file=.env.sandbox --validate-config
+ *   node etg-cert-sandbox-test.js --env-file=.env.sandbox --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=standard_booking --max-approved-price=1000.00
+ *   node etg-cert-sandbox-test.js --env-file=.env.sandbox --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=prebook_price_increase_10_percent --max-approved-price=150.00
  *
  * Required .env values:
  *   RATEHAWK_BASE_URL=https://api-sandbox.ratehawk.com
@@ -47,7 +47,20 @@ const axios = require('axios');
 
 const ROOT = __dirname;
 const LOG_PATH = path.join(ROOT, 'etg-certification-logs.json');
-dotenv.config({ path: path.join(ROOT, '.env') });
+
+function resolveEnvFile(argv = process.argv.slice(2)) {
+    const argument = argv.find(value => value.startsWith('--env-file='));
+    const requested = argument ? argument.slice('--env-file='.length) : '.env';
+    if (!requested || requested.includes('\0')) throw new Error('Invalid --env-file value.');
+    const resolved = path.resolve(ROOT, requested);
+    const relative = path.relative(ROOT, resolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        throw new Error('--env-file must resolve inside the project directory.');
+    }
+    return resolved;
+}
+
+dotenv.config({ path: resolveEnvFile() });
 
 const SANDBOX_ORIGIN = 'https://api-sandbox.ratehawk.com';
 const API_PREFIX = '/api/b2b/v3';
@@ -150,6 +163,7 @@ function cliOptions(argv) {
         execute: argv.includes('--execute'),
         finishBookings: argv.includes('--finish-bookings'),
         acknowledgeSandboxBookings: argv.includes('--acknowledge-sandbox-bookings'),
+        validateConfig: argv.includes('--validate-config'),
         includeErrors: argv.includes('--include-errors'),
         maxApprovedPrice: maximumPriceArgument ? maximumPriceArgument.slice('--max-approved-price='.length) : null,
         scenarioId: selectedScenario ? selectedScenario.slice('--scenario='.length) : null,
@@ -162,8 +176,9 @@ function printHelp() {
         'ETG Sandbox certification runner (no requests without explicit execution/booking acknowledgments)',
         '',
         'Usage:',
-        '  node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=prebook_price_increase_10_percent --max-approved-price=150.00',
-        '  node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --include-errors --max-approved-price=1000.00',
+        '  node etg-cert-sandbox-test.js --env-file=.env.sandbox --validate-config',
+        '  node etg-cert-sandbox-test.js --env-file=.env.sandbox --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=prebook_price_increase_10_percent --max-approved-price=150.00',
+        '  node etg-cert-sandbox-test.js --env-file=.env.sandbox --execute --finish-bookings --acknowledge-sandbox-bookings --include-errors --max-approved-price=1000.00',
         '',
         'Required .env: sandbox credentials, ETG_CERT_USER_IP, test contacts/guests, ETG_CERT_SANDBOX_TEST_DATA_CONFIRMED=true',
         'HID 8473727 is blocked: ETG warns it may cause a real financial booking obligation.',
@@ -450,8 +465,13 @@ function ratePriceSummary(rate) {
 }
 
 function getComparablePrice(rate) {
-    const amount = rate?.show_amount ?? rate?.amount;
-    const currency = rate?.show_currency_code ?? rate?.currency_code;
+    // Search/prebook prices are nested under the selected payment option in
+    // ETG v3; reading only top-level fields rejects every real hotelpage rate.
+    const payment = rate?.payment_options?.payment_types?.find(item =>
+        ['deposit', 'hotel'].includes(item?.type) && item.is_need_credit_card_data !== true);
+    const source = payment || rate;
+    const amount = source?.show_amount ?? source?.amount;
+    const currency = source?.show_currency_code ?? source?.currency_code;
     if (amount === undefined || amount === null || typeof currency !== 'string') return null;
     const numericAmount = Number(amount);
     if (!Number.isFinite(numericAmount) || numericAmount < 0) return null;
@@ -782,6 +802,18 @@ async function main() {
         printHelp();
         return;
     }
+    if (options.validateConfig) {
+        const config = requireSandboxConfiguration();
+        console.log(JSON.stringify({
+            valid: true,
+            environment: 'ETG Sandbox',
+            api_origin: SANDBOX_ORIGIN,
+            scenarios: scenarios.map(scenario => scenario.id),
+            error_scenarios: errorScenarios.map(scenario => scenario.id),
+            guest_scenarios_configured: Object.keys(config.guestRoomsByScenario).sort()
+        }, null, 2));
+        return;
+    }
     if (!options.execute || !options.finishBookings || !options.acknowledgeSandboxBookings) {
         console.log('\nNo API calls were made. --execute, --finish-bookings, and --acknowledge-sandbox-bookings are all required; this flow can create sandbox bookings.');
         return;
@@ -863,6 +895,7 @@ module.exports = {
     statusFromResult,
     validateScenarioArguments,
     validateGuestRooms,
+    resolveEnvFile,
     scenarios,
     errorScenarios
 };
