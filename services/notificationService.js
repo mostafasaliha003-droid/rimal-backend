@@ -41,9 +41,9 @@ async function sendVoucherConfirmation(input) {
     if (typeof query.select === 'function') query = query.select('+providerHotelCode');
     const booking = await query.lean();
     if (booking?.hotelName === 'Hotel' && /^\d+$/.test(booking.providerHotelCode || '')) {
-        const result = await require('./ratehawkClient').hotelContentByIds({ language: 'en', hids: [Number(booking.providerHotelCode)] });
-        const hotel = result.ok && require('../syncFilteredHotels').extractHotels(result.data)
-            .find(item => String(item.hid) === booking.providerHotelCode && item.name && !item.deleted && !item.is_closed);
+        const cached = await require('../models/Hotel').findOne({ hid: booking.providerHotelCode }).lean();
+        const hotel = cached && !cached.staticData?.deleted && !cached.staticData?.is_closed
+            && { name: cached.name || cached.staticData?.name };
         if (!hotel) throw new Error('confirmed_reservation_hotel_unavailable');
         booking.hotelName = hotel.name;
     }
@@ -51,12 +51,11 @@ async function sendVoucherConfirmation(input) {
     const supplierVoucherAttached = !reservationConfirmation.isKnownBlankSupplierVoucher(pdfBuffer);
     if (!sandbox && !supplierVoucherAttached) throw new Error('supplier_voucher_blank');
     const confirmationPdf = await reservationConfirmation.generateConfirmationPdf(details);
-    const { subject, text, html } = reservationConfirmation.renderConfirmationEmail(details, { supplierVoucherAttached });
+    const { subject, text, html } = reservationConfirmation.renderConfirmationEmail(details);
     const result = await transporter.sendMail({
         from: { name: 'Remal | رمال', address: process.env.SMTP_USER }, to: email,
         replyTo: 'management@remaltourismllc.com', subject, text, html,
-        attachments: [{ filename: `Remal-Confirmation-${reference}.pdf`, content: confirmationPdf, contentType: 'application/pdf' },
-            ...(supplierVoucherAttached ? [{ filename: `Supplier-Voucher-${reference}.pdf`, content: pdfBuffer, contentType: 'application/pdf' }] : [])]
+        attachments: [{ filename: `Remal-Confirmation-${reference}.pdf`, content: confirmationPdf, contentType: 'application/pdf' }]
     });
     if (!result.messageId || !result.accepted?.includes(email)) throw new Error('confirmation_email_outcome_unknown');
     return { messageId: result.messageId };

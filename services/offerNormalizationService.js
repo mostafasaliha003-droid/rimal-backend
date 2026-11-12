@@ -297,8 +297,8 @@ function normalizeRate({
         // this field or serialize it into public search/listing responses.
         booking: {
             referenceVisibility: 'server_only',
-            requiresOpaqueReference: Boolean(rate.rateKey || rate.book_hash || rate.match_hash),
-            opaqueToken: textOrNull(rate.rateKey || rate.book_hash || rate.match_hash)
+            requiresOpaqueReference: Boolean(rate.rateKey || rate.book_hash),
+            opaqueToken: textOrNull(rate.rateKey || rate.book_hash)
         }
     };
 }

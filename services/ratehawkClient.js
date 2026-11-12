@@ -24,15 +24,27 @@ const CONTENT_SANDBOX = new URL(BASE_URL).hostname === 'api-sandbox.ratehawk.com
 
 // Default per-endpoint timeouts (ms). Booking/cancel need longer windows.
 const DEFAULT_TIMEOUT = 20000;
-const configuredSerpTimeout = Number.parseInt(process.env.RATEHAWK_SERP_TIMEOUT_MS || '60000', 10);
+const configuredSerpTimeout = Number(process.env.RATEHAWK_SERP_TIMEOUT_MS || 30000);
 const SERP_TIMEOUT = Number.isFinite(configuredSerpTimeout)
-    ? Math.min(120000, Math.max(30000, configuredSerpTimeout))
-    : 60000;
-const configuredPrebookTimeout = Number.parseInt(process.env.RATEHAWK_PREBOOK_TIMEOUT_MS || '60000', 10);
+    ? Math.min(30000, Math.max(7000, Math.floor(configuredSerpTimeout / 1000) * 1000))
+    : 30000;
+const configuredPrebookTimeout = Number(process.env.RATEHAWK_PREBOOK_TIMEOUT_MS || 60000);
 const PREBOOK_TIMEOUT = Number.isFinite(configuredPrebookTimeout)
-    ? Math.min(120000, Math.max(30000, configuredPrebookTimeout))
+    ? Math.min(60000, Math.max(30000, configuredPrebookTimeout))
     : 60000;
 const MAX_DOCUMENT_BYTES = 8 * 1024 * 1024;
+
+// ETG's search budget is in seconds in the request body. Leave five seconds
+// outside that budget for the response to travel back over the network.
+function searchOptions(params = {}, options = {}) {
+    const { match_hash: ignoredMatchHash, timeout: requestedTimeout, ...data } = params;
+    const parsed = typeof requestedTimeout === 'number' ||
+        (typeof requestedTimeout === 'string' && requestedTimeout.trim())
+        ? Number(requestedTimeout) : NaN;
+    data.timeout = Number.isFinite(parsed)
+        ? Math.min(30, Math.max(7, Math.floor(parsed))) : SERP_TIMEOUT / 1000;
+    return { ...options, data, timeout: Math.max(SERP_TIMEOUT, data.timeout * 1000) + 5000 };
+}
 
 // ETG error codes that are safe to retry (transient / non-final).
 const RETRYABLE_ERRORS = new Set(['unknown', 'timeout']);
@@ -662,15 +674,12 @@ async function suggestHotelAndRegion(query, language = 'en') {
         ? response.data.data
         : response.data;
 }
-const serpRegion = (data) => call('post', '/api/b2b/v3/search/serp/region/', { data, timeout: SERP_TIMEOUT });
-const serpHotels = (data) => call('post', '/api/b2b/v3/search/serp/hotels/', { data, timeout: SERP_TIMEOUT });
+const serpRegion = (data) => call('post', '/api/b2b/v3/search/serp/region/', searchOptions(data));
+const serpHotels = (data) => call('post', '/api/b2b/v3/search/serp/hotels/', searchOptions(data));
 async function searchHotels(params = {}) {
     let response;
     try {
-        response = await call('post', '/api/b2b/v3/search/serp/hotels/', {
-            data: params,
-            timeout: SERP_TIMEOUT
-        });
+        response = await call('post', '/api/b2b/v3/search/serp/hotels/', searchOptions(params));
     } catch (error) {
         if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {
             logger.warn('RateHawk hotel ID search failed', {
@@ -696,10 +705,7 @@ async function searchHotels(params = {}) {
 async function searchHotelsByGeo(params = {}) {
     let response;
     try {
-        response = await call('post', '/api/b2b/v3/search/serp/geo/', {
-            data: params,
-            timeout: SERP_TIMEOUT
-        });
+        response = await call('post', '/api/b2b/v3/search/serp/geo/', searchOptions(params));
     } catch (error) {
         if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {
             logger.warn('RateHawk geo search failed', {
@@ -725,10 +731,7 @@ async function searchHotelsByGeo(params = {}) {
 async function searchHotelsByRegion(params = {}) {
     let response;
     try {
-        response = await call('post', '/api/b2b/v3/search/serp/region/', {
-            data: params,
-            timeout: SERP_TIMEOUT
-        });
+        response = await call('post', '/api/b2b/v3/search/serp/region/', searchOptions(params));
     } catch (error) {
         if (['invalid_params', 'hotels_not_found', 'core_search_error'].includes(error.ratehawkError)) {
             logger.warn('RateHawk region search failed', {
@@ -784,10 +787,7 @@ async function sortHotelsInRegion(params = {}) {
 async function getHotelPageRates(params = {}) {
     let response;
     try {
-        response = await call('post', '/api/b2b/v3/search/hp/', {
-            data: params,
-            timeout: 30000
-        });
+        response = await call('post', '/api/b2b/v3/search/hp/', searchOptions(params));
     } catch (error) {
         if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {
             logger.warn('RateHawk hotelpage rates lookup failed', {
@@ -839,8 +839,8 @@ async function lookupRateInfo(bookHash, language = 'en') {
         ? response.data.data
         : response.data;
 }
-const serpGeo = (data) => call('post', '/api/b2b/v3/search/serp/geo/', { data, timeout: 30000 });
-const hotelPage = (data, opts = {}) => call('post', '/api/b2b/v3/search/hp/', { data, timeout: 30000, ...opts });
+const serpGeo = (data) => call('post', '/api/b2b/v3/search/serp/geo/', searchOptions(data));
+const hotelPage = (data, opts = {}) => call('post', '/api/b2b/v3/search/hp/', searchOptions(data, opts));
 
 // ---- Prebook ----------------------------------------------------------------
 async function prebookRate(hash, priceIncreasePercent = 0) {

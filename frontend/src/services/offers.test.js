@@ -54,6 +54,13 @@ test('missing policy and bed do not become free cancellation or king bed', () =>
     assert.equal(formatMoney(room.price, room.currency), new Intl.NumberFormat('ar-AE', { style: 'currency', currency: 'USD', maximumFractionDigits: 2 }).format(60));
 });
 
+test('deprecated match_hash never becomes a booking hash and signed offer context survives normalization', () => {
+    assert.equal(normalizeRoom({match_hash:'deprecated'}, {}, []).book_hash, undefined);
+    assert.equal(normalizeRoom({book_hash:'h-current',match_hash:'deprecated',offer_context:'signed.context'}, {}, []).book_hash, 'h-current');
+    assert.equal(normalizeRoom({book_hash:'h-current',offer_context:'signed.context'}, {}, []).offer_context, 'signed.context');
+    assert.equal(normalizeRoom({book_hash:'h-current',originalData:{offer_context:'legacy.context'}}, {}, []).offer_context, 'legacy.context');
+});
+
 test('Affiliate and B2B rates retain distinct contract and payment identities', () => {
     const guests = [{ adults: 1, children: [] }];
     const b2b = normalizeRoom(rate('60'), {}, guests);
@@ -84,24 +91,26 @@ test('Affiliate and B2B rates retain distinct contract and payment identities', 
 });
 
 test('room photos follow the selected supplier rate and exclude placeholders', () => {
+    const kingClassification = {class:3,quality:2,sex:0,bathroom:2,bedding:3,family:0,capacity:2,club:0,bedrooms:0,balcony:0,view:0,floor:0};
+    const doubleClassification = {...kingClassification,bedding:4};
     const hotel = {
         images: ['https://cdn.worldota.net/hotel-photo.jpg'],
         staticData: {
             room_groups: [
-                { id: 'king', name: 'Deluxe King Room', images_ext: [{ url: 'https://cdn.ratehawk.net/t/{size}/content/king.jpg' }] },
-                { id: 'double', name: 'Deluxe Double Room', images_ext: [{ url: 'https://cdn.ratehawk.net/t/{size}/content/double.jpg' }] }
+                { id: 'king', name: 'Deluxe King Room', rg_ext: kingClassification, images_ext: [{ url: 'https://cdn.ratehawk.net/t/{size}/content/king.jpg' }] },
+                { id: 'double', name: 'Deluxe Double Room', rg_ext: doubleClassification, images_ext: [{ url: 'https://cdn.ratehawk.net/t/{size}/content/double.jpg' }] }
             ]
         }
     };
-    const kingRate = { room_name: 'Deluxe King Room', room_group_id: 'king', book_hash: 'king' };
-    const doubleRate = { room_name: 'Deluxe Double Room', room_group_id: 'double', book_hash: 'double' };
+    const kingRate = { room_name: 'Deluxe King Room', rg_ext: kingClassification, book_hash: 'king' };
+    const doubleRate = { room_name: 'Deluxe Double Room', rg_ext: doubleClassification, book_hash: 'double' };
     assert.deepEqual(roomImagesForRate(kingRate, hotel), ['https://cdn.worldota.net/t/1920x1080/content/king.jpg']);
     assert.deepEqual(roomImagesForRate(doubleRate, hotel), ['https://cdn.worldota.net/t/1920x1080/content/double.jpg']);
     assert.notDeepEqual(roomImagesForRate(kingRate, hotel), roomImagesForRate(doubleRate, hotel));
     assert.deepEqual(roomImagesForRate({ room_group_id: 'missing', room_name: 'Deluxe King Room' }, hotel), []);
     assert.deepEqual(roomImagesForRate({ room_group_id: '', room_name: 'Deluxe King Room' }, hotel), []);
     assert.deepEqual(roomImagesForRate({ room_group_id: '', id: 'king' }, hotel), []);
-    assert.deepEqual(roomImagesForRate({ room_group: { id: 'king' } }, hotel), ['https://cdn.worldota.net/t/1920x1080/content/king.jpg']);
+    assert.deepEqual(roomImagesForRate({ room_group: { id: 'king' } }, hotel), []);
     assert.deepEqual(roomImagesForRate({ images: ['https://cdn.worldota.net/offer-room.jpg'], room_group_id: 'missing' }, hotel), ['https://cdn.worldota.net/offer-room.jpg']);
     assert.deepEqual(hotelImages({ images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945'] }), []);
     assert.deepEqual(hotelImages({ images: ['https://cdn.worldota.net/t/2048x1536/content/old.jpg'] }), ['https://cdn.worldota.net/t/2048x1536/content/old.jpg']);

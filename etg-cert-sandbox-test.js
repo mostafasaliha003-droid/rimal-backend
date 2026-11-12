@@ -11,14 +11,15 @@
  * financial responsibility.
  *
  * Usage:
- *   node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=standard_booking --max-approved-price=1000.00
- *   node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=standard_booking --max-approved-price=1000.00
- *   node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=prebook_price_increase_10_percent --max-approved-price=150.00
+ *   node etg-cert-sandbox-test.js --env-file=.env.sandbox --validate-config
+ *   node etg-cert-sandbox-test.js --env-file=.env.sandbox --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=standard_booking --max-approved-price=1000.00
+ *   node etg-cert-sandbox-test.js --env-file=.env.sandbox --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=prebook_price_increase_10_percent --max-approved-price=150.00
  *
  * Required .env values:
  *   RATEHAWK_BASE_URL=https://api-sandbox.ratehawk.com
  *   RATEHAWK_KEY_ID=...
  *   RATEHAWK_API_KEY=...
+ *   RATEHAWK_CONFIRMATION_EMAIL=<company mailbox for supplier confirmations>
  *   ETG_CERT_USER_IP=<valid IP used for the test booking>
  *   ETG_CERT_GUEST_EMAIL=<dedicated sandbox test contact email>
  *   ETG_CERT_GUEST_PHONE=<dedicated sandbox test contact phone>
@@ -26,7 +27,7 @@
  *   ETG_CERT_SANDBOX_TEST_DATA_CONFIRMED=true
  *
  * Optional .env values:
- *   ETG_CERT_BOOK_TIMEOUT_SECONDS=600
+ *   ETG_CERT_BOOK_TIMEOUT_SECONDS=180
  *   ETG_CERT_POLL_INTERVAL_MS=5000
  *
  * ETG_CERT_GUESTS_JSON must map each scenario ID to per-room guest arrays with
@@ -44,10 +45,63 @@ const crypto = require('node:crypto');
 const { isIP } = require('node:net');
 const dotenv = require('dotenv');
 const axios = require('axios');
+const childProcess = require('node:child_process');
 
 const ROOT = __dirname;
-const LOG_PATH = path.join(ROOT, 'etg-certification-logs.json');
-dotenv.config({ path: path.join(ROOT, '.env') });
+const LOG_DIRECTORY = path.join(ROOT, 'logs');
+
+function resolveLogFile(argv = process.argv.slice(2)) {
+    const argument = argv.find(value => value.startsWith('--log-file='));
+    const requested = argument ? argument.slice('--log-file='.length)
+        : `logs/etg-certification-${new Date().toISOString().replace(/[:.]/g, '-')}-${crypto.randomUUID()}.json`;
+    const portable = requested.replace(/\\/g, '/');
+    if (!portable.startsWith('logs/') || portable.split('/').some(part => !part || part === '.' || part === '..')
+        || /[<>:"|?*\x00-\x1f]/.test(portable) || !portable.endsWith('.json')) {
+        throw new Error('--log-file must be a new JSON file inside the project logs directory.');
+    }
+    const resolved = path.resolve(ROOT, requested);
+    const relative = path.relative(LOG_DIRECTORY, resolved);
+    if (!relative || relative.startsWith('..') || path.isAbsolute(relative)) {
+        throw new Error('--log-file must remain inside the project logs directory.');
+    }
+    let current = ROOT;
+    for (const part of path.relative(ROOT, resolved).split(path.sep)) {
+        current = path.join(current, part);
+        try {
+            if (fs.lstatSync(current).isSymbolicLink()) {
+                throw new Error('--log-file cannot use a symbolic link or junction.');
+            }
+        } catch (error) {
+            if (error.code !== 'ENOENT') throw error;
+        }
+    }
+    if (fs.existsSync(resolved)) throw new Error('--log-file already exists; use a new file to preserve earlier evidence.');
+    if (fs.existsSync(path.join(ROOT, '.git'))) {
+        const tracked = childProcess.spawnSync('git', ['ls-files', '--error-unmatch', '--', path.relative(ROOT, resolved)], {
+            cwd: ROOT, stdio: 'ignore', windowsHide: true
+        });
+        if (tracked.status === 0) throw new Error('--log-file cannot overwrite a tracked Git path.');
+        if (tracked.status !== 1) throw new Error('Unable to verify that --log-file is outside tracked Git files.');
+    }
+    return resolved;
+}
+
+const LOG_PATH = resolveLogFile();
+let logInitialized = false;
+
+function resolveEnvFile(argv = process.argv.slice(2)) {
+    const argument = argv.find(value => value.startsWith('--env-file='));
+    const requested = argument ? argument.slice('--env-file='.length) : '.env';
+    if (!requested || requested.includes('\0')) throw new Error('Invalid --env-file value.');
+    const resolved = path.resolve(ROOT, requested);
+    const relative = path.relative(ROOT, resolved);
+    if (relative.startsWith('..') || path.isAbsolute(relative)) {
+        throw new Error('--env-file must resolve inside the project directory.');
+    }
+    return resolved;
+}
+
+dotenv.config({ path: resolveEnvFile() });
 
 const SANDBOX_ORIGIN = 'https://api-sandbox.ratehawk.com';
 const API_PREFIX = '/api/b2b/v3';
@@ -57,6 +111,7 @@ const CURRENCY = 'USD';
 const DEFAULT_RESIDENCY = 'ae';
 const DEFAULT_NIGHTS = 2;
 const MAX_BOOKING_TIMEOUT_SECONDS = 600;
+const CERTIFICATION_PRICE_INCREASE_PERCENT = 10;
 const APPROVED_SANDBOX_BOOKING_HIDS = new Set([10004834, 8819557]);
 const TRANSIENT_ERRORS = new Set(['unknown', 'timeout']);
 const FINAL_BOOKING_ERRORS = new Set([
@@ -74,7 +129,7 @@ const scenarios = [
         hid: 10004834,
         residency: DEFAULT_RESIDENCY,
         rooms: [{ adults: 2, children: [] }],
-        priceIncreasePercent: 0
+        priceIncreasePercent: CERTIFICATION_PRICE_INCREASE_PERCENT
     },
     {
         id: 'multiroom_mixed_children',
@@ -85,7 +140,7 @@ const scenarios = [
             { adults: 2, children: [3] },
             { adults: 2, children: [1, 5, 17] }
         ],
-        priceIncreasePercent: 0
+        priceIncreasePercent: CERTIFICATION_PRICE_INCREASE_PERCENT
     },
     {
         id: 'child_age_edge_cases',
@@ -93,7 +148,7 @@ const scenarios = [
         hid: 10004834,
         residency: 'mc',
         rooms: [{ adults: 2, children: [0, 17] }],
-        priceIncreasePercent: 0
+        priceIncreasePercent: CERTIFICATION_PRICE_INCREASE_PERCENT
     },
     {
         id: 'uzbekistan_citizenship',
@@ -101,7 +156,7 @@ const scenarios = [
         hid: 10004834,
         residency: 'uz',
         rooms: [{ adults: 2, children: [] }],
-        priceIncreasePercent: 0
+        priceIncreasePercent: CERTIFICATION_PRICE_INCREASE_PERCENT
     },
     {
         id: 'prebook_price_increase_10_percent',
@@ -109,7 +164,7 @@ const scenarios = [
         hid: 8819557,
         residency: DEFAULT_RESIDENCY,
         rooms: [{ adults: 2, children: [] }],
-        priceIncreasePercent: 10
+        priceIncreasePercent: CERTIFICATION_PRICE_INCREASE_PERCENT
     }
 ];
 
@@ -150,6 +205,7 @@ function cliOptions(argv) {
         execute: argv.includes('--execute'),
         finishBookings: argv.includes('--finish-bookings'),
         acknowledgeSandboxBookings: argv.includes('--acknowledge-sandbox-bookings'),
+        validateConfig: argv.includes('--validate-config'),
         includeErrors: argv.includes('--include-errors'),
         maxApprovedPrice: maximumPriceArgument ? maximumPriceArgument.slice('--max-approved-price='.length) : null,
         scenarioId: selectedScenario ? selectedScenario.slice('--scenario='.length) : null,
@@ -162,13 +218,22 @@ function printHelp() {
         'ETG Sandbox certification runner (no requests without explicit execution/booking acknowledgments)',
         '',
         'Usage:',
-        '  node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=prebook_price_increase_10_percent --max-approved-price=150.00',
-        '  node etg-cert-sandbox-test.js --execute --finish-bookings --acknowledge-sandbox-bookings --include-errors --max-approved-price=1000.00',
+        '  node etg-cert-sandbox-test.js --env-file=.env.sandbox --validate-config',
+        '  node etg-cert-sandbox-test.js --env-file=.env.sandbox --execute --finish-bookings --acknowledge-sandbox-bookings --scenario=prebook_price_increase_10_percent --max-approved-price=150.00',
+        '  node etg-cert-sandbox-test.js --env-file=.env.sandbox --execute --finish-bookings --acknowledge-sandbox-bookings --include-errors --max-approved-price=1000.00',
         '',
-        'Required .env: sandbox credentials, ETG_CERT_USER_IP, test contacts/guests, ETG_CERT_SANDBOX_TEST_DATA_CONFIRMED=true',
+        'Required .env: sandbox credentials, RATEHAWK_CONFIRMATION_EMAIL, ETG_CERT_USER_IP, test contacts/guests, ETG_CERT_SANDBOX_TEST_DATA_CONFIRMED=true',
         'HID 8473727 is blocked: ETG warns it may cause a real financial booking obligation.',
-        'Output: etg-certification-logs.json'
+        'Output: a new JSON file under logs/; select a unique path with --log-file=logs/<run>.json'
     ].join('\n'));
+}
+
+function corporateConfirmationEmail(value) {
+    const email = typeof value === 'string' ? value.trim() : '';
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+        throw new Error('Set RATEHAWK_CONFIRMATION_EMAIL to the company mailbox for supplier confirmations.');
+    }
+    return email;
 }
 
 function requireSandboxConfiguration() {
@@ -194,16 +259,17 @@ function requireSandboxConfiguration() {
     if (!userIp || !isIP(userIp)) {
         throw new Error('Set ETG_CERT_USER_IP in .env to the valid IP for this booking test.');
     }
+    const confirmationEmail = corporateConfirmationEmail(process.env.RATEHAWK_CONFIRMATION_EMAIL);
 
     const pollIntervalMs = Number(process.env.ETG_CERT_POLL_INTERVAL_MS || 5000);
     if (!Number.isInteger(pollIntervalMs) || pollIntervalMs < 1000 || pollIntervalMs > 60000) {
         throw new Error('ETG_CERT_POLL_INTERVAL_MS must be an integer from 1000 to 60000.');
     }
 
-    const bookingTimeoutSeconds = Number(process.env.ETG_CERT_BOOK_TIMEOUT_SECONDS || MAX_BOOKING_TIMEOUT_SECONDS);
-    if (!Number.isInteger(bookingTimeoutSeconds) || bookingTimeoutSeconds < 10
+    const bookingTimeoutSeconds = Number(process.env.ETG_CERT_BOOK_TIMEOUT_SECONDS || 180);
+    if (!Number.isInteger(bookingTimeoutSeconds) || bookingTimeoutSeconds < 60
         || bookingTimeoutSeconds > MAX_BOOKING_TIMEOUT_SECONDS) {
-        throw new Error('ETG_CERT_BOOK_TIMEOUT_SECONDS must be an integer from 10 to 600.');
+        throw new Error('ETG_CERT_BOOK_TIMEOUT_SECONDS must be an integer from 60 to 600.');
     }
 
     if (process.env.ETG_CERT_SANDBOX_TEST_DATA_CONFIRMED !== 'true') {
@@ -237,6 +303,7 @@ function requireSandboxConfiguration() {
         userIp,
         pollIntervalMs,
         bookingTimeoutSeconds,
+        confirmationEmail,
         guestEmail: process.env.ETG_CERT_GUEST_EMAIL,
         guestPhone: process.env.ETG_CERT_GUEST_PHONE,
         guestRoomsByScenario
@@ -259,7 +326,18 @@ function datesForStay(nights = DEFAULT_NIGHTS) {
 }
 
 function writeLogs() {
-    fs.writeFileSync(LOG_PATH, `${JSON.stringify(logs, null, 2)}\n`, { encoding: 'utf8', mode: 0o600 });
+    if (!logInitialized) {
+        // Recheck immediately before creating the file; exclusive creation also
+        // prevents a second runner from replacing evidence at the same path.
+        resolveLogFile([`--log-file=${path.relative(ROOT, LOG_PATH)}`]);
+        fs.mkdirSync(path.dirname(LOG_PATH), { recursive: true });
+    } else if (fs.lstatSync(LOG_PATH).isSymbolicLink()) {
+        throw new Error('Certification log was replaced by a symbolic link.');
+    }
+    fs.writeFileSync(LOG_PATH, `${JSON.stringify(logs, null, 2)}\n`, {
+        encoding: 'utf8', mode: 0o600, flag: logInitialized ? 'w' : 'wx'
+    });
+    logInitialized = true;
 }
 
 function appendScenario(scenario) {
@@ -332,7 +410,8 @@ async function postEtg(scenarioLog, endpoint, requestPayload, config) {
         const response = await axios.post(url, requestPayload, {
             auth: { username: config.keyId, password: config.apiKey },
             headers: { 'Content-Type': 'application/json', Accept: 'application/json' },
-            timeout: 120000,
+            timeout: endpoint === '/search/hp/' ? 35000
+                : endpoint === '/hotel/order/booking/finish/status/' ? 30000 : 60000,
             maxRedirects: 0,
             validateStatus: () => true
         });
@@ -405,11 +484,10 @@ function selectPrebookedRate(prebookData, originalRate, expectedHid) {
     }
     const rates = Array.isArray(hotel?.rates) ? hotel.rates : [];
     const validRates = rates.filter(item => typeof item?.book_hash === 'string' && item.book_hash.length > 0);
-    const sameMatch = validRates.find(item => originalRate?.match_hash && item.match_hash === originalRate.match_hash);
     const originalMeal = originalRate?.meal_data?.value ?? originalRate?.meal;
     const sameRoomAndMeal = validRates.filter(item => item.room_name === originalRate?.room_name
         && (item.meal_data?.value ?? item.meal) === originalMeal);
-    const rate = sameMatch || (sameRoomAndMeal.length === 1 ? sameRoomAndMeal[0]
+    const rate = (sameRoomAndMeal.length === 1 ? sameRoomAndMeal[0]
         : validRates.length === 1 ? validRates[0] : null);
     if (!rate) throw new Error('Prebook response did not contain an unambiguous matching rate/book_hash.');
     return rate;
@@ -543,7 +621,7 @@ function makeFinishPayload({ partnerOrderId, paymentType, guestRooms, config }) 
         language: LANGUAGE,
         partner: { partner_order_id: partnerOrderId },
         user: {
-            email: config.guestEmail,
+            email: corporateConfirmationEmail(config.confirmationEmail),
             phone: config.guestPhone,
             comment: 'ETG Sandbox certification test booking'
         },
@@ -611,11 +689,19 @@ function recordExpectedOutcome(scenarioLog, errorDefinition, status, error) {
         : errorDefinition.expectedFinalStatus || 'failed';
     scenarioLog.expected_final_status = expectedStatus;
     scenarioLog.expected_final_error = errorDefinition.expectedFinishError || errorDefinition.expectedFinalError || null;
-    scenarioLog.expectation_met = errorDefinition.expectedFinishError
+    const finalExpectationMet = errorDefinition.expectedFinishError
         ? status === 'failed_at_finish' && error === errorDefinition.expectedFinishError
         : expectedStatus === 'confirmed'
             ? status === 'confirmed'
             : status === 'failed' && error === errorDefinition.expectedFinalError;
+    if (errorDefinition.partnerOrderSuffix?.startsWith('unknown_')) {
+        const sawUnknown = endpoint => (scenarioLog.exchanges || []).some(exchange =>
+            exchange.url?.endsWith(endpoint) && exchange.response_payload?.error === 'unknown');
+        scenarioLog.observed_unknown_at_finish = sawUnknown('/hotel/order/booking/finish/');
+        scenarioLog.observed_unknown_at_status = sawUnknown('/hotel/order/booking/finish/status/');
+        scenarioLog.expectation_met = finalExpectationMet && scenarioLog.observed_unknown_at_finish
+            && scenarioLog.observed_unknown_at_status;
+    } else scenarioLog.expectation_met = finalExpectationMet;
 }
 
 async function pollBookingStatus(scenarioLog, partnerOrderId, config) {
@@ -668,7 +754,8 @@ async function runBookingScenario(definition, config, options, errorDefinition =
             language: LANGUAGE,
             guests: definition.rooms,
             hid: definition.hid,
-            currency: CURRENCY
+            currency: CURRENCY,
+            timeout: 30
         };
         scenarioLog.hotelpage_request_payload = hotelpagePayload;
         const hotelpage = await postEtg(scenarioLog, '/search/hp/', hotelpagePayload, config);
@@ -781,10 +868,36 @@ async function runBookingScenario(definition, config, options, errorDefinition =
     }
 }
 
+function summarizeResults(results) {
+    const successful = results.filter(result => result.status === 'confirmed').length;
+    const failed = results.filter(result => result.status === 'failed').length;
+    return {
+        successful,
+        failed,
+        other: results.length - successful - failed,
+        unmetExpectations: results.filter(result => result.expectation_met === false).length,
+        hasUnexpectedResults: results.length === 0 || results.some(result =>
+            result.status === 'confirmed' ? result.expectation_met === false
+                : result.status !== 'failed' || result.expectation_met !== true)
+    };
+}
+
 async function main() {
     const options = cliOptions(process.argv.slice(2));
     if (options.help) {
         printHelp();
+        return;
+    }
+    if (options.validateConfig) {
+        const config = requireSandboxConfiguration();
+        console.log(JSON.stringify({
+            valid: true,
+            environment: 'ETG Sandbox',
+            api_origin: SANDBOX_ORIGIN,
+            scenarios: scenarios.map(scenario => scenario.id),
+            error_scenarios: errorScenarios.map(scenario => scenario.id),
+            guest_scenarios_configured: Object.keys(config.guestRoomsByScenario).sort()
+        }, null, 2));
         return;
     }
     if (!options.execute || !options.finishBookings || !options.acknowledgeSandboxBookings) {
@@ -833,7 +946,7 @@ async function main() {
                 ...errorBase,
                 id: errorScenario.id,
                 description: errorScenario.description,
-                priceIncreasePercent: 0
+                priceIncreasePercent: CERTIFICATION_PRICE_INCREASE_PERCENT
             };
             console.log(`Running documented Sandbox error case ${errorScenario.id}...`);
             results.push(await runBookingScenario(definition, config, options, errorScenario));
@@ -841,11 +954,9 @@ async function main() {
     }
 
     writeLogs();
-    const successful = results.filter(result => result.status === 'confirmed').length;
-    const failed = results.filter(result => result.status === 'failed').length;
-    const other = results.length - successful - failed;
-    const unmetExpectations = results.filter(result => result.expectation_met === false).length;
+    const { successful, failed, other, unmetExpectations, hasUnexpectedResults } = summarizeResults(results);
     console.log(`Finished: ${successful} confirmed, ${failed} failed, ${other} pending/paused/error, ${unmetExpectations} unmet expectation(s). See ${LOG_PATH}`);
+    if (hasUnexpectedResults) process.exitCode = 1;
 }
 
 if (require.main === module) {
@@ -868,6 +979,11 @@ module.exports = {
     statusFromResult,
     validateScenarioArguments,
     validateGuestRooms,
+    resolveEnvFile,
+    resolveLogFile,
+    requireSandboxConfiguration,
+    recordExpectedOutcome,
+    summarizeResults,
     scenarios,
     errorScenarios
 };

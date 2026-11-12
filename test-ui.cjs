@@ -15,6 +15,7 @@ const affiliateAccessToken = 'd'.repeat(64);
 const doubleClassification = { class: 3, quality: 2, sex: 0, bathroom: 2, bedding: 3, family: 0, capacity: 2, club: 0, bedrooms: 0, balcony: 0, view: 0, floor: 0 };
 const rate = (amount, currency = 'USD') => ({
     book_hash: `test-${currency}-${amount}`, room_name: 'Test Double Room', meal: 'breakfast',
+    offer_context: 'signed.offer-fixture',
     rg_ext: doubleClassification,
     payment_options: { payment_types: [{ type: 'deposit', amount: String(amount), currency_code: currency,
         cancellation_penalties: { free_cancellation_before: '2099-10-10T12:00:00', policies: [] },
@@ -147,7 +148,9 @@ async function run() {
                     b2bPrebookRequests++;
                     const prebook = JSON.parse(request.postData());
                     assert.match(prebook.hash, /^test-(?:USD|AED)-60$/);
-                    body = { success: true, rate: rate(60), bookHash: 'test-USD-60' };
+                    assert.equal(prebook.offer_context, 'signed.offer-fixture');
+                    assert.equal(prebook.price_increase_percent, undefined, 'Use the server certification tolerance');
+                    body = { success: true, rate: rate(66), bookHash: 'test-USD-60', prebook_context: 'signed.prebook-fixture' };
                 }
                 else if (url.pathname.endsWith('/affiliate/bookings')) {
                     affiliateBookingRequests++;
@@ -180,7 +183,10 @@ async function run() {
                             publishedAt: '2026-10-01T12:00:00Z', visitDate: { year: 2026, month: 9 }, url: 'https://www.google.com/maps/reviews/fixture',
                             author: { name: 'Fixture Google Author', url: 'https://www.google.com/maps/contrib/fixture', photo: '' } }], attributions: [] };
                 }
-                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: { ...hotels[1], images: Array.from({ length: 6 }, (_, index) => `${base}/icon-512.png?photo=${index}`), room_groups: [
+                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: { ...hotels[1],
+                    metapolicy_struct: { deposit: [{ price: '100.00', currency: 'AED', future_field: 'Fixture extra policy requirement' }], visa: { visa_support: false } },
+                    metapolicy_extra_info: '<p>Fixture original passport required.</p><p>Fixture check-in instruction.</p>',
+                    images: Array.from({ length: 6 }, (_, index) => `${base}/icon-512.png?photo=${index}`), room_groups: [
                     { room_group_id: 90, name: 'Test Double Room', rg_ext: doubleClassification, images: [`${base}/missing-hotel-photo.jpg`, `${base}/icon-512.png?room=double`] },
                     { room_group_id: 91, name: 'Supplier Twin Room', rg_ext: { ...doubleClassification, bedding: 4 }, images: [`${base}/icon-512.png?room=twin`] }
                 ] } };
@@ -366,6 +372,17 @@ async function run() {
         assert.deepEqual(await page.$$eval('link[rel="alternate"][data-remal-hreflang]', links => links.map(link => link.hreflang).sort()), ['en', 'x-default']);
         assert.equal(await page.$eval('main', element => element.innerText.includes('كاش باك')), false);
         assert.match(await page.$eval('main h1', node => node.innerText), /Test Hotel 60/);
+        const policiesText = await page.$eval('[data-hotel-policies]', node => node.innerText);
+        assert.match(policiesText, /100\.00/);
+        assert.match(policiesText, /AED/);
+        assert.match(policiesText, /Fixture extra policy requirement/);
+        assert.match(policiesText, /Fixture original passport required\./);
+        assert.match(policiesText, /Fixture check-in instruction\./);
+        assert.doesNotMatch(policiesText, /<p>|metapolicy_|future_field/);
+        assert.match(await page.$eval('article[data-contract-source="b2b"]', node => node.innerText), /UTC\+0/);
+        assert.equal(await page.$eval('[data-hotel-policies]', node => node.querySelectorAll('script').length), 0);
+        await page.$eval('[data-hotel-policies]', node => node.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.screenshot({ path: path.join(screenshotDirectory, 'test-hotel-policies.png'), fullPage: true });
         await page.click('[data-open-hotel-gallery]');
         await page.waitForSelector('[data-hotel-gallery]');
         assert.equal(await page.$$eval('[data-hotel-gallery] nav button', nodes => nodes.length), 7, 'Retain all static photos and live photos');
@@ -423,6 +440,18 @@ async function run() {
         assert.equal(await page.$eval('article[aria-labelledby^="room-"] button', element => element.disabled), false);
         assert.match(await page.$eval('article[aria-labelledby^="room-"]', element => element.textContent), /Local tax 15 AED/);
         await page.select('select[aria-label="عملة عرض السعر"]', 'USD');
+        await page.click('article[data-contract-source="b2b"] [data-select-room]');
+        await page.waitForSelector('article[data-contract-source="b2b"] [data-updated-room-price]');
+        assert((await page.$eval('article[data-contract-source="b2b"]', node => node.textContent)).includes(formatMoney(66, 'USD')));
+        assert.match(await page.$eval('article[data-contract-source="b2b"] [data-select-room]', node => node.textContent), /المتابعة بالسعر المحدّث/);
+        assert.equal(await page.evaluate(() => location.pathname.startsWith('/hotel/')), true, 'Changed price needs a second customer action');
+        await page.click('article[data-contract-source="b2b"] [data-select-room]');
+        await page.waitForFunction(() => location.pathname === '/checkout');
+        const storedPrebook = await page.evaluate(() => JSON.parse(sessionStorage.getItem('remal_checkout')));
+        assert.equal(storedPrebook.room.offer_context, 'signed.offer-fixture');
+        assert.equal(storedPrebook.room.prebook_context, 'signed.prebook-fixture');
+        assert.equal(storedPrebook.room.price, 66);
+        await page.evaluate(() => history.replaceState({}, '', location.href));
         const booking = { hid: 2, hotelName: hotels[1].name, checkin: search.checkin, checkout: search.checkout, guests: hotelSearch.guests, room: normalizeRoom(rate(60), hotels[1], hotelSearch.guests) };
         paymentEnabled = false;
         await page.evaluate(value => sessionStorage.setItem('remal_checkout', JSON.stringify(value)), booking);

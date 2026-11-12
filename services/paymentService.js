@@ -73,6 +73,7 @@ function getCheckoutReadiness(environment = process.env) {
         && /^[a-zA-Z0-9_-]{1,128}$/.test(environment.ZIINA_ACCOUNT_ID));
     check('ZIINA_WEBHOOK_SECRET', typeof environment.ZIINA_WEBHOOK_SECRET === 'string' && environment.ZIINA_WEBHOOK_SECRET.length >= 32);
     check('PAYMENT_BOOKING_ENCRYPTION_KEY', /^[a-f\d]{64}$/i.test(environment.PAYMENT_BOOKING_ENCRYPTION_KEY || ''));
+    check('RATEHAWK_CONFIRMATION_EMAIL', /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(environment.RATEHAWK_CONFIRMATION_EMAIL || ''));
     let frontend;
     try { frontend = new URL(environment.FRONTEND_URL); } catch { /* Report below. */ }
     check('FRONTEND_URL', Boolean(frontend && !frontend.username && !frontend.password));

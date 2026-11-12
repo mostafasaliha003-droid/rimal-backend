@@ -18,6 +18,7 @@ const bookingProcessSchema = new mongoose.Schema({
     card_payment: { type: mongoose.Schema.Types.Mixed },
     finish_hash: String,
     finish_sent_at: Date,
+    confirmed_at: Date,
     booking_deadline_at: Date,
     next_check_at: Date,
     check_lease_until: Date,

@@ -8,7 +8,7 @@ const sandbox = () => ({
     PAYMENT_ROLLOUT_APPROVED: 'true', PAYMENT_CHECKOUT_ENABLED: 'true', RATEHAWK_BOOKING_ENABLED: 'true',
     ZIINA_REFUNDS_ENABLED: 'true', ZIINA_WEBHOOK_CONFIGURED: 'true',
     MONGO_URI: 'mongodb://127.0.0.1/rimal_sandbox', PAYMENT_SANDBOX_DATABASE: 'rimal_sandbox',
-    RATEHAWK_KEY_ID: 'fixture-key-id', RATEHAWK_API_KEY: 'fixture-supplier-secret',
+    RATEHAWK_KEY_ID: 'fixture-key-id', RATEHAWK_API_KEY: 'fixture-supplier-secret', RATEHAWK_CONFIRMATION_EMAIL: 'bookings@remal.example.test',
     ZIINA_API_KEY: 'fixture-payment-secret', ZIINA_ACCOUNT_ID: 'fixture-account',
     ZIINA_WEBHOOK_SECRET: 's'.repeat(32), PAYMENT_BOOKING_ENCRYPTION_KEY: 'ab'.repeat(32),
     ZIINA_TEST_MODE: 'true', PAYMENT_SANDBOX_ENABLED: 'true', PAYMENT_ETG_SANDBOX_ISOLATED: 'true',
@@ -19,7 +19,7 @@ const sandbox = () => ({
 test('readiness identifies missing gates without disclosing configuration values', () => {
     const env = sandbox();
     assert.deepEqual(getCheckoutReadiness(env), { ready: true, mode: 'sandbox', blockers: [] });
-    for (const key of ['PAYMENT_CHECKOUT_ENABLED', 'RATEHAWK_API_KEY', 'ZIINA_WEBHOOK_SECRET', 'PAYMENT_BOOKING_ENCRYPTION_KEY']) {
+    for (const key of ['PAYMENT_CHECKOUT_ENABLED', 'RATEHAWK_API_KEY', 'RATEHAWK_CONFIRMATION_EMAIL', 'ZIINA_WEBHOOK_SECRET', 'PAYMENT_BOOKING_ENCRYPTION_KEY']) {
         const broken = { ...env, [key]: '' };
         assert.equal(isCheckoutReady(broken), false);
         const report = getReleaseReadiness({ env: broken, databaseState: 1 });

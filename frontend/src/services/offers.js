@@ -58,7 +58,8 @@ export function normalizeRoom(rate, hotel, guests) {
         currency: contractSource === 'affiliate'
             ? rate.display_currency || payment?.show_currency_code || payment?.currency_code || ''
             : rateCurrency(rate),
-        book_hash: rate.book_hash || rate.match_hash,
+        book_hash: rate.book_hash,
+        offer_context: rate.offer_context || rate.originalData?.offer_context,
         bed,
         images: roomImages,
         amenities: rate.amenities || rate.room_amenities || rate.room_info?.amenities || [],

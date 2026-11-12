@@ -70,14 +70,19 @@ function toReviewsOperation(hotel) {
     };
 }
 
-async function downloadDump(url, zstFile) {
+async function downloadDump(url, zstFile, policy) {
     if (!/^https:\/\//i.test(url)) throw new Error('Refusing non-HTTPS hotel dump URL');
-    const response = await axios.get(url, {
-        responseType: 'stream',
-        timeout: DOWNLOAD_TIMEOUT_MS,
-        validateStatus: status => status >= 200 && status < 300
-    });
-    await pipeline(response.data, fs.createWriteStream(zstFile));
+    const guarded = policy
+        ? require('./ratehawkDumpDownloadPolicy').guardedDownloadOptions(url, policy.allowedHosts) : {};
+    try {
+        const response = await axios.get(url, {
+            responseType: 'stream',
+            timeout: DOWNLOAD_TIMEOUT_MS,
+            validateStatus: status => status >= 200 && status < 300,
+            ...guarded
+        });
+        await pipeline(response.data, fs.createWriteStream(zstFile));
+    } finally { guarded.httpsAgent?.destroy(); }
 }
 
 async function decompressDump(archiveFile, jsonlFile, compression = 'zstd') {
@@ -91,13 +96,20 @@ async function decompressDump(archiveFile, jsonlFile, compression = 'zstd') {
     }
     if (compression !== 'zstd') throw new Error(`Unsupported dump compression: ${compression}`);
 
-    let zstd;
-    try {
-        zstd = require('simple-zstd');
-    } catch (error) {
-        throw new Error(`simple-zstd could not load: ${error.message}`);
+    // Current Node runtimes can decode Zstandard directly, without a separately
+    // installed zstd executable. Keep the existing adapter for older runtimes.
+    let decompressor;
+    if (typeof zlib.createZstdDecompress === 'function') {
+        decompressor = zlib.createZstdDecompress();
+    } else {
+        let zstd;
+        try {
+            zstd = require('simple-zstd');
+        } catch (error) {
+            throw new Error(`Zstandard decompression requires a recent Node runtime or the zstd executable: ${error.message}`);
+        }
+        decompressor = await zstd.decompress();
     }
-    const decompressor = await zstd.decompress();
     await pipeline(
         fs.createReadStream(archiveFile),
         decompressor,
@@ -161,8 +173,9 @@ async function cleanupFiles(files) {
     await Promise.all(files.map(file => fs.promises.rm(file, { force: true })));
 }
 
-async function syncDump({ name, getUrl, operationFactory, compression = 'zstd', model = Hotel }) {
-    if (!process.env.MONGO_URI) throw new Error('MONGO_URI is missing in environment variables');
+async function syncDump({ name, getUrl, operationFactory, compression = 'zstd', model = Hotel,
+    manageConnection = true, downloadPolicy }) {
+    if (manageConnection && !process.env.MONGO_URI) throw new Error('MONGO_URI is missing in environment variables');
     if (!['zstd', 'gzip'].includes(compression)) throw new Error(`Unsupported dump compression: ${compression}`);
     const safeName = name.replace(/[^a-z0-9_-]/gi, '-').toLowerCase();
     const archiveFile = path.join(DUMP_DIR, `${safeName}.jsonl.${compression === 'gzip' ? 'gz' : 'zst'}`);
@@ -171,11 +184,11 @@ async function syncDump({ name, getUrl, operationFactory, compression = 'zstd', 
     await cleanupFiles([archiveFile, jsonlFile]);
 
     try {
-        await mongoose.connect(process.env.MONGO_URI);
+        if (manageConnection) await mongoose.connect(process.env.MONGO_URI);
         logger.info(`Requesting ETG ${name} dump URL`);
         const url = await getUrl();
         logger.info(`Downloading ETG ${name} dump`);
-        await downloadDump(url, archiveFile);
+        await downloadDump(url, archiveFile, downloadPolicy);
         logger.info(`Decompressing ETG ${name} dump`);
         await decompressDump(archiveFile, jsonlFile, compression);
         logger.info(`Processing ETG ${name} dump JSONL`);
@@ -184,7 +197,7 @@ async function syncDump({ name, getUrl, operationFactory, compression = 'zstd', 
         return stats;
     } finally {
         await cleanupFiles([archiveFile, jsonlFile]);
-        if (mongoose.connection.readyState !== 0) await mongoose.connection.close();
+        if (manageConnection && mongoose.connection.readyState !== 0) await mongoose.connection.close();
     }
 }
 

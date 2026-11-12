@@ -2,7 +2,7 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const { hydrateHotelContent, hotelContentNeedsRefresh } = require('./services/hotelContentCacheService');
 
-test('cached hotels with names but missing photos qualify for supplier repair', () => {
+test('cached hotels with names but missing photos qualify for local enrichment', () => {
     assert.equal(hotelContentNeedsRefresh({ name: 'Sapphire Plaza Hotel', image: '', staticData: { images: [] } }), true);
     assert.equal(hotelContentNeedsRefresh({ name: 'Official Hotel', staticData: { images_ext: [{ url: 'https://example.test/real.jpg' }] } }), false);
     assert.equal(hotelContentNeedsRefresh({ name: 'Official Hotel' }, { images: ['https://example.test/live.jpg'] }), false);
@@ -18,49 +18,47 @@ test('image collection handles nested supplier records and insecure or protocol-
     assert.deepEqual(frontend.collectImages(records), expected);
 });
 
-test('missing hotel content is fetched once, matched to requested identity and cached without inventing names', async () => {
-    let reads = 0, writes = [];
-    const client = { hotelContentByIds: async body => {
-        reads++; assert.deepEqual(body, { language: 'en', hids: [1234567801] });
-        return { ok: true, data: [{ hid: 1234567801, id: 'official-hotel', name: 'Canonical Hotel', images: ['https://example.test/photo.jpg'] },
-            { hid: 1234567802, id: 'other-hotel', name: 'Unrelated' }] };
-    } };
-    const HotelModel = { bulkWrite: async operations => { writes.push(...operations); } };
-    const [first, second] = await Promise.all([hydrateHotelContent(['1234567801'], { client, HotelModel }), hydrateHotelContent(['1234567801'], { client, HotelModel })]);
-    assert.equal(reads, 1); assert.equal(writes.length, 1);
-    assert.equal(first[0].name, 'Canonical Hotel'); assert.equal(second[0].name, 'Canonical Hotel');
-    assert.equal(first[0].staticData.images.length, 1);
-});
-test('interactive content loading has a bounded wait while the cache can complete in the background', async () => {
-    let finish, cached = false;
-    const client = { hotelContentByIds: () => new Promise(resolve => { finish = resolve; }) };
-    const HotelModel = { bulkWrite: async () => { cached = true; } };
-    assert.deepEqual(await hydrateHotelContent(['1234567803'], { client, HotelModel, budgetMs: 5 }), []);
-    finish({ ok: true, data: [{ hid: 1234567803, id: 'delayed-hotel', name: 'Delayed Hotel' }] });
-    await new Promise(resolve => setImmediate(resolve));
-    assert.equal(cached, true);
-});
-
-test('a supplier response without photos is cached without inventing imagery or repeatedly fetching it', async () => {
+test('interactive enrichment reads only synchronized content for the requested RateHawk identities', async () => {
+    const cached = { hid: '1234567801', provider: 'ratehawk', name: 'Canonical Hotel', staticData: { images: ['https://example.test/photo.jpg'] } };
     let reads = 0;
-    const client = { hotelContentByIds: async () => {
+    const HotelModel = { find: criteria => {
         reads++;
-        return { ok: true, data: [{ hid: 1234567804, id: 'no-photos', name: 'Official Hotel', images_ext: [] }] };
+        assert.deepEqual(criteria, { provider: 'ratehawk', hid: { $in: ['1234567801'] } });
+        return { lean: async () => [cached,
+            { ...cached, hid: '1234567802' }, { ...cached, provider: 'other' }] };
     } };
-    const options = { client, HotelModel: { bulkWrite: async () => {} } };
-    const rows = await hydrateHotelContent(['1234567804'], options);
-    assert.equal(rows[0].image, '');
-    assert.deepEqual(await hydrateHotelContent(['1234567804'], options), []);
+    const client = { hotelContentByIds: () => { throw new Error('interactive supplier request'); } };
+    assert.deepEqual(await hydrateHotelContent(['1234567801', '1234567801', 'legacy-id'], { client, HotelModel }), [cached]);
     assert.equal(reads, 1);
 });
 
-test('search hydration batches more than one hundred missing hotels within provider batch limits', async () => {
-    const ids = Array.from({ length: 201 }, (_, index) => 1234568000 + index);
-    const sizes = [];
-    const client = { hotelContentByIds: async body => {
-        sizes.push(body.hids.length);
-        return { ok: true, data: body.hids.map(hid => ({ hid, id: `hotel-${hid}`, name: `Official ${hid}` })) };
+test('a cache miss never fetches supplier content or schedules a background repair', async () => {
+    let supplierReads = 0, writes = 0;
+    const client = { hotelContentByIds: async () => { supplierReads++; return { ok: true, data: [] }; } };
+    const HotelModel = { find: () => ({ lean: async () => [] }), bulkWrite: async () => { writes++; } };
+    assert.deepEqual(await hydrateHotelContent(['1234567803'], { client, HotelModel }), []);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(supplierReads, 0);
+    assert.equal(writes, 0);
+});
+
+test('closed or deleted hotel records are excluded from local enrichment', async () => {
+    const HotelModel = { find: () => ({ lean: async () => [
+        { hid: '1234567804', provider: 'ratehawk', staticData: { deleted: true } },
+        { hid: '1234567805', provider: 'ratehawk', staticData: { is_closed: true } }
+    ] }) };
+    assert.deepEqual(await hydrateHotelContent(['1234567804', '1234567805'], { HotelModel }), []);
+});
+
+test('invalid IDs do not query the database and local enrichment is bounded to five hundred identities', async () => {
+    let reads = 0;
+    const HotelModel = { find: criteria => {
+        reads++;
+        assert.equal(criteria.hid.$in.length, 500);
+        return { lean: async () => [] };
     } };
-    const rows = await hydrateHotelContent(ids, { client, HotelModel: { bulkWrite: async () => {} } });
-    assert.deepEqual(sizes, [100, 100, 1]); assert.equal(rows.length, 201);
+    assert.deepEqual(await hydrateHotelContent(['legacy-id', '-1', null], { HotelModel }), []);
+    assert.equal(reads, 0);
+    assert.deepEqual(await hydrateHotelContent(Array.from({ length: 501 }, (_, index) => String(1234568000 + index)), { HotelModel }), []);
+    assert.equal(reads, 1);
 });

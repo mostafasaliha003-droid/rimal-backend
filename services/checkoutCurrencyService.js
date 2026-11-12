@@ -77,14 +77,14 @@ async function createQuote(input, identity, options = {}) {
     const target = input.payment_currency;
     if (!currencies[target]) throw fail('unsupported_payment_currency');
     const details = offer(input);
-    const info = await ratehawk.getRateDetailsByHash(details.book_hash);
+    const info = ratehawk.getCheckoutRateContext(input.prebook_context || input.offer_context, details.book_hash);
     require('./checkoutProcessService').verifyRateIdentity(info, details);
     const now = options.now ?? Date.now();
     const fx = await liveRates(details.currency, target, { ...options, now });
     const amount = convertMinor(details.amount_minor, details.currency, target, fx.rates);
     const payload = { v: 1, owner: identity.subject, realm: identity.realm, offer: binding(details),
         currency: target, amount_minor: amount, source_currency: details.currency, source_amount_minor: details.amount_minor,
-        test: process.env.ZIINA_TEST_MODE === 'true', expires_at: now + TTL, fx_date: fx.date, rates: fx.rates };
+        test: process.env.ZIINA_TEST_MODE === 'true', expires_at: Math.min(now + TTL, info.context_expires_at ?? now + TTL), fx_date: fx.date, rates: fx.rates };
     return { currency: target, amount: ziina.majorUnits(amount, target), amount_formatted: ziina.formatAmountMinor(amount, target),
         expires_at: payload.expires_at, token: sign(payload) };
 }

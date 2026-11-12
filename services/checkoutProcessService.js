@@ -175,12 +175,13 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
         throw fail('checkout_conflict', 409);
     }
     try {
-        const rateInfo = await ratehawk.getRateDetailsByHash(details.book_hash);
+        const rateInfo = ratehawk.getCheckoutRateContext(input.prebook_context || input.offer_context, details.book_hash);
         verifyRateIdentity(rateInfo, details);
         // Hotel prebook exchanges an h- hash for a p- hash. The latter is
         // already ready for booking/form and cannot be prebooked again.
-        const prebook = details.book_hash.startsWith('p-')
-            ? rateInfo : await ratehawk.validatePrebookRate(details.book_hash, 0);
+        if (details.book_hash.startsWith('p-') && rateInfo.context_kind !== 'prebook') throw fail('invalid_offer_context', 409);
+        const prebook = rateInfo.context_kind === 'prebook'
+            ? rateInfo : await ratehawk.validatePrebookRate(details.book_hash);
         const validated = payment.resolveValidatedPayment(prebook, {
             hid: details.hid, total: ziina.majorUnits(details.amount_minor, details.currency), currency: details.currency, roomName: details.roomName
         });

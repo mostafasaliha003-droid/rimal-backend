@@ -145,6 +145,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         let active = true;
         const room = selectedBooking.room;
         const source = { hid: selectedBooking.hid, book_hash: room.book_hash, roomName: room.name,
+            prebook_context: room.prebook_context, offer_context: room.offer_context,
             checkin: selectedBooking.checkin, checkout: selectedBooking.checkout, guests: selectedBooking.guests,
             currency: room.currency, total: Number(room.price), payment_currency: paymentCurrency };
         const cacheKey = JSON.stringify(source);
@@ -380,6 +381,8 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                 payment_quote: paymentQuote?.token,
                 hid: selectedBooking.hid,
                 book_hash: room.book_hash,
+                prebook_context: room.prebook_context,
+                offer_context: room.offer_context,
                 hotelName: selectedBooking.hotelName,
                 roomName: room.name,
                 checkin: selectedBooking.checkin,

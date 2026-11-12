@@ -139,7 +139,7 @@ test('search criteria normalization preserves fields and rejects incomplete or i
     assert.equal(preserved.latitude, 25.2);
     assert.equal(preserved.longitude, 55.3);
     assert.equal(preserved.hid, 74);
-    assert.equal(preserved.match_hash, 'fixture-match');
+    assert.equal(preserved.match_hash, undefined);
     for (const [field, value] of Object.entries({
         destinationCode: 'DXB', destination_code: 'DXB', destinationName: 'Dubai',
         destination: 'Dubai', query: 'Dubai', hotel_id: 75, hotelId: 76,
@@ -179,7 +179,7 @@ test('all RateHawk entry points preserve their destination/hotel fields through 
             { latitude: 25.2, longitude: 55.3, radius: 4000 }, { latitude: 25.2, longitude: 55.3, radius: 4000 }],
         ['searchHotelsByRegion', service.searchLiveRatesByRegion, { region_id: 42 }, { region_id: 42 }],
         ['getHotelPageRates', service.getHotelPageRates,
-            { hid: 74, match_hash: 'fixture-match' }, { hid: 74, match_hash: 'fixture-match' }]
+            { hid: 74, match_hash: 'fixture-match' }, { hid: 74 }]
     ];
     for (const [method, dispatch, criteria, expected] of cases) {
         let requestBody;

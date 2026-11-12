@@ -179,9 +179,12 @@ async function finishProcess(processId, details = {}) {
     if (!READY.includes(record.state)) throw fail('booking_form_not_ready', 409);
     await requireUnexpired(record);
     const now = Date.now();
-    const configuredWait = Number(process.env.RATEHAWK_BOOK_WAIT_MS) || 90000;
-    const waitMs = Math.max(5000, Math.min(15 * 60 * 1000, configuredWait));
+    const configuredWait = Number(process.env.RATEHAWK_BOOK_WAIT_MS || 180000);
+    const waitMs = Number.isFinite(configuredWait)
+        ? Math.max(60000, Math.min(600000, configuredWait)) : 180000;
     const claimed = await BookingProcess.findOneAndUpdate({ _id: processId, state: record.state, finish_hash: { $exists: false } }, {
+        // A provisional deadline allows recovery if the process stops during
+        // finish. The full countdown starts when finish returns below.
         $set: { state: 'finishing', finish_hash: finishHash, finish_sent_at: new Date(now), booking_deadline_at: new Date(now + waitMs), next_check_at: new Date(now + 60000) },
         $unset: { error: '' }
     }, { new: true }).lean();
@@ -198,8 +201,15 @@ async function finishProcess(processId, details = {}) {
             ? { status: 'failed', error: safeCode(error, 'booking_finish_failed') }
             : { status: 'processing', error: 'booking_outcome_unknown' };
     }
+    const responseAt = Date.now();
     await BookingProcess.updateOne({ _id: processId, state: 'finishing' }, {
-        $set: { state: result.status, error: result.error, next_check_at: new Date(Date.now() + (result.retry_after_ms || 5000)) }
+        $set: { state: result.status, error: result.error, next_check_at: new Date(responseAt + (result.retry_after_ms || 5000)),
+            ...(result.status === 'confirmed' ? { confirmed_at: new Date(responseAt) } : {}) }
+    });
+    // A status worker can advance the booking while finish is returning. Reset
+    // only the countdown for this finish claim, preserving its state and lease.
+    await BookingProcess.updateOne({ _id: processId, finish_hash: finishHash, finish_sent_at: new Date(now), state: { $in: IN_FLIGHT } }, {
+        $set: { booking_deadline_at: new Date(responseAt + waitMs) }
     });
     return view(await load(processId));
 }
@@ -236,6 +246,7 @@ async function checkProcess(processId) {
         $set: { state: result.status, next_check_at: new Date(nextCheck) },
         $unset: { check_lease_id: '', check_lease_until: '' }
     };
+    if (result.status === 'confirmed') update.$set.confirmed_at = new Date(checkedAt);
     if (result.error) update.$set.error = result.error;
     else update.$unset.error = '';
     if (result.status === '3ds') update.$set.data_3ds = result.data_3ds;

@@ -41,7 +41,7 @@ test('a KWD confirmation displays the actual charged currency and three-decimal 
 
 for (const [name, sandbox, blank] of [
     ['sandbox replaces the known blank placeholder with a marked Remal confirmation', true, true],
-    ['production preserves the original supplier PDF alongside the Remal confirmation', false, false],
+    ['production emails only the Remal confirmation at the customer price', false, false],
     ['production refuses the known blank supplier placeholder', false, true]
 ]) test(name, async context => {
     const oldUser = process.env.SMTP_USER, oldPassword = process.env.SMTP_PASSWORD;
@@ -72,9 +72,9 @@ for (const [name, sandbox, blank] of [
         assert.equal(message, undefined); return;
     }
     await notification.sendVoucherConfirmation(value);
-    assert.equal(message.attachments.length, blank ? 1 : 2);
+    assert.equal(message.attachments.length, 1);
     assert.match(message.attachments[0].filename, /^Remal-Confirmation-/);
-    if (!blank) assert.equal(message.attachments[1].content, value.pdfBuffer);
+    assert.equal(message.attachments.some(item => item.content === value.pdfBuffer), false);
     assert.match(message.html, /Double room/);
     assert.equal(message.replyTo, 'management@remaltourismllc.com');
 });

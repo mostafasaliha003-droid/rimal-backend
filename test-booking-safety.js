@@ -1,6 +1,15 @@
-const { test } = require('node:test');
+const { test, beforeEach } = require('node:test');
 const assert = require('node:assert/strict');
 const { resolveValidatedPayment } = require('./services/paymentService');
+
+beforeEach(context => {
+    const previous = process.env.RATEHAWK_CONFIRMATION_EMAIL;
+    process.env.RATEHAWK_CONFIRMATION_EMAIL = 'bookings@remal.example.test';
+    context.after(() => {
+        if (previous === undefined) delete process.env.RATEHAWK_CONFIRMATION_EMAIL;
+        else process.env.RATEHAWK_CONFIRMATION_EMAIL = previous;
+    });
+});
 
 const expected = { hid: 123, total: 267.5, currency: 'AED' };
 const result = () => ({ hotels: [{ hid: 123, rates: [{ book_hash: 'verified', payment_options: { payment_types: [{ type: 'deposit', amount: '250.00', currency_code: 'AED' }] } }] }] });
@@ -1664,11 +1673,13 @@ test('a provider key and checkout flag alone do not make collection ready', () =
         MONGO_URI: 'mongodb://127.0.0.1/rimal_sandbox', PAYMENT_SANDBOX_DATABASE: 'rimal_sandbox',
         ZIINA_API_KEY: 'fixture-key', ZIINA_ACCOUNT_ID: 'fixture-account', ZIINA_WEBHOOK_SECRET: 's'.repeat(32),
         RATEHAWK_KEY_ID: 'supplier-fixture', RATEHAWK_API_KEY: 'supplier-secret-fixture',
+        RATEHAWK_CONFIRMATION_EMAIL: 'bookings@remal.example.test',
         PAYMENT_BOOKING_ENCRYPTION_KEY: 'ab'.repeat(32), ZIINA_TEST_MODE: 'true', PAYMENT_SANDBOX_ENABLED: 'true',
         RATEHAWK_BASE_URL: 'https://api-sandbox.ratehawk.com', FRONTEND_URL: 'http://127.0.0.1:5178'
     };
     assert.equal(isCheckoutReady(sandbox), false);
     assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true' }), true);
+    assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', RATEHAWK_CONFIRMATION_EMAIL: '' }), false);
     assert.equal(isCheckoutReady({ ...sandbox, PAYMENT_ROLLOUT_APPROVED: 'true', PAYMENT_LIFECYCLE_CERTIFIED: 'true', ZIINA_TEST_MODE: 'false',
         RATEHAWK_BASE_URL: 'https://api.ratehawk.com', FRONTEND_URL: 'https://remalbookings.com' }), false);
     const production = {
@@ -1838,6 +1849,8 @@ test('booking finish uses supplier payment values and never retries after an amb
     ] }] };
     const finish = context.mock.method(service.client, 'bookingFinish', async request => {
         assert.deepEqual(request.payment_type, { type: 'deposit', amount: '100.00', currency_code: 'USD' });
+        assert.equal(request.user.email, 'bookings@remal.example.test');
+        assert.notEqual(request.user.email, details.user.email);
         assert.equal(request.rooms[0].guests[1].age, 5);
         throw Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' });
     });
@@ -1847,6 +1860,8 @@ test('booking finish uses supplier payment values and never retries after an amb
     assert.throws(() => service.buildBookingFinish({ ...details, rooms: [{ guests: [{}] }] }, form), /invalid_guest_first_name/);
     assert.throws(() => service.buildBookingFinish(details, { ...form, payment_types: [{ ...form.payment_types[0], is_need_credit_card_data: true }] }), /credit_card_required/);
     assert.equal(finish.mock.callCount(), 1);
+    delete process.env.RATEHAWK_CONFIRMATION_EMAIL;
+    assert.throws(() => service.buildBookingFinish(details, form), /corporate_confirmation_email/);
 });
 
 test('booking status preserves pending and 3DS states and only confirms a final ok', async context => {
@@ -2030,6 +2045,104 @@ test('durable finish claims before sending and suppresses concurrent and restart
     } finally {
         if (previous === undefined) delete process.env.RATEHAWK_BOOKING_ENABLED;
         else process.env.RATEHAWK_BOOKING_ENABLED = previous;
+    }
+});
+
+test('durable booking cutoff starts after finish returns and keeps unknown outcomes pending', async context => {
+    const store = require('./models/BookingProcess');
+    const booking = require('./services/bookingProcessService');
+    const service = require('./services/ratehawkService');
+    const names = ['RATEHAWK_BOOKING_ENABLED', 'RATEHAWK_BOOK_WAIT_MS'];
+    const previous = Object.fromEntries(names.map(name => [name, process.env[name]]));
+    context.after(() => {
+        for (const name of names) {
+            if (previous[name] === undefined) delete process.env[name];
+            else process.env[name] = previous[name];
+        }
+    });
+    process.env.RATEHAWK_BOOKING_ENABLED = 'true';
+    let time;
+    let record;
+    let waitMs;
+    let outcome;
+    let racingState;
+    context.mock.method(Date, 'now', () => time);
+    context.mock.method(store, 'findById', () => ({ lean: async () => structuredClone(record) }));
+    context.mock.method(store, 'findOneAndUpdate', (filter, update) => ({ lean: async () => {
+        if (record.state !== filter.state || record.finish_hash) return null;
+        Object.assign(record, update.$set);
+        return structuredClone(record);
+    } }));
+    context.mock.method(store, 'updateOne', async (filter, update) => {
+        const matchesState = typeof filter.state === 'object'
+            ? filter.state.$in.includes(record.state) : record.state === filter.state;
+        if (matchesState) {
+            if (filter.finish_hash) {
+                assert.equal(filter.finish_hash, record.finish_hash);
+                assert.equal(Number(filter.finish_sent_at), Number(record.finish_sent_at));
+            }
+            Object.assign(record, update.$set);
+        }
+    });
+    const finish = context.mock.method(service.client, 'bookingFinish', async request => {
+        assert.equal(record.state, 'finishing');
+        assert.equal(Number(record.finish_sent_at), 1000);
+        assert.equal(Number(record.booking_deadline_at), 1000 + waitMs);
+        assert.equal(request.user.email, 'bookings@remal.example.test');
+        time += 45000;
+        if (racingState) {
+            record.state = racingState;
+            record.next_check_at = new Date(48000);
+            record.check_lease_id = 'fixture-worker';
+            record.check_lease_until = new Date(70000);
+            if (racingState === 'confirmed') record.confirmed_at = new Date(time);
+        }
+        if (outcome instanceof Error) throw outcome;
+        return outcome;
+    });
+    const processId = 'd'.repeat(64);
+    const details = { user: { email: 'guest@example.test', phone: '+971500000000' },
+        rooms: [{ guests: [{ first_name: 'Test', last_name: 'Guest' }] }] };
+    for (const [setting, duration, response, concurrentState] of [
+        [undefined, 180000, { httpStatus: 200, status: 'processing' }],
+        [undefined, 180000, { httpStatus: 503, status: 'error', error: 'unknown' }],
+        [undefined, 180000, Object.assign(new Error('response lost'), { code: 'ETIMEDOUT' })],
+        ['1', 60000, { httpStatus: 200, status: 'processing' }],
+        ['900000', 600000, { httpStatus: 200, status: 'processing' }],
+        ['invalid', 180000, { httpStatus: 200, status: 'processing' }],
+        ['120000', 120000, { httpStatus: 200, status: 'processing' }],
+        [undefined, 180000, { httpStatus: 200, status: 'processing' }, '3ds'],
+        [undefined, 180000, { httpStatus: 200, status: 'processing' }, 'confirmed']
+    ]) {
+        if (setting === undefined) delete process.env.RATEHAWK_BOOK_WAIT_MS;
+        else process.env.RATEHAWK_BOOK_WAIT_MS = setting;
+        time = 1000;
+        waitMs = duration;
+        outcome = response;
+        racingState = concurrentState;
+        record = { _id: processId, state: 'form_ready', language: 'en',
+            guests: [{ adults: 1, children: [] }], form_expires_at: new Date(3600000),
+            form: { partner_order_id: 'fixture-order', payment_types: [
+                { type: 'deposit', amount: '100.00', currency_code: 'USD' }
+            ] } };
+        const result = await booking.finishProcess(processId, details);
+        const expectedState = concurrentState || 'processing';
+        const expectedDeadline = (concurrentState === 'confirmed' ? 1000 : 46000) + duration;
+        assert.equal(result.status, expectedState);
+        assert.equal(result.success, concurrentState === 'confirmed');
+        assert.equal(Number(record.booking_deadline_at), expectedDeadline);
+        assert.equal(Number(record.next_check_at), concurrentState ? 48000 : 51000);
+        if (concurrentState) {
+            assert.equal(record.check_lease_id, 'fixture-worker');
+            assert.equal(Number(record.check_lease_until), 70000);
+        }
+        const sent = finish.mock.callCount();
+        time = Number(record.booking_deadline_at) + 1000;
+        const resumed = await booking.finishProcess(processId, details);
+        assert.equal(resumed.status, expectedState);
+        assert.equal(resumed.timed_out, concurrentState !== 'confirmed');
+        assert.equal(finish.mock.callCount(), sent);
+        assert.equal(Number(record.booking_deadline_at), expectedDeadline);
     }
 });
 
@@ -2578,6 +2691,7 @@ test('durable status checks serialize polling, preserve 3DS and recover due proc
     assert.deepEqual(await booking.reconcilePendingProcesses(), { checked: 1, failed: 0 });
     assert.equal(due.mock.callCount(), 1);
     assert.equal(record.state, 'confirmed');
+    assert.equal(Number(record.confirmed_at), time);
     const count = checks.mock.callCount();
     assert.equal((await booking.checkProcess(processId)).success, true);
     assert.equal(checks.mock.callCount(), count);

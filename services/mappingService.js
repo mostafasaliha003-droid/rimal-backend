@@ -254,6 +254,8 @@ function standardizeHotelData(rawHotel) {
         staticData: rawHotel.staticData || {},
         room_groups: rawHotel.room_groups || rawHotel.staticData?.room_groups || [],
         metapolicy: parseMetapolicy(rawHotel.metapolicy_struct || rawHotel.metapolicy),
+        metapolicy_struct: rawHotel.metapolicy_struct || rawHotel.staticData?.metapolicy_struct,
+        metapolicy_extra_info: rawHotel.metapolicy_extra_info || rawHotel.staticData?.metapolicy_extra_info,
         rooms: []
     };
 
@@ -307,7 +309,10 @@ function standardizeHotelData(rawHotel) {
             const sellPriceLimits = rate.sell_price_limits ?? paymentType.sell_price_limits;
 
             standardHotel.rooms.push({
-                roomId: rate.book_hash || rate.match_hash, // RateKey (book_hash is required for prebook/booking)
+                roomId: rate.book_hash,
+                book_hash: rate.book_hash,
+                rg_ext: rate.rg_ext,
+                offer_context: rate.offer_context,
                 processKey: '', // RateHawk doesn't need processKey
                 name: rate.room_name || rate.name || "Standard Room",
                 board: normalizeMealType(rate.meal),

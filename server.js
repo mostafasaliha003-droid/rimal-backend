@@ -875,7 +875,7 @@ app.get('/api/search/suggest', publicSearchGuard, async (req, res) => {
 app.post('/api/search/hotelpage', publicSearchGuard, async (req, res) => {
     res.set('Cache-Control', 'no-store, no-cache, must-revalidate');
     const body = req.body || {};
-    const { checkin, checkout, hid, guests, match_hash: matchHash } = body;
+    const { checkin, checkout, hid, guests } = body;
     const numericHid = Number(hid);
     if (hid === undefined || hid === null || !Number.isSafeInteger(numericHid) || numericHid < 0 || numericHid > 9999999999
         || guests === undefined || guests === null) {
@@ -894,8 +894,7 @@ app.post('/api/search/hotelpage', publicSearchGuard, async (req, res) => {
             residency: body.residency,
             language: body.language || 'en',
             currency: body.currency || 'USD',
-            guests,
-            ...(matchHash ? { match_hash: matchHash } : {})
+            guests
         });
         const hotels = paymentService.decorateHotels(Array.isArray(result)
             ? result
@@ -932,10 +931,14 @@ app.post('/api/booking/prebook', publicSearchGuard, async (req, res) => {
     try {
         const result = await ratehawkService.validatePrebookRate(
             hash,
-            body.price_increase_percent === undefined ? 0 : body.price_increase_percent
+            ratehawkService.prebookPriceIncreasePercent(),
+            body.offer_context
         );
         return res.status(200).json({ success: true, ...paymentService.decoratePrebook(result) });
     } catch (error) {
+        if (error.httpStatus === 409 && ['offer_context_expired_or_changed', 'invalid_offer_context', 'offer_identity_mismatch'].includes(error.code)) {
+            return res.status(409).json({ success: false, error: error.code, message: 'Please refresh the selected room and check the current price.' });
+        }
         if (['ECONNABORTED', 'ETIMEDOUT', 'ECONNRESET'].includes(error.code)) {
             logger.warn('RateHawk hotel prebook timed out', { code: error.code });
             return res.status(504).json({
@@ -976,7 +979,7 @@ app.post('/api/booking/prebook-serp', publicSearchGuard, async (req, res) => {
     try {
         const result = await ratehawkService.validateSerpPrebookRate(
             hash,
-            body.price_increase_percent === undefined ? 0 : body.price_increase_percent
+            ratehawkService.prebookPriceIncreasePercent()
         );
         return res.status(200).json({ success: true, ...result,
             ...(result?.rate ? { rate: paymentService.decorateRate(result.rate) } : {}) });
@@ -1112,7 +1115,11 @@ app.post('/api/v1/hotels/:hotelId/rates', publicSearchGuard, async (req, res) =>
                 hotelId: result.hotelId, hid: result.hid, name: result.name,
                 image: result.image, stars: result.stars,
                 latitude: result.latitude, longitude: result.longitude,
-                metapolicy: result.metapolicy || []
+                metapolicy: result.metapolicy || [],
+                metapolicy_struct: result.metapolicy_struct,
+                metapolicy_extra_info: result.metapolicy_extra_info,
+                room_groups: result.room_groups || [],
+                staticData: result.staticData || {}
             },
             rooms: result.rooms
         });

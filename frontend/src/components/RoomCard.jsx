@@ -6,17 +6,18 @@ import BookingAPI from '../services/bookingApi'; // تأكد من مسار API �
 import { responsiveImageSources, roomCardImages } from '../services/hotelImages.js';
 import { paymentFor, rateAmount, rateCurrency } from '../services/offers';
 import { useLanguage } from '../i18n';
+import { formatRatehawkDateTime } from '../services/ratehawkDateTime.js';
 
 export function CancellationPolicy({ cancellation, currency }) {
-    const { t } = useLanguage();
-    const deadline = cancellation?.free_cancellation_before;
+    const { t, language } = useLanguage();
+    const deadline = formatRatehawkDateTime(cancellation?.free_cancellation_before, language);
     return (
         <div className="text-sm">
             {deadline ? (
                 <div className="inline-flex max-w-full items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2 text-xs font-bold text-emerald-800">
                     <Check size={16} className="text-emerald-500 shrink-0" aria-hidden="true" />
                     <span className="min-w-0 break-words leading-tight">
-                        {t('room.freeCancellationUntil', 'إلغاء مجاني حتى')} <span className="font-black text-emerald-900">{deadline.replace('T', ' ')}</span>
+                        {t('room.freeCancellationUntil', 'إلغاء مجاني حتى')} <span className="font-black text-emerald-900">{deadline}</span>
                     </span>
                 </div>
             ) : (
@@ -35,8 +36,8 @@ export function CancellationPolicy({ cancellation, currency }) {
                         {cancellation.policies.map((policy, index) => (
                             <li key={index} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-200/50 pb-1.5 last:border-0 last:pb-0">
                                 <span className="min-w-0 break-words">
-                                    {policy.start_at ? `${t('room.from', 'من')} ${policy.start_at.replace('T', ' ')}` : t('room.beforeNextDeadline', 'قبل الموعد التالي')}
-                                    {policy.end_at ? ` ${t('room.until', 'حتى')} ${policy.end_at.replace('T', ' ')}` : ''}
+                                    {policy.start_at ? `${t('room.from', 'من')} ${formatRatehawkDateTime(policy.start_at, language) || t('nextgen.timeUnknown', 'Time unavailable')}` : t('room.beforeNextDeadline', 'قبل الموعد التالي')}
+                                    {policy.end_at ? ` ${t('room.until', 'حتى')} ${formatRatehawkDateTime(policy.end_at, language) || t('nextgen.timeUnknown', 'Time unavailable')}` : ''}
                                 </span>
                                 <span className="shrink-0 break-words font-bold text-left text-slate-800" dir="ltr">
                                     {policy.amount} {policy.currency_code || currency}
@@ -70,7 +71,9 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
     const activeImage = allImages[activeImageIndex];
     const image = activeImage?.url;
     const imageSource = responsiveImageSources(image, 'room');
-    const price = room.price ?? '-';
+    const currentRoom = status === 'success' && prebookResult ? prebookResult : room;
+    const price = currentRoom.price ?? '-';
+    const priceChanged = status === 'success' && (currentRoom.currency !== room.currency || Number(currentRoom.price) !== Number(room.price));
     const amenities = room.amenities || [];
 
     const affiliateOffer = room.contract_source === 'affiliate';
@@ -80,7 +83,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
             && room.paymentType === 'hotel'
         : ['AED', 'USD', 'SAR', 'EUR'].includes(room.currency) && room.paymentType === 'deposit'
         && Number.isFinite(room.price) && room.price > 0 && room.book_hash;
-    const additionalTaxes = (room.taxes || []).filter(tax => !tax.included_by_supplier);
+    const additionalTaxes = (currentRoom.taxes || []).filter(tax => !tax.included_by_supplier);
 
     const handleBook = async () => {
         if (affiliateOffer) {
@@ -94,15 +97,18 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
         setStatus('loading');
         setErrorMsg('');
         try {
-            const result = await BookingAPI.prebook(room.book_hash || room.roomId, 0);
+            const result = await BookingAPI.prebook(room.book_hash || room.roomId, undefined, room.offer_context);
             const validatedRate = result?.rate || result?.hotels?.[0]?.rates?.[0];
             const validatedRoom = {
                 ...room,
                 ...result,
                 book_hash: result?.bookHash || validatedRate?.book_hash || room.book_hash,
+                prebook_context: result?.prebook_context,
                 price: validatedRate ? rateAmount(validatedRate) : room.price,
                 currency: validatedRate ? rateCurrency(validatedRate) : room.currency,
                 paymentType: paymentFor(validatedRate)?.type || room.paymentType,
+                cancellation: paymentFor(validatedRate)?.cancellation_penalties ?? room.cancellation,
+                taxes: paymentFor(validatedRate)?.tax_data?.taxes ?? room.taxes,
                 originalRate: validatedRate || room.originalRate,
                 prebookResult: result
             };
@@ -220,7 +226,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         </div>
                         
                         <div className="mt-5">
-                            <CancellationPolicy cancellation={room.cancellation} currency={room.currency} />
+                            <CancellationPolicy cancellation={currentRoom.cancellation} currency={currentRoom.currency} />
                         </div>
                     </div>
                 </div>
@@ -238,11 +244,12 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         
                         <div className="flex items-baseline justify-end gap-1.5">
                             {price !== '-' ? (
-                                <PriceDisplay amount={price} currency={room.currency || 'AED'} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl" />
+                                <PriceDisplay amount={price} currency={currentRoom.currency || 'AED'} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl" />
                             ) : (
                                 <span className="text-3xl font-black tracking-tight text-slate-900">-</span>
                             )}
                         </div>
+                        {priceChanged && <p data-updated-room-price role="status" className="mt-2 text-xs font-bold leading-6 text-amber-800">{t('room.priceUpdated', 'تم تحديث السعر. راجع السعر الجديد قبل المتابعة.')}</p>}
                         <p className="mt-1 text-xs font-semibold text-slate-500 flex items-center justify-end gap-1">
                             <Info size={12} /> {t('room.included', 'شامل الضرائب والرسوم')}
                         </p>
@@ -263,13 +270,14 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         {errorMsg && <p role="alert" className="text-xs font-bold text-red-600 bg-red-50 p-2 rounded-lg text-center border border-red-100 mb-2">{errorMsg}</p>}
                         
                         <button
+                            data-select-room
                             type="button"
                             onClick={handleBook} 
                             disabled={status === 'loading' || (!payable && status !== 'success')} 
                             className={`group/btn relative inline-flex min-h-[56px] w-full items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-3.5 text-sm font-black text-white disabled:cursor-not-allowed disabled:shadow-none disabled:hover:translate-y-0 ${status === 'success' ? 'bg-emerald-600 shadow-[0_8px_18px_rgba(16,185,129,0.2)] transition-colors hover:bg-emerald-700' : payable ? 'cta-red' : 'bg-slate-300 text-slate-600'}`}
                         >
                             <span className="relative z-10 flex flex-wrap items-center justify-center gap-2 text-center">
-                                {affiliateOffer ? t('room.payAtHotelAction', 'اختر الدفع في الفندق') : status === 'loading' ? t('room.verifying', 'جارٍ التحقق...') : status === 'success' ? t('room.fixed', 'تم تثبيت السعر') : t('room.payNowAction', 'تحقق وانتقل إلى الدفع')}
+                                {affiliateOffer ? t('room.payAtHotelAction', 'اختر الدفع في الفندق') : status === 'loading' ? t('room.verifying', 'جارٍ التحقق...') : status === 'success' ? priceChanged ? t('room.continueAtUpdatedPrice', 'المتابعة بالسعر المحدّث') : t('room.fixed', 'تم تثبيت السعر') : t('room.payNowAction', 'تحقق وانتقل إلى الدفع')}
                                 {status === 'success' ? <Check size={18} className="motion-safe:animate-[success-pop_300ms_ease-out] motion-reduce:animate-none" /> : status === 'loading' ? <span className="h-4 w-4 rounded-full border-2 border-white border-t-transparent motion-safe:animate-spin motion-reduce:animate-none"></span> : <ArrowLeft size={18} className="transition-transform duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover/btn:-translate-x-1" />}
                             </span>
                         </button>

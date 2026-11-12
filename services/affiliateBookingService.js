@@ -294,10 +294,12 @@ async function processForm(processId, ownerContext) {
         const prebookHotel = dataOf(prebook)?.hotels?.find(item => Number(item.hid) === details.hid);
         const matchingRates = (prebookHotel?.rates || []).filter(item =>
             item.room_name === details.roomName && (item.meal || '') === details.meal);
-        const matchingHashRates = rate.match_hash
-            ? matchingRates.filter(item => item.match_hash === rate.match_hash) : [];
-        const currentRate = matchingHashRates.length === 1 ? matchingHashRates[0]
-            : matchingRates.length === 1 ? matchingRates[0] : null;
+        const classification = value => value && typeof value === 'object' && !Array.isArray(value)
+            ? JSON.stringify(Object.keys(value).sort().map(key => [key, value[key]])) : null;
+        const roomClassification = classification(rate.rg_ext);
+        const classifiedRates = roomClassification
+            ? matchingRates.filter(item => classification(item.rg_ext) === roomClassification) : matchingRates;
+        const currentRate = classifiedRates.length === 1 ? classifiedRates[0] : null;
         const currentPayment = paymentForHotel(currentRate);
         const quote = showQuote(currentPayment);
         if (!currentRate || !currentPayment || currentPayment.is_need_credit_card_data === true

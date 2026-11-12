@@ -8,7 +8,7 @@ import { userAccessToken } from './authSession.js';
 const api = axios.create({
     baseURL: API_BASE_URL,
     // RateHawk SERP searches can take up to the backend's configured
-    // RATEHAWK_SERP_TIMEOUT_MS (60s by default), plus network overhead.
+    // supplier budget (30s by default), plus network overhead.
     timeout: 75000,
     headers: {
         'Content-Type': 'application/json'
@@ -115,11 +115,12 @@ export const getHotelStatic = async (hid, language = 'en') =>
  * @param {number} [priceIncreasePercent=0] - Allowed price increase percentage.
  * @returns {Promise<object>} Prebook validation result.
  */
-export const prebook = async (hash, priceIncreasePercent = 0) =>
+export const prebook = async (hash, priceIncreasePercent, offerContext) =>
     responseData(await api.post('/booking/prebook', {
         hash,
-        price_increase_percent: priceIncreasePercent
-    }, { timeout: 135000 }));
+        price_increase_percent: priceIncreasePercent,
+        offer_context: offerContext
+    }, { timeout: 75000 }));
 
 /**
  * Validate a SERP-originated rate through the ETG SERP prebook endpoint.
@@ -127,11 +128,11 @@ export const prebook = async (hash, priceIncreasePercent = 0) =>
  * @param {number} [priceIncreasePercent=0] - Allowed price increase percentage.
  * @returns {Promise<object>} SERP prebook validation result.
  */
-export const prebookSerp = async (hash, priceIncreasePercent = 0) =>
+export const prebookSerp = async (hash, priceIncreasePercent) =>
     responseData(await api.post('/booking/prebook-serp', {
         hash,
         price_increase_percent: priceIncreasePercent
-    }, { timeout: 135000 }));
+    }, { timeout: 75000 }));
 
 /**
  * Create a Ziina payment intent for a validated room selection.

@@ -59,6 +59,8 @@ test('hotel prebook keeps the customer price through room selection and checkout
 
 function fixture(context, { bookHash = 'fixture-hash', formHash = 'fresh-hash' } = {}) {
     const previous = process.env.PAYMENT_BOOKING_ENCRYPTION_KEY;
+    const corporateEmail = process.env.RATEHAWK_CONFIRMATION_EMAIL;
+    process.env.RATEHAWK_CONFIRMATION_EMAIL = 'bookings@remal.example.test';
     const testMode = process.env.ZIINA_TEST_MODE;
     const originalSupplier = process.env.RATEHAWK_BASE_URL;
     const originalKey = process.env.RATEHAWK_KEY_ID;
@@ -67,6 +69,8 @@ function fixture(context, { bookHash = 'fixture-hash', formHash = 'fresh-hash' }
     process.env.RATEHAWK_BASE_URL = 'https://api-sandbox.ratehawk.com';
     process.env.RATEHAWK_KEY_ID = 'supplier-fixture';
     context.after(() => {
+        if (corporateEmail === undefined) delete process.env.RATEHAWK_CONFIRMATION_EMAIL;
+        else process.env.RATEHAWK_CONFIRMATION_EMAIL = corporateEmail;
         if (previous === undefined) delete process.env.PAYMENT_BOOKING_ENCRYPTION_KEY;
         else process.env.PAYMENT_BOOKING_ENCRYPTION_KEY = previous;
         if (testMode === undefined) delete process.env.ZIINA_TEST_MODE;
@@ -102,9 +106,10 @@ function fixture(context, { bookHash = 'fixture-hash', formHash = 'fresh-hash' }
         for (const field of Object.keys(update.$unset || {})) delete record[field];
         return { matchedCount: 1 };
     });
-    const rateInfo = context.mock.method(ratehawk, 'getRateDetailsByHash', async hash => {
+    context.mock.method(ratehawk, 'getRateDetailsByHash', () => { throw new Error('lookuprate_must_not_be_called'); });
+    const rateInfo = context.mock.method(ratehawk, 'getCheckoutRateContext', (_token, hash) => {
         assert.equal(hash, bookHash);
-        return { original_request_params: { checkin: '2099-10-15', checkout: '2099-10-17',
+        return { context_kind: bookHash.startsWith('p-') ? 'prebook' : 'hotelpage', original_request_params: { checkin: '2099-10-15', checkout: '2099-10-17',
             guests: [{ adults: 1, children: [5] }] },
         hotels: [{ hid: 123, rates: [{ room_name: 'Test Double Room', book_hash: bookHash,
             payment_options: { payment_types: [{ type: 'deposit', amount: '100.00', currency_code: 'USD' }] } }] }] };
@@ -182,7 +187,7 @@ test('a supplier-verified prebook hash proceeds to form without repeating hotel 
     assert.equal(scenario.rateInfo.mock.callCount(), 1);
     assert.equal(scenario.form.mock.callCount(), 1);
     assert.equal(scenario.createIntent.mock.callCount(), 1);
-    const info = await scenario.rateInfo('p-fixture');
+    const info = scenario.rateInfo(undefined, 'p-fixture');
     assert.throws(() => checkout.verifyRateIdentity(info, checkout.normalizedCheckout({ ...input, total: 101 })), /RATE_CHANGED/);
     assert.equal(scenario.createIntent.mock.callCount(), 1);
 });
@@ -249,7 +254,7 @@ test('preflight refuses price tampering or an expired supplier form before Ziina
 
 test('offer identity refuses changed dates, occupancy or a mismatched room before a payment intent', async context => {
     const scenario = fixture(context);
-    const originalOffer = await scenario.rateInfo('fixture-hash');
+    const originalOffer = scenario.rateInfo(undefined, 'fixture-hash');
     for (const mismatch of [
         { ...details(), guests: [{ adults: 2, children: [] }], rooms: [{ guests: [
             { firstName: 'Test', lastName: 'Guest' }, { firstName: 'Second', lastName: 'Guest' }

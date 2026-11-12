@@ -18,6 +18,7 @@ const mappingService = require('./mappingService');
 const { validateRatehawkSearchCriteria } = require('./ratehawkSearchValidation');
 const logger = require('./loggerService');
 const { findHotelSuggestions } = require('./hotelSearchIndex');
+const offerContext = require('./ratehawkOfferContext');
 
 // Fallback name for hotels not yet present in our local static-content cache.
 const FALLBACK_HOTEL_NAME = 'فندق شريك لرمال وفلّها';
@@ -107,7 +108,7 @@ async function syncBookingByPartnerOrderId(partnerOrderId, update) {
 }
 
 // How long bookHotel() will poll booking/finish/status before returning "processing".
-const BOOK_WAIT_MS = parseInt(process.env.RATEHAWK_BOOK_WAIT_MS || '90000', 10);
+const BOOK_WAIT_MS = parseInt(process.env.RATEHAWK_BOOK_WAIT_MS || '180000', 10);
 const BOOK_POLL_INTERVAL_MS = parseInt(process.env.RATEHAWK_BOOK_POLL_MS || '5000', 10);
 
 // Booking status errors that are final (stop polling immediately).
@@ -207,7 +208,7 @@ function normalizeSearchParams(p = {}) {
         ...Object.fromEntries([
             'hids', 'ids', 'region_id', 'destinationCode', 'destination_code', 'destinationName',
             'destination', 'query', 'latitude', 'longitude', 'radius', 'hotels_limit',
-            'hid', 'id', 'hotel_id', 'hotelId', 'hotel_ids', 'hotelIds', 'match_hash', 'filter'
+            'hid', 'id', 'hotel_id', 'hotelId', 'hotel_ids', 'hotelIds', 'filter'
         ].filter(field => Object.hasOwn(p, field) && p[field] !== undefined)
             .map(field => [field, p[field]]))
     };
@@ -410,7 +411,12 @@ async function getApiOverview() {
 
 // ---- Step 1: Static / content ----------------------------------------------
 const getHotelStatic = () => client.hotelStatic();
-const getSingleHotelInfo = (hid, language = 'en') => client.getSingleHotelInfo(hid, language);
+const getSingleHotelInfo = async hid => {
+    if (!/^\d{1,10}$/.test(String(hid))) throw bookingError('invalid_hotel_id');
+    const hotel = await getHotelModel().findOne({ provider: 'ratehawk', hid: String(hid) }).lean();
+    if (!hotel || isDeletedHotel(hotel) || hotel.staticData?.is_closed) throw bookingError('hotel_not_found', 404);
+    return { ...hotel.staticData, hid: hotel.hid, id: hotel.hotelId, name: hotel.name || hotel.staticData?.name };
+};
 const fetchFilterValues = () => client.filterValues();
 const getHotelIdsByFilter = (data) => client.hotelIdsByFilter(data);
 
@@ -539,8 +545,19 @@ const getRegionHotelSort = (regionId, limit = 250) => {
         hotels_limit: hotelsLimit
     });
 };
-const getHotelPageRates = (searchCriteria = {}, options) => client.getHotelPageRates(validatedSearchParams(searchCriteria, options));
+const getHotelPageRates = async (searchCriteria = {}, options) => {
+    const criteria = validatedSearchParams(searchCriteria, options);
+    const result = await client.getHotelPageRates(criteria);
+    return { ...result, hotels: offerContext.attachHotelpage(result?.hotels || [], criteria) };
+};
 const getRateDetailsByHash = (bookHash, language = 'en') => client.lookupRateInfo(bookHash, language);
+const getCheckoutRateContext = (token, hash) => offerContext.read(token, hash);
+
+function prebookPriceIncreasePercent() {
+    const value = Number(process.env.RATEHAWK_PREBOOK_PRICE_INCREASE_PERCENT ?? 2);
+    if (!Number.isFinite(value) || value < 0 || value > 100) throw bookingError('invalid_prebook_price_policy', 503);
+    return value;
+}
 
 /**
  * Search availability by region / hotel ids / geo. Returns an array of hotels
@@ -617,6 +634,7 @@ async function searchAvailability(rawParams = {}, { now = new Date() } = {}) {
             latitude: d.latitude || '',
             longitude: d.longitude || '',
             metapolicy_struct: d.staticData && d.staticData.metapolicy_struct,
+            metapolicy_extra_info: d.staticData?.metapolicy_extra_info,
             rates: h.rates || [],
             provider: 'ratehawk'
         };
@@ -639,7 +657,7 @@ async function getHotelPricing(hotelId, searchParams = {}, { now = new Date() } 
     // request for every selected-hotel view, with no in-process rate cache.
     const res = await client.hotelPage(body);
     if (!res.ok) return { success: false, error: res.error || 'hp_failed', rooms: [] };
-    const hotel = res.data && res.data.hotels && res.data.hotels[0];
+    const hotel = offerContext.attachHotelpage(res.data?.hotels || [], params)[0];
     if (!hotel) return { success: false, error: 'not_found', rooms: [] };
 
     // Hydrate static content from our local DB, then map to the unified room shape.
@@ -663,6 +681,7 @@ async function getHotelPricing(hotelId, searchParams = {}, { now = new Date() } 
         longitude: (doc && doc.longitude) || '',
         metapolicy_struct: hotel.metapolicy_struct || hotel.metapolicy
             || (doc && doc.staticData && doc.staticData.metapolicy_struct),
+        metapolicy_extra_info: hotel.metapolicy_extra_info || doc?.staticData?.metapolicy_extra_info,
         rates: hotel.rates || [],
         provider: 'ratehawk'
     };
@@ -677,6 +696,10 @@ async function getHotelPricing(hotelId, searchParams = {}, { now = new Date() } 
         latitude: raw.latitude,
         longitude: raw.longitude,
         metapolicy: (mapped && mapped.metapolicy) || [],
+        metapolicy_struct: raw.metapolicy_struct,
+        metapolicy_extra_info: raw.metapolicy_extra_info,
+        room_groups: raw.staticData.room_groups || [],
+        staticData: raw.staticData,
         rooms: (mapped && mapped.rooms) || []
     };
 }
@@ -694,7 +717,7 @@ async function getHotelPage(rawParams = {}, { now = new Date() } = {}) {
     if (rawParams.id) body.id = rawParams.id;
     const res = await client.hotelPage(body);
     if (!res.ok) return { success: false, error: res.error };
-    const hotel = (res.data && res.data.hotels && res.data.hotels[0]) || null;
+    const hotel = offerContext.attachHotelpage(res.data?.hotels || [], params)[0] || null;
     return { success: true, hotel, rates: (hotel && hotel.rates) || [] };
 }
 
@@ -708,7 +731,7 @@ async function fetchSingleHotelPage(hotelId, searchParams = {}) {
         hotelId,
         rooms: (page.rates || []).map(r => ({
             roomId: r.book_hash,
-            match_hash: r.match_hash,
+            offer_context: r.offer_context,
             name: r.room_name,
             board: r.meal,
             priceAED: rateToAED(r),
@@ -718,7 +741,7 @@ async function fetchSingleHotelPage(hotelId, searchParams = {}) {
 }
 
 // ---- Step 3: Prebook --------------------------------------------------------
-async function prebookRate(bookHash, priceIncreasePercent = 0) {
+async function prebookRate(bookHash, priceIncreasePercent = prebookPriceIncreasePercent()) {
     const res = await client.prebook({ hash: bookHash, price_increase_percent: priceIncreasePercent });
     if (!res.ok) return { success: false, error: res.error };
     const hotel = (res.data && res.data.hotels && res.data.hotels[0]) || null;
@@ -732,9 +755,19 @@ async function prebookRate(bookHash, priceIncreasePercent = 0) {
     };
 }
 
-const validatePrebookRate = (hash, priceIncreasePercent = 0) =>
-    client.prebookRate(hash, priceIncreasePercent);
-const validateSerpPrebookRate = (hash, priceIncreasePercent = 0) =>
+const validatePrebookRate = async (hash, priceIncreasePercent = prebookPriceIncreasePercent(), token) => {
+    const source = token ? offerContext.read(token, hash) : null;
+    if (source && source.context_kind !== 'hotelpage') throw bookingError('invalid_offer_context', 409);
+    const result = await client.prebookRate(hash, priceIncreasePercent);
+    if (!source) return result;
+    const hotel = result?.hotels?.[0], rate = hotel?.rates?.[0];
+    if (result?.hotels?.length !== 1 || hotel.rates?.length !== 1 || !rate?.book_hash?.startsWith('p-')
+        || String(hotel.hid) !== String(source.hotels[0].hid)
+        || rate.room_name !== source.hotels[0].rates[0].room_name) throw bookingError('offer_identity_mismatch', 409);
+    return { ...result, prebook_context: offerContext.issue({ original_request_params: source.original_request_params,
+        hotels: result.hotels }, 'prebook', { expiresAt: source.context_expires_at }) };
+};
+const validateSerpPrebookRate = (hash, priceIncreasePercent = prebookPriceIncreasePercent()) =>
     client.prebookSerpRate(hash, priceIncreasePercent);
 
 /**
@@ -744,7 +777,7 @@ const validateSerpPrebookRate = (hash, priceIncreasePercent = 0) =>
 async function recheckHotel(details = {}) {
     const bookHash = details.book_hash || details.hash || details.rateKey || details.roomId;
     if (!bookHash) return { success: false, error: 'missing book_hash' };
-    const pre = await prebookRate(bookHash, details.price_increase_percent || 0);
+    const pre = await prebookRate(bookHash);
     if (!pre.success) return { success: false, error: pre.error };
     return {
         success: true,
@@ -897,7 +930,7 @@ function buildBookingFinish(details, form) {
     const rooms = buildGuests(details);
     if (form.is_gender_specification_required && rooms.some(room => room.guests.some(guest => !guest.gender))) throw bookingError('gender_required');
     const contact = details.user || { email: details.email || details.holderEmail, phone: details.phone || details.holderPhone, comment: details.comment };
-    const email = requiredText(contact.email, 'email');
+    const email = requiredText(process.env.RATEHAWK_CONFIRMATION_EMAIL, 'corporate_confirmation_email', 254);
     const phone = requiredText(contact.phone, 'phone', 40);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) throw bookingError('invalid_email');
     const request = {
@@ -985,7 +1018,7 @@ async function checkBookingProcess(partnerOrderId, options = {}) {
  * Poll booking/finish/status until confirmed, final error, or timeout.
  */
 async function waitForBookingStatus(partnerOrderId, { maxWaitMs = BOOK_WAIT_MS, intervalMs = BOOK_POLL_INTERVAL_MS, now = Date.now, sleep = delay => new Promise(resolve => setTimeout(resolve, delay)) } = {}) {
-    const deadline = now() + Math.max(1000, Number.isFinite(maxWaitMs) ? maxWaitMs : 90000);
+    const deadline = now() + Math.max(1000, Number.isFinite(maxWaitMs) ? maxWaitMs : 180000);
     const finalCheckAt = deadline - 1000;
     while (true) {
         const checkedAt = now();
@@ -1101,6 +1134,15 @@ async function getOrderInfo(partnerOrderId) {
 
     try {
         const orderId = requiredText(partnerOrderId, 'partner_order_id');
+        if (mongoose.connection.readyState === 1) {
+            const process = await require('../models/BookingProcess').findOne({ partner_order_id: orderId }).lean();
+            const confirmedAt = new Date(process?.confirmed_at).getTime();
+            if (process && (['creating', 'form_ready', 'finishing', 'processing', '3ds'].includes(process.state)
+                || Number.isFinite(confirmedAt) && Date.now() < confirmedAt + 30000)) {
+                return { success: true, pending: true, found: 0, order: null,
+                    retry_after_ms: Number.isFinite(confirmedAt) ? Math.max(1000, confirmedAt + 30000 - Date.now()) : 30000 };
+            }
+        }
         const result = await retrieveBookings({
             ordering: { ordering_type: 'desc', ordering_by: 'created_at' },
             pagination: { page_number: 1, page_size: 10 },
@@ -1456,6 +1498,7 @@ module.exports = {
     getRegionHotelSort,
     getHotelPageRates,
     getRateDetailsByHash,
+    getCheckoutRateContext,
     searchAvailability,
     fetchHotelsInChunks,
     getHotelPage,
@@ -1463,6 +1506,7 @@ module.exports = {
     fetchSingleHotelPage,
     // Step 3 - prebook
     prebookRate,
+    prebookPriceIncreasePercent,
     validatePrebookRate,
     validateSerpPrebookRate,
     recheckHotel,

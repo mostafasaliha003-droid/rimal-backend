@@ -22,16 +22,33 @@ test('ETG rooms without deprecated IDs match photos by every rg_ext field, indep
     for(const field of Object.keys(double)) assert.deepEqual(roomImagesForRate({rg_ext:{...double,[field]:99}},hotel),[],field);
 });
 
-test('partial, conflicting, ambiguous and same-name matches never borrow another room photograph',()=>{
+test('partial and ambiguous classifications never borrow a photograph; deprecated IDs are ignored',()=>{
     const {floor,...partial}=double;
     assert.equal(roomClassification(partial),'');
     assert.deepEqual(roomImagesForRate({room_name:hotel.room_groups[0].name,rg_ext:partial},hotel),[]);
-    assert.deepEqual(roomImagesForRate({room_group_id:91,rg_ext:double},hotel),[]);
-    assert.equal(roomGroupForRate({rg_ext:double},{room_groups:[hotel.room_groups[0],{...hotel.room_groups[0],room_group_id:999}]}),null);
+    assert.deepEqual(roomImagesForRate({room_group_id:91,rg_ext:double},hotel),['https://example.test/double.jpg']);
+    assert.equal(roomGroupForRate({rg_ext:double},{room_groups:[hotel.room_groups[0],{...hotel.room_groups[0],name:'Different room'}]}),null);
+    assert.deepEqual(roomImagesForRate({rg_ext:double},{room_groups:[hotel.room_groups[0],{...hotel.room_groups[0],room_group_id:999}]}),['https://example.test/double.jpg']);
+    assert.deepEqual(roomImagesForRate({room_group_id:90},hotel),[],'deprecated IDs cannot match static rooms');
     assert.deepEqual(roomImagesForRate({id:90},hotel),[],'rate IDs are not room group IDs');
     assert.deepEqual(roomImagesForRate({rg_ext:{...double,floor:1}},hotel),[]);
     assert.deepEqual(roomImagesForRate({},hotel),[],'property photos are not room photos');
     assert.deepEqual(roomImagesForRate({images:['https://example.test/direct.jpg'],rg_ext:partial},hotel),['https://example.test/direct.jpg']);
+});
+
+test('unmatched dynamic classifications form separate groups and IDs do not split matching offers',()=>{
+    const unknown = {...double,capacity:3};
+    const rates = [
+        {room_name:'Double room',rg_ext:double,room_group_id:90,book_hash:'one'},
+        {room_name:'Double room',rg_ext:double,room_group_id:999,book_hash:'two'},
+        {room_name:'Double room',rg_ext:unknown,room_group_id:90,book_hash:'three'},
+        {room_name:'Double room',rg_ext:unknown,room_group_id:91,book_hash:'four'}
+    ];
+    const groups = groupRoomOffers(rates.map(rate=>normalizeRoom(rate,hotel,[])));
+    assert.equal(groups.length,2);
+    assert.deepEqual(groups[0].rooms.map(room=>room.book_hash),['one','two']);
+    assert.deepEqual(groups[1].rooms.map(room=>room.book_hash),['three','four']);
+    assert.deepEqual(groups[1].rooms.flatMap(room=>room.images),[]);
 });
 
 test('supplier labels stay exact and capacity never invents the bed type',()=>{

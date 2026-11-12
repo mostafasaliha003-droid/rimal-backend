@@ -183,3 +183,11 @@ test('customer display eligibility fails closed without approved policy and comp
     assert.equal('providerHotelId' in approved.offer, false);
     assert.equal('booking' in approved.offer, false);
 });
+
+test('deprecated match_hash cannot become an opaque booking reference', () => {
+    const [offer] = normalizeRateHawkHotel({ id: 'fixture-hotel', rates: [{ room_name: 'Double room',
+        match_hash: 'deprecated-match', payment_options: { payment_types: [{ type: 'deposit', amount: '100.00', currency_code: 'USD' }] }
+    }] });
+    assert.equal(offer.booking.requiresOpaqueReference, false);
+    assert.equal(offer.booking.opaqueToken, null);
+});

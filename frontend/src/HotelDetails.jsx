@@ -3,6 +3,7 @@ import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CheckCircle
 import RoomOfferGroups from './components/RoomOfferGroups';
 import HotelGuestReviews from './components/HotelGuestReviews';
 import HotelPhotoGallery from './components/HotelPhotoGallery';
+import HotelPolicies from './components/HotelPolicies';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom, rateAmount, rateCurrency } from './services/offers';
 import PriceDisplay from './components/PriceDisplay';
@@ -315,6 +316,8 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                                 ))}
                             </div>
                         </article>
+
+                        <HotelPolicies hotel={hotel || {}} />
 
                         <HotelGuestReviews key={`${hid}:${language}`} hid={hid} hotelName={hotel?.name} address={hotel?.address} />
 
