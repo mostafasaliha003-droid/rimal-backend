@@ -58,6 +58,36 @@ async function run() {
     let exchangeRequests = 0;
     const suggestionRequests = [];
     page.on('pageerror', error => errors.push(error.message));
+    const hasRole = (node, role) => node?.role === role || (node?.children || []).some(child => hasRole(child, role));
+    const checkMobileFilterDialog = async language => {
+        await page.setViewport({ width: 390, height: 844 });
+        assert(hasRole(await page.accessibility.snapshot({ interestingOnly: false }), 'banner'));
+        await page.click('button[aria-controls="search-filters"]');
+        await page.waitForFunction(() => document.querySelector('#search-filters')?.matches(':modal')
+            && document.querySelector('#search-filters')?.contains(document.activeElement));
+        assert.equal(await page.$eval('#search-filters', panel => panel.tagName), 'DIALOG');
+        assert.equal(await page.$eval('#search-filters', panel => panel.getAttribute('aria-modal')), 'true');
+        assert.equal(await page.$eval('#search-filters button[aria-label]', button => document.activeElement === button), true);
+        const modalTree = await page.accessibility.snapshot({ interestingOnly: false });
+        assert(hasRole(modalTree, 'dialog'));
+        assert.equal(hasRole(modalTree, 'banner'), false, 'Native modal excludes the background header from the accessibility tree');
+        await page.$eval('#language-select', control => control.focus());
+        assert.equal(await page.$eval('#search-filters', panel => panel.contains(document.activeElement)), true, 'Inert background cannot receive programmatic focus');
+        for (const key of ['Tab', 'Shift+Tab']) {
+            for (let step = 0; step < 14; step++) {
+                if (key === 'Shift+Tab') await page.keyboard.down('Shift');
+                await page.keyboard.press('Tab');
+                if (key === 'Shift+Tab') await page.keyboard.up('Shift');
+                assert.equal(await page.$eval('#search-filters', panel => panel.contains(document.activeElement)), true, `${language} ${key} remains inside the filter dialog at step ${step + 1}`);
+            }
+        }
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('#search-filters')?.open
+            && document.activeElement === document.querySelector('button[aria-controls="search-filters"]'));
+        assert.equal(await page.$eval('button[aria-controls="search-filters"]', button => button.getAttribute('aria-expanded')), 'false');
+        assert(hasRole(await page.accessibility.snapshot({ interestingOnly: false }), 'banner'));
+        console.log(`PASS: ${language} mobile filters focus the dialog, contain 28 keyboard moves, exclude the inert background from focus/accessibility, and restore trigger focus on Escape.`);
+    };
     try {
         await page.setBypassServiceWorker(true);
         await page.setRequestInterception(true);
@@ -232,6 +262,7 @@ async function run() {
             assert.equal(overflow, false, `horizontal overflow at ${width}px`);
         }
         await page.setViewport({ width: 390, height: 844 });
+        await checkMobileFilterDialog('ar');
         await page.click('[aria-controls="search-filters"]');
         assert.equal(await page.$eval('#search-filters', element => getComputedStyle(element).display !== 'none'), true);
         for (const id of ['price-filter-options', 'star-filter-options', 'amenity-filter-options']) {
@@ -525,6 +556,10 @@ async function run() {
         assert.equal(paymentRequests, ziinaIntentCountBeforeAffiliate);
         assert.deepEqual(errors, []);
         console.log('PASS: 27 grouped offers retain every hash, order and price behind a keyboard-operable native disclosure; cancellation shows UTC and 0.00 USD; prebook tolerance 2 and checkout preserve the selected rate identity and price.');
+        await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), search);
+        await page.goto(`${base}/?lang=en`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#results-heading article');
+        await checkMobileFilterDialog('en');
         await page.evaluate(() => sessionStorage.clear());
         await page.setBypassServiceWorker(false);
         await page.goto(base, { waitUntil: 'domcontentloaded' });

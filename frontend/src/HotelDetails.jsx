@@ -328,7 +328,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         <div className="p-6 sm:p-8">
                             <div className="mb-6 flex flex-wrap items-baseline justify-between gap-3">
                                 <p className="min-w-0 break-words text-3xl font-black text-slate-900">{rooms.length ? t('hotel.stayCount', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.stayCountUnavailable', 'لا توجد عروض')}</p>
-                                {rooms.length > 0 && <p className="max-w-full break-words rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-600">{t('hotel.available', 'متاحة الآن')}</p>}
+                                {rooms.length > 0 && <p className="max-w-full break-words rounded-full bg-emerald-50 px-3 py-1 text-sm font-bold text-emerald-800">{t('hotel.available', 'متاحة الآن')}</p>}
                             </div>
                             
                             {/* Airbnb style checkin/checkout box */}
@@ -369,7 +369,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         <p className="mt-1 break-words text-[11px]">{t('stay.guestsSummary', 'Guests: {{guests}} · Rooms: {{rooms}}', stay)}</p>
                         {lowestRoom && <PriceDisplay amount={rateAmount(lowestRoom)} currency={rateCurrency(lowestRoom)} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-sm font-black text-[var(--remal-blue-strong)]" />}
                     </div>
-                    <button type="button" onClick={() => document.getElementById('hotel-room-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} disabled={!rooms.length} className="min-h-12 shrink-0 rounded-xl bg-[var(--remal-orange)] px-5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.22)] disabled:cursor-not-allowed disabled:bg-slate-300">
+                    <button type="button" onClick={() => document.getElementById('hotel-room-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} disabled={!rooms.length} className="min-h-12 shrink-0 rounded-xl bg-[var(--remal-orange)] px-5 text-sm font-black text-[var(--remal-navy)] shadow-[0_8px_18px_rgba(232,117,45,0.22)] disabled:cursor-not-allowed disabled:bg-slate-300">
                         {t('hotel.viewOffers', 'عرض الغرف')}
                     </button>
                 </div>

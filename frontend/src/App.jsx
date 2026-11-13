@@ -1,6 +1,7 @@
 import { lazy, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, Sparkles, X } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
+import { useMediaQuery } from './components/search/SearchOverlay';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelCard from './components/HotelCard';
 import HotelRoomCard from './components/HotelRoomCard';
@@ -99,6 +100,11 @@ export default function App() {
     const [freeCancellation, setFreeCancellation] = useState(false);
     const [limit, setLimit] = useState(20);
     const filterOverviewRef = useRef(null);
+    const filterPanelRef = useRef(null);
+    const filterTriggerRef = useRef(null);
+    const filterCloseRef = useRef(null);
+    const mobileFilters = useMediaQuery('(max-width: 1023px)');
+    const FilterPanel = mobileFilters ? 'dialog' : 'aside';
 
     useEffect(() => {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
@@ -142,10 +148,39 @@ export default function App() {
     };
 
     useEffect(() => {
-        const isMobile = window.matchMedia('(max-width: 1023px)').matches;
-        document.body.classList.toggle('filter-sheet-open', filtersOpen && isMobile);
-        return () => document.body.classList.remove('filter-sheet-open');
-    }, [filtersOpen]);
+        if (!mobileFilters) {
+            if (filtersOpen) setFiltersOpen(false);
+            return undefined;
+        }
+        const panel = filterPanelRef.current;
+        if (!filtersOpen || !panel) return undefined;
+        const trigger = filterTriggerRef.current;
+        document.body.classList.add('filter-sheet-open');
+        panel.showModal();
+        const frame = requestAnimationFrame(() => filterCloseRef.current?.focus({ preventScroll: true }));
+        return () => {
+            cancelAnimationFrame(frame);
+            panel.close();
+            document.body.classList.remove('filter-sheet-open');
+            if (trigger?.isConnected && trigger.getClientRects().length) trigger.focus({ preventScroll: true });
+        };
+    }, [filtersOpen, mobileFilters, pathname]);
+
+    const trapFilterFocus = event => {
+        if (!mobileFilters || event.key !== 'Tab') return;
+        const panel = event.currentTarget;
+        const controls = [...panel.querySelectorAll('button:not([disabled]), input:not([disabled]), select:not([disabled]), a[href], [tabindex]:not([tabindex="-1"])')]
+            .filter(element => element.getClientRects().length && getComputedStyle(element).visibility !== 'hidden');
+        const first = controls[0], last = controls[controls.length - 1];
+        if (!first) return;
+        if (event.shiftKey && (document.activeElement === first || !panel.contains(document.activeElement))) {
+            event.preventDefault();
+            last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !panel.contains(document.activeElement))) {
+            event.preventDefault();
+            first.focus();
+        }
+    };
 
     useEffect(() => {
         try { localStorage.setItem('remal_display_currency', displayCurrency); } catch {}
@@ -388,15 +423,22 @@ export default function App() {
                     <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
                         
                         {/* Filters Sidebar (Clean UI & Progressive Disclosure) */}
-                        {filtersOpen && <button type="button" aria-label={t('results.closeFilters', 'إغلاق الفلاتر')} onClick={() => setFiltersOpen(false)} className="filter-sheet-backdrop fixed inset-0 z-[60] bg-slate-950/45 lg:hidden" />}
-                        <aside id="search-filters" role={filtersOpen ? 'dialog' : undefined} aria-modal={filtersOpen ? 'true' : undefined} aria-label={t('results.filterResults', 'تصفية النتائج')} className={`filter-sheet ${filtersOpen ? 'filter-sheet-open' : ''} min-w-0 w-full max-w-full border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
+                        <FilterPanel ref={filterPanelRef} id="search-filters" aria-modal={mobileFilters && filtersOpen ? 'true' : undefined} aria-labelledby="search-filters-title"
+                            onCancel={event => { event.preventDefault(); setFiltersOpen(false); }} onKeyDown={trapFilterFocus}
+                            onClick={event => {
+                                if (!mobileFilters || event.target !== event.currentTarget) return;
+                                const bounds = event.currentTarget.getBoundingClientRect();
+                                if (event.clientX < bounds.left || event.clientX > bounds.right || event.clientY < bounds.top || event.clientY > bounds.bottom) setFiltersOpen(false);
+                            }}
+                            style={mobileFilters ? { margin: 0, padding: 0, border: 0, top: 'auto', maxHeight: 'none', maxWidth: 'none' } : undefined}
+                            className={`filter-sheet backdrop:bg-slate-950/45 ${filtersOpen ? 'filter-sheet-open' : ''} min-w-0 w-full max-w-full border-b border-slate-200 py-6 lg:block lg:border-none lg:py-0`}>
                             <div className="filter-sheet-panel rounded-t-3xl bg-white shadow-sm border border-slate-100 overflow-hidden lg:rounded-3xl">
                                 <div className="filter-sheet-handle lg:hidden" aria-hidden="true" />
                                 <div className="p-5 pb-4 border-b border-slate-100 flex items-center justify-between bg-slate-50/50 sm:p-6">
-                                    <h3 className="text-lg font-black text-slate-900">{t('results.filterResults', 'تصفية النتائج')}</h3>
+                                    <h3 id="search-filters-title" className="text-lg font-black text-slate-900">{t('results.filterResults', 'تصفية النتائج')}</h3>
                                     <div className="flex items-center gap-2">
                                         {activeFilterCount > 0 && <button type="button" onClick={clearFilters} className="flex items-center gap-1.5 text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 px-2.5 py-1.5 rounded-lg transition-colors"><RotateCcw size={14} /> {t('results.clearFilters', 'مسح الكل')}</button>}
-                                        <button type="button" onClick={() => setFiltersOpen(false)} className="flex h-9 w-9 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 lg:hidden" aria-label={t('results.closeFilters', 'إغلاق الفلاتر')}><X size={18} /></button>
+                                        <button ref={filterCloseRef} type="button" onClick={() => setFiltersOpen(false)} className="flex min-h-11 min-w-11 items-center justify-center rounded-full bg-slate-100 text-slate-600 hover:bg-slate-200 lg:hidden" aria-label={t('results.closeFilters', 'إغلاق الفلاتر')}><X size={18} /></button>
                                     </div>
                                 </div>
                                 
@@ -468,7 +510,7 @@ export default function App() {
                                     <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-xl bg-[var(--remal-orange)] px-6 text-sm font-black text-remal-ink shadow-sm hover:bg-[#d86522]">{t('results.showResults', 'عرض النتائج')}</button>
                                 </div>
                             </div>
-                        </aside>
+                        </FilterPanel>
 
                         {/* Search Results Area */}
                         <div className="min-w-0 space-y-6 pb-20 lg:pb-0">
@@ -559,7 +601,7 @@ export default function App() {
                     </div>
                 </section>
                 {searched && <div className="mobile-results-toolbar lg:hidden">
-                    <button type="button" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} className="relative flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm active:scale-[0.98]">
+                    <button ref={filterTriggerRef} type="button" aria-haspopup="dialog" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(true)} className="relative flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm active:scale-[0.98]">
                         <SlidersHorizontal size={18} /> {t('results.filters', 'الفلاتر')}
                         {activeFilterCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--remal-blue)] px-1 text-[11px] font-black text-white">{activeFilterCount}</span>}
                     </button>
