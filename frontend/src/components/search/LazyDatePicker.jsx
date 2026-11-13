@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
+import { startTransition, useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 
 let calendarComponent;
 let calendarRequest;
@@ -73,7 +73,10 @@ export default function LazyDatePicker(props) {
         } else {
             focusRef.current = null;
         }
-        setCalendar(() => Component);
+        // Tab can blur one date input and focus the next in the same event.
+        // Mount the optional calendars in a background render so keyboard focus
+        // and the editable field can paint before the calendar grid is built.
+        startTransition(() => setCalendar(() => Component));
     };
 
     const enhance = () => {

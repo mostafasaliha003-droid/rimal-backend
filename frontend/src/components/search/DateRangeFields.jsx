@@ -1,4 +1,4 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarDays } from 'lucide-react';
 import { format, startOfDay } from 'date-fns';
@@ -6,7 +6,7 @@ import LazyDatePicker from './LazyDatePicker';
 import { FieldError } from './SearchFeedback';
 import { earliestCheckoutDate, latestArrivalDate, latestCheckoutDate, parseSearchDate } from './searchModel';
 
-export default function DateRangeFields({ controller, overlayHost, onOpenChange }) {
+function DateRangeFields({ controller, overlayHost, onOpenChange }) {
     const { t, dates, errors, language, direction, changeDate } = controller;
     const CalendarPortal = useCallback(({ children }) => overlayHost ? createPortal(children, overlayHost) : null, [overlayHost]);
     const arrival = parseSearchDate(dates.checkin);
@@ -45,3 +45,7 @@ export default function DateRangeFields({ controller, overlayHost, onOpenChange 
         </div>
     </fieldset>;
 }
+
+// Focus and popup bookkeeping in the surrounding form does not change dates.
+// Avoid rebuilding both calendar trees for those unrelated parent updates.
+export default memo(DateRangeFields);
