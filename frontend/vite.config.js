@@ -19,11 +19,25 @@ const githubPagesFallbackPlugin = () => {
     };
 };
 
+const brandFontLicensesPlugin = () => {
+    let sourceRoot;
+    return {
+        name: 'brand-font-licenses',
+        configResolved(config) { sourceRoot = config.root; },
+        generateBundle() {
+            const licenses = ['Tajawal', 'Cairo'].map(family =>
+                `${family}\n${readFileSync(resolve(sourceRoot, `src/assets/brand/OFL-${family}.txt`), 'utf8')}`
+            ).join('\n\n');
+            this.emitFile({ type: 'asset', fileName: 'assets/brand-font-licenses.txt', source: licenses });
+        }
+    };
+};
+
 export default defineConfig(({ mode }) => {
     return {
         base: '/',
         envDir: '..',
-        plugins: [react(), githubPagesFallbackPlugin()],
+        plugins: [react(), brandFontLicensesPlugin(), githubPagesFallbackPlugin()],
         server: {
             port: 5173,
             proxy: {

@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap');
+@import './brand-fonts.css';
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -202,7 +202,7 @@ input[type="checkbox"] { accent-color: #146776; }
 @keyframes filter-backdrop-in { from { opacity: 0; } to { opacity: 1; } }
 
 .eyebrow {
-    color: var(--remal-blue);
+    color: var(--remal-blue-strong);
     font-size: 0.72rem;
     font-weight: 900;
     letter-spacing: 0.12em !important;

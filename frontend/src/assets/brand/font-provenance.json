@@ -1,0 +1,123 @@
+{
+  "sourceUrl": "https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&family=Tajawal:wght@400;500;700;800;900&display=swap",
+  "retrievedAt": "2026-11-13T16:48:51.308Z",
+  "fontFiles": [
+    {
+      "subset": "arabic",
+      "family": "Cairo",
+      "weight": 400,
+      "url": "https://fonts.gstatic.com/s/cairo/v31/SLXVc1nY6HkvangtZmpQdkhzfH5lkSscQyyS4J0.woff2",
+      "file": "cairo-400-arabic.woff2",
+      "bytes": 30896,
+      "sha256": "748022f50c427456ad66031e855349be3448ee1f05a5f1eb59574ebe0c686749"
+    },
+    {
+      "subset": "latin-ext",
+      "family": "Cairo",
+      "weight": 400,
+      "url": "https://fonts.gstatic.com/s/cairo/v31/SLXVc1nY6HkvangtZmpQdkhzfH5lkSscSCyS4J0.woff2",
+      "file": "cairo-400-latin-ext.woff2",
+      "bytes": 16648,
+      "sha256": "da6ada83c3a87c2f0211325dc0a123702e1d4a940958b3e943ac4f37b31d5371"
+    },
+    {
+      "subset": "latin",
+      "family": "Cairo",
+      "weight": 400,
+      "url": "https://fonts.gstatic.com/s/cairo/v31/SLXVc1nY6HkvangtZmpQdkhzfH5lkSscRiyS.woff2",
+      "file": "cairo-400-latin.woff2",
+      "bytes": 33820,
+      "sha256": "82c13cbd1352d76e97c3d335caa912ae68fecdc3949a43cf8d149eb892384c1b"
+    },
+    {
+      "subset": "arabic",
+      "family": "Tajawal",
+      "weight": 400,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iura6YBj_oCad4k1nzSBC45I.woff2",
+      "file": "tajawal-400-arabic.woff2",
+      "bytes": 8932,
+      "sha256": "6c9081fd00db08800850fa7d214593aa94992be5159e97557aa60197252cb95a"
+    },
+    {
+      "subset": "latin",
+      "family": "Tajawal",
+      "weight": 400,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iura6YBj_oCad4k1nzGBCw.woff2",
+      "file": "tajawal-400-latin.woff2",
+      "bytes": 10256,
+      "sha256": "b081f7bf790678b56a2c0502651d6873cbabc09e78fe40655df15f918b1e369b"
+    },
+    {
+      "subset": "arabic",
+      "family": "Tajawal",
+      "weight": 500,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iurf6YBj_oCad4k1l8KiHrRpiYlJ.woff2",
+      "file": "tajawal-500-arabic.woff2",
+      "bytes": 8940,
+      "sha256": "4255019c1cd986f7cda7869df69baf72730d61304ae14baba4acfeb13085da54"
+    },
+    {
+      "subset": "latin",
+      "family": "Tajawal",
+      "weight": 500,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iurf6YBj_oCad4k1l8KiHrFpiQ.woff2",
+      "file": "tajawal-500-latin.woff2",
+      "bytes": 9900,
+      "sha256": "9986de5db80ec050300f1cea25d651a5779ae62b91a39b5667ac23d0c7668cbb"
+    },
+    {
+      "subset": "arabic",
+      "family": "Tajawal",
+      "weight": 700,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iurf6YBj_oCad4k1l4qkHrRpiYlJ.woff2",
+      "file": "tajawal-700-arabic.woff2",
+      "bytes": 9024,
+      "sha256": "fa5e72326681abee3a4952be582e1c2c2abb27932ef262610c078ce89541f919"
+    },
+    {
+      "subset": "latin",
+      "family": "Tajawal",
+      "weight": 700,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iurf6YBj_oCad4k1l4qkHrFpiQ.woff2",
+      "file": "tajawal-700-latin.woff2",
+      "bytes": 9996,
+      "sha256": "de8f431c146ab1feb612cb7ced0842ae5c4e2f12067d13db0badeca73977200b"
+    },
+    {
+      "subset": "arabic",
+      "family": "Tajawal",
+      "weight": 800,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iurf6YBj_oCad4k1l5anHrRpiYlJ.woff2",
+      "file": "tajawal-800-arabic.woff2",
+      "bytes": 9448,
+      "sha256": "5fa525682b4805d95c59943bc4405b993dc9e028fd93cb96f4b50911f3b428b7"
+    },
+    {
+      "subset": "latin",
+      "family": "Tajawal",
+      "weight": 800,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iurf6YBj_oCad4k1l5anHrFpiQ.woff2",
+      "file": "tajawal-800-latin.woff2",
+      "bytes": 10584,
+      "sha256": "00241262004f96088a827ad4c5d423dbbc0648224e1cd990e5e5ff8e912157c9"
+    },
+    {
+      "subset": "arabic",
+      "family": "Tajawal",
+      "weight": 900,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iurf6YBj_oCad4k1l7KmHrRpiYlJ.woff2",
+      "file": "tajawal-900-arabic.woff2",
+      "bytes": 8700,
+      "sha256": "4d7f3fca4a75b2bd4291bf1b8c2fddfd86170993938a8a9b436fc0d7ec9ae3ae"
+    },
+    {
+      "subset": "latin",
+      "family": "Tajawal",
+      "weight": 900,
+      "url": "https://fonts.gstatic.com/s/tajawal/v12/Iurf6YBj_oCad4k1l7KmHrFpiQ.woff2",
+      "file": "tajawal-900-latin.woff2",
+      "bytes": 10224,
+      "sha256": "518d9efed800bdd33e0b5b09b2fe59debfff6656e5ea6e3b7169b26cbad269bc"
+    }
+  ]
+}

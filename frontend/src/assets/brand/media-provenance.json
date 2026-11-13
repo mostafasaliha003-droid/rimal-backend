@@ -1,0 +1,106 @@
+{
+  "source": {
+    "hero": {
+      "url": "https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=2200&q=85",
+      "file": "frontend\\src\\assets\\brand\\hero-source.avif",
+      "bytes": 818296,
+      "sha256": "745e73485311c748471e2d4e87d9c45c9bee807e4791dd082dea1a655d56fa19",
+      "width": 2200,
+      "height": 3300
+    },
+    "logo": {
+      "file": "logo.jpg",
+      "bytes": 279069,
+      "sha256": "bc3419848e57a996787ebbf92493bb2c3b60782efc444cc8df5796f9acc92fc5",
+      "width": 2048,
+      "height": 2052
+    }
+  },
+  "encoding": {
+    "hero": {
+      "resize": "full original aspect ratio; Lanczos",
+      "avif": {
+        "quality": 55,
+        "speed": 6
+      },
+      "webp": {
+        "quality": 80,
+        "method": 6
+      }
+    },
+    "logo": {
+      "resize": "centered square cover, matching original object-cover; Lanczos",
+      "webp": {
+        "lossless": true,
+        "method": 6
+      }
+    }
+  },
+  "images": [
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-1440.avif",
+      "bytes": 177673,
+      "sha256": "6e22e1d9ef15cb95d2580bc74482d625ec40dabaa13a557cdacfcd7639545cbd"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-1440.webp",
+      "bytes": 265576,
+      "sha256": "61d9768e4b4125480cccd990f7c96f00dfdb210376a41b9e5a48c9b1536a1cb7"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-2200.avif",
+      "bytes": 426054,
+      "sha256": "31dfde271d44030b6cdf10d38981e6220e051f7fb0df3d6fd1eceed478f8a902"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-2200.webp",
+      "bytes": 514496,
+      "sha256": "3b84a48d8df25b0bc5036c67debbef667713e434974751d72aa9313870cf9875"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-640.avif",
+      "bytes": 48565,
+      "sha256": "c40d84c34060566ef321cdf4f0e78c3e23d167689bb892784e5d4d7db12a064f"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-640.webp",
+      "bytes": 77436,
+      "sha256": "b9779b7dbeb87618a9e2baa8fcb77bd2fc2bf1b6428999e9ac7ba788e2fdd4ec"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-960.avif",
+      "bytes": 91339,
+      "sha256": "a6af75efcf813c500f98d817866a043eb51a903b6af37d0f40735009a50674d5"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-960.webp",
+      "bytes": 143592,
+      "sha256": "a8ab5d2e6c8b300879f9b0b8c5d8e9f08c977e13fab9377076861b2c5188c9ac"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\logo-120.webp",
+      "bytes": 9148,
+      "sha256": "fda165255078c88426f034dfc228e05453244953c52e2d425b3967d0bf27807d"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\logo-160.webp",
+      "bytes": 15704,
+      "sha256": "295abad4660d5749e0432d46ada5f88fc6daf75436b960d6263a342ef7b260d1"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\logo-240.webp",
+      "bytes": 28868,
+      "sha256": "dca58dfcb5220224bc0f2a8cf3f4d9e50d3d8ce9cb8c467a3fe8dcc95737d4ff"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\logo-40.webp",
+      "bytes": 1364,
+      "sha256": "0bfa26307c0a5648dd3f3a97d18f4db8a7b2736cd1fc850f5e17869bea5cd54d"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\logo-80.webp",
+      "bytes": 4440,
+      "sha256": "9060e6ed6239510116d55f74d552ccf4ed1f31951ddf35117e3c0745783d7ac5"
+    }
+  ]
+}

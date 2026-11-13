@@ -4,6 +4,7 @@ import PwaStatus from './PwaStatus';
 import { DISPLAY_CURRENCIES, SEARCH_CURRENCY } from '../services/offers';
 import { trackBookingEvent } from '../services/analytics';
 import { useLanguage } from '../i18n';
+import { brandLogo } from '../services/brandMedia';
 
 const links = [
     { key: 'nav.explore', href: '/#search', active: true, icon: Search },
@@ -43,8 +44,8 @@ export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrenc
                     <button onClick={() => setOpen(!open)} aria-expanded={open} aria-controls="mobile-navigation" className="rounded-lg p-3 text-white lg:hidden" aria-label={open ? t('nav.closeMenu', 'إغلاق القائمة') : t('nav.openMenu', 'فتح القائمة')}>
                         {open ? <X size={21} /> : <Menu size={21} />}
                     </button>
-                    <a href="/" aria-label={t('nav.logoAlt', 'العودة إلى الصفحة الرئيسية')} className="flex items-center gap-2.5">
-                        <img src="/logo.jpg" alt={t('nav.logoAlt', 'شعار رمال الدولية')} className="h-10 w-10 rounded-2xl border border-white/20 bg-white object-cover shadow-sm" onError={event => { event.currentTarget.style.display = 'none'; }} />
+                    <a href="/" className="flex items-center gap-2.5">
+                        <img src={brandLogo.src} srcSet={brandLogo.srcSet} sizes="40px" width={40} height={40} alt={t('nav.logoAlt', 'شعار رمال الدولية')} className="h-10 w-10 rounded-2xl border border-white/20 bg-white object-cover shadow-sm" onError={event => { event.currentTarget.style.display = 'none'; }} />
                         <div className="min-w-0 leading-none">
                             <div className="break-words text-lg font-black tracking-tight">رمال <span className="text-remal-blue">وفِلّها</span></div>
                             <div className="mt-1 break-words text-[9px] font-bold uppercase tracking-[0.24em] text-white/45">{t('nav.brandTagline', 'إقامتك تبدأ من هنا')}</div>
@@ -69,7 +70,7 @@ export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrenc
                         <a href="/loyalty" onClick={event => navigate(event, '/loyalty')} className="inline-flex items-center gap-1.5 rounded-full px-3 py-2 text-cyan-100 transition hover:bg-white/10 hover:text-white"><Gift size={14} /> {t('nav.loyalty', 'الولاء')}</a>
                     </div>
                     <span className="hidden items-center gap-1.5 text-white/60 2xl:flex"><ShieldCheck size={14} className="text-remal-blue" /> {t('nav.trust', 'أسعار واضحة وآمنة')}</span>
-                    <select aria-label="عملة عرض السعر" title="عملة عرض السعر" value={currency} onChange={event => { trackBookingEvent('currency_changed'); onCurrencyChange?.(event.target.value); }} className="min-h-10 rounded-full border border-white/20 bg-white/10 px-3 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
+                    <select aria-label={t('nav.displayCurrency', 'عملة عرض السعر')} title={t('nav.displayCurrency', 'عملة عرض السعر')} value={currency} onChange={event => { trackBookingEvent('currency_changed'); onCurrencyChange?.(event.target.value); }} className="min-h-10 rounded-full border border-white/20 bg-white/10 px-3 text-sm text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-white">
                         {DISPLAY_CURRENCIES.map(code => <option key={code} value={code}>{code}</option>)}
                     </select>
                     <label className="sr-only" htmlFor="language-select">{t('nav.language', 'اللغة')}</label>
