@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { groupRoomOffers, hotelAmenities, hotelDescription, mergeHotelPresentation,
+import { groupRoomOffers, roomOfferKey, hotelAmenities, hotelDescription, mergeHotelPresentation,
     etgPolicyInstant, formatEtgPolicyTime, policyAmount, staySummary } from './hotelOfferPresentation.js';
 import { normalizeRoom } from './offers.js';
 
@@ -25,6 +25,17 @@ test('grouping keeps every supplier offer, its identity and prices across altern
     assert.equal(JSON.stringify(rooms), before);
     assert.equal(groups[0].offers[1].room.originalRate, rates[2]);
     assert.equal(groups[0].offers[2].room.contract_source, 'affiliate');
+});
+
+test('card identity expires verified state on supplier hash refresh while retaining repeated offers', () => {
+    const room = { book_hash: 'generation-A', contract_source: 'b2b', name: 'Same room', price: 60 };
+    const first = roomOfferKey({ room, index: 0 });
+    assert.notEqual(roomOfferKey({ room: { ...room, book_hash: 'generation-B' }, index: 0 }), first);
+    assert.notEqual(roomOfferKey({ room: { ...room, contract_source: 'affiliate' }, index: 0 }), first);
+    assert.notEqual(roomOfferKey({ room, index: 1 }), first);
+    const grouped = groupRoomOffers([room, room, { ...room, book_hash: 'generation-B' }]);
+    assert.equal(grouped[0].offers.length, 3);
+    assert.equal(new Set(grouped[0].offers.map(roomOfferKey)).size, 3);
 });
 
 test('real structured static content survives empty live fields, without another property’s photos', () => {

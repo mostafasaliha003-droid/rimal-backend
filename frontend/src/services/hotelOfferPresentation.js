@@ -73,6 +73,12 @@ export function groupRoomOffers(rooms = []) {
     return [...groups.values()];
 }
 
+// A verified prebook belongs to this exact supplier offer. A refreshed hash
+// must create a new stateful card, while repeated hashes remain separate offers.
+export function roomOfferKey({ room, index }) {
+    return JSON.stringify([room.contract_source || 'b2b', room.book_hash || room.roomId || '', index]);
+}
+
 export function etgPolicyInstant(value) {
     if (typeof value !== 'string') return null;
     const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})[T ](\d{2}):(\d{2})(?::(\d{2})(\.\d{1,3})?)?(Z|[+-]\d{2}:?\d{2})?$/);

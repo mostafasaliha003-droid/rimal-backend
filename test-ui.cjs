@@ -33,6 +33,9 @@ const groupedRates = Array.from({ length: 27 }, (_, index) => {
     return offer;
 });
 const groupedHotel = { hid: 27, name: 'Grouped Offers Hotel', stars: 4, rates: groupedRates, images: [] };
+const groupedRatesForGeneration = generation => groupedRates.map(offer => ({ ...offer,
+    book_hash: generation ? `${offer.book_hash}-refresh-${generation}` : offer.book_hash
+}));
 const futureDate = days => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 const search = { query: 'Dubai', destination: { label: 'Dubai', type: 'region', region_id: 6053839 }, checkin: futureDate(30), checkout: futureDate(32), residency: 'ae', guests: [{ adults: 2, children: [] }] };
 
@@ -52,6 +55,8 @@ async function run() {
     let affiliateRateRequests = 0;
     let b2bPrebookRequests = 0;
     let groupedPrebookPayload;
+    let groupedGeneration = 0;
+    const groupedPrebookHistory = [];
     let checkoutStatus = 'booking_pending';
     let statusRequests = 0;
     let exchangeAvailable = true;
@@ -134,7 +139,7 @@ async function run() {
                 else if (url.pathname.endsWith('/search/hotelpage')) {
                     lastHotelPage = JSON.parse(request.postData());
                     if (lastHotelPage.currency !== 'USD') return request.respond({ status: 400, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: 'unknown currency' }) });
-                    body = Number(lastHotelPage.hid) === 27 ? { hotel: groupedHotel, rates: groupedRates }
+                    body = Number(lastHotelPage.hid) === 27 ? { hotel: groupedHotel, rates: groupedRatesForGeneration(groupedGeneration) }
                         : { hotel: hotels[1], rates: [rate(60)] };
                 }
                 else if (url.pathname.endsWith('/affiliate/availability')) body = { search: true, booking: true };
@@ -154,10 +159,15 @@ async function run() {
                 else if (url.pathname.endsWith('/booking/prebook')) {
                     b2bPrebookRequests++;
                     const prebook = JSON.parse(request.postData());
-                    if (prebook.hash === 'grouped-offer-0') {
+                    const groupedHash = prebook.hash.match(/^grouped-offer-(\d+)(?:-refresh-(\d+))?$/);
+                    if (groupedHash) {
+                        const index = Number(groupedHash[1]);
+                        assert(index < groupedRates.length);
+                        const validated = groupedRatesForGeneration(Number(groupedHash[2] || 0))[index];
                         groupedPrebookPayload = prebook;
+                        groupedPrebookHistory.push(prebook);
                         assert.equal(prebook.price_increase_percent, 2);
-                        body = { success: true, rate: groupedRates[0], bookHash: groupedRates[0].book_hash };
+                        body = { success: true, rate: validated, bookHash: validated.book_hash };
                     } else {
                         assert.match(prebook.hash, /^test-(?:USD|AED)-60$/);
                         body = { success: true, rate: rate(60), bookHash: 'test-USD-60' };
@@ -553,14 +563,24 @@ async function run() {
         const prebookBeforeGrouped = b2bPrebookRequests;
         const groupedPrebookRequest = page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/booking/prebook')
             && request.method() === 'POST' && JSON.parse(request.postData()).hash === 'grouped-offer-0');
-        await page.$eval(`${firstOffer} button.cta-red`, button => button.scrollIntoView({ block: 'center' }));
+        await page.$eval(`${firstOffer} button.cta-red`, button => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.waitForFunction(selector => {
+            const button = document.querySelector(selector);
+            const bounds = button?.getBoundingClientRect();
+            return bounds && button.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        }, {}, `${firstOffer} button.cta-red`);
         await page.click(`${firstOffer} button.cta-red`);
         await groupedPrebookRequest;
         await page.waitForFunction(() => document.querySelector('article[aria-labelledby="room-grouped-offer-0"] button')?.classList.contains('bg-emerald-600'));
         assert.equal(new URL(page.url()).pathname, '/hotel/27');
         assert.equal(b2bPrebookRequests, prebookBeforeGrouped + 1);
         assert.deepEqual(groupedPrebookPayload, { hash: 'grouped-offer-0', price_increase_percent: 2 });
-        await page.$eval(`${firstOffer} button`, button => button.scrollIntoView({ block: 'center' }));
+        await page.$eval(`${firstOffer} button`, button => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.waitForFunction(selector => {
+            const button = document.querySelector(selector);
+            const bounds = button?.getBoundingClientRect();
+            return bounds && button.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        }, {}, `${firstOffer} button`);
         await page.click(`${firstOffer} button`);
         await page.waitForFunction(() => location.pathname === '/checkout');
         await page.waitForSelector('#guest-first-name');
@@ -574,6 +594,55 @@ async function run() {
         assert.equal(paymentRequests, ziinaIntentCountBeforeAffiliate);
         assert.deepEqual(errors, []);
         console.log('PASS: 27 grouped offers retain every hash, order and price behind a keyboard-operable native disclosure; cancellation shows UTC and 0.00 USD; prebook tolerance 2 and checkout preserve the selected rate identity and price.');
+
+        const verifyRefreshedOffer = async hash => {
+            const selector = `article[aria-labelledby="room-${hash}"] button`;
+            const requested = page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/booking/prebook')
+                && request.method() === 'POST' && JSON.parse(request.postData()).hash === hash);
+            await page.$eval(selector, button => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
+            await page.waitForFunction(value => {
+                const button = document.querySelector(value), bounds = button?.getBoundingClientRect();
+                return bounds && button.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+            }, {}, selector);
+            await page.click(selector);
+            await requested;
+            assert.equal(new URL(page.url()).pathname, '/hotel/27', 'A fresh rate requires prebook before checkout');
+            await page.waitForFunction(value => document.querySelector(value)?.classList.contains('bg-emerald-600'), {}, selector);
+        };
+        const expandAlternativeOffers = async () => {
+            await page.focus('.room-offer-variants > summary');
+            await page.keyboard.press('Enter');
+            await page.waitForFunction(() => document.querySelector('.room-offer-variants')?.open === true);
+        };
+        const refreshHistoryStart = groupedPrebookHistory.length;
+        await page.goto(`${base}/hotel/27?${groupedSearch}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('article[aria-labelledby="room-grouped-offer-0"]');
+        await verifyRefreshedOffer('grouped-offer-0');
+        groupedGeneration = 1;
+        await page.select('#language-select', 'es');
+        await page.waitForSelector('article[aria-labelledby="room-grouped-offer-0-refresh-1"]');
+        assert.equal(await page.$$eval(offerCards, cards => cards.length), 27);
+        await verifyRefreshedOffer('grouped-offer-0-refresh-1');
+        await expandAlternativeOffers();
+        await verifyRefreshedOffer('grouped-offer-1-refresh-1');
+        groupedGeneration = 2;
+        await page.select('#language-select', 'en');
+        await page.waitForSelector('article[aria-labelledby="room-grouped-offer-0-refresh-2"]');
+        assert.equal(await page.$$eval(offerCards, cards => cards.length), 27);
+        await expandAlternativeOffers();
+        await verifyRefreshedOffer('grouped-offer-1-refresh-2');
+        assert.deepEqual(groupedPrebookHistory.slice(refreshHistoryStart).map(request => request.hash),
+            ['grouped-offer-0', 'grouped-offer-0-refresh-1', 'grouped-offer-1-refresh-1', 'grouped-offer-1-refresh-2']);
+        const refreshedAlternative = 'article[aria-labelledby="room-grouped-offer-1-refresh-2"] button';
+        await page.click(refreshedAlternative);
+        await page.waitForFunction(() => location.pathname === '/checkout');
+        const refreshedBooking = await page.evaluate(() => JSON.parse(sessionStorage.getItem('remal_checkout')));
+        assert.equal(refreshedBooking.room.book_hash, 'grouped-offer-1-refresh-2');
+        assert.equal(refreshedBooking.room.price, 61);
+        assert.equal(refreshedBooking.room.currency, 'USD');
+        assert.deepEqual(refreshedBooking.room.originalRate, groupedRatesForGeneration(2)[1]);
+        assert.equal(paymentRequests, ziinaIntentCountBeforeAffiliate);
+        console.log('PASS: refreshed first and alternative offers require their fresh supplier hashes to be prebooked before checkout; language changes retain all 27 offers and the selected refreshed price/currency.');
         await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), search);
         await page.goto(`${base}/?lang=en`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('#results-heading article');
