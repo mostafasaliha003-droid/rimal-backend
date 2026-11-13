@@ -10,12 +10,30 @@
         document.getElementById('home-hero-preload').media = 'all';
       }
     </script>
-    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-500-arabic.woff2" crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-500-latin.woff2" crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-700-arabic.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-500-arabic.woff2" crossorigin media="not all" data-critical-font-subset="arabic" />
+    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-500-latin.woff2" crossorigin media="not all" data-critical-font-subset="latin" />
+    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-700-arabic.woff2" crossorigin media="not all" data-critical-font-subset="arabic" />
     <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-700-latin.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-900-arabic.woff2" crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-900-latin.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-900-latin.woff2" crossorigin media="not all" data-critical-font-subset="latin" />
+    <script id="critical-font-preloads">
+      (function () {
+        const supported = ['ar', 'en', 'es'];
+        let language = 'ar';
+        try {
+          const requested = new URLSearchParams(window.location.search).get('lang');
+          if (supported.includes(requested)) language = requested;
+          else {
+            const stored = localStorage.getItem('remal_language');
+            language = supported.includes(stored) ? stored : 'ar';
+          }
+        } catch {}
+        const subset = language === 'ar' ? 'arabic' : 'latin';
+        document.querySelectorAll('link[data-critical-font-subset]').forEach(link => {
+          if (link.getAttribute('data-critical-font-subset') === subset) link.media = 'all';
+        });
+      }());
+    </script>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com;">
     <meta name="theme-color" content="#112331" />
     <meta name="description" content="ابحث عن إقامة مناسبة مع رمال. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة بالدرهم الإماراتي." />
