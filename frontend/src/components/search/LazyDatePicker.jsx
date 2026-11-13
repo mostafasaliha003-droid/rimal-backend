@@ -29,6 +29,25 @@ export default function LazyDatePicker(props) {
     const openRef = useRef(false);
     const arrowRef = useRef(null);
     const frameRef = useRef(null);
+    const cancelCalendarIntent = useCallback(() => {
+        openRef.current = false;
+        arrowRef.current = null;
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = null;
+    }, []);
+    const composingKey = event => composingRef.current || event.isComposing || event.nativeEvent?.isComposing
+        || event.keyCode === 229 || event.nativeEvent?.keyCode === 229;
+    const replayArrow = useCallback((picker, key) => {
+        cancelAnimationFrame(frameRef.current);
+        frameRef.current = requestAnimationFrame(() => {
+            frameRef.current = null;
+            if (activeRef.current && openRef.current && pickerRef.current === picker
+                && document.activeElement === picker.input && picker.isCalendarOpen()) {
+                arrowRef.current = null;
+                picker.input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
+            }
+        });
+    }, []);
     const setInputRef = useCallback(node => {
         const input = inputRef.current;
         if (!node && input && document.activeElement === input) {
@@ -51,16 +70,16 @@ export default function LazyDatePicker(props) {
         activeRef.current = true;
         return () => {
             activeRef.current = false;
-            cancelAnimationFrame(frameRef.current);
+            cancelCalendarIntent();
         };
-    }, []);
+    }, [cancelCalendarIntent]);
 
     const activate = Component => {
-        if (!activeRef.current || composingRef.current) return;
+        if (!activeRef.current || composingRef.current || !openRef.current) return;
         const input = inputRef.current;
         const focused = input && document.activeElement === input;
         // Download completion must not replace the DOM input during typing or
-        // an IME composition. Explicit calendar activation or blur can upgrade it.
+        // an IME composition. Only explicit calendar intent upgrades a warm field.
         if (focused && editingRef.current) return;
         if (focused) {
             focusRef.current = {
@@ -79,15 +98,15 @@ export default function LazyDatePicker(props) {
         startTransition(() => setCalendar(() => Component));
     };
 
-    const enhance = () => {
+    const enhance = (activateNow = true) => {
         if (readyRef.current) {
-            activate(readyRef.current);
+            if (activateNow) activate(readyRef.current);
             return;
         }
         if (Calendar || requestRef.current) return;
         requestRef.current = loadCalendar().then(Component => {
             readyRef.current = Component;
-            activate(Component);
+            if (openRef.current) activate(Component);
         }).catch(() => {
             // A failed optional download leaves the editable date input usable.
             // A later focus/click retries the calendar without losing its value.
@@ -112,24 +131,58 @@ export default function LazyDatePicker(props) {
         const picker = pickerRef.current;
         const input = picker?.input;
         if (!input) return;
+        openRef.current = selection.open;
         input.focus({ preventScroll: true });
         picker.setOpen(selection.open, true);
         if (selection.start !== null && selection.end !== null) {
             input.setSelectionRange(selection.start, selection.end, selection.direction || 'none');
         }
         if (selection.open && selection.arrow) {
-            const key = selection.arrow;
-            arrowRef.current = null;
-            frameRef.current = requestAnimationFrame(() => {
-                if (document.activeElement === input) {
-                    input.dispatchEvent(new KeyboardEvent('keydown', { key, bubbles: true }));
-                }
-            });
+            replayArrow(picker, selection.arrow);
         }
-    }, [Calendar]);
+    }, [Calendar, replayArrow]);
 
-    if (Calendar) return <Calendar ref={pickerRef} {...props} onKeyDown={event => {
+    if (Calendar) return <Calendar ref={pickerRef} {...props}
+        customInput={<input type="text"
+            onBlurCapture={cancelCalendarIntent}
+            onCompositionStart={() => { composingRef.current = true; cancelCalendarIntent(); }}
+            onCompositionEnd={() => { composingRef.current = false; }}
+            onKeyDownCapture={event => {
+                // Keep IME commit/navigation keys out of datepicker intent handling.
+                if (composingKey(event)) { cancelCalendarIntent(); event.stopPropagation(); }
+                else if (event.key === 'Escape' && (pickerRef.current?.isCalendarOpen()
+                    || openRef.current || frameRef.current !== null)) {
+                    // Datepicker's default input Escape blurs and later refocuses.
+                    // Close without that blur so a cancelled arrow cannot lose focus.
+                    event.preventDefault();
+                    event.stopPropagation();
+                    cancelCalendarIntent();
+                    pickerRef.current?.setOpen(false, true);
+                    pickerRef.current?.input?.focus({ preventScroll: true });
+                    props.onKeyDown?.(event);
+                }
+            }} />}
+        onChangeRaw={event => {
+            const picker = pickerRef.current;
+            if (picker && event?.target === picker.input && picker.isCalendarOpen()) {
+                cancelCalendarIntent();
+                picker.setOpen(false, true);
+            }
+            props.onChangeRaw?.(event);
+        }} onKeyDown={event => {
+        if (composingKey(event)) { cancelCalendarIntent(); return; }
         props.onKeyDown?.(event);
+        const picker = pickerRef.current;
+        if (event.key === 'Escape') cancelCalendarIntent();
+        if (picker && event.target === picker.input && !picker.isCalendarOpen()
+            && ['ArrowDown', 'ArrowUp', 'Enter'].includes(event.key)) {
+            event.preventDefault();
+            openRef.current = true;
+            picker.setOpen(true);
+            if (event.key !== 'Enter') {
+                replayArrow(picker, event.key);
+            }
+        }
         if (event.key === 'Escape' && event.target !== pickerRef.current?.input) {
             // The enclosing search dialog consumes Escape propagation. Preserve
             // the datepicker popper's focus return even when a day handles it.
@@ -145,27 +198,27 @@ export default function LazyDatePicker(props) {
                 aria-invalid={props.ariaInvalid} aria-describedby={props.ariaDescribedBy}
                 onChange={event => {
                     editingRef.current = true;
+                    cancelCalendarIntent();
                     // Cancel an upgrade queued immediately before this input
                     // event. The loaded component remains ready for activation.
                     setCalendar(null);
                     props.onChangeRaw?.(event);
                 }}
-                onCompositionStart={() => { composingRef.current = true; setCalendar(null); }}
+                onCompositionStart={() => { composingRef.current = true; cancelCalendarIntent(); setCalendar(null); }}
                 onCompositionEnd={() => { composingRef.current = false; }}
-                onFocus={() => { openRef.current = true; editingRef.current = false; enhance(); }}
+                onFocus={() => { cancelCalendarIntent(); editingRef.current = false; enhance(false); }}
                 onClick={() => { openRef.current = true; editingRef.current = false; enhance(); }}
                 onBlur={() => {
-                    openRef.current = false;
-                    arrowRef.current = null;
+                    cancelCalendarIntent();
                     editingRef.current = false;
-                    if (readyRef.current) activate(readyRef.current);
                 }}
                 onKeyDown={event => {
+                    if (composingKey(event)) { cancelCalendarIntent(); event.stopPropagation(); return; }
                     props.onKeyDown?.(event);
                     if (event.key === 'Escape') {
-                        event.preventDefault();
-                        openRef.current = false;
-                        arrowRef.current = null;
+                        if (openRef.current || frameRef.current !== null) event.preventDefault();
+                        cancelCalendarIntent();
+                        setCalendar(null);
                     } else if (event.key === 'ArrowDown' || event.key === 'ArrowUp' || event.key === 'Enter') {
                         event.preventDefault();
                         openRef.current = true;

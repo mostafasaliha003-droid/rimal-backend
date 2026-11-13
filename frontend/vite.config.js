@@ -13,7 +13,18 @@ const githubPagesFallbackPlugin = () => {
         closeBundle() {
             const dist = outputDirectory || resolve(process.cwd(), 'dist');
             const index = resolve(dist, 'index.html');
-            writeFileSync(index, readFileSync(index, 'utf8').replace(/\r+\n/g, '\n'));
+            let html = readFileSync(index, 'utf8').replace(/\r+\n/g, '\n');
+            // The complete existing entry stylesheet is small after transport
+            // compression. Embed its exact bytes to remove a blocking request;
+            // keep the asset for cached clients and lazy-chunk compatibility.
+            html = html.replace(/<link\b[^>]*\brel=["']stylesheet["'][^>]*>/gi, tag => {
+                const href = tag.match(/\bhref=["']([^"']+)["']/i)?.[1];
+                if (!/^\/assets\/[^/?#]+\.css$/.test(href || '')) return tag;
+                const css = readFileSync(resolve(dist, `.${href}`), 'utf8');
+                if (/<\/style/i.test(css)) throw new Error('Entry CSS contains an unsafe HTML closing tag');
+                return `<style data-remal-entry-styles>${css}</style>`;
+            });
+            writeFileSync(index, html);
             copyFileSync(index, resolve(dist, '404.html'));
         }
     };
