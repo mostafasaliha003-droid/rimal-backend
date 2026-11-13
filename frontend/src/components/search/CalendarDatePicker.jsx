@@ -15,11 +15,17 @@ const accessibleEnglish = {
     },
 };
 
+const arabicNarrowWeekdays = new Map(Array.from({ length: 7 }, (_, day) => [
+    arSA.localize.day(day, { width: 'wide' }),
+    arSA.localize.day(day, { width: 'narrow' }),
+]));
+const formatArabicWeekday = fullName => arabicNarrowWeekdays.get(fullName) ?? fullName;
+
 // Calendar code and styles are requested when a guest first uses a date field.
 const CalendarDatePicker = forwardRef(function CalendarDatePicker({ language, ...props }, ref) {
     const locale = language === 'es' ? es : language === 'en' ? accessibleEnglish : arSA;
     return <DatePicker ref={ref} {...props} locale={locale} preventOpenOnFocus
-        useWeekdaysShort={language === 'ar'}
+        formatWeekDay={language === 'ar' ? formatArabicWeekday : undefined}
         previousMonthButtonLabel={props.previousMonthAriaLabel}
         nextMonthButtonLabel={props.nextMonthAriaLabel} />;
 });
