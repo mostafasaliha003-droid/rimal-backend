@@ -1,23 +1,12 @@
 import { useMemo } from 'react';
 import { FieldError } from './SearchFeedback';
 import { SUPPORTED_RESIDENCY_CODES } from './searchModel';
-
-export function residencyLabel(code, language = 'en') {
-    if (!code) return '';
-    try {
-        const displayLanguage = ['ar', 'en', 'es'].includes(language) ? language : 'en';
-        const label = new Intl.DisplayNames([displayLanguage], { type: 'region' }).of(code.toUpperCase());
-        return label && label !== code.toUpperCase() ? label : code.toUpperCase();
-    } catch {
-        return code.toUpperCase();
-    }
-}
+import { buildResidencyOptions } from './residencyOptions';
+export { residencyLabel } from './residencyOptions';
 
 export default function ResidencySelector({ controller }) {
     const { t, language, residency, changeResidency, errors } = controller;
-    const options = useMemo(() => SUPPORTED_RESIDENCY_CODES
-        .map(code => ({ code, label: residencyLabel(code, language) }))
-        .sort((first, second) => first.label.localeCompare(second.label, language)), [language]);
+    const options = useMemo(() => buildResidencyOptions(SUPPORTED_RESIDENCY_CODES, language), [language]);
 
     return <div className="min-w-0">
         <div className={`search-field ${errors.residency ? 'search-field-invalid' : ''}`}>

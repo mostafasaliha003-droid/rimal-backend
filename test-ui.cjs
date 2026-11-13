@@ -18,11 +18,30 @@ const hotels = [
     { hid: 2, name: 'Test Hotel 60', stars: 3, rates: [rate(312), rate(1, 'AED'), rate(60)] },
     { hid: 3, name: 'Test Hotel 68', stars: 5, rates: [rate(68)] }
 ];
-const search = { query: 'Dubai', destination: { label: 'Dubai', type: 'region', region_id: 6053839 }, checkin: '2099-10-15', checkout: '2099-10-17', guests: [{ adults: 2, children: [] }] };
+const groupedRates = Array.from({ length: 27 }, (_, index) => {
+    const offer = rate(60 + index);
+    offer.book_hash = `grouped-offer-${index}`;
+    offer.room_group_id = 7;
+    offer.meal = index % 2 ? 'nomeal' : 'breakfast';
+    const payment = offer.payment_options.payment_types[0];
+    payment.show_currency_code = 'AED';
+    payment.cancellation_penalties.policies = [{
+        start_at: null, end_at: '2099-10-10T12:00:00', amount_charge: '0.00', amount_show: '99.00'
+    }, {
+        start_at: '2099-10-10T12:00:00', end_at: null, amount_charge: String(60 + index)
+    }];
+    return offer;
+});
+const groupedHotel = { hid: 27, name: 'Grouped Offers Hotel', stars: 4, rates: groupedRates, images: [] };
+const groupedRatesForGeneration = generation => groupedRates.map(offer => ({ ...offer,
+    book_hash: generation ? `${offer.book_hash}-refresh-${generation}` : offer.book_hash
+}));
+const futureDate = days => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const search = { query: 'Dubai', destination: { label: 'Dubai', type: 'region', region_id: 6053839 }, checkin: futureDate(30), checkout: futureDate(32), residency: 'ae', guests: [{ adults: 2, children: [] }] };
 
 async function run() {
     const { formatMoney, normalizeRoom } = await import('./frontend/src/services/offers.js');
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-gpu', '--remote-debugging-port=0'], timeout: 20000 });
     const page = await browser.newPage();
     const errors = [];
     let lastSearch;
@@ -35,12 +54,71 @@ async function run() {
     let affiliateBookingStatusRequests = 0;
     let affiliateRateRequests = 0;
     let b2bPrebookRequests = 0;
+    let groupedPrebookPayload;
+    let groupedGeneration = 0;
+    const groupedPrebookHistory = [];
     let checkoutStatus = 'booking_pending';
     let statusRequests = 0;
     let exchangeAvailable = true;
     let exchangeRequests = 0;
     const suggestionRequests = [];
     page.on('pageerror', error => errors.push(error.message));
+    const clickUnobstructed = async selector => {
+        await page.$eval(selector, element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.waitForFunction(value => {
+            const element = document.querySelector(value), bounds = element?.getBoundingClientRect();
+            return bounds && element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        }, {}, selector);
+        await page.click(selector);
+    };
+    const hasRole = (node, role) => node?.role === role || (node?.children || []).some(child => hasRole(child, role));
+    const checkMobileFilterDialog = async language => {
+        await page.setViewport({ width: 390, height: 844 });
+        await page.$eval('#results-heading', heading => heading.scrollIntoView({ block: 'start' }));
+        await page.waitForFunction(() => {
+            const trigger = document.querySelector('button[aria-controls="search-filters"]');
+            const bounds = trigger?.getBoundingClientRect();
+            return bounds && trigger.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        });
+        assert(hasRole(await page.accessibility.snapshot({ interestingOnly: false }), 'banner'));
+        await page.click('button[aria-controls="search-filters"]');
+        try {
+            await page.waitForFunction(() => document.querySelector('#search-filters')?.matches(':modal')
+                && document.querySelector('#search-filters')?.contains(document.activeElement), { timeout: 5000 });
+        } catch (error) {
+            console.error('Filter dialog readiness:', await page.evaluate(() => {
+                const panel = document.querySelector('#search-filters');
+                const trigger = document.querySelector('button[aria-controls="search-filters"]');
+                const bounds = trigger?.getBoundingClientRect();
+                return { panel: panel?.outerHTML.slice(0, 500), active: document.activeElement?.outerHTML.slice(0, 500),
+                    expanded: trigger?.getAttribute('aria-expanded'), hit: bounds && document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)?.outerHTML.slice(0, 500) };
+            }), errors);
+            await page.screenshot({ path: 'frontend/dist/test-filter-dialog-failure.png' });
+            throw error;
+        }
+        assert.equal(await page.$eval('#search-filters', panel => panel.tagName), 'DIALOG');
+        assert.equal(await page.$eval('#search-filters', panel => panel.getAttribute('aria-modal')), 'true');
+        assert.equal(await page.$eval('#search-filters button[aria-label]', button => document.activeElement === button), true);
+        const modalTree = await page.accessibility.snapshot({ interestingOnly: false });
+        assert(hasRole(modalTree, 'dialog'));
+        assert.equal(hasRole(modalTree, 'banner'), false, 'Native modal excludes the background header from the accessibility tree');
+        await page.$eval('#language-select', control => control.focus());
+        assert.equal(await page.$eval('#search-filters', panel => panel.contains(document.activeElement)), true, 'Inert background cannot receive programmatic focus');
+        for (const key of ['Tab', 'Shift+Tab']) {
+            for (let step = 0; step < 14; step++) {
+                if (key === 'Shift+Tab') await page.keyboard.down('Shift');
+                await page.keyboard.press('Tab');
+                if (key === 'Shift+Tab') await page.keyboard.up('Shift');
+                assert.equal(await page.$eval('#search-filters', panel => panel.contains(document.activeElement)), true, `${language} ${key} remains inside the filter dialog at step ${step + 1}`);
+            }
+        }
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('#search-filters')?.open
+            && document.activeElement === document.querySelector('button[aria-controls="search-filters"]'));
+        assert.equal(await page.$eval('button[aria-controls="search-filters"]', button => button.getAttribute('aria-expanded')), 'false');
+        assert(hasRole(await page.accessibility.snapshot({ interestingOnly: false }), 'banner'));
+        console.log(`PASS: ${language} mobile filters focus the dialog, contain 28 keyboard moves, exclude the inert background from focus/accessibility, and restore trigger focus on Escape.`);
+    };
     try {
         await page.setBypassServiceWorker(true);
         await page.setRequestInterception(true);
@@ -69,9 +147,11 @@ async function run() {
                 else if (url.pathname.endsWith('/search/hotelpage')) {
                     lastHotelPage = JSON.parse(request.postData());
                     if (lastHotelPage.currency !== 'USD') return request.respond({ status: 400, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: 'unknown currency' }) });
-                    body = { hotel: hotels[1], rates: [rate(60)] };
+                    body = Number(lastHotelPage.hid) === 27 ? { hotel: groupedHotel, rates: groupedRatesForGeneration(groupedGeneration) }
+                        : { hotel: hotels[1], rates: [rate(60)] };
                 }
                 else if (url.pathname.endsWith('/affiliate/availability')) body = { search: true, booking: true };
+                else if (url.pathname.endsWith('/affiliate/hotels/27/rates')) body = { success: true, rates: [] };
                 else if (url.pathname.endsWith('/affiliate/hotels/2/rates')) {
                     affiliateRateRequests++;
                     const criteria = JSON.parse(request.postData());
@@ -87,8 +167,19 @@ async function run() {
                 else if (url.pathname.endsWith('/booking/prebook')) {
                     b2bPrebookRequests++;
                     const prebook = JSON.parse(request.postData());
-                    assert.match(prebook.hash, /^test-(?:USD|AED)-60$/);
-                    body = { success: true, rate: rate(60), bookHash: 'test-USD-60' };
+                    const groupedHash = prebook.hash.match(/^grouped-offer-(\d+)(?:-refresh-(\d+))?$/);
+                    if (groupedHash) {
+                        const index = Number(groupedHash[1]);
+                        assert(index < groupedRates.length);
+                        const validated = groupedRatesForGeneration(Number(groupedHash[2] || 0))[index];
+                        groupedPrebookPayload = prebook;
+                        groupedPrebookHistory.push(prebook);
+                        assert.equal(prebook.price_increase_percent, 2);
+                        body = { success: true, rate: validated, bookHash: validated.book_hash };
+                    } else {
+                        assert.match(prebook.hash, /^test-(?:USD|AED)-60$/);
+                        body = { success: true, rate: rate(60), bookHash: 'test-USD-60' };
+                    }
                 }
                 else if (url.pathname.endsWith('/affiliate/bookings')) {
                     affiliateBookingRequests++;
@@ -103,7 +194,7 @@ async function run() {
                     assert.equal(request.headers().authorization, `Bearer ${affiliateAccessToken}`);
                     body = { process_id: affiliateProcessId, status: 'confirmed', confirmed: true, supplier_reference: 'TEST-AFFILIATE-ORDER' };
                 }
-                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: hotels[1] };
+                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: url.pathname.endsWith('/27') ? groupedHotel : hotels[1] };
                 else if (url.pathname.endsWith('/payment/availability')) body = { enabled: paymentEnabled };
                 else if (url.pathname.endsWith(`/payment/ziina/${checkoutReference}/status`)) {
                     statusRequests++;
@@ -122,7 +213,7 @@ async function run() {
                 else { paymentRequests++; return request.abort(); }
                 return request.respond({ status: 200, contentType: 'application/json', headers, body: JSON.stringify(body) });
             }
-            if (url.origin === base || ['images.unsplash.com', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)) return request.continue();
+            if (['data:', 'blob:'].includes(url.protocol) || url.origin === base || ['images.unsplash.com', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)) return request.continue();
             return request.abort();
         });
         await page.setViewport({ width: 1440, height: 1000 });
@@ -149,6 +240,7 @@ async function run() {
         assert.equal(await page.$('#search-destination-error'), null);
         await page.click('#destination-suggestions [role="option"]');
         assert.equal(await page.$eval('#destination-search', element => element.value), 'Dubai');
+        await page.select('#search-residency', 'ae');
         await page.click('form button[type="submit"]');
         assert.match(await page.$eval('#search-error', element => element.textContent), /حدد تاريخ الوصول والمغادرة/);
         assert(suggestionRequests.length >= 3);
@@ -206,8 +298,26 @@ async function run() {
             assert.equal(overflow, false, `horizontal overflow at ${width}px`);
         }
         await page.setViewport({ width: 390, height: 844 });
+        await checkMobileFilterDialog('ar');
         await page.click('[aria-controls="search-filters"]');
         assert.equal(await page.$eval('#search-filters', element => getComputedStyle(element).display !== 'none'), true);
+        for (const id of ['price-filter-options', 'star-filter-options', 'amenity-filter-options']) {
+            const state = await page.$eval(`#search-filters button[aria-controls="${id}"]`, button => ({
+                expanded: button.getAttribute('aria-expanded'),
+                controlledId: button.getAttribute('aria-controls'),
+                hidden: document.getElementById(button.getAttribute('aria-controls'))?.hidden
+            }));
+            assert.equal(state.controlledId, id);
+            assert.equal(state.expanded, 'true');
+            assert.equal(state.hidden, false);
+        }
+        await page.focus('#search-filters button[aria-controls="price-filter-options"]');
+        await page.keyboard.press('Space');
+        await page.waitForFunction(() => document.querySelector('[aria-controls="price-filter-options"]')?.getAttribute('aria-expanded') === 'false');
+        assert.equal(await page.$eval('#price-filter-options', element => element.hidden), true);
+        await page.keyboard.press('Space');
+        await page.waitForFunction(() => document.querySelector('[aria-controls="price-filter-options"]')?.getAttribute('aria-expanded') === 'true');
+        assert.equal(await page.$eval('#price-filter-options', element => element.hidden), false);
         await page.$eval('#search-filters input[type="number"]', element => {
             const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
             setter.call(element, '70');
@@ -222,26 +332,49 @@ async function run() {
         assert.equal(await page.$eval('#results-heading ul[aria-label]', list => getComputedStyle(list).scrollSnapType.includes('x')), true);
         assert.equal(await page.$$eval('#results-heading ul[aria-label] > li', items => items.length), 2);
         await page.screenshot({ path: 'frontend/dist/test-mobile.png', fullPage: true });
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('#search-filters')?.classList.contains('filter-sheet-open'));
+        await page.waitForSelector('[data-remove-filter="price"]', { visible: true });
+        assert.match(await page.$eval('[data-remove-filter="price"]', button => button.getAttribute('aria-label')), /70.*USD/);
+        await page.focus('[data-remove-filter="price"]');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelectorAll('#results-heading article').length === 3);
+        assert.equal(await page.$eval('#maximum-stay-price', input => input.value), '');
+        assert.equal(await page.$('[data-active-filter-overview]'), null);
+        await page.waitForFunction(() => document.activeElement?.id === 'results-title');
+        console.log('PASS: filter disclosures expose controlled regions, keyboard toggles update ARIA/hidden states, and removing a price chip restores results and focus.');
         const openGuestEditor = async () => {
             const guestButton = await page.$('#search-guests');
             if (guestButton) {
                 await guestButton.click();
-                return;
+            } else {
+                await page.click('[data-search-compact] button');
+                await page.waitForSelector('dialog[open] #search-guests');
+                await page.click('dialog[open] #search-guests');
             }
-            await page.click('[data-search-compact] button');
-            await page.waitForSelector('dialog[open] #search-guests');
-            await page.click('dialog[open] #search-guests');
+            await page.waitForSelector('#search-guests-panel #guests-0-children', { visible: true });
         };
         const closeGuestEditor = async () => {
-            await page.keyboard.press('Escape');
+            const buttons = await page.$$('#search-guests-panel button');
+            let doneButton;
+            for (const button of buttons) {
+                if (await button.evaluate(element => element.textContent.trim() === 'تم')) doneButton = button;
+            }
+            assert(doneButton, 'Expected the guest editor Done control');
+            await doneButton.click();
             await page.waitForFunction(() => !document.querySelector('#search-guests-panel'));
         };
         await openGuestEditor();
         await page.select('select[aria-label="الأطفال في غرفة 1"]', '1');
         await page.select('select[aria-label="عمر الطفل 1 في غرفة 1"]', '5');
         await closeGuestEditor();
-        await page.click('form button[type="submit"]');
+        const guestSearchRequest = page.waitForRequest(request => /\/search\/rates(?:\/region)?$/.test(new URL(request.url()).pathname)
+            && request.method() === 'POST'
+            && JSON.parse(request.postData()).guests?.[0]?.children?.[0] === 5);
+        await page.click('#search-submit');
+        await guestSearchRequest;
         await page.waitForFunction(() => document.querySelector('#search-submit')?.disabled === false);
+        await page.waitForFunction(() => !document.querySelector('#search-error'));
         assert.deepEqual(lastSearch.guests, [{ adults: 2, children: [5] }]);
         const hotelSearch = { ...search, query: 'Test Hotel 60', guests: lastSearch.guests, destination: { type: 'hotel', hotel_id: 2, label: 'Test Hotel 60' } };
         await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), hotelSearch);
@@ -249,7 +382,7 @@ async function run() {
         await page.waitForSelector('article');
         assert.deepEqual(lastSearch.hids, [2]);
         assert.equal(lastSearch.currency, 'USD');
-        await page.click('#results-heading article a.cta-red');
+        await clickUnobstructed('#results-heading article a.cta-red');
         await page.waitForFunction(() => location.pathname.startsWith('/hotel/'));
         await page.waitForSelector('article[aria-labelledby^="room-"] button', { visible: true });
         assert.match(await page.title(), /Test Hotel 60/);
@@ -313,9 +446,10 @@ async function run() {
         await page.type('#guest-last-name', 'Test');
         await page.type('#guest-email', 'local@example.test');
         await page.type('#guest-phone', '+971501234567');
-        await page.click('form input[type="checkbox"]');
+        await clickUnobstructed('form input[type="checkbox"]');
+        assert.equal(await page.$eval('form input[type="checkbox"]', input => input.checked), true);
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), false);
-        await page.click('button[type="submit"]');
+        await clickUnobstructed('button[type="submit"]');
         await page.waitForFunction(() => location.search.includes('payment=success'));
         assert.equal(paymentRequests, 1);
         assert.equal(paymentPayload.currency, 'AED');
@@ -357,8 +491,9 @@ async function run() {
         await page.type('#guest-last-name', 'Test');
         await page.type('#guest-email', 'local@example.test');
         await page.type('#guest-phone', '+971501234567');
-        await page.click('form input[type="checkbox"]');
-        await page.click('button[type="submit"]');
+        await clickUnobstructed('form input[type="checkbox"]');
+        assert.equal(await page.$eval('form input[type="checkbox"]', input => input.checked), true);
+        await clickUnobstructed('button[type="submit"]');
         await page.waitForFunction(() => location.search.includes('payment=success'));
         assert.equal(paymentRequests, 2);
         assert.equal(paymentPayload.currency, 'USD');
@@ -374,7 +509,7 @@ async function run() {
         const ziinaIntentCountBeforeAffiliate = paymentRequests;
         await page.goto(`${base}/hotel/2?${affiliateSearch}`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('article[data-contract-source="affiliate"] button.cta-red:not([disabled])');
-        await page.click('article[data-contract-source="affiliate"] button.cta-red:not([disabled])');
+        await clickUnobstructed('article[data-contract-source="affiliate"] button.cta-red:not([disabled])');
         await page.waitForFunction(() => location.pathname === '/checkout');
         await page.waitForSelector('#guest-first-name');
         await page.waitForFunction(() => document.querySelector('button[type="submit"]')?.disabled === false);
@@ -384,8 +519,9 @@ async function run() {
         await page.type('#guest-last-name', 'Guest');
         await page.type('#guest-email', 'affiliate@example.test');
         await page.type('#guest-phone', '+971501112233');
-        await page.click('form input[type="checkbox"]');
-        await page.click('button[type="submit"]');
+        await clickUnobstructed('form input[type="checkbox"]');
+        assert.equal(await page.$eval('form input[type="checkbox"]', input => input.checked), true);
+        await clickUnobstructed('button[type="submit"]');
         await page.waitForFunction(() => location.search.includes('affiliate=pending'));
         assert.equal(affiliateBookingRequests, 1);
         assert.equal(affiliateBookingPayload.expected_price, '80');
@@ -399,6 +535,129 @@ async function run() {
         assert.equal(b2bPrebookRequests, b2bPrebookCountBeforeAffiliate, 'Affiliate must not issue a B2B prebook request');
         assert.deepEqual(errors, []);
         console.log('PASS: Affiliate Pay at Hotel carries its signed contract and guest details only to Affiliate booking/status routes, without Ziina or B2B booking calls.');
+
+        await page.emulateTimezone('Asia/Dubai');
+        const groupedSearch = new URLSearchParams({ checkin: search.checkin, checkout: search.checkout,
+            guests: JSON.stringify(mockGuestCount), residency: 'ae', lang: 'en' });
+        await page.goto(`${base}/hotel/27?${groupedSearch}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.room-offer-group article[data-contract-source="b2b"] button.cta-red:not([disabled])');
+        await page.select('header select:not(#language-select)', 'USD');
+        await page.waitForFunction(value => document.querySelector('article[aria-labelledby="room-grouped-offer-0"]')?.textContent.includes(value), {}, formatMoney(60, 'USD'));
+        assert.equal(await page.$$eval('.room-offer-group', groups => groups.length), 1);
+        const offerCards = '.room-offer-group article[data-contract-source="b2b"]';
+        const visibleOfferCount = () => page.$$eval(offerCards, cards => cards.filter(card => card.checkVisibility({ visibilityProperty: true, contentVisibilityAuto: true })).length);
+        assert.equal(await page.$$eval(offerCards, cards => cards.length), 27);
+        assert.equal(await visibleOfferCount(), 1);
+        assert.equal(await page.$eval('.room-offer-variants', details => details.open), false);
+        const expectedOfferIds = groupedRates.map(offer => `room-${offer.book_hash}`);
+        assert.deepEqual(await page.$$eval(offerCards, cards => cards.map(card => card.getAttribute('aria-labelledby'))), expectedOfferIds);
+        await page.focus('.room-offer-variants > summary');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('.room-offer-variants')?.open === true);
+        assert.equal(await visibleOfferCount(), 27);
+        const offerTexts = await page.$$eval(offerCards, cards => cards.map(card => card.textContent));
+        groupedRates.forEach((offer, index) => assert(offerTexts[index].includes(formatMoney(60 + index, 'USD')), `Preserve price for ${offer.book_hash}`));
+        assert.deepEqual(await page.$$eval(offerCards, cards => cards.map(card => card.getAttribute('aria-labelledby'))), expectedOfferIds);
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('.room-offer-variants')?.open === false);
+        assert.equal(await visibleOfferCount(), 1);
+        const firstOffer = 'article[aria-labelledby="room-grouped-offer-0"]';
+        const deadline = await page.$eval(`${firstOffer} .cancellation-policy time`, time => ({ iso: time.dateTime, label: time.textContent }));
+        assert.equal(deadline.iso, '2099-10-10T12:00:00.000Z');
+        assert.match(deadline.label, /12:00 UTC$/);
+        await page.focus(`${firstOffer} .cancellation-policy details > summary`);
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('article[aria-labelledby="room-grouped-offer-0"] .cancellation-policy details')?.open === true);
+        const penaltyText = await page.$eval(`${firstOffer} .cancellation-policy li`, item => item.innerText);
+        assert.match(penaltyText, /0\.00 USD/);
+        assert.doesNotMatch(penaltyText, /99\.00|0\.00 AED/);
+        const prebookBeforeGrouped = b2bPrebookRequests;
+        const groupedPrebookRequest = page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/booking/prebook')
+            && request.method() === 'POST' && JSON.parse(request.postData()).hash === 'grouped-offer-0');
+        await page.$eval(`${firstOffer} button.cta-red`, button => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.waitForFunction(selector => {
+            const button = document.querySelector(selector);
+            const bounds = button?.getBoundingClientRect();
+            return bounds && button.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        }, {}, `${firstOffer} button.cta-red`);
+        await page.click(`${firstOffer} button.cta-red`);
+        await groupedPrebookRequest;
+        await page.waitForFunction(() => document.querySelector('article[aria-labelledby="room-grouped-offer-0"] button')?.classList.contains('bg-emerald-600'));
+        assert.equal(new URL(page.url()).pathname, '/hotel/27');
+        assert.equal(b2bPrebookRequests, prebookBeforeGrouped + 1);
+        assert.deepEqual(groupedPrebookPayload, { hash: 'grouped-offer-0', price_increase_percent: 2 });
+        await page.$eval(`${firstOffer} button`, button => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.waitForFunction(selector => {
+            const button = document.querySelector(selector);
+            const bounds = button?.getBoundingClientRect();
+            return bounds && button.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        }, {}, `${firstOffer} button`);
+        await page.click(`${firstOffer} button`);
+        await page.waitForFunction(() => location.pathname === '/checkout');
+        await page.waitForSelector('#guest-first-name');
+        const selectedGroupBooking = await page.evaluate(() => JSON.parse(sessionStorage.getItem('remal_checkout')));
+        assert.equal(Number(selectedGroupBooking.hid), 27);
+        assert.equal(selectedGroupBooking.room.book_hash, 'grouped-offer-0');
+        assert.equal(selectedGroupBooking.room.price, 60);
+        assert.equal(selectedGroupBooking.room.currency, 'USD');
+        assert.deepEqual(selectedGroupBooking.room.originalRate, groupedRates[0]);
+        assert.equal(b2bPrebookRequests, prebookBeforeGrouped + 1);
+        assert.equal(paymentRequests, ziinaIntentCountBeforeAffiliate);
+        assert.deepEqual(errors, []);
+        console.log('PASS: 27 grouped offers retain every hash, order and price behind a keyboard-operable native disclosure; cancellation shows UTC and 0.00 USD; prebook tolerance 2 and checkout preserve the selected rate identity and price.');
+
+        const verifyRefreshedOffer = async hash => {
+            const selector = `article[aria-labelledby="room-${hash}"] button`;
+            const requested = page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/booking/prebook')
+                && request.method() === 'POST' && JSON.parse(request.postData()).hash === hash);
+            await page.$eval(selector, button => button.scrollIntoView({ block: 'center', behavior: 'instant' }));
+            await page.waitForFunction(value => {
+                const button = document.querySelector(value), bounds = button?.getBoundingClientRect();
+                return bounds && button.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+            }, {}, selector);
+            await page.click(selector);
+            await requested;
+            assert.equal(new URL(page.url()).pathname, '/hotel/27', 'A fresh rate requires prebook before checkout');
+            await page.waitForFunction(value => document.querySelector(value)?.classList.contains('bg-emerald-600'), {}, selector);
+        };
+        const expandAlternativeOffers = async () => {
+            await page.focus('.room-offer-variants > summary');
+            await page.keyboard.press('Enter');
+            await page.waitForFunction(() => document.querySelector('.room-offer-variants')?.open === true);
+        };
+        const refreshHistoryStart = groupedPrebookHistory.length;
+        await page.goto(`${base}/hotel/27?${groupedSearch}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('article[aria-labelledby="room-grouped-offer-0"]');
+        await verifyRefreshedOffer('grouped-offer-0');
+        groupedGeneration = 1;
+        await page.select('#language-select', 'es');
+        await page.waitForSelector('article[aria-labelledby="room-grouped-offer-0-refresh-1"]');
+        assert.equal(await page.$$eval(offerCards, cards => cards.length), 27);
+        await verifyRefreshedOffer('grouped-offer-0-refresh-1');
+        await expandAlternativeOffers();
+        await verifyRefreshedOffer('grouped-offer-1-refresh-1');
+        groupedGeneration = 2;
+        await page.select('#language-select', 'en');
+        await page.waitForSelector('article[aria-labelledby="room-grouped-offer-0-refresh-2"]');
+        assert.equal(await page.$$eval(offerCards, cards => cards.length), 27);
+        await expandAlternativeOffers();
+        await verifyRefreshedOffer('grouped-offer-1-refresh-2');
+        assert.deepEqual(groupedPrebookHistory.slice(refreshHistoryStart).map(request => request.hash),
+            ['grouped-offer-0', 'grouped-offer-0-refresh-1', 'grouped-offer-1-refresh-1', 'grouped-offer-1-refresh-2']);
+        const refreshedAlternative = 'article[aria-labelledby="room-grouped-offer-1-refresh-2"] button';
+        await page.click(refreshedAlternative);
+        await page.waitForFunction(() => location.pathname === '/checkout');
+        const refreshedBooking = await page.evaluate(() => JSON.parse(sessionStorage.getItem('remal_checkout')));
+        assert.equal(refreshedBooking.room.book_hash, 'grouped-offer-1-refresh-2');
+        assert.equal(refreshedBooking.room.price, 61);
+        assert.equal(refreshedBooking.room.currency, 'USD');
+        assert.deepEqual(refreshedBooking.room.originalRate, groupedRatesForGeneration(2)[1]);
+        assert.equal(paymentRequests, ziinaIntentCountBeforeAffiliate);
+        console.log('PASS: refreshed first and alternative offers require their fresh supplier hashes to be prebooked before checkout; language changes retain all 27 offers and the selected refreshed price/currency.');
+        await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), search);
+        await page.goto(`${base}/?lang=en`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('#results-heading article');
+        await checkMobileFilterDialog('en');
         await page.evaluate(() => sessionStorage.clear());
         await page.setBypassServiceWorker(false);
         await page.goto(base, { waitUntil: 'domcontentloaded' });

@@ -1,12 +1,19 @@
 import { Sparkles } from 'lucide-react';
 import { useLanguage } from '../i18n';
 import SearchController from './search/SearchController';
+import { heroMedia } from '../services/brandMedia';
 
 export default function HeroSearchSection({ onSearch, initialSearch, isSearching, searchError }) {
     const { t, direction } = useLanguage();
     return <>
         <section id="search" className="hero-search relative isolate overflow-visible py-14 lg:py-20" dir={direction}>
-            <div aria-hidden="true" className="absolute inset-0 -z-10 bg-[url('https://images.unsplash.com/photo-1518684079-3c830dcef090?auto=format&fit=crop&w=2200&q=85')] bg-cover bg-center opacity-35" />
+            <picture aria-hidden="true" className="absolute inset-0 -z-10 block h-full w-full opacity-35">
+                <source type="image/avif" srcSet={heroMedia.avifSrcSet} sizes={heroMedia.sizes} />
+                <source type="image/webp" srcSet={heroMedia.webpSrcSet} sizes={heroMedia.sizes} />
+                <img src={heroMedia.src} srcSet={heroMedia.webpSrcSet} sizes={heroMedia.sizes}
+                    width={heroMedia.width} height={heroMedia.height} alt="" loading="eager"
+                    fetchPriority="high" decoding="async" className="h-full w-full object-cover object-center" />
+            </picture>
             <div aria-hidden="true" className="absolute inset-0 -z-10 bg-gradient-to-br from-remal-navy/95 via-[#123c55]/90 to-remal-blue/75" />
             <div aria-hidden="true" className="absolute inset-x-0 bottom-0 -z-10 h-28 bg-gradient-to-t from-remal-bg to-transparent" />
             <div className="mx-auto max-w-7xl px-5 lg:px-10">

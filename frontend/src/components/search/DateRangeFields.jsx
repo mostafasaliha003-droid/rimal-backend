@@ -1,16 +1,13 @@
-import { useCallback } from 'react';
+import { memo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { CalendarDays } from 'lucide-react';
-import DatePicker from 'react-datepicker';
-import { addDays, format, startOfDay } from 'date-fns';
-import { arSA, enUS, es } from 'date-fns/locale';
-import 'react-datepicker/dist/react-datepicker.css';
+import { format, startOfDay } from 'date-fns';
+import LazyDatePicker from './LazyDatePicker';
 import { FieldError } from './SearchFeedback';
 import { earliestCheckoutDate, latestArrivalDate, latestCheckoutDate, parseSearchDate } from './searchModel';
 
-export default function DateRangeFields({ controller, overlayHost, onOpenChange }) {
+function DateRangeFields({ controller, overlayHost, onOpenChange }) {
     const { t, dates, errors, language, direction, changeDate } = controller;
-    const locale = language === 'es' ? es : language === 'en' ? enUS : arSA;
     const CalendarPortal = useCallback(({ children }) => overlayHost ? createPortal(children, overlayHost) : null, [overlayHost]);
     const arrival = parseSearchDate(dates.checkin);
     const departure = parseSearchDate(dates.checkout);
@@ -22,10 +19,10 @@ export default function DateRangeFields({ controller, overlayHost, onOpenChange 
                     <label htmlFor={`search-${field}`} className="search-label">{field === 'checkin' ? t('search.arrival', 'تسجيل الوصول') : t('search.departure', 'تسجيل المغادرة')}</label>
                     <div className="flex min-w-0 items-center gap-2">
                         <CalendarDays size={20} className="shrink-0 text-remal-blue-strong" aria-hidden="true" />
-                        <DatePicker id={`search-${field}`} name={field} selected={field === 'checkin' ? arrival : departure}
+                        <LazyDatePicker id={`search-${field}`} name={field} selected={field === 'checkin' ? arrival : departure}
                             value={dates[field]} onChange={date => changeDate(field, date ? format(date, 'yyyy-MM-dd') : '')}
                             onChangeRaw={event => { if (typeof event?.target?.value === 'string') changeDate(field, event.target.value); }}
-                            dateFormat="yyyy-MM-dd" strictParsing locale={locale} autoComplete="off"
+                            dateFormat="yyyy-MM-dd" strictParsing language={language} autoComplete="off"
                             minDate={field === 'checkin' ? startOfDay(new Date()) : earliestCheckoutDate(arrival)}
                             maxDate={field === 'checkin' ? latestArrivalDate() : latestCheckoutDate(arrival)}
                             startDate={arrival} endDate={departure} selectsStart={field === 'checkin'} selectsEnd={field === 'checkout'}
@@ -48,3 +45,7 @@ export default function DateRangeFields({ controller, overlayHost, onOpenChange 
         </div>
     </fieldset>;
 }
+
+// Focus and popup bookkeeping in the surrounding form does not change dates.
+// Avoid rebuilding both calendar trees for those unrelated parent updates.
+export default memo(DateRangeFields);

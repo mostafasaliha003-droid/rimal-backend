@@ -4,6 +4,7 @@ import GuestForm from './components/GuestForm';
 import BookingAPI from './services/bookingApi';
 import { CancellationPolicy } from './components/RoomCard';
 import PriceDisplay from './components/PriceDisplay';
+import StaySummary from './components/StaySummary';
 import { trackBookingEvent } from './services/analytics';
 import { useLanguage } from './i18n';
 
@@ -47,16 +48,7 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
                 </div>
 
                 <div className="space-y-6 p-6 sm:p-7">
-                    <div className="grid grid-cols-2 gap-3">
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                            <p className="text-[11px] font-black text-slate-500">{t('checkout.checkin', 'تسجيل الوصول')}</p>
-                            <p className="mt-2 flex items-center gap-1.5 text-sm font-black text-slate-900"><CalendarDays size={16} className="text-[var(--remal-blue)]" />{booking.checkin || '-'}</p>
-                        </div>
-                        <div className="rounded-2xl border border-slate-100 bg-slate-50 p-4">
-                            <p className="text-[11px] font-black text-slate-500">{t('checkout.checkout', 'تسجيل المغادرة')}</p>
-                            <p className="mt-2 flex items-center gap-1.5 text-sm font-black text-slate-900"><CalendarDays size={16} className="text-[var(--remal-blue)]" />{booking.checkout || '-'}</p>
-                        </div>
-                    </div>
+                    <StaySummary checkin={booking.checkin} checkout={booking.checkout} guests={booking.guests} />
 
                     <div>
                         <div className="flex flex-wrap items-end justify-between gap-4 border-b border-slate-100 pb-5">
@@ -64,7 +56,7 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
                                 <p className="text-sm font-black text-slate-900">{t('checkout.priceBreakdown', 'تفصيل السعر')}</p>
                                 <p className="mt-1 text-xs font-medium text-slate-500">{t('checkout.originalCurrency', 'بالعملة الأصلية للعرض')}</p>
                             </div>
-                            {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="max-w-full text-3xl font-black tracking-tight text-[var(--remal-blue)]" /> : <span className="font-bold text-slate-400">غير متاح</span>}
+                            {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="max-w-full text-3xl font-black tracking-tight text-[var(--remal-blue-strong)]" /> : <span className="font-bold text-slate-600">غير متاح</span>}
                         </div>
 
                         {localTaxes.length > 0 && (
@@ -84,12 +76,12 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
                         <p className="flex items-start gap-3 rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-xs font-bold leading-6 text-emerald-900"><ShieldCheck size={18} className="mt-0.5 shrink-0 text-emerald-700" />{isAffiliate
                             ? t('checkout.hotelPayment', 'تدفع في الفندق وفق شروط العرض')
                             : t('checkout.ziina', 'سيتم تحويلك إلى بوابة Ziina الآمنة بعد التحقق من السعر والتوفر.')}</p>
-                        <p className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs font-bold leading-6 text-slate-700"><CreditCard size={18} className="mt-0.5 shrink-0 text-[var(--remal-blue)]" />{isAffiliate
+                        <p className="flex items-start gap-3 rounded-2xl border border-slate-100 bg-slate-50 p-4 text-xs font-bold leading-6 text-slate-700"><CreditCard size={18} className="mt-0.5 shrink-0 text-[var(--remal-blue-strong)]" />{isAffiliate
                             ? canPay ? t('checkout.affiliateCurrency', `سعر الفندق بالعملة: ${currency}. لا يتم إرسال هذا الحجز إلى Ziina.`, { currency }) : t('checkout.affiliateUnavailable', 'حجز الدفع في الفندق غير متاح لهذا العرض حالياً.')
                             : canPay ? t('checkout.offerCurrency', `عملة العرض: ${currency}. سيتم خصم هذا المبلغ عبر Ziina، وتظهر الرسوم المحلية غير المشمولة أعلاه.`, { currency }) : t('checkout.noOnlinePayment', `عملة العرض: ${currency || 'غير محددة'}. الدفع الإلكتروني لهذا العرض غير متاح حالياً.`, { currency: currency || 'غير محددة' })}</p>
                     </div>
 
-                    <CancellationPolicy cancellation={room.cancellation} currency={currency} />
+                    <CancellationPolicy cancellation={room.cancellation} currency={currency} rawRate={room.originalRate} contractSource={room.contract_source} />
                 </div>
             </div>
         </aside>
@@ -240,10 +232,10 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                     <div className={`mx-auto mb-6 grid h-20 w-20 place-items-center rounded-full ${iconColor}`}><Info size={40} /></div>
                     <h1 className="text-3xl font-black text-slate-900">{title}</h1>
                     <p className="mx-auto mt-4 max-w-md text-sm font-medium leading-7 text-slate-600">{details}</p>
-                    {paymentReference && <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-400">{t('checkout.followupReference', 'مرجع المتابعة')}</p><p className="mt-1 font-mono text-sm font-bold text-slate-700">{paymentReference}</p></div>}
+                    {paymentReference && <div className="mt-8 rounded-2xl border border-slate-100 bg-slate-50 p-4"><p className="text-xs font-bold text-slate-600">{t('checkout.followupReference', 'مرجع المتابعة')}</p><p className="mt-1 font-mono text-sm font-bold text-slate-700">{paymentReference}</p></div>}
                     <div className="mt-10 flex flex-col items-center justify-center gap-4 sm:flex-row">
                         <a className="inline-flex min-h-12 w-full items-center justify-center rounded-xl bg-slate-900 px-6 py-3 text-sm font-bold text-white transition hover:bg-slate-800 sm:w-auto" href="mailto:management@remaltourismllc.com">{t('checkout.support', 'التواصل مع الدعم')}</a>
-                        <a href="/" className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:text-[var(--remal-blue)] sm:w-auto">{t('checkout.home', 'العودة للرئيسية')}</a>
+                        <a href="/" className="inline-flex min-h-12 w-full items-center justify-center rounded-xl border border-slate-200 bg-white px-6 py-3 text-sm font-bold text-slate-700 transition hover:bg-slate-50 hover:text-[var(--remal-blue-strong)] sm:w-auto">{t('checkout.home', 'العودة للرئيسية')}</a>
                     </div>
                 </div>
             </main>
@@ -254,7 +246,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         return (
             <main dir={direction} className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-5 py-12 lg:px-10">
                 <div className="w-full max-w-md rounded-3xl border border-slate-100 bg-white p-10 text-center shadow-sm">
-                    <div className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-full bg-slate-50 text-slate-400"><Info size={32} /></div>
+                    <div className="mx-auto mb-6 grid h-16 w-16 place-items-center rounded-full bg-slate-50 text-slate-600"><Info size={32} /></div>
                     <p className="text-xl font-black text-slate-900">{t('checkout.noRoom', 'لم يتم اختيار غرفة بعد')}</p>
                     <p className="mt-2 text-sm font-medium text-slate-500">{t('checkout.noRoomBody', 'الرجاء العودة وتحديد عرض إقامة للمتابعة.')}</p>
                     <button type="button" onClick={onBack} className="mt-8 inline-flex min-h-12 w-full items-center justify-center gap-2 rounded-xl bg-[var(--remal-blue)] px-5 py-3.5 text-sm font-black text-white shadow-lg shadow-cyan-700/20 transition hover:bg-[var(--remal-navy)]"><ArrowRight size={18} />{t('checkout.backSearch', 'العودة للبحث')}</button>
@@ -360,10 +352,10 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
     return (
         <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-8 pb-32 lg:px-10 lg:pb-16">
             <div className="mx-auto max-w-7xl">
-                <button type="button" onClick={onBack} className="group mb-8 inline-flex min-h-12 items-center gap-2 text-sm font-bold text-slate-500 transition-colors hover:text-[var(--remal-blue)]"><ArrowRight size={18} className="transition-transform group-hover:-translate-x-1" />{t('checkout.backRoom', 'العودة لاختيار الغرفة')}</button>
+                <button type="button" onClick={onBack} className="group mb-8 inline-flex min-h-12 items-center gap-2 text-sm font-bold text-slate-500 transition-colors hover:text-[var(--remal-blue-strong)]"><ArrowRight size={18} className="transition-transform group-hover:-translate-x-1" />{t('checkout.backRoom', 'العودة لاختيار الغرفة')}</button>
 
                 <header className="mb-10 max-w-3xl">
-                    <div className="mb-3 flex items-center gap-2 text-[var(--remal-blue)]"><ShieldCheck size={20} /><span className="eyebrow">{t('checkout.secure', 'إتمام الحجز بأمان')}</span></div>
+                    <div className="mb-3 flex items-center gap-2 text-[var(--remal-blue-strong)]"><ShieldCheck size={20} /><span className="eyebrow">{t('checkout.secure', 'إتمام الحجز بأمان')}</span></div>
                     <h1 className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl lg:text-5xl">{t('checkout.title', 'بيانات الضيف والدفع')}</h1>
                     <p className="mt-3 text-base font-medium leading-7 text-slate-500">{isAffiliate
                         ? t('checkout.affiliateSubtitle', 'أدخل بيانات الضيوف لإرسال طلب الحجز بخيار الدفع في الفندق. لا يتم إنشاء دفعة عبر Ziina لهذا العرض.')
