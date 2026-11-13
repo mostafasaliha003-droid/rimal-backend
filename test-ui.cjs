@@ -18,6 +18,21 @@ const hotels = [
     { hid: 2, name: 'Test Hotel 60', stars: 3, rates: [rate(312), rate(1, 'AED'), rate(60)] },
     { hid: 3, name: 'Test Hotel 68', stars: 5, rates: [rate(68)] }
 ];
+const groupedRates = Array.from({ length: 27 }, (_, index) => {
+    const offer = rate(60 + index);
+    offer.book_hash = `grouped-offer-${index}`;
+    offer.room_group_id = 7;
+    offer.meal = index % 2 ? 'nomeal' : 'breakfast';
+    const payment = offer.payment_options.payment_types[0];
+    payment.show_currency_code = 'AED';
+    payment.cancellation_penalties.policies = [{
+        start_at: null, end_at: '2099-10-10T12:00:00', amount_charge: '0.00', amount_show: '99.00'
+    }, {
+        start_at: '2099-10-10T12:00:00', end_at: null, amount_charge: String(60 + index)
+    }];
+    return offer;
+});
+const groupedHotel = { hid: 27, name: 'Grouped Offers Hotel', stars: 4, rates: groupedRates, images: [] };
 const futureDate = days => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
 const search = { query: 'Dubai', destination: { label: 'Dubai', type: 'region', region_id: 6053839 }, checkin: futureDate(30), checkout: futureDate(32), residency: 'ae', guests: [{ adults: 2, children: [] }] };
 
@@ -36,6 +51,7 @@ async function run() {
     let affiliateBookingStatusRequests = 0;
     let affiliateRateRequests = 0;
     let b2bPrebookRequests = 0;
+    let groupedPrebookPayload;
     let checkoutStatus = 'booking_pending';
     let statusRequests = 0;
     let exchangeAvailable = true;
@@ -70,9 +86,11 @@ async function run() {
                 else if (url.pathname.endsWith('/search/hotelpage')) {
                     lastHotelPage = JSON.parse(request.postData());
                     if (lastHotelPage.currency !== 'USD') return request.respond({ status: 400, contentType: 'application/json', headers, body: JSON.stringify({ success: false, error: 'INVALID_HOTELPAGE_CRITERIA', message: 'unknown currency' }) });
-                    body = { hotel: hotels[1], rates: [rate(60)] };
+                    body = Number(lastHotelPage.hid) === 27 ? { hotel: groupedHotel, rates: groupedRates }
+                        : { hotel: hotels[1], rates: [rate(60)] };
                 }
                 else if (url.pathname.endsWith('/affiliate/availability')) body = { search: true, booking: true };
+                else if (url.pathname.endsWith('/affiliate/hotels/27/rates')) body = { success: true, rates: [] };
                 else if (url.pathname.endsWith('/affiliate/hotels/2/rates')) {
                     affiliateRateRequests++;
                     const criteria = JSON.parse(request.postData());
@@ -88,8 +106,14 @@ async function run() {
                 else if (url.pathname.endsWith('/booking/prebook')) {
                     b2bPrebookRequests++;
                     const prebook = JSON.parse(request.postData());
-                    assert.match(prebook.hash, /^test-(?:USD|AED)-60$/);
-                    body = { success: true, rate: rate(60), bookHash: 'test-USD-60' };
+                    if (prebook.hash === 'grouped-offer-0') {
+                        groupedPrebookPayload = prebook;
+                        assert.equal(prebook.price_increase_percent, 2);
+                        body = { success: true, rate: groupedRates[0], bookHash: groupedRates[0].book_hash };
+                    } else {
+                        assert.match(prebook.hash, /^test-(?:USD|AED)-60$/);
+                        body = { success: true, rate: rate(60), bookHash: 'test-USD-60' };
+                    }
                 }
                 else if (url.pathname.endsWith('/affiliate/bookings')) {
                     affiliateBookingRequests++;
@@ -104,7 +128,7 @@ async function run() {
                     assert.equal(request.headers().authorization, `Bearer ${affiliateAccessToken}`);
                     body = { process_id: affiliateProcessId, status: 'confirmed', confirmed: true, supplier_reference: 'TEST-AFFILIATE-ORDER' };
                 }
-                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: hotels[1] };
+                else if (url.pathname.includes('/v1/hotels/')) body = { hotel: url.pathname.endsWith('/27') ? groupedHotel : hotels[1] };
                 else if (url.pathname.endsWith('/payment/availability')) body = { enabled: paymentEnabled };
                 else if (url.pathname.endsWith(`/payment/ziina/${checkoutReference}/status`)) {
                     statusRequests++;
@@ -256,11 +280,12 @@ async function run() {
             const guestButton = await page.$('#search-guests');
             if (guestButton) {
                 await guestButton.click();
-                return;
+            } else {
+                await page.click('[data-search-compact] button');
+                await page.waitForSelector('dialog[open] #search-guests');
+                await page.click('dialog[open] #search-guests');
             }
-            await page.click('[data-search-compact] button');
-            await page.waitForSelector('dialog[open] #search-guests');
-            await page.click('dialog[open] #search-guests');
+            await page.waitForSelector('#search-guests-panel #guests-0-children', { visible: true });
         };
         const closeGuestEditor = async () => {
             const buttons = await page.$$('#search-guests-panel button');
@@ -440,6 +465,66 @@ async function run() {
         assert.equal(b2bPrebookRequests, b2bPrebookCountBeforeAffiliate, 'Affiliate must not issue a B2B prebook request');
         assert.deepEqual(errors, []);
         console.log('PASS: Affiliate Pay at Hotel carries its signed contract and guest details only to Affiliate booking/status routes, without Ziina or B2B booking calls.');
+
+        await page.emulateTimezone('Asia/Dubai');
+        const groupedSearch = new URLSearchParams({ checkin: search.checkin, checkout: search.checkout,
+            guests: JSON.stringify(mockGuestCount), residency: 'ae', lang: 'en' });
+        await page.goto(`${base}/hotel/27?${groupedSearch}`, { waitUntil: 'domcontentloaded' });
+        await page.waitForSelector('.room-offer-group article[data-contract-source="b2b"] button.cta-red:not([disabled])');
+        await page.select('header select:not(#language-select)', 'USD');
+        await page.waitForFunction(value => document.querySelector('article[aria-labelledby="room-grouped-offer-0"]')?.textContent.includes(value), {}, formatMoney(60, 'USD'));
+        assert.equal(await page.$$eval('.room-offer-group', groups => groups.length), 1);
+        const offerCards = '.room-offer-group article[data-contract-source="b2b"]';
+        const visibleOfferCount = () => page.$$eval(offerCards, cards => cards.filter(card => card.checkVisibility({ visibilityProperty: true, contentVisibilityAuto: true })).length);
+        assert.equal(await page.$$eval(offerCards, cards => cards.length), 27);
+        assert.equal(await visibleOfferCount(), 1);
+        assert.equal(await page.$eval('.room-offer-variants', details => details.open), false);
+        const expectedOfferIds = groupedRates.map(offer => `room-${offer.book_hash}`);
+        assert.deepEqual(await page.$$eval(offerCards, cards => cards.map(card => card.getAttribute('aria-labelledby'))), expectedOfferIds);
+        await page.focus('.room-offer-variants > summary');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('.room-offer-variants')?.open === true);
+        assert.equal(await visibleOfferCount(), 27);
+        const offerTexts = await page.$$eval(offerCards, cards => cards.map(card => card.textContent));
+        groupedRates.forEach((offer, index) => assert(offerTexts[index].includes(formatMoney(60 + index, 'USD')), `Preserve price for ${offer.book_hash}`));
+        assert.deepEqual(await page.$$eval(offerCards, cards => cards.map(card => card.getAttribute('aria-labelledby'))), expectedOfferIds);
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('.room-offer-variants')?.open === false);
+        assert.equal(await visibleOfferCount(), 1);
+        const firstOffer = 'article[aria-labelledby="room-grouped-offer-0"]';
+        const deadline = await page.$eval(`${firstOffer} .cancellation-policy time`, time => ({ iso: time.dateTime, label: time.textContent }));
+        assert.equal(deadline.iso, '2099-10-10T12:00:00.000Z');
+        assert.match(deadline.label, /12:00 UTC$/);
+        await page.focus(`${firstOffer} .cancellation-policy details > summary`);
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelector('article[aria-labelledby="room-grouped-offer-0"] .cancellation-policy details')?.open === true);
+        const penaltyText = await page.$eval(`${firstOffer} .cancellation-policy li`, item => item.innerText);
+        assert.match(penaltyText, /0\.00 USD/);
+        assert.doesNotMatch(penaltyText, /99\.00|0\.00 AED/);
+        const prebookBeforeGrouped = b2bPrebookRequests;
+        const groupedPrebookRequest = page.waitForRequest(request => new URL(request.url()).pathname.endsWith('/booking/prebook')
+            && request.method() === 'POST' && JSON.parse(request.postData()).hash === 'grouped-offer-0');
+        await page.$eval(`${firstOffer} button.cta-red`, button => button.scrollIntoView({ block: 'center' }));
+        await page.click(`${firstOffer} button.cta-red`);
+        await groupedPrebookRequest;
+        await page.waitForFunction(() => document.querySelector('article[aria-labelledby="room-grouped-offer-0"] button')?.classList.contains('bg-emerald-600'));
+        assert.equal(new URL(page.url()).pathname, '/hotel/27');
+        assert.equal(b2bPrebookRequests, prebookBeforeGrouped + 1);
+        assert.deepEqual(groupedPrebookPayload, { hash: 'grouped-offer-0', price_increase_percent: 2 });
+        await page.$eval(`${firstOffer} button`, button => button.scrollIntoView({ block: 'center' }));
+        await page.click(`${firstOffer} button`);
+        await page.waitForFunction(() => location.pathname === '/checkout');
+        await page.waitForSelector('#guest-first-name');
+        const selectedGroupBooking = await page.evaluate(() => JSON.parse(sessionStorage.getItem('remal_checkout')));
+        assert.equal(Number(selectedGroupBooking.hid), 27);
+        assert.equal(selectedGroupBooking.room.book_hash, 'grouped-offer-0');
+        assert.equal(selectedGroupBooking.room.price, 60);
+        assert.equal(selectedGroupBooking.room.currency, 'USD');
+        assert.deepEqual(selectedGroupBooking.room.originalRate, groupedRates[0]);
+        assert.equal(b2bPrebookRequests, prebookBeforeGrouped + 1);
+        assert.equal(paymentRequests, ziinaIntentCountBeforeAffiliate);
+        assert.deepEqual(errors, []);
+        console.log('PASS: 27 grouped offers retain every hash, order and price behind a keyboard-operable native disclosure; cancellation shows UTC and 0.00 USD; prebook tolerance 2 and checkout preserve the selected rate identity and price.');
         await page.evaluate(() => sessionStorage.clear());
         await page.setBypassServiceWorker(false);
         await page.goto(base, { waitUntil: 'domcontentloaded' });
