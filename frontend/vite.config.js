@@ -33,11 +33,21 @@ const brandFontLicensesPlugin = () => {
     };
 };
 
+const releaseRevisionPlugin = () => ({
+    name: 'remal-release-revision',
+    transformIndexHtml() {
+        const revision = process.env.RENDER_GIT_COMMIT || process.env.REMAL_UX_REVISION || '';
+        return /^[a-f\d]{40}$/i.test(revision)
+            ? [{ tag: 'meta', attrs: { name: 'remal-revision', content: revision }, injectTo: 'head' }]
+            : [];
+    }
+});
+
 export default defineConfig(({ mode }) => {
     return {
         base: '/',
         envDir: '..',
-        plugins: [react(), brandFontLicensesPlugin(), githubPagesFallbackPlugin()],
+        plugins: [react(), brandFontLicensesPlugin(), releaseRevisionPlugin(), githubPagesFallbackPlugin()],
         server: {
             port: 5173,
             proxy: {
