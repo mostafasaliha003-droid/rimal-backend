@@ -210,6 +210,23 @@ async function run() {
         await page.setViewport({ width: 390, height: 844 });
         await page.click('[aria-controls="search-filters"]');
         assert.equal(await page.$eval('#search-filters', element => getComputedStyle(element).display !== 'none'), true);
+        for (const id of ['price-filter-options', 'star-filter-options', 'amenity-filter-options']) {
+            const state = await page.$eval(`#search-filters button[aria-controls="${id}"]`, button => ({
+                expanded: button.getAttribute('aria-expanded'),
+                controlledId: button.getAttribute('aria-controls'),
+                hidden: document.getElementById(button.getAttribute('aria-controls'))?.hidden
+            }));
+            assert.equal(state.controlledId, id);
+            assert.equal(state.expanded, 'true');
+            assert.equal(state.hidden, false);
+        }
+        await page.focus('#search-filters button[aria-controls="price-filter-options"]');
+        await page.keyboard.press('Space');
+        await page.waitForFunction(() => document.querySelector('[aria-controls="price-filter-options"]')?.getAttribute('aria-expanded') === 'false');
+        assert.equal(await page.$eval('#price-filter-options', element => element.hidden), true);
+        await page.keyboard.press('Space');
+        await page.waitForFunction(() => document.querySelector('[aria-controls="price-filter-options"]')?.getAttribute('aria-expanded') === 'true');
+        assert.equal(await page.$eval('#price-filter-options', element => element.hidden), false);
         await page.$eval('#search-filters input[type="number"]', element => {
             const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value').set;
             setter.call(element, '70');
@@ -226,6 +243,15 @@ async function run() {
         await page.screenshot({ path: 'frontend/dist/test-mobile.png', fullPage: true });
         await page.keyboard.press('Escape');
         await page.waitForFunction(() => !document.querySelector('#search-filters')?.classList.contains('filter-sheet-open'));
+        await page.waitForSelector('[data-remove-filter="price"]', { visible: true });
+        assert.match(await page.$eval('[data-remove-filter="price"]', button => button.getAttribute('aria-label')), /70.*USD/);
+        await page.focus('[data-remove-filter="price"]');
+        await page.keyboard.press('Enter');
+        await page.waitForFunction(() => document.querySelectorAll('#results-heading article').length === 3);
+        assert.equal(await page.$eval('#maximum-stay-price', input => input.value), '');
+        assert.equal(await page.$('[data-active-filter-overview]'), null);
+        await page.waitForFunction(() => document.activeElement?.id === 'results-title');
+        console.log('PASS: filter disclosures expose controlled regions, keyboard toggles update ARIA/hidden states, and removing a price chip restores results and focus.');
         const openGuestEditor = async () => {
             const guestButton = await page.$('#search-guests');
             if (guestButton) {
