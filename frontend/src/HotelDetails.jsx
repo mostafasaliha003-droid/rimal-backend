@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CheckCircle2, CalendarDays, Users } from 'lucide-react';
-import HotelRoomCard from './components/HotelRoomCard';
+import RoomOfferGroups from './components/RoomOfferGroups';
+import StaySummary from './components/StaySummary';
+import { hotelAmenities, mergeHotelPresentation, staySummary } from './services/hotelOfferPresentation.js';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom, rateAmount, rateCurrency } from './services/offers';
 import PriceDisplay from './components/PriceDisplay';
@@ -172,13 +174,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
             if (liveResult.status === 'rejected' && !affiliateState.search) {
                 setError(t('hotel.loadFailed', 'تعذر تحميل الأسعار الحالية، يرجى العودة للبحث والمحاولة مرة أخرى'));
             } else {
-                const mergedHotel = { ...staticHotel, ...liveHotel, hid };
-                if (staticHotel?.resolvedLanguage === language && staticHotel?.name) {
-                    for (const field of ['name', 'description', 'city', 'address']) {
-                        if (staticHotel[field]) mergedHotel[field] = staticHotel[field];
-                    }
-                }
-                setHotel({ ...mergedHotel, images: toImages(mergedHotel) });
+                setHotel(mergeHotelPresentation(staticHotel, liveHotel, hid, language));
                 setRates(Array.isArray(liveRates) ? liveRates : []);
             }
             setLoading(false);
@@ -187,6 +183,8 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
         return () => { active = false; };
     }, [hid, searchParams.checkin, searchParams.checkout, searchParams.residency, JSON.stringify(searchParams.guests), apiLanguage, language]);
 
+    const amenities = hotelAmenities(hotel || {});
+    const stay = staySummary(searchParams);
     const rooms = rates.map(rate => normalizeRoom(rate, hotel, searchParams.guests));
     const lowestRoom = rooms.reduce((best, room) => !best || rateAmount(room) < rateAmount(best) ? room : best, null);
 
@@ -288,22 +286,24 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         {/* About & Amenities Card */}
                         <article className="rounded-3xl bg-white p-6 shadow-sm border border-slate-100 sm:p-8">
                             <h2 className="text-2xl font-black text-slate-900">{t('hotel.about', 'عن هذا المكان')}</h2>
-                            {typeof hotel?.description === 'string' && (
-                            <p className="mt-4 leading-relaxed text-slate-600 font-medium">{hotel.description}</p>
-                            )}
+                            {hotel?.description ? <p className="mt-4 whitespace-pre-line leading-relaxed text-slate-600 font-medium">{hotel.description}</p>
+                                : <p className="mt-4 text-sm text-slate-600">{t('hotel.descriptionUnavailable', 'A description has not been supplied for this property.')}</p>}
                             
                             <hr className="my-8 border-slate-100" />
                             
                             <h3 className="mb-5 text-xl font-black text-slate-900">{t('hotel.amenities', 'أهم المرافق')}</h3>
                             <div className="grid grid-cols-2 gap-y-4 gap-x-2 sm:grid-cols-3">
-                                {(hotel?.amenities || hotel?.staticData?.amenities || []).slice(0, 6).map((amenity) => (
-                                    <span key={String(amenity)} className="flex items-center gap-2 text-sm font-bold text-slate-700">
+                                {amenities.slice(0, 6).map((amenity) => (
+                                    <span key={amenity.label} className="flex items-start gap-2 text-sm font-bold text-slate-700">
                                         <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
-                                        {typeof amenity === 'string' ? amenity : amenity.name || amenity.title}
+                                        <span>{amenity.label}{amenity.paid && <span className="block text-xs font-medium text-slate-600">{t('hotel.paidAmenity', 'Extra charge')}</span>}</span>
                                     </span>
                                 ))}
                             </div>
+                            {!amenities.length && <p className="text-sm text-slate-600">{t('hotel.amenitiesUnavailable', 'Amenity information has not been supplied.')}</p>}
                         </article>
+
+                        <StaySummary {...searchParams} />
 
                         {/* Rooms List */}
                         <section id="hotel-room-offers" className="scroll-mt-24 space-y-5">
@@ -312,9 +312,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                 <p className="mt-1 text-sm font-medium text-slate-500">{t('hotel.recheckNotice', 'سيُعاد التحقق من السعر والتوفر قبل إتمام الحجز. اختر عرض الدفع الآن أو الدفع في الفندق عند توفره.')}</p>
                             </div>
                             {rooms.length ? (
-                                rooms.map((room, index) => (
-                                    <HotelRoomCard key={`${room.contract_source || 'b2b'}:${room.book_hash || index}`} room={room} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />
-                                ))
+                                <RoomOfferGroups rooms={rooms} onBook={navigateToCheckout} displayCurrency={displayCurrency} displayRates={displayRates} />
                             ) : (
                                 <div className="rounded-3xl bg-white p-12 text-center border border-slate-100 shadow-sm">
                                     <BedDouble className="mx-auto text-slate-300" size={48} />
@@ -366,12 +364,10 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
 
                 </section>
                 <div className="mobile-booking-bar lg:hidden">
-                    <div className="min-w-0">
-                        <p className="text-[11px] font-black text-slate-500">{t('hotel.mobileSummary', 'ابدأ باختيار غرفة')}</p>
-                        <div className="min-w-0">
-                            <p className="truncate text-sm font-black text-slate-900">{rooms.length ? t('hotel.stayCount', `${rooms.length} عروض`, { count: rooms.length }) : t('hotel.stayCountUnavailable', 'لا توجد عروض')}</p>
-                            {lowestRoom && <PriceDisplay amount={rateAmount(lowestRoom)} currency={rateCurrency(lowestRoom)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-sm font-black text-[var(--remal-blue)]" />}
-                        </div>
+                    <div className="min-w-0 text-xs font-semibold text-slate-700">
+                        {stay.checkin && stay.checkout && <p className="flex flex-wrap gap-x-1 text-[11px]"><time dateTime={stay.checkin} dir="ltr">{stay.checkin}</time><span aria-hidden="true">—</span><time dateTime={stay.checkout} dir="ltr">{stay.checkout}</time></p>}
+                        <p className="mt-1 break-words text-[11px]">{t('stay.guestsSummary', 'Guests: {{guests}} · Rooms: {{rooms}}', stay)}</p>
+                        {lowestRoom && <PriceDisplay amount={rateAmount(lowestRoom)} currency={rateCurrency(lowestRoom)} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-sm font-black text-[var(--remal-blue-strong)]" />}
                     </div>
                     <button type="button" onClick={() => document.getElementById('hotel-room-offers')?.scrollIntoView({ behavior: 'smooth', block: 'start' })} disabled={!rooms.length} className="min-h-12 shrink-0 rounded-xl bg-[var(--remal-orange)] px-5 text-sm font-black text-white shadow-[0_8px_18px_rgba(232,117,45,0.22)] disabled:cursor-not-allowed disabled:bg-slate-300">
                         {t('hotel.viewOffers', 'عرض الغرف')}

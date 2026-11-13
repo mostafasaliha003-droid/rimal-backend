@@ -1,54 +1,14 @@
 import { useRef, useState } from 'react';
 import { ArrowLeft, Check, Wifi, Info, Coffee, Ban, AlertCircle, ChevronLeft, ChevronRight, ImageOff } from 'lucide-react';
-import { BedIcon, UsersIcon, StarIcon } from './Icons'; // تأكد أن StarIcon متوفر هنا
+import { BedIcon, UsersIcon } from './Icons';
 import PriceDisplay from './PriceDisplay';
 import BookingAPI from '../services/bookingApi'; // تأكد من مسار API الخاص بك
 import { hotelImages, responsiveImageSources, roomCardImages } from '../services/hotelImages.js';
 import { paymentFor, rateAmount, rateCurrency } from '../services/offers';
 import { useLanguage } from '../i18n';
+import CancellationPolicy from './CancellationPolicy';
 
-export function CancellationPolicy({ cancellation, currency }) {
-    const { t } = useLanguage();
-    const deadline = cancellation?.free_cancellation_before;
-    return (
-        <div className="text-sm">
-            {deadline ? (
-                <div className="inline-flex max-w-full items-center gap-2 rounded-xl bg-emerald-50 border border-emerald-100 px-3 py-2 text-xs font-bold text-emerald-800">
-                    <Check size={16} className="text-emerald-500 shrink-0" aria-hidden="true" />
-                    <span className="min-w-0 break-words leading-tight">
-                        {t('room.freeCancellationUntil', 'إلغاء مجاني حتى')} <span className="font-black text-emerald-900">{deadline.replace('T', ' ')}</span>
-                    </span>
-                </div>
-            ) : (
-                <div className="inline-flex max-w-full items-center gap-2 rounded-xl bg-slate-50 border border-slate-200 px-3 py-2 text-xs font-bold text-slate-600">
-                    <AlertCircle size={16} className="text-slate-400 shrink-0" aria-hidden="true" />
-                        <span className="min-w-0 break-words leading-tight">{t('room.noFreeCancellation', 'لا يوجد إلغاء مجاني مؤكد لهذا العرض')}</span>
-                </div>
-            )}
-            
-            {cancellation?.policies?.length > 0 && (
-                <details className="mt-3 group">
-                    <summary className="cursor-pointer text-xs font-bold text-blue-600 hover:text-blue-700 transition-colors outline-none flex items-center gap-1">
-                        {t('room.cancellationFees', 'رسوم الإلغاء')}
-                    </summary>
-                    <ul className="mt-2 space-y-1.5 rounded-xl bg-slate-50 p-3 text-xs font-medium text-slate-600 border border-slate-100 shadow-sm">
-                        {cancellation.policies.map((policy, index) => (
-                            <li key={index} className="flex flex-wrap items-center justify-between gap-x-3 gap-y-1 border-b border-slate-200/50 pb-1.5 last:border-0 last:pb-0">
-                                <span className="min-w-0 break-words">
-                                    {policy.start_at ? `${t('room.from', 'من')} ${policy.start_at.replace('T', ' ')}` : t('room.beforeNextDeadline', 'قبل الموعد التالي')}
-                                    {policy.end_at ? ` ${t('room.until', 'حتى')} ${policy.end_at.replace('T', ' ')}` : ''}
-                                </span>
-                                <span className="shrink-0 break-words font-bold text-left text-slate-800" dir="ltr">
-                                    {policy.amount} {policy.currency_code || currency}
-                                </span>
-                            </li>
-                        ))}
-                    </ul>
-                </details>
-            )}
-        </div>
-    );
-}
+export { default as CancellationPolicy } from './CancellationPolicy';
 
 export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', displayRates = null }) {
     const { t } = useLanguage();
@@ -156,7 +116,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             />
                         </picture>
                     ) : (
-                        <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-400">
+                        <div className="flex h-full flex-col items-center justify-center gap-2 text-slate-600">
                             <ImageOff size={30} />
                             <span className="px-4 text-center text-xs font-bold">{t('room.photoUnavailable', 'لا توجد صورة حقيقية متاحة لهذه الغرفة')}</span>
                         </div>
@@ -181,10 +141,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                 <div className="flex-1 p-5 sm:p-6 lg:p-7 min-w-0 flex flex-col justify-between">
                     <div>
                         <div className="mb-2 flex flex-wrap items-center gap-2">
-                            {!roomImages.length && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue)]">{t('room.comparable', 'عرض قابل للمقارنة')}</span>}
-                            <div className="flex gap-0.5 text-amber-400">
-                                {Array.from({ length: 5 }).map((_, index) => <StarIcon key={index} size={14} fill="currentColor" />)}
-                            </div>
+                            {!roomImages.length && <span className="rounded-full bg-cyan-50 border border-cyan-100 px-2.5 py-1 text-[10px] font-black text-[var(--remal-blue-strong)]">{t('room.comparable', 'عرض قابل للمقارنة')}</span>}
                         </div>
                         
                         <h3 id={`room-${room.book_hash || room.roomId || room.name}`} className="mb-4 text-2xl font-black leading-snug text-slate-900 transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:group-hover:text-blue-700">
@@ -223,7 +180,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         </div>
                         
                         <div className="mt-5">
-                            <CancellationPolicy cancellation={room.cancellation} currency={room.currency} />
+                            <CancellationPolicy cancellation={room.cancellation} currency={room.currency} rawRate={room.originalRate} contractSource={room.contract_source} />
                         </div>
                     </div>
                 </div>
@@ -234,20 +191,20 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                     <div className="absolute top-0 left-0 w-32 h-32 bg-blue-600/5 rounded-full blur-3xl -translate-x-10 -translate-y-10" />
                     
                     <div aria-live="polite" aria-atomic="true" className="relative z-10 text-right mb-5 lg:mb-6">
-                        <div className="mb-3 inline-flex rounded-full bg-cyan-50 border border-cyan-100 px-3 py-1 text-[10px] font-black text-[var(--remal-blue)] w-fit">
-                            تحقق من السعر والتوفر قبل الدفع
+                        <div className="mb-3 inline-flex rounded-full bg-cyan-50 border border-cyan-100 px-3 py-1 text-[10px] font-black text-[var(--remal-blue-strong)] w-fit">
+                            {t('room.recheckBadge', 'Price and availability checked before payment')}
                         </div>
                             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">{affiliateOffer ? t('room.payAtHotel', 'الدفع في الفندق') : t('room.payNow', 'ادفع الآن بأمان عبر Ziina')}</span>
                         
                         <div className="flex items-baseline justify-end gap-1.5">
-                            {price !== '-' ? (
-                                <PriceDisplay amount={price} currency={room.currency || 'AED'} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl" />
+                            {price !== '-' && room.currency ? (
+                                <PriceDisplay amount={price} currency={room.currency} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900 sm:text-4xl" />
                             ) : (
-                                <span className="text-3xl font-black tracking-tight text-slate-900">-</span>
+                                <span className="text-3xl font-black tracking-tight text-slate-900">{t('room.priceUnavailable', 'Price unavailable')}</span>
                             )}
                         </div>
                         <p className="mt-1 text-xs font-semibold text-slate-500 flex items-center justify-end gap-1">
-                            <Info size={12} /> {t('room.included', 'شامل الضرائب والرسوم')}
+                            <Info size={12} /> {additionalTaxes.length ? t('room.localFeesSeparate', 'Additional local fees shown separately') : t('room.priceForStay', 'Total for this stay')}
                         </p>
 
                         {additionalTaxes.length > 0 && (
