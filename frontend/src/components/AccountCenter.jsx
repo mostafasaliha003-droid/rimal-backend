@@ -215,8 +215,8 @@ export default function AccountCenter({ onNavigate }) {
 
                 <section className="surface-card rounded-3xl p-6 sm:p-8">
                     <div className="flex rounded-2xl bg-slate-100 p-1">
-                        <button type="button" onClick={() => { setMode('login'); setRegisterStep('details'); clearFeedback(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition ${mode === 'login' ? 'bg-white text-[var(--remal-blue)] shadow-sm' : 'text-slate-500'}`}><LogIn size={16} className="mx-auto mb-1" /> {t('account.loginTab', 'تسجيل الدخول')}</button>
-                        <button type="button" onClick={() => { setMode('register'); setRegisterStep('details'); clearFeedback(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition ${mode === 'register' ? 'bg-white text-[var(--remal-blue)] shadow-sm' : 'text-slate-500'}`}><UserPlus size={16} className="mx-auto mb-1" /> {t('account.registerTab', 'حساب جديد')}</button>
+                        <button type="button" onClick={() => { setMode('login'); setRegisterStep('details'); clearFeedback(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition ${mode === 'login' ? 'bg-white text-remal-blue-strong shadow-sm' : 'text-slate-600'}`}><LogIn size={16} className="mx-auto mb-1" /> {t('account.loginTab', 'تسجيل الدخول')}</button>
+                        <button type="button" onClick={() => { setMode('register'); setRegisterStep('details'); clearFeedback(); }} className={`flex-1 rounded-xl px-4 py-3 text-sm font-black transition ${mode === 'register' ? 'bg-white text-remal-blue-strong shadow-sm' : 'text-slate-600'}`}><UserPlus size={16} className="mx-auto mb-1" /> {t('account.registerTab', 'حساب جديد')}</button>
                     </div>
 
                     <div className="mt-7">
@@ -230,7 +230,7 @@ export default function AccountCenter({ onNavigate }) {
                         <form className="mt-6 space-y-4" onSubmit={handleLogin}>
                             <Field label={t('account.email', 'البريد الإلكتروني')} icon={Mail} type="email" required value={loginForm.email} onChange={event => setLoginForm({ ...loginForm, email: event.target.value })} autoComplete="email" />
                             <Field label={t('account.password', 'كلمة المرور')} icon={ShieldCheck} type="password" required value={loginForm.password} onChange={event => setLoginForm({ ...loginForm, password: event.target.value })} autoComplete="current-password" />
-                                <button disabled={busy} className="cta-orange mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-white">
+                                <button disabled={busy} className="cta-orange mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-remal-ink">
                                 {busy ? <LoaderCircle className="animate-spin" size={18} /> : <LogIn size={18} />} {t('account.secureLogin', 'دخول آمن')}
                             </button>
                         </form>
@@ -242,7 +242,7 @@ export default function AccountCenter({ onNavigate }) {
                             <Field label={t('account.email', 'البريد الإلكتروني')} icon={Mail} type="email" required value={registerForm.email} onChange={event => setRegisterForm({ ...registerForm, email: event.target.value })} autoComplete="email" />
                             <Field label={t('account.optionalPhone', 'رقم الهاتف (اختياري)')} icon={Phone} type="tel" value={registerForm.phone} onChange={event => setRegisterForm({ ...registerForm, phone: event.target.value })} autoComplete="tel" />
                             <Field label={t('account.password', 'كلمة المرور')} icon={ShieldCheck} type="password" required minLength={6} value={registerForm.password} onChange={event => setRegisterForm({ ...registerForm, password: event.target.value })} autoComplete="new-password" />
-                            <button disabled={busy} className="cta-orange mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-white">
+                            <button disabled={busy} className="cta-orange mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-remal-ink">
                                 {busy ? <LoaderCircle className="animate-spin" size={18} /> : <Mail size={18} />} {t('account.sendCode', 'إرسال رمز التحقق')}
                             </button>
                         </form>
@@ -255,7 +255,7 @@ export default function AccountCenter({ onNavigate }) {
                                 <span dir="ltr">{registerForm.email}</span>
                             </div>
                             <Field label={t('account.verificationCode', 'رمز التحقق')} type="text" inputMode="numeric" required minLength={6} maxLength={6} value={verificationCode} onChange={event => setVerificationCode(event.target.value.replace(/\D/g, '').slice(0, 6))} autoComplete="one-time-code" />
-                            <button disabled={busy || verificationCode.length !== 6} className="cta-orange mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-white">
+                            <button disabled={busy || verificationCode.length !== 6} className="cta-orange mt-3 flex min-h-12 w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 text-sm font-black text-remal-ink">
                                 {busy ? <LoaderCircle className="animate-spin" size={18} /> : <CheckCircle2 size={18} />} {t('account.activate', 'تفعيل الحساب')}
                             </button>
                             <button type="button" onClick={() => { setRegisterStep('details'); clearFeedback(); }} className="w-full py-2 text-sm font-bold text-slate-500 hover:text-slate-800">

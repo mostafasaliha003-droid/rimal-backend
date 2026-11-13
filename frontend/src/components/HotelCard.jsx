@@ -61,10 +61,10 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                             </picture>
                             {images.length > 1 && (
                                 <div className="absolute inset-0 flex items-center justify-between px-2 opacity-100 transition-opacity duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:md:opacity-0 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:md:group-hover/carousel:opacity-100">
-                                    <button type="button" onClick={previousImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-black/60" aria-label="الصورة السابقة">
+                                    <button type="button" onClick={previousImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-black/60" aria-label={t('room.previousPhoto', 'الصورة السابقة')}>
                                         <ChevronRight size={20} />
                                     </button>
-                                    <button type="button" onClick={nextImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-black/60" aria-label="الصورة التالية">
+                                    <button type="button" onClick={nextImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-black/60" aria-label={t('room.nextPhoto', 'الصورة التالية')}>
                                         <ChevronLeft size={20} />
                                     </button>
                                 </div>
@@ -80,9 +80,9 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                             )}
                         </>
                     ) : (
-                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-400">
+                        <div className="flex h-full w-full flex-col items-center justify-center gap-2 text-slate-600">
                             <ImageOff size={32} />
-                            <span className="text-sm font-medium">الصورة غير متاحة</span>
+                            <span className="text-sm font-medium">{t('room.photoUnavailable', 'الصورة غير متاحة')}</span>
                         </div>
                     )}
 
@@ -120,11 +120,11 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                             {rate && <div className="flex flex-wrap gap-2">
                                 {hasFreeCancellation ? (
                                     <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700">
-                                        <Check size={14} className="shrink-0 text-emerald-500" /> يتوفر إلغاء مجاني
+                                        <Check size={14} className="shrink-0 text-emerald-500" /> {t('results.freeCancellationAvailable', 'يتوفر إلغاء مجاني')}
                                     </div>
                                 ) : (
                                     <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600">
-                                        <AlertCircle size={14} className="shrink-0 text-slate-400" /> راجع شروط الإلغاء
+                                        <AlertCircle size={14} className="shrink-0 text-slate-400" /> {t('results.reviewCancellation', 'راجع شروط الإلغاء')}
                                     </div>
                                 )}
                             </div>}
@@ -132,7 +132,7 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                             {getAmenities(rate).length > 0 && (
                                 <div className="mt-1 flex flex-wrap gap-1.5">
                                     {getAmenities(rate).slice(0, 4).map(amenity => <span key={String(amenity)} className="cursor-default rounded-lg border border-blue-100 bg-blue-50/50 px-2 py-1 text-[11px] font-bold text-blue-800">{amenity}</span>)}
-                                    {getAmenities(rate).length > 4 && <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-400">+{getAmenities(rate).length - 4} مزايا أخرى</span>}
+                                    {getAmenities(rate).length > 4 && <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-600">{t('results.moreBenefits', '+{{count}} مزايا أخرى', { count: getAmenities(rate).length - 4 })}</span>}
                                 </div>
                             )}
 
@@ -145,7 +145,7 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                             <p className="eyebrow mb-1">{t('results.stayStartsAt', 'إجمالي الإقامة يبدأ من')}</p>
                             {rate ? <>
                                 <PriceDisplay amount={rateAmount(rate)} currency={rateCurrency(rate)} displayCurrency={displayCurrency} displayRates={displayRates} className="text-3xl font-black tracking-tight text-slate-900" />
-                                <p className="mt-1 text-[10px] font-bold text-slate-400">{t('results.reviewFees', 'راجع الضرائب والرسوم قبل الدفع')}</p>
+                                <p className="mt-1 text-[10px] font-bold text-slate-600">{t('results.reviewFees', 'راجع الضرائب والرسوم قبل الدفع')}</p>
                             </> : <p className="text-lg font-black text-slate-600">{t('results.offerUnavailable', 'العرض غير متاح')}</p>}
                         </div>
                             {canChoose ? <a href={href} onClick={event => { event.preventDefault(); onSelect(hotel); }} className="cta-red group/btn relative inline-flex min-h-[50px] w-full shrink-0 items-center justify-center gap-2 overflow-hidden rounded-xl px-6 py-2.5 text-sm font-black text-white sm:w-auto">

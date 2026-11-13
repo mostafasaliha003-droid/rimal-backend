@@ -1,4 +1,4 @@
-import { lazy, useEffect, useState } from 'react';
+import { lazy, useEffect, useRef, useState } from 'react';
 import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, Sparkles, X } from 'lucide-react';
 import TopNavigationBar from './components/TopNavigationBar';
 import HeroSearchSection from './components/HeroSearchSection';
@@ -98,6 +98,7 @@ export default function App() {
     const [maxPrice, setMaxPrice] = useState('');
     const [freeCancellation, setFreeCancellation] = useState(false);
     const [limit, setLimit] = useState(20);
+    const filterOverviewRef = useRef(null);
 
     useEffect(() => {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
@@ -129,6 +130,16 @@ export default function App() {
         Boolean(starFilter),
         amenityFilter
     ].filter(Boolean).length;
+    const activeFilters = [
+        maxPrice ? { key: 'price', label: t('results.maxPriceChip', 'السعر حتى {{amount}} {{currency}}', { amount: maxPrice, currency: SEARCH_CURRENCY }), remove: () => setMaxPrice('') } : null,
+        freeCancellation ? { key: 'cancellation', label: t('results.freeCancellation', 'إلغاء مجاني فقط'), remove: () => setFreeCancellation(false) } : null,
+        starFilter ? { key: 'stars', label: t('results.starsChip', '{{count}} نجوم أو أكثر', { count: starFilter }), remove: () => setStarFilter(0) } : null,
+        amenityFilter ? { key: 'amenities', label: t('results.roomBenefits', 'مزايا الغرفة'), remove: () => setAmenityFilter(false) } : null
+    ].filter(Boolean);
+    const removeFilter = remove => {
+        remove();
+        requestAnimationFrame(() => (filterOverviewRef.current || document.getElementById('results-title'))?.focus({ preventScroll: true }));
+    };
 
     useEffect(() => {
         const isMobile = window.matchMedia('(max-width: 1023px)').matches;
@@ -359,7 +370,7 @@ export default function App() {
                     <div className="mb-10 flex flex-col gap-5 border-b border-slate-200 pb-8 sm:flex-row sm:items-end sm:justify-between">
                         <div>
                             <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-blue-600">{searched ? t('results.searchResults', 'نتائج البحث') : t('results.remalPicks', 'اختيارات رمال')}</p>
-                            <h2 className="text-3xl font-black tracking-tight sm:text-4xl">{t('results.heading', 'فنادق تحسّها على كيفك')}</h2>
+                            <h2 id="results-title" tabIndex={-1} className="text-3xl font-black tracking-tight sm:text-4xl">{t('results.heading', 'فنادق تحسّها على كيفك')}</h2>
                             <p className="mt-2 text-sm font-semibold text-slate-500">{searched ? t('results.searchedCount', `${visibleHotels.length} فندق متاح حسب بحثك`, { count: visibleHotels.length }) : t('results.initialSubheading', 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية')}</p>
                         </div>
                         <div className="hidden flex-wrap items-center gap-4 lg:flex">
@@ -393,16 +404,15 @@ export default function App() {
                                     
                                     {/* Price Filter Accordion */}
                                     <div className="p-5">
-                                        <button type="button" onClick={() => setPriceFilterOpen(!priceFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
+                                        <button type="button" aria-expanded={priceFilterOpen} aria-controls="price-filter-options" onClick={() => setPriceFilterOpen(!priceFilterOpen)} className="flex min-h-11 w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
                                             {t('results.price', 'السعر والخيارات الأساسية')}
                                             {priceFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                                         </button>
                                         
-                                        {priceFilterOpen && (
-                                            <div className="filter-reveal mt-5 space-y-5">
+                                            <div id="price-filter-options" hidden={!priceFilterOpen} className="filter-reveal mt-5 space-y-5">
                                                 <div className="space-y-3">
-                                                    <label className="block text-xs font-bold text-slate-500 uppercase tracking-wider">{t('results.maxPrice', 'الحد الأعلى للسعر')} ({SEARCH_CURRENCY})</label>
-                                                    <input type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 font-bold outline-none transition-[background-color,border-color,box-shadow] duration-150 ease-out placeholder:text-slate-300 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-white" />
+                                                    <label htmlFor="maximum-stay-price" className="block text-xs font-bold text-slate-600 uppercase tracking-wider">{t('results.maxPrice', 'الحد الأعلى للسعر')} ({SEARCH_CURRENCY})</label>
+                                                    <input id="maximum-stay-price" type="number" min="0" inputMode="decimal" value={maxPrice} onChange={event => setMaxPrice(event.target.value)} placeholder="0.00" className="w-full rounded-xl border border-slate-200 bg-slate-50/50 p-3.5 font-bold outline-none transition-[background-color,border-color,box-shadow] duration-150 ease-out placeholder:text-slate-500 focus:border-blue-500 focus:ring-1 focus:ring-blue-500 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-white" />
                                                 </div>
 
                                                 <label className="flex items-center justify-between cursor-pointer group bg-slate-50 hover:bg-blue-50/50 p-3 rounded-xl transition-colors border border-slate-100 hover:border-blue-100">
@@ -413,18 +423,16 @@ export default function App() {
                                                     </div>
                                                 </label>
                                             </div>
-                                        )}
                                     </div>
 
                                     {/* Stars Filter Accordion */}
                                     <div className="p-5">
-                                        <button type="button" onClick={() => setStarsFilterOpen(!starsFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
+                                        <button type="button" aria-expanded={starsFilterOpen} aria-controls="star-filter-options" onClick={() => setStarsFilterOpen(!starsFilterOpen)} className="flex min-h-11 w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
                                             {t('results.stars', 'تصنيف الفندق (نجوم)')}
                                             {starsFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                                         </button>
                                         
-                                        {starsFilterOpen && (
-                                            <div className="filter-reveal mt-5">
+                                            <div id="star-filter-options" hidden={!starsFilterOpen} className="filter-reveal mt-5">
                                                 <div className="flex gap-2">
                                                     {[3, 4, 5].map((star) => (
                                                         <button type="button" aria-pressed={starFilter === star} onClick={() => setStarFilter(starFilter === star ? 0 : star)} key={star} className={`flex flex-1 items-center justify-center gap-1.5 rounded-xl border p-2.5 text-sm font-black transition-[transform,box-shadow,border-color,background-color,color] duration-300 ease-out motion-reduce:transition-none ${starFilter === star ? 'scale-[1.02] border-amber-400 bg-amber-50 text-amber-800 shadow-sm' : 'border-slate-200 bg-slate-50 text-slate-500 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:border-amber-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-white motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:text-amber-700'}`}>
@@ -433,18 +441,16 @@ export default function App() {
                                                     ))}
                                                 </div>
                                             </div>
-                                        )}
                                     </div>
 
                                     {/* Amenities Filter Accordion */}
                                     <div className="p-5">
-                                        <button type="button" onClick={() => setAmenitiesFilterOpen(!amenitiesFilterOpen)} className="flex w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
+                                        <button type="button" aria-expanded={amenitiesFilterOpen} aria-controls="amenity-filter-options" onClick={() => setAmenitiesFilterOpen(!amenitiesFilterOpen)} className="flex min-h-11 w-full items-center justify-between text-sm font-black text-slate-800 hover:text-blue-600 transition-colors">
                                             {t('results.roomBenefits', 'مزايا الغرفة')}
                                             {amenitiesFilterOpen ? <ChevronUp size={18} className="text-slate-400" /> : <ChevronDown size={18} className="text-slate-400" />}
                                         </button>
                                         
-                                        {amenitiesFilterOpen && (
-                                            <div className="filter-reveal mt-5">
+                                            <div id="amenity-filter-options" hidden={!amenitiesFilterOpen} className="filter-reveal mt-5">
                                                 <label className="flex items-center gap-3 cursor-pointer group p-2 hover:bg-slate-50 rounded-lg transition-colors -mx-2">
                                                     <div className="relative flex items-center justify-center">
                                                         <input type="checkbox" checked={amenityFilter} onChange={(event) => setAmenityFilter(event.target.checked)} className="peer sr-only" />
@@ -454,25 +460,30 @@ export default function App() {
                                                     <span className="text-sm font-bold text-slate-700 group-hover:text-blue-700 transition-colors">{t('results.roomBenefits', 'يحتوي على مزايا للغرفة')}</span>
                                                 </label>
                                             </div>
-                                        )}
                                     </div>
 
                                 </div>
                                 <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-5 py-4 lg:hidden">
                                     <span className="text-sm font-bold text-slate-500">{activeFilterCount ? t('results.activeFilters', '{{count}} فلاتر مفعّلة', { count: activeFilterCount }) : t('results.noActiveFilters', 'لا توجد فلاتر مفعّلة')}</span>
-                                    <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-xl bg-[var(--remal-orange)] px-6 text-sm font-black text-white shadow-sm hover:bg-[#d86522]">{t('results.showResults', 'عرض النتائج')}</button>
+                                    <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-xl bg-[var(--remal-orange)] px-6 text-sm font-black text-remal-ink shadow-sm hover:bg-[#d86522]">{t('results.showResults', 'عرض النتائج')}</button>
                                 </div>
                             </div>
                         </aside>
 
                         {/* Search Results Area */}
                         <div className="min-w-0 space-y-6 pb-20 lg:pb-0">
+                            {activeFilters.length > 0 && <section ref={filterOverviewRef} tabIndex={-1} data-active-filter-overview aria-label={t('results.appliedFilters', 'الفلاتر المطبقة')} className="rounded-2xl border border-slate-200 bg-white p-4 focus-visible:outline focus-visible:outline-2 focus-visible:outline-remal-blue-strong">
+                                <p className="mb-3 text-sm font-bold text-slate-700">{t('results.activeFilters', '{{count}} فلاتر مفعّلة', { count: activeFilterCount })}</p>
+                                <ul className="flex flex-wrap gap-2">
+                                    {activeFilters.map(filter => <li key={filter.key} className="min-w-0 max-w-full"><button type="button" data-remove-filter={filter.key} onClick={() => removeFilter(filter.remove)} aria-label={t('results.removeFilter', 'إزالة الفلتر: {{label}}', { label: filter.label })} className="flex min-h-11 max-w-full items-center gap-2 rounded-full border border-slate-200 bg-slate-50 px-3 py-2 text-start text-sm font-bold text-slate-800 hover:bg-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-remal-blue-strong"><span className="min-w-0 break-words">{filter.label}</span><X size={16} aria-hidden="true" className="shrink-0" /></button></li>)}
+                                </ul>
+                            </section>}
                             
                             {/* Best Price Highlight Banner */}
                             {lowestHotel && visibleHotels.length > 1 && (
                                 <div className="flex flex-wrap items-center justify-between gap-4 rounded-2xl bg-gradient-to-r from-emerald-50 to-teal-50 p-5 border border-emerald-100/50 shadow-sm">
                                     <div className="min-w-0">
-                                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-600">{t('results.bestFilteredTotal', 'أقل إجمالي مطابق للفلاتر')}</p>
+                                        <p className="text-[11px] font-black uppercase tracking-wider text-emerald-800">{t('results.bestFilteredTotal', 'أقل إجمالي مطابق للفلاتر')}</p>
                                         <p className="mt-1 break-words text-lg font-black text-emerald-900">{lowestHotel.name}</p>
                                     </div>
                                     <PriceDisplay amount={rateAmount(cheapestRate(lowestHotel.rates))} currency={SEARCH_CURRENCY} displayCurrency={displayCurrency} displayRates={displayRates} className="text-2xl font-black text-emerald-700 tracking-tight" />
@@ -482,13 +493,13 @@ export default function App() {
                             {selectedHotel ? (
                                 <>
                                     <button type="button" onClick={() => setSelectedHotel(null)} className="flex items-center gap-2 text-sm font-black text-blue-600 hover:text-blue-800 transition-colors">
-                                        <ChevronLeft size={18} /> العودة للنتائج
+                                        <ChevronLeft size={18} /> {t('hotel.back', 'العودة للنتائج')}
                                     </button>
                                     <h2 className="text-3xl font-black text-slate-900">{selectedHotel.name}</h2>
                                     {!hotelPage && !error && (
                                         <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-20 shadow-sm border border-slate-100 gap-4">
                                             <LoaderCircle size={40} className="animate-spin text-blue-600" />
-                                            <span className="font-bold text-slate-500">جارٍ تحميل الغرف المتاحة...</span>
+                                            <span className="font-bold text-slate-600">{t('results.roomsLoading', 'جارٍ تحميل الغرف المتاحة...')}</span>
                                         </div>
                                     )}
                                     {error && <p role="alert" className="rounded-2xl bg-red-50 p-6 text-sm font-bold text-red-600 border border-red-100">{error}</p>}
@@ -497,13 +508,13 @@ export default function App() {
                             ) : loading ? (
                                 <div role="status" className="flex flex-col items-center justify-center gap-4 rounded-3xl bg-white p-24 shadow-sm border border-slate-100">
                                     <LoaderCircle size={48} className="animate-spin text-blue-600" />
-                                    <span className="font-black text-slate-600 text-lg">جارٍ البحث عن أفضل العروض...</span>
+                                    <span className="font-black text-slate-600 text-lg">{t('search.searching', 'جارٍ البحث عن أفضل العروض...')}</span>
                                 </div>
                             ) : error ? (
                                 <div role="alert" className="rounded-3xl bg-red-50 p-10 text-center border border-red-100">
                                     <AlertCircle size={40} className="mx-auto text-red-500 mb-4" />
                                     <p className="font-bold text-red-900 text-lg">{error}</p>
-                                    <button onClick={() => setSearchParams({ ...searchParams })} className="mt-6 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 transition-colors">إعادة المحاولة</button>
+                                    <button onClick={() => setSearchParams({ ...searchParams })} className="mt-6 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 transition-colors">{t('results.retry', 'إعادة المحاولة')}</button>
                                 </div>
                             ) : visibleHotels.length ? (
                                 <ul aria-label={t('results.hotelList', 'قائمة الفنادق')} className="grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto overscroll-x-contain snap-x snap-proximity scroll-px-4 px-4 py-4 touch-auto md:auto-cols-auto md:grid-flow-row md:grid-cols-1 md:overflow-visible md:snap-none md:space-y-6">
