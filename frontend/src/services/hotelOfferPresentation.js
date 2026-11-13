@@ -50,8 +50,11 @@ export function mergeHotelPresentation(staticValue, liveValue, expectedHid, lang
         merged[field] = translated || text(liveHotel[field]) || text(staticHotel[field])
             || text(staticHotel.staticData?.[field]) || text(liveHotel.staticData?.[field]);
     }
-    const translatedDescription = staticHotel.resolvedLanguage === language ? hotelDescription(staticHotel) : '';
-    merged.description = translatedDescription || hotelDescription(liveHotel) || hotelDescription(staticHotel);
+    const staticDescription = hotelDescription(staticHotel), liveDescription = hotelDescription(liveHotel);
+    const translatedDescription = staticHotel.resolvedLanguage === language ? staticDescription : '';
+    merged.description = translatedDescription || liveDescription || staticDescription;
+    const descriptionSource = translatedDescription || !liveDescription ? staticHotel : liveHotel;
+    merged.descriptionLanguage = ['ar', 'en', 'es'].includes(descriptionSource.resolvedLanguage) ? descriptionSource.resolvedLanguage : undefined;
     merged.images = [...new Set([...hotelImages(staticHotel), ...hotelImages(liveHotel)])];
     for (const field of ['room_groups', 'rooms', 'amenity_groups', 'amenities']) {
         if ((!Array.isArray(merged[field]) || !merged[field].length) && Array.isArray(staticHotel[field])) merged[field] = staticHotel[field];

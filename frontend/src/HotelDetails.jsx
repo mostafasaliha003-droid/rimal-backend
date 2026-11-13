@@ -286,7 +286,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                         {/* About & Amenities Card */}
                         <article className="rounded-3xl bg-white p-6 shadow-sm border border-slate-100 sm:p-8">
                             <h2 className="text-2xl font-black text-slate-900">{t('hotel.about', 'عن هذا المكان')}</h2>
-                            {hotel?.description ? <p className="mt-4 whitespace-pre-line leading-relaxed text-slate-600 font-medium">{hotel.description}</p>
+                            {hotel?.description ? <p lang={hotel.descriptionLanguage} className="mt-4 whitespace-pre-line leading-relaxed text-slate-600 font-medium">{hotel.description}</p>
                                 : <p className="mt-4 text-sm text-slate-600">{t('hotel.descriptionUnavailable', 'A description has not been supplied for this property.')}</p>}
                             
                             <hr className="my-8 border-slate-100" />

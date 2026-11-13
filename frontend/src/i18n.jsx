@@ -996,6 +996,14 @@ const translations = {
 // Functional labels share the existing content and selected interface language.
 Object.assign(translations.ar, {
     "nav.explore": "استكشف الفنادق",
+    "checkout.checkin": "تسجيل الوصول",
+    "checkout.checkout": "تسجيل المغادرة",
+    "room.defaultName": "غرفة فندقية",
+    "room.cancellationFees": "رسوم الإلغاء",
+    "room.from": "من",
+    "room.until": "حتى",
+    "room.beforeNextDeadline": "قبل الموعد التالي",
+    "room.freeCancellationUntil": "إلغاء مجاني حتى",
     "checkout.hotelPayment": "تدفع في الفندق وفق شروط العرض",
     "checkout.affiliateCurrency": "سعر الفندق بالعملة: {{currency}}. لا يتم إرسال هذا الحجز إلى Ziina.",
     "checkout.affiliateUnavailable": "حجز الدفع في الفندق غير متاح لهذا العرض حالياً.",

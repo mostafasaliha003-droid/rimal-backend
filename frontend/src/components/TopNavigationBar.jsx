@@ -48,7 +48,7 @@ export default function TopNavigationBar({ currency = SEARCH_CURRENCY, onCurrenc
                         <img src={brandLogo.src} srcSet={brandLogo.srcSet} sizes="40px" width={40} height={40} alt={t('nav.logoAlt', 'شعار رمال الدولية')} className="h-10 w-10 rounded-2xl border border-white/20 bg-white object-cover shadow-sm" onError={event => { event.currentTarget.style.display = 'none'; }} />
                         <div className="min-w-0 leading-none">
                             <div className="break-words text-lg font-black tracking-tight">رمال <span className="text-remal-blue">وفِلّها</span></div>
-                            <div className="mt-1 break-words text-[9px] font-bold uppercase tracking-[0.24em] text-white/45">{t('nav.brandTagline', 'إقامتك تبدأ من هنا')}</div>
+                            <div className="mt-1 break-words text-[9px] font-bold uppercase tracking-[0.24em] text-white/90">{t('nav.brandTagline', 'إقامتك تبدأ من هنا')}</div>
                         </div>
                     </a>
                 </div>

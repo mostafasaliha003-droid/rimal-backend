@@ -63,6 +63,14 @@ test('nested supplier content is unwrapped and absence stays explicit', () => {
     assert.deepEqual(hotelAmenities({}), []);
 });
 
+test('description language follows the selected supplier source without assuming a translation', () => {
+    const english = { hid: 10, resolvedLanguage: 'en', description_struct: [{ paragraphs: ['English supplier description'] }] };
+    assert.equal(mergeHotelPresentation(english, {}, 10, 'ar').descriptionLanguage, 'en');
+    const liveArabic = { hid: 10, resolvedLanguage: 'ar', description: 'Supplied Arabic description' };
+    assert.equal(mergeHotelPresentation(english, liveArabic, 10, 'ar').descriptionLanguage, 'ar');
+    assert.equal(mergeHotelPresentation(english, { hid: 10, description: 'Unlabelled supplied text' }, 10, 'ar').descriptionLanguage, undefined);
+});
+
 test('ETG cancellation timestamps use documented UTC, preserve explicit offsets and reject malformed dates', () => {
     assert.equal(etgPolicyInstant('2027-02-15T12:30:00'), '2027-02-15T12:30:00.000Z');
     assert.equal(etgPolicyInstant('2027-02-15T12:30:00+04:00'), '2027-02-15T08:30:00.000Z');
