@@ -425,6 +425,9 @@ export default function App() {
                         {/* Filters Sidebar (Clean UI & Progressive Disclosure) */}
                         <FilterPanel ref={filterPanelRef} id="search-filters" aria-modal={mobileFilters && filtersOpen ? 'true' : undefined} aria-labelledby="search-filters-title"
                             onCancel={event => { event.preventDefault(); setFiltersOpen(false); }} onKeyDown={trapFilterFocus}
+                            onTransitionEnd={event => {
+                                if (mobileFilters && filtersOpen && event.target === event.currentTarget && !event.currentTarget.contains(document.activeElement)) filterCloseRef.current?.focus({ preventScroll: true });
+                            }}
                             onClick={event => {
                                 if (!mobileFilters || event.target !== event.currentTarget) return;
                                 const bounds = event.currentTarget.getBoundingClientRect();
