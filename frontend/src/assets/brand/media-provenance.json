@@ -20,8 +20,14 @@
     "hero": {
       "resize": "full original aspect ratio; Lanczos",
       "avif": {
-        "quality": 55,
-        "speed": 6
+        "speed": 6,
+        "qualityByWidth": {
+          "640": 45,
+          "768": 45,
+          "960": 45,
+          "1440": 55,
+          "2200": 55
+        }
       },
       "webp": {
         "quality": 80,
@@ -59,8 +65,8 @@
     },
     {
       "file": "frontend\\src\\assets\\brand\\hero-640.avif",
-      "bytes": 48565,
-      "sha256": "c40d84c34060566ef321cdf4f0e78c3e23d167689bb892784e5d4d7db12a064f"
+      "bytes": 35587,
+      "sha256": "95c997e72ce619883429b70e699c3d0327a7f8a79466eaa8e023831290b82cbc"
     },
     {
       "file": "frontend\\src\\assets\\brand\\hero-640.webp",
@@ -68,9 +74,19 @@
       "sha256": "b9779b7dbeb87618a9e2baa8fcb77bd2fc2bf1b6428999e9ac7ba788e2fdd4ec"
     },
     {
+      "file": "frontend\\src\\assets\\brand\\hero-768.avif",
+      "bytes": 46840,
+      "sha256": "b16179d2daff7c9d66f2b701289ade96a4828e864cf7747ece6bee15e30f51bc"
+    },
+    {
+      "file": "frontend\\src\\assets\\brand\\hero-768.webp",
+      "bytes": 103092,
+      "sha256": "37bc57f04637a7d6318197f0f1fadf07098acc9698ca0ba3f4671791745f91ad"
+    },
+    {
       "file": "frontend\\src\\assets\\brand\\hero-960.avif",
-      "bytes": 91339,
-      "sha256": "a6af75efcf813c500f98d817866a043eb51a903b6af37d0f40735009a50674d5"
+      "bytes": 65052,
+      "sha256": "7485794cba6ef5c108bcab4c5fce959032106aab4ebe734addae55aa3408e459"
     },
     {
       "file": "frontend\\src\\assets\\brand\\hero-960.webp",

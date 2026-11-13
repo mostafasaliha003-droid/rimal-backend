@@ -3,21 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-400-arabic.woff2" crossorigin />
-    <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-400-latin.woff2" crossorigin />
+    <link id="home-hero-preload" rel="preload" as="image" type="image/avif" fetchpriority="high" media="not all" href="/src/assets/brand/hero-768.avif"
+      imagesrcset="/src/assets/brand/hero-640.avif 640w, /src/assets/brand/hero-768.avif 768w, /src/assets/brand/hero-960.avif 960w, /src/assets/brand/hero-1440.avif 1440w, /src/assets/brand/hero-2200.avif 2200w" imagesizes="100vw" />
+    <script>
+      if (location.pathname === '/' || location.pathname === '/index.html') {
+        document.getElementById('home-hero-preload').media = 'all';
+      }
+    </script>
     <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-500-arabic.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-500-latin.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-700-arabic.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-700-latin.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-900-arabic.woff2" crossorigin />
     <link rel="preload" as="font" type="font/woff2" href="/src/assets/brand/tajawal-900-latin.woff2" crossorigin />
-    <link id="home-hero-preload" rel="preload" as="image" type="image/avif" fetchpriority="high" media="not all" href="/src/assets/brand/hero-960.avif"
-      imagesrcset="/src/assets/brand/hero-640.avif 640w, /src/assets/brand/hero-960.avif 960w, /src/assets/brand/hero-1440.avif 1440w, /src/assets/brand/hero-2200.avif 2200w" imagesizes="100vw" />
-    <script>
-      if (location.pathname === '/' || location.pathname === '/index.html') {
-        document.getElementById('home-hero-preload').media = 'all';
-      }
-    </script>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com;">
     <meta name="theme-color" content="#112331" />
     <meta name="description" content="ابحث عن إقامة مناسبة مع رمال. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة بالدرهم الإماراتي." />

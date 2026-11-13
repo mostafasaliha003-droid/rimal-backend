@@ -41,6 +41,8 @@ export default function LazyDatePicker(props) {
                 open: openRef.current,
                 arrow: arrowRef.current
             };
+        } else if (!node) {
+            focusRef.current = null;
         }
         inputRef.current = node;
     }, []);
@@ -68,6 +70,8 @@ export default function LazyDatePicker(props) {
                 open: openRef.current,
                 arrow: arrowRef.current
             };
+        } else {
+            focusRef.current = null;
         }
         setCalendar(() => Component);
     };
