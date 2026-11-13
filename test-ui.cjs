@@ -61,10 +61,28 @@ async function run() {
     const hasRole = (node, role) => node?.role === role || (node?.children || []).some(child => hasRole(child, role));
     const checkMobileFilterDialog = async language => {
         await page.setViewport({ width: 390, height: 844 });
+        await page.$eval('#results-heading', heading => heading.scrollIntoView({ block: 'start' }));
+        await page.waitForFunction(() => {
+            const trigger = document.querySelector('button[aria-controls="search-filters"]');
+            const bounds = trigger?.getBoundingClientRect();
+            return bounds && trigger.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        });
         assert(hasRole(await page.accessibility.snapshot({ interestingOnly: false }), 'banner'));
         await page.click('button[aria-controls="search-filters"]');
-        await page.waitForFunction(() => document.querySelector('#search-filters')?.matches(':modal')
-            && document.querySelector('#search-filters')?.contains(document.activeElement));
+        try {
+            await page.waitForFunction(() => document.querySelector('#search-filters')?.matches(':modal')
+                && document.querySelector('#search-filters')?.contains(document.activeElement), { timeout: 5000 });
+        } catch (error) {
+            console.error('Filter dialog readiness:', await page.evaluate(() => {
+                const panel = document.querySelector('#search-filters');
+                const trigger = document.querySelector('button[aria-controls="search-filters"]');
+                const bounds = trigger?.getBoundingClientRect();
+                return { panel: panel?.outerHTML.slice(0, 500), active: document.activeElement?.outerHTML.slice(0, 500),
+                    expanded: trigger?.getAttribute('aria-expanded'), hit: bounds && document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2)?.outerHTML.slice(0, 500) };
+            }), errors);
+            await page.screenshot({ path: 'frontend/dist/test-filter-dialog-failure.png' });
+            throw error;
+        }
         assert.equal(await page.$eval('#search-filters', panel => panel.tagName), 'DIALOG');
         assert.equal(await page.$eval('#search-filters', panel => panel.getAttribute('aria-modal')), 'true');
         assert.equal(await page.$eval('#search-filters button[aria-label]', button => document.activeElement === button), true);
