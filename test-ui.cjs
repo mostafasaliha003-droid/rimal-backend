@@ -63,6 +63,14 @@ async function run() {
     let exchangeRequests = 0;
     const suggestionRequests = [];
     page.on('pageerror', error => errors.push(error.message));
+    const clickUnobstructed = async selector => {
+        await page.$eval(selector, element => element.scrollIntoView({ block: 'center', behavior: 'instant' }));
+        await page.waitForFunction(value => {
+            const element = document.querySelector(value), bounds = element?.getBoundingClientRect();
+            return bounds && element.contains(document.elementFromPoint(bounds.x + bounds.width / 2, bounds.y + bounds.height / 2));
+        }, {}, selector);
+        await page.click(selector);
+    };
     const hasRole = (node, role) => node?.role === role || (node?.children || []).some(child => hasRole(child, role));
     const checkMobileFilterDialog = async language => {
         await page.setViewport({ width: 390, height: 844 });
@@ -438,9 +446,10 @@ async function run() {
         await page.type('#guest-last-name', 'Test');
         await page.type('#guest-email', 'local@example.test');
         await page.type('#guest-phone', '+971501234567');
-        await page.click('form input[type="checkbox"]');
+        await clickUnobstructed('form input[type="checkbox"]');
+        assert.equal(await page.$eval('form input[type="checkbox"]', input => input.checked), true);
         assert.equal(await page.$eval('button[type="submit"]', element => element.disabled), false);
-        await page.click('button[type="submit"]');
+        await clickUnobstructed('button[type="submit"]');
         await page.waitForFunction(() => location.search.includes('payment=success'));
         assert.equal(paymentRequests, 1);
         assert.equal(paymentPayload.currency, 'AED');
@@ -482,8 +491,9 @@ async function run() {
         await page.type('#guest-last-name', 'Test');
         await page.type('#guest-email', 'local@example.test');
         await page.type('#guest-phone', '+971501234567');
-        await page.click('form input[type="checkbox"]');
-        await page.click('button[type="submit"]');
+        await clickUnobstructed('form input[type="checkbox"]');
+        assert.equal(await page.$eval('form input[type="checkbox"]', input => input.checked), true);
+        await clickUnobstructed('button[type="submit"]');
         await page.waitForFunction(() => location.search.includes('payment=success'));
         assert.equal(paymentRequests, 2);
         assert.equal(paymentPayload.currency, 'USD');
@@ -509,8 +519,9 @@ async function run() {
         await page.type('#guest-last-name', 'Guest');
         await page.type('#guest-email', 'affiliate@example.test');
         await page.type('#guest-phone', '+971501112233');
-        await page.click('form input[type="checkbox"]');
-        await page.click('button[type="submit"]');
+        await clickUnobstructed('form input[type="checkbox"]');
+        assert.equal(await page.$eval('form input[type="checkbox"]', input => input.checked), true);
+        await clickUnobstructed('button[type="submit"]');
         await page.waitForFunction(() => location.search.includes('affiliate=pending'));
         assert.equal(affiliateBookingRequests, 1);
         assert.equal(affiliateBookingPayload.expected_price, '80');
