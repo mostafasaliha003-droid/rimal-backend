@@ -1,0 +1,26 @@
+{
+  "date": "2026-11-13",
+  "branch": "codex/ota-ux-20261113",
+  "scope": "Frontend performance, accessibility and presentation; existing booking and payment contracts retained",
+  "publishedPageCommit": "1e17fa9cce2706733f1feb75feef3e7b48c07f6d",
+  "publishedFrontendRuntimeSource": "65e14cc",
+  "sourceAlignment": "The published assets still implement 65e14cc. Main contains two unbuilt frontend changes: customer_display amount/currency precedence and prebook tolerance 0. This UX release deliberately retains the published supplier amount/currency behavior and tolerance 2, preventing a UI rebuild from activating unrelated business changes.",
+  "protectedContracts": [
+    "Supplier amount and currency selection match the published runtime",
+    "B2B prebook tolerance remains 2",
+    "Every supplier offer and its contract/hash identity remain available",
+    "Checkout total, currency, guest and room payloads are unchanged",
+    "Payment idempotency and private status authorization are unchanged",
+    "Affiliate and B2B request paths remain separate"
+  ],
+  "reviewHost": {
+    "start": "node scripts/serve-ux-preview.cjs",
+    "bindForRender": "REMAL_UX_BIND=0.0.0.0",
+    "frontendApiForReviewBuild": "VITE_API_BASE_URL=/api",
+    "purpose": "Read-only frontend review; does not start server.js or connect directly to a database",
+    "financialAndAccountWrites": "Blocked",
+    "paymentAvailability": "Forced disabled in review only",
+    "indexing": "X-Robots-Tag noindex, nofollow"
+  },
+  "validationBoundary": "Mocked browser tests exercise payment/booking states without real orders or charges. Real search/hotelpage/prebook observations are read-only. Lab Lighthouse is not field INP; no unconditional WCAG conformance claim."
+}
