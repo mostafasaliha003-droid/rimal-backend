@@ -3,6 +3,19 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <link id="home-hero-preload" rel="preload" as="image" type="image/avif" fetchpriority="high" media="not all" href="/assets/hero-768-BXMazSiL.avif"
+      imagesrcset="/assets/hero-640-D0SQmyHK.avif 640w, /assets/hero-768-BXMazSiL.avif 768w, /assets/hero-960-BPnYr2TO.avif 960w, /assets/hero-1440-BaOScQVR.avif 1440w, /assets/hero-2200-BaEj4HGr.avif 2200w" imagesizes="100vw" />
+    <script>
+      if (location.pathname === '/' || location.pathname === '/index.html') {
+        document.getElementById('home-hero-preload').media = 'all';
+      }
+    </script>
+    <link rel="preload" as="font" type="font/woff2" href="/assets/tajawal-500-arabic-BZ8ojJNu.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/assets/tajawal-500-latin-CoYeBiSI.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/assets/tajawal-700-arabic-D2-eand5.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/assets/tajawal-700-latin-BypgxfGb.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/assets/tajawal-900-arabic-MgmkhdPX.woff2" crossorigin />
+    <link rel="preload" as="font" type="font/woff2" href="/assets/tajawal-900-latin-DURQZvFY.woff2" crossorigin />
     <meta http-equiv="Content-Security-Policy" content="default-src 'self' 'unsafe-inline' 'unsafe-eval' https: data: blob:; script-src 'self' 'unsafe-inline' 'unsafe-eval' https://static.cloudflareinsights.com;">
     <meta name="theme-color" content="#112331" />
     <meta name="description" content="ابحث عن إقامة مناسبة مع رمال. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة بالدرهم الإماراتي." />
@@ -10,10 +23,12 @@
     <link rel="icon" type="image/png" href="/icon-192.png" />
     <link rel="apple-touch-icon" href="/icon-192.png" />
     <title>رمال وفِلّها | حجوزات الفنادق</title>
-    <script type="module" crossorigin src="/assets/index-NwcgQhR6.js"></script>
-    <link rel="modulepreload" crossorigin href="/assets/bookingApi-GFsRkaRr.js">
-    <link rel="modulepreload" crossorigin href="/assets/arrow-left-CTmvhdf6.js">
-    <link rel="stylesheet" crossorigin href="/assets/index-B3w49qcU.css">
+    <script type="module" crossorigin src="/assets/index-CiEbgGcU.js"></script>
+    <link rel="modulepreload" crossorigin href="/assets/jsx-runtime-Bzw2jH9X.js">
+    <link rel="modulepreload" crossorigin href="/assets/bookingApi-CxyyRJM9.js">
+    <link rel="modulepreload" crossorigin href="/assets/arrow-left-BZ9FUYVm.js">
+    <link rel="stylesheet" crossorigin href="/assets/index-BExDSuox.css">
+    <meta name="remal-revision" content="6ef44a8cc9df8048d5c27c2892182c911233b80b">
   </head>
   <body>
     <div id="root"></div>

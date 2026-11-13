@@ -213,7 +213,7 @@ async function run() {
                 else { paymentRequests++; return request.abort(); }
                 return request.respond({ status: 200, contentType: 'application/json', headers, body: JSON.stringify(body) });
             }
-            if (url.origin === base || ['images.unsplash.com', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)) return request.continue();
+            if (['data:', 'blob:'].includes(url.protocol) || url.origin === base || ['images.unsplash.com', 'fonts.googleapis.com', 'fonts.gstatic.com'].includes(url.hostname)) return request.continue();
             return request.abort();
         });
         await page.setViewport({ width: 1440, height: 1000 });
@@ -382,7 +382,7 @@ async function run() {
         await page.waitForSelector('article');
         assert.deepEqual(lastSearch.hids, [2]);
         assert.equal(lastSearch.currency, 'USD');
-        await page.click('#results-heading article a.cta-red');
+        await clickUnobstructed('#results-heading article a.cta-red');
         await page.waitForFunction(() => location.pathname.startsWith('/hotel/'));
         await page.waitForSelector('article[aria-labelledby^="room-"] button', { visible: true });
         assert.match(await page.title(), /Test Hotel 60/);
@@ -509,7 +509,7 @@ async function run() {
         const ziinaIntentCountBeforeAffiliate = paymentRequests;
         await page.goto(`${base}/hotel/2?${affiliateSearch}`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('article[data-contract-source="affiliate"] button.cta-red:not([disabled])');
-        await page.click('article[data-contract-source="affiliate"] button.cta-red:not([disabled])');
+        await clickUnobstructed('article[data-contract-source="affiliate"] button.cta-red:not([disabled])');
         await page.waitForFunction(() => location.pathname === '/checkout');
         await page.waitForSelector('#guest-first-name');
         await page.waitForFunction(() => document.querySelector('button[type="submit"]')?.disabled === false);
