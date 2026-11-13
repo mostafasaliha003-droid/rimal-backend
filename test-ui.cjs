@@ -18,11 +18,12 @@ const hotels = [
     { hid: 2, name: 'Test Hotel 60', stars: 3, rates: [rate(312), rate(1, 'AED'), rate(60)] },
     { hid: 3, name: 'Test Hotel 68', stars: 5, rates: [rate(68)] }
 ];
-const search = { query: 'Dubai', destination: { label: 'Dubai', type: 'region', region_id: 6053839 }, checkin: '2099-10-15', checkout: '2099-10-17', guests: [{ adults: 2, children: [] }] };
+const futureDate = days => new Date(Date.now() + days * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+const search = { query: 'Dubai', destination: { label: 'Dubai', type: 'region', region_id: 6053839 }, checkin: futureDate(30), checkout: futureDate(32), residency: 'ae', guests: [{ adults: 2, children: [] }] };
 
 async function run() {
     const { formatMoney, normalizeRoom } = await import('./frontend/src/services/offers.js');
-    const browser = await puppeteer.launch({ headless: true });
+    const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox', '--disable-gpu', '--remote-debugging-port=0'], timeout: 20000 });
     const page = await browser.newPage();
     const errors = [];
     let lastSearch;
@@ -149,6 +150,7 @@ async function run() {
         assert.equal(await page.$('#search-destination-error'), null);
         await page.click('#destination-suggestions [role="option"]');
         assert.equal(await page.$eval('#destination-search', element => element.value), 'Dubai');
+        await page.select('#search-residency', 'ae');
         await page.click('form button[type="submit"]');
         assert.match(await page.$eval('#search-error', element => element.textContent), /حدد تاريخ الوصول والمغادرة/);
         assert(suggestionRequests.length >= 3);
@@ -222,6 +224,8 @@ async function run() {
         assert.equal(await page.$eval('#results-heading ul[aria-label]', list => getComputedStyle(list).scrollSnapType.includes('x')), true);
         assert.equal(await page.$$eval('#results-heading ul[aria-label] > li', items => items.length), 2);
         await page.screenshot({ path: 'frontend/dist/test-mobile.png', fullPage: true });
+        await page.keyboard.press('Escape');
+        await page.waitForFunction(() => !document.querySelector('#search-filters')?.classList.contains('filter-sheet-open'));
         const openGuestEditor = async () => {
             const guestButton = await page.$('#search-guests');
             if (guestButton) {
@@ -233,15 +237,26 @@ async function run() {
             await page.click('dialog[open] #search-guests');
         };
         const closeGuestEditor = async () => {
-            await page.keyboard.press('Escape');
+            const buttons = await page.$$('#search-guests-panel button');
+            let doneButton;
+            for (const button of buttons) {
+                if (await button.evaluate(element => element.textContent.trim() === 'تم')) doneButton = button;
+            }
+            assert(doneButton, 'Expected the guest editor Done control');
+            await doneButton.click();
             await page.waitForFunction(() => !document.querySelector('#search-guests-panel'));
         };
         await openGuestEditor();
         await page.select('select[aria-label="الأطفال في غرفة 1"]', '1');
         await page.select('select[aria-label="عمر الطفل 1 في غرفة 1"]', '5');
         await closeGuestEditor();
-        await page.click('form button[type="submit"]');
+        const guestSearchRequest = page.waitForRequest(request => /\/search\/rates(?:\/region)?$/.test(new URL(request.url()).pathname)
+            && request.method() === 'POST'
+            && JSON.parse(request.postData()).guests?.[0]?.children?.[0] === 5);
+        await page.click('#search-submit');
+        await guestSearchRequest;
         await page.waitForFunction(() => document.querySelector('#search-submit')?.disabled === false);
+        await page.waitForFunction(() => !document.querySelector('#search-error'));
         assert.deepEqual(lastSearch.guests, [{ adults: 2, children: [5] }]);
         const hotelSearch = { ...search, query: 'Test Hotel 60', guests: lastSearch.guests, destination: { type: 'hotel', hotel_id: 2, label: 'Test Hotel 60' } };
         await page.evaluate(value => sessionStorage.setItem('remal_search', JSON.stringify(value)), hotelSearch);
