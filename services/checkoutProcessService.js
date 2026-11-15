@@ -194,6 +194,7 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
         });
         if (!selected) throw fail('unsupported_supplier_payment', 409);
         const paymentType = { type: selected.type, amount: selected.amount, currency_code: selected.currency_code };
+        const prebookSnapshot = require('./ratehawkBookingSnapshot').createSnapshot(prebook, details, paymentType);
         ratehawk.buildBookingFinish({ user: details.user, rooms: details.rooms, payment_type: paymentType }, {
             partner_order_id: form.partner_order_id, payment_types: form.payment_types,
             is_gender_specification_required: form.is_gender_specification_required
@@ -206,7 +207,7 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
             ziina_test: process.env.ZIINA_TEST_MODE === 'true', booking_process_id: form.process_id,
             partner_order_id: form.partner_order_id,
             supplier_identity: payment.supplierIdentity(),
-            supplier_payment: paymentType, form_expires_at: form.form_expires_at,
+            supplier_payment: paymentType, prebook_snapshot: prebookSnapshot, form_expires_at: form.form_expires_at,
             payment_expires_at: new Date(Date.now() + 20 * 60 * 1000)
         } }, { new: true }).lean();
         if (!record) throw fail('checkout_state_conflict', 409);

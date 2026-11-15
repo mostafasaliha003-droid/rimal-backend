@@ -35,7 +35,12 @@ test('Ziina-backed cancellation requires a bounded customer refund and waits for
         _id: 'checkout-fixture', partner_order_id: 'partner-fixture', state: 'booking_confirmed',
         ziina_intent_id: 'intent-fixture', ziina_account_id: 'fixture-account', payment_verified_at: new Date(), amount_minor: 10000,
         currency: 'USD', ziina_test: false, notification_status: 'voucher_pending',
-        supplier_identity: payment.supplierIdentity()
+        supplier_identity: payment.supplierIdentity(), booking_process_id: 'process-fixture',
+        prebook_snapshot: { version: 1, room_name: 'Saved supplier room', checkin: '2099-10-15', checkout: '2099-10-17',
+            payment: { type: 'deposit', amount: '100.00', currency_code: 'USD' }, upsells: [],
+            cancellation_info: { policies: [
+                { start_at: null, end_at: null, penalty: { amount: '0.00', currency_code: 'USD' } }
+            ] } }
     };
     let cancellation;
     context.mock.method(CheckoutAttempt, 'find', () => ({ limit: () => ({ lean: async () => [structuredClone(checkout)] }) }));
@@ -64,11 +69,15 @@ test('Ziina-backed cancellation requires a bounded customer refund and waits for
         Object.assign(cancellation, update.$set);
         return structuredClone(cancellation);
     } }));
-    context.mock.method(BookingProcess, 'updateOne', async () => ({ matchedCount: 1 }));
-    context.mock.method(ratehawk, 'getOrderInfo', async () => ({ success: true, pending: false, status: 'completed',
-        isCancellable: true, upsells: [], order: { cancellation_info: { policies: [
-            { start_at: null, end_at: null, penalty: { amount: '0.00', currency_code: 'USD' } }
-        ] } } }));
+    const savedProcess = { state: 'confirmed' };
+    context.mock.method(BookingProcess, 'findOne', filter => ({ lean: async () => {
+        assert.deepEqual(filter, { _id: checkout.booking_process_id, partner_order_id: checkout.partner_order_id });
+        return savedProcess;
+    } }));
+    context.mock.method(BookingProcess, 'updateOne', async (_filter, update) => {
+        Object.assign(savedProcess, update.$set); return { matchedCount: 1 };
+    });
+    const history = context.mock.method(ratehawk, 'getOrderInfo', async () => assert.fail('Cancellation must use the saved prebook, not order/info'));
     const submit = context.mock.method(ratehawk, 'submitCancellation', async () => ({
         success: true, pending: false, status: 'cancelled'
     }));
@@ -101,6 +110,7 @@ test('Ziina-backed cancellation requires a bounded customer refund and waits for
         customer_refund: { amount: '99.00', currency_code: 'USD' } }), /cancellation_request_conflict/);
     cancellation = undefined;
     checkout.state = 'booking_confirmed';
+    savedProcess.state = 'confirmed';
     checkout.notification_status = 'voucher_pending';
     checkout.next_check_at = null;
     delete checkout.cancellation_request_hash;
@@ -113,6 +123,7 @@ test('Ziina-backed cancellation requires a bounded customer refund and waits for
     assert.equal(checkout.next_check_at, null);
     assert.equal((await postBooking.checkCancellation('partner-fixture')).status, 'cancel_failed');
     assert.equal(submit.mock.callCount(), 2);
+    assert.equal(history.mock.callCount(), 0);
 });
 
 test('supplier cancellation cannot trigger a refund without the checkout consent claim', async context => {

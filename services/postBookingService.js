@@ -86,7 +86,7 @@ async function view(record) {
 }
 
 async function getBookingInfo(partnerOrderId) {
-    const info = await ratehawk.getOrderInfo(orderId(partnerOrderId));
+    const info = await require('./ratehawkBookingSnapshot').readLocalBookingInfo(orderId(partnerOrderId));
     if (!info.success) throw Object.assign(fail(info.error, info.httpStatus || 502), { retry_after_ms: info.retry_after_ms });
     if (info.pending) return info;
     let penalty = null;
@@ -232,7 +232,7 @@ async function cancelBooking(partnerOrderId, options = {}) {
     const update = {
         state: result.success ? 'cancelled' : result.pending ? 'cancel_pending' : 'cancel_failed',
         ...cancellationAmounts(result),
-        action_required: result.success ? 'review_customer_refund_and_upsells' : result.pending ? 'verify_supplier_cancellation' : 'review_cancellation_rejection',
+        action_required: result.success ? 'review_customer_refund_and_upsells' : result.pending ? 'verify_supplier_cancellation_manually' : 'review_cancellation_rejection',
         next_check_at: new Date(Date.now() + 60000)
     };
     if (result.error) update.error = result.error;
@@ -269,7 +269,7 @@ async function checkCancellation(partnerOrderId) {
     const update = {
         $set: {
             state: cancelled ? 'cancelled' : 'cancel_pending',
-            action_required: cancelled ? 'review_customer_refund_and_upsells' : 'verify_supplier_cancellation',
+            action_required: cancelled ? 'review_customer_refund_and_upsells' : 'verify_supplier_cancellation_manually',
             next_check_at: new Date(Date.now() + Math.max(60000, Number.isFinite(info.retry_after_ms) ? info.retry_after_ms : 0)),
             ...(cancelled ? cancellationAmounts(info) : {})
         },

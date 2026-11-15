@@ -192,6 +192,23 @@ test('a supplier-verified prebook hash proceeds to form without repeating hotel 
     assert.equal(scenario.createIntent.mock.callCount(), 1);
 });
 
+test('checkout persists cancellation terms from verified prebook, ignoring browser policy fields', async context => {
+    const scenario = fixture(context, { bookHash: 'p-fixture', formHash: 'p-fixture' });
+    const info = scenario.rateInfo(undefined, 'p-fixture');
+    info.hotels[0].rates[0].payment_options.payment_types[0].cancellation_penalties = {
+        policies: [{ start_at: null, end_at: null, amount_charge: '100.00', amount_show: '0.00' }]
+    };
+    scenario.rateInfo.mock.mockImplementation(() => info);
+    await checkout.createCheckout({ ...details(), book_hash: 'p-fixture',
+        cancellation_info: { policies: [{ penalty: { amount: '0.00', currency_code: 'USD' } }] },
+        prebook_snapshot: { version: 1, cancellation_info: { policies: [] } }
+    }, crypto.randomUUID(), '192.0.2.10');
+    assert.deepEqual(scenario.record.prebook_snapshot.cancellation_info.policies[0].penalty,
+        { amount: '100.00', currency_code: 'USD' });
+    assert.equal(scenario.record.prebook_snapshot.room_name, 'Test Double Room');
+    assert.doesNotMatch(JSON.stringify(scenario.record.prebook_snapshot), /test@example|fixture-hash|p-fixture/);
+});
+
 test('a signed KWD quote charges KWD while the supplier form remains in USD, without duplicate intents', async context => {
     const scenario = fixture(context);
     const fx = require('./services/checkoutCurrencyService');

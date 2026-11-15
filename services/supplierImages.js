@@ -53,7 +53,14 @@ function collectSupplierImages(...values) {
             return;
         }
         if (value && typeof value === 'object' && !rawImageValue(value).trim()) {
-            Object.values(value).forEach(visit);
+            // Structured image metadata is not another image path. Nested URL
+            // wrappers are supported, but an absent URL must not turn a
+            // category_slug such as "bedroom" into a fabricated CDN URL.
+            const keys = ['url', 'src', 'image', 'photo', 'source']
+                .filter(key => Object.prototype.hasOwnProperty.call(value, key));
+            const nestedKeys = keys.length ? keys : Object.keys(value)
+                .filter(key => !['category_slug', 'category', 'caption', 'alt', 'width', 'height', 'w', 'h', 'type'].includes(key));
+            nestedKeys.forEach(key => visit(value[key]));
             return;
         }
         const image = normalizeSupplierImage(value);

@@ -1458,6 +1458,7 @@ test('cancellation sends only the documented order ID and preserves supplier fin
 
 test('retrieving bookings validates documented filters and preserves pagination, policy and amounts', async context => {
     const service = require('./services/ratehawkService');
+    context.mock.method(require('./services/ratehawkOrderHistory'), 'pendingHistory', async () => null);
     const request = { ordering: { ordering_type: 'asc', ordering_by: 'modified_at' }, pagination: { page_number: 2, page_size: 50 }, language: 'pt_PT', search: {
         created_at: { from_date: '2026-09-01T00:00', to_date: '2026-09-30T23:59' },
         paid_at: { from_date: '2026-09-01' }, order_ids: [42], partner_order_ids: ['fixture-order'], status: 'completed', source: 'b2b-api'
@@ -1466,7 +1467,7 @@ test('retrieving bookings validates documented filters and preserves pagination,
         amount_payable: { amount: '42.73', currency_code: 'EUR' }, cancellation_info: { free_cancellation_before: null, policies: [] }, upsells: [{ name: 'early_checkin' }] };
     const response = { ok: true, httpStatus: 200, data: { current_page_number: 2, total_orders: 300, total_pages: 6, found_orders: 51, found_pages: 2, orders: [order] } };
     const info = context.mock.method(service.client, 'orderInfo', async body => { assert.deepEqual(body, request); return response; });
-    const result = await service.retrieveBookings(request);
+    const result = await service.retrieveBookings(request, { purpose: 'history' });
     assert.deepEqual(result, { success: true, ...response.data });
     for (const invalid of [
         { ...request, pagination: { page_number: 0, page_size: 10 } },
@@ -1478,39 +1479,41 @@ test('retrieving bookings validates documented filters and preserves pagination,
         { ...request, search: { partner_order_ids: [] } },
         { ...request, search: { created_at: { from_date: '2026-02-30' } } },
         { ...request, search: { created_at: { from_date: '2026-09-30', to_date: '2026-09-01' } } }
-    ]) await assert.rejects(service.retrieveBookings(invalid));
+    ]) await assert.rejects(service.retrieveBookings(invalid, { purpose: 'history' }));
     assert.equal(info.mock.callCount(), 1);
     info.mock.mockImplementation(async () => ({ ok: false, httpStatus: 200, error: 'page_out_of_range' }));
-    await assert.rejects(service.retrieveBookings(), error => error.code === 'page_out_of_range' && error.httpStatus === 400);
+    await assert.rejects(service.retrieveBookings({}, { purpose: 'history' }), error => error.code === 'page_out_of_range' && error.httpStatus === 400);
 });
 
 test('single booking retrieval distinguishes delayed data from an unrelated or malformed order', async context => {
     const service = require('./services/ratehawkService');
+    context.mock.method(require('./services/ratehawkOrderHistory'), 'pendingHistory', async () => null);
     let response = { ok: true, httpStatus: 200, data: { current_page_number: 1, total_orders: 100, total_pages: 10, found_orders: 0, found_pages: 0, orders: [] } };
     context.mock.method(service.client, 'orderInfo', async request => {
         assert.deepEqual(request.search, { partner_order_ids: ['fixture-order'] });
         return response;
     });
-    const pending = await service.getOrderInfo('fixture-order');
+    const pending = await service.getOrderInfo('fixture-order', { purpose: 'history' });
     assert.equal(pending.pending, true);
     assert.equal(pending.order, null);
     assert.equal(pending.retry_after_ms, 60000);
     response.data.orders = [{ partner_data: { order_id: 'other-order' }, status: 'completed' }];
-    assert.equal((await service.getOrderInfo('fixture-order')).error, 'order_info_mismatch');
+    assert.equal((await service.getOrderInfo('fixture-order', { purpose: 'history' })).error, 'order_info_mismatch');
     response.data.orders[0].partner_data.order_id = 'fixture-order';
     response.data.found_orders = 1;
-    const found = await service.getOrderInfo('fixture-order');
+    const found = await service.getOrderInfo('fixture-order', { purpose: 'history' });
     assert.equal(found.pending, false);
     assert.equal(found.found, 1);
     assert.equal(found.status, 'completed');
     response = { ok: true, httpStatus: 200, data: null };
-    assert.equal((await service.getOrderInfo('fixture-order')).success, false);
+    assert.equal((await service.getOrderInfo('fixture-order', { purpose: 'history' })).success, false);
     response = { ok: false, httpStatus: 429 };
-    assert.equal((await service.getOrderInfo('fixture-order')).error, 'rate_limit');
+    assert.equal((await service.getOrderInfo('fixture-order', { purpose: 'history' })).error, 'rate_limit');
 });
 
 test('single booking retrieval syncs the documented hotel confirmation number without inventing one', async context => {
     const service = require('./services/ratehawkService');
+    context.mock.method(require('./services/ratehawkOrderHistory'), 'pendingHistory', async () => null);
     const mongoose = require('mongoose');
     let saves = 0;
     const booking = { save: async () => { saves += 1; } };
@@ -1526,12 +1529,12 @@ test('single booking retrieval syncs the documented hotel confirmation number wi
     context.mock.method(service.client, 'orderInfo', async () => ({ ok: true, httpStatus: 200, data: {
         current_page_number: 1, total_orders: 10, total_pages: 1, found_orders: 1, found_pages: 1, orders: [order]
     } }));
-    const found = await service.getOrderInfo('fixture-order');
+    const found = await service.getOrderInfo('fixture-order', { purpose: 'history' });
     assert.equal(found.hotelConfirmationNumber, 'HOTEL-HCN-42');
     assert.equal(found.databaseUpdated, true);
     assert.equal(booking.hotelConfirmationNumber, 'HOTEL-HCN-42');
     order.hotel_data.order_id = null;
-    assert.equal((await service.getOrderInfo('fixture-order')).hotelConfirmationNumber, null);
+    assert.equal((await service.getOrderInfo('fixture-order', { purpose: 'history' })).hotelConfirmationNumber, null);
     assert.equal(saves, 1);
 });
 
@@ -1544,20 +1547,33 @@ test('ambiguous cancellation results stay pending without retrying or claiming a
     });
     for (const value of [
         { httpStatus: 503, status: 'error', error: 'unknown' }, { httpStatus: 429 },
-        { httpStatus: 200, status: 'error', error: 'lock' }, { httpStatus: 200, status: 'ok', ok: true, data: {} },
+        { httpStatus: 200, status: 'error', error: 'lock' },
         Object.assign(new Error('timeout'), { code: 'ETIMEDOUT' })
     ]) {
         response = value;
         assert.deepEqual(await service.submitCancellation('fixture-order'), { success: false, pending: true, status: 'cancel_pending' });
     }
-    assert.equal(cancel.mock.callCount(), 5);
+    assert.equal(cancel.mock.callCount(), 4);
     for (const code of ['order_not_found', 'order_not_cancellable', 'sandbox_restriction']) {
         response = { httpStatus: 200, status: 'error', error: code };
         assert.deepEqual(await service.submitCancellation('fixture-order'), { success: false, pending: false, status: 'cancel_failed', error: code });
     }
 });
 
-test('durable cancellation requires the current penalty, claims once and recovers unknown outcomes by reading only', async context => {
+test('explicit cancellation OK is final without financial fields or an order/info confirmation', async context => {
+    const service = require('./services/ratehawkService');
+    const history = context.mock.method(service.client, 'orderInfo', async () => assert.fail('Cancel OK must not query history'));
+    const cancel = context.mock.method(service.client, 'cancelOrder', async () => ({
+        ok: true, status: 'ok', httpStatus: 200, data: { amount_refunded: { amount: 'invalid', currency_code: 'USD' } }
+    }));
+    assert.deepEqual(await service.submitCancellation('fixture-order'), {
+        success: true, pending: false, status: 'cancelled', partner_order_id: 'fixture-order'
+    });
+    assert.equal(cancel.mock.callCount(), 1);
+    assert.equal(history.mock.callCount(), 0);
+});
+
+test('durable cancellation requires the saved prebook penalty, claims once and reads only local outcomes after ambiguity', async context => {
     const store = require('./models/BookingCancellation');
     const checkoutAttempts = require('./models/CheckoutAttempt');
     const processes = require('./models/BookingProcess');
@@ -1589,7 +1605,8 @@ test('durable cancellation requires the current penalty, claims once and recover
         { start_at: null, end_at: '2026-09-23T12:00:00', penalty: { amount: '0.00', currency_code: 'EUR' } },
         { start_at: '2026-09-23T12:00:00', end_at: null, penalty: { amount: '42.73', currency_code: 'EUR' } }
     ] } } };
-    context.mock.method(service, 'getOrderInfo', async () => info);
+    const remoteHistory = context.mock.method(service, 'getOrderInfo', async () => assert.fail('Cancellation must not call order/info'));
+    context.mock.method(require('./services/ratehawkBookingSnapshot'), 'readLocalBookingInfo', async () => info);
     const submit = context.mock.method(service, 'submitCancellation', async () => {
         assert.equal(record.state, 'cancelling');
         return { success: false, pending: true, status: 'cancel_pending' };
@@ -1608,7 +1625,9 @@ test('durable cancellation requires the current penalty, claims once and recover
         options.acknowledge_upsells = true;
         const results = await Promise.all([postBooking.cancelBooking('fixture-order', options), postBooking.cancelBooking('fixture-order', options)]);
         assert.ok(results.every(result => result.pending && !result.success));
+        assert.equal(record.action_required, 'verify_supplier_cancellation_manually');
         assert.equal(submit.mock.callCount(), 1);
+        assert.equal(remoteHistory.mock.callCount(), 0);
         assert.equal(synced.mock.callCount(), 0);
         delete process.env.RATEHAWK_CANCELLATION_ENABLED;
         assert.equal((await postBooking.cancelBooking('fixture-order', options)).status, 'cancel_pending');
@@ -1652,6 +1671,17 @@ test('durable cancellation requires the current penalty, claims once and recover
         assert.equal(changed.status, 'cancel_failed');
         assert.equal(changed.error, 'cancellation_penalty_changed');
         assert.equal(submit.mock.callCount(), 1);
+        record = undefined;
+        info.order.cancellation_info.policies = [{ start_at: null, end_at: null, penalty: options.expected_penalty }];
+        create.mock.mockImplementation(async value => { record = structuredClone(value); });
+        submit.mock.mockImplementation(async () => ({ success: true, status: 'cancelled' }));
+        const accepted = await postBooking.cancelBooking('fixture-order', options);
+        assert.equal(accepted.status, 'cancelled');
+        assert.equal(accepted.success, true);
+        await postBooking.checkCancellation('fixture-order');
+        await postBooking.cancelBooking('fixture-order', options);
+        assert.equal(submit.mock.callCount(), 2);
+        assert.equal(remoteHistory.mock.callCount(), 0);
     } finally {
         if (previous === undefined) delete process.env.RATEHAWK_CANCELLATION_ENABLED;
         else process.env.RATEHAWK_CANCELLATION_ENABLED = previous;
@@ -2444,7 +2474,7 @@ test('Midoffice receipts reconcile only when enabled and never confirm or refund
         Object.assign(receipt, update.$set);
         return { matchedCount: 1 };
     });
-    context.mock.method(processes, 'findOne', () => ({ lean: async () => ({ _id: 'local-process' }) }));
+    context.mock.method(processes, 'findOne', () => ({ lean: async () => ({ _id: 'local-process', state: 'cancelled' }) }));
     const lookup = context.mock.method(ratehawk, 'retrieveBookings', async (options, settings) => {
         assert.deepEqual(options.search, { partner_order_ids: ['fixture-order'] });
         assert.deepEqual(settings, { redactPayload: true });
@@ -2457,13 +2487,13 @@ test('Midoffice receipts reconcile only when enabled and never confirm or refund
     assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
     assert.equal(claimed.mock.callCount(), 1);
     assert.equal(saved.mock.callCount(), 1);
-    assert.equal(lookup.mock.callCount(), 1);
+    assert.equal(lookup.mock.callCount(), 0);
     assert.equal(receipt.state, 'review_required');
     assert.equal(receipt.supplier_status, 'cancelled');
     assert.equal(receipt.action_required, 'review_customer_refund_and_upsells');
 });
 
-test('Midoffice reconciliation leaves unknown orders for review and bounds supplier retries', async context => {
+test('Midoffice reconciliation sends unknown local outcomes to review without supplier-history requests', async context => {
     const mongoose = require('mongoose');
     const service = require('./services/midofficeWebhookService');
     const receipts = require('./models/MidofficeWebhook');
@@ -2476,7 +2506,6 @@ test('Midoffice reconciliation leaves unknown orders for review and bounds suppl
     });
     process.env.ETG_MIDOFFICE_RECONCILIATION_ENABLED = 'true';
     let known = false;
-    let supplier = { success: true, found_orders: 0, orders: [] };
     const receipt = { _id: 'fixture-receipt', partner_order_id: 'fixture-order', event_type: 'created',
         state: 'pending', next_check_at: new Date(0), reconciliation_attempts: 0 };
     context.mock.method(receipts, 'find', () => ({ select: () => ({ sort: () => ({ limit: () => ({ lean: async () => [receipt] }) }) }) }));
@@ -2494,10 +2523,7 @@ test('Midoffice reconciliation leaves unknown orders for review and bounds suppl
     });
     const localProcess = context.mock.method(processes, 'findOne', () => ({ lean: async () => known ? { _id: 'local-process' } : null }));
     if (mongoose.models.Booking) context.mock.method(mongoose.models.Booking, 'findOne', () => ({ lean: async () => null }));
-    const lookup = context.mock.method(ratehawk, 'retrieveBookings', async () => {
-        if (supplier instanceof Error) throw supplier;
-        return supplier;
-    });
+    const lookup = context.mock.method(ratehawk, 'retrieveBookings', async () => assert.fail('Webhook must not call order/info'));
     assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
     assert.equal(lookup.mock.callCount(), 0);
     assert.equal(receipt.state, 'review_required');
@@ -2505,39 +2531,12 @@ test('Midoffice reconciliation leaves unknown orders for review and bounds suppl
     known = true;
     receipt.state = 'pending';
     receipt.reconciliation_attempts = 0;
-    const started = Date.now();
     assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
-    assert.equal(receipt.state, 'pending');
+    assert.equal(receipt.state, 'review_required');
     assert.equal(receipt.reconciliation_attempts, 1);
-    assert.ok(Number(receipt.next_check_at) >= started + 59000);
-    assert.equal(lookup.mock.callCount(), 1);
-    supplier = Object.assign(new Error('private-upstream'), { retry_after_ms: 120000 });
-    receipt.next_check_at = new Date(0);
-    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
-    assert.equal(receipt.reconciliation_attempts, 2);
-    assert.ok(Number(receipt.next_check_at) >= Date.now() + 119000);
-    receipt.reconciliation_attempts = 9;
-    receipt.next_check_at = new Date(0);
-    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
-    assert.equal(receipt.state, 'review_required');
-    assert.equal(receipt.action_required, 'verify_supplier_order_manually');
-    assert.equal(receipt.reconciliation_attempts, 10);
-    receipt.state = 'pending';
-    receipt.reconciliation_attempts = 0;
-    receipt.next_check_at = new Date(0);
-    supplier = { success: true, found_orders: 1,
-        orders: [{ status: 'private-supplier-state', partner_data: { order_id: 'fixture-order' } }] };
-    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
-    assert.equal(receipt.state, 'review_required');
     assert.equal(receipt.supplier_status, 'unknown');
     assert.equal(receipt.action_required, 'review_supplier_booking_status');
-    receipt.state = 'pending';
-    receipt.reconciliation_attempts = 0;
-    receipt.next_check_at = new Date(0);
-    supplier.orders[0].status = 'constructor';
-    assert.deepEqual(await service.reconcilePendingMidofficeWebhooks(), { checked: 1, failed: 0 });
-    assert.equal(receipt.supplier_status, 'unknown');
-    assert.equal(receipt.action_required, 'review_supplier_booking_status');
+    assert.equal(lookup.mock.callCount(), 0);
     receipt.state = 'pending';
     receipt.reconciliation_attempts = 9;
     receipt.next_check_at = new Date(0);
@@ -3186,7 +3185,10 @@ test('post-booking HTTP routes protect order data and cancellation from browser 
     const postBooking = require('./services/postBookingService');
     const previous = Object.fromEntries(['RATEHAWK_BOOKING_TOKEN', 'REMAL_SECURE_KEY', 'RATEHAWK_BOOKING_ENABLED', 'RATEHAWK_CANCELLATION_ENABLED'].map(key => [key, process.env[key]]));
     const token = 'fixture-private-post-booking-token-32-characters';
-    const retrieve = context.mock.method(service, 'retrieveBookings', async body => ({ success: true, orders: [], ...body }));
+    const retrieve = context.mock.method(service, 'retrieveBookings', async (body, settings) => {
+        assert.deepEqual(settings, { purpose: 'history' });
+        return { success: true, orders: [], ...body };
+    });
     const info = context.mock.method(postBooking, 'getBookingInfo', async orderId => ({ success: true, pending: true, partner_order_id: orderId, order: null }));
     const cancel = context.mock.method(postBooking, 'cancelBooking', async orderId => ({ success: false, pending: true, status: 'cancel_pending', partner_order_id: orderId }));
     context.mock.method(postBooking, 'checkCancellation', async orderId => ({ success: true, pending: false, status: 'cancelled', partner_order_id: orderId, customer_refund_status: 'not_processed' }));

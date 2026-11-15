@@ -116,13 +116,13 @@ test('post-booking history waits thirty seconds after final status and is never 
     const info = context.mock.method(ratehawk.client, 'orderInfo', async () => ({ ok: true, status: 'ok', httpStatus: 200,
         data: { orders: [{ partner_data: { order_id: 'fixture-partner' }, status: 'completed' }],
             current_page_number: 1, total_orders: 1, total_pages: 1, found_orders: 1, found_pages: 1 } }));
-    assert.equal((await ratehawk.getOrderInfo('fixture-partner')).pending, true);
+    assert.equal((await ratehawk.getOrderInfo('fixture-partner', { purpose: 'history' })).pending, true);
     process = { state: 'confirmed', confirmed_at: new Date(confirmedAt) };
     current += 29999;
-    assert.equal((await ratehawk.getOrderInfo('fixture-partner')).pending, true);
+    assert.equal((await ratehawk.getOrderInfo('fixture-partner', { purpose: 'history' })).pending, true);
     assert.equal(info.mock.callCount(), 0);
     current += 1;
-    assert.equal((await ratehawk.getOrderInfo('fixture-partner')).status, 'completed');
+    assert.equal((await ratehawk.getOrderInfo('fixture-partner', { purpose: 'history' })).status, 'completed');
     assert.equal(info.mock.callCount(), 1);
 });
 

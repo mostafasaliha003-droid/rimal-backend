@@ -529,7 +529,7 @@ app.get('/api/v1/hotels/:hid', publicSearchGuard, async (req, res) => {
     }
 
     try {
-        let hotel = await Hotel.findOne({ hid }).lean();
+        let hotel = await Hotel.findOne({ provider: 'ratehawk', hid }).lean();
         if (require('./services/hotelContentCacheService').hotelContentNeedsRefresh(hotel)) {
             const hydrated = await require('./services/hotelContentCacheService').hydrateHotelContent([hid]);
             const refreshed = hydrated.find(item => String(item.hid) === String(hid));

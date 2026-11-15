@@ -111,7 +111,7 @@ test('room photos follow the selected supplier rate and exclude placeholders', (
     assert.deepEqual(roomImagesForRate({ room_group_id: '', room_name: 'Deluxe King Room' }, hotel), []);
     assert.deepEqual(roomImagesForRate({ room_group_id: '', id: 'king' }, hotel), []);
     assert.deepEqual(roomImagesForRate({ room_group: { id: 'king' } }, hotel), []);
-    assert.deepEqual(roomImagesForRate({ images: ['https://cdn.worldota.net/offer-room.jpg'], room_group_id: 'missing' }, hotel), ['https://cdn.worldota.net/offer-room.jpg']);
+    assert.deepEqual(roomImagesForRate({ images: ['https://cdn.worldota.net/offer-room.jpg'], room_group_id: 'missing' }, hotel), [], 'Generic dynamic images cannot establish room identity');
     assert.deepEqual(hotelImages({ images: ['https://images.unsplash.com/photo-1566073771259-6a8506099945'] }), []);
     assert.deepEqual(hotelImages({ images: ['https://cdn.worldota.net/t/2048x1536/content/old.jpg'] }), ['https://cdn.worldota.net/t/2048x1536/content/old.jpg']);
     assert.deepEqual(hotelImages({ images: ['https://cdn.worldota.net/property.jpg'] }), ['https://cdn.worldota.net/property.jpg']);

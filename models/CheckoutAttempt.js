@@ -26,6 +26,7 @@ const checkoutAttemptSchema = new mongoose.Schema({
     cancellation_request_hash: String,
     booking_process_id: String,
     supplier_payment: mongoose.Schema.Types.Mixed,
+    prebook_snapshot: mongoose.Schema.Types.Mixed,
     form_expires_at: Date,
     payment_expires_at: Date,
     encrypted_details: { iv: String, tag: String, ciphertext: String },

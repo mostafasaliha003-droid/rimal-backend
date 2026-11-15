@@ -55,7 +55,9 @@ function createBookingRouter() {
 function createPostBookingRouter() {
     const router = express.Router();
     router.use(authorize);
-    router.post('/retrieve', handle(req => ratehawk.retrieveBookings(req.body || {})));
+    // This private, server-to-server route is the explicit supplier-history
+    // entry point. A browser body cannot supply this internal intent.
+    router.post('/retrieve', handle(req => ratehawk.retrieveBookings(req.body || {}, { purpose: 'history' })));
     router.get('/:partnerOrderId/info', handle(req => postBooking.getBookingInfo(req.params.partnerOrderId)));
     router.post('/:partnerOrderId/cancel', bookingLimiter, handle(req => postBooking.cancelBooking(req.params.partnerOrderId, req.body || {})));
     router.get('/:partnerOrderId/cancel/status', handle(req => postBooking.checkCancellation(req.params.partnerOrderId)));

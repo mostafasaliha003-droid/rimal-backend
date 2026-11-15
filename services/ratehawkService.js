@@ -1069,7 +1069,8 @@ function validateOrderObject(value, allowed, field) {
     if (!value || typeof value !== 'object' || Array.isArray(value) || Object.keys(value).some(key => !allowed.has(key))) throw bookingError(`invalid_${field}`);
 }
 
-async function retrieveBookings(options = {}, { redactPayload = false } = {}) {
+async function retrieveBookings(options = {}, { redactPayload = false, purpose } = {}) {
+    if (purpose !== 'history') throw bookingError('order_history_only', 400);
     validateOrderObject(options, new Set(['ordering', 'pagination', 'search', 'language']), 'order_request');
     const ordering = options.ordering === undefined ? { ordering_type: 'desc', ordering_by: 'created_at' } : options.ordering;
     const pagination = options.pagination === undefined ? { page_number: 1, page_size: 10 } : options.pagination;
@@ -1101,6 +1102,9 @@ async function retrieveBookings(options = {}, { redactPayload = false } = {}) {
             filters[field] = value;
         }
     }
+    const pending = await require('./ratehawkOrderHistory').pendingHistory(filters);
+    if (pending) return { success: true, pending: true, orders: [], current_page_number: pagination.page_number,
+        total_orders: 0, total_pages: 0, found_orders: 0, found_pages: 0, ...pending };
     const response = await client.orderInfo({ ordering: { ...ordering }, pagination: { ...pagination }, search: filters, language }, { redactPayload });
     if (response.httpStatus === 429) throw Object.assign(bookingError('rate_limit', 429), { retry_after_ms: retryAfterMs(response) });
     if (!response.ok || response.httpStatus < 200 || response.httpStatus >= 300) {
@@ -1129,26 +1133,18 @@ function getHotelConfirmationNumber(order) {
     ) || null;
 }
 
-async function getOrderInfo(partnerOrderId) {
+async function getOrderInfo(partnerOrderId, { purpose } = {}) {
     if (!partnerOrderId) return { success: false, error: 'missing_partner_order_id' };
 
     try {
         const orderId = requiredText(partnerOrderId, 'partner_order_id');
-        if (mongoose.connection.readyState === 1) {
-            const process = await require('../models/BookingProcess').findOne({ partner_order_id: orderId }).lean();
-            const confirmedAt = new Date(process?.confirmed_at).getTime();
-            if (process && (['creating', 'form_ready', 'finishing', 'processing', '3ds'].includes(process.state)
-                || Number.isFinite(confirmedAt) && Date.now() < confirmedAt + 30000)) {
-                return { success: true, pending: true, found: 0, order: null,
-                    retry_after_ms: Number.isFinite(confirmedAt) ? Math.max(1000, confirmedAt + 30000 - Date.now()) : 30000 };
-            }
-        }
         const result = await retrieveBookings({
             ordering: { ordering_type: 'desc', ordering_by: 'created_at' },
             pagination: { page_number: 1, page_size: 10 },
             search: { partner_order_ids: [orderId] },
             language: 'en'
-        });
+        }, { purpose });
+        if (result.pending) return { success: true, pending: true, found: 0, order: null, retry_after_ms: result.retry_after_ms };
         const order = result.orders[0] || null;
         if (result.orders.length > 1) throw bookingError('order_info_mismatch', 502);
         if (!order) {
@@ -1186,7 +1182,7 @@ async function getOrderInfo(partnerOrderId) {
         const code = error.ratehawkError || error.code;
         if (code === 'order_not_found') return { success: true, pending: true, found: 0, order: null, retry_after_ms: 60000 };
         return { success: false, pending: false, error: typeof code === 'string' && /^[a-z_]+$/.test(code) ? code : 'order_info_unavailable',
-            httpStatus: [400, 429, 502].includes(error.httpStatus) ? error.httpStatus : 502,
+            httpStatus: [400, 429, 502, 503].includes(error.httpStatus) ? error.httpStatus : 502,
             ...(Number.isFinite(error.retry_after_ms) ? { retry_after_ms: error.retry_after_ms } : {}) };
     }
 }
@@ -1194,7 +1190,7 @@ async function getOrderInfo(partnerOrderId) {
 const getOrderDetails = getOrderInfo;
 
 // Backward-compatible name used by server.js
-const fetchOrderDetails = (hcn) => getOrderDetails(hcn);
+const fetchOrderDetails = (hcn, options) => getOrderDetails(hcn, options);
 
 // ---- Webhook (Receive booking status webhook) ------------------------------
 // ETG payload: { data: { partner_order_id, status }, signature: { signature, timestamp, token } }
@@ -1232,12 +1228,15 @@ async function submitCancellation(partnerOrderId) {
         if (transientBookingFailure(response) || response.httpStatus === 429 || response.error === 'lock') return pending;
         if (response.ok && response.status === 'ok' && response.httpStatus >= 200 && response.httpStatus < 300) {
             const valid = value => value && typeof value.amount === 'string' && /^\d+(?:\.\d+)?$/.test(value.amount) && /^[A-Z]{3}$/.test(value.currency_code);
-            if (!['amount_refunded', 'amount_payable', 'amount_sell'].every(field => valid(response.data?.[field]))) return pending;
+            // Explicit cancel OK is final even if financial details are absent.
+            // Preserve only supplied valid amounts; never re-cancel or query
+            // order/info to manufacture a second confirmation.
+            const amounts = Object.fromEntries([
+                ['amount_refunded', 'amountRefunded'], ['amount_payable', 'amountPayable'], ['amount_sell', 'amountSell']
+            ].filter(([field]) => valid(response.data?.[field])).map(([field, target]) => [target, response.data[field]]));
             return {
                 success: true, pending: false, status: 'cancelled', partner_order_id: orderId,
-                amountRefunded: response.data.amount_refunded,
-                amountPayable: response.data.amount_payable,
-                amountSell: response.data.amount_sell
+                ...amounts
             };
         }
         if (response.status === 'error' && typeof response.error === 'string' && /^[a-z_]+$/.test(response.error)) {

@@ -142,7 +142,13 @@ function collectImageValues(value, result) {
         return;
     }
     if (value && typeof value === 'object' && !rawImageValue(value).trim()) {
-        Object.values(value).forEach(item => collectImageValues(item, result));
+        // A missing/nested URL must not turn image metadata (e.g. the category
+        // "bedroom") into an invented CDN path.
+        const imageKeys = ['url', 'src', 'image', 'photo', 'source'];
+        const keys = imageKeys.some(key => Object.hasOwn(value, key))
+            ? imageKeys.filter(key => Object.hasOwn(value, key))
+            : Object.keys(value).filter(key => !['category_slug', 'category', 'caption', 'alt', 'width', 'height', 'w', 'h', 'type'].includes(key));
+        keys.forEach(key => collectImageValues(value[key], result));
         return;
     }
     const image = normalizeImageUrl(value);
@@ -161,25 +167,11 @@ export function roomCardImages(roomImages = []) {
 }
 
 export function roomImagesForRate(rate = {}, hotel = {}) {
-    const directImages = collectImages(
-        rate.images,
-        rate.images_ext,
-        rate.room_images,
-        rate.room_data?.images,
-        rate.room_data?.images_ext,
-        rate.room?.images,
-        rate.room?.images_ext,
-        rate.room_info?.images,
-        rate.room_info?.images_ext,
-        rate.room_group?.images,
-        rate.room_group?.images_ext,
-        rate.room_group_data?.images,
-        rate.room_group_data?.images_ext
-    );
-    if (directImages.length) return directImages;
-
+    // Generic images on a dynamic rate do not prove that they depict its room.
+    // ETG room photographs come from a static group with the full rg_ext match.
     const group = roomGroupForRate(rate, hotel);
-    return group ? collectImages(group.images, group.images_ext) : [];
+    if (!group) return [];
+    return collectImages(group.images_ext, group.images);
 }
 
 export function hotelImages(hotel = {}) {

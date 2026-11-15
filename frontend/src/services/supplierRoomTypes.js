@@ -10,7 +10,9 @@ export function roomClassification(value) {
 }
 
 function groupsForHotel(hotel) {
-    return [hotel?.room_groups, hotel?.rooms, hotel?.staticData?.room_groups, hotel?.staticData?.rooms]
+    // `rooms` can contain dynamic offers. Only the supplier's static room_groups
+    // collection establishes which photographs belong to a classification.
+    return [hotel?.room_groups, hotel?.staticData?.room_groups]
         .flatMap(value => Array.isArray(value) ? value : value && typeof value === 'object' ? Object.values(value) : [])
         .filter(value => value && typeof value === 'object');
 }
@@ -19,12 +21,9 @@ export function roomGroupForRate(rate = {}, hotel = {}) {
     const classification = roomClassification(rate.rg_ext);
     if (!classification) return null;
     const matches = groupsForHotel(hotel).filter(group => roomClassification(group.rg_ext) === classification);
-    // Reject ambiguous matches; a similar name or partial classification is not
-    // enough to claim that a photograph depicts this room type.
-    const identities = new Set(matches.map(group => JSON.stringify([
-        roomClassification(group.rg_ext), group.name
-    ])));
-    if (identities.size !== 1) return null;
+    // The complete classification is the identity, even when translated room
+    // names or deprecated IDs differ between copies of the static record.
+    if (!matches.length) return null;
     return { ...matches[0], images: matches.flatMap(group => group.images || []),
         images_ext: matches.flatMap(group => group.images_ext || []) };
 }

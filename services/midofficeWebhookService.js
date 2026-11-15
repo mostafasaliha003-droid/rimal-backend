@@ -90,22 +90,19 @@ async function reconcileMidofficeReceipt(receiptId) {
             update = { state: 'review_required', action_required: 'verify_midoffice_order_ownership',
                 reconciliation_attempts: attempts };
         } else {
-            const result = await ratehawk.retrieveBookings({
-                search: { partner_order_ids: [partnerOrderId] }, pagination: { page_number: 1, page_size: 1 }
-            }, { redactPayload: true });
-            const order = result.orders.length === 1 && result.found_orders === 1 ? result.orders[0] : null;
-            if (!order || order.partner_data?.order_id !== partnerOrderId) {
-                update = retryOrReview();
-            } else {
-                const actions = {
-                    cancelled: 'review_customer_refund_and_upsells',
-                    completed: 'verify_payment_before_customer_confirmation',
-                    failed: 'review_payment_and_refund'
-                };
-                update = { state: 'review_required', supplier_status: Object.hasOwn(actions, order.status) ? order.status : 'unknown',
-                    reconciliation_attempts: attempts,
-                    action_required: Object.hasOwn(actions, order.status) ? actions[order.status] : 'review_supplier_booking_status' };
-            }
+            // order/info is reserved for explicit booking history. An optional
+            // webhook cannot turn it into an initial-status/reconciliation API.
+            // Only independently persisted local outcomes are reported here;
+            // the untrusted event type never confirms or cancels a booking.
+            const localStates = new Map([['confirmed', 'completed'], ['cancelled', 'cancelled'], ['failed', 'failed']]);
+            const status = process ? localStates.get(process.state)
+                : booking?.supplierStatus === 'CONFIRMED' ? 'completed'
+                    : booking?.supplierStatus === 'CANCELLED' ? 'cancelled' : undefined;
+            const actions = { cancelled: 'review_customer_refund_and_upsells',
+                completed: 'verify_payment_before_customer_confirmation', failed: 'review_payment_and_refund' };
+            update = { state: 'review_required', supplier_status: status || 'unknown',
+                reconciliation_attempts: attempts,
+                action_required: actions[status] || 'review_supplier_booking_status' };
         }
     } catch (error) {
         update = retryOrReview(error.retry_after_ms);
