@@ -38,7 +38,7 @@ Do not create projects, enable billing, register OAuth clients, generate credent
 ## Repository gaps and release gates
 
 1. Implement and verify the complete native search, room selection, review, payment return, booking status and supported account journeys. Do not count web Lighthouse results as native performance evidence.
-2. Add a native session-storage adapter; the existing web `authSession.js` uses browser local/session storage and DOM events. Confirm logout/revocation, expiry and app restart behavior without exposing server/supplier credentials in the app.
+2. Verify the implemented environment-separated native SecureStore adapter on an Android device. The foundation's automated tests cover expiry, logout/revocation and asynchronous session races; app restart and native storage behavior still require device evidence. The web preview deliberately keeps credentials in memory.
 3. Define the global product scope. Current backend membership eligibility is UAE/GCC oriented. Either retain and clearly disclose those restrictions or implement an explicitly authorized global journey. Global store availability does not prove global booking eligibility or inventory.
 4. Implement account-deletion requests, ownership checks, session revocation, associated-data handling and a public branded web request resource. Preserve any legitimately retained booking/accounting records only under an approved, disclosed retention policy.
 5. Finalize privacy/Data Safety against the actual shipped SDKs, permissions, backend behavior and providers. Government-ID uploads are sensitive; request only the access required by the delivered journey.
@@ -59,5 +59,5 @@ These files do not create a Cloud project, change billing, generate signing keys
 
 - All three JSON documents parse. Listing character counts are English **15 / 64 / 1112** and Arabic **15 / 52 / 870** for title / short description / full description, within **30 / 80 / 4000**. Both titles preserve the exact owner-approved Arabic-first string and shadda.
 - Every metric result is null; no target is recorded as an achieved native measurement.
-- An initial read-only TypeScript check during scaffold construction found unresolved dependencies/imports and implicit-any errors. The parent subsequently reports that the current foundation's lint and TypeScript checks pass after implementation/dependency work. These source checks are not Android binary/device evidence. No dependency was installed by this documentation task.
-- Only files in this `release` directory were written for this task. Store/Cloud settings and app source/configuration were not changed.
+- TypeScript, ESLint and all 28 unit tests pass for the current foundation. Expo diagnostics passed 20/20 checks, and Android Hermes JavaScript/assets and web exports succeeded. These source checks and exports are not Android binary/device evidence.
+- Browser QA and an actual read-only staging-client integration check cover the implemented search/detail and session journeys. Neither establishes a native booking/payment flow or release approval. No Play release was uploaded or submitted.

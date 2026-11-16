@@ -7,6 +7,7 @@ on:
       - '.github/workflows/mobile-checks.yml'
   push:
     branches:
+      - 'main'
       - 'codex/mkhadda-android-foundation-20261116'
     paths:
       - 'apps/mobile/**'
