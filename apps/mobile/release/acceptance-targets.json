@@ -1,0 +1,47 @@
+{
+  "prepared_on": "2026-11-16",
+  "status": "Proposed acceptance targets only. No Android binary or measured native results are claimed.",
+  "results": null,
+  "measurement_rules": [
+    "Agree the test protocol, devices, network conditions, sample size and exclusions before measurement; preserve failures and ranges.",
+    "Use separate sandbox and production telemetry. Never mix synthetic bookings with customer conversion data.",
+    "A client redirect is not a payment or booking success. Use verified backend payment and supplier-final booking outcomes.",
+    "Native startup/frame/crash metrics are distinct from web Lighthouse, TBT or INP; do not substitute one for another.",
+    "Use consent-aware, minimal events. Do not log traveler names, email, phone, identity documents, payment credentials or private supplier tokens."
+  ],
+  "release_quality_gates": [
+    { "metric": "Critical booking/payment/privacy correctness defects", "target": 0, "unit": "open confirmed defects", "result": null },
+    { "metric": "Sandbox required journey cases", "target": 100, "unit": "percent passing", "scope": "Search, room identity/photos, price/taxes/cancellation, review, declined/unknown payment, verified confirmation, restart/retry, supported cancellation and account deletion", "result": null },
+    { "metric": "Duplicate financial intent/booking caused by replay", "target": 0, "unit": "observed cases in prescribed fault/retry tests", "result": null },
+    { "metric": "False booking confirmation after redirect or uncertain supplier status", "target": 0, "unit": "observed cases in prescribed tests", "result": null },
+    { "metric": "Accessibility blocker", "target": 0, "unit": "confirmed critical/serious defects in native TalkBack, RTL/LTR, large text and keyboard/switch traversal scope", "result": null }
+  ],
+  "performance_targets": [
+    { "metric": "Cold start to usable search screen", "percentile": 95, "target_max_ms": 3000, "protocol": "Named midrange ARM64 device, release build, cold process, at least 30 serial starts; record device/OS/thermal state", "result": null },
+    { "metric": "Warm foreground to usable current screen", "percentile": 95, "target_max_ms": 1000, "protocol": "Same release/device protocol, at least 30 samples", "result": null },
+    { "metric": "Search submit to usable results or actionable error", "percentile": 95, "target_max_ms": 10000, "protocol": "Production-like network; report successful-result and error latency separately. At least 100 legitimate budgeted requests across representative destinations; no supplier load test is authorized by this target", "result": null },
+    { "metric": "Selected hotel to usable room offers", "percentile": 95, "target_max_ms": 8000, "protocol": "Separate content/rate timings and supplier/network failures; same representative request plan", "result": null },
+    { "metric": "Visible response to common native interactions", "percentile": 95, "target_max_ms": 200, "protocol": "Measured native taps/typing/filters/calendar on fixed hardware; do not label as field web INP", "result": null },
+    { "metric": "Crash-free sessions", "target_min_percent": 99.8, "protocol": "First-party definition or chosen SDK definition documented; at least 1000 representative release sessions before a stable-rate claim; smaller samples remain provisional", "result": null },
+    { "metric": "User-perceived ANR affected daily active users", "target_max_percent": 0.1, "protocol": "Internal product target, not a quoted Play policy threshold; use Android vitals/defined instrumentation with denominators and sample size", "result": null }
+  ],
+  "funnel_event_contract": [
+    "search_started", "search_results_presented", "hotel_opened", "room_selected", "checkout_started", "payment_initiated", "payment_verified", "booking_confirmed", "booking_failed", "payment_refunded"
+  ],
+  "conversion_hypotheses": [
+    { "transition": "Successful results session to hotel opened", "target_min_percent": 25, "result": null },
+    { "transition": "Hotel opened to room selected", "target_min_percent": 15, "result": null },
+    { "transition": "Checkout started to payment initiated", "target_min_percent": 60, "result": null },
+    { "transition": "Payment verified to supplier-final booking confirmed", "target_min_percent": 99.5, "result": null },
+    { "transition": "Checkout started to supplier-final booking confirmed", "target_min_percent": 30, "result": null }
+  ],
+  "conversion_interpretation": "Planning hypotheses, not current results, forecasts or Play requirements. Establish a real baseline first; assess by language, country, eligibility and traffic source. Business conversion rates do not gate the initial internal build. Revisit after at least 200 legitimate checkout starts without purchasing or generating bookings merely to inflate the sample.",
+  "funnel_integrity_gate": "All prescribed sandbox journeys produce correctly ordered, deduplicated events tied to canonical backend outcomes; unknown/pending states stay separate. Verify exact amounts/currencies and never equate payment success with booking confirmation.",
+  "console_and_binary_gates": [
+    { "gate": "Package ownership, developer verification and app record", "status": "Organization identity and both phone verifications observed complete; Create app enabled. Package availability/registration and app record remain unverified/not created at this handoff." },
+    { "gate": "API36+ signed AAB and Play App Signing", "status": "Unverified; no generated keys or AAB claimed" },
+    { "gate": "16KB/native-library compatibility and actual device runs", "status": "Unverified" },
+    { "gate": "Privacy, Data Safety, account deletion, review access and listing", "status": "Draft preparation only; not submitted" },
+    { "gate": "Internal track installation/pre-launch report", "status": "Not performed or verified" }
+  ]
+}

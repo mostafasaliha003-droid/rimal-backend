@@ -1,0 +1,2 @@
+const test=require('node:test'); const assert=require('node:assert/strict'); const {childAgeInput}=require('./guestAgeModel.ts');
+test('child ages accept zero and Arabic digits but never turn missing or invalid input into an infant age',()=>{assert.equal(childAgeInput('0'),0);assert.equal(childAgeInput('١٥'),15);assert.equal(childAgeInput('۱۷'),17);for(const value of ['', 'abc', '1a','-1','1.5'])assert.equal(childAgeInput(value),'',value);});

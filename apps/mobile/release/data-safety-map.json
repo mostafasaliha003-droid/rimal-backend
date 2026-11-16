@@ -1,0 +1,74 @@
+{
+  "prepared_on": "2026-11-16",
+  "app_name": "مخدّة | Mkhadda",
+  "brand": "Mkhadda",
+  "operator": "Remal Tourism",
+  "status": "Developer inventory draft, not a completed or submitted Play Data Safety declaration.",
+  "scope": "Actual existing backend/web capabilities inspected in this repository. Native feature use, SDK collection, permissions and final declaration answers must be verified against the shipped Android build.",
+  "official_sources": [
+    "https://support.google.com/googleplay/android-developer/answer/10787469",
+    "https://support.google.com/googleplay/android-developer/answer/13327111"
+  ],
+  "data_flows": [
+    {
+      "flow": "Account registration, authentication and profile",
+      "observed_data": ["Name", "Email", "Optional phone", "Password hash", "Account identifier", "Session token hash, role, realm and expiry"],
+      "purposes_observed": ["Account creation and management", "Authentication", "Fraud/security controls"],
+      "source_files": ["services/userAuthRoutes.js", "services/authSessionService.js", "services/sessionAuthMiddleware.js"],
+      "native_gate": "Use an appropriate native session-storage implementation. Do not copy browser storage/DOM APIs or expose server keys.",
+      "deletion_gap": "No account-deletion request handler or associated-data workflow found in the audited baseline; logout is session termination, not account deletion."
+    },
+    {
+      "flow": "Hotel search, selection, guests and reservation servicing",
+      "observed_data": ["Destination", "Stay dates", "Room/adult counts and child ages", "Selected property and rate", "Traveler names and child status/age", "Contact email and phone", "Optional booking comment", "Booking references, history and status"],
+      "purposes_observed": ["App functionality", "Reservation fulfillment", "Customer support"],
+      "source_files": ["services/ratehawkSearchValidation.js", "services/checkoutProcessService.js", "services/bookingProcessService.js", "services/bookingRecordPersistence.js"],
+      "recipient_questions": "Confirm the exact fields sent to each accommodation supplier. Supplier confirmation email is configured separately; do not assume the customer's email is sent to every provider.",
+      "retention_gate": "Approve and disclose reservation/accounting retention and deletion handling; do not promise that all historical financial records are immediately erased."
+    },
+    {
+      "flow": "Membership eligibility and identity documents",
+      "observed_data": ["Account-linked application", "Category", "Nationality", "Profession/title", "Consent timestamp/version", "Passport identity-page image or Emirates ID front/back images", "Review status, notes and audit events"],
+      "purposes_observed": ["Eligibility review", "App access management", "Security/audit"],
+      "source_files": ["models/MembershipApplication.js", "models/MembershipDocument.js", "services/membershipService.js", "services/membershipDocuments.js", "services/membershipReviewWorker.js"],
+      "storage_observed": "Documents are encrypted and access-scoped. Draft upload expiry is 24 hours; submission/review changes expiry, with final decision retention capped at 30 days in the inspected implementation. Application/review metadata is a separate retained record.",
+      "release_gates": ["Verify the actual cleanup/TTL behavior operationally; a schema expiry is not evidence every record has been removed.", "Explain document collection and retention clearly before upload.", "Confirm final Play data categories, required/optional status, processors and any OCR SDK/provider behavior.", "Never include real identity documents in store screenshots, fixtures or reviewer instructions."]
+    },
+    {
+      "flow": "Payment and refund orchestration",
+      "observed_data": ["Amount and currency", "Payment intent/reference", "Payment/refund status", "Supplier settlement terms", "Encrypted checkout contact/traveler details"],
+      "purposes_observed": ["Payment processing", "Booking fulfillment", "Refund servicing", "Fraud prevention"],
+      "source_files": ["services/checkoutProcessService.js", "services/paymentService.js", "services/ziinaClient.js", "models/CheckoutAttempt.js", "services/postBookingService.js"],
+      "provider_gate": "Audit the final hosted-payment/native SDK flow. Do not declare Remal card-number/CVC collection merely because a payment gateway handles cards, or declare no collection without checking the shipped integration.",
+      "retention_gate": "Payment and booking references may have legitimate retention requirements; the actual policy and associated-data deletion process remain to be approved."
+    },
+    {
+      "flow": "Booking network/security metadata",
+      "observed_data": ["Booking user IP supplied to supplier booking-form creation", "Session/security records", "Sanitized operational logs"],
+      "source_files": ["services/bookingProcessService.js", "services/authSessionService.js", "services/loggerService.js"],
+      "classification_gate": "Inspect final logging, retention and purposes. Hotel coordinates or a searched destination do not by themselves prove device GPS/location collection. Do not request or declare location access without the actual feature/permission inventory."
+    },
+    {
+      "flow": "Support, transactional email and reviews",
+      "observed_data": ["Support messages and account/booking linkage", "Transactional email recipient/contact details", "Hotel name/location/place identifier for backend reviews lookup"],
+      "source_files": ["services/customerSupportRoutes.js", "services/membershipMail.js", "services/notificationService.js", "services/googleHotelReviews.js", "frontend/src/pages/LegalPage.jsx"],
+      "provider_gate": "Confirm email/support providers and logs. Current review lookup describes hotel data rather than guest booking details; external author-image/link requests can expose network metadata to Google. Re-audit if a native Maps SDK is selected."
+    },
+    {
+      "flow": "Analytics, crash reporting, push and other native SDKs",
+      "observed_data": ["Existing web analytics helper dispatches local DOM events; this alone does not establish off-device analytics transmission"],
+      "source_files": ["frontend/src/services/analytics.js", "apps/mobile/package.json"],
+      "status": "Final native SDK inventory and telemetry design pending. No completed analytics/crash/push Data Safety answers are claimed.",
+      "release_gate": "Inspect all direct/transitive SDKs, permissions, default collection and opt-in behavior before declaring collection/sharing or adding advertising/device identifiers."
+    }
+  ],
+  "declaration_review_questions": [
+    "Which flows actually run in the released native app, including account creation and membership?",
+    "What leaves the device, including SDKs and relevant server-to-server transfers?",
+    "For each actual data type, what purpose, required/optional status and deletion behavior apply?",
+    "Do any service-provider or user-initiated transfer exceptions apply? Do not blanket-declare no sharing.",
+    "Is all user data transmitted with appropriate transport protection across the complete app/SDK inventory?",
+    "Do the privacy notice, native disclosures, external deletion resource and actual backend retention agree?"
+  ],
+  "submission_completed": false
+}
