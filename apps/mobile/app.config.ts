@@ -34,6 +34,9 @@ const config: ExpoConfig = {
       'android.permission.READ_CONTACTS',
       'android.permission.READ_MEDIA_IMAGES',
       'android.permission.READ_MEDIA_VIDEO',
+      'android.permission.READ_EXTERNAL_STORAGE',
+      'android.permission.WRITE_EXTERNAL_STORAGE',
+      'android.permission.SYSTEM_ALERT_WINDOW',
     ],
     predictiveBackGestureEnabled: true,
   },
@@ -49,6 +52,7 @@ const config: ExpoConfig = {
   plugins: [
     'expo-router',
     'expo-secure-store',
+    'expo-system-ui',
     ['expo-localization', { supportedLocales: { android: ['ar', 'en'], ios: ['ar', 'en'] } }],
     ['expo-font', { fonts: [
       './assets/fonts/Tajawal-Regular.ttf',

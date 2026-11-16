@@ -41,9 +41,44 @@ The browser preview runs at `http://127.0.0.1:5173`. It is a development review 
 
 Expo-compatible dependencies are installed with `npx expo install`. A narrowly scoped `@expo/fingerprint` override selects patched `minimatch` 11.0.1 instead of downgrading the Expo framework. The actual fingerprint-generation command, project diagnostics and bundler were exercised after the override. Revisit the override when upstream updates its dependency.
 
-## Native build preparation
+## Local Android builds
 
-`eas.json` defines development, preview APK and production AAB build profiles. Company-owned Expo build credentials, real Android signing identity, device testing and a release review are still required. Do not invent an Expo project ID, signing fingerprint or verified App Link association. Generated native folders are managed by Expo/config plugins and remain ignored.
+The owner selected **local Android builds without an Expo account or Expo cloud build service**. Keep Expo SDK 58 and Continuous Native Generation (CNG): Expo config and config plugins generate the Android project, then the standard Android SDK/JDK/Gradle toolchain compiles it. EAS is an optional alternative; the existing `eas.json` profiles do not make an EAS account, login or cloud build a prerequisite. See Expo's [local development](https://docs.expo.dev/guides/local-app-development/) and [local production builds](https://docs.expo.dev/guides/local-app-production/) guidance.
+
+The installed Expo 58.0.25 / React Native 0.88.1 sources currently select the following toolchain. Recheck these pins after dependency changes rather than upgrading individual build tools independently.
+
+| Component | Local build requirement |
+| --- | --- |
+| Java | JDK 17 |
+| Gradle / Android Gradle Plugin | Gradle 9.4.1 / AGP 9.2.1 |
+| Android platform | `platforms;android-37.0` for compile SDK 37; target API 36, minimum API 24 |
+| Android Build Tools | `build-tools;37.0.0` |
+| Android NDK | `ndk;27.1.12297006` |
+| CMake | The app default is 3.22.1; use installed 3.30.5 via `-Pandroid.cmakeVersion=3.30.5` for the local Windows build to avoid the older bundled Ninja's long-path limitation |
+
+The pins come from `node_modules/react-native/gradle/libs.versions.toml`, the installed React Native Gradle wrapper, and the Android project in `node_modules/expo/template.tgz`. Expo's installed autolinking plugin supports the `android.cmakeVersion` override and documents the Windows limitation. [AGP 9.2's compatibility table](https://developer.android.com/build/releases/agp-9-2-0-release-notes) confirms JDK 17, Gradle 9.4.1 and maximum API 37.0. The app's explicit NDK pin takes precedence over AGP's default NDK.
+
+The local preparation uses portable JDK 17, SDK command-line tools 22 and Gradle 9.4.1 under the workspace cache (`.cache/a`); these are local tools, not application source. Set process-scoped `JAVA_HOME`, `ANDROID_HOME` and `GRADLE_USER_HOME` to the prepared locations. If `ANDROID_SDK_ROOT` is also set, keep it equal to `ANDROID_HOME`. Install the selected SDK packages and accept their licenses using the official [SDK manager](https://developer.android.com/tools/sdkmanager). No Android Studio, emulator or Expo login is required merely to assemble an APK. The first build still needs public SDK/Gradle/Maven dependencies unless they are already cached.
+
+For SDK metadata, use Google's [schema 3 repository](https://dl.google.com/android/repository/repository2-3.xml): the stable API 37 package is named `platforms;android-37.0`, not `platforms;android-37`. Command-line tools 22 contains schema 3 support. Do not rename installed platform directories or fabricate package metadata to work around an older package listing.
+
+Use the local Node builder from `apps/mobile`; it does not require PowerShell script execution or a policy change:
+
+```sh
+node scripts/build-android-preview.cjs --sdk "C:\path\to\sdk" --jdk "C:\path\to\jdk17" --gradle-cache "C:\path\to\gradle-cache"
+```
+
+Replace the paths with the prepared local tool locations. Optional `--output <directory>` changes the artifact directory; `--windows-trust` explicitly uses the Windows root certificate store for Java downloads when required by the local network. The builder invokes the installed Expo CLI and JDK/SDK executables directly, checks every process exit, and requires ARM64, preview identity, SDK levels, permitted manifest permissions, bundled JavaScript and the Expo template debug signer before writing a source-fingerprinted build receipt. It defaults to `.test-output/android-preview/mkhadda-preview.apk`. This command has not yet been verified by a completed native build.
+
+The builder sets the staging environment, runs the installed Expo CLI's `prebuild --platform android --no-install`, then invokes the generated Gradle wrapper's `:app:assembleRelease` task directly through Java. It limits Gradle/Metro workers and memory and disables Java/Kotlin release minification for this test artifact.
+
+Keep the staging environment selected during both native generation and the Gradle JavaScript bundle step. This selects `com.remalbookings.app.preview` and the staging API. An ARM64-only build targets compatible physical phones; it is not a universal emulator/device build. Expo's generated release variant runs `export:embed` to include JavaScript/Hermes and assets, so the installed app does not require Metro. See the [Expo CLI Android compilation options](https://docs.expo.dev/more/expo-cli/#compiling-android).
+
+The normal output is `android/app/build/outputs/apk/release/app-release.apk`. The generated template currently signs even this release variant with its **template debug key**. Such an APK is a **staging test artifact only**: the word `release` in its filename does not make its certificate a production signing identity. A native APK has not yet been verified by this documentation update. After a build, verify the manifest/package, SDK levels, permissions, ABI, bundled assets and certificate, then test on an Android device. JavaScript/Hermes export and browser-preview checks do not substitute for those checks.
+
+Production signing and Play submission are separate, later steps requiring the company's protected upload key/Play App Signing setup, a signed AAB, device testing and release review. Do not generate or commit signing keys as part of staging preparation. See [Android release signing](https://reactnative.dev/docs/signed-apk-android). Do not invent an Expo project ID, signing fingerprint or verified App Link association.
+
+`android/` and `ios/` are CNG output and remain ignored. Never create or hand-edit them, even after generation; make persistent native changes in `app.config.ts` and config plugins, then regenerate through Expo. Review any regeneration command before it replaces local output. See [Expo SDK 58 build properties](https://docs.expo.dev/versions/v58.0.0/sdk/build-properties/).
 
 Production checkout remains gated by actual supplier certification and merchant readiness. A consumer worldwide journey also needs an explicit backend path separate from the existing membership eligibility program, a complete account-deletion flow and accurate privacy/Data Safety disclosures. See [release preparation](release/README.md) and its source-backed inventory and unmeasured acceptance targets.
 
