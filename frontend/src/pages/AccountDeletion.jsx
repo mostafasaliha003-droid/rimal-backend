@@ -95,7 +95,7 @@ export default function AccountDeletion() {
         finally { if (active.current && attempt === sequence.current) setBusy(false); }
     };
     const submit = async event => {
-        event.preventDefault(); if (busy || status !== 'ready' || request || !confirmed || !password) return;
+        event.preventDefault(); if (!token || token !== userAccessToken() || busy || status !== 'ready' || request || !confirmed || !password) return;
         const attempt = ++sequence.current, currentPassword = password, abort = new AbortController(); controller.current = abort;
         setBusy(true); setError(''); setPassword(''); setConfirmed(false);
         try {

@@ -26,6 +26,8 @@ Before sending, inventory must cover every page with consistent counts and uniqu
 
 The runner alone does not establish a live schedule. Record the actual deployed source, environment, scheduler and delivery results separately; do not report archival complete from tests, a partial inventory or a queued job.
 
+On 17 November 2026, a read-only production-runtime check found that the web service's supplier configuration still selects Sandbox and the SMTP configuration required by this runner is absent. No invoice inventory was established and no invoice was sent. The owner confirmed that RateHawk production is not activated yet and requested continued app development. Production archival and scheduling remain inactive until that environment is available.
+
 ## Five-day cleanup status
 
 No automatic booking-data erasure or TTL is enabled by this change. Checkout plus five days is the requested eligibility boundary, not permission to delete an entire booking record, account or invoice ledger. A cleanup implementation must map guest/contact data, supplier payloads, payment/reconciliation references and audit/support dependencies, confirm invoice archival and handle open disputes/refunds. Missing or ambiguous checkout and unresolved financial state must fail closed. Preserve the customer's account and ownership as instructed.
