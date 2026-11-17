@@ -76,12 +76,12 @@ Use the local Node builder from `apps/mobile`; it does not require PowerShell sc
 
 ```powershell
 subst T: "C:\path\to\workspace\.cache\a"
-node scripts/build-android-preview.cjs --sdk "T:\s" --jdk "T:\j\jdk-17.0.21+9" --gradle-cache "T:\g" --ninja "T:\ninja\ninja.exe" --native-staging-root "T:\x" --windows-trust --output ".test-output/android-preview-0.2.0"
+node scripts/build-android-preview.cjs --sdk "T:\s" --jdk "T:\j\jdk-17.0.21+9" --gradle-cache "T:\g" --ninja "T:\ninja\ninja.exe" --native-staging-root "T:\x" --windows-trust --output ".test-output/android-preview-0.3.0"
 # After all native/build processes finish:
 subst T: /d
 ```
 
-Use an unused drive letter and the prepared workspace/JDK locations. On this host the alias is visible in the elevated build context; use the same context for mapping, building and cleanup. Removing the alias leaves physical files intact. `--windows-trust` uses the Windows root certificate store for Java downloads when the local network requires it. The command above selects the current artifact directory, `.test-output/android-preview-0.2.0`; without `--output`, the helper defaults to `.test-output/android-preview`.
+Use an unused drive letter and the prepared workspace/JDK locations. On this host the alias is visible in the elevated build context; use the same context for mapping, building and cleanup. Removing the alias leaves physical files intact. `--windows-trust` uses the Windows root certificate store for Java downloads when the local network requires it. The command above selects the current artifact directory, `.test-output/android-preview-0.3.0`; without `--output`, the helper defaults to `.test-output/android-preview`.
 
 The optional `--native-staging-root` option is selected in the verified Windows recipe. It sets `MKHADDA_NATIVE_STAGING_ROOT`, and the CNG plugin assigns each Android module a unique short directory through the supported top-level [`externalNativeBuild.cmake.buildStagingDirectory`](https://developer.android.com/reference/tools/gradle-api/9.2/com/android/build/api/dsl/Cmake) property. The callbacks register before the root plugins evaluate child projects. Use a persistent location outside module `build/` directories. The option also requests `-Pexpo.android.cmakeObjectPathMax=240`; it remains inactive when omitted.
 
@@ -90,7 +90,7 @@ The builder sets staging, runs the installed Expo CLI's `prebuild --platform and
 An eligible checkpoint can be verified again without prebuild, Gradle or a new source attribution:
 
 ```powershell
-node scripts/build-android-preview.cjs --sdk "C:\path\to\sdk" --jdk "C:\path\to\jdk17" --verify-only ".test-output\android-preview-0.2.0\attempts\ATTEMPT_ID\checkpoint.json"
+node scripts/build-android-preview.cjs --sdk "C:\path\to\sdk" --jdk "C:\path\to\jdk17" --verify-only ".test-output\android-preview-0.3.0\attempts\ATTEMPT_ID\checkpoint.json"
 ```
 
 This checks the preserved bytes and the actual installed template certificate. Missing, changed or source-mismatched checkpoints fail closed. It cannot supply missing source-fingerprint evidence for an older independent receipt.
