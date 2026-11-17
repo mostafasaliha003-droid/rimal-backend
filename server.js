@@ -51,6 +51,8 @@ const { createSessionAuthMiddleware } = require('./services/sessionAuthMiddlewar
 const { registerChatSocketHandlers } = require('./services/chatSocketHandlers');
 const { createInternalApiKeyMiddleware } = require('./services/internalApiKeyMiddleware');
 const { createUserAuthRouter, createUserProfileRouter } = require('./services/userAuthRoutes');
+const { createAccountDeletionService } = require('./services/accountDeletionService');
+const { createAccountDeletionRouter, createAdminAccountDeletionRouter } = require('./services/accountDeletionRoutes');
 const createAdminAuthRouter = require('./services/adminAuthRoutes');
 const createDisplayCurrencyRouter = require('./services/displayCurrencyRoutes');
 const { createDisplayCurrencyService } = require('./services/displayCurrencyService');
@@ -308,6 +310,16 @@ app.use('/api/auth', createUserAuthRouter({
     authLimiter: securityService.authLimiter
 }));
 app.use('/api/user', createUserProfileRouter({ UserModel: User, BookingModel: Booking, auth: sessionAuth }));
+// Request intake only: accounts, sessions and bookings remain unchanged.
+const accountDeletionService = createAccountDeletionService({ database: mongoose.connection });
+app.use('/api/auth/account-deletion', createAccountDeletionRouter({
+    UserModel: User, sessions: authSessionService, auth: sessionAuth,
+    comparePassword: (password, hash) => bcrypt.compare(password, hash),
+    service: accountDeletionService, authLimiter: securityService.authLimiter
+}));
+app.use('/api/admin/account-deletion-requests', createAdminAccountDeletionRouter({
+    service: accountDeletionService, auth: sessionAuth
+}));
 
 const hotelbedsSearchController = createSearchController({
     orchestrator: createSearchOrchestrator()
