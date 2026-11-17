@@ -6,6 +6,8 @@ import MembershipPortal,{MembershipChrome} from '../pages/MembershipPortal';
 const MembershipAdmin=lazy(()=>import('../pages/MembershipAdmin'));
 const CustomerSupport=lazy(()=>import('../pages/CustomerSupport'));
 const LegalPage=lazy(()=>import('../pages/LegalPage'));
+const AccountDeletion=lazy(()=>import('../pages/AccountDeletion'));
+const AccountDeletionRequests=lazy(()=>import('./AccountDeletionRequests'));
 const AccountCenter=lazy(()=>import('./AccountCenter'));
 const PaymentStatus=lazy(()=>import('../pages/PaymentStatus'));
 
@@ -30,6 +32,8 @@ export default function MembershipBoundary({children}){
         return()=>{active.current=false;++sequence.current;clearInterval(timer);window.removeEventListener('popstate',pop);window.removeEventListener('remal:user-changed',changed);window.removeEventListener('remal:membership-required',changed);document.removeEventListener('visibilitychange',changed);};
     },[refresh]);
     // Public service and legal pages do not mount inventory/search hooks.
+    if(pathname==='/account-deletion')return <Suspense><AccountDeletion/></Suspense>;
+    if(pathname==='/account-deletion-requests')return <Suspense><AccountDeletionRequests/></Suspense>;
     if(pathname==='/membership-admin')return <Suspense><MembershipAdmin/></Suspense>;
     if(pathname==='/customer-service')return <Suspense><CustomerSupport staff/></Suspense>;
     if(['/privacy','/terms'].includes(pathname))return <Suspense><LegalPage kind={pathname.slice(1)}/></Suspense>;

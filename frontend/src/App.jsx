@@ -11,6 +11,8 @@ const Checkout = lazy(() => import('./Checkout'));
 const AccountCenter = lazy(() => import('./components/AccountCenter'));
 const CustomerSupport = lazy(() => import('./pages/CustomerSupport'));
 const LegalPage = lazy(() => import('./pages/LegalPage'));
+const AccountDeletion = lazy(() => import('./pages/AccountDeletion'));
+const AccountDeletionRequests = lazy(() => import('./components/AccountDeletionRequests'));
 const LoyaltyDashboard = lazy(() => import('./components/LoyaltyDashboard'));
 const NextGenHotels = lazy(() => import('./pages/NextGenHotels'));
 const NextGenCheckout = lazy(() => import('./pages/NextGenCheckout'));
@@ -104,7 +106,7 @@ export default function App() {
 
     useEffect(() => {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
-        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/support', '/customer-service', '/loyalty'].includes(pathname);
+        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/support', '/customer-service', '/loyalty', '/account-deletion', '/account-deletion-requests'].includes(pathname);
         const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
         const title = t('meta.title', 'رمال وفِلّها | حجوزات الفنادق');
         const description = t('meta.description', 'ابحث عن إقامة مناسبة مع رمال وقارن عروض الفنادق.');
@@ -283,6 +285,8 @@ export default function App() {
         setPathname(pathnameOnly);
     };
 
+    if (pathname === '/account-deletion') return <AccountDeletion />;
+    if (pathname === '/account-deletion-requests') return <AccountDeletionRequests />;
     if (pathname === '/privacy' || pathname === '/terms') {
         return <><TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} /><LegalPage kind={pathname.slice(1)} /></>;
     }
