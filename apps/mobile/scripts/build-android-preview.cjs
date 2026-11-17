@@ -172,8 +172,12 @@ function buildPreview(options) {
   fs.mkdirSync(options.output, { recursive: true });
   const receiptPath = path.join(options.output, 'build-receipt.json');
   fs.rmSync(receiptPath, { force: true });
-  command(process.execPath, [expoCli, 'prebuild', '--platform', 'android', '--no-install']);
   const nativeDirectory = path.join(PROJECT, 'android');
+  const apkPath = path.join(nativeDirectory, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk');
+  const unverifiedApk = path.join(options.output, 'mkhadda-preview.unverified.apk');
+  // Even --no-clean can regenerate a malformed project; retain any previous APK first.
+  if (fs.existsSync(apkPath) && fs.statSync(apkPath).isFile()) fs.copyFileSync(apkPath, unverifiedApk);
+  command(process.execPath, [expoCli, 'prebuild', '--platform', 'android', '--no-install', '--no-clean']);
   const gradleSource = fs.readFileSync(path.join(nativeDirectory, 'app', 'build.gradle'), 'utf8');
   if (!/applicationId\s+['"]com\.remalbookings\.app\.preview['"]/.test(gradleSource)) throw new Error('Only the staging preview application may be built.');
   const debugKey = requireFile(path.join(nativeDirectory, 'app', 'debug.keystore'), 'Generated template debug keystore');
@@ -190,17 +194,18 @@ function buildPreview(options) {
     ...(options.nativeStagingRoot ? ['-Pexpo.android.cmakeObjectPathMax=240'] : []),
     '-Pandroid.enableMinifyInReleaseBuilds=false', '-PreactNativeArchitectures=arm64-v8a',
   ], { cwd: nativeDirectory });
-  const apk = requireFile(path.join(nativeDirectory, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk'), 'Built preview APK');
-  const entries = command(jar, ['tf', apk], { capture: true });
-  const badging = command(aapt, ['dump', 'badging', apk], { capture: true });
+  const apk = requireFile(apkPath, 'Built preview APK');
+  fs.copyFileSync(apk, unverifiedApk);
+  const entries = command(jar, ['tf', unverifiedApk], { capture: true });
+  const badging = command(aapt, ['dump', 'badging', unverifiedApk], { capture: true });
   const metadata = verifyApkMetadata(badging, entries);
-  const signature = command(java, ['-jar', apkSigner, 'verify', '--verbose', '--print-certs', apk], { capture: true });
+  const signature = command(java, ['-jar', apkSigner, 'verify', '--verbose', '--print-certs', unverifiedApk], { capture: true });
   const keyDescription = command(keytool, ['-J-Duser.language=en', '-J-Duser.country=US', '-list', '-v', '-keystore', debugKey, '-storepass', 'android', '-alias', 'androiddebugkey'], { capture: true });
   const signerSha256 = verifySigner(signature, keyDescription);
   const after = sourceState(env);
   if (JSON.stringify(before) !== JSON.stringify(after)) throw new Error('Application source changed during this build; no receipt will be issued.');
   const destination = path.join(options.output, 'mkhadda-preview.apk');
-  fs.copyFileSync(apk, destination);
+  fs.renameSync(unverifiedApk, destination);
   fs.writeFileSync(path.join(options.output, 'apk-badging.txt'), badging);
   fs.writeFileSync(path.join(options.output, 'apk-signature.txt'), signature);
   const receipt = {
