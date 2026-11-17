@@ -10,7 +10,7 @@ const production = environment === 'production';
 const config: ExpoConfig = {
   name: production ? 'مخدّة | Mkhadda' : 'Mkhadda Preview',
   slug: 'mkhadda',
-  version: '0.2.0',
+  version: '0.3.0',
   orientation: 'default',
   icon: './assets/icon.png',
   scheme: production ? 'mkhadda' : 'mkhadda-preview',
@@ -20,7 +20,7 @@ const config: ExpoConfig = {
     // Production identity entered in the owner-created Play draft, 16 Nov 2026.
     // Keep internal previews separate from the store application.
     package: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
-    versionCode: 2,
+    versionCode: 3,
     adaptiveIcon: {
       foregroundImage: './assets/remal-icon.png',
       backgroundColor: '#ffffff',

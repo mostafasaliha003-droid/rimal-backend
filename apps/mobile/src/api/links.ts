@@ -3,8 +3,8 @@ import { APP_ENV, endpoints } from './config';
 import { ApiError } from './errors';
 import { assertCriteria, hotelId } from './validation';
 
-export type WebsitePath = '/account' | '/support' | '/privacy' | '/terms' | '/membership';
-const paths = new Set<WebsitePath>(['/account', '/support', '/privacy', '/terms', '/membership']);
+export type WebsitePath = '/account' | '/support' | '/privacy' | '/terms' | '/membership' | '/account-deletion';
+const paths = new Set<WebsitePath>(['/account', '/support', '/privacy', '/terms', '/membership', '/account-deletion']);
 export function websiteUrl(path: WebsitePath, environment: AppEnvironment = APP_ENV) {
   if (!paths.has(path)) throw new ApiError('validation', 'invalid_website_path');
   return `${endpoints(environment).website}${path}`;

@@ -9,6 +9,7 @@
     "authoritative_backend_commit": "2b26ddd5a1dd8039723d4bb8a9f66b56deaccb46",
     "backend_evidence": "Immutable Git source at this commit, especially services/userAuthRoutes.js. The older backend files inherited by the mobile worktree are not the authority for these API contracts.",
     "native_evidence": "Current apps/mobile source candidate; source paths below describe implementation, not a completed Play declaration or device-runtime verification.",
+    "privacy_companion_backend_commit": "3924d7ea4e2adb9092c4c44799f57ee106827a76",
     "interpretation_limit": "Receiving or discarding a response field is recorded as a source fact here. This inventory does not decide Play collection/sharing exceptions, legal purposes, required/optional declarations, retention periods or compliance."
   },
   "official_sources": [
@@ -16,6 +17,16 @@
     "https://support.google.com/googleplay/android-developer/answer/13327111"
   ],
   "data_flows": [
+    {
+      "flow": "Native account-deletion request intake, without erasure",
+      "native_endpoints": ["GET /api/auth/account-deletion", "POST /api/auth/account-deletion"],
+      "request_data": ["Existing bearer session in the Authorization header", "Current account password for reauthentication", "Explicit request consent"],
+      "response_data": ["Pending request reference and requested timestamp, or no recorded request", "Explicit data_deleted:false"],
+      "local_handling_observed": "Password and consent live in screen/request memory and clear from form state on each attempt and authentication revision change. Request/reference and status live in screen memory. The implementation adds no password, consent or request disk cache or navigation parameters. Clearing state does not establish immediate memory erasure. A fixed external website link carries no app token, account identifier or password.",
+      "server_handling_observed": "The companion backend reauthenticates the current session owner and records a minimal owner subject, realm, reference, requested status and timestamp. It does not persist the submitted password or email in the request ledger, erase customer data, revoke sessions or change bookings/payments. The administrative queue is read-only.",
+      "source_files": ["apps/mobile/src/api/accountDeletion.ts", "apps/mobile/src/screens/AccountDeletionScreen.tsx", "apps/mobile/src/api/transport.ts", "apps/mobile/src/api/links.ts", "services/accountDeletionRoutes.js and services/accountDeletionService.js at the companion commit", "models/AccountDeletionRequest.js at the companion commit"],
+      "declaration_gate": "Request intake is not completed account deletion. The owner currently retains customer accounts. Complete fulfillment, narrowly scoped legitimate retention and consistent privacy/Data Safety disclosures remain unresolved before Play release; see release/privacy-requests.md."
+    },
     {
       "flow": "Account registration, authentication and profile",
       "observed_data": ["Name", "Email", "Optional phone", "Password input sent to the backend over HTTPS for login/registration", "Password hash stored and compared on the server", "Account identifier", "Session token hash, role, realm and expiry on the server"],

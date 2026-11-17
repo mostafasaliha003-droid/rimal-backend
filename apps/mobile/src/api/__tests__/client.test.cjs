@@ -295,6 +295,58 @@ test('auth revision changes across restore, same-account sign-in, logout and inv
   assert.equal(manager.getSnapshot().access_token, undefined);
 });
 
+test('account deletion intake uses only exact authenticated routes and never accepts caller identity selectors', async () => {
+  const calls = [];
+  const api = createApiClient(createTransport({ environment: 'staging', getToken: async () => 'a'.repeat(64),
+    fetcher: async (url, options) => { calls.push({ url, options }); return response({ success: true, request: null, data_deleted: false }); } }));
+  assert.deepEqual(await api.getAccountDeletionRequest(), { request: null, dataDeleted: false });
+  assert.equal(calls[0].url, 'https://rimal-api-staging.onrender.com/api/auth/account-deletion');
+  assert.equal(calls[0].options.headers.Authorization, `Bearer ${'a'.repeat(64)}`);
+  assert.equal(calls[0].options.body, undefined);
+  for (const [method, target] of [['DELETE', '/auth/account-deletion'], ['POST', '/user/delete'], ['GET', '/auth/account-deletion?email=other@example.test']]) {
+    assert.equal(allowedRoute(method, target), false);
+  }
+});
+
+test('request intake sends exact current password without trimming or a registration-length rule and drops extra response fields', async () => {
+  let sent;
+  const api = createApiClient(createTransport({ environment: 'staging', getToken: async () => 'a'.repeat(64),
+    fetcher: async (_url, options) => { sent = JSON.parse(options.body); return response({ success: true,
+      request: { reference: `del_${'1'.repeat(32)}`, status: 'requested', requested_at: '2026-11-17T12:00:00.000Z',
+        email: 'must-not-copy@example.test', ownerSubject: 'private' }, data_deleted: false }); } }));
+  const receipt = await api.requestAccountDeletion(' x ');
+  assert.deepEqual(sent, { password: ' x ', confirm_account_deletion: true });
+  assert.deepEqual(receipt, { request: { reference: `del_${'1'.repeat(32)}`, status: 'requested', requestedAt: '2026-11-17T12:00:00.000Z' }, dataDeleted: false });
+  await assert.rejects(api.requestAccountDeletion(''), /invalid_password/);
+  await assert.rejects(api.requestAccountDeletion('x'.repeat(257)), /invalid_password/);
+});
+
+test('wrong deletion reauthentication does not invalidate a valid session or imply request acceptance', async () => {
+  let invalidated = 0;
+  const api = createApiClient(createTransport({ environment: 'staging', getToken: async () => 'a'.repeat(64),
+    onUnauthorized: async () => { invalidated++; }, fetcher: async () => response({ success: false, error: 'reauthentication_failed' }, 400) }));
+  await assert.rejects(api.requestAccountDeletion('wrong'), error => error.status === 400 && error.code === 'reauthentication_failed');
+  assert.equal(invalidated, 0);
+});
+
+test('deletion intake never invents completion from unknown, missing or malformed server outcomes', async () => {
+  let payload;
+  const api = createApiClient(createTransport({ environment: 'staging', fetcher: async () => response(payload) }));
+  const valid = { reference: `del_${'1'.repeat(32)}`, status: 'requested', requested_at: '2026-11-17T12:00:00.000Z' };
+  for (const patch of [{}, { data_deleted: true }, { request: null }, { request: { ...valid, status: 'completed' } },
+    { request: { ...valid, reference: 'predictable' } }, { request: { ...valid, requested_at: '2026-02-30T00:00:00Z' } }]) {
+    payload = { success: true, request: valid, data_deleted: false, ...patch };
+    if (!Object.keys(patch).length) delete payload.data_deleted;
+    await assert.rejects(api.requestAccountDeletion('valid'), error => error.kind === 'invalid_response');
+  }
+});
+
+test('public deletion resource is a fixed environment URL with no account or credential query', () => {
+  assert.equal(websiteUrl('/account-deletion', 'production'), 'https://remalbookings.com/account-deletion');
+  assert.equal(websiteUrl('/account-deletion', 'staging'), 'https://rimal-api-staging.onrender.com/account-deletion');
+  for (const invalid of ['/account-deletion?token=private', '/account-deletion/other', '//evil.test/account-deletion']) assert.throws(() => websiteUrl(invalid));
+});
+
 test('native storage uses environment-separated SecureStore; web preview stays memory-only', async () => {
   const entries = new Map(); let writes = 0;
   const secure = { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 7, async getItemAsync(key) { return entries.get(key) || null; },

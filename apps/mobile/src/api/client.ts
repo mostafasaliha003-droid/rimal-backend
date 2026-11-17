@@ -4,6 +4,7 @@ import { normalizeDetails, normalizeHotel, normalizeOffers, normalizeSuggestions
 import { assertCriteria, hotelId, searchBody } from './validation';
 import { createTransport, validToken } from './transport';
 import { getOwnedBookings } from './bookings';
+import { getAccountDeletionRequest, requestAccountDeletion } from './accountDeletion';
 
 const sameAmount = (left: string, right: string) => {
   const normalize = (value: string) => { const [whole, fraction = ''] = value.split('.'); const tail = fraction.replace(/0+$/, '');
@@ -56,6 +57,8 @@ export function createApiClient(request: Request) {
   return {
     auth, getHotelStatic,
     getBookings: (signal?: AbortSignal) => getOwnedBookings(request, signal),
+    getAccountDeletionRequest: (signal?: AbortSignal) => getAccountDeletionRequest(request, signal),
+    requestAccountDeletion: (password: string, signal?: AbortSignal) => requestAccountDeletion(request, password, signal),
     async searchSuggestions(query: string, language: Language = 'en', signal?: AbortSignal) {
       if (!query.trim() || query.trim().length > 160 || !['ar', 'en', 'es'].includes(language)) throw new ApiError('validation', 'invalid_query');
       return normalizeSuggestions(await request('GET', '/search/suggest', { signal, timeoutMs: 20000,
