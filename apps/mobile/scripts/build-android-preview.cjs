@@ -100,7 +100,9 @@ function verifyApkMetadata(badging, entriesText) {
   const packageLine = badging.match(/^package:.*$/m)?.[0] || '';
   const applicationId = packageLine.match(/\bname='([^']+)'/)?.[1];
   if (applicationId !== APPLICATION_ID) throw new Error('Unexpected APK application ID.');
-  const minSdk = badging.match(/^sdkVersion:'([^']+)'\r?$/m)?.[1];
+  const minimumDeclarations = badging.split(/\r?\n/).filter((line) => /^[\t ]*(?:sdkVersion|minSdkVersion)\b/.test(line));
+  if (minimumDeclarations.length !== 1) throw new Error('Expected exactly one minimum SDK declaration.');
+  const minSdk = minimumDeclarations[0].match(/^(?:sdkVersion|minSdkVersion):'([0-9]+)'$/)?.[1];
   const targetSdk = badging.match(/^targetSdkVersion:'([^']+)'\r?$/m)?.[1];
   if (minSdk !== '24' || targetSdk !== '36') throw new Error('Unexpected APK SDK levels.');
   const compileSdk = packageLine.match(/\bcompileSdkVersion='([^']+)'/)?.[1];
