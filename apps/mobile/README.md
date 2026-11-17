@@ -90,6 +90,8 @@ node scripts/build-android-preview.cjs --sdk "C:\path\to\sdk" --jdk "C:\path\to\
 
 This checks the preserved bytes and the actual installed template certificate. Missing, changed or source-mismatched checkpoints fail closed. It cannot supply missing source-fingerprint evidence for an older independent receipt.
 
+The verification-only path was exercised successfully on the preserved 0.2.0 attempt after a documentation commit and after the temporary drive alias was removed. It completed with exit 0 without prebuild or Gradle, retained compiled source `9b85073`, and produced the identical APK hash. The original build-and-verify receipt was preserved separately.
+
 Keep the staging environment selected during both native generation and the Gradle JavaScript bundle step. This selects `com.remalbookings.app.preview` and the staging API. An ARM64-only build targets compatible physical phones; it is not a universal emulator/device build. Expo's generated release variant runs `export:embed` to include JavaScript/Hermes and assets, so the installed app does not require Metro. See the [Expo CLI Android compilation options](https://docs.expo.dev/more/expo-cli/#compiling-android).
 
 On **17 November 2026**, the **0.2.0 / version code 2** local build completed successfully, including the full builder verification (**exit 0**). Gradle completed in **3m 28s**, with **824 tasks: 46 executed, 778 up-to-date**. The APK at `.test-output/android-preview-0.2.0/mkhadda-preview.apk` is **34,548,694 bytes**, SHA-256 `03dd229521dfc787cc14014b2239e32e1ab926a69bedafe414eb08f3523d594b`.
