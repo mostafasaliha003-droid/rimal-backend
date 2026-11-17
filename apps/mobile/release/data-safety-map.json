@@ -4,7 +4,7 @@
   "brand": "Mkhadda",
   "operator": "Remal Tourism",
   "status": "Developer inventory draft, not a completed or submitted Play Data Safety declaration.",
-  "scope": "Source inventory of the existing backend/web capabilities and the current native source candidate, including native owned booking history and explicit read-only rate review. These new native flows are not claimed to be present in an earlier delivered APK. SDK collection, permissions and final declaration answers must be verified against the Android build actually released.",
+  "scope": "Source inventory of the existing backend/web capabilities and the current native source candidate, including owned booking history, explicit read-only rate review, account-request intake, RAM-only hotel comparison and recent searches. New source flows are not claimed to be present in earlier APKs. SDK collection, permissions and final declaration answers must be verified against the Android build actually released.",
   "source_baseline": {
     "authoritative_backend_commit": "2b26ddd5a1dd8039723d4bb8a9f66b56deaccb46",
     "backend_evidence": "Immutable Git source at this commit, especially services/userAuthRoutes.js. The older backend files inherited by the mobile worktree are not the authority for these API contracts.",
@@ -17,6 +17,15 @@
     "https://support.google.com/googleplay/android-developer/answer/13327111"
   ],
   "data_flows": [
+    {
+      "flow": "Session-only recent searches and hotel comparison in version 0.4",
+      "recent_search_data": ["Destination name and validated region/property identifier", "Stay dates, country of residence, currency and room/adult/child-age criteria", "Local creation time and non-secret session scope"],
+      "comparison_data": ["Up to three supplied hotel identifiers, names, addresses, star classifications and photo URLs", "Supplied customer prices in the search currency, capture time and non-secret search/session scope"],
+      "local_handling_observed": "Both collections use JavaScript/React memory only, without new AsyncStorage, SecureStore, URL, log or disk persistence. Account/session changes invalidate them; comparison also resets on search/language changes. Expected-context checks reject old handlers. Comparison snapshots whitelist presentation fields and exclude room offers, signed capabilities, tokens and guest/account/payment identity. Recent criteria are copied, deduplicated, bounded to four and revalidated before use. A local five-minute comparison-price display period is not a supplier availability or deletion guarantee.",
+      "network_handling_observed": "Restoring a recent query fills the search form without automatically submitting it. Local filters and comparison add no provider endpoint or analytics transmission. Explicit Search still uses existing supplier search requests; displayed photo URLs use the existing image adapter and provider domains. Native UI grouping preserves original room-rate objects for the existing explicit review/prebook flow.",
+      "source_files": ["apps/mobile/src/components/AppState.tsx", "apps/mobile/src/components/discoverySessionModel.ts", "apps/mobile/src/screens/SearchScreen.tsx", "apps/mobile/src/screens/CompareScreen.tsx", "apps/mobile/src/screens/ResultsScreen.tsx", "apps/mobile/src/screens/HotelScreen.tsx"],
+      "declaration_gate": "Review search/occupancy criteria, shared-device session behavior, image-provider transfers and the final compiled SDK inventory in the complete privacy/Data Safety assessment. RAM-only handling and source checks alone do not establish a collection exemption, legal retention compliance or secure physical-device behavior."
+    },
     {
       "flow": "Native account-deletion request intake, without erasure",
       "native_endpoints": ["GET /api/auth/account-deletion", "POST /api/auth/account-deletion"],

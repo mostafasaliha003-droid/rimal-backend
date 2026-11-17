@@ -39,7 +39,8 @@ export function createOfferReviewDraft(input: OfferReviewInput, ownerKey: string
     if (hotelId(input.hid) === null || !input.hotelName.trim() || !['ar', 'en', 'es'].includes(input.language)
       || !ownerKey || !Number.isFinite(now)) return null;
     assertCriteria({ ...input.criteria, regionId: undefined, hids: [input.hid] });
-    if (!input.offer.price || !input.offer.bookHash.startsWith('h-') || !input.offer.offerContext) return null;
+    if (!input.offer.price || input.offer.price.currency !== input.criteria.currency
+      || !input.offer.bookHash.startsWith('h-') || !input.offer.offerContext) return null;
     const criteria = copyCriteria(input.criteria);
     // A review is memory-only. Clone before freezing so caller-owned search and
     // hotel objects are never frozen or mutated by this screen.
