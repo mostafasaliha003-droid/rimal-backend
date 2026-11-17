@@ -21,7 +21,7 @@ const FORBIDDEN_PERMISSIONS = new Set([
 
 function parseArgs(args) {
   const result = { output: path.join(PROJECT, '.test-output', 'android-preview'), windowsTrust: false };
-  const values = new Map([['--sdk', 'sdk'], ['--jdk', 'jdk'], ['--gradle-cache', 'gradleCache'], ['--output', 'output'], ['--ninja', 'ninja']]);
+  const values = new Map([['--sdk', 'sdk'], ['--jdk', 'jdk'], ['--gradle-cache', 'gradleCache'], ['--output', 'output'], ['--ninja', 'ninja'], ['--native-staging-root', 'nativeStagingRoot']]);
   const seen = new Set();
   for (let i = 0; i < args.length; i += 1) {
     const flag = args[i];
@@ -33,6 +33,7 @@ function parseArgs(args) {
     if (!key) throw new Error(`Unknown argument: ${flag}`);
     const value = args[++i];
     if (!value || value.startsWith('--')) throw new Error(`Missing value for ${flag}`);
+    if (flag === '--native-staging-root' && !path.isAbsolute(value)) throw new Error('--native-staging-root must be an absolute directory path.');
     result[key] = path.resolve(value);
   }
   for (const key of ['sdk', 'jdk', 'gradleCache']) {
@@ -156,6 +157,7 @@ function buildPreview(options) {
     EXPO_NO_TELEMETRY: '1', CI: '1', DEBUG: '', CMAKE_BUILD_PARALLEL_LEVEL: '1',
     MKHADDA_LOCAL_BUILD_MAX_WORKERS: '1',
     MKHADDA_LOCAL_NINJA: options.ninja ? ninja.replaceAll('\\', '/') : '',
+    MKHADDA_NATIVE_STAGING_ROOT: options.nativeStagingRoot || '',
     NODE_OPTIONS: `${env.NODE_OPTIONS || ''} --use-system-ca --max-old-space-size=1536`.trim(),
     Path: `${path.join(options.jdk, 'bin')};${path.join(options.sdk, 'platform-tools')};${previousPath}`,
   });
@@ -183,6 +185,7 @@ function buildPreview(options) {
     ':app:assembleRelease', '--no-daemon', '--max-workers=1', '--console=plain', '-Dorg.gradle.parallel=false',
     `-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m${trust.length ? ` ${trust.join(' ')}` : ''}`,
     '-Pkotlin.compiler.execution.strategy=in-process', `-Pandroid.cmakeVersion=${CMAKE_VERSION}`,
+    ...(options.nativeStagingRoot ? ['-Pexpo.android.cmakeObjectPathMax=240'] : []),
     '-Pandroid.enableMinifyInReleaseBuilds=false', '-PreactNativeArchitectures=arm64-v8a',
   ], { cwd: nativeDirectory });
   const apk = requireFile(path.join(nativeDirectory, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk'), 'Built preview APK');
@@ -204,6 +207,8 @@ function buildPreview(options) {
     sourceTreeSha256: before.treeSha256, sourceFileCount: before.fileCount,
     sourceStateUnchangedDuringBuild: true, environment: 'staging',
     toolchain: { jdk: 17, gradle: '9.4.1', buildTools: '37.0.0', ndk: '27.1.12297006', cmake: CMAKE_VERSION, ninjaVersion, ninjaSha256, externalNinja: Boolean(options.ninja) },
+    nativeStagingRoot: options.nativeStagingRoot || null,
+    requestedCmakeObjectPathMax: options.nativeStagingRoot ? 240 : null,
     signing: 'installed Expo template debug key; test-only, not a Play upload key',
     signerSha256, bundledJavaScript: true, signatureVerified: true,
     manifestIdentityAndPermissionsVerified: true, nativeAbisVerified: true,
@@ -221,7 +226,7 @@ function buildPreview(options) {
 if (require.main === module) {
   try {
     const options = parseArgs(process.argv.slice(2));
-    if (options.help) console.log('Usage: node scripts/build-android-preview.cjs --sdk <SDK> --jdk <JDK17> --gradle-cache <cache> [--ninja <Ninja1.13.2.exe>] [--output <directory>] [--windows-trust]\nBuilds ARM64 staging only; template debug signature is test-only.');
+    if (options.help) console.log('Usage: node scripts/build-android-preview.cjs --sdk <SDK> --jdk <JDK17> --gradle-cache <cache> [--ninja <Ninja1.13.2.exe>] [--native-staging-root <absolute-directory>] [--output <directory>] [--windows-trust]\nBuilds ARM64 staging only; template debug signature is test-only.');
     else buildPreview(options);
   } catch (error) {
     console.error(`Preview build failed: ${error.message}`);
