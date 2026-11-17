@@ -6,7 +6,7 @@ export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>
 export interface RequestOptions { signal?: AbortSignal; query?: Record<string, string>; body?: unknown; token?: string | null; anonymous?: boolean; timeoutMs?: number }
 export const validToken = (value: unknown): value is string => typeof value === 'string' && /^[a-f\d]{64}$/i.test(value);
 export function allowedRoute(method: string, path: string) {
-  if (method === 'GET') return ['/search/suggest', '/auth/session'].includes(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path);
+  if (method === 'GET') return ['/search/suggest', '/auth/session', '/user/profile'].includes(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path);
   return method === 'POST' && ['/search/rates', '/search/rates/region', '/search/hotelpage', '/booking/prebook',
     '/auth/login', '/auth/register-send-code', '/auth/verify-and-register', '/auth/logout'].includes(path);
 }

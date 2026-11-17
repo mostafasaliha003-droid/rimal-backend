@@ -74,7 +74,7 @@ export function normalizeOffers(value: unknown, hotel: unknown = {}): RoomOffer[
     const penalty = object(payment?.cancellation_penalties), code = currency(payment?.currency_code);
     const key = classification(rate.rg_ext);
     const matched = key ? groups.map(object).filter(group => classification(group.rg_ext) === key) : [];
-    return [{ id: `${rate.book_hash}:${index}`, name, bookHash: rate.book_hash,
+    return [{ id: `${rate.book_hash}:${index}`, name, bookHash: rate.book_hash, ...(key ? { roomIdentity: key } : {}),
       ...(typeof rate.offer_context === 'string' && rate.offer_context.length <= 131072 ? { offerContext: rate.offer_context } : {}),
       price: customerPrice(rate), ...(typeof rate.meal === 'string' ? { meal: rate.meal } : {}),
       images: matched.flatMap(group => images(group.images_ext, group.images)),

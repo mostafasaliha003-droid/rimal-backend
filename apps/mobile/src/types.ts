@@ -18,7 +18,7 @@ export interface CancellationInterval {
   startAt: string | null; endAt: string | null; amount: string | null; currency: string | null;
 }
 export interface RoomOffer {
-  id: string; name: string; bookHash: string; offerContext?: string;
+  id: string; name: string; bookHash: string; offerContext?: string; roomIdentity?: string;
   price: Money | null; meal?: string; images: string[]; taxes: Tax[];
   cancellation: { freeUntil: string | null; policies: CancellationInterval[] };
 }
@@ -30,7 +30,7 @@ export interface HotelDetails extends HotelSummary {
   description: string[]; amenities: string[]; images: string[];
   policyExtraInfo: string | null; policies: Record<string, unknown>;
 }
-export interface PrebookResult { offer: RoomOffer; priceChanged: boolean; prebookContext?: string }
+export interface PrebookResult { offer: RoomOffer; priceChanged: boolean; prebookContext: string }
 export interface User { name: string; email: string; phone?: string; points?: number }
 export interface RegistrationInput { name: string; email: string; password: string; phone: string }
 export interface TokenStorage {

@@ -16,7 +16,9 @@ The mobile app lives in `apps/mobile` within the existing [Remal Bookings reposi
 - Only server-supplied customer prices; tax amounts retain their own currencies and explicit inclusion status. Full `rg_ext` matching supplies room photographs.
 - The certification policy formatter is retained, including all populated nested fields, zero/false, safe supplier text and isolated Arabic numeric ranges.
 - Native authentication credentials use environment-separated SecureStore; web-preview credentials remain in memory. Expired sessions and membership-approval denials are distinct states.
-- Booking, payment, status/history and support continue on the explicitly identified Remal website. The handoff contains validated search context only, without access tokens, signed offers, guest identity or payment credentials. A room must be selected/rechecked there; the application does not claim to complete a native booking.
+- A memory-only room review shows the selected stay, authoritative price, taxes and UTC cancellation terms. Price checks are explicit; updated price/terms require acceptance. Selection or account changes invalidate old results before a handoff can proceed. The five-minute selection and two-minute checked-view limits are local presentation limits, not supplier guarantees.
+- The signed-in booking history reads the server's owner-scoped records and preserves unknown or conflicting states. It never treats an `active` record alone as a confirmed stay or fabricates a price.
+- Booking, payment and booking management continue on the explicitly identified Remal website. The handoff contains validated search context only, without access tokens, signed offers, guest identity or payment credentials. A room must be selected/rechecked there; the application does not claim to complete a native booking.
 
 The default environment is **staging** and displays a development banner. Production endpoints require the explicit `EXPO_PUBLIC_API_ENV=production` build selection. Supplier, merchant, SMTP, signing and private API keys must never enter this application or public environment variables.
 
@@ -28,6 +30,7 @@ Use Node.js 24 LTS and the committed lockfile:
 cd apps/mobile
 npm ci
 npm run test:unit
+npm run test:build
 npm run typecheck
 npm run lint
 npx expo-doctor
@@ -77,7 +80,15 @@ Use an unused drive letter and the prepared workspace/JDK locations. On this hos
 
 The optional `--native-staging-root` option is selected in the verified Windows recipe. It sets `MKHADDA_NATIVE_STAGING_ROOT`, and the CNG plugin assigns each Android module a unique short directory through the supported top-level [`externalNativeBuild.cmake.buildStagingDirectory`](https://developer.android.com/reference/tools/gradle-api/9.2/com/android/build/api/dsl/Cmake) property. The callbacks register before the root plugins evaluate child projects. Use a persistent location outside module `build/` directories. The option also requests `-Pexpo.android.cmakeObjectPathMax=240`; it remains inactive when omitted.
 
-The builder sets staging, runs the installed Expo CLI's `prebuild --platform android --no-install --no-clean`, then invokes `:app:assembleRelease` directly through Java. SDK 58 prebuild otherwise cleans native folders by default. The helper preserves any existing APK before prebuild and checkpoints the new Gradle candidate as `.unverified.apk` before inspecting it. Only successful artifact/source checks permit automatic promotion and a receipt. It limits Gradle/Metro workers and memory and disables Java/Kotlin release minification for this test artifact.
+The builder sets staging, runs the installed Expo CLI's `prebuild --platform android --no-install --no-clean`, then invokes `:app:assembleRelease` directly through Java. SDK 58 prebuild otherwise cleans native folders by default. Every attempt has its own directory: the source fingerprint is saved before prebuild, and the candidate APK plus matching post-build fingerprint are checkpointed immediately after Gradle succeeds. The prior verified APK/receipt are retained if compilation or artifact verification fails. Only successful source, metadata, signature and candidate-hash checks permit publication. Gradle/Metro workers and memory are bounded; Java/Kotlin release minification is disabled for this test artifact.
+
+An eligible checkpoint can be verified again without prebuild, Gradle or a new source attribution:
+
+```powershell
+node scripts/build-android-preview.cjs --sdk "C:\path\to\sdk" --jdk "C:\path\to\jdk17" --verify-only ".test-output\android-preview\attempts\ATTEMPT_ID\checkpoint.json"
+```
+
+This checks the preserved bytes and the actual installed template certificate. Missing, changed or source-mismatched checkpoints fail closed. It cannot supply missing source-fingerprint evidence for an older independent receipt.
 
 Keep the staging environment selected during both native generation and the Gradle JavaScript bundle step. This selects `com.remalbookings.app.preview` and the staging API. An ARM64-only build targets compatible physical phones; it is not a universal emulator/device build. Expo's generated release variant runs `export:embed` to include JavaScript/Hermes and assets, so the installed app does not require Metro. See the [Expo CLI Android compilation options](https://docs.expo.dev/more/expo-cli/#compiling-android).
 

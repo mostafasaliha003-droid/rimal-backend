@@ -89,6 +89,7 @@ export function createSessionManager(network: ApiClient['auth'], storage: TokenS
     if (failure) { if (stamp === revision) publish({ status: 'signedOut', user: null, error: failure }); throw failure; }
   }
   return { getToken, invalidate, restore, signOut,
+    getRevision: () => revision,
     getSnapshot: () => snapshot,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     signIn: (email: string, password: string, signal?: AbortSignal) => authenticate(() => network.login(email, password, signal)),

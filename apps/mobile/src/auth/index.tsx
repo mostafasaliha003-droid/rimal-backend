@@ -11,6 +11,6 @@ export function useAuth() {
   const manager = useContext(AuthContext);
   if (!manager) throw new Error('AuthProvider is required');
   const snapshot = useSyncExternalStore(manager.subscribe, manager.getSnapshot, manager.getSnapshot);
-  return { ...snapshot, signIn: manager.signIn, requestRegistration: manager.requestRegistration,
+  return { ...snapshot, sessionRevision: manager.getRevision(), signIn: manager.signIn, requestRegistration: manager.requestRegistration,
     verifyRegistration: manager.verifyRegistration, signOut: manager.signOut, refresh: manager.restore };
 }

@@ -3,6 +3,13 @@ import { ApiError, invalidResponse } from './errors';
 import { normalizeDetails, normalizeHotel, normalizeOffers, normalizeSuggestions, normalizeUser, object } from './adapters';
 import { assertCriteria, hotelId, searchBody } from './validation';
 import { createTransport, validToken } from './transport';
+import { getOwnedBookings } from './bookings';
+
+const sameAmount = (left: string, right: string) => {
+  const normalize = (value: string) => { const [whole, fraction = ''] = value.split('.'); const tail = fraction.replace(/0+$/, '');
+    return `${whole.replace(/^0+(?=\d)/, '')}${tail ? `.${tail}` : ''}`; };
+  return normalize(left) === normalize(right);
+};
 
 type Request = ReturnType<typeof createTransport>;
 export function createApiClient(request: Request) {
@@ -48,6 +55,7 @@ export function createApiClient(request: Request) {
   };
   return {
     auth, getHotelStatic,
+    getBookings: (signal?: AbortSignal) => getOwnedBookings(request, signal),
     async searchSuggestions(query: string, language: Language = 'en', signal?: AbortSignal) {
       if (!query.trim() || query.trim().length > 160 || !['ar', 'en', 'es'].includes(language)) throw new ApiError('validation', 'invalid_query');
       return normalizeSuggestions(await request('GET', '/search/suggest', { signal, timeoutMs: 20000,
@@ -98,10 +106,13 @@ export function createApiClient(request: Request) {
       if (!Array.isArray(rates) || rates.length !== 1) throw invalidResponse();
       const next = normalizeOffers(rates)[0];
       if (!next || next.name !== offer.name || !next.bookHash.startsWith('p-') || !next.price
-        || typeof data.prebook_context !== 'string' || !data.prebook_context) throw invalidResponse();
+        || offer.roomIdentity && next.roomIdentity !== offer.roomIdentity
+        || typeof data.prebook_context !== 'string' || !data.prebook_context || data.prebook_context.length > 131072
+        || /[\u0000-\u0020\u007f]/.test(data.prebook_context)) throw invalidResponse();
       const priceChanged = object(data.changes).price_changed === true || !offer.price
-        || next.price.currency !== offer.price.currency || Number(next.price.amount) !== Number(offer.price.amount);
-      return { offer: next, priceChanged, prebookContext: data.prebook_context };
+        || next.price.currency !== offer.price.currency || !sameAmount(next.price.amount, offer.price.amount);
+      return { offer: { ...next, images: next.roomIdentity && next.roomIdentity === offer.roomIdentity ? [...offer.images] : next.images },
+        priceChanged, prebookContext: data.prebook_context };
     }
   };
 }

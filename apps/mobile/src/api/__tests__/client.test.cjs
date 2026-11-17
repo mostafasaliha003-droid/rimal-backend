@@ -248,6 +248,53 @@ test('readonly prebook retains exact hashes and proof, detects changed customer 
   await assert.rejects(api.prebook(123, { ...selected, offerContext: undefined }), /fresh_hotelpage_required/);
 });
 
+test('prebook preserves photos only for the exact room classification and rejects a different room or malformed proof', async () => {
+  let next = rate('p-fixture');
+  let proof = 'signed.prebook';
+  const api = createApiClient(createTransport({ environment: 'staging', fetcher: async () => response({ success: true,
+    hotels: [{ hid: 123, rates: [next] }], prebook_context: proof }) }));
+  const selected = { ...adapters.normalizeOffers([rate()])[0], images: ['https://cdn.worldota.net/t/640x480/fixture.jpg'] };
+  assert.deepEqual((await api.prebook(123, selected)).offer.images, selected.images);
+  next = { ...rate('p-fixture'), rg_ext: { ...rg, quality: 1 } };
+  await assert.rejects(api.prebook(123, selected), error => error.kind === 'invalid_response');
+  next = rate('p-fixture');
+  for (const value of ['', 'signed proof', 'signed\nproof', 'a'.repeat(131073)]) {
+    proof = value; await assert.rejects(api.prebook(123, selected), error => error.kind === 'invalid_response');
+  }
+});
+
+test('prebook compares authoritative decimal prices without floating point rounding', async () => {
+  let amount = '107.000';
+  const api = createApiClient(createTransport({ environment: 'staging', fetcher: async () => response({ success: true,
+    hotels: [{ hid: 123, rates: [rate('p-fixture', amount)] }], prebook_context: 'signed.prebook' }) }));
+  const selected = adapters.normalizeOffers([rate()])[0];
+  assert.equal((await api.prebook(123, selected)).priceChanged, false);
+  selected.price.amount = '9007199254740992.01'; amount = '9007199254740992.02';
+  assert.equal((await api.prebook(123, selected)).priceChanged, true);
+});
+
+test('owned booking history uses only the authenticated profile endpoint without email query or financial writes', async () => {
+  const calls = [];
+  const api = createApiClient(createTransport({ environment: 'staging', getToken: async () => 'a'.repeat(64),
+    fetcher: async (url, options) => { calls.push({ url, options }); return response({ success: true, bookings: [] }); } }));
+  assert.deepEqual(await api.getBookings(), []);
+  assert.equal(calls.length, 1); assert.equal(calls[0].url, 'https://rimal-api-staging.onrender.com/api/user/profile');
+  assert.equal(calls[0].options.method, 'GET'); assert.equal(calls[0].options.headers.Authorization, `Bearer ${'a'.repeat(64)}`);
+  assert.equal(calls[0].options.body, undefined); assert.equal(allowedRoute('POST', '/user/profile'), false);
+});
+
+test('auth revision changes across restore, same-account sign-in, logout and invalidation without exposing tokens', async () => {
+  const manager = createSessionManager(authNetwork({ login: async () => ({ user: user('same'), token: 'a'.repeat(64) }) }), memoryStorage());
+  const versions = [manager.getRevision()];
+  await manager.restore(); versions.push(manager.getRevision());
+  await manager.signIn('same@example.test', 'password'); versions.push(manager.getRevision());
+  await manager.signIn('same@example.test', 'password'); versions.push(manager.getRevision());
+  await manager.invalidate('a'.repeat(64)); versions.push(manager.getRevision());
+  await manager.signOut(); versions.push(manager.getRevision());
+  assert.equal(versions.every((value, index) => Number.isInteger(value) && (index === 0 || value > versions[index - 1])), true);
+  assert.equal(manager.getSnapshot().access_token, undefined);
+});
+
 test('native storage uses environment-separated SecureStore; web preview stays memory-only', async () => {
   const entries = new Map(); let writes = 0;
   const secure = { WHEN_UNLOCKED_THIS_DEVICE_ONLY: 7, async getItemAsync(key) { return entries.get(key) || null; },
