@@ -1,0 +1,45 @@
+import type { GuestRoom, SearchCriteria, Suggestion } from '../types';
+import { addDays, todayDate, validDate } from './calendarModel';
+
+export type QuickStay = 'tonight' | 'tomorrow' | 'nextWeek';
+
+// Use the device's local calendar day before doing calendar-day arithmetic.
+export function quickStayDates(kind: QuickStay, now = new Date()) {
+  const today = todayDate(now);
+  const checkin = addDays(today, kind === 'tonight' ? 0 : kind === 'tomorrow' ? 1 : 7);
+  return { checkin, checkout: addDays(checkin, kind === 'nextWeek' ? 2 : 1) };
+}
+
+export function stayNights(checkin: string, checkout: string): number | null {
+  if (!validDate(checkin) || !validDate(checkout)) return null;
+  const nights = (Date.parse(`${checkout}T00:00:00Z`) - Date.parse(`${checkin}T00:00:00Z`)) / 86_400_000;
+  return Number.isInteger(nights) && nights >= 1 && nights <= 30 ? nights : null;
+}
+
+export function destinationFromSearch(criteria: SearchCriteria | null, name: string): Suggestion | null {
+  if (!criteria || !name.trim()) return null;
+  const region = Number.isSafeInteger(criteria.regionId) && Number(criteria.regionId) > 0;
+  const hotels = criteria.hids;
+  if (region && !hotels?.length) return { id: `region-${criteria.regionId}`, type: 'region', name, regionId: criteria.regionId };
+  if (!region && hotels?.length === 1 && Number.isSafeInteger(hotels[0]) && hotels[0] > 0) {
+    return { id: `hotel-${hotels[0]}`, type: 'hotel', name, hid: hotels[0] };
+  }
+  return null;
+}
+
+export function shouldSuggestDestination(query: string, selected: Suggestion | null) {
+  return query.trim().length >= 2 && selected?.name !== query;
+}
+
+export function copyGuestRooms(guests: GuestRoom[]): GuestRoom[] {
+  return guests.map(room => ({ adults: room.adults, children: [...room.children] }));
+}
+
+// Restore form data only. Navigation, supplier calls, and booking capabilities
+// have no place in a recent-search draft.
+export function recentSearchDraft(recent: { name: string; criteria: SearchCriteria }) {
+  const selected = destinationFromSearch(recent.criteria, recent.name);
+  if (!selected) return null;
+  return { query: recent.name, selected, checkin: recent.criteria.checkin, checkout: recent.criteria.checkout,
+    residency: recent.criteria.residency, currency: recent.criteria.currency, guests: copyGuestRooms(recent.criteria.guests) };
+}

@@ -8,6 +8,10 @@ The owner-approved store name is **مخدّة | Mkhadda**. The planned, configur
 
 The mobile app lives in `apps/mobile` within the existing [Remal Bookings repository](https://github.com/mostafasaliha003-droid/rimal-backend), as selected by the owner. Its dependencies, build profiles and checks are scoped to this directory. The mobile workflow runs for changes here without deploying the website or submitting a Play release. Local environment files, signing credentials, Android binaries and private QA artifacts remain excluded from source control.
 
+The **0.4.0 discovery source** adds reversible name/star/stay-budget filters, up to three same-search hotel comparisons, four session-only recent queries, explicit quick dates, lossless room-plan grouping and earlier review prices/actions. It preserves existing supplied terms, owner/search invalidation and explicit price-check/acceptance gates. See the [measured baseline, changes and tradeoffs](release/discovery-ux-0.4.md). Source validation passed 94 app tests, eight build-helper tests, TypeScript, Expo lint and 20/20 Expo diagnostics. Browser fixtures cover AR/EN mobile/wide layouts; these are distinct from Android-device or payment-completion evidence. Earlier APK receipts below retain their original versions and compiled commits.
+
+The **0.4.0 / code 4 staging APK** completed the full local builder with exit 0 from clean source **`b08f0815d091c672824403e6b17b9fce2485296d`**. It is **34,639,686 bytes**, SHA-256 `6dfe2786343de3eba8dda7699a8d103565eeb12be7289e3d123f2c9b8f048167`. The before/after guard passed for **109 files**, unchanged fingerprint `75870d17b87bab47c07cee5224c1aab2836d7da1a76fd7aefb2c653ab31fc807`. Gradle completed in **5m 52s**, with **46 of 824 tasks executed / 778 up-to-date**. Exact compiled version, preview identity, SDK 24/36/37, bundled JavaScript, ARM64 and the installed-template test signer were checked. Independent 16 KiB ZIP/ELF and conservative RELRO verification passed for **24 libraries / 73 load segments / 24 RELRO ranges** without changing the APK. This remains a test-signed preview; phone runtime and Play signing/submission are unverified. Later documentation commits do not change this compiled-source attribution. Draft [PR #23](https://github.com/mostafasaliha003-droid/rimal-backend/pull/23) isolates this phase on the existing foundation branch. The GitHub `mobile` check for `b08f081` did not start because the account is locked for billing; local results above are separate and no billing setting was changed.
+
 ## Current scope
 
 - Arabic/English layouts with the company's existing colors, Tajawal fonts and operator logo; Mkhadda is the product wordmark.
@@ -76,12 +80,12 @@ Use the local Node builder from `apps/mobile`; it does not require PowerShell sc
 
 ```powershell
 subst T: "C:\path\to\workspace\.cache\a"
-node scripts/build-android-preview.cjs --sdk "T:\s" --jdk "T:\j\jdk-17.0.21+9" --gradle-cache "T:\g" --ninja "T:\ninja\ninja.exe" --native-staging-root "T:\x" --windows-trust --output ".test-output/android-preview-0.3.0"
+node scripts/build-android-preview.cjs --sdk "T:\s" --jdk "T:\j\jdk-17.0.21+9" --gradle-cache "T:\g" --ninja "T:\ninja\ninja.exe" --native-staging-root "T:\x" --windows-trust --output ".test-output/android-preview-0.4.0"
 # After all native/build processes finish:
 subst T: /d
 ```
 
-Use an unused drive letter and the prepared workspace/JDK locations. On this host the alias is visible in the elevated build context; use the same context for mapping, building and cleanup. Removing the alias leaves physical files intact. `--windows-trust` uses the Windows root certificate store for Java downloads when the local network requires it. The command above selects the current artifact directory, `.test-output/android-preview-0.3.0`; without `--output`, the helper defaults to `.test-output/android-preview`.
+Use an unused drive letter and the prepared workspace/JDK locations. On this host the alias is visible in the elevated build context; use the same context for mapping, building and cleanup. Removing the alias leaves physical files intact. `--windows-trust` uses the Windows root certificate store for Java downloads when the local network requires it. The command above selects the 0.4.0 artifact directory, `.test-output/android-preview-0.4.0`; without `--output`, the helper defaults to `.test-output/android-preview`.
 
 The optional `--native-staging-root` option is selected in the verified Windows recipe. It sets `MKHADDA_NATIVE_STAGING_ROOT`, and the CNG plugin assigns each Android module a unique short directory through the supported top-level [`externalNativeBuild.cmake.buildStagingDirectory`](https://developer.android.com/reference/tools/gradle-api/9.2/com/android/build/api/dsl/Cmake) property. The callbacks register before the root plugins evaluate child projects. Use a persistent location outside module `build/` directories. The option also requests `-Pexpo.android.cmakeObjectPathMax=240`; it remains inactive when omitted.
 

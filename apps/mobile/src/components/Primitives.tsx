@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { ActivityIndicator, ColorValue, Image, Pressable, StyleSheet, Text, TextInput, TextInputProps, TextProps, View, ViewStyle } from 'react-native';
-import { colors, fonts, ui } from '../theme';
+import { colors, fonts, tokens, ui } from '../theme';
 import { useLanguage } from '../i18n';
 import type { Money } from '../types';
 
@@ -9,9 +9,9 @@ export function Txt({ children, style, kind = 'text', ...props }: TextProps & { 
   return <Text {...props} style={[ui[kind], { textAlign: rtl ? 'right' : 'left', writingDirection: rtl ? 'rtl' : 'ltr' }, style]}>{children}</Text>;
 }
 export function Row({ children, style }: { children: React.ReactNode; style?: ViewStyle }) { const { rtl } = useLanguage(); return <View style={[ui.row, { flexDirection: rtl ? 'row-reverse' : 'row' }, style]}>{children}</View>; }
-export function Button({ title, onPress, variant = 'primary', disabled = false, busy = false, hint, compact = false }: { title: string; onPress: () => void; variant?: 'primary'|'secondary'|'quiet'|'danger'; disabled?: boolean; busy?: boolean; hint?: string; compact?: boolean }) {
+export function Button({ title, onPress, variant = 'primary', disabled = false, busy = false, hint, label, compact = false }: { title: string; onPress: () => void; variant?: 'primary'|'secondary'|'quiet'|'danger'; disabled?: boolean; busy?: boolean; hint?: string; label?: string; compact?: boolean }) {
   const foreground = variant === 'primary' || variant === 'danger' ? '#fff' : colors.navy;
-  return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={hint} accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress} style={({ pressed }) => [styles.button, compact && { paddingHorizontal: 12, minHeight: 46 }, variant === 'primary' ? { backgroundColor: colors.navy } : variant === 'danger' ? { backgroundColor: colors.red } : { backgroundColor: variant === 'quiet' ? 'transparent' : '#fff', borderColor: colors.border, borderWidth: variant === 'quiet' ? 0 : 1 }, { opacity: disabled || busy ? .5 : pressed ? .75 : 1 }]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={label || title} accessibilityHint={hint} accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress} style={({ pressed }) => [styles.button, compact && { paddingHorizontal: 12, minHeight: tokens.control.minHeight, minWidth: tokens.control.minHeight }, variant === 'primary' ? { backgroundColor: colors.navy } : variant === 'danger' ? { backgroundColor: colors.red } : { backgroundColor: variant === 'quiet' ? 'transparent' : '#fff', borderColor: colors.border, borderWidth: variant === 'quiet' ? 0 : 1 }, { opacity: disabled || busy ? .5 : pressed ? .75 : 1 }]}>
     {busy && <ActivityIndicator color={foreground} />}<Text style={[styles.buttonText, { color: foreground }]}>{title}</Text>
   </Pressable>;
 }
@@ -28,7 +28,7 @@ export function MoneyText({ money, large = false }: { money: Money | null | unde
   if (!money || !Number.isFinite(value) || value < 0 || !/^[A-Z]{3}$/.test(money.currency)) return <Txt kind="small">{t('priceUnknown')}</Txt>;
   let text: string;
   try { text = new Intl.NumberFormat(language === 'ar' ? 'ar-AE' : 'en-US', { style: 'currency', currency: money.currency, currencyDisplay: 'code', maximumFractionDigits: 3 }).format(value); } catch { text = `${money.amount} ${money.currency}`; }
-  return <Txt accessibilityLabel={`${money.amount} ${money.currency}`} style={{ color: colors.navy, fontFamily: fonts.bold, fontSize: large ? 26 : 21, lineHeight: large ? 36 : 30 }}>{text}</Txt>;
+  return <Txt style={{ color: colors.navy, fontFamily: fonts.bold, fontSize: large ? 26 : 21, lineHeight: large ? 36 : 30 }}>{text}</Txt>;
 }
 export function StatePanel({ title, body, retry, busy = false }: { title: string; body?: string; retry?: () => void; busy?: boolean }) { const { t } = useLanguage(); return <View style={[ui.card, { alignItems: 'stretch', paddingVertical: 30 }]}>{busy && <ActivityIndicator size="large" color={colors.blueStrong} />}<Txt kind="heading" accessibilityRole={busy ? 'text' : 'header'}>{title}</Txt>{body && <Txt style={{ color: colors.muted }}>{body}</Txt>}{retry && <Button variant="secondary" title={t('retry')} onPress={retry} />}</View>; }
 export function Icon({ name, color = colors.navy, size = 24 }: { name: 'search'|'saved'|'account'|'support'; color?: ColorValue | null; size?: number }) {

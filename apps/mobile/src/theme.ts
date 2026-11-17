@@ -6,6 +6,12 @@ export const colors = {
   softBlue: '#EAF5F7', softGold: '#FFF5E7', goldInk: '#795018', dangerSoft: '#FFF1F1', success: '#176947',
 };
 export const fonts = { regular: 'Tajawal_400Regular', medium: 'Tajawal_500Medium', bold: 'Tajawal_700Bold' };
+// Existing Remal palette, font, spacing and rounded controls, named for reuse.
+export const tokens = {
+  space: { xs: 4, sm: 8, md: 12, lg: 16, xl: 20, xxl: 28 },
+  radius: { sm: 12, md: 16, lg: 22, pill: 999 },
+  control: { minHeight: 48 }, layout: { maxWidth: 880 },
+};
 export const ui = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, direction: 'ltr' },
   page: { padding: 20, gap: 18, paddingBottom: 36, width: '100%', maxWidth: 880, alignSelf: 'center' },

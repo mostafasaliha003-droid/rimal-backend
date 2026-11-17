@@ -60,6 +60,15 @@ test('review draft is a private immutable snapshot without extra caller fields o
   for (const patch of [{ hid: -1 }, { offer: { ...offer(), bookHash: 'p-stale' } }, { offer: { ...offer(), offerContext: undefined } },
     { offer: { ...offer(), price: null } }, { criteria: { ...criteria(), residency: 'zz' } }]) assert.equal(createOfferReviewDraft({ ...input, ...patch }, 'owner'), null);
 });
+test('a new room review must use the requested search currency without converting the supplied amount', () => {
+  const foreign = { ...offer(), price: { amount: '176.00', currency: 'EUR' } };
+  const input = { hid: 10004834, hotelName: 'Hotel', criteria: criteria(), offer: foreign, language: 'en' };
+  assert.equal(createOfferReviewDraft(input, 'owner'), null);
+  const accepted = createOfferReviewDraft({ ...input, criteria: { ...criteria(), currency: 'EUR' } }, 'owner');
+  assert.deepEqual(accepted.offer.price, { amount: '176.00', currency: 'EUR' });
+  assert.equal(accepted.criteria.currency, 'EUR');
+});
+
 test('recheck is explicit and only a successful current response permits a search-only handoff', async () => {
   const f = fixture(); assert.equal(f.calls.length, 0); assert.equal(f.session.getHandoff(), null);
   await f.session.recheck(); const view = f.session.presentation();

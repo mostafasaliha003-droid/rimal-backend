@@ -1,5 +1,5 @@
 {
-  "prepared_on": "2026-11-16",
+  "prepared_on": "2026-11-17",
   "brand": "Mkhadda",
   "operator": "Remal Tourism",
   "identity_status": "Owner-approved exact title and completed Console draft creation; application dashboard observed. No binary uploaded or public release.",
@@ -15,44 +15,44 @@
     "en": {
       "title": "مخدّة | Mkhadda",
       "short_description": "Browse hotel offers, then continue to the Remal website to book.",
-      "full_description": "Discover hotel stays with Mkhadda, operated by Remal Tourism.\n\nSearch by destination, travel dates and guests. Browse available hotel and room offers, view supplied photos, and review meals, cancellation terms, prices and additional charges. Save hotel references on your device to revisit them with fresh dates and availability.\n\nTo book, continue to Remal's secure website. Sign in separately in the browser, choose your room again, and review the current price, availability and booking conditions before checkout. The handoff carries search dates and occupancy rather than a selected room or a signed-in browser session.\n\nCheckout, payment, confirmation, booking status and reservation management take place on the Remal website. The app's booking-history option opens that website. Support is available through website and contact links.\n\nAn account or approved membership may be required to access offers. Registration does not guarantee membership approval, and eligibility restrictions may apply. Availability varies by destination, property, dates and occupancy.\n\nSupport: management@remaltourismllc.com",
+      "full_description": "Discover hotel stays with Mkhadda, operated by Remal Tourism.\n\nSearch by destination, travel dates and guests. Refine the returned hotels by name, star classification and customer stay budget. Compare up to three hotels for the same search, inspect supplied photos and explore room options with their meals, taxes, cancellation terms and original currencies. Recently submitted searches can be restored during the app session.\n\nReview a selected room, request an explicit price check and see changes in price, meals, charges or cancellation terms before accepting an updated offer. A price check does not reserve a room.\n\nTo book and pay, continue to Remal's secure website. Sign in separately, choose the room again and check its current price, availability and terms. The handoff carries search context rather than a selected offer or browser session. Reservation management remains on the website; signed-in customers can read their linked booking history in the app.\n\nAccount-deletion requests can be submitted for review. A request does not immediately erase an account, cancel bookings or request a refund. Review the privacy and retention information before using this option.\n\nAn account or approved membership may be required to access offers. Registration does not guarantee approval, and eligibility restrictions may apply. Availability varies by destination, property, dates and occupancy.\n\nSupport: management@remaltourismllc.com",
       "character_counts": {
         "title": 15,
         "short_description": 64,
-        "full_description": 1112
+        "full_description": 1442
       }
     },
     "ar": {
       "title": "مخدّة | Mkhadda",
       "short_description": "تصفح عروض الفنادق وانتقل إلى موقع رمال لإتمام الحجز.",
-      "full_description": "اكتشف إقامات الفنادق مع مخدّة، بإدارة رمال للسياحة.\n\nابحث بالوجهة وتواريخ السفر وعدد الضيوف. تصفح عروض الفنادق والغرف المتاحة، وراجع الصور المقدمة والوجبات وشروط الإلغاء والأسعار والرسوم الإضافية. احفظ مراجع الفنادق على جهازك للعودة إليها مع تواريخ وتوفر محدثين.\n\nللحجز، انتقل إلى موقع رمال الآمن. سجّل الدخول بشكل منفصل في المتصفح، واختر غرفتك مجددًا، ثم راجع السعر والتوفر وشروط الحجز الحالية قبل إتمام الدفع. ينقل رابط الانتقال تواريخ البحث وعدد الضيوف، دون نقل غرفة محددة أو جلسة دخول إلى المتصفح.\n\nيتم إتمام الحجز والدفع والتأكيد ومتابعة حالة الحجز وإدارة الحجوزات على موقع رمال. يفتح خيار سجل الحجوزات في التطبيق ذلك الموقع. تتوفر المساعدة عبر الموقع وروابط التواصل.\n\nقد يتطلب الوصول إلى العروض حسابًا أو عضوية معتمدة. التسجيل لا يضمن قبول العضوية، وقد تسري شروط أهلية. يختلف التوفر بحسب الوجهة والفندق والتواريخ وعدد الضيوف.\n\nالدعم: management@remaltourismllc.com",
+      "full_description": "اكتشف إقامات الفنادق مع مخدّة، بإدارة رمال للسياحة.\n\nابحث بالوجهة وتواريخ السفر وعدد الضيوف. صفّ الفنادق المعروضة بالاسم وتصنيف النجوم وميزانية الإقامة. قارن حتى ثلاثة فنادق ضمن البحث نفسه، وتصفح الصور المتاحة وخيارات الغرف والوجبات والضرائب وشروط الإلغاء والعملات الأصلية. يمكنك استعادة عمليات البحث الأخيرة خلال جلسة التطبيق.\n\nراجع الغرفة المختارة واطلب التحقق من السعر، ثم اطّلع على التغييرات في السعر أو الوجبات أو الرسوم أو شروط الإلغاء قبل الموافقة على عرض محدّث. التحقق من السعر لا يحجز غرفة.\n\nللحجز والدفع، انتقل إلى موقع رمال الآمن. سجّل الدخول هناك بشكل منفصل، واختر الغرفة مجدداً وتحقق من سعرها وتوافرها وشروطها الحالية. ينقل الانتقال سياق البحث دون عرض مختار أو جلسة دخول. تتم إدارة الحجوزات عبر الموقع، ويمكن للعملاء المسجّلين قراءة سجل الحجوزات المرتبط بحسابهم داخل التطبيق.\n\nيمكن إرسال طلب حذف الحساب للمراجعة. لا يمحو الطلب الحساب فوراً، ولا يلغي الحجوزات ولا يطلب استرداد الأموال. راجع معلومات الخصوصية والاحتفاظ بالبيانات قبل استخدام هذا الخيار.\n\nقد يتطلب الوصول إلى العروض حساباً أو عضوية معتمدة. التسجيل لا يضمن الموافقة، وقد تسري قيود أهلية. يختلف التوافر بحسب الوجهة والفندق والتواريخ وعدد الضيوف.\n\nالدعم: management@remaltourismllc.com",
       "character_counts": {
         "title": 15,
         "short_description": 52,
-        "full_description": 870
+        "full_description": 1158
       }
     }
   },
   "claim_gates": [
     {
-      "claim": "Destination/date/guest search and room offer comparison",
-      "status": "Implemented native browsing foundation; signed Android binary/device verification pending"
+      "claim": "Native search, decision filters, three-hotel comparison and room review",
+      "status": "Implemented in source; validate final preview binary and physical-device experience before submitting claims."
     },
     {
-      "claim": "Room photos, meals, taxes/charges and cancellation conditions",
-      "status": "Verify actual native rendering, unavailable-data states and exact supplier room matching"
+      "claim": "Supplied room photos, meals, taxes and cancellation conditions",
+      "status": "Preserve unavailable-data states, original currencies and exact room matching; no invented ratings, discounts or availability guarantees."
     },
     {
-      "claim": "Secure Remal website handoff for booking",
-      "status": "Separate browser login, room re-selection and current price/availability/terms recheck are required on the website. No native financial-create or booking-status feature is claimed."
+      "claim": "Secure website booking and payment handoff",
+      "status": "Separate browser login, room re-selection and current terms check remain required. No complete native payment flow is claimed."
     },
     {
-      "claim": "Account booking-history and support links",
-      "status": "Native account access is implemented; history/booking management opens the Remal website, and support uses website/contact links. Native history or payment is not claimed."
+      "claim": "Native owned booking history and request-only account deletion",
+      "status": "Source implemented; request intake does not erase data. Complete fulfillment and privacy/retention disclosures remain release gates."
     },
     {
-      "claim": "Membership access",
-      "status": "Finalize actual global eligibility wording before upload; draft deliberately makes no universal-access promise"
+      "claim": "Global access",
+      "status": "Finalize consumer eligibility and supplier production before store release. No universal-access or worldwide ranking claim."
     }
   ],
   "required_before_submission": [
