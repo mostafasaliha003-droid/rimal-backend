@@ -54,9 +54,11 @@ The installed Expo 58.0.25 / React Native 0.88.1 sources currently select the fo
 | Android platform | `platforms;android-37.0` for compile SDK 37; target API 36, minimum API 24 |
 | Android Build Tools | `build-tools;37.0.0` |
 | Android NDK | `ndk;27.1.12297006` |
-| CMake | The app default is 3.22.1; use installed 3.30.5 via `-Pandroid.cmakeVersion=3.30.5` for the local Windows build to avoid the older bundled Ninja's long-path limitation |
+| CMake / Ninja | Official SDK CMake 3.31.6 via `-Pandroid.cmakeVersion=3.31.6`; select separately verified official Ninja 1.13.2 with `--ninja` |
 
 The pins come from `node_modules/react-native/gradle/libs.versions.toml`, the installed React Native Gradle wrapper, and the Android project in `node_modules/expo/template.tgz`. Expo's installed autolinking plugin supports the `android.cmakeVersion` override and documents the Windows limitation. [AGP 9.2's compatibility table](https://developer.android.com/build/releases/agp-9-2-0-release-notes) confirms JDK 17, Gradle 9.4.1 and maximum API 37.0. The app's explicit NDK pin takes precedence over AGP's default NDK.
+
+The first local build repeatedly regenerated its manifest because Ninja reported an existing 260-character CMake input as missing. No future-dated manifest inputs were found. A controlled read-only differential reproduced the false missing-file result with SDK Ninja 1.10.2 and SDK CMake 3.31.6's Ninja 1.12.1; official standalone Ninja 1.13.2 recognized that file. Although [Ninja 1.12 introduced Windows long-path support](https://github.com/ninja-build/ninja/releases/tag/v1.12.0), its version number alone did not establish a fix here. The builder requires the verified 1.13.2 executable, records its actual version/hash, and supplies its path through `MKHADDA_LOCAL_NINJA` to the CNG plugin. The plugin sets `CMAKE_MAKE_PROGRAM` for Android application and library modules only when that environment variable is present. SDK binaries remain unmodified. Generated configure/build commands must confirm the selected path before a successful retry is claimed.
 
 The local preparation uses portable JDK 17, SDK command-line tools 22 and Gradle 9.4.1 under the workspace cache (`.cache/a`); these are local tools, not application source. Set process-scoped `JAVA_HOME`, `ANDROID_HOME` and `GRADLE_USER_HOME` to the prepared locations. If `ANDROID_SDK_ROOT` is also set, keep it equal to `ANDROID_HOME`. Install the selected SDK packages and accept their licenses using the official [SDK manager](https://developer.android.com/tools/sdkmanager). No Android Studio, emulator or Expo login is required merely to assemble an APK. The first build still needs public SDK/Gradle/Maven dependencies unless they are already cached.
 
@@ -65,10 +67,10 @@ For SDK metadata, use Google's [schema 3 repository](https://dl.google.com/andro
 Use the local Node builder from `apps/mobile`; it does not require PowerShell script execution or a policy change:
 
 ```sh
-node scripts/build-android-preview.cjs --sdk "C:\path\to\sdk" --jdk "C:\path\to\jdk17" --gradle-cache "C:\path\to\gradle-cache"
+node scripts/build-android-preview.cjs --sdk "C:\path\to\sdk" --jdk "C:\path\to\jdk17" --gradle-cache "C:\path\to\gradle-cache" --ninja "C:\path\to\ninja-1.13.2\ninja.exe"
 ```
 
-Replace the paths with the prepared local tool locations. Optional `--output <directory>` changes the artifact directory; `--windows-trust` explicitly uses the Windows root certificate store for Java downloads when required by the local network. The builder invokes the installed Expo CLI and JDK/SDK executables directly, checks every process exit, and requires ARM64, preview identity, SDK levels, permitted manifest permissions, bundled JavaScript and the Expo template debug signer before writing a source-fingerprinted build receipt. It defaults to `.test-output/android-preview/mkhadda-preview.apk`. This command has not yet been verified by a completed native build.
+Replace the paths with the prepared local tool locations. `--ninja` overrides the SDK-bundled executable; the current SDK default fails the required 1.13.2 check, so the demonstrated Windows workflow supplies this option. Optional `--output <directory>` changes the artifact directory; `--windows-trust` explicitly uses the Windows root certificate store for Java downloads when required by the local network. The builder invokes the installed Expo CLI and JDK/SDK executables directly, checks every process exit, and requires ARM64, preview identity, SDK levels, permitted manifest permissions, bundled JavaScript and the Expo template debug signer before writing a source-fingerprinted build receipt. It defaults to `.test-output/android-preview/mkhadda-preview.apk`. This command has not yet been verified by a completed native build.
 
 The builder sets the staging environment, runs the installed Expo CLI's `prebuild --platform android --no-install`, then invokes the generated Gradle wrapper's `:app:assembleRelease` task directly through Java. It limits Gradle/Metro workers and memory and disables Java/Kotlin release minification for this test artifact.
 

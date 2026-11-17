@@ -11,6 +11,7 @@ const { spawnSync } = require('node:child_process');
 const PROJECT = path.resolve(__dirname, '..');
 const APPLICATION_ID = 'com.remalbookings.app.preview';
 const ARCHITECTURES = ['arm64-v8a'];
+const CMAKE_VERSION = '3.31.6';
 const FORBIDDEN_PERMISSIONS = new Set([
   'CAMERA', 'RECORD_AUDIO', 'ACCESS_FINE_LOCATION', 'ACCESS_COARSE_LOCATION',
   'ACCESS_BACKGROUND_LOCATION', 'READ_CONTACTS', 'WRITE_CONTACTS',
@@ -20,7 +21,7 @@ const FORBIDDEN_PERMISSIONS = new Set([
 
 function parseArgs(args) {
   const result = { output: path.join(PROJECT, '.test-output', 'android-preview'), windowsTrust: false };
-  const values = new Map([['--sdk', 'sdk'], ['--jdk', 'jdk'], ['--gradle-cache', 'gradleCache'], ['--output', 'output']]);
+  const values = new Map([['--sdk', 'sdk'], ['--jdk', 'jdk'], ['--gradle-cache', 'gradleCache'], ['--output', 'output'], ['--ninja', 'ninja']]);
   const seen = new Set();
   for (let i = 0; i < args.length; i += 1) {
     const flag = args[i];
@@ -123,6 +124,14 @@ function verifySigner(apkSignature, keyDescription) {
   return expected;
 }
 
+function verifyNinjaVersion(output) {
+  const version = output.trim();
+  if (version !== '1.13.2') {
+    throw new Error('This Windows preview requires the verified Ninja 1.13.2; use --ninja with its executable. Version 1.12.1 also failed the observed long-path probe.');
+  }
+  return version;
+}
+
 function buildPreview(options) {
   if (process.platform !== 'win32') throw new Error('This local preview procedure targets Windows SDK/JDK executables.');
   const java = requireFile(path.join(options.jdk, 'bin', 'java.exe'), 'JDK java.exe');
@@ -131,7 +140,8 @@ function buildPreview(options) {
   const tools = path.join(options.sdk, 'build-tools', '37.0.0');
   const aapt = requireFile(path.join(tools, 'aapt2.exe'), 'Android Build Tools 37.0.0');
   const apkSigner = requireFile(path.join(tools, 'lib', 'apksigner.jar'), 'APK signer JAR');
-  requireFile(path.join(options.sdk, 'cmake', '3.30.5', 'bin', 'cmake.exe'), 'CMake 3.30.5');
+  requireFile(path.join(options.sdk, 'cmake', CMAKE_VERSION, 'bin', 'cmake.exe'), `CMake ${CMAKE_VERSION}`);
+  const ninja = requireFile(options.ninja || path.join(options.sdk, 'cmake', CMAKE_VERSION, 'bin', 'ninja.exe'), 'Selected Ninja executable');
   const ndk = requireFile(path.join(options.sdk, 'ndk', '27.1.12297006', 'source.properties'), 'NDK 27.1.12297006');
   if (!/^Pkg\.Revision\s*=\s*27\.1\.12297006\s*$/m.test(fs.readFileSync(ndk, 'utf8'))) throw new Error('NDK revision does not match the application pin.');
   const expoDirectory = path.dirname(require.resolve('expo/package.json'));
@@ -145,10 +155,13 @@ function buildPreview(options) {
     GRADLE_USER_HOME: options.gradleCache, EXPO_PUBLIC_API_ENV: 'staging',
     EXPO_NO_TELEMETRY: '1', CI: '1', DEBUG: '', CMAKE_BUILD_PARALLEL_LEVEL: '1',
     MKHADDA_LOCAL_BUILD_MAX_WORKERS: '1',
+    MKHADDA_LOCAL_NINJA: options.ninja ? ninja.replaceAll('\\', '/') : '',
     NODE_OPTIONS: `${env.NODE_OPTIONS || ''} --use-system-ca --max-old-space-size=1536`.trim(),
     Path: `${path.join(options.jdk, 'bin')};${path.join(options.sdk, 'platform-tools')};${previousPath}`,
   });
   const command = (executable, args, settings = {}) => runChecked(executable, args, { env, ...settings });
+  const ninjaVersion = verifyNinjaVersion(command(ninja, ['--version'], { capture: true }));
+  const ninjaSha256 = sha256(fs.readFileSync(ninja));
   const version = command(java, ['-version'], { capture: true, includeStderr: true });
   if (!/\bversion "17(?:\.|"|-)/.test(version)) throw new Error('This preview procedure requires the pinned JDK 17.');
   const before = sourceState(env);
@@ -169,7 +182,7 @@ function buildPreview(options) {
     '-Xmx256m', ...trust, '-Dorg.gradle.appname=gradlew', '-classpath', wrapper, 'org.gradle.wrapper.GradleWrapperMain',
     ':app:assembleRelease', '--no-daemon', '--max-workers=1', '--console=plain', '-Dorg.gradle.parallel=false',
     `-Dorg.gradle.jvmargs=-Xmx1536m -XX:MaxMetaspaceSize=512m${trust.length ? ` ${trust.join(' ')}` : ''}`,
-    '-Pkotlin.compiler.execution.strategy=in-process', '-Pandroid.cmakeVersion=3.30.5',
+    '-Pkotlin.compiler.execution.strategy=in-process', `-Pandroid.cmakeVersion=${CMAKE_VERSION}`,
     '-Pandroid.enableMinifyInReleaseBuilds=false', '-PreactNativeArchitectures=arm64-v8a',
   ], { cwd: nativeDirectory });
   const apk = requireFile(path.join(nativeDirectory, 'app', 'build', 'outputs', 'apk', 'release', 'app-release.apk'), 'Built preview APK');
@@ -190,7 +203,7 @@ function buildPreview(options) {
     sourceCommit: before.commit, sourceWorkingTreeDirty: before.dirty,
     sourceTreeSha256: before.treeSha256, sourceFileCount: before.fileCount,
     sourceStateUnchangedDuringBuild: true, environment: 'staging',
-    toolchain: { jdk: 17, gradle: '9.4.1', buildTools: '37.0.0', ndk: '27.1.12297006', cmake: '3.30.5' },
+    toolchain: { jdk: 17, gradle: '9.4.1', buildTools: '37.0.0', ndk: '27.1.12297006', cmake: CMAKE_VERSION, ninjaVersion, ninjaSha256, externalNinja: Boolean(options.ninja) },
     signing: 'installed Expo template debug key; test-only, not a Play upload key',
     signerSha256, bundledJavaScript: true, signatureVerified: true,
     manifestIdentityAndPermissionsVerified: true, nativeAbisVerified: true,
@@ -208,7 +221,7 @@ function buildPreview(options) {
 if (require.main === module) {
   try {
     const options = parseArgs(process.argv.slice(2));
-    if (options.help) console.log('Usage: node scripts/build-android-preview.cjs --sdk <SDK> --jdk <JDK17> --gradle-cache <cache> [--output <directory>] [--windows-trust]\nBuilds ARM64 staging only; template debug signature is test-only.');
+    if (options.help) console.log('Usage: node scripts/build-android-preview.cjs --sdk <SDK> --jdk <JDK17> --gradle-cache <cache> [--ninja <Ninja1.13.2.exe>] [--output <directory>] [--windows-trust]\nBuilds ARM64 staging only; template debug signature is test-only.');
     else buildPreview(options);
   } catch (error) {
     console.error(`Preview build failed: ${error.message}`);
@@ -216,4 +229,4 @@ if (require.main === module) {
   }
 }
 
-module.exports = { parseArgs, runChecked, sourceState, readTemplateDebugKey, verifyApkMetadata, verifySigner };
+module.exports = { parseArgs, runChecked, sourceState, readTemplateDebugKey, verifyApkMetadata, verifySigner, verifyNinjaVersion };

@@ -53,6 +53,7 @@ const config: ExpoConfig = {
     'expo-router',
     'expo-secure-store',
     'expo-system-ui',
+    './plugins/with-local-ninja.cjs',
     ['expo-localization', { supportedLocales: { android: ['ar', 'en'], ios: ['ar', 'en'] } }],
     ['expo-font', { fonts: [
       './assets/fonts/Tajawal-Regular.ttf',
