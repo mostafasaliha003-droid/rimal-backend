@@ -119,9 +119,18 @@ function verifyApkMetadata(badging, entriesText) {
 }
 
 function verifySigner(apkSignature, keyDescription) {
-  const expected = keyDescription.match(/^\s*SHA256:\s*([a-f0-9:]+)\s*$/im)?.[1]?.replaceAll(':', '').toLowerCase();
-  const signers = [...apkSignature.matchAll(/^Signer #(\d+) certificate SHA-256 digest:\s*([a-f0-9]+)\s*$/gim)];
-  if (!expected || expected.length !== 64 || signers.length !== 1 || signers[0][1] !== '1' || signers[0][2].toLowerCase() !== expected) {
+  const expectedDeclarations = keyDescription.split(/\r?\n/).filter((line) => /^[\t ]*SHA256\b/i.test(line));
+  const expected = expectedDeclarations[0]?.match(/^[\t ]*SHA256:[\t ]*((?:[a-f0-9]{2}:){31}[a-f0-9]{2}|[a-f0-9]{64})[\t ]*$/i)?.[1]?.replaceAll(':', '').toLowerCase();
+  const lines = apkSignature.split(/\r?\n/);
+  const counts = lines.filter((line) => /^[\t ]*Number of signers\b/i.test(line));
+  const certificates = lines.filter((line) => /\bcertificate\b.*\bSHA-?256\b.*\bdigest\b/i.test(line));
+  const certificate = certificates[0];
+  const legacy = certificate?.match(/^[\t ]*Signer #1 certificate SHA-256 digest:[\t ]*([a-f0-9]{64})[\t ]*$/i);
+  const modern = certificate?.match(/^[\t ]*V2 Signer: certificate SHA-256 digest:[\t ]*([a-f0-9]{64})[\t ]*$/i);
+  const actual = (legacy?.[1] || modern?.[1])?.toLowerCase();
+  const unknownSigner = lines.some((line) => /^[\t ]*(?:Signer\b|V[0-9.]+ Signer\b)/i.test(line) && !/^[\t ]*(?:Signer #1\b|V2 Signer:)/i.test(line));
+  const validCount = counts.length === 1 ? /^[\t ]*Number of signers:[\t ]*1[\t ]*$/i.test(counts[0]) : counts.length === 0 && Boolean(legacy);
+  if (expectedDeclarations.length !== 1 || !expected || certificates.length !== 1 || !actual || actual !== expected || unknownSigner || !validCount) {
     throw new Error('APK signer does not match the installed Expo template debug key.');
   }
   return expected;
