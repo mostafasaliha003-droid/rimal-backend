@@ -48,6 +48,30 @@ function HotelGallery({ images, name, room = false }: { images: string[]; name: 
   </View>;
 }
 
+function FreeCancellationFilter({ checked, onChange }: { checked: boolean; onChange: (value: boolean) => void }) {
+  const { language, rtl } = useLanguage();
+  const label = roomChoiceCopy(language).freeOnly;
+  if (Platform.OS === 'web') {
+    return <label dir={rtl ? 'rtl' : 'ltr'} style={{
+      display: 'flex', alignItems: 'center', gap: 10, minHeight: 48, cursor: 'pointer',
+      color: colors.navy, fontFamily: fonts.bold, fontSize: 15,
+    }}>
+      <input type="checkbox" aria-label={label} checked={checked} onChange={event => onChange(event.currentTarget.checked)}
+        style={{ accentColor: colors.navy, margin: 0, width: 26, height: 26, flexShrink: 0 }}/>
+      <span>{label}</span>
+    </label>;
+  }
+  return <Pressable accessibilityRole="checkbox" accessibilityLabel={label} accessibilityState={{ checked }}
+    onPress={() => onChange(!checked)} style={({ pressed }) => [styles.freeFilter, { opacity: pressed ? .75 : 1 }]}>
+    <Row style={{ alignItems: 'center', gap: 10 }}>
+      <View accessible={false} style={[styles.check, checked && { backgroundColor: colors.navy }]}>
+        {checked && <Txt accessible={false} style={{ color: colors.surface }}>✓</Txt>}
+      </View>
+      <Txt kind="label" style={{ flexShrink: 1 }}>{label}</Txt>
+    </Row>
+  </Pressable>;
+}
+
 function RatePlan({ now, entry, requestedCurrency, onReview, failed, onRefresh, onEditSearch }: {
   now: number; entry: RoomChoiceEntry; requestedCurrency: string; onReview: (entry: RoomChoiceEntry) => void; failed: boolean; onRefresh: () => void; onEditSearch: () => void;
 }) {
@@ -172,15 +196,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
                 {model.meals.hasMissing && <ChoiceChip label={copy.missingMeal} selected={meal.kind === 'missing'} onPress={() => setMeal({ kind: 'missing' })}/>}
               </Row>
             </View>
-            <Pressable accessibilityRole="checkbox" accessibilityLabel={copy.freeOnly} accessibilityState={{ checked: freeOnly }}
-              onPress={() => setFreeOnly(value => !value)} style={({ pressed }) => [styles.freeFilter, { opacity: pressed ? .75 : 1 }]}>
-              <Row style={{ alignItems: 'center', gap: 10 }}>
-                <View accessible={false} style={[styles.check, freeOnly && { backgroundColor: colors.navy }]}>
-                  {freeOnly && <Txt accessible={false} style={{ color: colors.surface }}>✓</Txt>}
-                </View>
-                <Txt kind="label" style={{ flexShrink: 1 }}>{copy.freeOnly}</Txt>
-              </Row>
-            </Pressable>
+            <FreeCancellationFilter checked={freeOnly} onChange={setFreeOnly}/>
             <Row style={{ flexWrap: 'wrap', gap: 8 }}><ChoiceChip label={copy.original} selected={sort === 'original'} onPress={() => setSort('original')}/>
               <ChoiceChip label={copy.lowest(criteria.currency)} selected={sort === 'price'} onPress={() => setSort('price')}/></Row>
             <Txt accessibilityLiveRegion="polite" kind="small">{copy.count(model.matchingOffers, model.totalOffers, model.groups.length)}</Txt>
