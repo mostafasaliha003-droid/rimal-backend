@@ -84,12 +84,13 @@ Use the local Node builder from `apps/mobile`; it does not require PowerShell sc
 
 ```powershell
 subst T: "C:\path\to\workspace\.cache\a"
-node scripts/build-android-preview.cjs --sdk "T:\s" --jdk "T:\j\jdk-17.0.21+9" --gradle-cache "T:\g" --ninja "T:\ninja\ninja.exe" --native-staging-root "T:\x" --windows-trust --output ".test-output/android-preview-0.4.0"
+$env:EXPO_PUBLIC_NATIVE_CHECKOUT_ENABLED = "false"
+node scripts/build-android-preview.cjs --sdk "T:\s" --jdk "T:\j\jdk-17.0.21+9" --gradle-cache "T:\g" --ninja "T:\ninja\ninja.exe" --native-staging-root "T:\x" --windows-trust --output ".test-output/android-preview-0.5.0"
 # After all native/build processes finish:
 subst T: /d
 ```
 
-Use an unused drive letter and the prepared workspace/JDK locations. On this host the alias is visible in the elevated build context; use the same context for mapping, building and cleanup. Removing the alias leaves physical files intact. `--windows-trust` uses the Windows root certificate store for Java downloads when the local network requires it. The command above selects the 0.4.0 artifact directory, `.test-output/android-preview-0.4.0`; without `--output`, the helper defaults to `.test-output/android-preview`.
+Use an unused drive letter and the prepared workspace/JDK locations. On this host the alias is visible in the elevated build context; use the same context for mapping, building and cleanup. Removing the alias leaves physical files intact. `--windows-trust` uses the Windows root certificate store for Java downloads when the local network requires it. The command above explicitly disables financial creation and selects the 0.5.0 artifact directory, `.test-output/android-preview-0.5.0`; without `--output`, the helper defaults to `.test-output/android-preview`. Keep the creation flag false for preview builds and verify the packaged config against the intended selection.
 
 The optional `--native-staging-root` option is selected in the verified Windows recipe. It sets `MKHADDA_NATIVE_STAGING_ROOT`, and the CNG plugin assigns each Android module a unique short directory through the supported top-level [`externalNativeBuild.cmake.buildStagingDirectory`](https://developer.android.com/reference/tools/gradle-api/9.2/com/android/build/api/dsl/Cmake) property. The callbacks register before the root plugins evaluate child projects. Use a persistent location outside module `build/` directories. The option also requests `-Pexpo.android.cmakeObjectPathMax=240`; it remains inactive when omitted.
 
