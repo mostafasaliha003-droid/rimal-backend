@@ -1,15 +1,158 @@
-import React, { useState } from 'react';
-import { Modal, ScrollView, View } from 'react-native';
+import React, { useLayoutEffect, useRef, useState } from 'react';
+import { Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { GuestRoom } from '../types';
 import { useLanguage } from '../i18n';
-import { colors, ui } from '../theme';
+import { colors, tokens, ui } from '../theme';
 import { Button, Field, Row, Txt } from './Primitives';
-import { childAgeInput } from './guestAgeModel';
+import { appendRoomWithSameCounts, childAgeInput, firstInvalidChildAge, isValidChildAge, type GuestRoomDraft } from './guestAgeModel';
 
-export default function GuestPicker({ visible, value, onClose, onChange }: { visible: boolean; value: GuestRoom[]; onClose: () => void; onChange: (rooms: GuestRoom[]) => void }) {
-  const { t } = useLanguage(); const [draft, setDraft] = useState<{ adults: number; children: (number|'')[] }[]>(() => value.map(room => ({ ...room, children: [...room.children] }))); const [error, setError] = useState(false);
-  const update = (index: number, room: typeof draft[number]) => setDraft(current => current.map((value, position) => position === index ? room : value));
-  const counter = (label: string, value: number, min: number, max: number, change: (value: number) => void) => <Row style={{ justifyContent: 'space-between' }}><Txt style={{ flex: 1 }}>{label}</Txt><Row><Button compact title="−" hint={`${label} −`} variant="secondary" disabled={value <= min} onPress={() => change(value - 1)} /><Txt accessibilityLiveRegion="polite" kind="label" style={{ minWidth: 24, textAlign: 'center' }}>{value}</Txt><Button compact title="+" hint={`${label} +`} variant="secondary" disabled={value >= max} onPress={() => change(value + 1)} /></Row></Row>;
-  return <Modal accessibilityLabel={t('guests')} visible={visible} animationType="slide" onRequestClose={onClose}><SafeAreaView style={ui.screen}><View style={{ padding: 20 }}><Row style={{ justifyContent: 'space-between' }}><Txt kind="heading" accessibilityRole="header">{t('guests')}</Txt><Button compact variant="quiet" title={t('close')} onPress={onClose} /></Row></View><ScrollView contentContainerStyle={ui.page} keyboardShouldPersistTaps="handled">{draft.map((room, index) => <View key={index} style={ui.card}><Row style={{ justifyContent: 'space-between' }}><Txt kind="label">{t('room')} {index + 1}</Txt>{draft.length > 1 && <Button compact variant="quiet" title={t('removeRoom')} onPress={() => setDraft(draft.filter((_, position) => position !== index))} />}</Row>{counter(t('adults'), room.adults, 1, 6, adults => update(index, { ...room, adults }))}{counter(t('children'), room.children.length, 0, 4, count => update(index, { ...room, children: Array.from({ length: count }, (_, position) => room.children[position] ?? '') }))}{room.children.map((age, childIndex) => <Field key={childIndex} label={`${t('childAge')} ${childIndex + 1}`} ltr keyboardType="number-pad" maxLength={2} value={String(age)} placeholder="0–17" onChangeText={text => update(index, { ...room, children: room.children.map((value, position) => position === childIndex ? childAgeInput(text) : value) })} />)}</View>)}{draft.length < 9 && <Button variant="secondary" title={t('addRoom')} onPress={() => setDraft([...draft, { adults: 2, children: [] }])} />}{error && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t('guestsError')}</Txt>}</ScrollView><View style={{ padding: 20, borderTopWidth: 1, borderTopColor: colors.border }}><Button title={t('done')} onPress={() => { if (draft.some(room => room.children.some(age => age === '' || !Number.isInteger(age) || Number(age) < 0 || Number(age) > 17))) { setError(true); return; } onChange(draft as GuestRoom[]); onClose(); }} /></View></SafeAreaView></Modal>;
+type CountKind = 'adults' | 'children';
+type EditorTarget = { roomIndex: number; childIndex?: number };
+
+const copyByLanguage = {
+  en: {
+    repeat: 'Add a room with these guest counts',
+    separateAges: 'Enter the ages of the children staying in the new room.',
+    ageLabel: (room: number, child: number) => 'Room ' + room + ' · Age of child ' + child,
+    ageError: (room: number, child: number) => 'Enter an age from 0 to 17 for child ' + child + ' in room ' + room + '.',
+    step: (increase: boolean, kind: CountKind, room: number) => (increase ? '+ Add one ' : '− Remove one ')
+      + (kind === 'adults' ? 'adult' : 'child') + (increase ? ' to room ' : ' from room ') + room,
+  },
+  ar: {
+    repeat: 'إضافة غرفة بنفس عدد الضيوف',
+    separateAges: 'أدخل أعمار الأطفال الذين سيقيمون في الغرفة الجديدة.',
+    ageLabel: (room: number, child: number) => 'الغرفة ' + room + ' · عمر الطفل ' + child,
+    ageError: (room: number, child: number) => 'أدخل عمراً من 0 إلى 17 سنة للطفل ' + child + ' في الغرفة ' + room + '.',
+    step: (increase: boolean, kind: CountKind, room: number) => (increase ? '+ زيادة عدد ' : '− إنقاص عدد ')
+      + (kind === 'adults' ? 'البالغين' : 'الأطفال') + ' في الغرفة ' + room,
+  },
+};
+
+const ageId = (room: number, child: number) => 'guest-age-' + (room + 1) + '-' + (child + 1);
+
+function Counter({ room, kind, count, onStep }: {
+  room: number; kind: CountKind; count: number; onStep: (step: 1 | -1) => void;
+}) {
+  const { language, t } = useLanguage();
+  const copy = copyByLanguage[language];
+  return <View testID={'guest-' + kind + '-' + room}>
+    <Row style={styles.counter}>
+      <Txt style={styles.flex}>{t(kind)}</Txt>
+      <Row>
+        <Button compact variant="secondary" title="−" label={copy.step(false, kind, room)}
+          disabled={count <= (kind === 'adults' ? 1 : 0)} onPress={() => onStep(-1)}/>
+        <Txt accessibilityLiveRegion="polite" kind="label" style={styles.count}>{count}</Txt>
+        <Button compact variant="secondary" title="+" label={copy.step(true, kind, room)}
+          disabled={count >= (kind === 'adults' ? 6 : 4)} onPress={() => onStep(1)}/>
+      </Row>
+    </Row>
+  </View>;
 }
+
+export default function GuestPicker({ visible, value, onClose, onChange }: {
+  visible: boolean; value: GuestRoom[]; onClose: () => void; onChange: (rooms: GuestRoom[]) => void;
+}) {
+  const { language, t } = useLanguage();
+  const copy = copyByLanguage[language];
+  const [draft, setDraft] = useState<GuestRoomDraft[]>(() => value.map(room => ({ ...room, children: [...room.children] })));
+  const [submitted, setSubmitted] = useState(false);
+  const [target, setTarget] = useState<EditorTarget | null>(null);
+  const inputs = useRef(new Map<string, React.ComponentRef<typeof TextInput>>());
+  const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+
+  useLayoutEffect(() => {
+    if (!target) return;
+    const input = target.childIndex === undefined ? undefined : inputs.current.get(ageId(target.roomIndex, target.childIndex));
+    if (!input) {
+      scroll.current?.scrollToEnd({ animated: false });
+      return;
+    }
+    input.focus();
+    const list = scroll.current;
+    const content = list?.getInnerViewRef();
+    if (!list || !content) return;
+    let active = true;
+    input.measureLayout(content, (_x, y) => {
+      if (active && Number.isFinite(y)) list.scrollTo({ y: Math.max(0, y - 50), animated: false });
+    }, () => {});
+    return () => { active = false; };
+  }, [target]);
+
+  const updateRoom = (index: number, update: (room: GuestRoomDraft) => GuestRoomDraft) =>
+    setDraft(rooms => rooms.map((room, position) => position === index ? update(room) : room));
+
+  const step = (index: number, kind: CountKind, delta: 1 | -1) => updateRoom(index, room => {
+    if (kind === 'adults') return { ...room, adults: Math.max(1, Math.min(6, room.adults + delta)) };
+    const count = Math.max(0, Math.min(4, room.children.length + delta));
+    return { ...room, children: Array.from({ length: count }, (_, child) => room.children[child] ?? '') };
+  });
+
+  const appendRoom = (sourceIndex?: number) => {
+    if (draft.length >= 9) return;
+    const next = sourceIndex === undefined ? [...draft, { adults: 2, children: [] }] : appendRoomWithSameCounts(draft, sourceIndex);
+    if (next === draft) return;
+    const roomIndex = next.length - 1;
+    setDraft(next);
+    setTarget({ roomIndex, childIndex: next[roomIndex].children.length ? 0 : undefined });
+  };
+
+  const submit = () => {
+    const first = firstInvalidChildAge(draft);
+    if (first) {
+      setSubmitted(true);
+      setTarget(first);
+      return;
+    }
+    onChange(draft.map(room => ({ adults: room.adults, children: room.children.filter(isValidChildAge) })));
+    onClose();
+  };
+
+  return <Modal accessibilityLabel={t('guests')} visible={visible} animationType="slide" onRequestClose={onClose}>
+    <SafeAreaView style={ui.screen}>
+      <View style={styles.header}><Row style={styles.counter}>
+        <Txt kind="heading" accessibilityRole="header" style={styles.flex}>{t('guests')}</Txt>
+        <Button compact variant="quiet" title={t('close')} onPress={onClose}/>
+      </Row></View>
+      <ScrollView ref={scroll} contentContainerStyle={ui.page} keyboardShouldPersistTaps="handled">
+        {draft.map((room, index) => {
+          const number = index + 1;
+          const roomLabel = t('room') + ' ' + number;
+          return <View key={index} testID={'guest-room-' + number} style={ui.card}>
+            <Row style={styles.counter}>
+              <Txt kind="label" accessibilityRole="header" style={styles.flex}>{roomLabel}</Txt>
+              {draft.length > 1 && <Button compact variant="quiet" title={t('removeRoom')} label={t('removeRoom') + ' · ' + roomLabel}
+                onPress={() => setDraft(rooms => rooms.filter((_, position) => position !== index))}/>}
+            </Row>
+            <Counter room={number} kind="adults" count={room.adults} onStep={delta => step(index, 'adults', delta)}/>
+            <Counter room={number} kind="children" count={room.children.length} onStep={delta => step(index, 'children', delta)}/>
+            {room.children.map((age, child) => {
+              const id = ageId(index, child);
+              return <Field key={child} testID={id} errorId={id + '-error'} ltr keyboardType="number-pad" maxLength={2}
+                inputRef={input => { if (input) inputs.current.set(id, input); else inputs.current.delete(id); }}
+                label={copy.ageLabel(number, child + 1)} error={submitted && !isValidChildAge(age) ? copy.ageError(number, child + 1) : undefined}
+                value={String(age)} placeholder="0–17" onChangeText={text => updateRoom(index, current => ({
+                  ...current, children: current.children.map((value, position) => position === child ? childAgeInput(text) : value),
+                }))}/>;
+            })}
+            {draft.length < 9 && (room.adults !== 2 || room.children.length > 0) && <View testID={'guest-repeat-' + number} style={styles.repeat}>
+              <Button compact variant="secondary" title={copy.repeat} label={copy.repeat + ' · ' + roomLabel} onPress={() => appendRoom(index)}/>
+              {room.children.length > 0 && <Txt kind="small">{copy.separateAges}</Txt>}
+            </View>}
+          </View>;
+        })}
+        {draft.length < 9 && <Button variant="secondary" title={t('addRoom')} onPress={() => appendRoom()}/>}
+      </ScrollView>
+      <View style={styles.footer}><Button title={t('done')} onPress={submit}/></View>
+    </SafeAreaView>
+  </Modal>;
+}
+
+const styles = StyleSheet.create({
+  header: { paddingHorizontal: tokens.space.xl, paddingVertical: tokens.space.md },
+  flex: { flex: 1 },
+  counter: { justifyContent: 'space-between' },
+  count: { minWidth: 24, textAlign: 'center' },
+  repeat: { borderTopColor: colors.border, borderTopWidth: 1, paddingTop: tokens.space.md, gap: tokens.space.sm },
+  footer: { padding: tokens.space.lg, borderTopWidth: 1, borderTopColor: colors.border },
+});
