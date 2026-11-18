@@ -31,8 +31,12 @@ export function MoneyText({ money, large = false }: { money: Money | null | unde
   return <Txt style={{ color: colors.navy, fontFamily: fonts.bold, fontSize: large ? 26 : 21, lineHeight: large ? 36 : 30 }}>{text}</Txt>;
 }
 export function StatePanel({ title, body, retry, busy = false }: { title: string; body?: string; retry?: () => void; busy?: boolean }) { const { t } = useLanguage(); return <View style={[ui.card, { alignItems: 'stretch', paddingVertical: 30 }]}>{busy && <ActivityIndicator size="large" color={colors.blueStrong} />}<Txt kind="heading" accessibilityRole={busy ? 'text' : 'header'}>{title}</Txt>{body && <Txt style={{ color: colors.muted }}>{body}</Txt>}{retry && <Button variant="secondary" title={t('retry')} onPress={retry} />}</View>; }
-export function Icon({ name, color = colors.navy, size = 24 }: { name: 'search'|'saved'|'account'|'support'; color?: ColorValue | null; size?: number }) {
+export function Icon({ name, color = colors.navy, size = 24 }: { name: 'search'|'saved'|'trips'|'account'|'support'; color?: ColorValue | null; size?: number }) {
   color = color || colors.navy;
+  if (name === 'trips') return <View accessible={false} style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
+    <View style={{ width: size * .42, height: size * .26, borderWidth: 2, borderBottomWidth: 0, borderColor: color, borderTopLeftRadius: 3, borderTopRightRadius: 3 }}/>
+    <View style={{ width: size * .9, height: size * .6, borderRadius: 3, borderWidth: 2, borderColor: color }}/>
+  </View>;
   if (name === 'search') return <View accessible={false} style={{ width: size, height: size }}><View style={{ width: size*.65, height: size*.65, borderRadius: size, borderWidth: 2, borderColor: color, left: 1, top: 1 }} /><View style={{ width: size*.4, height: 2, backgroundColor: color, transform: [{ rotate: '45deg' }], position: 'absolute', right: 0, bottom: 4 }} /></View>;
   if (name === 'account') return <View accessible={false} style={{ width: size, height: size, alignItems: 'center', gap: 3 }}><View style={{ width: size*.4, height: size*.4, borderRadius: size, borderWidth: 2, borderColor: color }} /><View style={{ width: size*.8, height: size*.42, borderTopLeftRadius: size, borderTopRightRadius: size, borderWidth: 2, borderColor: color }} /></View>;
   return <Text accessible={false} style={{ color, fontSize: size + 2, lineHeight: size + 4 }}>{name === 'saved' ? '♡' : '?'}</Text>;

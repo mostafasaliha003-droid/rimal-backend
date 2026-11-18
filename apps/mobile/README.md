@@ -4,6 +4,8 @@ Native Android application foundation operated by **Remal Tourism**, using the e
 
 The owner-approved store name is **مخدّة | Mkhadda**. The planned, configured production package is `com.remalbookings.app`; its first-AAB/Play assignment is not yet verified. The isolated development package is `com.remalbookings.app.preview`. Play Console's application dashboard was observed after the owner completed phone verification and created the unpublished draft. A staging test APK is available; no Play upload or public release is claimed.
 
+Version 0.6 adds a Trips tab at the existing `/bookings` address. Travelers can find an account booking by hotel name or reference and filter it by stay dates. Today includes departure day. Missing dates remain visible. Booking status and recorded amounts come from the existing owned history. Search and filters run on the device and reset when the signed-in session changes.
+
 ## Source repository
 
 The mobile app lives in `apps/mobile` within the existing [Remal Bookings repository](https://github.com/mostafasaliha003-droid/rimal-backend), as selected by the owner. Its dependencies, build profiles and checks are scoped to this directory. The mobile workflow runs for changes here without deploying the website or submitting a Play release. Local environment files, signing credentials, Android binaries and private QA artifacts remain excluded from source control.
