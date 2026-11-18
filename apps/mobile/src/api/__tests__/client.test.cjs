@@ -457,6 +457,29 @@ test('Pillow member prices require a current approved status and a pinned sessio
   await guarded('POST', '/payment/ziina/recover', {token});
   assert.equal(calls.at(-1)[0], '/payment/ziina/recover');
 });
+test('opening a saved hotel comparison rechecks the pinned member and fails closed before rendering captured prices', async () => {
+  const { createApiClient } = load('../client.ts');
+  const { memberRateAccessDenied } = load('../membership.ts');
+  const token = '5'.repeat(64);
+  const signal = new AbortController().signal;
+  let result = { enabled: true, authenticated: true, canAccess: true, application: { status: 'approved' } };
+  let failure = null;
+  let checks = 0;
+  const request = Object.assign(async (method, path, options) => {
+    assert.equal(method, 'GET'); assert.equal(path, '/membership/status');
+    assert.equal(options.token, token); assert.equal(options.signal, signal);
+    checks++; if (failure) throw failure;
+    return result;
+  }, { captureSessionToken: async () => token });
+  const client = createApiClient(request);
+  assert.equal(await client.verifyPrivateRateAccess(signal), undefined);
+  result = { ...result, application: { status: 'suspended' } };
+  await assert.rejects(client.verifyPrivateRateAccess(signal), error => memberRateAccessDenied(error));
+  failure = Error('offline');
+  await assert.rejects(client.verifyPrivateRateAccess(signal), error => error.code === 'membership_status_unavailable' && !memberRateAccessDenied(error));
+  assert.equal(checks, 3);
+});
+
 test('membership routes accept only owner operations and bounded JPEG or PNG bodies', async () => {
   assert.equal(allowedRoute('PUT', '/membership/application/documents/passport'),true);
   assert.equal(allowedRoute('PUT', '/membership/application/documents/other'),false);

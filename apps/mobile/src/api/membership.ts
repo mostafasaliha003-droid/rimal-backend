@@ -47,9 +47,7 @@ const protectedRatePaths = new Set(['/search/rates', '/search/rates/region', '/s
 
 // A status change must be reflected before exposing another set of private rates.
 // Recovering an existing attempt remains possible while membership is under review.
-export function withMemberRates(request: ReturnType<typeof createTransport>) {
-  const guarded = async (method: 'GET' | 'POST' | 'PUT', path: string, options: RequestOptions = {}) => {
-    if (method !== 'POST' || !protectedRatePaths.has(path)) return request(method, path, options);
+export async function requireMemberRateAccess(request: ReturnType<typeof createTransport>, options: RequestOptions = {}) {
     let token: string;
     try { token = options.token || await request.captureSessionToken(options.signal); }
     catch (error) {
@@ -60,10 +58,23 @@ export function withMemberRates(request: ReturnType<typeof createTransport>) {
     try { membership = await membershipStatus(request, options.signal, token); }
     catch (error) {
       if (options.signal?.aborted || error instanceof ApiError && error.kind === 'aborted') throw error;
+      if (error instanceof ApiError && error.status === 401) throw new ApiError('membership', 'membership_authentication_required', 401);
+      if (error instanceof ApiError && error.status === 403) throw new ApiError('membership', 'membership_approval_required', 403);
       throw new ApiError('membership', 'membership_status_unavailable', 503);
     }
     if (membership.enabled && !membership.authenticated) throw new ApiError('membership', 'membership_authentication_required', 401);
     if (!membership.canAccess) throw new ApiError('membership', 'membership_approval_required', 403);
+    return token;
+}
+
+export function memberRateAccessDenied(error: unknown) {
+  return error instanceof ApiError && (error.kind === 'auth' || error.kind === 'membership') && (error.status === 401 || error.status === 403);
+}
+
+export function withMemberRates(request: ReturnType<typeof createTransport>) {
+  const guarded = async (method: 'GET' | 'POST' | 'PUT', path: string, options: RequestOptions = {}) => {
+    if (method !== 'POST' || !protectedRatePaths.has(path)) return request(method, path, options);
+    const token = await requireMemberRateAccess(request, options);
     return request(method, path, { ...options, token });
   };
   return Object.assign(guarded, { captureSessionToken: request.captureSessionToken });

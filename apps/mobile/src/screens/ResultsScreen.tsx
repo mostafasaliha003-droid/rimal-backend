@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api, ApiError, authSession } from '../api';
 import { hotelId, validateSearchCriteria } from '../api/validation';
+import { memberRateAccessDenied } from '../api/membership';
 import { returnedSavedHotels } from '../components/savedHotelCards';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
@@ -28,7 +29,7 @@ function FilterChip({ text, label, clear }: { text: string; label: string; clear
 }
 
 export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boolean }) {
-  const { criteria, destinationName, saved, savedReady, savedErrorKind, retrySaved, comparisonItems, clearComparison } = useAppState();
+  const { criteria, destinationName, saved, savedReady, savedErrorKind, retrySaved, comparisonItems, comparisonContextKey, getComparisonItems, clearComparison } = useAppState();
   const { t, language, rtl } = useLanguage(), L = resultsCopy(language), router = useRouter();
   const { status: authStatus, sessionRevision } = useAuth();
   const { width, fontScale } = useWindowDimensions();
@@ -78,10 +79,11 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
     }).catch(error => {
       if (!current()) return;
       const denied = error instanceof ApiError && (error.kind === 'auth' || error.kind === 'membership');
+      if (memberRateAccessDenied(error) && getComparisonItems(comparisonContextKey).length) clearComparison();
       setSnapshot(previous => ({ context, hotels: !savedOnly && !denied && previous.context === context ? previous.hotels : [], pending: false, error }));
     });
     return () => { controller.abort(); if (inFlight.current === controller) inFlight.current = null; };
-  }, [plan, context, refresh, authStatus, sessionRevision, savedOnly, requestSavedIds]));
+  }, [plan, context, refresh, authStatus, sessionRevision, savedOnly, requestSavedIds, comparisonContextKey, getComparisonItems, clearComparison]));
   const edit = () => router.push(savedOnly ? '/saved-dates' : '/');
   const nights = stayNights(criteria), roomCount = criteria?.guests.length || 0;
   const mapLabel = rtl ? 'مواقع الفنادق على الخريطة' : 'Hotel locations on the map';
@@ -148,7 +150,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
       ItemSeparatorComponent={() => <View style={{ height: 10 }}/>} ListHeaderComponent={<View style={{ paddingBottom: 10 }}>{header}</View>} ListEmptyComponent={content || undefined}
       ListFooterComponent={!content && limit < decision.hotels.length ? <View style={{ paddingTop: 18 }}><Button variant="secondary" title={`${t('loadMore')} (${Math.min(20, decision.hotels.length - limit)})`} onPress={() => setLimit(limit + 20)}/></View> : undefined}
       refreshing={refreshing} onRefresh={enabled ? refreshResults : undefined}/>
-    {comparisonItems.length > 0 && <View style={{ borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
+    {sameContext && !pending && !error && comparisonItems.length > 0 && <View style={{ borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
       <View testID="results-comparison" style={{ width: '100%', maxWidth: 880, alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 6 }}>
         <Row style={{ gap: 8, justifyContent: 'space-between' }}>
           <View style={{ flex: 1 }}><Txt kind="label">{L.compareTitle(comparisonItems.length)}</Txt>

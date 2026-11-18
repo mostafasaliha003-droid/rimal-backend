@@ -6,7 +6,7 @@ import { createTransport, validToken } from './transport';
 import { getOwnedBookings } from './bookings';
 import { getAccountDeletionRequest, requestAccountDeletion } from './accountDeletion';
 import { ownedNotices } from './notifications';
-import { membershipStatus, type DocumentKind, type MemberDetails } from './membership';
+import { membershipStatus, requireMemberRateAccess, type DocumentKind, type MemberDetails } from './membership';
 import type { DocumentUpload } from './transport';
 import { createCheckoutApi } from './checkout';
 
@@ -69,6 +69,7 @@ export function createApiClient(request: Request) {
       request('POST', '/membership/application/submit', { body: { consent: true }, token, signal }),
     getNotices: (signal?: AbortSignal) => ownedNotices(request, signal),
     getMembershipStatus: (signal?: AbortSignal) => membershipStatus(request, signal),
+    async verifyPrivateRateAccess(signal: AbortSignal) { await requireMemberRateAccess(request, { signal }); },
     getBookings: (signal?: AbortSignal) => getOwnedBookings(request, signal),
     getAccountDeletionRequest: (signal?: AbortSignal) => getAccountDeletionRequest(request, signal),
     requestAccountDeletion: (password: string, signal?: AbortSignal) => requestAccountDeletion(request, password, signal),

@@ -1,12 +1,15 @@
-import React from 'react';
-import { ScrollView, View, useWindowDimensions } from 'react-native';
+import React, { useEffect, useState } from 'react';
+import { AppState as NativeAppState, ScrollView, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useIsFocused, useRouter } from 'expo-router';
+import { api, authSession } from '../api';
+import { memberRateAccessDenied } from '../api/membership';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { colors, tokens, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
+import ApiState from '../components/ApiState';
 import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 
 const copy = {
@@ -29,8 +32,44 @@ const copy = {
 };
 
 export default function CompareScreen() {
-  const auth = useAuth(), state = useAppState();
-  return <CompareContents key={`${auth.status}:${auth.sessionRevision}:${state.comparisonContextKey}`}/>;
+  const { status, sessionRevision } = useAuth();
+  const { comparisonContextKey } = useAppState();
+  const focused = useIsFocused();
+  const [active, setActive] = useState(NativeAppState.currentState !== 'background' && NativeAppState.currentState !== 'inactive');
+  const [attempt, setAttempt] = useState(0);
+  useEffect(() => {
+    const subscription = NativeAppState.addEventListener('change', value => setActive(value === 'active'));
+    return () => subscription.remove();
+  }, []);
+  if (!focused || !active) return null;
+  return <VerifiedComparison key={`${status}:${sessionRevision}:${comparisonContextKey}:${attempt}`}
+    contextKey={comparisonContextKey} sessionRevision={sessionRevision} retry={() => setAttempt(value => value + 1)}/>;
+}
+
+function VerifiedComparison({ contextKey, sessionRevision, retry }: { contextKey: string; sessionRevision: number; retry: () => void }) {
+  const { t } = useLanguage();
+  const { status } = useAuth();
+  const { clearComparison, getComparisonItems } = useAppState();
+  const [access, setAccess] = useState<{ approved: boolean; error?: unknown }>({ approved: false });
+  useEffect(() => {
+    if (status === 'loading') return;
+    const controller = new AbortController();
+    const current = () => !controller.signal.aborted && authSession.getRevision() === sessionRevision && authSession.getSnapshot().status === status;
+    api.verifyPrivateRateAccess(controller.signal).then(() => {
+      if (current()) setAccess({ approved: true });
+    }).catch(error => {
+      if (!current()) return;
+      if (memberRateAccessDenied(error) && getComparisonItems(contextKey).length) clearComparison();
+      setAccess({ approved: false, error });
+    });
+    return () => controller.abort();
+  }, [contextKey, sessionRevision, status, clearComparison, getComparisonItems]);
+  if (access.approved) return <CompareContents/>;
+  return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}><BrandHeader back/>
+    <ScrollView contentContainerStyle={ui.page}>
+      {access.error ? <ApiState error={access.error} retry={retry}/> : <StatePanel title={t('loading')} busy/>}
+    </ScrollView>
+  </SafeAreaView>;
 }
 function CompareContents() {
   const state = useAppState(), { language, rtl } = useLanguage(), router = useRouter();
