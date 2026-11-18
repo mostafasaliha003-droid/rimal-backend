@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { ActivityIndicator, ColorValue, Image, Pressable, StyleSheet, Text, TextInput, TextInputProps, TextProps, View, ViewStyle } from 'react-native';
+import { ActivityIndicator, ColorValue, Image, Platform, Pressable, StyleSheet, Text, TextInput, TextInputProps, TextProps, View, ViewStyle } from 'react-native';
 import { colors, fonts, tokens, ui } from '../theme';
 import { useLanguage } from '../i18n';
 import type { Money } from '../types';
@@ -15,9 +15,12 @@ export function Button({ title, onPress, variant = 'primary', disabled = false, 
     {busy && <ActivityIndicator color={foreground} />}<Text style={[styles.buttonText, { color: foreground }]}>{title}</Text>
   </Pressable>;
 }
-export function Field({ label, error, style, ltr = false, ...props }: TextInputProps & { label: string; error?: string; ltr?: boolean }) {
+export function Field({ label, error, errorId, inputRef, style, ltr = false, ...props }: TextInputProps & {
+  label: string; error?: string; errorId?: string; inputRef?: React.Ref<React.ComponentRef<typeof TextInput>>; ltr?: boolean;
+}) {
   const { rtl } = useLanguage(); const [focused, focus] = useState(false);
-  return <View style={{ gap: 6, flexShrink: 1 }}><Txt kind="label">{label}</Txt><TextInput {...props} accessibilityLabel={label} accessibilityHint={error || props.accessibilityHint} placeholderTextColor={colors.muted} onFocus={event => { focus(true); props.onFocus?.(event); }} onBlur={event => { focus(false); props.onBlur?.(event); }} style={[ui.input, { textAlign: ltr ? 'left' : rtl ? 'right' : 'left', writingDirection: ltr ? 'ltr' : rtl ? 'rtl' : 'ltr', borderColor: error ? colors.red : focused ? colors.blueStrong : colors.border }, style]} />{error && <Txt accessibilityRole="alert" style={{ color: colors.red }} kind="small">{error}</Txt>}</View>;
+  const errorLink = Platform.OS === 'web' && error && errorId ? { 'aria-invalid': true, 'aria-describedby': errorId } : undefined;
+  return <View style={{ gap: 6, flexShrink: 1 }}><Txt kind="label">{label}</Txt><TextInput {...props} {...errorLink} ref={inputRef} accessibilityLabel={label} accessibilityHint={error || props.accessibilityHint} placeholderTextColor={colors.muted} onFocus={event => { focus(true); props.onFocus?.(event); }} onBlur={event => { focus(false); props.onBlur?.(event); }} style={[ui.input, { textAlign: ltr ? 'left' : rtl ? 'right' : 'left', writingDirection: ltr ? 'ltr' : rtl ? 'rtl' : 'ltr', borderColor: error ? colors.red : focused ? colors.blueStrong : colors.border }, style]} />{error && <Txt nativeID={errorId} accessibilityRole="alert" style={{ color: colors.red }} kind="small">{error}</Txt>}</View>;
 }
 export function Photo({ uri, label, room = false, height = 210 }: { uri?: string; label: string; room?: boolean; height?: number }) {
   const { t } = useLanguage(); const [failedSource, fail] = useState<string | null>(null);

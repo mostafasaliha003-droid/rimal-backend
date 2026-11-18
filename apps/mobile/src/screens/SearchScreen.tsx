@@ -45,7 +45,8 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria)), ...changes },
   }));
   const [calendar, setCalendar] = useState<{ field: 'checkin' | 'checkout'; source: SearchCriteria | null } | null>(null);
-  const [guestOpen, showGuests] = useState(false); const [countryOpen, showCountry] = useState(false); const [errors, setErrors] = useState<Record<string, boolean>>({}); const [submitted, setSubmitted] = useState(false);
+  const [guestEditor, setGuestEditor] = useState<{ source: SearchCriteria | null } | null>(null);
+  const [countryOpen, showCountry] = useState(false); const [errors, setErrors] = useState<Record<string, boolean>>({}); const [submitted, setSubmitted] = useState(false);
   useEffect(() => {
     if (!needsSuggestions) return;
     const controller = new AbortController();
@@ -56,7 +57,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const submit = () => {
     const destination = selected?.name === query ? selected : query === state.destinationName ? destinationFromSearch(state.criteria, query) : null;
     const criteria: SearchCriteria = { checkin, checkout, guests: copyGuestRooms(guests), residency, currency, language, ...(savedOnly ? { hids: savedIds } : destination?.regionId ? { regionId: destination.regionId } : destination?.hid ? { hids: [destination.hid] } : {}) };
-    const validation = validateSearchCriteria(criteria); const next = { destination: savedOnly ? !savedIds.length : !destination || !query.trim(), dates: validation.errors.includes('invalid_checkin') || validation.errors.includes('invalid_checkout'), residency: !COUNTRY_CODES.includes(residency), guests: guests.some(room => room.children.some(age => !Number.isInteger(age) || age < 0 || age > 17)) };
+    const validation = validateSearchCriteria(criteria); const next = { destination: savedOnly ? !savedIds.length : !destination || !query.trim(), dates: validation.errors.includes('invalid_checkin') || validation.errors.includes('invalid_checkout'), residency: !COUNTRY_CODES.includes(residency), guests: validation.errors.includes('invalid_guests') };
     setErrors(next); setSubmitted(true);
     if (!validation.valid || Object.values(next).some(Boolean)) return;
     Keyboard.dismiss();
@@ -101,7 +102,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       </View>}
       <Row style={{ alignItems: 'stretch' }}>{(['checkin', 'checkout'] as const).map(key => <Pressable key={key} testID={`search-date-${key}`} accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setCalendar({ field: key, source: state.criteria }); }} style={{ flex: 1, minHeight: 72, padding: 12, borderRadius: 14, backgroundColor: colors.background, borderWidth: 1, borderColor: errors.dates ? colors.red : colors.border, gap: 5 }}><Txt kind="small">{t(key)}</Txt><Txt style={{ fontFamily: fonts.bold, fontSize: 15, writingDirection: 'ltr', textAlign: rtl ? 'right' : 'left' }}>{(key === 'checkin' ? checkin : checkout) || t('selectDate')}</Txt></Pressable>)}</Row>
       {errors.dates && <Txt accessibilityRole="alert" kind="small" style={{ color: colors.red }}>{t('datesError')}</Txt>}
-      <Row style={{ alignItems: 'stretch' }}><Pressable accessibilityRole="button" accessibilityHint={guestSummary} onPress={() => showGuests(true)} style={{ flex: 1, padding: 12, minHeight: 76, borderRadius: 14, backgroundColor: colors.background, gap: 4 }}><Txt kind="small">{t('guests')}</Txt><Txt kind="label">{guestSummary}</Txt></Pressable>
+      <Row style={{ alignItems: 'stretch' }}><Pressable testID="search-guests" accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setGuestEditor({ source: state.criteria }); }} style={{ flex: 1, padding: 12, minHeight: 76, borderRadius: 14, backgroundColor: colors.background, gap: 4 }}><Txt kind="small">{t('guests')}</Txt><Txt kind="label">{guestSummary}</Txt></Pressable>
       <Pressable accessibilityRole="button" accessibilityHint={countryName(residency, language)} onPress={() => showCountry(true)} style={{ flex: 1, padding: 12, minHeight: 76, borderRadius: 14, backgroundColor: colors.background, gap: 4 }}><Txt kind="small">{t('residency')}</Txt><Txt kind="label">{countryName(residency, language)}</Txt><Txt kind="small" style={{ fontSize: 11, lineHeight: 15 }}>{residency.toUpperCase()}</Txt></Pressable></Row>
       <View style={{ gap: 6 }} accessibilityRole="radiogroup" accessibilityLabel={t('currency')}><Txt kind="label">{t('currency')}</Txt><Row style={{ gap: 8 }}>{['USD','AED','SAR','EUR'].map(code => <Pressable key={code} accessibilityRole="radio" accessibilityLabel={code} aria-checked={code === currency} accessibilityState={{ checked: code === currency }} onPress={() => updateTravel({ currency: code })} style={{ flex: 1, minHeight: 48, justifyContent: 'center', alignItems: 'center', borderRadius: 12, borderWidth: 1, borderColor: currency === code ? colors.blueStrong : colors.border, backgroundColor: currency === code ? colors.softBlue : '#fff' }}><Txt kind="label" style={{ color: currency === code ? colors.blueStrong : colors.muted }}>{code}</Txt></Pressable>)}</Row></View>
       {submitted && (errors.residency || errors.guests) && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t(errors.residency ? 'residencyError' : 'guestsError')}</Txt>}
@@ -117,7 +118,11 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         setErrors(current => ({ ...current, dates: false }));
         setCalendar(null);
       }}/>}
-    {guestOpen && <GuestPicker visible value={guests} onClose={() => showGuests(false)} onChange={guests => updateTravel({ guests })} />}
+    {guestEditor && guestEditor.source === state.criteria && <GuestPicker visible value={guests}
+      onClose={() => setGuestEditor(null)} onChange={rooms => {
+        updateTravel({ guests: rooms });
+        setErrors(current => ({ ...current, guests: false }));
+      }}/>}
     <CountryPicker visible={countryOpen} value={residency} onClose={() => showCountry(false)} onChange={residency => updateTravel({ residency })} />
   </SafeAreaView>;
 }

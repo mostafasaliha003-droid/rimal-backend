@@ -4,6 +4,8 @@ Native Android application foundation operated by **Remal Tourism**, using the e
 
 The owner-approved store name is **مخدّة | Mkhadda**. The planned, configured production package is `com.remalbookings.app`; its first-AAB/Play assignment is not yet verified. The isolated development package is `com.remalbookings.app.preview`. Play Console's application dashboard was observed after the owner completed phone verification and created the unpublished draft. A staging test APK is available; no Play upload or public release is claimed.
 
+Version 0.13 lets families add another room with the same numbers of adults and children. Travelers enter the ages of the children staying in each room. The guest editor identifies missing or out-of-range ages before applying the room setup.
+
 Version 0.12 lets travelers choose arrival and departure in one calendar on Explore and when setting dates for saved hotels. Selecting departure applies the complete stay to the form. Closing the calendar midway preserves the previously entered dates.
 
 Version 0.11 gives travelers a shortcut from a room group to its lowest reviewable room rate in the search currency. The selection follows the active meal and cancellation filters and opens the exact supplier offer shown on the card.
