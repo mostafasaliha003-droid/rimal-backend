@@ -16,11 +16,12 @@ export interface Suggestion {
 }
 export interface CancellationInterval {
   startAt: string | null; endAt: string | null; amount: string | null; currency: string | null;
+  startInvalid?: true; endInvalid?: true;
 }
 export interface RoomOffer {
   id: string; name: string; bookHash: string; offerContext?: string; roomIdentity?: string;
   price: Money | null; meal?: string; images: string[]; taxes: Tax[];
-  cancellation: { freeUntil: string | null; policies: CancellationInterval[] };
+  cancellation: { freeUntil: string | null; policies: CancellationInterval[]; freeUntilInvalid?: true; incomplete?: true };
 }
 export interface HotelSummary {
   hid: number; id: string; name: string; address?: string; stars?: number;

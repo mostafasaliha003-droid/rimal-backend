@@ -14,6 +14,15 @@ export function calendarDay(value: unknown): number | null {
   const day = Date.parse(`${value}T00:00:00Z`);
   return Number.isFinite(day) && new Date(day).toISOString().slice(0, 10) === value ? day : null;
 }
+/** Zone-less supplier timestamps are UTC. Validate fields before Date.parse can roll them over. */
+export function parseCancellationTimestamp(value: unknown): number | null {
+  if (typeof value !== 'string') return null;
+  const parts = /^(\d{4}-\d{2}-\d{2})T(\d{2}):(\d{2})(?::(\d{2})(?:\.\d{1,3})?)?([zZ]|[+-](\d{2}):(\d{2}))?$/.exec(value);
+  if (!parts || calendarDay(parts[1]) === null || Number(parts[2]) > 23 || Number(parts[3]) > 59
+    || Number(parts[4] ?? 0) > 59 || Number(parts[6] ?? 0) > 23 || Number(parts[7] ?? 0) > 59) return null;
+  const time = Date.parse(parts[5] ? value : `${value}Z`);
+  return Number.isFinite(time) ? time : null;
+}
 export function validateSearchCriteria(value: SearchCriteria, now = new Date()) {
   const errors: string[] = [];
   const start = calendarDay(value?.checkin), end = calendarDay(value?.checkout);

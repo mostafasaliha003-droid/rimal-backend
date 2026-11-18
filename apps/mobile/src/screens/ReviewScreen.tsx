@@ -90,7 +90,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
           <View style={{ padding: 20, gap: 18 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{t('reviewRoom')}</Txt><Txt kind="heading" accessibilityRole="header">{offer.name}</Txt><Txt kind="small">{t('meal')}: {offer.meal ? offer.meal === 'nomeal' ? t('roomOnly') : offer.meal.replace(/[-_]/g, ' ') : t('noMeal')}</Txt>
             {status === 'changed' && checked && !expired && <View style={{ gap: 7, padding: 16, borderRadius: 16, backgroundColor: colors.softGold }}><Txt kind="label">{t('reviewPreviousPrice')}</Txt><MoneyText money={draft.offer.price}/></View>}
             <View style={{ gap: 6 }}><Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><MoneyText large money={offer.price}/></View>
-            <Taxes taxes={offer.taxes}/><Cancellation offer={offer}/>
+            <Taxes taxes={offer.taxes}/><Cancellation offer={offer} mode={expired ? 'historical' : 'current'}/>
           </View>
         </View>
         {status === 'changed' && checked && !expired && <View style={[ui.card, { backgroundColor: colors.softGold, borderColor: '#E6CFAC' }]} accessibilityLiveRegion="polite"><Txt kind="heading" accessibilityRole="header">{t('reviewChangedTitle')}</Txt><Txt>{t('reviewChangedBody')}</Txt><OfferChanges before={draft.offer} after={offer}/>{changesAccepted && <Txt style={{ color: colors.success, fontFamily: fonts.bold }}>{t('reviewChangesAccepted')}</Txt>}</View>}

@@ -37,6 +37,17 @@ test('meal, charge inclusion and cancellation changes are explained even with an
   const original = JSON.stringify(before); assert.deepEqual(changedOfferSections(before, after), ['meal', 'taxes', 'cancellation']);
   assert.equal(JSON.stringify(before), original); assert.equal(after.price.amount, before.price.amount);
 });
+test('changes in source uncertainty require a new review in both comparisons', () => {
+  const { offerTerms } = load('./offerReviewModel.ts');
+  const before = base();
+  for (const flag of ['incomplete', 'freeUntilInvalid', 'startInvalid', 'endInvalid']) {
+    const after = base();
+    const target = flag === 'incomplete' || flag === 'freeUntilInvalid' ? after.cancellation : after.cancellation.policies[0];
+    target[flag] = true;
+    assert.notEqual(offerTerms(before), offerTerms(after));
+    assert.deepEqual(changedOfferSections(before, after), ['cancellation']);
+  }
+});
 test('zero, missing amounts and currencies remain distinct, and room changes are not hidden', () => {
   const before = base(), after = base(); after.price.currency = 'AED'; after.taxes[0].amount = null;
   after.name = 'Different suite'; after.roomIdentity = 'different-room';

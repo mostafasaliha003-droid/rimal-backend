@@ -1,6 +1,6 @@
 import type { HotelDetails, HotelSummary, Money, RoomOffer, Suggestion, User } from '../types';
 import { invalidResponse } from './errors';
-import { calendarDay, hotelId } from './validation';
+import { hotelId, parseCancellationTimestamp } from './validation';
 
 type Row = Record<string, unknown>;
 export const object = (value: unknown): Row => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Row : {};
@@ -23,11 +23,8 @@ export function customerPrice(value: unknown): Money | null {
   return amount !== null && code !== null ? { amount, currency: code } : null;
 }
 export function utcTimestamp(value: unknown): string | null {
-  if (typeof value !== 'string' || !/^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}(?::\d{2}(?:\.\d{1,3})?)?(?:[zZ]|[+-]\d{2}:\d{2})?$/.test(value)
-    || calendarDay(value.slice(0, 10)) === null) return null;
-  const normalized = /[zZ]|[+-]\d{2}:\d{2}$/.test(value) ? value : `${value}Z`;
-  const time = Date.parse(normalized);
-  return Number.isFinite(time) ? new Date(time).toISOString() : null;
+  const time = parseCancellationTimestamp(value);
+  return time === null ? null : new Date(time).toISOString();
 }
 function imageUrl(value: string): string | null {
   let raw = value.trim().replace(/\{size\}/gi, '640x480');
@@ -63,6 +60,25 @@ function classification(value: unknown): string | null {
     && keys.every(key => Number.isInteger(row[key]) && Number(row[key]) >= 0)
     ? JSON.stringify(keys.map(key => [key, row[key]])) : null;
 }
+function cancellationTerms(payment: Row | undefined): RoomOffer['cancellation'] {
+  const source = payment?.cancellation_penalties;
+  const penalty = object(source);
+  const currencyCode = currency(payment?.currency_code);
+  const freeUntil = utcTimestamp(penalty.free_cancellation_before);
+  const incomplete = source != null && (typeof source !== 'object' || Array.isArray(source))
+    || penalty.policies != null && !Array.isArray(penalty.policies);
+  const policies = array(penalty.policies).map(value => {
+    const row = object(value);
+    const startAt = utcTimestamp(row.start_at), endAt = utcTimestamp(row.end_at);
+    const startInvalid = row.start_at !== null && startAt === null;
+    const endInvalid = row.end_at !== null && endAt === null;
+    const amount = startInvalid || endInvalid ? null : decimal(row.amount_charge, true);
+    return { startAt, endAt, amount, currency: amount !== null ? currencyCode : null,
+      ...(startInvalid && { startInvalid: true as const }), ...(endInvalid && { endInvalid: true as const }) };
+  });
+  return { freeUntil, policies, ...(incomplete && { incomplete: true }),
+    ...(penalty.free_cancellation_before != null && freeUntil === null && { freeUntilInvalid: true }) };
+}
 export function normalizeOffers(value: unknown, hotel: unknown = {}): RoomOffer[] {
   const staticHotel = object(hotel);
   const rawGroups = staticHotel.room_groups;
@@ -71,7 +87,6 @@ export function normalizeOffers(value: unknown, hotel: unknown = {}): RoomOffer[
     const rate = object(item), name = label(rate.room_name) || label(object(rate.room_data_trans).main_name);
     if (typeof rate.book_hash !== 'string' || !rate.book_hash || rate.book_hash.length > 1024 || !name) return [];
     const payment = array(object(rate.payment_options).payment_types).map(object).find(item => item.type === 'deposit');
-    const penalty = object(payment?.cancellation_penalties), code = currency(payment?.currency_code);
     const key = classification(rate.rg_ext);
     const matched = key ? groups.map(object).filter(group => classification(group.rg_ext) === key) : [];
     return [{ id: `${rate.book_hash}:${index}`, name, bookHash: rate.book_hash, ...(key ? { roomIdentity: key } : {}),
@@ -83,14 +98,7 @@ export function normalizeOffers(value: unknown, hotel: unknown = {}): RoomOffer[
         return { name: label(tax.name), amount: decimal(tax.amount, true), currency_code: currency(tax.currency_code),
           included_by_supplier: typeof tax.included_by_supplier === 'boolean' ? tax.included_by_supplier : null };
       }),
-      cancellation: { freeUntil: utcTimestamp(penalty.free_cancellation_before), policies: array(penalty.policies).map(value => {
-        const policy = object(value);
-        const datesValid = (policy.start_at === null || utcTimestamp(policy.start_at) !== null)
-          && (policy.end_at === null || utcTimestamp(policy.end_at) !== null);
-        const amount = datesValid ? decimal(policy.amount_charge, true) : null;
-        return { startAt: utcTimestamp(policy.start_at), endAt: utcTimestamp(policy.end_at), amount,
-          currency: amount !== null ? code : null };
-      }) } }];
+      cancellation: cancellationTerms(payment) }];
   });
 }
 function cheapest(value: unknown, code: string): Money | null {

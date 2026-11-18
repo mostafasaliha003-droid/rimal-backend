@@ -1,12 +1,13 @@
 import type { Money, RoomOffer } from '../types';
+import { presentCancellation } from './cancellationPresentationModel';
 
 export type RoomChoiceSort = 'original' | 'price';
 export type MealFacet = { kind: 'all' } | { kind: 'value'; value: string } | { kind: 'missing' };
 export interface RoomChoiceEntry { key: string; index: number; offer: RoomOffer }
 export interface RoomChoiceGroup {
-  key: string; identity: string | null; name: string; entries: RoomChoiceEntry[]; totalCount: number; fromPrice: Money | null;
+  key: string; identity: string | null; name: string; entries: RoomChoiceEntry[]; totalCount: number; freeNowCount: number; fromPrice: Money | null;
 }
-export interface RoomChoiceOptions { currency: string; query?: string; meal?: MealFacet; sort?: RoomChoiceSort }
+export interface RoomChoiceOptions { currency: string; query?: string; meal?: MealFacet; sort?: RoomChoiceSort; freeOnly?: boolean; now?: number }
 
 const mealValue = (offer: RoomOffer) => typeof offer.meal === 'string' && offer.meal.trim() ? offer.meal : null;
 const identityValue = (offer: RoomOffer) => typeof offer.roomIdentity === 'string' && offer.roomIdentity.trim() ? offer.roomIdentity : null;
@@ -48,7 +49,9 @@ export function roomMealFacets(offers: readonly RoomOffer[]): { values: string[]
 
 // This is a display model, not a supplier-rate normalizer. Entries retain the
 // original object and occurrence, including duplicate hashes and rate variants.
-export function buildRoomChoices(offers: readonly RoomOffer[], { currency, query = '', meal = { kind: 'all' }, sort = 'original' }: RoomChoiceOptions) {
+export function buildRoomChoices(offers: readonly RoomOffer[], {
+  currency, query = '', meal = { kind: 'all' }, sort = 'original', freeOnly = false, now = Date.now(),
+}: RoomChoiceOptions) {
   const entries = offers.map((offer, index) => ({ offer, index, key: JSON.stringify([offer.id, offer.bookHash, index]) }));
   const groupKey = (entry: RoomChoiceEntry) => {
     const identity = identityValue(entry.offer);
@@ -60,7 +63,8 @@ export function buildRoomChoices(offers: readonly RoomOffer[], { currency, query
   const matchesMeal = (offer: RoomOffer) => meal.kind === 'all' ? true
     : meal.kind === 'missing' ? mealValue(offer) === null : mealValue(offer) === meal.value;
   const matching = entries.filter(({ offer }) => (!needle || searchText(offer.name).includes(needle))
-    && matchesMeal(offer));
+    && matchesMeal(offer)).map(entry => ({ ...entry, freeNow: presentCancellation(entry.offer.cancellation, now).kind === 'free' }))
+    .filter(entry => !freeOnly || entry.freeNow);
   if (sort === 'price') matching.sort((left, right) => priceOrder(left, right, currency));
   const grouped = new Map<string, RoomChoiceGroup>();
   let fromPrice: Money | null = null;
@@ -68,10 +72,11 @@ export function buildRoomChoices(offers: readonly RoomOffer[], { currency, query
     const key = groupKey(entry);
     let group = grouped.get(key);
     if (!group) {
-      group = { key, identity: identityValue(entry.offer), name: entry.offer.name, entries: [], totalCount: totals.get(key)!, fromPrice: null };
+      group = { key, identity: identityValue(entry.offer), name: entry.offer.name, entries: [], totalCount: totals.get(key)!, freeNowCount: 0, fromPrice: null };
       grouped.set(key, group);
     }
     group.entries.push(entry);
+    if (entry.freeNow) group.freeNowCount++;
     const price = entry.offer.price;
     if (comparable(price, currency)) {
       if (!group.fromPrice || compareRoomAmounts(price.amount, group.fromPrice.amount) < 0) group.fromPrice = price;
