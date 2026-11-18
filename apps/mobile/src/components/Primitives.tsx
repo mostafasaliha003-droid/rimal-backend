@@ -13,7 +13,7 @@ export function Row({ children, style }: { children: React.ReactNode; style?: Vi
 export function Button({ title, onPress, variant = 'primary', disabled = false, busy = false, hint, label, compact = false }: { title: string; onPress: () => void; variant?: 'primary'|'secondary'|'quiet'|'danger'; disabled?: boolean; busy?: boolean; hint?: string; label?: string; compact?: boolean }) {
   const { language } = useLanguage();
   const foreground = variant === 'primary' || variant === 'danger' ? '#fff' : colors.navy;
-  return <Pressable accessibilityRole="button" accessibilityLabel={label || title} accessibilityHint={hint} accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress} style={({ pressed }) => [styles.button, compact && { paddingHorizontal: 12, minHeight: tokens.control.minHeight, minWidth: tokens.control.minHeight }, variant === 'primary' ? { backgroundColor: colors.navy } : variant === 'danger' ? { backgroundColor: colors.red } : { backgroundColor: variant === 'quiet' ? 'transparent' : '#fff', borderColor: colors.border, borderWidth: variant === 'quiet' ? 0 : 1 }, { opacity: disabled || busy ? .5 : pressed ? .75 : 1 }]}>
+  return <Pressable accessibilityRole="button" accessibilityLabel={label || title} accessibilityHint={hint} accessibilityState={{ disabled: disabled || busy, busy }} disabled={disabled || busy} onPress={onPress} style={({ pressed }) => [styles.button, compact && { paddingHorizontal: 12, minHeight: tokens.control.minHeight, minWidth: tokens.control.minHeight }, variant === 'primary' ? { backgroundColor: pressed ? colors.navy : colors.grape } : variant === 'danger' ? { backgroundColor: colors.red } : { backgroundColor: variant === 'quiet' ? 'transparent' : '#fff', borderColor: colors.border, borderWidth: variant === 'quiet' ? 0 : 1 }, { opacity: disabled || busy ? .5 : 1 }]}>
     {busy && <ActivityIndicator color={foreground} />}<Text style={[styles.buttonText, { color: foreground, fontFamily: localizedFont(language, fonts.bold) }]}>{title}</Text>
   </Pressable>;
 }
@@ -24,9 +24,23 @@ export function Field({ label, error, errorId, inputRef, style, ltr = false, ...
   const errorLink = Platform.OS === 'web' && error && errorId ? { 'aria-invalid': true, 'aria-describedby': errorId } : undefined;
   return <View style={{ gap: 6, flexShrink: 1 }}><Txt kind="label">{label}</Txt><TextInput {...props} {...errorLink} ref={inputRef} accessibilityLabel={label} accessibilityHint={error || props.accessibilityHint} placeholderTextColor={colors.muted} onFocus={event => { focus(true); props.onFocus?.(event); }} onBlur={event => { focus(false); props.onBlur?.(event); }} style={[ui.input, { fontFamily: localizedFont(language, fonts.medium), textAlign: ltr ? 'left' : rtl ? 'right' : 'left', writingDirection: ltr ? 'ltr' : rtl ? 'rtl' : 'ltr', borderColor: error ? colors.red : focused ? colors.blueStrong : colors.border }, style]} />{error && <Txt nativeID={errorId} accessibilityRole="alert" style={{ color: colors.red }} kind="small">{error}</Txt>}</View>;
 }
-export function Photo({ uri, label, room = false, height = 210 }: { uri?: string; label: string; room?: boolean; height?: number }) {
-  const { t } = useLanguage(); const [failedSource, fail] = useState<string | null>(null);
-  return uri && failedSource !== uri ? <Image accessibilityLabel={label} source={{ uri }} onError={() => fail(uri)} resizeMode="cover" style={{ width: '100%', height, backgroundColor: colors.softBlue }} /> : <View style={{ height, backgroundColor: colors.softBlue, alignItems: 'center', justifyContent: 'center', padding: 24, gap: 8 }}><Text accessible={false} style={{ fontSize: 25, color: colors.blueStrong }}>▧</Text><Txt kind="small" style={{ textAlign: 'center' }}>{t(room ? 'roomPhotoUnknown' : 'photoUnknown')}</Txt></View>;
+export function Photo({ uri, alternatives = [], label, room = false, height = 210, thumbnail = false, contain = false, onFailed }: {
+  uri?: string; alternatives?: readonly string[]; label: string; room?: boolean; height?: number | '100%';
+  thumbnail?: boolean; contain?: boolean; onFailed?: (uri: string) => void;
+}) {
+  const { t, language } = useLanguage();
+  const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
+  const source = uri && !failed.has(uri) ? uri : alternatives.find(item => !failed.has(item));
+  if (source) return <Image key={source} accessibilityLabel={label} source={{ uri: source }} resizeMode={contain ? 'contain' : 'cover'}
+    onError={() => { setFailed(previous => new Set(previous).add(source)); onFailed?.(source); }}
+    style={{ width: '100%', height, backgroundColor: contain ? colors.ink : colors.softBlue }}/>;
+  const caption = (uri || alternatives.length) ? (language === 'ar' ? 'تعذّر تحميل الصورة' : 'Photo unavailable')
+    : t(room ? 'roomPhotoUnknown' : 'photoUnknown');
+  return <View accessible accessibilityLabel={caption} style={{ height, alignItems: 'center', justifyContent: 'center',
+    backgroundColor: colors.softBlue, padding: thumbnail ? 4 : 14, gap: 4 }}>
+    <Icon name={room ? 'bed' : 'pin'} size={thumbnail ? 17 : 24} color={colors.muted}/>
+    <Txt kind="small" style={{ textAlign: 'center', ...(thumbnail && { fontSize: 12, lineHeight: 16 }) }}>{caption}</Txt>
+  </View>;
 }
 export function MoneyText({ money, large = false }: { money: Money | null | undefined; large?: boolean }) {
   const { language, t } = useLanguage(); const value = Number(money?.amount);

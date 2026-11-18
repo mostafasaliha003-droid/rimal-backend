@@ -6,7 +6,7 @@ import { copyCriteria, criteriaIdentity } from './offerReviewModel';
 export const COMPARISON_PRICE_LIFETIME_MS = 5 * 60_000;
 export const COMPARISON_LIMIT = 3;
 export interface ComparisonHotel {
-  hid: number; name: string; address?: string; stars?: number; imageUrl?: string;
+  hid: number; name: string; address?: string; stars?: number; imageUrl?: string; images?: string[];
   price: Money | null; capturedAt: number; priceExpired?: boolean;
 }
 export interface ComparisonSelection { contextKey: string; items: ComparisonHotel[] }
@@ -29,10 +29,10 @@ function snapshot(hotel: HotelSummary, currency: string, now: number): Compariso
   const price = raw && raw.currency === currency && typeof raw.amount === 'string'
     && /^\d+(?:\.\d+)?$/.test(raw.amount) && raw.amount.length <= 128 && Number.isFinite(Number(raw.amount))
     ? { amount: raw.amount, currency: raw.currency } : null;
-  const address = cleanText(hotel.address, 1000), imageUrl = images(hotel.imageUrl)[0];
+  const address = cleanText(hotel.address, 1000), photos = images(hotel.imageUrl, hotel.images).slice(0, 8);
   return freeze({ hid, name, ...(address ? { address } : {}),
     ...(Number.isInteger(hotel.stars) && Number(hotel.stars) >= 1 && Number(hotel.stars) <= 5 ? { stars: hotel.stars } : {}),
-    ...(imageUrl ? { imageUrl } : {}), price, capturedAt: now });
+    ...(photos.length ? { imageUrl: photos[0], images: photos } : {}), price, capturedAt: now });
 }
 
 // Selection holds presentation fields only: no rates, signed offers, account

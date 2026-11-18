@@ -9,7 +9,7 @@ import { colors, fonts, localizedFont, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
 import { hotelId } from '../api/validation';
-import DiscoveryShelves, { DiscoveryHero } from '../components/DiscoveryShelves';
+import DiscoveryShelves, { DestinationPicks, DiscoveryHero, type DestinationId } from '../components/DiscoveryShelves';
 import ApiState from '../components/ApiState';
 import { Button, Icon, Row, StatePanel, Txt } from '../components/Primitives';
 import CalendarPicker from '../components/CalendarPicker';
@@ -31,6 +31,7 @@ function initialTravel(criteria: SearchCriteria | null): TravelDraft {
 export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolean }) {
   const { t, language, rtl } = useLanguage(); const router = useRouter(); const state = useAppState(); const copy = searchCopy(language);
   const [query, setQuery] = useState(state.destinationName); const [selected, select] = useState<Suggestion | null>(() => destinationFromSearch(state.criteria, state.destinationName));
+  const [featuredCity, setFeaturedCity] = useState<DestinationId>('dubai');
   const [suggestionResult, setSuggestionResult] = useState<{ key: string; values: Suggestion[]; error: unknown }>({ key: '', values: [], error: null });
   const [suggestionRetry, retrySuggestion] = useState(0);
   const suggestionKey = `${language}:${query}:${suggestionRetry}`;
@@ -89,8 +90,9 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const nights = stayNights(checkin, checkout);
   const adults = guests.reduce((sum, room) => sum + room.adults, 0); const childCount = guests.reduce((sum, room) => sum + room.children.length, 0);
   const guestSummary = copy.guests(adults, childCount, guests.length);
-  const chooseDubai = () => {
-    setQuery(rtl ? 'دبي' : 'Dubai'); select(null); setSubmitted(false);
+  const chooseDestination = (id: DestinationId, name: string) => {
+    setFeaturedCity(id); setQuery(name); select(null); setSubmitted(false);
+    setErrors(previous => ({ ...previous, destination: false }));
     scroll.current?.scrollTo({ y: 0, animated: true });
   };
   if (savedOnly && (!state.savedReady || !savedIds.length)) {
@@ -101,11 +103,11 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   }
   return <SafeAreaView edges={savedOnly ? ['top','bottom'] : ['top']} style={ui.screen}><BrandHeader back={savedOnly} /><ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'} contentContainerStyle={{ paddingBottom: 28 }}>
     <View style={[ui.page, { paddingTop: 10, gap: 12 }]}>
-    {!savedOnly && <DiscoveryHero chooseDubai={chooseDubai}/>}
-    <View testID="search-form" style={[ui.card, ui.shadow, styles.form]}>
+    {!savedOnly && <DiscoveryHero cityId={featuredCity} choose={chooseDestination}/>}
+    <View testID="search-form" style={[ui.card, ui.shadow, styles.form, !savedOnly && styles.insetForm]}>
       {savedOnly && <Txt kind="heading" accessibilityRole="header">{t('savedDatesTitle')}</Txt>}
       {!savedOnly && <View style={{ gap: 4 }}>
-        <Row style={styles.fieldRow}><Icon name="pin" size={22}/>
+        <Row style={styles.fieldRow}><View style={[styles.fieldIcon, {backgroundColor: colors.lavenderMist}]}><Icon name="pin" size={19} color={colors.violetInk}/></View>
           <View style={{ flex: 1 }}><Txt kind="small">{t('destination')}</Txt>
             <TextInput testID="search-destination" accessibilityLabel={t('destination')} accessibilityHint={errors.destination ? t('pickDestination') : undefined}
               value={query} onChangeText={value => { setQuery(value); select(null); setSubmitted(false); setErrors(current => ({ ...current, destination: false })); }}
@@ -118,7 +120,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         {!suggesting && needsSuggestions && (suggestError ? <ApiState error={suggestError} retry={() => retrySuggestion(value => value + 1)} /> : suggestions.length === 0 ? <Txt kind="small">{t('noSuggestions')}</Txt> : <View style={{ borderWidth: 1, borderColor: colors.border, borderRadius: 14, overflow: 'hidden' }}>{suggestions.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name}${item.subtitle ? `, ${item.subtitle}` : ''}`} onPress={() => { select(item); setQuery(item.name); setErrors(current => ({ ...current, destination: false })); Keyboard.dismiss(); }} style={{ minHeight: 60, padding: 13, backgroundColor: colors.surface, borderBottomWidth: 1, borderBottomColor: colors.border }}><Row><Icon name="search" color={colors.blueStrong} size={18} /><View style={{ flex: 1 }}><Txt style={{ fontFamily: fonts.bold }}>{item.name}</Txt>{item.subtitle && <Txt kind="small">{item.subtitle}</Txt>}</View></Row></Pressable>)}</View>)}
       </View>}
       {!savedOnly && <View style={ui.rule}/>}
-      <Row style={styles.fieldRow}><Icon name="calendar" size={22}/>
+      <Row style={styles.fieldRow}><View style={[styles.fieldIcon, {backgroundColor: colors.apricot}]}><Icon name="calendar" size={19} color={colors.apricotInk}/></View>
        <Row style={{ flex: 1, alignItems: 'stretch', gap: 10 }}>{(['checkin', 'checkout'] as const).map((key, index) =>
         <Pressable key={key} testID={`search-date-${key}`} accessibilityRole="button"
           onPress={() => { Keyboard.dismiss(); setCalendar({ field: key, source: state.criteria }); }}
@@ -132,7 +134,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       <View style={ui.rule}/>
       <Pressable testID="search-guests" accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setGuestEditor({ source: state.criteria }); }}
         style={{ minHeight: 56, justifyContent: 'center' }}>
-        <Row style={styles.fieldRow}><Icon name="users" size={22}/><View style={{ flex: 1 }}>
+        <Row style={styles.fieldRow}><View style={[styles.fieldIcon, {backgroundColor: colors.pistachio}]}><Icon name="users" size={19} color={colors.leafInk}/></View><View style={{ flex: 1 }}>
           <Txt kind="small">{t('guests')}</Txt><Txt kind="label">{guestSummary}</Txt></View><Icon name="chevron" size={16}/></Row>
       </Pressable>
       {submitted && (errors.residency || errors.guests) && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t(errors.residency ? 'residencyError' : 'guestsError')}</Txt>}
@@ -149,7 +151,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
           <Txt kind="small">{displayTravelDate(dates.checkin, language)}</Txt></Pressable>;
       })}
     </Row></View>
-    {!savedOnly && <DiscoveryShelves/>}
+    {!savedOnly && <><DestinationPicks choose={chooseDestination}/><DiscoveryShelves/></>}
     <Pressable accessibilityRole="button" accessibilityState={{ expanded: preferences }} aria-expanded={preferences}
       onPress={() => setPreferences(value => !value)} style={{ minHeight: 48, justifyContent: 'center' }}>
       <Row style={{ gap: 8 }}><Icon name="filter" size={18}/><View style={{ flex: 1 }}><Txt kind="label">{rtl ? 'إعدادات البحث' : 'Search settings'}</Txt>
@@ -186,8 +188,10 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
 }
 
 const styles = StyleSheet.create({
-  form: { padding: 14, gap: 3 },
-  fieldRow: { gap: 12, minHeight: 54 },
+  form: { padding: 12, gap: 3 },
+  insetForm: { marginTop: -20, marginHorizontal: 6 },
+  fieldRow: { gap: 9, minHeight: 54 },
+  fieldIcon: { width: 34, height: 34, borderRadius: 11, alignItems: 'center', justifyContent: 'center' },
   destination: { color: colors.ink, minHeight: 48, fontSize: 16, lineHeight: 23, paddingHorizontal: 0, paddingVertical: 2 },
   dateControl: { flex: 1, minHeight: 48, justifyContent: 'center' },
   quickRow: { gap: 7, alignItems: 'stretch', flexWrap: 'wrap' },

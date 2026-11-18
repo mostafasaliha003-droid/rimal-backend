@@ -4,6 +4,7 @@ import { translatedMeal } from './hotelPoliciesData.js';
 
 export type RoomChoiceSort = 'original' | 'price';
 export type MealFacet = { kind: 'all' } | { kind: 'value'; value: string } | { kind: 'missing' };
+export interface MealPlanOption { value: string | null; count: number; fromPrice: Money | null }
 export interface RoomChoiceEntry { key: string; index: number; offer: RoomOffer }
 export interface RoomChoiceGroup {
   key: string; identity: string | null; name: string; entries: RoomChoiceEntry[]; totalCount: number; freeNowCount: number; fromPrice: Money | null;
@@ -64,9 +65,20 @@ export function buildRoomChoices(offers: readonly RoomOffer[], {
   const needle = searchText(query.trim());
   const matchesMeal = (offer: RoomOffer) => meal.kind === 'all' ? true
     : meal.kind === 'missing' ? mealValue(offer) === null : mealValue(offer) === meal.value;
-  const matching = entries.filter(({ offer }) => (!needle || searchText(offer.name).includes(needle))
-    && matchesMeal(offer)).map(entry => ({ ...entry, freeNow: presentCancellation(entry.offer.cancellation, now).kind === 'free' }))
+  const options = entries.filter(({ offer }) => !needle || searchText(offer.name).includes(needle))
+    .map(entry => ({ ...entry, freeNow: presentCancellation(entry.offer.cancellation, now).kind === 'free' }))
     .filter(entry => !freeOnly || entry.freeNow);
+  const mealPlans = new Map<string | null, MealPlanOption>();
+  for (const { offer } of options) {
+    const value = mealValue(offer);
+    let plan = mealPlans.get(value);
+    if (!plan) { plan = { value, count: 0, fromPrice: null }; mealPlans.set(value, plan); }
+    plan.count++;
+    if (comparable(offer.price, currency) && (!plan.fromPrice || compareRoomAmounts(offer.price.amount, plan.fromPrice.amount) < 0)) {
+      plan.fromPrice = offer.price;
+    }
+  }
+  const matching = options.filter(({ offer }) => matchesMeal(offer));
   if (sort === 'price') matching.sort((left, right) => priceOrder(left, right, currency));
   const grouped = new Map<string, RoomChoiceGroup>();
   let fromPrice: Money | null = null;
@@ -92,7 +104,7 @@ export function buildRoomChoices(offers: readonly RoomOffer[], {
   // Insertion follows sorted entries: each group's first comparable offer is
   // its lowest matching price. Other-currency and unknown prices stay last.
   return { groups: [...grouped.values()], matchingOffers: matching.length, totalOffers: offers.length,
-    totalGroups: totals.size, fromPrice, meals: roomMealFacets(offers) };
+    totalGroups: totals.size, fromPrice, meals: roomMealFacets(offers), mealOptions: [...mealPlans.values()] };
 }
 
 export function roomHotelId(parameter: unknown): number | null {

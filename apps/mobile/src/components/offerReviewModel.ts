@@ -69,7 +69,7 @@ export function taxTermsKey(taxes: RoomOffer['taxes']): string {
 }
 export function offerTerms(offer: RoomOffer): string {
   const money = (amount: string | null, currency: string | null) => [amount === null ? null : canonicalDecimal(amount), currency];
-  return JSON.stringify([offer.name, offer.roomIdentity ?? null, offer.meal ?? null, offer.price ? money(offer.price.amount, offer.price.currency) : null,
+  return JSON.stringify([offer.name, offer.roomIdentity ?? null, offer.meal ?? null, offer.noChildMeal === true, offer.price ? money(offer.price.amount, offer.price.currency) : null,
     offer.bedding ?? null, offer.paymentType ?? null, taxTermsKey(offer.taxes), cancellationTermsKey(offer.cancellation)]);
 }
 

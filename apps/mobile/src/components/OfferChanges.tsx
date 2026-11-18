@@ -8,8 +8,7 @@ import { changedOfferSections, compareStayPrices, sourceStayMoney } from './offe
 import { offerChangesCopy, padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
 import Taxes from './Taxes';
-import { roomMealLabel } from './roomChoiceModel';
-import { rateCopy, roomPaymentLabel } from './roomRateFacts';
+import { mealDescription, rateCopy, roomPaymentLabel } from './roomRateFacts';
 
 // The internal renderer receives only model-whitelisted source/derived money.
 // Derived differences can exceed the source field's 128-character length.
@@ -29,14 +28,14 @@ export function ExactReviewMoney({ money, large = false }: { money: Money | null
 }
 
 export default function OfferChanges({ before, after }: { before: RoomOffer; after: RoomOffer }) {
-  const { t, language } = useLanguage();
+  const { language } = useLanguage();
   const copy = offerChangesCopy(language);
   const changes = changedOfferSections(before, after);
   const price = compareStayPrices(before.price, after.price);
   const difference = price.difference ? padStayPriceDifference(price.difference, language) : null;
   const [detailsOpen, setDetailsOpen] = useState(false);
   const nestedChanges = changes.filter(kind => kind === 'taxes' || kind === 'cancellation');
-  const meal = (offer: RoomOffer) => roomMealLabel(offer.meal, t('roomOnly'), t('noMeal'), language);
+  const meal = (offer: RoomOffer) => mealDescription(offer, language, before.noChildMeal !== after.noChildMeal);
 
   return (
     <View testID="offer-changes" style={{ gap: 14 }}>

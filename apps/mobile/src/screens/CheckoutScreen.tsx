@@ -18,6 +18,7 @@ import { createTravelerDraft, validateTravelerDraft, type TravelerError } from '
 import { Button, Field, MoneyText, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
+import { MealBadge } from '../components/RateHighlights';
 import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
 
 const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'web';
@@ -84,7 +85,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
   };
   // Presentation copies deliberately omit every hash/context/capability.
   const offer: RoomOffer | null = selected ? { id: 'display-only', bookHash: '', images: [],
-    name: selected.review.offer.name, meal: selected.review.offer.meal,
+    name: selected.review.offer.name, meal: selected.review.offer.meal, noChildMeal: selected.review.offer.noChildMeal,
     price: selected.review.offer.price, taxes: selected.review.offer.taxes, cancellation: selected.review.offer.cancellation } : null;
   const existing = session.hasRecovery || session.attempt !== null;
   return <SafeAreaView edges={['top','bottom']} style={ui.screen}>
@@ -113,6 +114,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
         </> : !selected || !offer ? <><StatePanel title={copy.missing} body={copy.missingBody}/><Button title={copy.fresh} onPress={props.onFreshOffer}/></> : <>
           <View style={[ui.card, { padding: 16, gap: 9 }]}>
             <Txt kind="heading" accessibilityRole="header">{selected.review.hotelName}</Txt><Txt>{offer.name}</Txt>
+            <MealBadge offer={offer}/>
             <Txt kind="small" style={{ writingDirection: 'ltr' }}>{selected.review.criteria.checkin} → {selected.review.criteria.checkout}</Txt>
             <Txt kind="small">{selected.review.criteria.guests.map((room,i)=>`${copy.room(i+1)}: ${room.adults + room.children.length}`).join(' · ')}</Txt>
             <Txt kind="label">{copy.offer}</Txt><MoneyText large money={offer.price}/>

@@ -3,7 +3,7 @@ import { ScrollView, View } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { api } from '../api';
-import type { MemberState, MemberStatus } from '../api/membership';
+import type { MemberStatus } from '../api/membership';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { ui } from '../theme';
@@ -11,12 +11,7 @@ import BrandHeader from '../components/BrandHeader';
 import MembershipApplication from '../components/MembershipApplication';
 import { Button, StatePanel, Txt } from '../components/Primitives';
 
-export const statusText: Record<MemberState, [string, string]> = {
-  draft: ['طلب غير مكتمل', 'Draft application'], submitted: ['تم إرسال طلب العضوية', 'Application submitted'],
-  under_review: ['طلبك قيد المراجعة', 'Application under review'], needs_information: ['نحتاج إلى معلومات إضافية', 'More information needed'],
-  approved: ['عضويتك معتمدة', 'Membership approved'], rejected: ['لم يُعتمد الطلب', 'Application declined'],
-  suspended: ['العضوية موقوفة', 'Membership suspended'],
-};
+import { statusText } from '../components/membershipCopy';
 
 function MembershipContent() {
   const { language, t } = useLanguage();

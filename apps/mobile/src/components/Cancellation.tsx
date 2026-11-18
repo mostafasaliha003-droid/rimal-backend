@@ -7,6 +7,8 @@ import { Row, Txt } from './Primitives';
 import { cancellationMoneyText, parseCancellationTimestamp, presentCancellation } from './cancellationPresentationModel';
 import { cancellationCopy } from './cancellationCopy';
 import { useCancellationClock } from './useCancellationClock';
+import { cancellationDecision, policyTime } from './cancellationDecision';
+import { CancellationSummary } from './RateHighlights';
 
 // Kept as a named export for account-deletion receipts as well as policy times.
 export function utcTimestamp(value: string | null | undefined, language = 'en'): string | null {
@@ -33,28 +35,19 @@ export default function Cancellation({ offer, now, mode = 'current', defaultExpa
   const clock = useCancellationClock(historical || now !== undefined ? [] : [offer.cancellation]);
   const model = presentCancellation(offer.cancellation, now ?? clock);
   const [expanded, setExpanded] = useState(defaultExpanded);
-  const fee = cancellationMoneyText(model.fee);
-  const deadline = utcTimestamp(model.freeUntil, language);
-  const deadlineElapsed = model.deadlineState === 'elapsed' && Number.isFinite(now ?? clock);
-  const summaryColor = model.kind === 'free' ? colors.success : model.kind === 'fee' ? colors.navy : colors.muted;
+  const deadline = policyTime(model.freeUntil, language);
+  const ordered = [...model.periods].sort((a,b) => (a.startTime ?? -Infinity) - (b.startTime ?? -Infinity));
 
   return (
     <View style={{ gap: 10 }}>
       <Txt kind="label">{historical ? copy.historical : copy.title}</Txt>
-      {historical ? <Txt kind="small">{copy.historicalNote}</Txt> : (
-        <View style={{ gap: 5 }} accessibilityLiveRegion="polite">
-          <Txt kind="label" style={{ color: summaryColor }}>{copy[model.kind]}</Txt>
-          {fee && <Txt style={{ fontFamily: fonts.bold, color: summaryColor, writingDirection: 'ltr' }}>{fee}</Txt>}
-          {model.kind === 'unknown' && model.reason && <Txt kind="small">{copy.reasons[model.reason]}</Txt>}
-        </View>
-      )}
-      {deadline ? (
-        <View style={{ gap: 4 }}>
-          <Txt kind="small">{historical ? copy.previousDeadline : deadlineElapsed ? copy.deadlinePassed : copy.deadline}</Txt>
-          <Txt kind="small" style={{ writingDirection: 'ltr' }}>{deadline}</Txt>
-        </View>
-      ) : <Txt kind="small">{model.deadlineState === 'invalid' ? copy.deadlineInvalid : copy.deadlineMissing}</Txt>}
-      <Txt kind="small">{copy.timezone}</Txt>
+      {historical ? <Txt kind="small">{copy.historicalNote}</Txt> : <View accessibilityLiveRegion="polite" style={{ gap: 5 }}>
+        <CancellationSummary decision={cancellationDecision(model, language, offer.price)}/>
+        {model.kind === 'unknown' && model.reason && <Txt kind="small">{copy.reasons[model.reason]}</Txt>}
+      </View>}
+      {deadline && (historical || model.kind === 'unknown' || expanded) && <Txt kind="small">
+        {historical ? copy.previousDeadline : copy.deadline} · {deadline}
+      </Txt>}
       {model.periods.length > 0 ? (
         <View style={{ gap: 10 }}>
           <Pressable accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded}
@@ -65,28 +58,22 @@ export default function Cancellation({ offer, now, mode = 'current', defaultExpa
               <Txt accessible={false} style={{ color: colors.blueStrong }}>{expanded ? '−' : '+'}</Txt>
             </Row>
           </Pressable>
-          {expanded && model.periods.map(period => {
-            const start = utcTimestamp(period.startAt, language);
-            const end = utcTimestamp(period.endAt, language);
+          {expanded && <Txt kind="small">{copy.timezone}</Txt>}
+          {expanded && ordered.map(period => {
+            const start = policyTime(period.startAt, language);
+            const end = policyTime(period.endAt, language);
             const charge = cancellationMoneyText(period.fee);
             const rawAmount = typeof period.amount === 'string' && period.amount.length <= 128 && /^\d+(?:\.\d+)?$/.test(period.amount) ? period.amount : null;
             const currency = typeof period.currency === 'string' && /^[A-Z]{3}$/.test(period.currency) ? period.currency : null;
-            const current = !historical && period.active === true;
+            const current = !historical && model.kind !== 'unknown' && period.active === true;
             return (
               <View key={period.index} style={{ gap: 7, padding: 13, borderRadius: 13, borderWidth: 1,
                 borderColor: current ? colors.blueStrong : colors.border, backgroundColor: colors.background }}>
-                <Txt kind="label">{copy.period(period.index + 1)}</Txt>
-                {current && <Txt kind="small" style={{ color: colors.blueStrong }}>{copy.currentPeriod}</Txt>}
-                <Txt kind="small">{copy.from}</Txt>
-                <Txt kind="small" style={start ? { writingDirection: 'ltr' } : undefined}>
-                  {period.startInvalid ? copy.timeInvalid : start || copy.startOpen}
-                </Txt>
-                <Txt kind="small">{copy.before}</Txt>
-                <Txt kind="small" style={end ? { writingDirection: 'ltr' } : undefined}>
-                  {period.endInvalid ? copy.timeInvalid : end || copy.endOpen}
-                </Txt>
-                <Txt kind="small">{copy.charge}</Txt>
-                {charge ? <Txt style={{ fontFamily: fonts.bold, writingDirection: 'ltr' }}>{charge}</Txt> : (
+                {current && <Txt kind="label" style={{ color: colors.blueStrong }}>{copy.currentPeriod}</Txt>}
+                {(start || period.startInvalid) && <Txt kind="small">{copy.from} {start || copy.timeInvalid}</Txt>}
+                {(end || period.endInvalid) && <Txt kind="small">{copy.before} {end || copy.timeInvalid}</Txt>}
+                {!start && !end && !period.startInvalid && !period.endInvalid && <Txt kind="small">{language === 'ar' ? 'دون تاريخ بداية أو نهاية محدّد' : 'No start or end date specified'}</Txt>}
+                {charge ? <Txt style={{ fontFamily: fonts.bold }}>{copy.charge} · {charge}</Txt> : (
                   <View style={{ gap: 4 }}>
                     {rawAmount !== null ? <Txt style={{ writingDirection: 'ltr' }}>{rawAmount}</Txt> : <Txt>{copy.amountMissing}</Txt>}
                     <Txt kind="small">{currency || copy.currencyMissing}</Txt>

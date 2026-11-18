@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { AccessibilityInfo, Image, Platform, Pressable, ScrollView, View } from 'react-native';
+import { AccessibilityInfo, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -9,10 +9,10 @@ import { colors, fonts, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useReviewSession } from '../components/useReviewSession';
 import ApiState from '../components/ApiState';
-import { Button, Icon, MoneyText, Row, StatePanel, Txt } from '../components/Primitives';
+import { Button, Icon, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import { taxTermsKey } from '../components/offerReviewModel';
-import { roomMealLabel } from '../components/roomChoiceModel';
+import { MealBadge } from '../components/RateHighlights';
 import { rateCopy, roomPaymentLabel } from '../components/roomRateFacts';
 import Cancellation from '../components/Cancellation';
 import OfferChanges, { ExactReviewMoney } from '../components/OfferChanges';
@@ -39,7 +39,6 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const [handoffError, setHandoffError] = useState(false);
   const [handoffExpired, setHandoffExpired] = useState(false);
   const [detailsOpen, setDetailsOpen] = useState(false);
-  const [failedImage, setFailedImage] = useState('');
   const checkoutLabel = language === 'ar' ? 'عرض خيارات الحجز والدفع' : 'View booking and payment options';
   const offer = currentOffer || draft?.offer;
   const checked = Boolean(currentOffer && (status === 'ready' || status === 'changed'));
@@ -83,7 +82,6 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const membershipError = error instanceof ApiError && error.kind === 'membership';
   const nights = draft ? Math.round((Date.parse(`${draft.criteria.checkout}T00:00:00Z`) - Date.parse(`${draft.criteria.checkin}T00:00:00Z`)) / 86400000) : 0;
   const rooms = draft?.criteria.guests.length || 0;
-  const image = offer?.images[0] || draft?.hotelImage;
   const dateLabel = (iso: string) => {
     const date = new Date(iso + 'T00:00:00Z');
     return Number.isFinite(date.getTime()) ? date.toLocaleDateString(language === 'ar' ? 'ar-AE' : 'en-GB',
@@ -99,8 +97,9 @@ function ReviewContents({ session }: { session: ReviewSession }) {
       {!draft || !offer ? <><StatePanel title={t('reviewMissingTitle')} body={t('reviewMissingBody')}/><Button title={t('search')} onPress={() => router.replace('/')}/></> : <>
         <View style={ui.card} testID="review-stay-summary">
           <Row style={{ alignItems: 'center', gap: 12 }}>
-            {image && image !== failedImage && <Image source={{ uri: image }} onError={() => setFailedImage(image)}
-              accessible={false} resizeMode="cover" style={{ width: 64, height: 68, borderRadius: 12, backgroundColor: colors.background }}/>}
+            {offer.images.length > 0 && <View style={{ width: 68, borderRadius: 12, overflow: 'hidden' }}>
+              <Photo alternatives={offer.images} room label={offer.name} height={70} thumbnail/>
+            </View>}
             <View style={{ flex: 1, gap: 3 }}>
               <Txt accessibilityRole="header" kind="heading">{draft.hotelName}</Txt>
               <Txt style={{ fontFamily: fonts.medium }}>{offer.name}</Txt>
@@ -109,7 +108,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
           <View style={ui.rule}/>
           <Row style={{ gap: 8 }}><Icon name="calendar" size={18}/><Txt kind="small" style={{ flex: 1 }}>{dateLabel(draft.criteria.checkin)} – {dateLabel(draft.criteria.checkout)}</Txt></Row>
           <Row style={{ gap: 8 }}><Icon name="bed" size={18}/><Txt kind="small" style={{ flex: 1 }}>{staySummary}</Txt></Row>
-          <Row style={{ gap: 8 }}><Icon name="meal" size={18}/><Txt kind="small" style={{ flex: 1 }}>{roomMealLabel(offer.meal, t('roomOnly'), t('noMeal'), language)}</Txt></Row>
+          <MealBadge offer={offer}/>
           {(offer.bedding || draft.offer.bedding) && <Row style={{ gap: 8 }}><Icon name="bed" size={18}/><Txt testID="review-bedding" kind="small" style={{ flex: 1 }}>{rateLabels.bedding} · {offer.bedding || rateLabels.unknown}</Txt></Row>}
           <Row style={{ gap: 8 }}><Icon name="info" size={18}/><Txt testID="review-payment-channel" kind="small" style={{ flex: 1 }}>{rateLabels.payment} · {roomPaymentLabel(offer, language)}</Txt></Row>
           <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }} aria-expanded={detailsOpen}

@@ -229,10 +229,36 @@ test('all offer identities survive and only complete static rg_ext matches suppl
   const offers = adapters.normalizeOffers(rows, hotel);
   assert.equal(offers.length, 27); assert.equal(new Set(offers.map(item => item.id)).size, 27);
   assert.deepEqual(offers.map(item => item.bookHash), rows.map(item => item.book_hash));
-  assert.deepEqual(offers[0].images, ['https://cdn.worldota.net/t/640x480/content/room.jpeg']);
+  assert.deepEqual(offers[0].images, ['https://cdn.worldota.net/t/1920x1080/content/room.jpeg']);
   rows[0].rg_ext = { ...rg, view: 1 }; assert.deepEqual(adapters.normalizeOffers(rows, hotel)[0].images, []);
   assert.deepEqual(adapters.images({ category_slug: 'bedroom', width: 800 }), []);
   assert.deepEqual(adapters.images('https://cdn.worldota.net.evil.test/x', 'javascript:alert(1)'), []);
+});
+
+test('supplier photo presets normalize legacy cached links and equivalent templates while keeping actual supported originals', () => {
+  const expected = 'https://cdn.worldota.net/t/1920x1080/content/photo.jpg';
+  assert.deepEqual(adapters.images('http://cdn.ratehawk.net/t/640x480/content/photo.jpg',
+    '//cdn.worldota.net/t/%7Bsize%7D/content/photo.jpg', '/t/{size}/content/photo.jpg',
+    't/1920x1080/content/photo.jpg', 'https://cdn.worldota.net/t/x500/content/photo.jpg'),
+    [expected, 'https://cdn.worldota.net/t/x500/content/photo.jpg']);
+  assert.deepEqual(adapters.images('https://cdn.worldota.net.evil.test/t/640x480/content/fixture.jpg',
+    'https://user:pass@cdn.ratehawk.net/file', 'http://remalbookings.com/file.jpg',
+    { caption: 'A hotel', category_slug: 'bedroom' }), []);
+});
+
+test('property and room galleries retain independent alternatives across SERP, nested static and hotelpage records', () => {
+  const photo = key => 'https://cdn.worldota.net/t/1920x1080/content/' + key + '.jpeg';
+  const property = photo('exterior'), desk = photo('lobby'), twin = photo('twin'), king = photo('king');
+  const room = rate('h-test'), twinKey = { ...rg, bedding: rg.bedding + 1 };
+  const hotel = { hid: 123, name: 'Hotel', rates: [room], images: [], room_groups: [],
+    staticData: { images_ext: [{ url: property }], images: [property, desk], room_groups: {
+      first: { rg_ext: rg, images: [king], images_ext: [{ url: king }] },
+      second: { rg_ext: twinKey, images: [twin] } } } };
+  const summary = adapters.normalizeHotel(hotel, 'USD');
+  assert.deepEqual(summary.images, [property, desk]); assert.equal(summary.imageUrl, property);
+  const details = adapters.normalizeDetails(123, hotel, { hotel: {hid:123, images:[photo('entrance')]}, rates:[room] }, 'USD');
+  assert.deepEqual(details.images, [property,desk,photo('entrance')]); assert.deepEqual(details.offers[0].images, [king]);
+  assert.deepEqual(adapters.normalizeOffers([{ ...room, rg_ext: { ...rg, view: 999 }, images:[property] }], hotel)[0].images, []);
 });
 
 test('actual BFF envelopes adapt suggestions/search/details; wrong hotel IDs and malformed lists fail closed', async () => {

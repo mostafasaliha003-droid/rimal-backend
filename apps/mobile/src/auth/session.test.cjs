@@ -28,10 +28,12 @@ test('failed restoration cannot leave authenticated transport behind a signed-ou
   const f = setup(async () => { if (fail) throw new ApiError('timeout', 'request_timeout'); return user; });
   await f.manager.restore();
   assert.equal(f.manager.getSnapshot().status, 'signedOut');
+  assert.equal(f.manager.getSnapshot().restorePending, true);
   assert.equal(await f.manager.getToken(), null);
   assert.equal(f.stored(), token);
   fail = false; await f.manager.restore();
   assert.equal(f.manager.getSnapshot().status, 'signedIn');
+  assert.equal(f.manager.getSnapshot().restorePending, undefined);
   assert.equal(await f.manager.getToken(), token);
 });
 test('a failed older restore cannot quarantine a newer successful sign-in', async () => {
@@ -49,4 +51,30 @@ test('explicit sign-out revokes the quarantined stored credential after restorat
   let revoked = null; f.network.logout = async value => { revoked = value; };
   await f.manager.restore(); assert.equal(await f.manager.getToken(), null);
   await f.manager.signOut(); assert.equal(revoked, token); assert.equal(f.stored(), null);
+});
+
+test('reopening restores validated identity from the saved session and sign-out prevents it from reappearing', async () => {
+  let persisted = null;
+  const storage = { get: async () => persisted, set: async value => { persisted = value; }, clear: async () => { persisted = null; } };
+  const f = setup(async () => user);
+  const original = createSessionManager(f.network, storage);
+  await original.signIn('fixture@example.test', 'fixture-password');
+  const reopened = createSessionManager(f.network, storage);
+  assert.equal(reopened.getSnapshot().user, null);
+  await reopened.restore();
+  assert.deepEqual(reopened.getSnapshot(), { status: 'signedIn', user, error: null });
+  await reopened.signOut();
+  const signedOut = createSessionManager(f.network, storage);
+  await signedOut.restore();
+  assert.deepEqual(signedOut.getSnapshot(), { status: 'signedOut', user: null, error: null });
+});
+
+test('an expired session or a failed sign-in is not presented as a recoverable stored identity', async () => {
+  const f = setup(async () => { throw new ApiError('auth', 'session_expired', 401); });
+  await f.manager.restore();
+  assert.equal(f.manager.getSnapshot().restorePending, undefined);
+  f.network.login = async () => { throw new ApiError('network', 'network_unavailable'); };
+  await assert.rejects(f.manager.signIn('fixture@example.test', 'fixture-password'));
+  assert.equal(f.manager.getSnapshot().restorePending, undefined);
+  assert.equal(f.manager.getSnapshot().user, null);
 });

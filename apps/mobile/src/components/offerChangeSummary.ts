@@ -60,7 +60,7 @@ export function changedOfferSections(before: RoomOffer, after: RoomOffer): Offer
   if (priceKey(before) !== priceKey(after)) changes.push('price');
   if (before.name !== after.name || before.roomIdentity !== after.roomIdentity) changes.push('room');
   if ((before.bedding ?? null) !== (after.bedding ?? null)) changes.push('bedding');
-  if ((before.meal ?? null) !== (after.meal ?? null)) changes.push('meal');
+  if ((before.meal ?? null) !== (after.meal ?? null) || (before.noChildMeal === true) !== (after.noChildMeal === true)) changes.push('meal');
   if ((before.paymentType ?? null) !== (after.paymentType ?? null)) changes.push('payment');
   if (taxTermsKey(before.taxes) !== taxTermsKey(after.taxes)) changes.push('taxes');
   if (cancellationTermsKey(before.cancellation) !== cancellationTermsKey(after.cancellation)) changes.push('cancellation');

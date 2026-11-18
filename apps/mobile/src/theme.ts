@@ -5,6 +5,8 @@ export const colors = {
   navy: '#2D173A', blue: '#533361', blueStrong: '#46244F', red: '#A12B39', orange: '#805A16',
   ink: '#201626', background: '#FAF8F4', surface: '#FFFFFF', muted: '#675E6B', border: '#E8E1E9',
   softBlue: '#F0EAF9', softGold: '#FBF3E4', goldInk: '#805A16', dangerSoft: '#FBECEF', success: '#23674B',
+  grape: '#654288', violetInk: '#513069', lavenderMist: '#F3EBFD', leafInk: '#375333',
+  pistachioMist: '#EFF4E6', apricot: '#F9DDC9', apricotInk: '#774324',
 };
 export const fonts = { regular: 'PlexArabicRegular', medium: 'PlexArabicMedium', bold: 'PlexArabicBold' };
 const latinFonts: Record<string, string> = {

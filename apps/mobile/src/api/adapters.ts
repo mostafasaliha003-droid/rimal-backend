@@ -27,23 +27,31 @@ export function utcTimestamp(value: unknown): string | null {
   return time === null ? null : new Date(time).toISOString();
 }
 function imageUrl(value: string): string | null {
-  let raw = value.trim().replace(/\{size\}/gi, '640x480');
-  if (/unsplash\.com|33036666\.jpg|35165972\.jpg/i.test(raw)) return null;
+  const size = '1920x1080';
+  let raw = value.trim().replace(/\{size\}|%7bsize%7d/gi, size);
+  if (!raw || raw.length > 2048 || /[\\\s]|unsplash\.com|33036666\.jpg|35165972\.jpg/i.test(raw)) return null;
   if (raw.startsWith('//')) raw = `https:${raw}`;
-  if (/^t\/(?:\d+x\d+)\//.test(raw)) raw = `https://cdn.worldota.net/${raw}`;
+  if (/^\/?t\/(?:\d*x\d+|orig)\//i.test(raw)) raw = 'https://cdn.worldota.net/' + raw.replace(/^\//, '');
   try {
     const url = new URL(raw);
-    if (url.protocol !== 'https:' || url.username || url.password || url.port || raw.length > 2048
+    if (url.username || url.password || url.port) return null;
+    if (/^cdn\.(worldota|ratehawk)\.net$/.test(url.hostname) && ['http:', 'https:'].includes(url.protocol)) {
+      url.protocol = 'https:';
+      url.hostname = 'cdn.worldota.net';
+      // ETG rejects the former mobile preset with HTTP 400, including cached URLs.
+      url.pathname = url.pathname.replace(/^\/t\/640x480\//i, '/t/' + size + '/');
+    }
+    if (url.protocol !== 'https:'
       || !/(^|\.)(worldota\.net|ratehawk\.net|ostrovok\.ru|remalbookings\.com|rimal-api(?:-staging)?\.onrender\.com)$/.test(url.hostname)) return null;
     return url.href;
   } catch { return null; }
 }
 export function images(...values: unknown[]): string[] {
-  const result: string[] = [];
+  const result = new Set<string>();
   const visit = (value: unknown, depth = 0) => {
-    if (depth > 8 || result.length >= 200) return;
+    if (depth > 8 || result.size >= 200) return;
     if (Array.isArray(value)) { value.forEach(item => visit(item, depth + 1)); return; }
-    if (typeof value === 'string') { const url = imageUrl(value); if (url) result.push(url); return; }
+    if (typeof value === 'string') { const url = imageUrl(value); if (url) result.add(url); return; }
     const row = object(value);
     const keys = ['url', 'src', 'image', 'photo', 'source'];
     const explicit = keys.filter(key => Object.hasOwn(row, key));
@@ -51,7 +59,11 @@ export function images(...values: unknown[]): string[] {
       .forEach(key => visit(row[key], depth + 1));
   };
   values.forEach(value => visit(value));
-  return [...new Set(result)];
+  return [...result];
+}
+export function hotelPhotos(hotel: unknown): string[] {
+  const row = object(hotel), cached = object(row.staticData);
+  return images(row.images_ext, row.images, row.image, cached.images_ext, cached.images, cached.image);
 }
 const RG_FIELDS = ['class', 'quality', 'sex', 'bathroom', 'bedding', 'family', 'capacity', 'club', 'bedrooms', 'balcony', 'view', 'floor'];
 function classification(value: unknown): string | null {
@@ -81,20 +93,28 @@ function cancellationTerms(payment: Row | undefined): RoomOffer['cancellation'] 
 }
 export function normalizeOffers(value: unknown, hotel: unknown = {}): RoomOffer[] {
   const staticHotel = object(hotel);
-  const rawGroups = staticHotel.room_groups;
-  const groups = Array.isArray(rawGroups) ? rawGroups : Object.values(object(rawGroups));
+  const groups = [staticHotel.room_groups, object(staticHotel.staticData).room_groups]
+    .flatMap(value => Array.isArray(value) ? value : Object.values(object(value))).map(object);
+  const groupPhotos = new Map<string, string[]>();
+  for (const group of groups) {
+    const key = classification(group.rg_ext);
+    if (!key) continue;
+    groupPhotos.set(key, images(groupPhotos.get(key), group.images_ext, group.images));
+  }
   return array(value).flatMap((item, index) => {
     const rate = object(item), name = label(rate.room_name) || label(object(rate.room_data_trans).main_name);
     if (typeof rate.book_hash !== 'string' || !rate.book_hash || rate.book_hash.length > 1024 || !name) return [];
     const payment = array(object(rate.payment_options).payment_types).map(object).find(item => item.type === 'deposit');
     const key = classification(rate.rg_ext);
-    const matched = key ? groups.map(object).filter(group => classification(group.rg_ext) === key) : [];
     const bedding = label(object(rate.room_data_trans).bedding_type);
+    const mealData = object(rate.meal_data);
+    const meal = label(mealData.value) || label(rate.meal);
     return [{ id: `${rate.book_hash}:${index}`, name, bookHash: rate.book_hash, ...(key ? { roomIdentity: key } : {}),
       ...(typeof rate.offer_context === 'string' && rate.offer_context.length <= 131072 ? { offerContext: rate.offer_context } : {}),
-      price: customerPrice(rate), ...(typeof rate.meal === 'string' ? { meal: rate.meal } : {}),
+      price: customerPrice(rate), ...(meal ? { meal } : {}),
+      ...(mealData.no_child_meal === true && meal.toLowerCase() !== 'nomeal' ? { noChildMeal: true as const } : {}),
       ...(payment ? { paymentType: 'deposit' as const } : {}), ...(bedding ? { bedding } : {}),
-      images: matched.flatMap(group => images(group.images_ext, group.images)),
+      images: key ? groupPhotos.get(key) || [] : [],
       taxes: array(object(payment?.tax_data).taxes).map(value => {
         const tax = object(value);
         // A large JSON number may already have lost digits before it reaches the adapter.
@@ -119,11 +139,12 @@ export function normalizeHotel(value: unknown, code: string): HotelSummary {
   const row = object(value), hid = hotelId(row.hid ?? row.hotelId);
   if (hid === null || !Array.isArray(row.rates)) throw invalidResponse();
   const star = Number(row.star_rating ?? row.stars ?? row.starRating);
+  const photos = hotelPhotos(row);
   return { hid, id: String(hid), name: label(row.name) || label(row.hotel_name),
     ...(label(row.address) ? { address: label(row.address) } : {}),
     ...(Number.isFinite(star) && star > 0 && star <= 5 ? { stars: star } : {}),
     location: hotelLocation(row),
-    imageUrl: images(row.images, row.images_ext, row.image)[0],
+    imageUrl: photos[0], images: photos,
     price: cheapest(row.rates, code), offers: normalizeOffers(row.rates, row) };
 }
 export function normalizeDetails(hid: number, value: unknown, page: unknown, code: string): HotelDetails {
@@ -140,7 +161,7 @@ export function normalizeDetails(hid: number, value: unknown, page: unknown, cod
     array(object(section).paragraphs).filter((item): item is string => typeof item === 'string' && Boolean(item.trim())));
   return { ...summary, description: paragraphs,
     amenities: array(content.amenity_groups).flatMap(group => array(object(group).amenities)).filter((item): item is string => typeof item === 'string'),
-    images: images(content.images_ext, content.images, content.image),
+    images: images(summary.images, hotelPhotos(supplied)),
     policyExtraInfo: label(content.metapolicy_extra_info) || null, policies: object(content.metapolicy_struct),
     offers: normalizeOffers(hp.rates, content) };
 }

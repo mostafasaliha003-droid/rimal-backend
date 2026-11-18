@@ -9,7 +9,7 @@ import { useLanguage } from '../i18n';
 import { ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { Button, StatePanel, Txt } from '../components/Primitives';
-import { statusText } from '../screens/MembershipScreen';
+import { statusText } from '../components/membershipCopy';
 
 function NoticeList({ signedIn, loading }: { signedIn: boolean; loading: boolean }) {
   const { language, rtl, t } = useLanguage(), router = useRouter();

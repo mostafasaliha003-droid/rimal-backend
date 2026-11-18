@@ -104,7 +104,7 @@ function CompareContents() {
       </View>
       {items.length >= 2 && <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8, gap: 16, flexGrow: 1, justifyContent: 'center', flexDirection: rtl ? 'row-reverse' : 'row' }}>
         {items.map(item => <View key={item.hid} style={[ui.card, { width: columnWidth, padding: 0, overflow: 'hidden', gap: 0 }]}>
-          <Photo uri={item.imageUrl} label={item.name} height={150}/>
+          <Photo uri={item.imageUrl} alternatives={item.images} label={item.name} height={150}/>
           <View style={{ padding: 18, gap: 16, flex: 1 }}>
             <Txt kind="heading" accessibilityRole="header">{item.name}</Txt>
             <View style={{ gap: 6 }}><Txt kind="small">{L.price}</Txt><MoneyText money={item.price}/>

@@ -20,13 +20,13 @@ export interface CancellationInterval {
 }
 export interface RoomOffer {
   id: string; name: string; bookHash: string; offerContext?: string; roomIdentity?: string;
-  price: Money | null; meal?: string; bedding?: string; paymentType?: 'deposit'; images: string[]; taxes: Tax[];
+  price: Money | null; meal?: string; noChildMeal?: true; bedding?: string; paymentType?: 'deposit'; images: string[]; taxes: Tax[];
   cancellation: { freeUntil: string | null; policies: CancellationInterval[]; freeUntilInvalid?: true; incomplete?: true };
 }
 export interface HotelSummary {
   hid: number; id: string; name: string; address?: string; stars?: number;
   location?: { latitude: number; longitude: number };
-  imageUrl?: string; price: Money | null; offers: RoomOffer[];
+  imageUrl?: string; images?: string[]; price: Money | null; offers: RoomOffer[];
 }
 export interface HotelDetails extends HotelSummary {
   description: string[]; amenities: string[]; images: string[];

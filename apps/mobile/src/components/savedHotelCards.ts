@@ -1,5 +1,5 @@
 import type { HotelSummary } from '../types';
-import { images, label, object } from '../api/adapters';
+import { hotelPhotos, label, object } from '../api/adapters';
 import { invalidResponse } from '../api/errors';
 import { hotelId } from '../api/validation';
 
@@ -8,6 +8,7 @@ export interface SavedHotelCard {
   name: string;
   address?: string;
   imageUrl?: string;
+  images?: string[];
   stars?: number;
 }
 
@@ -24,8 +25,8 @@ export function savedHotelCard(hid: number, value: unknown): SavedHotelCard {
   const name = displayText(hotel.name, 500) || displayText(hotel.hotel_name, 500);
   const address = displayText(hotel.address, 1000);
   const stars = Number(hotel.star_rating ?? hotel.stars ?? hotel.starRating);
-  const imageUrl = images(hotel.image, hotel.images, hotel.images_ext)[0];
-  return { hid, name, ...(address ? { address } : {}), ...(imageUrl ? { imageUrl } : {}),
+  const photos = hotelPhotos(hotel).slice(0, 8);
+  return { hid, name, ...(address ? { address } : {}), ...(photos.length ? { imageUrl: photos[0], images: photos } : {}),
     ...(Number.isInteger(stars) && stars >= 1 && stars <= 5 ? { stars } : {}) };
 }
 

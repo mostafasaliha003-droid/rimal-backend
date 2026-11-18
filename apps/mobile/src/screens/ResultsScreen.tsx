@@ -96,7 +96,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
       <Txt kind="small">{language === 'ar' ? `عادت نتائج لـ ${hotels.length} من ${saved.length} فنادق محفوظة.` : `Results returned for ${hotels.length} of ${saved.length} saved stays.`}</Txt>}
     {criteria ? <Pressable testID="results-summary" accessibilityRole="button" accessibilityLabel={t('searchAgain')}
       accessibilityHint={`${title}, ${criteria.checkin}, ${criteria.checkout}, ${nights !== null ? L.stayContext(nights, roomCount) : ''}`}
-      onPress={edit} style={[ui.card, { paddingVertical: 10, paddingHorizontal: 13 }]}>
+      onPress={edit} style={[ui.card, { paddingVertical: 10, paddingHorizontal: 13, backgroundColor: colors.lavenderMist }]}>
       <Row style={{ gap: 10 }}><Icon name="search" size={21}/>
         <View style={{ flex: 1 }}><Txt kind="heading" accessibilityRole="header">{title}</Txt>
           <Txt kind="small">{displayTravelDate(criteria.checkin, language)} – {displayTravelDate(criteria.checkout, language)} · {L.guests(criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0))}</Txt>

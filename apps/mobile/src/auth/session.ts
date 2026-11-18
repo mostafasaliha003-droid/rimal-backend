@@ -3,7 +3,7 @@ import type { RegistrationInput, TokenStorage, User } from '../types';
 import { ApiError, aborted, asApiError } from '../api/errors';
 import { validToken } from '../api/transport';
 
-export interface AuthSnapshot { status: 'loading' | 'signedIn' | 'signedOut'; user: User | null; error: ApiError | null }
+export interface AuthSnapshot { status: 'loading' | 'signedIn' | 'signedOut'; user: User | null; error: ApiError | null; restorePending?: true }
 export function createSessionManager(network: ApiClient['auth'], storage: TokenStorage) {
   let snapshot: AuthSnapshot = { status: 'loading', user: null, error: null };
   let token: string | null | undefined;
@@ -52,7 +52,9 @@ export function createSessionManager(network: ApiClient['auth'], storage: TokenS
     } catch (error) {
       if (stamp === revision) {
         token = null;
-        publish({ status: 'signedOut', user: null, error: asApiError(error) });
+        const failure = asApiError(error);
+        publish({ status: 'signedOut', user: null, error: failure,
+          ...(failure.status !== 401 && failure.status !== 403 ? { restorePending: true as const } : {}) });
       }
     }
   }

@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, Image, View } from 'react-native';
+import { FlatList, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { validateSearchCriteria } from '../api';
@@ -9,7 +9,7 @@ import { useLanguage } from '../i18n';
 import { colors, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
-import { Button, Row, StatePanel, Txt } from '../components/Primitives';
+import { Button, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 import { formatTripDate } from '../components/tripsModel';
 import { useSavedHotelCards, type SavedHotelCard } from '../components/useSavedHotelCards';
 import { SAVED_HOTELS_LIMIT } from '../components/savedHotelsModel';
@@ -22,19 +22,15 @@ function SavedCard({ hid, card, canRemove, canViewRooms, remove, viewRooms }: {
 }) {
   const { language } = useLanguage();
   const copy = savedCopy(language);
-  const [failedImage, setFailedImage] = useState<string | null>(null);
   const name = card?.name || copy.fallback(hid);
-  const image = card?.imageUrl && failedImage !== card.imageUrl ? card.imageUrl : null;
   const stars = typeof card?.stars === 'number' && Number.isInteger(card.stars) && card.stars >= 1 && card.stars <= 5 ? card.stars : null;
 
   return (
     <View style={[ui.card, { gap: 12 }]}>
       <Row style={{ alignItems: 'flex-start' }}>
-        {image && (
-          <Image source={{ uri: image }} accessibilityLabel={name} resizeMode="cover"
-            onError={() => setFailedImage(image)}
-            style={{ width: 80, height: 80, borderRadius: 14, backgroundColor: colors.softBlue }} />
-        )}
+        {card && <View style={{ width: 80, borderRadius: 14, overflow: 'hidden' }}>
+          <Photo uri={card.imageUrl} alternatives={card.images} label={name} height={80} thumbnail/>
+        </View>}
         <View style={{ flex: 1, gap: 6 }}>
           <Txt kind="heading" accessibilityRole="header">{name}</Txt>
           {stars !== null && <Txt kind="small">{copy.starCount(stars)}</Txt>}

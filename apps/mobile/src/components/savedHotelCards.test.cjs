@@ -8,7 +8,8 @@ const { savedHotelCard, loadSavedHotelCards, returnedSavedHotels } = load(path.j
 test('metadata is bound to a requested open hotel and exposes presentation fields only', () => {
   const raw = { hid: '43', name: ' Hotel One ', address: 'City', image: 'https://cdn.worldota.net/t/640x480/example.jpg',
     closed: false, rates: [{ amount: 99 }], phone: 'private', owner: 'private', star_rating: '4' };
-  assert.deepEqual(savedHotelCard(43, raw), { hid: 43, name: 'Hotel One', address:'City', imageUrl:raw.image, stars:4 });
+  const photo = 'https://cdn.worldota.net/t/1920x1080/example.jpg';
+  assert.deepEqual(savedHotelCard(43, raw), { hid: 43, name: 'Hotel One', address:'City', imageUrl:photo, images:[photo], stars:4 });
   for (const incompatible of [{}, { hid: 44 }, { ...raw, is_closed: true }, { ...raw, deleted:true }]) {
     assert.throws(() => savedHotelCard(43, incompatible), /invalid_response/);
   }

@@ -9,6 +9,7 @@ const offer = (index, change = {}) => ({ id: `offer-${index}`, name: 'Twin room'
   taxes: [{ name: 'city_tax', amount: '0', currency_code: 'USD', included_by_supplier: false }],
   cancellation: { freeUntil: null, policies: [{ startAt: null, endAt: null, amount: '0', currency: 'USD' }] }, ...change });
 const choices = (offers, options = {}) => buildRoomChoices(offers, { currency: 'USD', ...options });
+const deviceClock = iso => new Date(iso).toTimeString().slice(0,5);
 
 test('rate summaries use confirmed payment and bed, exact source totals and individual property currencies', () => {
   const { normalizeOffers } = load(path.join(__dirname, '../api/adapters.ts'));
@@ -37,12 +38,14 @@ test('visible cancellation summary stops at the verified free interval even with
     { startAt: null, endAt: firstEnd, amount: '0', currency: 'USD' },
     { startAt: lastEnd, endAt: null, amount: '37.01', currency: 'USD' },
   ] } });
-  assert.match(roomRateFacts(rate, 'en', Date.parse(firstEnd) - 1).cancellation, /12:00.*UTC/);
-  assert.equal(roomRateFacts(rate, 'en', Date.parse(firstEnd)).cancellation, 'Not specified');
-  assert.equal(roomRateFacts(rate, 'en', Date.parse(lastEnd)).cancellation, 'Fee now · USD 37.01');
+  const summary = roomRateFacts(rate, 'en', Date.parse(firstEnd) - 1).cancellation;
+  assert.ok(summary.includes(deviceClock(firstEnd) + ' your time (UTC'));
+  assert.ok(!summary.includes(deviceClock(lastEnd)) && !summary.includes('37.01'));
+  assert.equal(roomRateFacts(rate, 'en', Date.parse(firstEnd)).cancellation, 'Cost to cancel now is unconfirmed');
+  assert.equal(roomRateFacts(rate, 'en', Date.parse(lastEnd)).cancellation, 'Cancel now for USD 37.01');
 });
 
-test('the comparison detects different future penalties and tax lines even when visible summaries agree', () => {
+test('the comparison shows the two future penalties even while both offers allow free cancellation now', () => {
   const { roomFactKeys, roomRateFacts } = load(path.join(__dirname, 'roomRateFacts.ts'));
   const edge = '2030-01-01T12:00:00Z', now = Date.parse(edge) - 1;
   const variant = (charge, taxName, price) => offer(0, { price: { currency: 'USD', amount: price },
@@ -52,11 +55,56 @@ test('the comparison detects different future penalties and tax lines even when 
       { startAt: edge, endAt: null, amount: charge, currency: 'USD' },
     ] } });
   const a = variant('20', 'city_tax', '70'), b = variant('40', 'service_fee', '70.00');
-  assert.equal(roomRateFacts(a,'en',now).cancellation, roomRateFacts(b,'en',now).cancellation);
+  assert.equal(roomRateFacts(a,'en',now).decision.headline, roomRateFacts(b,'en',now).decision.headline);
+  for (const [rate,charge] of [[a,'USD 20'],[b,'USD 40']]) {
+    const summary = roomRateFacts(rate,'en',now).cancellation;
+    assert.ok(summary.includes(deviceClock(edge) + ' your time (UTC') && summary.includes(charge));
+  }
   assert.equal(roomRateFacts(a,'en',now).fees, roomRateFacts(b,'en',now).fees);
   assert.equal(roomFactKeys(a).price, roomFactKeys(b).price);
   assert.notEqual(roomFactKeys(a).cancellation, roomFactKeys(b).cancellation);
   assert.notEqual(roomFactKeys(a).fees, roomFactKeys(b).fees);
+});
+
+test('meal picker shows exact minimum whole-stay prices and counts after other filters, without combining currencies', () => {
+  const rate = (index, name, meal, amount, currency) => offer(index, { name, meal, price: {amount,currency} });
+  const rates = [rate(0,'Suite','half-board','9007199254740998','USD'),rate(1,'Suite','half-board','9007199254740993','USD'),
+    rate(2,'Suite','half-board','1','AED'),rate(3,'Twin','half-board','0.5','USD'),rate(4,'Suite',undefined,'5','USD')];
+  const model = choices(rates, {query:'suite', meal:{kind:'missing'}});
+  assert.deepEqual(model.mealOptions, [{value:'half-board',count:3,fromPrice:rates[1].price},{value:null,count:1,fromPrice:rates[4].price}]);
+  assert.equal(model.matchingOffers,1);
+  assert.equal(model.groups[0].entries[0].offer, rates[4]);
+});
+
+test('structured meal plans precede legacy meals and a new child exclusion is a material recheck change', () => {
+  const { normalizeOffers } = load(path.join(__dirname, '../api/adapters.ts'));
+  const { mealDescription } = load(path.join(__dirname, 'roomRateFacts.ts'));
+  const { offerTerms } = load(path.join(__dirname, 'offerReviewModel.ts'));
+  const { changedOfferSections } = load(path.join(__dirname, 'offerChangeSummary.ts'));
+  const raw = { room_name:'Twin', book_hash:'h-1', meal:'nomeal', meal_data:{value:'breakfast',no_child_meal:true} };
+  const [restricted] = normalizeOffers([raw]);
+  assert.equal(restricted.meal, 'breakfast');
+  assert.match(mealDescription(restricted,'ar'), /يشمل الإفطار.*وجبات الأطفال غير مشمولة/);
+  const unrestricted = {...restricted,noChildMeal:undefined};
+  assert.notEqual(offerTerms(unrestricted),offerTerms(restricted));
+  assert.deepEqual(changedOfferSections(unrestricted,restricted),['meal']);
+  assert.match(mealDescription(unrestricted,'en',true), /coverage unspecified/);
+});
+
+test('a missing or inconsistent policy never advertises a future saving; successive equal charges merge until the next verified change', () => {
+  const { roomRateFacts } = load(path.join(__dirname, 'roomRateFacts.ts'));
+  const a = '2030-04-06T07:00:00Z', b = '2030-04-06T09:00:00Z', now = Date.parse(a) - 1;
+  const period = (startAt,endAt,amount) => ({startAt,endAt,amount,currency:'USD'});
+  const rate = policies => offer(1, {cancellation:{freeUntil:null,policies}});
+  const contiguous = rate([period(b,null,'3.007'),period(null,a,'0.0'),period(a,b,'00.00')]);
+  const detail = roomRateFacts(contiguous, 'en', now).decision.detail;
+  assert.ok(detail.includes(deviceClock(b) + ' your time (UTC') && detail.includes('USD 3.007'));
+  assert.match(roomRateFacts(contiguous, 'ar', Date.parse(b)).decision.headline, /إذا ألغيت الآن ستدفع USD 3\.007/);
+  const ambiguous = rate([period(null,b,'0'),period(a,null,'50')]);
+  assert.deepEqual(roomRateFacts(ambiguous,'en',now).decision, {kind:'unknown',headline:'Cost to cancel now is unconfirmed',detail:''});
+  const fullStay = {...rate([period(null,null,'12.999')]), price:{currency:'USD',amount:'12.9990'}};
+  assert.match(roomRateFacts(fullStay,'ar',now).decision.headline, /USD 12\.999.*كامل سعر الإقامة/);
+  assert.doesNotMatch(roomRateFacts({...fullStay,price:{currency:'EUR',amount:'12.999'}},'en',now).decision.headline, /full stay/);
 });
 
 test('stay summary uses English quantity nouns and explicit Arabic quantity labels', () => {
