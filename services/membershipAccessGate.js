@@ -10,6 +10,7 @@ function publicApi(req){
     // These existing endpoints independently enforce owner identity or a scoped
     // booking capability. Membership changes must not strand an existing payment.
     if(method==='GET'&&/^\/api\/payment\/ziina\/[a-f\d-]+\/status$/.test(path))return true;
+    if(method==='POST'&&path==='/api/payment/ziina/recover')return true;
     if(method==='GET'&&/^\/api\/v1\/hotels\/checkout\/[a-f\d-]+$/.test(path))return true;
     if(method==='GET'&&/^\/api\/affiliate\/bookings\/[^/]+\/status$/.test(path))return true;
     if(path.startsWith('/api/owned/')||path.startsWith('/api/support/'))return true;
