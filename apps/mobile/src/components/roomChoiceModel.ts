@@ -1,5 +1,6 @@
 import type { Money, RoomOffer } from '../types';
 import { presentCancellation } from './cancellationPresentationModel';
+import { translatedMeal } from './hotelPoliciesData.js';
 
 export type RoomChoiceSort = 'original' | 'price';
 export type MealFacet = { kind: 'all' } | { kind: 'value'; value: string } | { kind: 'missing' };
@@ -32,9 +33,9 @@ function comparable(price: Money | null, currency: string): price is Money {
 export function canReviewRoomOffer(offer: RoomOffer, requestedCurrency: string): boolean {
   return comparable(offer.price, requestedCurrency) && Boolean(offer.offerContext && offer.bookHash.startsWith('h-'));
 }
-export function roomMealLabel(value: string | undefined, roomOnly: string, unavailable: string): string {
+export function roomMealLabel(value: string | undefined, roomOnly: string, unavailable: string, language = 'en'): string {
   if (!value?.trim()) return unavailable;
-  return value === 'nomeal' ? roomOnly : value.replace(/[-_]/g, ' ');
+  return value === 'nomeal' ? roomOnly : translatedMeal(value, language) ?? value.replace(/[-_]/g, ' ');
 }
 function priceOrder(left: RoomChoiceEntry, right: RoomChoiceEntry, currency: string): number {
   const a = comparable(left.offer.price, currency), b = comparable(right.offer.price, currency);

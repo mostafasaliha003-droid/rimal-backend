@@ -5,3 +5,4 @@ export function hotelPolicyCopy(language: string): { title: string; extra: strin
 export function hotelPolicySections(hotel: { metapolicy_struct: Record<string, unknown>; metapolicy_extra_info?: string }, language?: string): PolicySection[];
 export function hotelExtraInformation(hotel: { metapolicy_extra_info?: string }): string;
 export function policyPlainText(value: unknown): string;
+export function translatedMeal(value: string, language: string): string | null;

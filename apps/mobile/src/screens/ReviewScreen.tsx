@@ -11,6 +11,7 @@ import { useReviewSession } from '../components/useReviewSession';
 import ApiState from '../components/ApiState';
 import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
+import { roomMealLabel } from '../components/roomChoiceModel';
 import Cancellation from '../components/Cancellation';
 import OfferChanges, { ExactReviewMoney } from '../components/OfferChanges';
 import { useAppState } from '../components/AppState';
@@ -115,7 +116,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
         </View>
         <View style={[ui.card, { padding: 0, overflow: 'hidden', gap: 0 }]}>
           <Photo uri={offer.images[0] || draft.offer.images[0]} room label={offer.name} height={180}/>
-          <View style={{ padding: 20, gap: 18 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{t('reviewRoom')}</Txt><Txt kind="heading" accessibilityRole="header">{offer.name}</Txt><Txt kind="small">{t('meal')}: {offer.meal ? offer.meal === 'nomeal' ? t('roomOnly') : offer.meal.replace(/[-_]/g, ' ') : t('noMeal')}</Txt>
+          <View style={{ padding: 20, gap: 18 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{t('reviewRoom')}</Txt><Txt kind="heading" accessibilityRole="header">{offer.name}</Txt><Txt kind="small">{t('meal')}: {roomMealLabel(offer.meal, t('roomOnly'), t('noMeal'), language)}</Txt>
             <View style={{ gap: 6 }}><Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><Price large money={offer.price}/></View>
             <Taxes taxes={offer.taxes}/><Cancellation offer={offer} mode={expired ? 'historical' : 'current'}/>
           </View>

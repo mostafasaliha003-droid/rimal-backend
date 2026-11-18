@@ -7,6 +7,7 @@ import { Row, Txt } from './Primitives';
 import { changedOfferSections, compareStayPrices, sourceStayMoney } from './offerChangeSummary';
 import { offerChangesCopy, padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
+import { roomMealLabel } from './roomChoiceModel';
 
 // The internal renderer receives only model-whitelisted source/derived money.
 // Derived differences can exceed the source field's 128-character length.
@@ -55,7 +56,7 @@ export default function OfferChanges({ before, after }: { before: RoomOffer; aft
   const difference = price.difference ? padStayPriceDifference(price.difference, language) : null;
   const [detailsOpen, setDetailsOpen] = useState(false);
   const nestedChanges = changes.filter(kind => kind === 'taxes' || kind === 'cancellation');
-  const meal = (offer: RoomOffer) => offer.meal ? offer.meal === 'nomeal' ? t('roomOnly') : offer.meal.replace(/[-_]/g, ' ') : t('noMeal');
+  const meal = (offer: RoomOffer) => roomMealLabel(offer.meal, t('roomOnly'), t('noMeal'), language);
 
   return (
     <View testID="offer-changes" style={{ gap: 14 }}>

@@ -81,7 +81,7 @@ function RatePlan({ now, entry, requestedCurrency, onReview, failed, onRefresh, 
   return <View style={styles.ratePlan}>
     <View style={{ gap: 5 }}><Txt kind="small">{copy.rateNumber(entry.index + 1)}</Txt><Txt kind="heading">{offer.name}</Txt></View>
     {offer.images.length > 0 && <HotelGallery images={offer.images} name={offer.name} room/>}
-    <Txt kind="small">{copy.meals}: {roomMealLabel(offer.meal, t('roomOnly'), copy.missingMeal)}</Txt>
+    <Txt kind="small">{copy.meals}: {roomMealLabel(offer.meal, t('roomOnly'), copy.missingMeal, language)}</Txt>
     <View style={styles.ratePrice}><Txt kind="small">{t('priceForStay')}</Txt><MoneyText large money={offer.price}/><Txt kind="small">{copy.priceScope}</Txt></View>
     <Taxes taxes={offer.taxes}/>
     <Cancellation offer={offer} now={now}/>
@@ -192,7 +192,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
             <View style={{ gap: 8 }}><Txt kind="label">{copy.meals}</Txt>
               <Row style={{ flexWrap: 'wrap', gap: 8 }}>
                 <ChoiceChip label={copy.allMeals} selected={meal.kind === 'all'} onPress={() => setMeal({ kind: 'all' })}/>
-                {model.meals.values.map(value => <ChoiceChip key={value} label={roomMealLabel(value, t('roomOnly'), copy.missingMeal)} selected={meal.kind === 'value' && meal.value === value} onPress={() => setMeal({ kind: 'value', value })}/>)}
+                {model.meals.values.map(value => <ChoiceChip key={value} label={roomMealLabel(value, t('roomOnly'), copy.missingMeal, language)} selected={meal.kind === 'value' && meal.value === value} onPress={() => setMeal({ kind: 'value', value })}/>)}
                 {model.meals.hasMissing && <ChoiceChip label={copy.missingMeal} selected={meal.kind === 'missing'} onPress={() => setMeal({ kind: 'missing' })}/>}
               </Row>
             </View>
