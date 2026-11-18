@@ -83,6 +83,7 @@ const { createHotelbedsMockCheckoutBookingService } = require('./services/hotelb
 const { createSocketSessionAuth } = require('./services/socketSessionAuth');
 const bookingProcessService = require('./services/bookingProcessService');
 const checkoutProcessService = require('./services/checkoutProcessService');
+const { createCheckoutRecoveryHandler, createPaymentAvailabilityHandler } = require('./services/checkoutRecoveryRoutes');
 const checkoutReconciliationService = require('./services/checkoutReconciliationService');
 const ziinaWebhookService = require('./services/ziinaWebhookService');
 const checkoutSessionService = require('./services/checkoutSessionService');
@@ -1022,11 +1023,10 @@ app.post('/api/booking/prebook-serp', publicSearchGuard, async (req, res) => {
     }
 });
 
-app.get('/api/payment/availability', (req, res) => {
-    res.setHeader('Cache-Control', 'no-store');
-    const enabled = paymentService.isCheckoutReady() && mongoose.connection.readyState === 1;
-    res.json({ enabled, ...(!enabled ? { reason: 'checkout_unavailable' } : {}) });
-});
+app.get('/api/payment/availability', createPaymentAvailabilityHandler({ payment: paymentService, database: mongoose.connection }));
+
+app.post('/api/payment/ziina/recover', requireUser, securityService.searchLimiter,
+    createCheckoutRecoveryHandler({ service: checkoutProcessService }));
 
 app.post('/api/payment/quote', requireUser, securityService.searchLimiter, async (req, res) => {
     res.set('Cache-Control', 'no-store');

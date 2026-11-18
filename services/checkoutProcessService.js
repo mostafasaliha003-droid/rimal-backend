@@ -120,14 +120,36 @@ function accessToken(record) {
         .update(`checkout-access-v1:${record.reference}:${record.request_hash}`).digest('hex');
 }
 
-function checkoutResponse(record) {
-    if (record.state === 'preflight_failed') {
+function checkoutResponse(record, { recovery = false } = {}) {
+    if (!recovery && record.state === 'preflight_failed') {
         throw fail(record.error === 'rate_changed' ? 'rate_changed' : 'supplier_preflight_failed', 409);
     }
     return {
         ...publicView(record), access_token: accessToken(record),
-        ...(record.state === 'awaiting_payment' && record.redirect_url ? { payment_url: record.redirect_url } : {})
+        ...(record.state === 'awaiting_payment' && record.redirect_url
+            && (!recovery || new Date(record.payment_expires_at).getTime() > Date.now())
+            ? { payment_url: record.redirect_url } : {})
     };
+}
+
+function requireIdentity(identity) {
+    if (!identity || identity.role !== 'user' || typeof identity.subject !== 'string' || !identity.subject
+        || identity.subject.length > 254 || !/^[a-z0-9:_-]{1,100}$/i.test(identity.realm || '')
+        || process.env.RIMAL_AUTH_REALM && identity.realm !== process.env.RIMAL_AUTH_REALM) throw fail('unauthorized', 401);
+}
+
+async function recoverCheckout(idempotencyKey, identity) {
+    requireIdentity(identity);
+    if (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) throw fail('invalid_idempotency_key');
+    if (mongoose.connection.readyState !== 1) throw fail('checkout_unavailable', 503);
+    const processId = crypto.createHmac('sha256', encryptionKey()).update(idempotencyKey).digest('hex');
+    // Read-only recovery must never create a form or intent, or require the
+    // original guest details to be stored on the device. Scope the database
+    // lookup itself so another owner/realm is indistinguishable from absence.
+    const record = await CheckoutAttempt.findOne({ _id: processId,
+        ownerSubject: identity.subject, realm: identity.realm }).lean();
+    if (!record) return { found: false };
+    return { found: true, ...checkoutResponse(record, { recovery: true }) };
 }
 
 async function getCheckout(reference, token) {
@@ -146,9 +168,7 @@ async function getCheckout(reference, token) {
 
 async function createCheckout(input, idempotencyKey, userIp, identity) {
     if (!payment.isCheckoutReady() || mongoose.connection.readyState !== 1) throw fail('checkout_unavailable', 503);
-    if (!identity || identity.role !== 'user' || typeof identity.subject !== 'string' || !identity.subject
-        || identity.subject.length > 254 || !/^[a-z0-9:_-]{1,100}$/i.test(identity.realm || '')
-        || process.env.RIMAL_AUTH_REALM && identity.realm !== process.env.RIMAL_AUTH_REALM) throw fail('unauthorized', 401);
+    requireIdentity(identity);
     if (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) throw fail('invalid_idempotency_key');
     const details = normalizedCheckout(input);
     const hash = value => crypto.createHmac('sha256', encryptionKey()).update(value).digest('hex');
@@ -239,4 +259,4 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
     }
 }
 
-module.exports = { createCheckout, getCheckout, normalizedCheckout, verifyRateIdentity, publicView, encryptDetails, decryptDetails };
+module.exports = { createCheckout, recoverCheckout, getCheckout, normalizedCheckout, verifyRateIdentity, publicView, encryptDetails, decryptDetails };
