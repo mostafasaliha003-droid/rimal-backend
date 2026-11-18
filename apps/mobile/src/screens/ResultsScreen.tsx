@@ -1,8 +1,10 @@
-import React, { useEffect, useMemo, useRef, useState } from 'react';
+import React, { useCallback, useMemo, useRef, useState } from 'react';
 import { FlatList, Modal, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { useFocusEffect, useRouter } from 'expo-router';
 import { api, ApiError, authSession } from '../api';
+import { hotelId, validateSearchCriteria } from '../api/validation';
+import { returnedSavedHotels } from '../components/savedHotelCards';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { colors, ui } from '../theme';
@@ -24,24 +26,30 @@ function FilterChip({ text, label, clear }: { text: string; label: string; clear
 }
 
 export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boolean }) {
-  const { criteria, destinationName, saved, savedReady, savedError, comparisonItems, clearComparison } = useAppState();
+  const { criteria, destinationName, saved, savedReady, savedErrorKind, retrySaved, comparisonItems, clearComparison } = useAppState();
   const { t, language } = useLanguage(), L = resultsCopy(language), router = useRouter();
   const { status: authStatus, sessionRevision } = useAuth();
   const { width, fontScale } = useWindowDimensions();
   const columns = width >= 760 && fontScale <= 1.3 ? 2 : 1;
   const columnWidth = (Math.min(width, 880) - 40 - 18) / 2;
   const [snapshot, setSnapshot] = useState<ResultSnapshot>({ context: '', hotels: [], pending: false, error: null });
+  const refreshRevision = useRef(0);
   const [refresh, recheck] = useState(0), [paging, setPaging] = useState({ context: '', limit: 20 });
   const [appliedState, setAppliedState] = useState<{ context: string; value: ResultFilters }>({ context: '', value: emptyResultFilters() });
   const [draft, setDraft] = useState<ResultFilters>(emptyResultFilters), [sheetContext, setSheetContext] = useState<string | null>(null);
   const generation = useRef(0), inFlight = useRef<AbortController | null>(null), currentContext = useRef('');
-  const requestSavedIds = savedOnly ? saved : null, requestSavedReady = !savedOnly || savedReady;
-  const plan = useMemo(() => requestSavedReady ? hotelSearchPlan(criteria, language, requestSavedIds) : null,
+  const [savedAtEntry, setSavedAtEntry] = useState(() => savedOnly ? saved.filter(id => hotelId(id) !== null) : null);
+  const requestSavedIds = savedAtEntry, requestSavedReady = !savedOnly || savedReady;
+  const candidate = useMemo(() => requestSavedReady ? hotelSearchPlan(criteria, language, requestSavedIds) : null,
     [criteria, language, requestSavedIds, requestSavedReady]);
+  const plan = savedOnly && candidate && !validateSearchCriteria(candidate.criteria).valid ? null : candidate;
   const context = resultContextKey(plan?.key, language, authStatus, sessionRevision);
   const enabled = plan !== null && authStatus !== 'loading';
   const sameContext = enabled && snapshot.context === context;
-  const hotels = useMemo(() => sameContext ? snapshot.hotels : [], [sameContext, snapshot.hotels]);
+  const hotels = useMemo(() => {
+    if (!sameContext) return [];
+    return savedOnly ? returnedSavedHotels(saved, snapshot.hotels) : snapshot.hotels;
+  }, [sameContext, snapshot.hotels, savedOnly, saved]);
   const error = sameContext ? snapshot.error : null;
   const pending = enabled && (!sameContext || snapshot.pending);
   const refreshing = pending && hotels.length > 0;
@@ -54,35 +62,39 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const setLimit = (value: number) => setPaging({ context, limit: value });
   const apply = (value: ResultFilters) => { setAppliedState({ context, value: copyResultFilters(value) }); setLimit(20); };
   const openFilters = () => { setDraft(copyResultFilters(applied)); setSheetContext(context); };
-  const refreshResults = () => { inFlight.current?.abort(); ++generation.current; setSnapshot(previous => beginResultRefresh(previous, context)); recheck(value => value + 1); };
-  useEffect(() => {
+  const refreshResults = () => { if (savedOnly) setSavedAtEntry(saved.filter(id => hotelId(id) !== null)); inFlight.current?.abort(); ++generation.current; setSnapshot(previous => beginResultRefresh(previous, context)); recheck(++refreshRevision.current); };
+  useFocusEffect(useCallback(() => {
     currentContext.current = context;
     if (!plan || authStatus === 'loading') return;
     const controller = new AbortController(), stamp = ++generation.current;
     inFlight.current = controller;
-    const current = () => !controller.signal.aborted && stamp === generation.current && currentContext.current === context
+    if (savedOnly) setSnapshot({ context, hotels: [], pending: true, error: null });
+    const current = () => refreshRevision.current === refresh && !controller.signal.aborted && stamp === generation.current && currentContext.current === context
       && authSession.getRevision() === sessionRevision && authSession.getSnapshot().status === authStatus;
     api.searchHotels(plan.criteria, controller.signal).then(hotels => {
-      if (current()) setSnapshot({ context, hotels, pending: false, error: null });
+      if (current()) setSnapshot({ context, hotels: requestSavedIds ? returnedSavedHotels(requestSavedIds, hotels) : hotels, pending: false, error: null });
     }).catch(error => {
       if (!current()) return;
       const denied = error instanceof ApiError && (error.kind === 'auth' || error.kind === 'membership');
-      setSnapshot(previous => ({ context, hotels: !denied && previous.context === context ? previous.hotels : [], pending: false, error }));
+      setSnapshot(previous => ({ context, hotels: !savedOnly && !denied && previous.context === context ? previous.hotels : [], pending: false, error }));
     });
     return () => { controller.abort(); if (inFlight.current === controller) inFlight.current = null; };
-  }, [plan, context, refresh, authStatus, sessionRevision]);
-  const edit = () => router.push('/');
+  }, [plan, context, refresh, authStatus, sessionRevision, savedOnly, requestSavedIds]));
+  const edit = () => router.push(savedOnly ? '/saved-dates' : '/');
   const nights = stayNights(criteria), roomCount = criteria?.guests.length || 0;
   const header = <View style={{ gap: 15, paddingBottom: 18 }}>
-    <Txt kind="title" accessibilityRole="header">{t(savedOnly ? 'saved' : 'results')}</Txt>
-    {savedOnly && <Txt kind="small">{t('savedBody')}</Txt>}
+    <Txt kind="title" accessibilityRole="header">{t(savedOnly ? 'savedOfferTitle' : 'results')}</Txt>
+    {savedOnly && <Button compact variant="quiet" title={t('saved')} onPress={() => router.dismissTo('/saved')}/>}
+    {savedOnly && plan && sameContext && !pending && !error && hotels.length < saved.length &&
+      <Txt kind="small">{language === 'ar' ? `عادت نتائج لـ ${hotels.length} من ${saved.length} فنادق محفوظة.` : `Results returned for ${hotels.length} of ${saved.length} saved stays.`}</Txt>}
     {criteria && <Pressable accessibilityRole="button"
       onPress={edit} style={[ui.card, { padding: 16, gap: 7, backgroundColor: colors.softBlue }]}>
       {!savedOnly && <Txt kind="heading">{destinationName}</Txt>}
       <Txt style={{ writingDirection: 'ltr' }}>{criteria.checkin} → {criteria.checkout}</Txt>
       <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}><Txt kind="small">{nights !== null ? `${L.stayContext(nights, roomCount)} · ` : ''}{L.guests(criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0))} · {criteria.currency}</Txt><Txt kind="label" style={{ color: colors.blueStrong }}>{t('searchAgain')} ↗</Txt></Row>
     </Pressable>}
-    {savedError && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t('savedError')}</Txt>}
+    {savedErrorKind && <View><Txt accessibilityRole="alert" style={{ color: colors.red }}>{t(savedErrorKind === 'load' ? 'savedError' : 'savedSaveFailed')}</Txt>
+      <Button compact variant="quiet" title={t('retry')} onPress={() => void retrySaved()}/></View>}
     {hotels.length > 0 && <>
       <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}><Txt kind="label">{L.results(decision.hotels.length, hotels.length)}</Txt><Button compact variant="secondary" title={`${t('filters')}${activeCount ? ` · ${activeCount}` : ''} / ${t('sort')}`} onPress={openFilters}/></Row>
       <Txt kind="small">{t(applied.sort)}</Txt>
@@ -100,12 +112,12 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   let content: React.ReactNode = null;
   if (savedOnly && !savedReady || authStatus === 'loading') content = <StatePanel title={t('loading')} busy/>;
   else if (savedOnly && saved.length === 0) content = <StatePanel title={t('savedEmpty')} body={t('savedBody')}/>;
-  else if (!criteria) content = <View style={{ gap: 14 }}><StatePanel title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={edit}/></View>;
+  else if (!criteria || savedOnly && !plan) content = <View style={{ gap: 14 }}><StatePanel title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={edit}/></View>;
   else if (pending && !hotels.length) content = <StatePanel title={t('loading')} busy/>;
   else if (error && !hotels.length) content = <ApiState error={error} retry={refreshResults}/>;
   else if (!decision.hotels.length) content = <View style={{ gap: 14 }}><StatePanel title={hotels.length ? L.noMatch : t('noResults')} body={hotels.length ? L.noMatchBody : t(savedOnly ? 'savedNoAvailability' : 'noResultsBody')}/>{hotels.length > 0 && <><Button title={L.clearAll} variant="secondary" onPress={() => apply(emptyResultFilters())}/><Button title={t('filters')} variant="quiet" onPress={openFilters}/></>}<Button title={t('searchAgain')} variant="quiet" onPress={edit}/></View>;
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
-    <BrandHeader back={!savedOnly}/><EnvironmentBanner/>
+    <BrandHeader back/><EnvironmentBanner/>
     <FlatList key={`results-${columns}`} numColumns={columns} columnWrapperStyle={columns === 2 ? { gap: 18 } : undefined}
       data={content ? [] : decision.hotels.slice(0, limit)} keyExtractor={hotel => String(hotel.hid)} contentContainerStyle={ui.page}
       renderItem={({ item }) => <View style={{ width: columns === 2 ? columnWidth : '100%' }}><HotelCard hotel={item} comparisonDisabled={refreshing || Boolean(error)}/></View>}
