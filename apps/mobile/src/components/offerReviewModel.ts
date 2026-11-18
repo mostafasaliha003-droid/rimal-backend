@@ -63,11 +63,14 @@ export function cancellationTermsKey(terms: RoomOffer['cancellation']): string {
     policy.amount === null ? null : canonicalDecimal(policy.amount), policy.currency])).sort();
   return JSON.stringify([terms.freeUntil, terms.freeUntilInvalid === true, terms.incomplete === true, policies]);
 }
+export function taxTermsKey(taxes: RoomOffer['taxes']): string {
+  return JSON.stringify(taxes.map(tax => JSON.stringify([tax.name,
+    tax.amount === null ? null : canonicalDecimal(tax.amount), tax.currency_code, tax.included_by_supplier])).sort());
+}
 export function offerTerms(offer: RoomOffer): string {
   const money = (amount: string | null, currency: string | null) => [amount === null ? null : canonicalDecimal(amount), currency];
-  const taxes = offer.taxes.map(tax => JSON.stringify([tax.name, ...money(tax.amount, tax.currency_code), tax.included_by_supplier])).sort();
   return JSON.stringify([offer.name, offer.roomIdentity ?? null, offer.meal ?? null, offer.price ? money(offer.price.amount, offer.price.currency) : null,
-    taxes, cancellationTermsKey(offer.cancellation)]);
+    taxTermsKey(offer.taxes), cancellationTermsKey(offer.cancellation)]);
 }
 
 export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = Date.now }: {

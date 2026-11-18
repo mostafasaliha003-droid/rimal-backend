@@ -1,12 +1,13 @@
 import React, { useState } from 'react';
 import { Pressable, View } from 'react-native';
-import type { Money, RoomOffer, Tax } from '../types';
+import type { Money, RoomOffer } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, fonts } from '../theme';
 import { Row, Txt } from './Primitives';
 import { changedOfferSections, compareStayPrices, sourceStayMoney } from './offerChangeSummary';
 import { offerChangesCopy, padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
+import Taxes from './Taxes';
 import { roomMealLabel } from './roomChoiceModel';
 
 // The internal renderer receives only model-whitelisted source/derived money.
@@ -24,28 +25,6 @@ function ExactAmount({ money, large = false }: { money: Readonly<Money> | null; 
 /** Exact source price for the changed-offer room/dock, with no decimal rounding. */
 export function ExactReviewMoney({ money, large = false }: { money: Money | null | undefined; large?: boolean }) {
   return <ExactAmount money={sourceStayMoney(money)} large={large} />;
-}
-
-function ChangedTaxes({ taxes }: { taxes: Tax[] }) {
-  const { language, t } = useLanguage();
-  const copy = offerChangesCopy(language);
-  if (!taxes.length) return <Txt kind="small">{copy.noTaxes}</Txt>;
-  return <View style={{ gap: 12 }}>
-    {taxes.map((tax, index) => {
-      const amount = typeof tax.amount === 'string' && tax.amount.length <= 128 && /^\d+(?:\.\d+)?$/.test(tax.amount) ? tax.amount : null;
-      const currency = typeof tax.currency_code === 'string' && /^[A-Z]{3}$/.test(tax.currency_code) ? tax.currency_code : null;
-      return <View key={index} style={{ gap: 5, padding: 12, borderRadius: 12, backgroundColor: colors.background }}>
-        <Txt kind="label">{tax.name ? tax.name.replace(/_/g, ' ') : copy.chargeUnknown}</Txt>
-        {amount !== null && currency ? <ExactReviewMoney money={{ amount, currency }} /> : (
-          <View style={{ gap: 4 }}>
-            {amount !== null ? <Txt style={{ writingDirection: 'ltr' }}>{amount}</Txt> : <Txt>{copy.amountUnknown}</Txt>}
-            <Txt kind="small">{currency || copy.currencyUnknown}</Txt>
-          </View>
-        )}
-        <Txt kind="small">{t(tax.included_by_supplier === true ? 'taxIncluded' : tax.included_by_supplier === false ? 'taxExcluded' : 'taxUnknown')}</Txt>
-      </View>;
-    })}
-  </View>;
 }
 
 export default function OfferChanges({ before, after }: { before: RoomOffer; after: RoomOffer }) {
@@ -101,6 +80,7 @@ export default function OfferChanges({ before, after }: { before: RoomOffer; aft
           {nestedChanges.map(kind => <View key={kind} style={{ gap: 3 }}>
             <Txt kind="label">{copy.kind[kind]}</Txt>
             <Txt kind="small">{kind === 'taxes' ? copy.taxesChanged : copy.cancellationChanged}</Txt>
+            {kind === 'taxes' && !detailsOpen && <Taxes taxes={after.taxes} mode="updated" summaryOnly/>}
           </View>)}
           <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }} aria-expanded={detailsOpen}
             onPress={() => setDetailsOpen(value => !value)} style={{ minHeight: 48, justifyContent: 'center', paddingVertical: 10 }}>
@@ -115,7 +95,7 @@ export default function OfferChanges({ before, after }: { before: RoomOffer; aft
               {([['before', before], ['after', after]] as const).map(([side, offer]) => (
                 <View key={side} style={{ padding: 14, borderRadius: 14, backgroundColor: colors.surface, gap: 8 }}>
                   <Txt kind="label" style={{ color: colors.blueStrong }}>{copy[side]}</Txt>
-                  {kind === 'taxes' ? <ChangedTaxes taxes={offer.taxes} />
+                  {kind === 'taxes' ? <Taxes taxes={offer.taxes} mode={side === 'before' ? 'historical' : 'updated'} defaultExpanded/>
                     : <Cancellation offer={offer} mode={side === 'before' ? 'historical' : 'current'} defaultExpanded />}
                 </View>
               ))}

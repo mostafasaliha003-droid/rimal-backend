@@ -56,6 +56,18 @@ test('zero, missing amounts and currencies remain distinct, and room changes are
   assert.deepEqual(changedOfferSections(before, cancellation), ['cancellation']);
 });
 
+test('review acceptance compares individual taxes even when their currency subtotal is unchanged', () => {
+  const { offerTerms } = load('./offerReviewModel.ts');
+  const tax = amount => ({ name: 'city_tax', amount, currency_code: 'AED', included_by_supplier: false });
+  const before = { ...base(), taxes: [tax('2.00'), tax('2.00')] };
+  const reordered = { ...base(), taxes: [tax('2'), tax('02.000')] };
+  const replaced = { ...base(), taxes: [tax('4.00')] };
+  assert.equal(offerTerms(before), offerTerms(reordered));
+  assert.deepEqual(changedOfferSections(before, reordered), []);
+  assert.notEqual(offerTerms(before), offerTerms(replaced));
+  assert.deepEqual(changedOfferSections(before, replaced), ['taxes']);
+});
+
 const price = (amount, currency = 'USD') => ({ amount, currency });
 test('complete-stay increases and decreases expose absolute exact differences and copied source totals', () => {
   const before = price('107.00'), after = price('120.50');

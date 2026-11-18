@@ -118,6 +118,8 @@ export function CheckoutContents(props: CheckoutContentsProps) {
             <Txt kind="label">{copy.offer}</Txt><MoneyText large money={offer.price}/>
             {session.quote && <><View style={ui.rule}/><Txt kind="label" style={{ color: colors.blueStrong }}>{copy.charge}</Txt><MoneyText large money={{ amount: session.quote.amount, currency: session.quote.currency }}/><Txt kind="small">{copy.sameCurrency}</Txt></>}
             <Txt kind="small">{copy.notReserved}</Txt>
+            <View style={ui.rule}/>
+            <Taxes taxes={offer.taxes}/>
           </View>
           {!creationEnabled && <View style={[ui.card, { backgroundColor: colors.softGold }]}><Txt kind="heading" accessibilityRole="header">{copy.gateOff}</Txt><Txt>{copy.gateOffBody}</Txt></View>}
           {!signedIn ? <><StatePanel title={copy.signIn} body={copy.signInBody}/><Button title={copy.signIn} variant="secondary" onPress={props.onSignIn}/></> : <>
@@ -126,7 +128,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
             <Row style={{ flexWrap: 'wrap' }}><View style={{ flex: 1, minWidth: 160 }}><Button title={session.quote ? copy.quoteAgain : copy.quote} busy={session.phase === 'quoting'} disabled={!session.canQuote || opening} onPress={() => void session.requestQuote()}/></View><View style={{ flex: 1, minWidth: 160 }}><Button title={copy.readiness} variant="quiet" disabled={busy || opening} onPress={() => void session.loadAvailability()}/></View></Row>
             {session.error && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.quoteError}</Txt>}
           </>}
-          <View style={ui.card}><Taxes taxes={offer.taxes}/><Cancellation offer={offer}/></View>
+          <View style={ui.card}><Cancellation offer={offer}/></View>
           {creationEnabled && session.canCollectTravelers && session.quote && <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
             occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit}
             onSubmit={(data,consent)=>session.submit(data,consent)} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>}

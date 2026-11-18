@@ -11,6 +11,7 @@ import { useReviewSession } from '../components/useReviewSession';
 import ApiState from '../components/ApiState';
 import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
+import { taxTermsKey } from '../components/offerReviewModel';
 import { roomMealLabel } from '../components/roomChoiceModel';
 import Cancellation from '../components/Cancellation';
 import OfferChanges, { ExactReviewMoney } from '../components/OfferChanges';
@@ -40,6 +41,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const checked = Boolean(currentOffer && (status === 'ready' || status === 'changed'));
   const expired = status === 'expired' || handoffExpired;
   const showChanges = checked && status === 'changed' && !expired;
+  const showRoomFees = Boolean(showChanges && draft && offer && taxTermsKey(draft.offer.taxes) === taxTermsKey(offer.taxes));
   const Price = showChanges ? ExactReviewMoney : MoneyText;
   const reviewChanges = () => {
     const heading = changeHeading.current;
@@ -99,6 +101,8 @@ function ReviewContents({ session }: { session: ReviewSession }) {
         </View> : <View style={[ui.card, { padding: 16, gap: 7, borderColor: colors.blueStrong }]}>
           <Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><MoneyText large money={offer.price}/>
           <Txt kind="small">{staySummary} · {t('reviewNoReservation')}</Txt>
+          <View style={ui.rule}/>
+          <Taxes taxes={offer.taxes} mode={expired ? 'historical' : 'current'}/>
         </View>}
         {expired && <StatePanel title={t('reviewExpiredTitle')} body={t('reviewExpiredBody')}/>}
         {status === 'pending' && <View accessibilityLiveRegion="polite"><StatePanel title={t('reviewChecking')} body={t('reviewNoReservation')} busy/></View>}
@@ -118,7 +122,8 @@ function ReviewContents({ session }: { session: ReviewSession }) {
           <Photo uri={offer.images[0] || draft.offer.images[0]} room label={offer.name} height={180}/>
           <View style={{ padding: 20, gap: 18 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{t('reviewRoom')}</Txt><Txt kind="heading" accessibilityRole="header">{offer.name}</Txt><Txt kind="small">{t('meal')}: {roomMealLabel(offer.meal, t('roomOnly'), t('noMeal'), language)}</Txt>
             <View style={{ gap: 6 }}><Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><Price large money={offer.price}/></View>
-            <Taxes taxes={offer.taxes}/><Cancellation offer={offer} mode={expired ? 'historical' : 'current'}/>
+            {showRoomFees && <Taxes taxes={offer.taxes}/>}
+            <Cancellation offer={offer} mode={expired ? 'historical' : 'current'}/>
           </View>
         </View>
         {!expired && !checked && status !== 'pending' && <Txt kind="small">{t('reviewBeforeRecheck')}</Txt>}
