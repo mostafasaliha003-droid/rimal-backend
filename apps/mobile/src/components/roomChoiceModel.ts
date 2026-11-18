@@ -7,6 +7,7 @@ export type MealFacet = { kind: 'all' } | { kind: 'value'; value: string } | { k
 export interface RoomChoiceEntry { key: string; index: number; offer: RoomOffer }
 export interface RoomChoiceGroup {
   key: string; identity: string | null; name: string; entries: RoomChoiceEntry[]; totalCount: number; freeNowCount: number; fromPrice: Money | null;
+  lowestReviewable: RoomChoiceEntry | null;
 }
 export interface RoomChoiceOptions { currency: string; query?: string; meal?: MealFacet; sort?: RoomChoiceSort; freeOnly?: boolean; now?: number }
 
@@ -73,10 +74,14 @@ export function buildRoomChoices(offers: readonly RoomOffer[], {
     const key = groupKey(entry);
     let group = grouped.get(key);
     if (!group) {
-      group = { key, identity: identityValue(entry.offer), name: entry.offer.name, entries: [], totalCount: totals.get(key)!, freeNowCount: 0, fromPrice: null };
+      group = { key, identity: identityValue(entry.offer), name: entry.offer.name, entries: [], totalCount: totals.get(key)!, freeNowCount: 0, fromPrice: null, lowestReviewable: null };
       grouped.set(key, group);
     }
     group.entries.push(entry);
+    // Keep the exact matching occurrence so its terms and review context travel together.
+    if (canReviewRoomOffer(entry.offer, currency) && (!group.lowestReviewable || priceOrder(entry, group.lowestReviewable, currency) < 0)) {
+      group.lowestReviewable = entry;
+    }
     if (entry.freeNow) group.freeNowCount++;
     const price = entry.offer.price;
     if (comparable(price, currency)) {

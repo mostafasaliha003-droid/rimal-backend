@@ -12,10 +12,12 @@ import { useAppState } from '../components/AppState';
 import ApiState from '../components/ApiState';
 import { Button, Field, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 import Cancellation from '../components/Cancellation';
+import { cancellationCopy } from '../components/cancellationCopy';
+import { cancellationMoneyText, presentCancellation } from '../components/cancellationPresentationModel';
 import { useCancellationClock } from '../components/useCancellationClock';
 import Policies from '../components/Policies';
 import Taxes from '../components/Taxes';
-import { buildRoomChoices, canReviewRoomOffer, roomHotelId, roomMealLabel, type MealFacet, type RoomChoiceEntry, type RoomChoiceGroup, type RoomChoiceSort } from '../components/roomChoiceModel';
+import { buildRoomChoices, canReviewRoomOffer, compareRoomAmounts, roomHotelId, roomMealLabel, type MealFacet, type RoomChoiceEntry, type RoomChoiceGroup, type RoomChoiceSort } from '../components/roomChoiceModel';
 import { roomChoiceCopy } from '../components/roomChoiceCopy';
 
 type Section = 'rooms' | 'about' | 'amenities' | 'policies';
@@ -72,6 +74,14 @@ function FreeCancellationFilter({ checked, onChange }: { checked: boolean; onCha
   </Pressable>;
 }
 
+function RateReviewError({ onRefresh }: { onRefresh: () => void }) {
+  const { t } = useLanguage();
+  return <View style={{ gap: 10 }}>
+    <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t('reviewExpiredBody')}</Txt>
+    <Button variant="secondary" title={t('retry')} onPress={onRefresh}/>
+  </View>;
+}
+
 function RatePlan({ now, entry, requestedCurrency, onReview, failed, onRefresh, onEditSearch }: {
   now: number; entry: RoomChoiceEntry; requestedCurrency: string; onReview: (entry: RoomChoiceEntry) => void; failed: boolean; onRefresh: () => void; onEditSearch: () => void;
 }) {
@@ -88,8 +98,32 @@ function RatePlan({ now, entry, requestedCurrency, onReview, failed, onRefresh, 
     <Button title={t('reviewOffer')} disabled={!reviewable} onPress={() => onReview(entry)}/>
     {currencyMismatch ? <View style={{ gap: 10 }}><Txt kind="small">{copy.currencyMismatch(offer.price!.currency, requestedCurrency)}</Txt>
       <Button variant="secondary" title={t('searchAgain')} onPress={onEditSearch}/></View> : !reviewable && <Txt kind="small">{copy.notReady}</Txt>}
-    {failed && <View style={{ gap: 10 }}><Txt accessibilityRole="alert" style={{ color: colors.red }}>{t('reviewExpiredBody')}</Txt>
-      <Button variant="secondary" title={t('retry')} onPress={onRefresh}/></View>}
+    {failed && <RateReviewError onRefresh={onRefresh}/>}
+  </View>;
+}
+
+function RoomRateShortcut({ entry, groupName, now, onReview, failed, onRefresh }: {
+  entry: RoomChoiceEntry; groupName: string; now: number; onReview: (entry: RoomChoiceEntry) => void; failed: boolean; onRefresh: () => void;
+}) {
+  const { language, t } = useLanguage(); const copy = roomChoiceCopy(language);
+  const { offer } = entry;
+  const cancellation = presentCancellation(offer.cancellation, now);
+  const fee = cancellation.kind === 'fee' ? cancellationMoneyText(cancellation.fee) : null;
+  const title = copy.reviewRate(entry.index + 1);
+  return <View testID="lowest-reviewable-rate" style={styles.shortcut}>
+    <View style={{ gap: 4 }}>
+      <Txt kind="label">{copy.lowestReviewable}</Txt>
+      {offer.name !== groupName && <Txt kind="label">{offer.name}</Txt>}
+      <Txt kind="heading" style={{ writingDirection: 'ltr' }}>{offer.price!.currency} {offer.price!.amount}</Txt>
+      <Txt kind="small">{copy.shortcutScope}</Txt>
+    </View>
+    <View style={{ gap: 3 }}>
+      <Txt>{roomMealLabel(offer.meal, t('roomOnly'), copy.missingMeal, language)}</Txt>
+      <Txt>{cancellationCopy(language)[cancellation.kind]}</Txt>
+      {fee && <Txt kind="label" style={{ writingDirection: 'ltr' }}>{fee}</Txt>}
+    </View>
+    <Button title={title} label={`${title} · ${offer.name}`} onPress={() => onReview(entry)}/>
+    {failed && <RateReviewError onRefresh={onRefresh}/>}
   </View>;
 }
 
@@ -99,6 +133,8 @@ function RoomGroup({ now, group, requestedCurrency, onReview, reviewError, onRef
   const { language } = useLanguage(); const copy = roomChoiceCopy(language);
   const [expanded, setExpanded] = useState(false); const [limit, setLimit] = useState(4);
   const preview = group.entries[0].offer;
+  const shortcut = !expanded && group.totalCount > 1 ? group.lowestReviewable : null;
+  const showFromPrice = group.fromPrice && (!shortcut || compareRoomAmounts(group.fromPrice.amount, shortcut.offer.price!.amount) < 0);
   return <View style={[ui.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>
     <Pressable accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded} onPress={() => setExpanded(value => !value)}
       style={({ pressed }) => ({ padding: 16, gap: 12, backgroundColor: pressed ? colors.softBlue : colors.surface })}>
@@ -107,12 +143,15 @@ function RoomGroup({ now, group, requestedCurrency, onReview, reviewError, onRef
         <View style={{ flex: 1, gap: 5 }}><Txt kind="heading" style={{ fontSize: 18, lineHeight: 26 }}>{group.name}</Txt>
           <Txt kind="small">{copy.ratePlans(group.entries.length)}</Txt>
           {group.freeNowCount > 0 && <Txt kind="small">{copy.freeCount(group.freeNowCount, group.entries.length)}</Txt>}
-          {group.fromPrice ? <View><Txt kind="small">{copy.from}</Txt><MoneyText money={group.fromPrice}/></View> : <Txt kind="small">{copy.openPrices}</Txt>}
+          {showFromPrice && <View><Txt kind="small">{copy.from}</Txt><MoneyText money={group.fromPrice}/></View>}
+          {!group.fromPrice && <Txt kind="small">{copy.openPrices}</Txt>}
         </View>
       </Row>
       <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}><Txt kind="label" style={{ color: colors.blueStrong }}>{expanded ? copy.hideRates : copy.showRates(group.entries.length)}</Txt><Txt accessible={false}>{expanded ? '−' : '+'}</Txt></Row>
       {group.entries.length !== group.totalCount && <Txt kind="small">{copy.filteredCount(group.entries.length, group.totalCount)}</Txt>}
     </Pressable>
+    {shortcut && <RoomRateShortcut entry={shortcut} groupName={group.name} now={now} onReview={onReview}
+      failed={reviewError === shortcut.key} onRefresh={onRefresh}/>}
     {expanded && <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
       {group.entries.slice(0, limit).map(entry => <RatePlan key={entry.key} now={now} entry={entry} requestedCurrency={requestedCurrency} onReview={onReview} failed={reviewError === entry.key} onRefresh={onRefresh} onEditSearch={onEditSearch}/>)}
       <View style={{ padding: 16, gap: 10 }}><Txt kind="small">{copy.rateCount(Math.min(limit, group.entries.length), group.entries.length)}</Txt>
@@ -276,6 +315,7 @@ const styles = StyleSheet.create({
   photoCount: { position: 'absolute', bottom: 10, right: 10, backgroundColor: colors.surface, borderRadius: 12, paddingHorizontal: 10, paddingVertical: 4 },
   stay: { borderRadius: 16, padding: 13, backgroundColor: colors.softBlue, gap: 3 },
   roomThumb: { width: 86, borderRadius: 13, overflow: 'hidden' },
+  shortcut: { padding: 16, gap: 12, borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.softBlue },
   ratePlan: { padding: 18, gap: 15, borderBottomWidth: 1, borderBottomColor: colors.border },
   ratePrice: { borderRadius: 15, backgroundColor: colors.softBlue, padding: 14, gap: 4 },
   dock: { borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },

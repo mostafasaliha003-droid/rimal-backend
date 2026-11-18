@@ -127,6 +127,63 @@ test('from price is computed only over matching offers and group/order counts re
   assert.equal(model.groups[1].totalCount, 2); assert.equal(model.groups[1].entries.length, 1);
 });
 
+test('lowest reviewable rate keeps the exact occurrence even beyond the first two pages', () => {
+  const rates = Array.from({ length: 10 }, (_, index) => offer(index));
+  // The last two entries have identical public IDs/hashes and equivalent prices.
+  rates[8] = offer(8, { price: { amount: '0005.40000', currency: 'USD' }, meal: 'breakfast' });
+  rates[9] = { ...rates[8], price: { amount: '5.4', currency: 'USD' }, offerContext: 'other-terms', meal: 'nomeal' };
+  const before = JSON.stringify(rates);
+  for (const sort of ['original', 'price']) {
+    const group = choices(rates, { sort }).groups[0];
+    assert.equal(group.lowestReviewable, group.entries.find(entry => entry.index === 8));
+    assert.equal(group.lowestReviewable.offer, rates[8]);
+    assert.equal(group.lowestReviewable.offer.offerContext, 'signed-8');
+    assert.equal(group.entries.length, rates.length);
+  }
+  assert.deepEqual(choices(rates).groups[0].entries.map(entry => entry.offer), rates);
+  assert.equal(JSON.stringify(rates), before);
+});
+
+test('room shortcut distinguishes a lower displayed price from a reviewable price in the requested currency', () => {
+  const rates = [
+    offer(0, { price: { amount: '0', currency: 'USD' }, offerContext: undefined }),
+    offer(1, { price: { amount: '0.01', currency: 'USD' }, bookHash: 'p-1' }),
+    offer(2, { price: { amount: '0.02', currency: 'AED' } }),
+    offer(3, { price: null }),
+    offer(4, { price: { amount: '9007199254740992.0000002', currency: 'USD' } }),
+    offer(5, { price: { amount: '9007199254740992.0000001', currency: 'USD' } }),
+  ];
+  for (const sort of ['original', 'price']) {
+    const group = choices(rates, { sort }).groups[0];
+    assert.equal(group.fromPrice, rates[0].price);
+    assert.equal(group.lowestReviewable.offer, rates[5]);
+    assert.equal(choices(rates, { sort, currency: 'AED' }).groups[0].lowestReviewable.offer, rates[2]);
+    assert.equal(choices(rates.slice(0, 4), { sort }).groups[0].lowestReviewable, null);
+  }
+  const zero = offer(6, { price: { amount: '0.0000', currency: 'USD' } });
+  assert.equal(choices([...rates, zero]).groups[0].lowestReviewable.offer, zero);
+});
+
+test('the featured rate comes only from the matching room, meal and currently free cancellation terms', () => {
+  const end = '2027-02-15T12:00:00.000Z', cutoff = Date.parse(end);
+  const strict = { freeUntil: null, policies: [{ startAt: null, endAt: null, amount: '4', currency: 'USD' }] };
+  const temporary = { freeUntil: end, policies: [
+    { startAt: null, endAt: end, amount: '0', currency: 'USD' },
+    { startAt: end, endAt: null, amount: '10', currency: 'USD' },
+  ] };
+  const offers = [offer(0, { name: 'Suite', meal: 'breakfast', cancellation: strict }),
+    offer(1, { name: 'Suite', meal: 'nomeal' }), offer(2, { name: 'Suite', meal: 'breakfast', cancellation: temporary }),
+    offer(3, { name: 'Suite', meal: 'breakfast' }), offer(4, { name: 'Twin', meal: 'breakfast', roomIdentity: 'twin' })];
+  const options = { meal: { kind: 'value', value: 'breakfast' }, freeOnly: true, now: cutoff - 1 };
+  const groups = choices(offers, options).groups;
+  assert.deepEqual(groups.map(group => group.lowestReviewable.offer), [offers[2], offers[4]]);
+  assert.equal(choices(offers, { ...options, freeOnly: false }).groups[0].lowestReviewable.offer, offers[0]);
+  const later = choices(offers, { ...options, query: 'suite', now: cutoff });
+  assert.equal(later.groups.length, 1);
+  assert.equal(later.groups[0].lowestReviewable.offer, offers[3]);
+  assert.equal(choices(offers, { ...options, query: 'missing' }).groups.length, 0);
+});
+
 test('decimal comparison avoids floating-point precision errors and rejects malformed amounts', () => {
   assert.equal(Math.sign(compareRoomAmounts('9007199254740993', '9007199254740992')), 1);
   assert.equal(compareRoomAmounts('0001.200', '1.2'), 0);
