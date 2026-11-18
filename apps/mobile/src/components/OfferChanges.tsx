@@ -9,6 +9,7 @@ import { offerChangesCopy, padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
 import Taxes from './Taxes';
 import { roomMealLabel } from './roomChoiceModel';
+import { rateCopy, roomPaymentLabel } from './roomRateFacts';
 
 // The internal renderer receives only model-whitelisted source/derived money.
 // Derived differences can exceed the source field's 128-character length.
@@ -75,6 +76,12 @@ export default function OfferChanges({ before, after }: { before: RoomOffer; aft
           <Txt>{copy.before}: {meal(before)}</Txt><Txt>{copy.after}: {meal(after)}</Txt>
         </View>
       )}
+      {changes.filter(kind => kind === 'bedding' || kind === 'payment').map(kind => <View key={kind} testID={`offer-change-${kind}`} style={{ gap: 6 }}>
+        <Txt kind="label">{copy.kind[kind]}</Txt>
+        {([['before', before], ['after', after]] as const).map(([side, offer]) => <Txt key={side}>
+          {copy[side]} · {kind === 'payment' ? roomPaymentLabel(offer, language) : offer.bedding || rateCopy(language).unknown}
+        </Txt>)}
+      </View>)}
       {nestedChanges.length > 0 && (
         <View style={{ gap: 10 }}>
           {nestedChanges.map(kind => <View key={kind} style={{ gap: 3 }}>

@@ -8,7 +8,7 @@ import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { colors, ui } from '../theme';
 import { useAppState } from '../components/AppState';
-import BrandHeader, { EnvironmentBanner } from '../components/BrandHeader';
+import BrandHeader from '../components/BrandHeader';
 import { Button, Row, StatePanel, Txt } from '../components/Primitives';
 import { formatTripDate } from '../components/tripsModel';
 import { useSavedHotelCards, type SavedHotelCard } from '../components/useSavedHotelCards';
@@ -146,7 +146,7 @@ export default function SavedScreen() {
 
   return (
     <SafeAreaView edges={['top']} style={ui.screen}>
-      <BrandHeader /><EnvironmentBanner />
+      <BrandHeader />
       <FlatList data={visibleIds} keyExtractor={id => String(id)} contentContainerStyle={ui.page}
         renderItem={({ item }) => <SavedCard hid={item} card={metadata.cards.get(item)} canRemove={state.savedReady}
           canViewRooms={state.savedReady && validStay && hotelId(item) !== null} remove={() => remove(item)}

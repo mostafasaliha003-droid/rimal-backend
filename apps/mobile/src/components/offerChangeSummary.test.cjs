@@ -48,6 +48,19 @@ test('changes in source uncertainty require a new review in both comparisons', (
     assert.deepEqual(changedOfferSections(before, after), ['cancellation']);
   }
 });
+test('a lost or newly supplied payment channel or bedding is named in the same before/after comparison used by the gate', () => {
+  const { offerTerms } = load('./offerReviewModel.ts');
+  const before = { ...base(), bedding: 'Twin beds', paymentType: 'deposit' };
+  for (const [after, expected] of [
+    [{ ...before, bedding: 'Double bed' }, ['bedding']],
+    [{ ...before, paymentType: undefined }, ['payment']],
+    [base(), ['bedding', 'payment']],
+  ]) {
+    assert.deepEqual(changedOfferSections(before, after), expected);
+    assert.deepEqual(changedOfferSections(after, before), expected);
+    assert.notEqual(offerTerms(before), offerTerms(after));
+  }
+});
 test('zero, missing amounts and currencies remain distinct, and room changes are not hidden', () => {
   const before = base(), after = base(); after.price.currency = 'AED'; after.taxes[0].amount = null;
   after.name = 'Different suite'; after.roomIdentity = 'different-room';

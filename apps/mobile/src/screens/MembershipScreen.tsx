@@ -7,7 +7,7 @@ import type { MemberState, MemberStatus } from '../api/membership';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { ui } from '../theme';
-import BrandHeader, { EnvironmentBanner } from '../components/BrandHeader';
+import BrandHeader from '../components/BrandHeader';
 import MembershipApplication from '../components/MembershipApplication';
 import { Button, StatePanel, Txt } from '../components/Primitives';
 
@@ -39,7 +39,7 @@ function MembershipContent() {
   const statusLabel = result?.status && statusText[result.status][ar ? 0 : 1];
   const title = ar ? 'عضوية مخدة' : 'pillow stays membership';
   const needsSignIn = !user || result?.enabled && !result.authenticated;
-  return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}><BrandHeader back/><EnvironmentBanner/>
+  return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}><BrandHeader back/>
     <ScrollView contentContainerStyle={ui.page}>
       <Txt kind="title" accessibilityRole="header">{title}</Txt>
       {error ? <StatePanel title={ar ? 'تعذّر تحميل حالة العضوية' : 'Membership status unavailable'} retry={retry}/> :

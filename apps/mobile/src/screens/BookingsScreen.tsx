@@ -7,7 +7,7 @@ import type { BookingHistoryItem } from '../api/bookings';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { colors, fonts, ui } from '../theme';
-import BrandHeader, { EnvironmentBanner } from '../components/BrandHeader';
+import BrandHeader from '../components/BrandHeader';
 import { Button, Field, MoneyText, Row, StatePanel, Txt } from '../components/Primitives';
 import {
   buildTripsModel, filterTrips, formatTripDate, localTodayKey,
@@ -211,7 +211,7 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
 
   return (
     <SafeAreaView edges={['top']} style={ui.screen}>
-      <BrandHeader /><EnvironmentBanner />
+      <BrandHeader />
       {status === 'signedIn' && current && !current.error && current.bookings.length > 0 ? (
         <SectionList sections={sections} keyExtractor={row => row.booking.reference}
           renderItem={({ item }) => <BookingCard row={item} today={today} />}

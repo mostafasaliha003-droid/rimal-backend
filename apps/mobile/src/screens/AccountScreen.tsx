@@ -7,7 +7,7 @@ import { websiteUrl } from '../api';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { colors, fonts, ui } from '../theme';
-import BrandHeader, { EnvironmentBanner } from '../components/BrandHeader';
+import BrandHeader from '../components/BrandHeader';
 import { Button, Field, Row, StatePanel, Txt } from '../components/Primitives';
 import { normalizeVerificationCode, registrationFormReady } from '../components/foundationContracts';
 
@@ -22,7 +22,7 @@ function AccountContents() {
   const website=async()=>{try{await WebBrowser.openBrowserAsync(websiteUrl('/account'),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
   const openPolicy=async(path:'/privacy'|'/terms')=>{try{await WebBrowser.openBrowserAsync(websiteUrl(path),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
   const visibleError=error||(status==='signedOut'&&sessionError?t('authError'):'');
-  return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader/><EnvironmentBanner/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}><View style={{gap:10}}><Txt kind="title" accessibilityRole="header">{t('welcome')}</Txt><Txt style={{color:colors.muted}}>{t('accountBody')}</Txt></View>
+  return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}><View style={{gap:10}}><Txt kind="title" accessibilityRole="header">{t('welcome')}</Txt><Txt style={{color:colors.muted}}>{t('accountBody')}</Txt></View>
     {status==='loading'?<StatePanel title={t('accountChecking')} busy/>:user?<><View style={ui.card}><View style={{width:60,height:60,borderRadius:30,backgroundColor:colors.softBlue,justifyContent:'center',alignItems:'center',alignSelf:'center'}}><Txt style={{fontFamily:fonts.bold,fontSize:25,color:colors.blueStrong}}>{user.name.trim().slice(0,1).toLocaleUpperCase()}</Txt></View><Txt kind="heading" style={{textAlign:'center'}}>{user.name}</Txt><Txt style={{textAlign:'center',writingDirection:'ltr'}}>{user.email}</Txt><Txt kind="small" style={{color:colors.success,textAlign:'center'}}>{t('profileReady')}</Txt><View style={ui.rule}/><Button variant="secondary" title={t('bookingsTitle')} onPress={()=>router.navigate('/bookings')}/><Button variant="secondary" title={t('myBookings')} onPress={()=>void website()}/><Txt kind="small">{t('websiteBody')}</Txt></View><View style={ui.card}><Txt kind="small">{t('accountSecurity')}</Txt><Button variant="quiet" title={t('signOut')} busy={busy} onPress={()=>{setBusy(true);void signOut().catch(()=>setError(t('authError'))).finally(()=>setBusy(false));}}/><Button variant="secondary" title={t('accountDeletion')} onPress={()=>router.push('/account-deletion')}/></View></>:<View style={ui.card}>
       <Row>{(['login','register'] as const).map(value=><View key={value} style={{flex:1}}><Button title={t(value==='login'?'signIn':'createAccount')} variant={mode===value?'primary':'secondary'} disabled={busy} onPress={()=>{setMode(value);setError('');setPassword('');}}/></View>)}</Row>
       {mode==='register'&&<Field label={t('name')} value={name} onChangeText={setName} autoComplete="name" textContentType="name" maxLength={120}/>}

@@ -20,7 +20,7 @@ export interface CancellationInterval {
 }
 export interface RoomOffer {
   id: string; name: string; bookHash: string; offerContext?: string; roomIdentity?: string;
-  price: Money | null; meal?: string; images: string[]; taxes: Tax[];
+  price: Money | null; meal?: string; bedding?: string; paymentType?: 'deposit'; images: string[]; taxes: Tax[];
   cancellation: { freeUntil: string | null; policies: CancellationInterval[]; freeUntilInvalid?: true; incomplete?: true };
 }
 export interface HotelSummary {

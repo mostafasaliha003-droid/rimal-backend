@@ -10,6 +10,55 @@ const offer = (index, change = {}) => ({ id: `offer-${index}`, name: 'Twin room'
   cancellation: { freeUntil: null, policies: [{ startAt: null, endAt: null, amount: '0', currency: 'USD' }] }, ...change });
 const choices = (offers, options = {}) => buildRoomChoices(offers, { currency: 'USD', ...options });
 
+test('rate summaries use confirmed payment and bed, exact source totals and individual property currencies', () => {
+  const { normalizeOffers } = load(path.join(__dirname, '../api/adapters.ts'));
+  const { roomRateFacts } = load(path.join(__dirname, 'roomRateFacts.ts'));
+  const base = { room_name: 'Twin', book_hash: 'h-room', customer_display_amount: '136.0001', customer_display_currency: 'USD', meal: 'nomeal' };
+  const taxes = ['EUR', 'AED'].map(currency_code => ({ name: 'city_tax', currency_code, amount: '0.0123', included_by_supplier: false }));
+  const [prepaid, unconfirmed] = normalizeOffers([
+    { ...base, room_data_trans: { bedding_type: '2 single beds' }, payment_options: { payment_types: [{ type: 'deposit', tax_data: { taxes } }] } },
+    { ...base, room_data_trans: { bedding_type: 2 }, payment_options: { payment_types: [{ type: 'hotel', tax_data: { taxes } }] } },
+  ]);
+  const facts = roomRateFacts(prepaid, 'en', 0), missing = roomRateFacts(unconfirmed, 'ar', 0);
+  assert.equal(facts.price, 'USD 136.0001');
+  assert.equal(facts.bedding, '2 single beds');
+  assert.equal(facts.meal, 'Room only');
+  assert.equal(facts.payment, 'Through Mkhadda');
+  assert.equal(facts.fees, 'EUR 0.0123 + AED 0.0123');
+  assert.equal(missing.bedding, 'غير محدد');
+  assert.equal(missing.payment, 'غير محدد');
+  assert.equal(missing.fees, 'الرسوم غير محددة');
+});
+
+test('visible cancellation summary stops at the verified free interval even with a later advisory deadline', () => {
+  const { roomRateFacts } = load(path.join(__dirname, 'roomRateFacts.ts'));
+  const firstEnd = '2030-01-01T12:00:00Z', lastEnd = '2030-01-01T15:00:00Z';
+  const rate = offer(0, { cancellation: { freeUntil: lastEnd, policies: [
+    { startAt: null, endAt: firstEnd, amount: '0', currency: 'USD' },
+    { startAt: lastEnd, endAt: null, amount: '37.01', currency: 'USD' },
+  ] } });
+  assert.match(roomRateFacts(rate, 'en', Date.parse(firstEnd) - 1).cancellation, /12:00.*UTC/);
+  assert.equal(roomRateFacts(rate, 'en', Date.parse(firstEnd)).cancellation, 'Not specified');
+  assert.equal(roomRateFacts(rate, 'en', Date.parse(lastEnd)).cancellation, 'Fee now · USD 37.01');
+});
+
+test('the comparison detects different future penalties and tax lines even when visible summaries agree', () => {
+  const { roomFactKeys, roomRateFacts } = load(path.join(__dirname, 'roomRateFacts.ts'));
+  const edge = '2030-01-01T12:00:00Z', now = Date.parse(edge) - 1;
+  const variant = (charge, taxName, price) => offer(0, { price: { currency: 'USD', amount: price },
+    taxes: [{ name: taxName, currency_code: 'USD', amount: '6', included_by_supplier: false }],
+    cancellation: { freeUntil: edge, policies: [
+      { startAt: null, endAt: edge, amount: '0', currency: 'USD' },
+      { startAt: edge, endAt: null, amount: charge, currency: 'USD' },
+    ] } });
+  const a = variant('20', 'city_tax', '70'), b = variant('40', 'service_fee', '70.00');
+  assert.equal(roomRateFacts(a,'en',now).cancellation, roomRateFacts(b,'en',now).cancellation);
+  assert.equal(roomRateFacts(a,'en',now).fees, roomRateFacts(b,'en',now).fees);
+  assert.equal(roomFactKeys(a).price, roomFactKeys(b).price);
+  assert.notEqual(roomFactKeys(a).cancellation, roomFactKeys(b).cancellation);
+  assert.notEqual(roomFactKeys(a).fees, roomFactKeys(b).fees);
+});
+
 test('stay summary uses English quantity nouns and explicit Arabic quantity labels', () => {
   const { roomChoiceCopy } = load(path.join(__dirname, 'roomChoiceCopy.ts'));
   assert.equal(roomChoiceCopy('en').staySummary(1, 1), '1 guest · 1 room');

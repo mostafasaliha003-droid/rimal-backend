@@ -20,11 +20,11 @@ export const tokens = {
 };
 export const ui = StyleSheet.create({
   screen: { flex: 1, backgroundColor: colors.background, direction: 'ltr' },
-  page: { padding: 20, gap: 18, paddingBottom: 36, width: '100%', maxWidth: 880, alignSelf: 'center' },
+  page: { padding: 16, gap: 16, paddingBottom: 28, width: '100%', maxWidth: 880, alignSelf: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: 12 },
-  card: { backgroundColor: colors.surface, borderRadius: 22, padding: 20, borderWidth: 1, borderColor: colors.border, gap: 14 },
-  title: { fontFamily: fonts.bold, fontSize: 28, lineHeight: 38, color: colors.navy },
-  heading: { fontFamily: fonts.bold, fontSize: 21, lineHeight: 30, color: colors.navy },
+  card: { backgroundColor: colors.surface, borderRadius: 18, padding: 16, borderWidth: 1, borderColor: colors.border, gap: 12 },
+  title: { fontFamily: fonts.bold, fontSize: 26, lineHeight: 35, color: colors.navy },
+  heading: { fontFamily: fonts.bold, fontSize: 20, lineHeight: 28, color: colors.navy },
   text: { fontFamily: fonts.regular, fontSize: 16, lineHeight: 25, color: colors.ink },
   small: { fontFamily: fonts.regular, fontSize: 14, lineHeight: 21, color: colors.muted },
   label: { fontFamily: fonts.bold, fontSize: 14, lineHeight: 22, color: colors.navy },

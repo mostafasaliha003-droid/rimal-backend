@@ -7,7 +7,7 @@ import { api, ApiError, authSession, websiteUrl } from '../api';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { colors, fonts, ui } from '../theme';
-import BrandHeader, { EnvironmentBanner } from '../components/BrandHeader';
+import BrandHeader from '../components/BrandHeader';
 import { Button, Field, Row, StatePanel, Txt } from '../components/Primitives';
 import { utcTimestamp } from '../components/Cancellation';
 
@@ -87,7 +87,7 @@ function AccountDeletionContents({ status, sessionRevision, email }: Owner) {
   const errorCopy = unavailable ? 'deletionUnavailable' : view.phase === 'uncertain' ? 'deletionUnknownOutcome' : 'deletionCheckError';
   const receipt = view.request;
 
-  return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}><BrandHeader back/><EnvironmentBanner/>
+  return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}><BrandHeader back/>
     <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}>
         <View style={{ gap: 10 }}><Txt accessibilityRole="header" kind="title">{t('accountDeletion')}</Txt><Txt>{t('deletionIntro')}</Txt></View>

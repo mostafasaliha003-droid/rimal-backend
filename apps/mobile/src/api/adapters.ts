@@ -89,9 +89,11 @@ export function normalizeOffers(value: unknown, hotel: unknown = {}): RoomOffer[
     const payment = array(object(rate.payment_options).payment_types).map(object).find(item => item.type === 'deposit');
     const key = classification(rate.rg_ext);
     const matched = key ? groups.map(object).filter(group => classification(group.rg_ext) === key) : [];
+    const bedding = label(object(rate.room_data_trans).bedding_type);
     return [{ id: `${rate.book_hash}:${index}`, name, bookHash: rate.book_hash, ...(key ? { roomIdentity: key } : {}),
       ...(typeof rate.offer_context === 'string' && rate.offer_context.length <= 131072 ? { offerContext: rate.offer_context } : {}),
       price: customerPrice(rate), ...(typeof rate.meal === 'string' ? { meal: rate.meal } : {}),
+      ...(payment ? { paymentType: 'deposit' as const } : {}), ...(bedding ? { bedding } : {}),
       images: matched.flatMap(group => images(group.images_ext, group.images)),
       taxes: array(object(payment?.tax_data).taxes).map(value => {
         const tax = object(value);

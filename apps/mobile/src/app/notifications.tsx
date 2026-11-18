@@ -7,7 +7,7 @@ import type { OwnedNotice } from '../api/notifications';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { ui } from '../theme';
-import BrandHeader, { EnvironmentBanner } from '../components/BrandHeader';
+import BrandHeader from '../components/BrandHeader';
 import { Button, StatePanel, Txt } from '../components/Primitives';
 import { statusText } from '../screens/MembershipScreen';
 
@@ -24,7 +24,7 @@ function NoticeList({ signedIn, loading }: { signedIn: boolean; loading: boolean
   }, [signedIn, attempt]));
   const title = rtl ? 'الإشعارات' : 'Notifications';
   const refresh = () => setAttempt(value => value + 1);
-  return <SafeAreaView style={ui.screen}><BrandHeader back/><EnvironmentBanner/><ScrollView contentContainerStyle={ui.page}>
+  return <SafeAreaView style={ui.screen}><BrandHeader back/><ScrollView contentContainerStyle={ui.page}>
     <Txt kind="title" accessibilityRole="header">{title}</Txt>
     {loading || signedIn && result?.attempt !== attempt ? <StatePanel title={t('loading')} busy/> :
       !signedIn ? <Button title={t('signIn')} onPress={() => router.navigate('/account')}/> :

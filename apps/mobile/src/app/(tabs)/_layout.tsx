@@ -1,13 +1,23 @@
 import React from 'react';
+import { ColorValue, View, useWindowDimensions } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../i18n';
 import { colors, fonts, localizedFont } from '../../theme';
 import { Icon } from '../../components/Primitives';
 
+function tabIcon(name: 'search'|'saved'|'trips'|'account') {
+  return function TabIcon({ color, focused }: { color: ColorValue | null; focused: boolean }) {
+    return <View style={{ width: 40, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: focused ? colors.softBlue : 'transparent' }}>
+      <Icon name={name} size={23} color={color}/>
+    </View>;
+  };
+}
+
 export default function TabLayout() {
   const { t, rtl, language } = useLanguage();
   const insets = useSafeAreaInsets();
+  const { fontScale } = useWindowDimensions();
   return <Tabs screenOptions={{
     headerShown: false,
     tabBarActiveTintColor: colors.blueStrong,
@@ -15,14 +25,14 @@ export default function TabLayout() {
     tabBarLabelStyle: { fontFamily: localizedFont(language, fonts.bold), fontSize: 12 },
     tabBarStyle: {
       backgroundColor: colors.surface, borderTopColor: colors.border,
-      height: 68 + insets.bottom, paddingTop: 10,
-      paddingBottom: Math.max(12, insets.bottom), direction: rtl ? 'rtl' : 'ltr',
+      height: 60 + insets.bottom + Math.max(0, fontScale - 1) * 16, paddingTop: 3,
+      paddingBottom: insets.bottom + 3, direction: rtl ? 'rtl' : 'ltr',
     },
     tabBarItemStyle: { minHeight: 52 },
   }}>
-    <Tabs.Screen name="index" options={{ title: t('explore'), tabBarIcon: ({ color }) => <Icon name="search" color={color}/> }}/>
-    <Tabs.Screen name="saved" options={{ title: t('saved'), tabBarIcon: ({ color }) => <Icon name="saved" color={color}/> }}/>
-    <Tabs.Screen name="bookings" options={{ title: t('trips'), tabBarIcon: ({ color }) => <Icon name="trips" color={color}/> }}/>
-    <Tabs.Screen name="account" options={{ title: t('account'), tabBarIcon: ({ color }) => <Icon name="account" color={color}/> }}/>
+    <Tabs.Screen name="index" options={{ title: t('explore'), tabBarIcon: tabIcon('search') }}/>
+    <Tabs.Screen name="saved" options={{ title: t('saved'), tabBarIcon: tabIcon('saved') }}/>
+    <Tabs.Screen name="bookings" options={{ title: t('trips'), tabBarIcon: tabIcon('trips') }}/>
+    <Tabs.Screen name="account" options={{ title: t('account'), tabBarIcon: tabIcon('account') }}/>
   </Tabs>;
 }

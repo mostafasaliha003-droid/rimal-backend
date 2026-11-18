@@ -3,6 +3,15 @@ import { addDays, todayDate, validDate } from './calendarModel';
 
 export type QuickStay = 'tonight' | 'tomorrow' | 'nextWeek';
 
+export function displayTravelDate(value: string, language: string) {
+  if (!validDate(value)) return value;
+  const locale = language === 'ar' ? 'ar-u-nu-arab' : 'en-GB';
+  const showYear = Number(value.slice(0, 4)) !== new Date().getFullYear();
+  // Keep the supplier's calendar day when formatting from any device time zone.
+  return new Intl.DateTimeFormat(locale, { day: 'numeric', month: 'short', year: showYear ? 'numeric' : undefined, calendar: 'gregory', timeZone: 'UTC' })
+    .format(new Date(`${value}T00:00:00Z`));
+}
+
 // Use the device's local calendar day before doing calendar-day arithmetic.
 export function quickStayDates(kind: QuickStay, now = new Date()) {
   const today = todayDate(now);

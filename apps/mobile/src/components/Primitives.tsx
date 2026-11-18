@@ -36,14 +36,23 @@ export function MoneyText({ money, large = false }: { money: Money | null | unde
   return <Txt style={{ color: colors.navy, fontFamily: fonts.bold, fontSize: large ? 26 : 21, lineHeight: large ? 36 : 30 }}>{text}</Txt>;
 }
 export function StatePanel({ title, body, retry, busy = false }: { title: string; body?: string; retry?: () => void; busy?: boolean }) { const { t } = useLanguage(); return <View style={[ui.card, { alignItems: 'stretch', paddingVertical: 30 }]}>{busy && <ActivityIndicator size="large" color={colors.blueStrong} />}<Txt kind="heading" accessibilityRole={busy ? 'text' : 'header'}>{title}</Txt>{body && <Txt style={{ color: colors.muted }}>{body}</Txt>}{retry && <Button variant="secondary" title={t('retry')} onPress={retry} />}</View>; }
-export function Icon({ name, color = colors.navy, size = 24 }: { name: 'search'|'saved'|'trips'|'account'|'support'; color?: ColorValue | null; size?: number }) {
-  color = color || colors.navy;
-  if (name === 'trips') return <View accessible={false} style={{ width: size, height: size, alignItems: 'center', justifyContent: 'center' }}>
-    <View style={{ width: size * .42, height: size * .26, borderWidth: 2, borderBottomWidth: 0, borderColor: color, borderTopLeftRadius: 3, borderTopRightRadius: 3 }}/>
-    <View style={{ width: size * .9, height: size * .6, borderRadius: 3, borderWidth: 2, borderColor: color }}/>
-  </View>;
-  if (name === 'search') return <View accessible={false} style={{ width: size, height: size }}><View style={{ width: size*.65, height: size*.65, borderRadius: size, borderWidth: 2, borderColor: color, left: 1, top: 1 }} /><View style={{ width: size*.4, height: 2, backgroundColor: color, transform: [{ rotate: '45deg' }], position: 'absolute', right: 0, bottom: 4 }} /></View>;
-  if (name === 'account') return <View accessible={false} style={{ width: size, height: size, alignItems: 'center', gap: 3 }}><View style={{ width: size*.4, height: size*.4, borderRadius: size, borderWidth: 2, borderColor: color }} /><View style={{ width: size*.8, height: size*.42, borderTopLeftRadius: size, borderTopRightRadius: size, borderWidth: 2, borderColor: color }} /></View>;
-  return <Text accessible={false} style={{ color, fontSize: size + 2, lineHeight: size + 4 }}>{name === 'saved' ? '♡' : '?'}</Text>;
+const icons = {
+  search: require('../../assets/icons/search.png'), saved: require('../../assets/icons/saved.png'),
+  trips: require('../../assets/icons/trips.png'), account: require('../../assets/icons/account.png'),
+  support: require('../../assets/icons/support.png'), calendar: require('../../assets/icons/calendar.png'),
+  filter: require('../../assets/icons/filter.png'), map: require('../../assets/icons/map.png'), pin: require('../../assets/icons/pin.png'),
+  chevron: require('../../assets/icons/chevron.png'), back: require('../../assets/icons/back.png'), bed: require('../../assets/icons/bed.png'),
+  users: require('../../assets/icons/users.png'), check: require('../../assets/icons/check.png'), info: require('../../assets/icons/info.png'),
+  meal: require('../../assets/icons/meal.png'), compare: require('../../assets/icons/compare.png'), close: require('../../assets/icons/close.png'),
+  clock: require('../../assets/icons/clock.png'),
+};
+export function Icon({ name, color, size = 24 }: { name: keyof typeof icons; color?: ColorValue | null; size?: number }) {
+  const { rtl } = useLanguage();
+  const mirror = rtl && (name === 'back' || name === 'chevron');
+  return <Image accessible={false} accessibilityElementsHidden importantForAccessibility="no" source={icons[name]}
+    resizeMode="contain" style={{ width: size, height: size, flexShrink: 0, tintColor: color || colors.navy, transform: [{scaleX: mirror ? -1 : 1}] }}/>;
 }
-const styles = StyleSheet.create({ button: { minHeight: 52, borderRadius: 14, paddingHorizontal: 20, paddingVertical: 13, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 10 }, buttonText: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 24, textAlign: 'center' } });
+const styles = StyleSheet.create({
+  button: { minHeight: 48, borderRadius: 14, paddingHorizontal: 16, paddingVertical: 10, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', gap: 8 },
+  buttonText: { fontFamily: fonts.bold, fontSize: 16, lineHeight: 24, flexShrink: 1, textAlign: 'center' },
+});

@@ -109,6 +109,27 @@ test('only the exact review displayed to the traveler can be accepted, through r
   assert.equal(f.session.getHandoff(), null);
   assert.equal(f.session.getCheckoutReview(), null);
 });
+test('new, changed or withdrawn bed and payment facts require explicit acceptance of the returned offer', async () => {
+  for (const [before, after] of [
+    [{}, { bedding: 'Twin beds' }], [{ bedding: 'Twin beds' }, { bedding: 'Double bed' }],
+    [{ bedding: 'Double bed' }, {}], [{ paymentType: 'deposit' }, {}], [{}, { paymentType: 'deposit' }],
+  ]) {
+    const f = fixture((_hid, selected) => {
+      const next = result(selected);
+      delete next.offer.bedding; delete next.offer.paymentType;
+      Object.assign(next.offer, after);
+      return next;
+    });
+    f.setDraft({ ...f.draft, offer: { ...f.draft.offer, ...before } });
+    await f.session.recheck();
+    assert.equal(f.session.presentation().status, 'changed');
+    assert.equal(f.session.getCheckoutReview(), null);
+    assert.equal(f.session.getHandoff(), null);
+    f.session.acceptChanges(f.session.presentation().confirmationRevision);
+    assert.ok(f.session.getCheckoutReview());
+    assert.ok(f.session.getHandoff());
+  }
+});
 test('a newly supplied room classification also requires review before continuing', async () => {
   const f = fixture((hid, selected) => {
     const next = result(selected);

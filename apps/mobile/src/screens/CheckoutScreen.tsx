@@ -10,7 +10,7 @@ import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import type { GuestRoom, RoomOffer } from '../types';
 import { colors, fonts, ui } from '../theme';
-import BrandHeader, { EnvironmentBanner } from '../components/BrandHeader';
+import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import { useCheckoutSession } from '../components/useCheckoutSession';
 import type { CheckoutQuoteView, CheckoutSelection } from '../components/checkoutSessionModel';
@@ -88,7 +88,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
     price: selected.review.offer.price, taxes: selected.review.offer.taxes, cancellation: selected.review.offer.cancellation } : null;
   const existing = session.hasRecovery || session.attempt !== null;
   return <SafeAreaView edges={['top','bottom']} style={ui.screen}>
-    <BrandHeader back/><EnvironmentBanner/>
+    <BrandHeader back/>
     <KeyboardAvoidingView style={{ flex: 1 }} enabled={Platform.OS !== 'web'} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'} contentContainerStyle={ui.page}>
         <View style={{ gap: 6 }}><Txt kind="title" accessibilityRole="header">{copy.title}</Txt><Txt>{copy.intro}</Txt></View>

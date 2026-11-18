@@ -2,7 +2,7 @@ import type { Money, RoomOffer } from '../types';
 import { canonicalDecimal, cancellationTermsKey, taxTermsKey } from './offerReviewModel';
 import { compareDecimalAmounts } from './resultsDecisionModel';
 
-export type OfferChangeKind = 'price' | 'room' | 'meal' | 'taxes' | 'cancellation';
+export type OfferChangeKind = 'price' | 'room' | 'bedding' | 'meal' | 'payment' | 'taxes' | 'cancellation';
 const money = (amount: string | null, currency: string | null) => [amount === null ? null : canonicalDecimal(amount), currency];
 const priceKey = (offer: RoomOffer) => JSON.stringify(offer.price ? money(offer.price.amount, offer.price.currency) : null);
 
@@ -59,7 +59,9 @@ export function changedOfferSections(before: RoomOffer, after: RoomOffer): Offer
   const changes: OfferChangeKind[] = [];
   if (priceKey(before) !== priceKey(after)) changes.push('price');
   if (before.name !== after.name || before.roomIdentity !== after.roomIdentity) changes.push('room');
+  if ((before.bedding ?? null) !== (after.bedding ?? null)) changes.push('bedding');
   if ((before.meal ?? null) !== (after.meal ?? null)) changes.push('meal');
+  if ((before.paymentType ?? null) !== (after.paymentType ?? null)) changes.push('payment');
   if (taxTermsKey(before.taxes) !== taxTermsKey(after.taxes)) changes.push('taxes');
   if (cancellationTermsKey(before.cancellation) !== cancellationTermsKey(after.cancellation)) changes.push('cancellation');
   return changes;

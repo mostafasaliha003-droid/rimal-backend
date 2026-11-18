@@ -6,7 +6,7 @@ import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { colors, tokens, ui } from '../theme';
 import { useAppState } from '../components/AppState';
-import BrandHeader, { EnvironmentBanner } from '../components/BrandHeader';
+import BrandHeader from '../components/BrandHeader';
 import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 
 const copy = {
@@ -50,7 +50,7 @@ function CompareContents() {
     router.push({ pathname: '/hotel/[hid]', params: { hid: String(hid) } });
   };
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
-    <BrandHeader back/><EnvironmentBanner/>
+    <BrandHeader back/>
     <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
       <View style={ui.page}>
         <View style={{ gap: 8 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{L.count} · {items.length}/3</Txt>
