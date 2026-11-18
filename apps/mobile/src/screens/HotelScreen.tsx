@@ -98,7 +98,7 @@ function RoomGroup({ group, requestedCurrency, onReview, reviewError, onRefresh,
 
 function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetails; hid: number; criteria: SearchCriteria; onRefresh: () => void }) {
   const { language, t } = useLanguage(); const copy = roomChoiceCopy(language);
-  const { saved, toggleSaved, savedReady, setReviewDraft } = useAppState();
+  const { saved, toggleSaved, savedReady, savedErrorKind, retrySaved, setReviewDraft } = useAppState();
   const { status: authStatus, sessionRevision } = useAuth();
   const router = useRouter(); const { width, fontScale } = useWindowDimensions();
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
@@ -145,7 +145,9 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
         </View><Pressable accessibilityRole="button" accessibilityLabel={t(savedHere ? 'removeSaved' : 'saveStay')} aria-pressed={savedHere}
           accessibilityState={{ disabled: !savedReady, selected: savedHere }} disabled={!savedReady} onPress={() => toggleSaved(hid)}
           style={[styles.save, { opacity: savedReady ? 1 : .5 }]}><Txt accessible={false} style={{ fontSize: 25, color: colors.blueStrong }}>{savedHere ? '♥' : '♡'}</Txt></Pressable></Row>
-        <HotelGallery images={hotel.images} name={hotel.name}/>
+        {savedErrorKind && <View style={ui.card}><Txt accessibilityRole="alert">{t(savedErrorKind === 'load' ? 'savedError' : 'savedSaveFailed')}</Txt>
+        <Button variant="quiet" title={t('retry')} onPress={() => void retrySaved()}/></View>}
+      <HotelGallery images={hotel.images} name={hotel.name}/>
         <View style={styles.stay}><Txt kind="label" style={{ writingDirection: 'ltr' }}>{criteria.checkin} → {criteria.checkout}</Txt>
           <Txt kind="small">{copy.staySummary(guestCount, criteria.guests.length)}</Txt></View>
         <Button title={`${copy.chooseRooms} · ${copy.ratePlans(hotel.offers.length)}`} onPress={() => jump('rooms')}/>

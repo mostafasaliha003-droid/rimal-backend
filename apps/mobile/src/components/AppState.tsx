@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HotelSummary, SearchCriteria } from '../types';
 import { APP_ENV, authSession } from '../api';
@@ -9,11 +9,15 @@ import type { CheckoutSelection } from './checkoutSessionModel';
 import { addRecentSearch, comparisonItemsFor, emptyComparison, emptyRecentSearches, recentSearchesFor,
   removeComparisonSelection, toggleComparisonSelection, type ComparisonHotel, type ComparisonOutcome,
   type ComparisonSelection, type RecentSearch, type RecentSearchSelection } from './discoverySessionModel';
+import { createSavedHotelsStore, savedSearchSetup } from './savedHotelsModel';
 
 export type { ComparisonHotel, RecentSearch } from './discoverySessionModel';
 
 type State = { criteria: SearchCriteria | null; destinationName: string; setSearch: (criteria: SearchCriteria, name: string) => void;
+  setSavedSearch: (criteria: SearchCriteria) => void;
   saved: number[]; savedReady: boolean; savedError: boolean; toggleSaved: (hid: number) => void;
+  savedLoading: boolean; savedPending: boolean; savedErrorKind: 'load' | 'save' | null;
+  removeSaved: (hid: number) => void; restoreSaved: (hid: number, index: number) => void; retrySaved: () => Promise<boolean>;
   reviewDraft: OfferReviewDraft | null; setReviewDraft: (input: OfferReviewInput) => boolean;
   getReviewDraft: () => OfferReviewDraft | null; clearReviewDraft: () => void;
   getCheckoutReview: () => CheckoutSelection | null;
@@ -25,7 +29,6 @@ type State = { criteria: SearchCriteria | null; destinationName: string; setSear
   removeComparison: (hid: number, expectedContextKey: string) => void; clearComparison: () => void;
   recentSearches: RecentSearch[]; getRecentSearches: () => RecentSearch[]; clearRecentSearches: () => void };
 const Context = createContext<State | null>(null);
-const SAVED_KEY = 'remal.savedHotelIds.v1';
 const ownerKey = () => `${APP_ENV}:${authSession.getSnapshot().status}:${authSession.getRevision()}`;
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const { status: authStatus, sessionRevision } = useAuth();
@@ -34,6 +37,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   useEffect(() => { languageRef.current = language; }, [language]);
   const [criteria, setCriteria] = useState<SearchCriteria | null>(null); const [destinationName, setDestinationName] = useState('');
   const criteriaRef = useRef<SearchCriteria | null>(null);
+  const destinationNameRef = useRef('');
   const comparisonRef = useRef<ComparisonSelection>(emptyComparison());
   const [comparison, storeComparison] = useState<ComparisonSelection>(emptyComparison);
   const recentRef = useRef<RecentSearchSelection>(emptyRecentSearches());
@@ -93,9 +97,25 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     draftRef.current = draft; storeDraft(draft); return true;
   }, []);
   useEffect(() => { if (draftRef.current && draftRef.current.ownerKey !== ownerKey()) clearReviewDraft(); }, [authStatus, sessionRevision, clearReviewDraft]);
-  const [saved, setSaved] = useState<number[]>([]); const [savedReady, ready] = useState(false); const [savedError, fail] = useState(false);
-  useEffect(() => { let active = true; AsyncStorage.getItem(SAVED_KEY).then(raw => { if (!active) return; const parsed: unknown = raw ? JSON.parse(raw) : []; if (Array.isArray(parsed)) setSaved([...new Set(parsed.filter((value): value is number => Number.isSafeInteger(value) && value > 0))].slice(0, 100)); }).catch(() => { if (active) fail(true); }).finally(() => { if (active) ready(true); }); return () => { active = false; }; }, []);
-  const toggleSaved = (hid: number) => { if (!savedReady || !Number.isSafeInteger(hid) || hid <= 0) return; const next = saved.includes(hid) ? saved.filter(id => id !== hid) : [...saved, hid].slice(-100); setSaved(next); void AsyncStorage.setItem(SAVED_KEY, JSON.stringify(next)).then(() => fail(false)).catch(() => fail(true)); };
+  const [savedStore] = useState(() => createSavedHotelsStore(AsyncStorage));
+  const [savedSnapshot, storeSavedSnapshot] = useState(() => savedStore.getSnapshot());
+  useEffect(() => {
+    const unsubscribe = savedStore.subscribe(() => storeSavedSnapshot(savedStore.getSnapshot()));
+    void savedStore.load();
+    return unsubscribe;
+  }, [savedStore]);
+  // Keep the public legacy array isolated from the store's immutable desired
+  // state; acknowledgement-only updates must not change search-plan identity.
+  const saved = useMemo(() => [...savedSnapshot.saved], [savedSnapshot.saved]);
+  const toggleSaved = useCallback((hid: number) => savedStore.toggle(hid), [savedStore]);
+  const removeSaved = useCallback((hid: number) => savedStore.remove(hid), [savedStore]);
+  const restoreSaved = useCallback((hid: number, index: number) => savedStore.restore(hid, index), [savedStore]);
+  const retrySaved = useCallback(() => savedStore.retry(), [savedStore]);
+  const setSavedSearch = useCallback((value: SearchCriteria) => {
+    const next = savedSearchSetup(value, criteriaRef.current, destinationNameRef.current);
+    criteriaRef.current = next.criteria; destinationNameRef.current = next.destinationName;
+    clearReviewDraft(); clearComparison(); setCriteria(next.criteria); setDestinationName(next.destinationName);
+  }, [clearReviewDraft, clearComparison]);
   const reviewDraft = storedDraft && storedDraft.ownerKey === ownerKey() && storedDraft.searchKey === criteriaIdentity(criteria) ? storedDraft : null;
   const comparisonContextKey = criteria && authStatus !== 'loading'
     ? JSON.stringify([`${APP_ENV}:${authStatus}:${sessionRevision}`, criteriaIdentity(criteria), language]) : '';
@@ -103,11 +123,13 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   const recentSearches = recentSearchesFor(recent, authSession.getSnapshot().status === 'loading' ? '' : ownerKey());
   return <Context.Provider value={{ criteria, destinationName, setSearch: (value, name) => {
     const next = copyCriteria(value);
-    criteriaRef.current = next; clearReviewDraft(); clearComparison(); setCriteria(next); setDestinationName(name);
+    criteriaRef.current = next; destinationNameRef.current = name; clearReviewDraft(); clearComparison(); setCriteria(next); setDestinationName(name);
     if (authSession.getSnapshot().status !== 'loading') {
       recentRef.current = addRecentSearch(recentRef.current, ownerKey(), next, name); storeRecent(recentRef.current);
     }
-  }, saved, savedReady, savedError, toggleSaved, reviewDraft, setReviewDraft, getReviewDraft, clearReviewDraft,
+  }, setSavedSearch, saved, savedReady: savedSnapshot.ready, savedError: savedSnapshot.errorKind !== null,
+    savedLoading: savedSnapshot.loading, savedPending: savedSnapshot.pending, savedErrorKind: savedSnapshot.errorKind,
+    toggleSaved, removeSaved, restoreSaved, retrySaved, reviewDraft, setReviewDraft, getReviewDraft, clearReviewDraft,
     getCheckoutReview, setCheckoutReviewAuthority, clearCheckoutReview,
     comparisonContextKey, comparisonItems, getComparisonItems, toggleComparison, removeComparison, clearComparison,
     recentSearches, getRecentSearches, clearRecentSearches }}>{children}</Context.Provider>;

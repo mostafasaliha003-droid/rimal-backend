@@ -4,6 +4,8 @@ Native Android application foundation operated by **Remal Tourism**, using the e
 
 The owner-approved store name is **مخدّة | Mkhadda**. The planned, configured production package is `com.remalbookings.app`; its first-AAB/Play assignment is not yet verified. The isolated development package is `com.remalbookings.app.preview`. Play Console's application dashboard was observed after the owner completed phone verification and created the unpublished draft. A staging test APK is available; no Play upload or public release is claimed.
 
+Version 0.7 lets travelers manage saved hotels immediately after reopening the app. The device retains hotel IDs. The Saved tab loads descriptive hotel information in small batches. Travelers can set dates and guests without re-entering a destination and then request prices for their shortlist. Hotels stay in the shortlist when no rate is returned.
+
 Version 0.6 adds a Trips tab at the existing `/bookings` address. Travelers can find an account booking by hotel name or reference and filter it by stay dates. Today includes departure day. Missing dates remain visible. Booking status and recorded amounts come from the existing owned history. Search and filters run on the device and reset when the signed-in session changes.
 
 ## Source repository
