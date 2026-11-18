@@ -32,14 +32,15 @@ export default function CalendarPicker({ initialField, checkin, checkout, onSele
   const focusDay = useRef<React.ComponentRef<typeof Pressable>>(null);
   const shouldFocusDay = useRef(false);
   const format = useMemo(() => {
+    const locale = rtl ? 'ar-u-nu-arab' : language;
     const options = { timeZone: 'UTC', calendar: 'gregory' };
-    const weekdays = new Intl.DateTimeFormat(language, { ...options, weekday: rtl ? 'narrow' : 'short' });
+    const weekdays = new Intl.DateTimeFormat(locale, { ...options, weekday: rtl ? 'narrow' : 'short' });
     return {
       weekdays: Array.from({ length: 7 }, (_, i) => weekdays.format(new Date(Date.UTC(2023, 0, 1 + i)))),
-      month: new Intl.DateTimeFormat(language, { ...options, month: 'long', year: 'numeric' }),
-      day: new Intl.DateTimeFormat(language, { ...options, dateStyle: 'full' }),
-      compact: new Intl.DateTimeFormat(language, { ...options, year: 'numeric', month: 'short', day: 'numeric' }),
-      number: new Intl.NumberFormat(rtl ? 'ar-u-nu-arab' : 'en'),
+      month: new Intl.DateTimeFormat(locale, { ...options, month: 'long', year: 'numeric' }),
+      day: new Intl.DateTimeFormat(locale, { ...options, dateStyle: 'full' }),
+      compact: new Intl.DateTimeFormat(locale, { ...options, year: 'numeric', month: 'short', day: 'numeric' }),
+      number: new Intl.NumberFormat(locale),
     };
   }, [language, rtl]);
   const days = monthDays(month);
@@ -92,7 +93,8 @@ export default function CalendarPicker({ initialField, checkin, checkout, onSele
                 const value = draft[field] ? format.compact.format(utcDay(draft[field])) : t('selectDate');
                 return (
                   <Pressable key={field} testID={'calendar-edit-' + field} disabled={disabled}
-                    accessibilityRole="button" accessibilityLabel={t(field) + ', ' + value}
+                    accessibilityRole="button"
+                    accessibilityLabel={Platform.OS === 'web' ? undefined : t(field) + ' ' + value}
                     accessibilityState={{ disabled, ...(Platform.OS === 'web' ? {} : { selected: active }) }}
                     aria-pressed={active} onPress={() => editField(field)}
                     style={[styles.field, active && styles.activeField]}>
