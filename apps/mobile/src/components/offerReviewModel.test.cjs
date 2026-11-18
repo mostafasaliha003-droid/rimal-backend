@@ -137,3 +137,27 @@ test('clearing a review aborts pending work and removes the in-memory selection'
   f.session.clear(); assert.equal(f.calls[0].signal.aborted, true); pending.resolve(result(old.offer)); await operation;
   assert.equal(f.draft, null); assert.equal(f.session.presentation().currentOffer, null);
 });
+
+test('checkout proof retains the checked p-offer and context privately without changing the website handoff', async () => {
+  const f = fixture();
+  assert.equal(f.session.getCheckoutReview(), null);
+  await f.session.recheck();
+  const proof = f.session.getCheckoutReview();
+  assert.ok(proof); assert.equal(proof.review.offer.bookHash, 'p-private');
+  assert.equal(proof.review.prebookContext, 'signed.prebook.private');
+  assert.equal(proof.termsAccepted, true); assert.equal(Object.isFrozen(proof.review), true);
+  assert.doesNotMatch(JSON.stringify(f.session.getSnapshot()), /signed\.prebook\.private/);
+  assert.deepEqual(Object.keys(f.session.getHandoff()).sort(), ['criteria', 'hid']);
+  f.advance(REVIEW_CHECK_LIFETIME_MS + 1); assert.equal(f.session.getCheckoutReview(), null);
+});
+
+test('checkout proof needs current accepted terms and vanishes synchronously after owner/selection or recheck changes', async () => {
+  let pending = null;
+  const f = fixture((hid, selected) => pending ? pending.promise : result(selected, { priceChanged: true }));
+  await f.session.recheck(); assert.equal(f.session.getCheckoutReview(), null);
+  f.session.acceptChanges(); const old = f.session.getCheckoutReview(); assert.ok(old);
+  pending = deferred(); const operation = f.session.recheck(); assert.equal(f.session.getCheckoutReview(), null);
+  pending.resolve(result(f.draft.offer)); await operation;
+  assert.notEqual(f.session.getCheckoutReview().selectionId, old.selectionId);
+  f.setDraft(null); assert.equal(f.session.getCheckoutReview(), null);
+});

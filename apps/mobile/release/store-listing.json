@@ -1,5 +1,5 @@
 {
-  "prepared_on": "2026-11-17",
+  "prepared_on": "2026-11-18",
   "brand": "Mkhadda",
   "operator": "Remal Tourism",
   "identity_status": "Owner-approved exact title and completed Console draft creation; application dashboard observed. No binary uploaded or public release.",
@@ -53,6 +53,10 @@
     {
       "claim": "Global access",
       "status": "Finalize consumer eligibility and supplier production before store release. No universal-access or worldwide ranking claim."
+    },
+    {
+      "claim": "Optional owned payment-amount check and recovery preparation in 0.5",
+      "status": "Source candidate. Native financial creation and traveler entry remain disabled by default; store copy must not claim completed native payment, restart/cross-device guarantees or Play readiness."
     }
   ],
   "required_before_submission": [

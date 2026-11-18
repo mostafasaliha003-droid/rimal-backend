@@ -3,11 +3,18 @@ import { endpoints } from './config';
 import { ApiError, aborted, invalidResponse } from './errors';
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
-export interface RequestOptions { signal?: AbortSignal; query?: Record<string, string>; body?: unknown; token?: string | null; anonymous?: boolean; timeoutMs?: number }
+export interface RequestOptions { signal?: AbortSignal; query?: Record<string, string>; body?: unknown; token?: string | null; anonymous?: boolean; timeoutMs?: number; idempotencyKey?: string }
 export const validToken = (value: unknown): value is string => typeof value === 'string' && /^[a-f\d]{64}$/i.test(value);
+const checkoutStatusRoute = (path: string) => /^\/payment\/ziina\/[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}\/status$/i.test(path);
+function bareCheckoutRoute(method: string, path: string) {
+  return method === 'GET' && (path === '/payment/availability' || checkoutStatusRoute(path))
+    || method === 'POST' && ['/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover'].includes(path);
+}
 export function allowedRoute(method: string, path: string) {
-  if (method === 'GET') return ['/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile'].includes(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path);
+  if (method === 'GET') return ['/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile', '/payment/availability'].includes(path)
+    || checkoutStatusRoute(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path);
   return method === 'POST' && ['/search/rates', '/search/rates/region', '/search/hotelpage', '/booking/prebook',
+    '/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover',
     '/auth/login', '/auth/register-send-code', '/auth/verify-and-register', '/auth/logout', '/auth/account-deletion'].includes(path);
 }
 function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
@@ -25,9 +32,15 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
     onUnauthorized?: (token: string) => Promise<void>; timeoutMs?: number;
   }) {
   const base = endpoints(environment).api;
-  return async function request(method: 'GET' | 'POST', path: string, options: RequestOptions = {}): Promise<unknown> {
+  const request = async function request(method: 'GET' | 'POST', path: string, options: RequestOptions = {}): Promise<unknown> {
     if (!allowedRoute(method, path)) throw new ApiError('configuration', 'endpoint_not_allowed');
     if (options.signal?.aborted) throw aborted();
+    const capabilityRequest = method === 'GET' && checkoutStatusRoute(path);
+    const idempotentRequest = method === 'POST' && ['/payment/ziina/intent', '/payment/ziina/recover'].includes(path);
+    if (capabilityRequest && (!validToken(options.token) || options.anonymous)) throw new ApiError('validation', 'invalid_checkout_capability');
+    if (idempotentRequest && (typeof options.idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(options.idempotencyKey))) throw new ApiError('validation', 'invalid_idempotency_key');
+    if (options.idempotencyKey !== undefined && !idempotentRequest || bareCheckoutRoute(method, path) && Object.keys(options.query || {}).length)
+      throw new ApiError('configuration', 'invalid_checkout_request');
     const url = new URL(`${base}${path}`);
     for (const [key, value] of Object.entries(options.query || {})) url.searchParams.set(key, value);
     const controller = new AbortController();
@@ -43,6 +56,7 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
       if (controller.signal.aborted) throw aborted();
       const response = await abortable(fetcher(url.href, { method, signal: controller.signal, redirect: 'error', credentials: 'omit',
         headers: { Accept: 'application/json', ...(method === 'POST' ? { 'Content-Type': 'application/json' } : {}),
+          ...(idempotentRequest ? { 'Idempotency-Key': options.idempotencyKey! } : {}),
           ...(token ? { Authorization: `Bearer ${token}` } : {}) },
         ...(method === 'POST' ? { body: JSON.stringify(options.body || {}) } : {}) }), controller.signal);
       if (controller.signal.aborted) throw timedOut ? new ApiError('timeout', 'request_timeout') : aborted();
@@ -63,11 +77,11 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
         const membership = code === 'membership_authentication_required' || code === 'membership_approval_required';
         // The membership gate also emits 401 when a supplied session has
         // expired. Approval denial is 403 and must retain the valid identity.
-        if (response.status === 401 && token) await abortable(onUnauthorized(token), controller.signal);
+        if (response.status === 401 && token && !capabilityRequest) await abortable(onUnauthorized(token), controller.signal);
         throw new ApiError(membership ? 'membership' : response.status === 401 ? 'auth'
           : response.status === 429 ? 'rate_limit' : [400, 409].includes(response.status) ? 'validation' : 'server', code, response.status, retry);
       }
-      if (data.success !== true) throw invalidResponse();
+      if (data.success !== true && !bareCheckoutRoute(method, path)) throw invalidResponse();
       return data;
     } catch (error) {
       if (options.signal?.aborted) throw aborted();
@@ -78,4 +92,24 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
       clearTimeout(timer); options.signal?.removeEventListener('abort', cancel);
     }
   };
+  // Composite authenticated operations may await public readiness before their
+  // POST. Pin the starting credential so a later sign-in cannot attach a new
+  // owner's session to an earlier owner's private payload.
+  const captureSessionToken = async (signal?: AbortSignal): Promise<string> => {
+    const controller = new AbortController(); const cancel = () => controller.abort();
+    if (signal?.aborted) throw aborted();
+    signal?.addEventListener('abort', cancel, { once: true });
+    const timer = setTimeout(cancel, 20000);
+    try {
+      const token = await abortable(getToken(), controller.signal);
+      if (controller.signal.aborted) throw aborted();
+      if (!validToken(token)) throw new ApiError('auth', 'unauthorized', 401);
+      return token;
+    } catch (error) {
+      if (controller.signal.aborted) throw aborted();
+      if (error instanceof ApiError) throw error;
+      throw new ApiError('auth', 'authentication_unavailable');
+    } finally { clearTimeout(timer); signal?.removeEventListener('abort', cancel); }
+  };
+  return Object.assign(request, { captureSessionToken });
 }

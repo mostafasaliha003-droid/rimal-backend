@@ -5,6 +5,7 @@ import { APP_ENV, authSession } from '../api';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { copyCriteria, createOfferReviewDraft, criteriaIdentity, type OfferReviewDraft, type OfferReviewInput } from './offerReviewModel';
+import type { CheckoutSelection } from './checkoutSessionModel';
 import { addRecentSearch, comparisonItemsFor, emptyComparison, emptyRecentSearches, recentSearchesFor,
   removeComparisonSelection, toggleComparisonSelection, type ComparisonHotel, type ComparisonOutcome,
   type ComparisonSelection, type RecentSearch, type RecentSearchSelection } from './discoverySessionModel';
@@ -15,6 +16,9 @@ type State = { criteria: SearchCriteria | null; destinationName: string; setSear
   saved: number[]; savedReady: boolean; savedError: boolean; toggleSaved: (hid: number) => void;
   reviewDraft: OfferReviewDraft | null; setReviewDraft: (input: OfferReviewInput) => boolean;
   getReviewDraft: () => OfferReviewDraft | null; clearReviewDraft: () => void;
+  getCheckoutReview: () => CheckoutSelection | null;
+  setCheckoutReviewAuthority: (authority: () => CheckoutSelection | null) => boolean;
+  clearCheckoutReview: () => void;
   comparisonContextKey: string; comparisonItems: ComparisonHotel[];
   getComparisonItems: (expectedContextKey: string) => ComparisonHotel[];
   toggleComparison: (hotel: HotelSummary, expectedContextKey: string) => ComparisonOutcome;
@@ -61,16 +65,31 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     return () => clearInterval(timer);
   }, [comparison.items.length]);
   const draftRef = useRef<OfferReviewDraft | null>(null);
+  const checkoutAuthority = useRef<{ draftId: string; read: () => CheckoutSelection | null } | null>(null);
+  const clearCheckoutReview = useCallback(() => { checkoutAuthority.current = null; }, []);
   const [storedDraft, storeDraft] = useState<OfferReviewDraft | null>(null);
-  const clearReviewDraft = useCallback(() => { draftRef.current = null; storeDraft(null); }, []);
+  const clearReviewDraft = useCallback(() => { checkoutAuthority.current = null; draftRef.current = null; storeDraft(null); }, []);
   const getReviewDraft = useCallback(() => {
     const draft = draftRef.current;
     return draft && draft.ownerKey === ownerKey() && draft.searchKey === criteriaIdentity(criteriaRef.current) ? draft : null;
   }, []);
+  const getCheckoutReview = useCallback(() => {
+    const current = getReviewDraft(), authority = checkoutAuthority.current;
+    if (!current || !authority || current.id !== authority.draftId) return null;
+    const proof = authority.read();
+    return proof && proof.expiresAt > Date.now() ? proof : null;
+  }, [getReviewDraft]);
+  const setCheckoutReviewAuthority = useCallback((read: () => CheckoutSelection | null) => {
+    const current = getReviewDraft(), proof = read();
+    if (!current || !proof || proof.expiresAt <= Date.now() || proof.review.hid !== current.hid
+      || criteriaIdentity(proof.review.criteria) !== current.searchKey) return false;
+    checkoutAuthority.current = { draftId: current.id, read }; return true;
+  }, [getReviewDraft]);
   const setReviewDraft = useCallback((input: OfferReviewInput) => {
     if (authSession.getSnapshot().status === 'loading' || criteriaIdentity(input.criteria) !== criteriaIdentity(criteriaRef.current)) return false;
     const draft = createOfferReviewDraft(input, ownerKey());
     if (!draft) return false;
+    checkoutAuthority.current = null;
     draftRef.current = draft; storeDraft(draft); return true;
   }, []);
   useEffect(() => { if (draftRef.current && draftRef.current.ownerKey !== ownerKey()) clearReviewDraft(); }, [authStatus, sessionRevision, clearReviewDraft]);
@@ -89,6 +108,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
       recentRef.current = addRecentSearch(recentRef.current, ownerKey(), next, name); storeRecent(recentRef.current);
     }
   }, saved, savedReady, savedError, toggleSaved, reviewDraft, setReviewDraft, getReviewDraft, clearReviewDraft,
+    getCheckoutReview, setCheckoutReviewAuthority, clearCheckoutReview,
     comparisonContextKey, comparisonItems, getComparisonItems, toggleComparison, removeComparison, clearComparison,
     recentSearches, getRecentSearches, clearRecentSearches }}>{children}</Context.Provider>;
 }

@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { api, COUNTRY_CODES, validateSearchCriteria } from '../api';
@@ -62,7 +62,7 @@ export default function SearchScreen() {
   const nights = stayNights(checkin, checkout);
   const adults = guests.reduce((sum, room) => sum + room.adults, 0); const childCount = guests.reduce((sum, room) => sum + room.children.length, 0);
   const guestSummary = copy.guests(adults, childCount, guests.length);
-  return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader /><EnvironmentBanner /><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag" contentContainerStyle={{ paddingBottom: 28 }}>
+  return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader /><EnvironmentBanner /><ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'} contentContainerStyle={{ paddingBottom: 28 }}>
     <View style={{ backgroundColor: colors.navy, paddingHorizontal: 24, paddingVertical: 12, gap: 4 }}><Txt kind="small" style={{ color: '#8ED5DF', fontFamily: fonts.bold, fontSize: 10, lineHeight: 16 }}>{t('heroKicker')}</Txt><Txt accessibilityRole="header" style={{ color: '#fff', fontFamily: fonts.bold, fontSize: 23, lineHeight: 29 }}>{t('heroTitle')}</Txt></View>
     <View style={[ui.page, { paddingTop: 14 }]}><View style={[ui.card, ui.shadow, { padding: 16, gap: 12 }]}>
       <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}><Txt kind="heading" accessibilityRole="header">{t('search')}</Txt>{nights !== null && <Txt kind="small" style={{ color: colors.blueStrong, fontFamily: fonts.bold }} accessibilityLiveRegion="polite">{copy.nights(nights)}</Txt>}</Row>

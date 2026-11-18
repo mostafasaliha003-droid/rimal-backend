@@ -1,5 +1,5 @@
 {
-  "prepared_on": "2026-11-17",
+  "prepared_on": "2026-11-18",
   "app_name": "مخدّة | Mkhadda",
   "brand": "Mkhadda",
   "operator": "Remal Tourism",
@@ -17,6 +17,36 @@
     "https://support.google.com/googleplay/android-developer/answer/13327111"
   ],
   "data_flows": [
+    {
+      "flow": "Version 0.5 booking-options quote and gated checkout/recovery preparation",
+      "default_build": "Native financial creation and traveler-form collection are disabled; explicit owned server-checked amount and existing website handoff remain available.",
+      "read_only_requests": [
+        "GET /api/payment/availability",
+        "POST /api/payment/quote with current authenticated user, selected signed p-offer, dates, occupancy and source amount/currency",
+        "POST /api/payment/ziina/recover with current authenticated user and Idempotency-Key only",
+        "GET /api/payment/ziina/:reference/status with separate scoped capability"
+      ],
+      "conditional_future_creation": "The implemented, default-disabled creation path can send lead/traveler names, child ages, contact email/international phone, optional requests and signed quote/offer context to the existing server checkout endpoint. It must not be described as shipped payment completion or default collection.",
+      "local_marker": [
+        "version",
+        "environment",
+        "ownerDigest derived from verified account email/environment",
+        "cryptographically random idempotencyKey",
+        "createdAt"
+      ],
+      "local_handling": "Native marker uses SecureStore; browser preview uses RAM only. The digest is an account-linked identifier, not anonymous data. Guest/contact form, signed contexts, quote/status capabilities and hosted-payment links remain RAM-only. Owner changes hide/abort old work. Storage failure blocks creation; unknown requests never automatically replay. Safe completed marker removal also retires the consumed review.",
+      "server_handling": "Authenticated recovery reads an existing attempt by key plus current owner/realm and returns scoped public progress; it creates no supplier form/payment/booking. Creation, if later enabled, uses the pre-existing encrypted checkout-record and provider workflow, whose full retention/fulfillment policy remains a separate release gate.",
+      "limits": "SecureStore/device loss, uninstall, cross-device recovery, native payment return, SDK inventory and complete privacy/Data Safety declarations still need validation. No collection exemption, complete deletion fulfillment or production financial-readiness claim.",
+      "source_files": [
+        "apps/mobile/src/api/checkout.ts",
+        "apps/mobile/src/components/offerReviewModel.ts",
+        "apps/mobile/src/components/checkoutSessionModel.ts",
+        "apps/mobile/src/components/checkoutRecoveryStorage.native.ts",
+        "apps/mobile/src/screens/CheckoutScreen.tsx",
+        "services/checkoutRecoveryRoutes.js",
+        "services/checkoutProcessService.js"
+      ]
+    },
     {
       "flow": "Session-only recent searches and hotel comparison in version 0.4",
       "recent_search_data": ["Destination name and validated region/property identifier", "Stay dates, country of residence, currency and room/adult/child-age criteria", "Local creation time and non-secret session scope"],
