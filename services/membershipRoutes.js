@@ -21,6 +21,10 @@ function createMembershipRouters({service,sessions,auth,UserModel,Application=re
         if(!['passport','eid_front','eid_back'].includes(req.params.kind))return res.status(400).json({error:'invalid_document_kind'});
         return res.json(await service.upload(req.auth,req.params.kind,req.body,req.get('Content-Type')?.split(';')[0]));
     }));
+    customer.delete('/application/documents/:kind',writeLimit,handle(async(req,res)=>{
+        if(!['passport','eid_front','eid_back'].includes(req.params.kind))return res.status(400).json({error:'invalid_document_kind'});
+        return res.json(await service.removeDocument(req.auth,req.params.kind,req.body?.revision));
+    }));
     customer.post('/application/submit',writeLimit,handle(async(req,res)=>res.json({application:await service.submit(req.auth,req.body||{})})));
     const image=async(req,res)=>{
         if(!uuid.test(req.params.reference)||!['passport','eid_front','eid_back'].includes(req.params.kind))return res.status(404).end();

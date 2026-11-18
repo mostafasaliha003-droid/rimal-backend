@@ -1,5 +1,7 @@
 import { useEffect, useMemo, useState } from 'react';
 import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CheckCircle2, CalendarDays, Users } from 'lucide-react';
+import { lazy, Suspense } from 'react';
+const HotelLocationMap = lazy(() => import('./components/HotelLocationMap'));
 import RoomOfferGroups from './components/RoomOfferGroups';
 import HotelGuestReviews from './components/HotelGuestReviews';
 import HotelPhotoGallery from './components/HotelPhotoGallery';
@@ -212,12 +214,12 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
             residency: searchParams.residency,
             room: checkoutRoom
         };
+        // A lost affiliate response must be replayed with the original offer.
+        if (sessionStorage.getItem('remal_affiliate_booking_idempotency_key') && sessionStorage.getItem('remal_checkout')) {
+            window.location.assign('/checkout');
+            return;
+        }
         sessionStorage.setItem('remal_checkout', JSON.stringify(booking));
-        sessionStorage.removeItem('remal_checkout_idempotency_key');
-        sessionStorage.removeItem('remal_checkout_payment_quote');
-        sessionStorage.removeItem('remal_affiliate_booking_idempotency_key');
-        sessionStorage.removeItem('remal_affiliate_attempt');
-        sessionStorage.removeItem('remal_payment_attempt');
         window.history.pushState({ checkout: booking }, '', '/checkout');
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
@@ -317,6 +319,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             </div>
                         </article>
 
+                        {hotel && <Suspense fallback={null}><HotelLocationMap hotels={[hotel]} /></Suspense>}
                         <HotelPolicies hotel={hotel || {}} />
 
                         <HotelGuestReviews key={`${hid}:${language}`} hid={hid} hotelName={hotel?.name} address={hotel?.address} />

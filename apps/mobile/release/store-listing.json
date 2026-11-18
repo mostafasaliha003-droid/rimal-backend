@@ -1,0 +1,75 @@
+{
+  "prepared_on": "2026-11-18",
+  "brand": "Mkhadda",
+  "operator": "Remal Tourism",
+  "identity_status": "Owner-approved exact title and completed Console draft creation; application dashboard observed. No binary uploaded or public release.",
+  "proposed_android_package": "com.remalbookings.app",
+  "package_status": "com.remalbookings.app entered in the owner-completed Play draft creation on 16 November 2026; verify final signed AAB namespace before upload.",
+  "publication_status": "Unpublished Play Console draft; store listing text remains unsubmitted pending native release verification.",
+  "limits": {
+    "title": 30,
+    "short_description": 80,
+    "full_description": 4000
+  },
+  "locales": {
+    "en": {
+      "title": "مخدّة | Mkhadda",
+      "short_description": "Browse hotel offers, then continue to the Remal website to book.",
+      "full_description": "Discover hotel stays with Mkhadda, operated by Remal Tourism.\n\nSearch by destination, travel dates and guests. Refine the returned hotels by name, star classification and customer stay budget. Compare up to three hotels for the same search, inspect supplied photos and explore room options with their meals, taxes, cancellation terms and original currencies. Recently submitted searches can be restored during the app session.\n\nReview a selected room, request an explicit price check and see changes in price, meals, charges or cancellation terms before accepting an updated offer. A price check does not reserve a room.\n\nTo book and pay, continue to Remal's secure website. Sign in separately, choose the room again and check its current price, availability and terms. The handoff carries search context rather than a selected offer or browser session. Reservation management remains on the website; signed-in customers can read their linked booking history in the app.\n\nAccount-deletion requests can be submitted for review. A request does not immediately erase an account, cancel bookings or request a refund. Review the privacy and retention information before using this option.\n\nAn account or approved membership may be required to access offers. Registration does not guarantee approval, and eligibility restrictions may apply. Availability varies by destination, property, dates and occupancy.\n\nSupport: management@remaltourismllc.com",
+      "character_counts": {
+        "title": 15,
+        "short_description": 64,
+        "full_description": 1442
+      }
+    },
+    "ar": {
+      "title": "مخدّة | Mkhadda",
+      "short_description": "تصفح عروض الفنادق وانتقل إلى موقع رمال لإتمام الحجز.",
+      "full_description": "اكتشف إقامات الفنادق مع مخدّة، بإدارة رمال للسياحة.\n\nابحث بالوجهة وتواريخ السفر وعدد الضيوف. صفّ الفنادق المعروضة بالاسم وتصنيف النجوم وميزانية الإقامة. قارن حتى ثلاثة فنادق ضمن البحث نفسه، وتصفح الصور المتاحة وخيارات الغرف والوجبات والضرائب وشروط الإلغاء والعملات الأصلية. يمكنك استعادة عمليات البحث الأخيرة خلال جلسة التطبيق.\n\nراجع الغرفة المختارة واطلب التحقق من السعر، ثم اطّلع على التغييرات في السعر أو الوجبات أو الرسوم أو شروط الإلغاء قبل الموافقة على عرض محدّث. التحقق من السعر لا يحجز غرفة.\n\nللحجز والدفع، انتقل إلى موقع رمال الآمن. سجّل الدخول هناك بشكل منفصل، واختر الغرفة مجدداً وتحقق من سعرها وتوافرها وشروطها الحالية. ينقل الانتقال سياق البحث دون عرض مختار أو جلسة دخول. تتم إدارة الحجوزات عبر الموقع، ويمكن للعملاء المسجّلين قراءة سجل الحجوزات المرتبط بحسابهم داخل التطبيق.\n\nيمكن إرسال طلب حذف الحساب للمراجعة. لا يمحو الطلب الحساب فوراً، ولا يلغي الحجوزات ولا يطلب استرداد الأموال. راجع معلومات الخصوصية والاحتفاظ بالبيانات قبل استخدام هذا الخيار.\n\nقد يتطلب الوصول إلى العروض حساباً أو عضوية معتمدة. التسجيل لا يضمن الموافقة، وقد تسري قيود أهلية. يختلف التوافر بحسب الوجهة والفندق والتواريخ وعدد الضيوف.\n\nالدعم: management@remaltourismllc.com",
+      "character_counts": {
+        "title": 15,
+        "short_description": 52,
+        "full_description": 1158
+      }
+    }
+  },
+  "claim_gates": [
+    {
+      "claim": "Native search, decision filters, three-hotel comparison and room review",
+      "status": "Implemented in source; validate final preview binary and physical-device experience before submitting claims."
+    },
+    {
+      "claim": "Supplied room photos, meals, taxes and cancellation conditions",
+      "status": "Preserve unavailable-data states, original currencies and exact room matching; no invented ratings, discounts or availability guarantees."
+    },
+    {
+      "claim": "Secure website booking and payment handoff",
+      "status": "Separate browser login, room re-selection and current terms check remain required. No complete native payment flow is claimed."
+    },
+    {
+      "claim": "Native owned booking history and request-only account deletion",
+      "status": "Source implemented; request intake does not erase data. Complete fulfillment and privacy/retention disclosures remain release gates."
+    },
+    {
+      "claim": "Global access",
+      "status": "Finalize consumer eligibility and supplier production before store release. No universal-access or worldwide ranking claim."
+    },
+    {
+      "claim": "Optional owned payment-amount check and recovery preparation in 0.5",
+      "status": "Source candidate. Native financial creation and traveler entry remain disabled by default; store copy must not claim completed native payment, restart/cross-device guarantees or Play readiness."
+    }
+  ],
+  "required_before_submission": [
+    "Validate all feature claims against the signed native build and remove any undelivered function.",
+    "Apply the owner-approved exact title مخدّة | Mkhadda and retain package com.remalbookings.app; verify the final Console form before creating an app record.",
+    "Verify support email ownership and actual response process.",
+    "Provide live branded privacy and account-deletion request URLs; do not insert placeholder URLs.",
+    "Capture genuine native screenshots and final app icon assets while preserving the Remal Tourism operator identity.",
+    "Complete applicable Play Console app-content declarations and review-access instructions.",
+    "Do not add #1, best, superiority, guaranteed savings, discount, store-ranking or award claims."
+  ],
+  "official_sources": [
+    "https://support.google.com/googleplay/android-developer/answer/9898842",
+    "https://support.google.com/googleplay/android-developer/answer/9859152"
+  ]
+}

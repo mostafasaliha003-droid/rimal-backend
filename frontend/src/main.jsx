@@ -4,6 +4,7 @@ import App from './App';
 import './styles.css';
 import { LanguageProvider } from './i18n';
 import MembershipBoundary from './components/MembershipBoundary';
+import './pillow-stays.css';
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {

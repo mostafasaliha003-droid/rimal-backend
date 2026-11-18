@@ -4,14 +4,16 @@ import { AnchoredOverlay } from './SearchOverlay';
 import { FieldError } from './SearchFeedback';
 
 export default function DestinationCombobox({ controller, overlayHost, onOpenChange }) {
-    const { t, direction, query, suggestions, suggestionStatus, errors, changeQuery, selectDestination } = controller;
+    const { t, language, direction, query, recent, suggestions: matches, suggestionStatus, errors, changeQuery, selectDestination } = controller;
     const anchorRef = useRef(null);
     const inputRef = useRef(null);
     const [expanded, setExpanded] = useState(false);
     const [activeIndex, setActiveIndex] = useState(-1);
-    const open = expanded && suggestions.length > 0 && suggestionStatus === 'ready';
+    const showingRecent = !query.trim() && recent.length > 0;
+    const suggestions = showingRecent ? recent : matches;
+    const open = expanded && suggestions.length > 0 && (showingRecent || suggestionStatus === 'ready');
     const active = open && activeIndex >= 0 ? suggestions[activeIndex] : null;
-    const optionId = item => `destination-option-${item.key}`;
+    const optionId = item => `destination-option-${item.type}-${item.hotel_id ?? item.region_id}`;
     useEffect(() => { setActiveIndex(-1); }, [suggestions]);
     useEffect(() => { onOpenChange(open); return () => onOpenChange(false); }, [open, onOpenChange]);
     useEffect(() => {
@@ -69,8 +71,9 @@ export default function DestinationCombobox({ controller, overlayHost, onOpenCha
         <span id="search-destination-hint" className="sr-only">{t('search.destinationHint', 'ابحث باسم الوجهة أو الفندق، ثم اختر من الاقتراحات.')}</span>
         <FieldError field="destination" message={errors.destination} />
         {open && <AnchoredOverlay anchorRef={anchorRef} host={overlayHost} direction={direction}>
+            {showingRecent && <p className="px-3 py-2 text-xs font-bold">{language==='ar' ? 'عمليات البحث الأخيرة' : language==='es' ? 'Búsquedas recientes' : 'Recent searches'}</p>}
             <ul id="destination-suggestions" role="listbox" aria-label={t('search.suggestions', 'اقتراحات الوجهات')}>
-                {suggestions.map((item, index) => <li key={item.key} id={optionId(item)} role="option" aria-selected={index === activeIndex}
+                {suggestions.map((item, index) => <li key={optionId(item)} id={optionId(item)} role="option" aria-selected={index === activeIndex}
                     className={`flex cursor-pointer flex-wrap items-center gap-2 rounded-xl px-3 py-3 text-start text-sm ${index === activeIndex ? 'bg-remal-blue/10 text-remal-blue-strong' : 'text-remal-navy hover:bg-remal-blue/5'}`}
                     onPointerDown={event => event.preventDefault()} onClick={() => choose(item)}>
                     <MapPin size={16} className="shrink-0" aria-hidden="true" /><span className="min-w-0 flex-[1_1_10rem] [overflow-wrap:anywhere]">{item.label}</span>

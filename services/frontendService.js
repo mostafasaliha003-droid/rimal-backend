@@ -101,6 +101,7 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL, privateM
     });
 
     router.use(['/assets', '/dist/assets'], assetMiddleware);
+    router.use('/pillow', express.static(path.join(publicRoot, 'pillow'), { index: false, maxAge: '1d' }));
 
     for (const file of publicFiles) {
         router.get(`/${file}`, (req, res, next) => {

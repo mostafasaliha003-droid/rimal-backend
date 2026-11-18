@@ -9,9 +9,18 @@ import PriceDisplay from './components/PriceDisplay';
 import { trackBookingEvent } from './services/analytics';
 import { useLanguage } from './i18n';
 import { clearUserSession, userAccessToken } from './services/authSession';
+import { pendingPayment, settlePayment, paymentSettled, paymentRedirect } from './services/pendingPayment';
+import { stayCharges, taxInclusion } from './services/stayCharges';
 import { PAYMENT_CURRENCIES, paymentCurrencyForCountry } from './services/paymentCurrency';
 
 const initialGuest = { firstName: '', lastName: '', email: '', phone: '', specialRequests: '' };
+function rememberPayment(result, key) {
+    if (!result.reference || !result.access_token) throw new Error('checkout_reference_unavailable');
+    const attempt = { reference: result.reference, accessToken: result.access_token, key };
+    sessionStorage.setItem('remal_payment_attempt', JSON.stringify(attempt));
+    return attempt;
+}
+const statusLink = reference => '/checkout?payment=pending&ref=' + encodeURIComponent(reference);
 const pendingStatuses = new Set([
     'preparing',
     'intent_creating',
@@ -35,8 +44,11 @@ function readStoredBooking(booking) {
 }
 
 function BookingSummary({ booking, room, total, currency, displayCurrency, displayRates, canPay, isAffiliate = false }) {
-    const { t } = useLanguage();
-    const localTaxes = (room.taxes || []).filter(tax => !tax.included_by_supplier);
+    const { t, language } = useLanguage();
+    const ar = language === 'ar';
+    const localTaxes = (room.taxes || []).filter(tax => tax && taxInclusion(tax.included_by_supplier) === 'excluded');
+    const charges = stayCharges(room, total, currency, isAffiliate);
+    const show = rows => rows.map(({amount, currency}) => <bdi key={currency} className="me-3 inline-block">{amount} {currency}</bdi>);
 
     return (
         <aside aria-label={t('checkout.summary', 'ملخص الحجز والسعر')} className="order-1 h-fit lg:order-2 lg:sticky lg:top-28">
@@ -80,8 +92,10 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
                     </div>
 
                     <div className="rounded-2xl border border-cyan-100 bg-cyan-50 p-4" aria-live="polite" aria-atomic="true">
-                        <p className="text-xs font-bold text-cyan-900">{t('checkout.finalTotal', 'الإجمالي النهائي')}</p>
-                        {currency && Number.isFinite(total) ? <PriceDisplay amount={total} currency={currency} displayCurrency={displayCurrency} displayRates={displayRates} className="mt-1 text-3xl font-black text-[var(--remal-navy)]" /> : <p className="mt-1 font-black text-slate-500">العملة غير متاحة</p>}
+                        <p className="text-xs font-bold">{ar ? 'إجمالي الإقامة حسب المبالغ المعلنة' : 'Stay total from disclosed amounts'}</p>
+                        <p className="mt-1 text-2xl font-bold">{charges.stay.length ? show(charges.stay) : '—'}</p>
+                        <p className="mt-3 text-sm">{ar ? 'يُدفع في الفندق' : 'Due at the property'} · {charges.hotel.length ? show(charges.hotel) : charges.incomplete ? '—' : <bdi>0 {currency}</bdi>}</p>
+                        {charges.incomplete && <p className="mt-2 text-xs">{ar ? 'بعض المبالغ أو الرسوم غير محددة في العرض.' : 'Some charges or amounts have not been specified.'}</p>}
                     </div>
 
                     <div className="space-y-3">
@@ -139,6 +153,37 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
     const [checkoutStatus, setCheckoutStatus] = useState(null);
     const [affiliateStatus, setAffiliateStatus] = useState(null);
     const paymentFailureTracked = useRef(false);
+    const [restoreState, setRestoreState] = useState('checking');
+    const [restoreVersion, setRestoreVersion] = useState(0);
+    const [keyAllocated, setKeyAllocated] = useState(false);
+    const submitLock = useRef(false);
+
+    useEffect(() => {
+        if (paymentReturn || affiliateReturn || !sessionToken) return undefined;
+        let active = true;
+        setRestoreState('checking');
+        (async () => {
+            const key = await pendingPayment();
+            if (key) {
+                const result = await BookingAPI.recoverZiinaIntent(key);
+                if (!active) return;
+                if (typeof result?.found !== 'boolean') throw new Error('invalid_recovery');
+                if (result.found) {
+                    const attempt = rememberPayment(result, key);
+                    window.location.replace(statusLink(attempt.reference));
+                    return;
+                }
+            }
+            if (!active) return;
+            const affiliate = JSON.parse(sessionStorage.getItem('remal_affiliate_attempt') || 'null');
+            if (!affiliate?.settled && affiliate?.processId && affiliate.accessToken) {
+                window.location.replace('/checkout?affiliate=pending&ref=' + encodeURIComponent(affiliate.processId));
+                return;
+            }
+            setRestoreState('ready');
+        })().catch(() => { if (active) setRestoreState('unavailable'); });
+        return () => { active = false; };
+    }, [paymentReturn, affiliateReturn, sessionToken, restoreVersion]);
 
     useEffect(() => {
         if (paymentReturn || affiliateReturn || !selectedBooking || selectedBooking.room?.contract_source === 'affiliate' || !sessionToken) return undefined;
@@ -204,17 +249,22 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         const read = async () => {
             let credentials;
             try { credentials = JSON.parse(sessionStorage.getItem('remal_payment_attempt') || 'null'); } catch { credentials = null; }
-            if (credentials?.reference !== paymentReference || !credentials?.accessToken) {
-                if (active) setCheckoutStatus({ status: 'unavailable' });
-                if (active) setStatusConnection('unavailable');
-                return;
-            }
             try {
+                if (credentials?.reference !== paymentReference || !credentials?.accessToken) {
+                    const key = await pendingPayment();
+                    const recovered = key && sessionToken && await BookingAPI.recoverZiinaIntent(key);
+                    if (!active) return;
+                    if (!recovered?.found || recovered.reference !== paymentReference) throw new Error('checkout_reference_unavailable');
+                    credentials = rememberPayment(recovered, key);
+                }
                 const current = await BookingAPI.getCheckoutStatus(credentials.reference, credentials.accessToken);
                 if (!active) return;
                 setCheckoutStatus(current);
                 setStatusConnection('connected');
                 setStatusUpdatedAt(Date.now());
+                if (credentials.key && paymentSettled(current.status)) {
+                    await settlePayment(credentials.key);
+                }
                 if (current.status === 'payment_failed' && !paymentFailureTracked.current) {
                     paymentFailureTracked.current = true;
                     trackBookingEvent('payment_failed');
@@ -230,7 +280,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         };
         void read();
         return () => { active = false; window.clearTimeout(timer); };
-    }, [paymentReturn, paymentReference]);
+    }, [paymentReturn, paymentReference, sessionToken]);
 
     useEffect(() => {
         if (affiliateReturn !== 'pending' || !paymentReference) return undefined;
@@ -247,6 +297,11 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                 const current = await BookingAPI.getAffiliateBookingStatus(attempt.processId, attempt.accessToken);
                 if (!active) return;
                 setAffiliateStatus(current);
+                if (['confirmed', 'failed', 'expired', 'price_changed', 'cancelled'].includes(current.status)) {
+                    sessionStorage.removeItem('remal_affiliate_booking_idempotency_key');
+                    // Keep the capability so the same return URL can still be refreshed.
+                    sessionStorage.setItem('remal_affiliate_attempt', JSON.stringify({ ...attempt, settled: true }));
+                }
                 if (['creating', 'finishing', 'processing'].includes(current.status)) timer = window.setTimeout(read, 6000);
             } catch {
                 if (!active) return;
@@ -328,6 +383,16 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
         );
     }
 
+    if (sessionToken && restoreState !== 'ready') {
+        const checking = restoreState === 'checking';
+        return <main dir={direction} className="mx-auto max-w-xl p-8">
+            <h1 className="text-xl font-bold" role="status">{checking
+                ? (language === 'ar' ? 'نتحقق من محاولة الدفع السابقة…' : 'Checking your previous payment…')
+                : (language === 'ar' ? 'تعذّر التحقق من محاولة الدفع السابقة' : 'We couldn’t check your previous payment')}</h1>
+            {!checking && <button className="mt-4 rounded-xl bg-[var(--remal-blue)] px-5 py-3 text-white" onClick={() => setRestoreVersion(value => value + 1)}>
+                {language === 'ar' ? 'إعادة التحقق' : 'Check again'}</button>}
+        </main>;
+    }
     if (!selectedBooking) {
         return (
             <main dir={direction} className="flex min-h-screen items-center justify-center bg-[#F8FAFC] px-5 py-12 lg:px-10">
@@ -364,16 +429,21 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
     const submitPayment = async event => {
         event.preventDefault();
         if (isAffiliate) return;
-        if (!canPay || isSubmitting) return;
+        if (!canPay || isSubmitting || submitLock.current) return;
         if (!userAccessToken()) { requireSignIn(); return; }
         trackBookingEvent('payment_started');
         setStatus('loading');
+        submitLock.current = true;
         setError('');
         try {
-            let idempotencyKey = sessionStorage.getItem('remal_checkout_idempotency_key');
-            if (!idempotencyKey) {
-                idempotencyKey = window.crypto.randomUUID();
-                sessionStorage.setItem('remal_checkout_idempotency_key', idempotencyKey);
+            const idempotencyKey = await pendingPayment(true);
+            setKeyAllocated(true);
+            const existing = await BookingAPI.recoverZiinaIntent(idempotencyKey);
+            if (typeof existing?.found !== 'boolean') throw new Error('invalid_recovery');
+            if (existing.found) {
+                rememberPayment(existing, idempotencyKey);
+                window.location.replace(statusLink(existing.reference));
+                return;
             }
             const response = await BookingAPI.createZiinaIntent({
                 total,
@@ -392,13 +462,14 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                 rooms: guest.rooms.map((roomGroup, index) => ({ guests: roomGroup.guests.map((traveler, position) => index === 0 && position === 0 ? { ...traveler, firstName: guest.firstName, lastName: guest.lastName } : traveler) }))
             }, idempotencyKey);
             if (!response.reference || !response.access_token) throw new Error('Missing checkout reference');
-            sessionStorage.setItem('remal_payment_attempt', JSON.stringify({ reference: response.reference, accessToken: response.access_token }));
-            if (!response.payment_url) {
-                window.location.assign(`/checkout?payment=pending&ref=${encodeURIComponent(response.reference)}`);
+            rememberPayment(response, idempotencyKey);
+            const redirect = paymentRedirect(response.payment_url);
+            if (!redirect) {
+                window.location.assign(statusLink(response.reference));
                 return;
             }
             setStatus('success');
-            window.location.assign(response.payment_url);
+            window.location.assign(redirect);
         } catch (requestError) {
             trackBookingEvent('payment_failed');
             if (requestError.response?.status === 401) { requireSignIn(); return; }
@@ -407,8 +478,8 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                 setError(t('checkout.offerUnavailableBody'));
                 return;
             }
-            setError(requestError.response?.data?.message || 'تعذر تجهيز الدفع، يرجى المحاولة مرة أخرى');
-        }
+            setError(language === 'ar' ? 'تعذّر التحقق من الدفع. عند المتابعة سنراجع المحاولة نفسها.' : 'Payment could not be verified. Continuing will check the same attempt.');
+        } finally { submitLock.current = false; }
     };
 
     const submitAffiliateBooking = async event => {
@@ -476,14 +547,14 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                     <div className="order-2 min-w-0 lg:order-1">
                         {!isAffiliate && <section className="mb-6 rounded-2xl border border-slate-200 bg-white p-5">
                             <label htmlFor="payment-currency" className="block text-sm font-bold">{t('checkout.paymentCurrency')}</label>
-                            <select id="payment-currency" data-payment-currency value={paymentCurrency} disabled={isSubmitting || Boolean(sessionStorage.getItem('remal_checkout_idempotency_key'))}
+                            <select id="payment-currency" data-payment-currency value={paymentCurrency} disabled={isSubmitting || keyAllocated}
                                 onChange={event => { setPaymentQuote(null); setPaymentCurrency(event.target.value); }} className="mt-3 min-h-12 w-full rounded-xl border border-slate-300 bg-white px-3">
                                 {PAYMENT_CURRENCIES.map(code => <option key={code} value={code}>{code} — {new Intl.DisplayNames([language], { type: 'currency' }).of(code)}</option>)}
                             </select>
                             <p className="mt-3 text-sm leading-7 text-slate-600">{t('checkout.paymentCurrencyNotice')}</p>
                             {!sessionToken && <a href="/account?returnTo=%2Fcheckout" className="mt-2 inline-block text-sm font-bold underline">{t('checkout.signInToQuote')}</a>}
                             {sessionToken && !paymentQuote && !quoteError && <p role="status" className="mt-2 text-sm">{t('checkout.quoteLoading')}</p>}
-                            {quoteError && <p role="alert" className="mt-2 text-sm text-red-700">{quoteError} <button type="button" disabled={isSubmitting || Boolean(sessionStorage.getItem('remal_checkout_idempotency_key'))} onClick={() => { sessionStorage.removeItem('remal_checkout_payment_quote'); setQuoteRefresh(value => value + 1); }} className="underline">{t('checkout.refreshQuote')}</button></p>}
+                            {quoteError && <p role="alert" className="mt-2 text-sm text-red-700">{quoteError} <button type="button" disabled={isSubmitting} onClick={() => { sessionStorage.removeItem('remal_checkout_payment_quote'); setQuoteRefresh(value => value + 1); }} className="underline">{t('checkout.refreshQuote')}</button></p>}
                         </section>}
                         {error && <div role="alert" aria-live="assertive" className="mb-6 flex items-start gap-3 rounded-2xl border border-red-200 bg-red-50 p-5 text-red-800"><Info size={20} className="mt-0.5 shrink-0" /><div><p className="text-sm font-bold leading-6">{error}</p>{requiresLogin && <a data-checkout-sign-in href="/account?returnTo=%2Fcheckout" className="mt-3 inline-flex min-h-11 items-center rounded-xl bg-white px-4 py-2 text-sm font-bold underline">{t('checkout.signInReturn', 'تسجيل الدخول والعودة للحجز')}</a>}</div></div>}
                         <GuestForm

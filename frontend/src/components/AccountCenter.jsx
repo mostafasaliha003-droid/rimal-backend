@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, CheckCircle2, LoaderCircle, LogIn, Mail, Phone, ShieldCheck, UserPlus } from 'lucide-react';
 import BookingAPI from '../services/bookingApi';
+import BookingVoucherPreview from './BookingVoucherPreview';
 import BookingCancellationDialog from './BookingCancellationDialog';
 import { trackBookingEvent } from '../services/analytics';
 import { clearUserSession, readCurrentUser, saveUserSession } from '../services/authSession.js';
@@ -35,7 +36,7 @@ function Field({ label, icon: Icon, ...props }) {
 }
 
 export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
-    const { t, direction } = useLanguage();
+    const { t, direction, language } = useLanguage();
     const [user, setUser] = useState(null);
     const [sessionChecking, setSessionChecking] = useState(true);
     const [mode, setMode] = useState('login');
@@ -45,13 +46,20 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
     const [error, setError] = useState('');
     const [profile, setProfile] = useState(null);
     const [bookings, setBookings] = useState([]);
+    const [voucherReference,setVoucherReference] = useState(null);
+    const [bookingTab,setBookingTab] = useState('all');
+    useEffect(() => {
+        if (bookingsOnly && bookings.length && location.hash.startsWith('#booking-')) {
+            try { document.getElementById(decodeURIComponent(location.hash.slice(1)))?.scrollIntoView({block:'center'}); } catch {}
+        }
+    }, [bookingsOnly, bookings]);
     const [cancellationBooking, setCancellationBooking] = useState(null);
     const [loginForm, setLoginForm] = useState({ email: '', password: '' });
     const [registerForm, setRegisterForm] = useState({ name: '', email: '', password: '', phone: '' });
     const [verificationCode, setVerificationCode] = useState('');
     const returnAfterSignIn = () => {
         const target = new URLSearchParams(window.location.search).get('returnTo');
-        if (target !== '/checkout' && !/^\/support(?:\?reference=[A-Za-z0-9_-]{1,120})?$/.test(target || '')) return;
+        if (target !== '/checkout' && !/^\/support(?:\?reference=[A-Za-z0-9_-]{1,120}(?:&request=amendment)?)?$/.test(target || '')) return;
         if (typeof onNavigate === 'function') onNavigate(target);
         else window.location.assign(target);
     };
@@ -172,7 +180,16 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
     }
 
     if (user) {
-        const points = Number(profile?.points ?? user.points ?? 500);
+        const points = Number(profile?.points ?? user.points ?? 0);
+        const today = new Date().toLocaleDateString('sv-SE');
+        const bookedDate = booking => String(booking.checkOutDate || '').slice(0,10);
+        const matches = bookings.filter(booking => {
+            const cancelled = ['cancelled','canceled'].includes(String(booking.status || '').toLowerCase());
+            if(bookingTab==='all')return true;
+            if(bookingTab==='cancelled')return cancelled;
+            if(cancelled || !/^\d{4}-\d{2}-\d{2}$/.test(bookedDate(booking)))return false;
+            return bookingTab==='past' ? bookedDate(booking)<today : bookedDate(booking)>=today;
+        });
         return (
             <main dir={direction} className="min-h-[calc(100vh-72px)] bg-[#f7f9fc] px-5 py-10 lg:px-10 lg:py-16">
                 <div className="mx-auto max-w-5xl">
@@ -231,19 +248,23 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                                 {bookings.length}
                             </span>
                         </div>
-                        {bookings.length === 0 ? (
+                        <div className="pillow-booking-tabs" role="group" aria-label={t('nav.bookings','حجوزاتي')}>
+                            {['all','upcoming','past','cancelled'].map((tab,i)=><button type="button" key={tab} aria-pressed={bookingTab===tab} onClick={()=>setBookingTab(tab)}>
+                            {(language==='ar'?['الكل','القادمة','السابقة','الملغاة']:language==='es'?['Todas','Próximas','Pasadas','Canceladas']:['All','Upcoming','Past','Cancelled'])[i]}</button>)}
+                        </div>
+                        {matches.length === 0 ? (
                             <p className="mt-5 rounded-2xl bg-slate-50 p-5 text-sm font-semibold text-slate-600" role="status">
                                 {t('account.noBookings', 'لا توجد حجوزات مرتبطة بحسابك حتى الآن.')}
                             </p>
                         ) : (
                             <ul className="mt-5 space-y-4">
-                                {bookings.map(booking => {
+                                {matches.map(booking => {
                                     const status = String(booking.status || '').toLowerCase();
                                     const supplierStatus = String(booking.supplierStatus || '').toUpperCase();
                                     const cancelled = ['cancelled', 'canceled'].includes(status);
                                     const pending = !cancelled && ['ON_REQUEST', 'PENDING'].includes(supplierStatus);
                                     const confirmed = !cancelled && !pending
-                                        && (status === 'active' || supplierStatus === 'CONFIRMED');
+                                        && status === 'active' && supplierStatus === 'CONFIRMED';
                                     const awaitingConfirmation = !cancelled && !confirmed && status === 'pending';
                                     const statusLabel = cancelled
                                         ? t('account.bookingCancelled', 'ملغي')
@@ -261,7 +282,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                                                 : 'bg-slate-100 text-slate-700';
 
                                     return (
-                                        <li key={booking.bookingReference} className="rounded-2xl border border-slate-200 p-4 sm:p-5">
+                                        <li key={booking.bookingReference} id={'booking-'+booking.bookingReference} className="scroll-mt-24 rounded-2xl border border-slate-200 p-4 sm:p-5">
                                             <div className="flex flex-wrap items-start justify-between gap-4">
                                                 <div className="min-w-0">
                                                     <h3 className="font-black text-slate-900">{booking.hotelName || t('account.hotel', 'فندق')}</h3>
@@ -280,18 +301,23 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                                                     )}
                                                 </div>
                                                 <div className="flex flex-wrap items-center gap-3">
+                                                    <details className="pillow-booking-details"><summary>{language==='ar'?'تفاصيل الحجز':language==='es'?'Detalles de la reserva':'Booking details'}</summary><dl>
+                                                    {[[language==='ar'?'النزيل':'Guest',booking.customerName],[language==='ar'?'الغرفة':'Room',booking.roomType],[language==='ar'?'الوجبات':'Board',booking.boardType],[language==='ar'?'مرجع المتابعة':'Booking reference',booking.bookingReference],[language==='ar'?'تأكيد الفندق':'Hotel confirmation',confirmed && booking.hotelConfirmationNumber],[language==='ar'?'طريقة الدفع':'Payment method',booking.paymentMethod],[language==='ar'?'إلغاء مجاني حتى':'Free cancellation until',booking.freeCancelDeadline]].filter(([,value])=>typeof value==='string' && value.trim()).map(([label,value])=><div key={label}><dt>{label}</dt><dd>{value}</dd></div>)}
+                                                    </dl></details>
                                                     <span className={`rounded-full px-3 py-1.5 text-xs font-black ${statusClass}`} role="status">
                                                         {statusLabel}
                                                     </span>
                                                     <button data-booking-cancellation type="button" onClick={() => setCancellationBooking(booking)} className="rounded-full border border-red-200 bg-white px-4 py-2 text-xs font-bold text-red-700 transition hover:border-red-300 hover:bg-red-50">{t(cancelled ? 'cancel.details' : 'cancel.options')}</button>
                                                     <a data-booking-support href={`/support?reference=${encodeURIComponent(booking.bookingReference)}`} className="rounded-full border border-cyan-200 bg-cyan-50 px-4 py-2 text-xs font-bold text-cyan-800">{t('checkout.paymentHelp')}</a>
-                                                    <button type="button" onClick={async () => {
+                                                    {confirmed && <a href={`/support?reference=${encodeURIComponent(booking.bookingReference)}&request=amendment`} className="pillow-amend">{language === 'ar' ? 'طلب تعديل الحجز' : language === 'es' ? 'Solicitar un cambio' : 'Request a booking change'}</a>}
+                                                    {confirmed && <button type="button" className="pillow-amend" onClick={()=>setVoucherReference(booking.bookingReference)}>{language==='ar'?'عرض الفاوجر':language==='es'?'Ver bono':'View voucher'}</button>}
+                                                    {confirmed && <button type="button" onClick={async () => {
                                                         try {
-                                                            const response = await BookingAPI.getOwnedBookingVoucher(booking.bookingReference);
+                                                            const response = await BookingAPI.getOwnedBookingVoucher(booking.bookingReference, language);
                                                             const url = URL.createObjectURL(response.data);
                                                             const anchor = document.createElement('a');
                                                             anchor.href = url;
-                                                            anchor.download = `Rimal-Voucher-${booking.bookingReference}.pdf`;
+                                                            anchor.download = `pillow-stays-${booking.bookingReference}.pdf`;
                                                             anchor.click();
                                                             URL.revokeObjectURL(url);
                                                         } catch {
@@ -299,7 +325,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                                                         }
                                                     }} className="rounded-full border border-slate-200 bg-white px-4 py-2 text-xs font-black text-slate-700 transition hover:border-cyan-300 hover:text-cyan-800">
                                                         {t('account.downloadVoucher', 'تحميل القسيمة')}
-                                                    </button>
+                                                    </button>}
                                                 </div>
                                             </div>
                                         </li>
@@ -309,6 +335,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                         )}
                     </section>
                 </div>
+                {voucherReference && <BookingVoucherPreview reference={voucherReference} onClose={()=>setVoucherReference(null)} />}
                 {cancellationBooking && <BookingCancellationDialog booking={cancellationBooking} onClose={() => setCancellationBooking(null)} onCancelled={() => {
                     setBookings(current => current.map(item => item.bookingReference === cancellationBooking.bookingReference ? { ...item, status: 'cancelled', supplierStatus: 'CANCELLED' } : item));
                 }} />}
@@ -320,7 +347,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
         <main dir={direction} className="min-h-[calc(100vh-72px)] bg-[#f7f9fc] px-5 py-10 lg:px-10 lg:py-16">
             <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
                 <section className="rounded-3xl bg-gradient-to-br from-[#102a43] to-[#0f8fa3] p-7 text-white shadow-xl sm:p-9">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">رمال وفِلّها</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">مخدة · pillow stays</p>
                     <h1 className="mt-4 text-4xl font-black leading-tight">{t('account.startAccount', 'حساب واحد لرحلاتك القادمة')}</h1>
                     <p className="mt-4 text-sm font-medium leading-7 text-white/80">{t('account.subtitle', 'احفظ بياناتك، تابع حجوزاتك، وابدأ جمع النقاط من أول إقامة.')}</p>
                     <div className="mt-8 space-y-3 text-sm font-bold text-white/90">

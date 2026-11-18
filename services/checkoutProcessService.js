@@ -214,7 +214,11 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
         });
         if (!selected) throw fail('unsupported_supplier_payment', 409);
         const paymentType = { type: selected.type, amount: selected.amount, currency_code: selected.currency_code };
-        const prebookSnapshot = require('./ratehawkBookingSnapshot').createSnapshot(prebook, details, paymentType);
+        // The same verified supplier response supplies the settlement/cancellation record and guest-facing voucher terms.
+        const prebookSnapshot = {
+            ...require('./ratehawkBookingSnapshot').createSnapshot(prebook, details, paymentType),
+            ...require('./ratehawkStayVoucherSnapshot').ratePlan(prebook, details, validated)
+        };
         ratehawk.buildBookingFinish({ user: details.user, rooms: details.rooms, payment_type: paymentType }, {
             partner_order_id: form.partner_order_id, payment_types: form.payment_types,
             is_gender_specification_required: form.is_gender_specification_required

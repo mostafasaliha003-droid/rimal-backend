@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="{{lang}}" dir="{{dir}}">
+<head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>{{title}}</title>
+<style>
+{{fontFaces}}
+@page{size:A4;margin:13mm 14mm}
+*{box-sizing:border-box}html{color:#2d173a;font:12px/1.55 Manrope,Plex,Arial,sans-serif}body{margin:0;background:white}main{max-width:182mm;margin:auto;overflow-wrap:anywhere}h1,h2,h3,p,dl,dd{margin:0}
+header,footer,.section-heading,.hotel-heading{display:flex;align-items:center;justify-content:space-between;gap:1rem}
+header{padding-bottom:12px;border-bottom:1px solid #e7deea}.brand{display:flex;gap:8px;align-items:center}.brand img{width:40px}.wordmark{display:grid;text-align:center;line-height:1.1;color:#2d173a}.wordmark b{font:700 34px/1 Plex,Arial,sans-serif}.wordmark small{font:700 12px/1.15 Manrope,Arial,sans-serif;letter-spacing:.04em}
+h1{font-size:18px;line-height:1.35}.document-title{text-align:end}.document-title small,.label small,.section-heading small{display:block;color:#665867;font-weight:400}.document-title .date{font-size:10px}
+.banner{margin:12px 0;background:#e6efcf;border:1px solid #cedbb8;padding:7px 12px;text-align:center;border-radius:10px;font-weight:700}.banner.sample{background:#eee6fa;border-color:#dfceef}.banner small{font-size:9px;display:block}
+.references,.facts{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:7px}.cell{padding:7px 11px;border:1px solid #e5dce8;border-radius:9px}.label{font-size:10px;color:#554557}.label small{font:8px/1.3 Manrope,Plex,Arial,sans-serif}.value{font-weight:700;margin-top:3px}
+.hotel{background:#faf8f4;border:1px solid #ebe5de;border-radius:14px;padding:14px 16px;margin-top:11px;break-inside:avoid}.hotel h2{font-size:23px;line-height:1.35}.contact{color:#675866;font-size:11px}.dates{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));border-top:1px solid #e4dbe2;margin-top:10px;padding-top:8px;text-align:center}.dates>div+div{border-inline-start:1px solid #e4dbe2}.dates b{font-size:17px;display:block}
+.section-heading{margin:15px 0 5px;break-after:avoid}.section-heading h2{font-size:15px}.section-heading small{font-size:9px}.facts{border:1px solid #e5dce8;border-radius:9px;gap:0;overflow:hidden}.facts .cell{border:0;border-bottom:1px solid #e5dce8;border-radius:0}.facts .cell:nth-child(even){border-inline-start:1px solid #e5dce8}
+.room-title{font-size:12px;font-weight:700;padding:5px 8px;background:#faf8f4;border:1px solid #e8dfea;border-radius:7px;break-after:avoid;margin-top:8px}
+.room-group{break-inside:avoid}
+footer strong{white-space:nowrap}
+table{width:100%;border-collapse:collapse;table-layout:fixed}th,td{padding:4px 8px;text-align:start;border-bottom:1px solid #e8dfea}th{font-size:10px;color:#655366}td{font-size:11px}th:last-child{width:30%}thead{display:table-header-group}tr,.cell,.note{break-inside:avoid}
+.note{border:1px solid #e5dce8;border-radius:8px;padding:6px 10px;margin-top:5px}.note h3{font-size:11px}.note p{white-space:pre-line;font-size:11px}.legal{margin-top:8px;color:#514454;font-size:10px}footer{border-top:1px solid #e5dce8;margin-top:15px;padding-top:7px;align-items:start}footer small{color:#675866;font-size:10px}
+@media screen{body{background:#f2edf4;padding:24px 12px}main{max-width:210mm;background:white;border-radius:16px;padding:clamp(14px,4vw,14mm);box-shadow:0 3px 18px #2d173a13}}
+@media screen and (max-width:520px){body{padding:0}main{border-radius:0}h1{font-size:15px}.brand img{width:29px}.wordmark b{font-size:26px}.dates b{font-size:13px}.references,.facts{grid-template-columns:1fr}.facts .cell:nth-child(even){border-inline-start:0}.section-heading{align-items:end}.section-heading small{max-width:42%;text-align:end}}
+@media print{*{-webkit-print-color-adjust:exact;print-color-adjust:exact}main{width:100%}}
+{{samplePageStyle}}
+</style></head><body><main>
+<header><div class="brand">{{symbol}}<div class="wordmark"><b lang="ar">مخدة</b><small lang="en" dir="ltr">pillow stays</small></div></div><div class="document-title"><h1>{{title}}</h1><small>{{subtitle}}</small><span class="date">{{issued}}</span></div></header>
+{{banner}}<section class="references">{{references}}</section>
+<section class="hotel"><div class="hotel-heading"><h2>{{hotel}}</h2></div>{{contact}}<div class="dates">{{dates}}</div></section>
+{{details}}{{guests}}{{terms}}{{legal}}
+<footer><div><b>{{supportTitle}}</b><br><small>{{support}}</small></div><strong lang="en" dir="ltr">pillow stays</strong></footer>
+</main></body></html>

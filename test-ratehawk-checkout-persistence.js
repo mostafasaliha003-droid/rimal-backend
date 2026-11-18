@@ -2,10 +2,12 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const checkout = require('./services/checkoutProcessService');
 const { persistConfirmedCheckout } = require('./services/ratehawkCheckoutBookingPersistence');
+const env = { PAYMENT_BOOKING_ENCRYPTION_KEY: 'ed'.repeat(32) };
 
 test('booking persistence derives the property name from the exact verified hotel id', async context => {
     context.mock.method(checkout, 'decryptDetails', () => ({ hid: 123, hotelName: 'Wrong client label', roomName: 'Double',
-        user: { email: 'guest@example.test' }, rooms: [{ guests: [{ first_name: 'Guest', last_name: 'Test' }] }] }));
+        checkin: '2026-11-10', checkout: '2026-11-12', user: { email: 'guest@example.test' },
+        rooms: [{ guests: [{ first_name: 'Guest', last_name: 'Test' }] }] }));
     let saved;
     const Model = { updateOne: async (_filter, update) => { saved = update.$setOnInsert; }, findOne: () => ({ lean: async () => saved }) };
     const HotelModel = { findOne(filter) {
@@ -13,7 +15,7 @@ test('booking persistence derives the property name from the exact verified hote
         return { select: () => ({ lean: async () => ({ name: 'Official Supplier Hotel' }) }) };
     } };
     await persistConfirmedCheckout({ reference: 'booking', ownerSubject: 'owner', realm: 'sandbox', partner_order_id: 'supplier',
-        payment_verified_at: new Date(), amount_minor: 10000, currency: 'USD', supplier_payment: { type: 'deposit' } }, { Model, HotelModel });
+        payment_verified_at: new Date(), amount_minor: 10000, currency: 'USD', supplier_payment: { type: 'deposit' } }, { Model, HotelModel, env });
     assert.equal(saved.hotelName, 'Official Supplier Hotel');
     assert.equal(saved.providerHotelCode, '123');
 });
@@ -35,14 +37,14 @@ test('confirmed paid bookings persist the authenticated owner and survive retrie
     const record = { reference: 'fixture-reference', ownerSubject: 'owner-1', realm: 'sandbox',
         partner_order_id: 'supplier-order', payment_verified_at: new Date(), amount_minor: 10700,
         currency: 'USD', ziina_intent_id: 'test-intent', supplier_payment: { type: 'deposit' } };
-    await persistConfirmedCheckout(record, { Model });
+    await persistConfirmedCheckout(record, { Model, env });
     assert.equal(saved.ownerSubject, 'owner-1');
     assert.equal(saved.priceCurrency, 'USD');
     assert.equal(saved.price, 107);
     assert.equal(saved.providerHotelCode, '123');
     saved.status = 'cancelled';
-    await persistConfirmedCheckout(record, { Model });
+    await persistConfirmedCheckout(record, { Model, env });
     assert.equal(saved.status, 'cancelled');
-    await assert.rejects(persistConfirmedCheckout({ ...record, ownerSubject: 'other-owner' }, { Model }), /owner_mismatch/);
+    await assert.rejects(persistConfirmedCheckout({ ...record, ownerSubject: 'other-owner' }, { Model, env }), /owner_mismatch/);
     await assert.rejects(persistConfirmedCheckout({ ...record, ownerSubject: undefined }, { Model }), /persistence_unavailable/);
 });

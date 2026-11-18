@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const checkout = require('./checkoutProcessService');
 
-async function persistConfirmedCheckout(record, { Model = mongoose.models.Booking,
+async function persistConfirmedCheckout(record, { Model = mongoose.models.Booking, env = process.env,
     HotelModel = mongoose.connection.readyState === 1 ? require('../models/Hotel') : null } = {}) {
     if (!Model || !record.ownerSubject || !record.realm || !record.partner_order_id || !record.payment_verified_at) {
         throw new Error('confirmed_booking_persistence_unavailable');
@@ -9,7 +9,8 @@ async function persistConfirmedCheckout(record, { Model = mongoose.models.Bookin
     const details = checkout.decryptDetails(record);
     const guest = details.rooms?.[0]?.guests?.[0];
     const hotel = HotelModel && Number.isSafeInteger(details.hid)
-        ? await HotelModel.findOne({ hid: String(details.hid) }).select('name staticData.name').lean() : null;
+        ? await HotelModel.findOne({ hid: String(details.hid) })
+            .select('name address staticData.name staticData.address staticData.phone staticData.check_in_time staticData.check_out_time').lean() : null;
     const hotelName = require('./hotelPresentationService').resolveHotelName(hotel?.name, hotel?.staticData?.name, details.hotelName) || 'Hotel';
     if (!guest || !details.user?.email) throw new Error('confirmed_booking_guest_unavailable');
     const value = {
@@ -21,6 +22,8 @@ async function persistConfirmedCheckout(record, { Model = mongoose.models.Bookin
         roomType: details.roomName, price: require('./ziinaClient').majorUnits(record.amount_minor, record.currency), priceCurrency: record.currency,
         paymentMethod: 'ziina', supplierPaymentType: record.supplier_payment?.type || 'deposit',
         status: 'active', checkInDate: details.checkin, checkOutDate: details.checkout,
+        ...require('./ratehawkStayVoucherSnapshot').makeVoucherSnapshot(record, details,
+            { ...hotel?.staticData, address: hotel?.staticData?.address || hotel?.address }, env),
         confirmedAt: new Date()
     };
     // Unique bookingReference makes a crash/retry idempotent. Never reactivate

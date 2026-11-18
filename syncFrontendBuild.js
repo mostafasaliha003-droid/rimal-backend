@@ -5,9 +5,12 @@ const path = require('node:path');
 const root = __dirname;
 const output = path.join(root, 'frontend', 'dist');
 const publicFiles = ['index.html', '404.html', 'sw.js', 'manifest.webmanifest', 'offline.html', 'icon-192.png', 'icon-512.png', 'robots.txt', 'sitemap.xml'];
-const assetFiles = fs.readdirSync(path.join(output, 'assets'), { withFileTypes: true })
-    .filter(entry => entry.isFile())
-    .map(entry => path.join('assets', entry.name));
+const assetDirectories = ['assets', 'pillow'];
+const assetFiles = assetDirectories.flatMap(directory =>
+    fs.readdirSync(path.join(output, directory), { withFileTypes: true })
+        .filter(entry => entry.isFile())
+        .map(entry => path.join(directory, entry.name))
+);
 const files = [...publicFiles, ...assetFiles];
 const checkOnly = process.argv.includes('--check');
 
@@ -20,7 +23,7 @@ for (const icon of manifest.icons) {
 }
 
 if (!checkOnly) {
-    fs.mkdirSync(path.join(root, 'assets'), { recursive: true });
+    for (const directory of assetDirectories) fs.mkdirSync(path.join(root, directory), { recursive: true });
     for (const file of files) fs.copyFileSync(path.join(output, file), path.join(root, file));
 }
 for (const file of files) {

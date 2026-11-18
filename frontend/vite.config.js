@@ -22,6 +22,7 @@ function configuredBuildOutput(env) {
 export default defineConfig(({ mode }) => {
     const env = loadEnv(mode, '..', '');
 
+    const stagingPreview = process.env.PILLOW_PREVIEW_STAGING === '1';
     return {
         base: '/',
         envDir: '..',
@@ -39,10 +40,10 @@ export default defineConfig(({ mode }) => {
             port: 5173,
             proxy: {
                 '/api': {
-                    target: 'http://localhost:10000',
+                    target: stagingPreview ? 'https://rimal-api-staging.onrender.com' : 'http://localhost:10000',
                     changeOrigin: true,
-                    secure: false,
-                    headers: env.REMAL_SECURE_KEY ? { 'x-api-key': env.REMAL_SECURE_KEY } : {}
+                    secure: true,
+                    headers: !stagingPreview && env.REMAL_SECURE_KEY ? { 'x-api-key': env.REMAL_SECURE_KEY } : {}
                 }
             }
         }

@@ -4,6 +4,24 @@ const express=require('express');
 const crypto=require('node:crypto');
 const {imageMetadata,encryptDocument,decryptDocument,encryptionKey}=require('./services/membershipDocuments');
 const {validateEligibility,requiredDocuments,publicApplication}=require('./services/membershipService');
+test('an applicant may remove only an editable document at the revision they reviewed',async()=>{
+    const owner={subject:'owner',realm:'sandbox',email:'member@example.test',role:'user'};
+    const row={_id:'app',ownerSubject:owner.subject,realm:owner.realm,status:'draft',category:'gcc_citizen',revision:4};
+    let removed=0;
+    const query=value=>({lean:async()=>value});
+    const service=require('./services/membershipService').createMembershipService({
+        UserModel:{findById:()=>query({email:owner.email})},
+        Application:{findOne:()=>query(row),findOneAndUpdate(filter){assert.equal(filter.ownerSubject,owner.subject);assert.equal(filter.revision,row.revision);return query({...row,revision:++row.revision});}},
+        Document:{deleteOne:async filter=>{assert.deepEqual(filter,{applicationId:'app',ownerSubject:'owner',realm:'sandbox',kind:'passport'});removed++;return{deletedCount:1};}},
+        Audit:{create:async()=>{}},transaction:fn=>fn({})
+    });
+    await assert.rejects(service.removeDocument(owner,'passport',3),{code:'application_changed'});
+    await assert.rejects(service.removeDocument(owner,'eid_front',4),{code:'document_removal_not_allowed'});
+    assert.deepEqual(await service.removeDocument(owner,'passport',4),{kind:'passport',removed:true});
+    row.status='submitted';
+    await assert.rejects(service.removeDocument(owner,'passport',5),{code:'document_removal_not_allowed'});
+    assert.equal(removed,1);
+});
 const {createMembershipAccessGate}=require('./services/membershipAccessGate');
 const {createMembershipMailer,mailContent}=require('./services/membershipMail');
 const {passportEvidence,professionalEvidence,checkDigit,parseTsv,createLocalDocumentReader}=require('./services/membershipEligibilityReader');
@@ -39,9 +57,9 @@ test('public application never exposes internal review, ciphertext or expired do
     assert.equal(data.documents.length,1);assert.ok(!JSON.stringify(data).includes('secret'));assert.ok(!Object.hasOwn(data,'internalNote'));assert.ok(!Object.hasOwn(data,'reviewer'));
 });
 test('server gate blocks anonymous and pending inventory; revocation takes effect on next request and servicing stays available',async t=>{
-    let status='submitted',unavailable=false;
+    let status='submitted',unavailable=false,enabled=true;
     const sessions={resolve:async token=>token==='a'.repeat(64)?{role:'user',subject:'user',realm:'qa'}:token==='b'.repeat(64)?{role:'admin'}:null};
-    const service={enabled:()=>true,application:async()=>{if(unavailable)throw Error();return {row:{status}};}};
+    const service={enabled:()=>enabled,application:async()=>{if(unavailable)throw Error();return {row:{status}};}};
     const app=express();app.use(createMembershipAccessGate({service,sessions}));app.use((_req,res)=>res.json({reached:true}));
     const server=app.listen(0,'127.0.0.1');await new Promise(resolve=>server.once('listening',resolve));t.after(()=>new Promise(resolve=>server.close(resolve)));
     const request=(path,token,method='GET')=>fetch(`http://127.0.0.1:${server.address().port}${path}`,{method,headers:token?{Authorization:`Bearer ${token==='valid'?'a'.repeat(64):token==='admin'?'b'.repeat(64):token}`}:{}});
@@ -56,6 +74,11 @@ test('server gate blocks anonymous and pending inventory; revocation takes effec
     assert.equal((await request('/api/payment/ziina/webhook/',null,'POST')).status,200);
     assert.equal((await request('/api/v1/admin/membership/applications','admin')).status,200);
     unavailable=true;assert.equal((await request('/api/display-rates','valid')).status,503);
+    enabled=false;
+    assert.equal((await request('/API/search/rates',null,'POST')).status,503);
+    assert.equal((await request('/api/payment/quote','valid','POST')).status,503);
+    assert.equal((await request('/api/payment/ziina/recover','valid','POST')).status,200);
+    assert.equal((await request('/api/v1/ready')).status,200);
 });
 test('membership emails escape applicant notes and never include identity attachments or approval claims in OTP',()=>{
     const content=mailContent({name:'<script>',reference:'ref',event:'needs_information',publicNote:'<img onerror=x>',origin:'https://example.test'});

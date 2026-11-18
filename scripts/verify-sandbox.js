@@ -37,7 +37,7 @@ async function verifySandbox({ createCheckout = false } = {}) {
     const checkout = new Date(checkin); checkout.setUTCDate(checkout.getUTCDate() + 2);
     const criteria = { hid: 10004834, checkin: checkin.toISOString().slice(0, 10), checkout: checkout.toISOString().slice(0, 10),
         guests: [{ adults: 2, children: [] }], residency: 'ae', language: 'en', currency: 'USD' };
-    const hotelpage = await request('/search/hotelpage', { body: criteria });
+    const hotelpage = await request('/search/hotelpage', { body: criteria, token: user.access_token });
     const hotel = hotelpage.hotel || hotelpage.hotels?.[0];
     const rates = hotelpage.rates || hotel?.rates || [];
     const available = rates.filter(rate => rate.payment_options?.payment_types?.some(option =>
@@ -60,7 +60,8 @@ async function verifySandbox({ createCheckout = false } = {}) {
             const price = customerPrice(rate);
             if (price.currency !== 'USD' || price.amount <= 0 || price.amount > 1000) throw new Error('sandbox_test_amount_exceeded');
             evidence = { origin: ORIGIN, idempotencyKey: crypto.randomUUID(), payload: {
-                ...criteria, book_hash: rate.book_hash, roomName: rate.room_name, hotelName: hotel?.name || 'ETG Sandbox Hotel',
+                ...criteria, book_hash: rate.book_hash, offer_context: rate.offer_context,
+                roomName: rate.room_name, hotelName: hotel?.name || 'ETG Sandbox Hotel',
                 total: price.amount, currency: price.currency,
                 guest: { firstName: holder.first_name, lastName: holder.last_name,
                     email: process.env.ETG_CERT_GUEST_EMAIL, phone: process.env.ETG_CERT_GUEST_PHONE },

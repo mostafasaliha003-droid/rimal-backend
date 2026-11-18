@@ -207,6 +207,9 @@ const bookingSchema = new mongoose.Schema({
         select: false
     },
     hotelbedsVoucherSnapshotProcessed: { type: Boolean, default: false, select: false },
+    stayVoucherEncrypted: { type: createEncryptedBookingRecordPayloadSchema(mongoose,
+        require('./services/ratehawkStayVoucherSnapshot').maxVoucherCiphertext), default: undefined, select: false },
+    stayVoucherExpiresAt: { type: Date, default: undefined, select: false, index: true },
     checkInDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     checkOutDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     confirmedAt: Date,
@@ -311,6 +314,7 @@ app.use('/api/auth', createUserAuthRouter({
     authLimiter: securityService.authLimiter
 }));
 app.use('/api/user', createUserProfileRouter({ UserModel: User, BookingModel: Booking, auth: sessionAuth }));
+
 // Request intake only: accounts, sessions and bookings remain unchanged.
 const accountDeletionService = createAccountDeletionService({ database: mongoose.connection });
 app.use('/api/auth/account-deletion', createAccountDeletionRouter({
@@ -1024,7 +1028,6 @@ app.post('/api/booking/prebook-serp', publicSearchGuard, async (req, res) => {
 });
 
 app.get('/api/payment/availability', createPaymentAvailabilityHandler({ payment: paymentService, database: mongoose.connection }));
-
 app.post('/api/payment/ziina/recover', requireUser, securityService.searchLimiter,
     createCheckoutRecoveryHandler({ service: checkoutProcessService }));
 
@@ -1185,17 +1188,17 @@ app.post('/api/v1/hotels/recheck-and-pay', (_req, res) => {
 app.post('/api/v1/hotels/book', requireUser, securityService.bookingLimiter, hotelbedsBookingController);
 
 app.use('/api/owned', createOwnedBookingCancellationRouter({ BookingModel: Booking, requireUser }));
+app.get('/api/owned/notifications', requireUser, require('./services/ownedNotifications').createOwnedNotificationsHandler({
+    Booking, Notice: require('./models/MembershipNotice'), Checkout: require('./models/CheckoutAttempt')
+}));
 app.use('/api/owned', createOwnedBookingPdfRouter({
     BookingModel: Booking,
     HotelbedsContentModel: HotelbedsVerifiedHotelContent,
     hotelbedsDatabase: hotelbedsMockDatabase,
     env: process.env,
     puppeteer,
-    templatePath: path.join(__dirname, 'voucher-template.html'),
-    hotelbedsTemplatePath: path.join(__dirname, 'hotelbeds-voucher-template.html'),
     requireUser,
-    requireAdmin,
-    sanitizeText
+    requireAdmin
 }));
 
 // The public legacy lookup and PDF were removed; vouchers now require a live

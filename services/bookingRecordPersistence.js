@@ -11,21 +11,21 @@ function encryptionKey(env = process.env) {
     return Buffer.from(value, 'hex');
 }
 
-function createEncryptedBookingRecordPayloadSchema(mongooseInstance) {
+function createEncryptedBookingRecordPayloadSchema(mongooseInstance, maxLength = 65536) {
     if (!mongooseInstance?.Schema) throw new TypeError('booking_record_schema_factory_invalid');
     return new mongooseInstance.Schema({
         iv: { type: String, required: true, match: /^[a-f\d]{24}$/i },
         tag: { type: String, required: true, match: /^[a-f\d]{32}$/i },
-        ciphertext: { type: String, required: true, minlength: 1, maxlength: 65536 }
+        ciphertext: { type: String, required: true, minlength: 1, maxlength: maxLength }
     }, { _id: false, strict: 'throw' });
 }
 
-function validEncryptedBookingRecordPayload(envelope) {
+function validEncryptedBookingRecordPayload(envelope, maxLength = 65536) {
     if (!envelope || typeof envelope !== 'object' || Array.isArray(envelope)
         || !/^[a-f\d]{24}$/i.test(envelope.iv || '')
         || !/^[a-f\d]{32}$/i.test(envelope.tag || '')
         || typeof envelope.ciphertext !== 'string' || envelope.ciphertext.length < 1
-        || envelope.ciphertext.length > 65536 || envelope.ciphertext.length % 4 !== 0
+        || envelope.ciphertext.length > maxLength || envelope.ciphertext.length % 4 !== 0
         || !/^(?:[A-Za-z\d+/]{4})*(?:[A-Za-z\d+/]{2}==|[A-Za-z\d+/]{3}=)?$/.test(envelope.ciphertext)) return false;
     try { return Buffer.from(envelope.ciphertext, 'base64').toString('base64') === envelope.ciphertext; }
     catch { return false; }
@@ -39,8 +39,8 @@ function encryptBookingRecordPayload(payload, env = process.env) {
     return { iv: iv.toString('hex'), tag: cipher.getAuthTag().toString('hex'), ciphertext: ciphertext.toString('base64') };
 }
 
-function decryptBookingRecordPayload(envelope, env = process.env) {
-    if (!validEncryptedBookingRecordPayload(envelope)) {
+function decryptBookingRecordPayload(envelope, env = process.env, maxLength = 65536) {
+    if (!validEncryptedBookingRecordPayload(envelope, maxLength)) {
         throw fail('booking_record_payload_unavailable', 503);
     }
     try {

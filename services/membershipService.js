@@ -60,6 +60,17 @@ function createMembershipService({UserModel,Application=require('../models/Membe
         await Document.findOneAndUpdate({applicationId,realm:identity.realm,kind},{$set:{ownerSubject:identity.subject,...metadata,...encrypted,expiresAt:new Date(Date.now()+86400000)}},{upsert:true,new:true,session});
         await audit(claim,identity,'document_uploaded',kind,session);return {kind,size:metadata.size,mime};
     });}
+    async function removeDocument(identity,kind,revision){return atomic(async session=>{
+        if(!Number.isSafeInteger(revision)||revision<0)throw fail('invalid_application_revision',400);
+        const {row}=await application(identity);
+        if(!row||!EDITABLE.has(row.status)||!requiredDocuments(row.category).includes(kind))throw fail('document_removal_not_allowed',409);
+        if(row.revision!==revision)throw fail('application_changed',409);
+        const claim=await Application.findOneAndUpdate({_id:row._id,...scoped(identity),status:row.status,revision},{$inc:{revision:1}},{new:true,session}).lean();
+        if(!claim)throw fail('application_changed',409);
+        const result=await Document.deleteOne({applicationId:String(row._id),...scoped(identity),kind},{session});
+        if(result.deletedCount)await audit(claim,identity,'document_removed',kind,session);
+        return {kind,removed:result.deletedCount===1};
+    });}
     async function submit(identity,body){return atomic(async session=>{
         encryptionKey(env);
         const {row}=await application(identity);
@@ -102,6 +113,6 @@ function createMembershipService({UserModel,Application=require('../models/Membe
         if(!doc)throw fail('document_not_found',404);
         await audit(row,identity,'document_viewed',kind);return {buffer:decryptDocument(doc,env),mime:doc.mime};
     }
-    return {enabled,status,application,saveDraft,upload,submit,review,document,enqueue,publicApplication,requiredDocuments};
+    return {enabled,status,application,saveDraft,upload,removeDocument,submit,review,document,enqueue,publicApplication,requiredDocuments};
 }
 module.exports={createMembershipService,validateEligibility,publicApplication,requiredDocuments,GCC,PROFESSIONS};

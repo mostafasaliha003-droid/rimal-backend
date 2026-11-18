@@ -1,0 +1,160 @@
+{
+  "prepared_on": "2026-11-18",
+  "app_name": "مخدّة | Mkhadda",
+  "brand": "Mkhadda",
+  "operator": "Remal Tourism",
+  "status": "Developer inventory draft, not a completed or submitted Play Data Safety declaration.",
+  "scope": "Source inventory of the existing backend/web capabilities and the current native source candidate, including owned booking history, explicit read-only rate review, account-request intake, RAM-only hotel comparison and recent searches. New source flows are not claimed to be present in earlier APKs. SDK collection, permissions and final declaration answers must be verified against the Android build actually released.",
+  "source_baseline": {
+    "authoritative_backend_commit": "2b26ddd5a1dd8039723d4bb8a9f66b56deaccb46",
+    "backend_evidence": "Immutable Git source at this commit, especially services/userAuthRoutes.js. The older backend files inherited by the mobile worktree are not the authority for these API contracts.",
+    "native_evidence": "Current apps/mobile source candidate; source paths below describe implementation, not a completed Play declaration or device-runtime verification.",
+    "privacy_companion_backend_commit": "3924d7ea4e2adb9092c4c44799f57ee106827a76",
+    "interpretation_limit": "Receiving or discarding a response field is recorded as a source fact here. This inventory does not decide Play collection/sharing exceptions, legal purposes, required/optional declarations, retention periods or compliance."
+  },
+  "official_sources": [
+    "https://support.google.com/googleplay/android-developer/answer/10787469",
+    "https://support.google.com/googleplay/android-developer/answer/13327111"
+  ],
+  "data_flows": [
+    {
+      "flow": "Version 0.5 booking-options quote and gated checkout/recovery preparation",
+      "default_build": "Native financial creation and traveler-form collection are disabled; explicit owned server-checked amount and existing website handoff remain available.",
+      "read_only_requests": [
+        "GET /api/payment/availability",
+        "POST /api/payment/quote with current authenticated user, selected signed p-offer, dates, occupancy and source amount/currency",
+        "POST /api/payment/ziina/recover with current authenticated user and Idempotency-Key only",
+        "GET /api/payment/ziina/:reference/status with separate scoped capability"
+      ],
+      "conditional_future_creation": "The implemented, default-disabled creation path can send lead/traveler names, child ages, contact email/international phone, optional requests and signed quote/offer context to the existing server checkout endpoint. It must not be described as shipped payment completion or default collection.",
+      "local_marker": [
+        "version",
+        "environment",
+        "ownerDigest derived from verified account email/environment",
+        "cryptographically random idempotencyKey",
+        "createdAt"
+      ],
+      "local_handling": "Native marker uses SecureStore; browser preview uses RAM only. The digest is an account-linked identifier, not anonymous data. Guest/contact form, signed contexts, quote/status capabilities and hosted-payment links remain RAM-only. Owner changes hide/abort old work. Storage failure blocks creation; unknown requests never automatically replay. Safe completed marker removal also retires the consumed review.",
+      "server_handling": "Authenticated recovery reads an existing attempt by key plus current owner/realm and returns scoped public progress; it creates no supplier form/payment/booking. Creation, if later enabled, uses the pre-existing encrypted checkout-record and provider workflow, whose full retention/fulfillment policy remains a separate release gate.",
+      "limits": "SecureStore/device loss, uninstall, cross-device recovery, native payment return, SDK inventory and complete privacy/Data Safety declarations still need validation. No collection exemption, complete deletion fulfillment or production financial-readiness claim.",
+      "source_files": [
+        "apps/mobile/src/api/checkout.ts",
+        "apps/mobile/src/components/offerReviewModel.ts",
+        "apps/mobile/src/components/checkoutSessionModel.ts",
+        "apps/mobile/src/components/checkoutRecoveryStorage.native.ts",
+        "apps/mobile/src/screens/CheckoutScreen.tsx",
+        "services/checkoutRecoveryRoutes.js",
+        "services/checkoutProcessService.js"
+      ]
+    },
+    {
+      "flow": "Session-only recent searches and hotel comparison in version 0.4",
+      "recent_search_data": ["Destination name and validated region/property identifier", "Stay dates, country of residence, currency and room/adult/child-age criteria", "Local creation time and non-secret session scope"],
+      "comparison_data": ["Up to three supplied hotel identifiers, names, addresses, star classifications and photo URLs", "Supplied customer prices in the search currency, capture time and non-secret search/session scope"],
+      "local_handling_observed": "Both collections use JavaScript/React memory only, without new AsyncStorage, SecureStore, URL, log or disk persistence. Account/session changes invalidate them; comparison also resets on search/language changes. Expected-context checks reject old handlers. Comparison snapshots whitelist presentation fields and exclude room offers, signed capabilities, tokens and guest/account/payment identity. Recent criteria are copied, deduplicated, bounded to four and revalidated before use. A local five-minute comparison-price display period is not a supplier availability or deletion guarantee.",
+      "network_handling_observed": "Restoring a recent query fills the search form without automatically submitting it. Local filters and comparison add no provider endpoint or analytics transmission. Explicit Search still uses existing supplier search requests; displayed photo URLs use the existing image adapter and provider domains. Native UI grouping preserves original room-rate objects for the existing explicit review/prebook flow.",
+      "source_files": ["apps/mobile/src/components/AppState.tsx", "apps/mobile/src/components/discoverySessionModel.ts", "apps/mobile/src/screens/SearchScreen.tsx", "apps/mobile/src/screens/CompareScreen.tsx", "apps/mobile/src/screens/ResultsScreen.tsx", "apps/mobile/src/screens/HotelScreen.tsx"],
+      "declaration_gate": "Review search/occupancy criteria, shared-device session behavior, image-provider transfers and the final compiled SDK inventory in the complete privacy/Data Safety assessment. RAM-only handling and source checks alone do not establish a collection exemption, legal retention compliance or secure physical-device behavior."
+    },
+    {
+      "flow": "Native account-deletion request intake, without erasure",
+      "native_endpoints": ["GET /api/auth/account-deletion", "POST /api/auth/account-deletion"],
+      "request_data": ["Existing bearer session in the Authorization header", "Current account password for reauthentication", "Explicit request consent"],
+      "response_data": ["Pending request reference and requested timestamp, or no recorded request", "Explicit data_deleted:false"],
+      "local_handling_observed": "Password and consent live in screen/request memory and clear from form state on each attempt and authentication revision change. Request/reference and status live in screen memory. The implementation adds no password, consent or request disk cache or navigation parameters. Clearing state does not establish immediate memory erasure. A fixed external website link carries no app token, account identifier or password.",
+      "server_handling_observed": "The companion backend reauthenticates the current session owner and records a minimal owner subject, realm, reference, requested status and timestamp. It does not persist the submitted password or email in the request ledger, erase customer data, revoke sessions or change bookings/payments. The administrative queue is read-only.",
+      "source_files": ["apps/mobile/src/api/accountDeletion.ts", "apps/mobile/src/screens/AccountDeletionScreen.tsx", "apps/mobile/src/api/transport.ts", "apps/mobile/src/api/links.ts", "services/accountDeletionRoutes.js and services/accountDeletionService.js at the companion commit", "models/AccountDeletionRequest.js at the companion commit"],
+      "declaration_gate": "Request intake is not completed account deletion. The owner currently retains customer accounts. Complete fulfillment, narrowly scoped legitimate retention and consistent privacy/Data Safety disclosures remain unresolved before Play release; see release/privacy-requests.md."
+    },
+    {
+      "flow": "Account registration, authentication and profile",
+      "observed_data": ["Name", "Email", "Optional phone", "Password input sent to the backend over HTTPS for login/registration", "Password hash stored and compared on the server", "Account identifier", "Session token hash, role, realm and expiry on the server"],
+      "purposes_observed": ["Account creation and management", "Authentication", "Fraud/security controls"],
+      "source_files": ["services/userAuthRoutes.js", "services/authSessionService.js", "services/sessionAuthMiddleware.js", "apps/mobile/src/api/client.ts", "apps/mobile/src/api/transport.ts", "apps/mobile/src/auth/session.ts", "apps/mobile/src/auth/storage.ts"],
+      "native_implementation": "The client receives an opaque 64-hex-character access_token, uses Authorization: Bearer for authenticated API requests and never adds that token to a URL. Native token persistence uses Expo SecureStore; the web preview uses memory only. Session profile state is held in memory. These storage facts are not an account-retention or deletion policy.",
+      "deletion_gap": "No account-deletion request handler or associated-data workflow found in the audited baseline; logout is session termination, not account deletion."
+    },
+    {
+      "flow": "Native owned booking history and accompanying profile response",
+      "native_endpoint": "GET /api/user/profile",
+      "request_data": ["Existing account bearer session token in the Authorization header"],
+      "ownership_observed": "The backend requires a user session, resolves the profile with the authenticated subject and email, and queries bookings by authenticated ownerSubject plus realm. The native helper sends no email, owner identifier or other identity query parameter.",
+      "raw_response_fields_transferred_to_app": {
+        "profile": ["name", "email", "points", "phone when present", "savedCards[].cardHolder", "savedCards[].maskedNumber", "savedCards[]._id when present"],
+        "bookings_when_present": ["bookingReference", "supplierReference", "hotelConfirmationNumber", "supplierStatus", "provider", "customerName", "hotelName", "roomType", "boardType", "price", "priceCurrency", "checkInDate", "checkOutDate", "paymentMethod", "supplierPaymentType", "status", "cancellationPolicy", "confirmedAt", "freeCancelDeadline", "refundType", "createdAt"]
+      },
+      "processing_observed": "The complete JSON response reaches native transport parsing before normalization. This therefore introduces native receipt/processing of account name, email, optional phone, loyalty points, saved-card holder/masked-number metadata, traveler/customer name and booking/payment metadata even though the history view discards most of it. This route does not return a password hash, full card number, CVC or card payment token in its public serializers; masked-card metadata is still received.",
+      "history_model_retains_in_memory": ["bookingReference as reference", "hotelName", "roomType as roomName", "Validated checkInDate/checkOutDate", "Raw record and supplier status text with a derived presentation category", "Explicit customer price and priceCurrency only for known persisted providers"],
+      "history_model_discards": ["Entire profile object, including name/email/phone/points/savedCards", "customerName", "supplierReference", "hotelConfirmationNumber", "boardType", "paymentMethod", "supplierPaymentType", "cancellationPolicy", "confirmedAt", "freeCancelDeadline", "refundType", "createdAt", "Any additional unrecognized fields"],
+      "local_handling_observed": "History results are kept in React memory without a disk/browser-storage cache. The rendered result is keyed by authentication status, monotonically changing session revision and refresh attempt, so a previous session's rows are hidden immediately on an identity/revision change. Outstanding requests are aborted; late aborted results are rejected. This describes display isolation and non-persistence, not guaranteed immediate memory erasure or backend deletion.",
+      "actions_observed": "Display, refresh/retry and sign-in navigation only. The history screen creates no booking, payment, cancellation, refund or voucher request.",
+      "purpose_in_code": "Display the signed-in account's existing booking records.",
+      "source_files": ["services/userAuthRoutes.js:11-35 (publicUser/publicBooking at the authoritative backend commit)", "services/userAuthRoutes.js:193-217 (owned profile route at the authoritative backend commit)", "services/ratehawkCheckoutBookingPersistence.js", "services/bookingRecordPersistence.js", "apps/mobile/src/api/bookings.ts", "apps/mobile/src/api/client.ts", "apps/mobile/src/api/transport.ts", "apps/mobile/src/screens/BookingsScreen.tsx", "apps/mobile/src/auth/session.ts"],
+      "declaration_gate": "Review the actual transferred profile/contact, saved-card metadata and booking/payment fields when preparing the final declaration. Client-side discarding does not mean those fields never reached the app. No new retention/deletion guarantee or completed Play answer is asserted."
+    },
+    {
+      "flow": "Native selected-offer review, explicit read-only prebook and RAM-only draft",
+      "native_endpoints": ["POST /api/search/hotelpage", "GET /api/v1/hotels/:hid", "POST /api/booking/prebook"],
+      "request_data": ["Hotel identifier", "Stay dates", "Residency country", "Room/adult counts and child ages", "Requested currency and language for hotel/search reads", "Original h-prefixed offer hash and signed offer_context for an explicit prebook price check", "Existing bearer session token in the Authorization header when signed in"],
+      "response_data": ["Hotel name/address/photos and content", "Room name and identity", "Selected customer price and currency", "Meal/board information when supplied", "Tax amounts, currencies and inclusion flags", "Cancellation intervals/deadlines and charges", "Returned p-prefixed hash and signed prebook_context, validated transiently by the client"],
+      "local_draft_data": ["Selected hotel identifier/name and optional address/image", "Copied search dates/residency/currency/room counts/child ages", "Language", "Original selected offer including signed offer_context, room identity, price, taxes and cancellation terms", "Local draft identifier and creation time", "Local owner key derived from app environment, authentication status and session revision", "In-memory recheck status, updated offer terms, change acceptance and expiry"],
+      "local_handling_observed": "The draft and recheck state live only in JavaScript/React memory. They are not written to AsyncStorage, SecureStore, browser storage, logs or deep links by the review implementation. The draft is bound to the current environment/authentication revision and search criteria, becomes inaccessible on identity/search changes and is cleared by the corresponding state handlers. Selection validity is five minutes and displayed recheck validity is at most two minutes within that selection window; these are UI validity limits, not deletion/retention guarantees. The returned prebook_context is validated in the API result and is not persisted or used to create a payment/booking by this review flow.",
+      "actions_observed": "The user explicitly requests a price/terms recheck of the original signed h-offer. A returned p-offer is not reused as a new recheck input. Changed terms require acceptance before a fixed HTTPS website handoff. The handoff carries hotel/search criteria only; it carries no bearer session token, offer/prebook capability, traveler contact or payment information and requires website reselection/recheck. No native quote, payment-intent, supplier booking form/finish, cancellation or refund endpoint is called by this feature.",
+      "purpose_in_code": "Let the user inspect the selected offer and current price/tax/cancellation terms before continuing on the website.",
+      "source_files": ["apps/mobile/src/api/client.ts", "apps/mobile/src/api/adapters.ts", "apps/mobile/src/api/transport.ts", "apps/mobile/src/api/links.ts", "apps/mobile/src/components/AppState.tsx", "apps/mobile/src/components/offerReviewModel.ts", "apps/mobile/src/components/useReviewSession.ts", "apps/mobile/src/screens/ReviewScreen.tsx", "services/ratehawkOfferContext.js", "server.js (/api/search/hotelpage and /api/booking/prebook at the authoritative backend commit)"],
+      "declaration_gate": "Assess search/occupancy data, account linkage, supplier transfers and any website handoff in the final shipped flow. Memory-only handling and a read-only price check do not establish a Play exemption or a legal retention/deletion conclusion."
+    },
+    {
+      "flow": "Hotel search, selection, guests and reservation servicing",
+      "observed_data": ["Destination", "Stay dates", "Room/adult counts and child ages", "Selected property and rate", "Traveler names and child status/age", "Contact email and phone", "Optional booking comment", "Booking references, history and status"],
+      "purposes_observed": ["App functionality", "Reservation fulfillment", "Customer support"],
+      "source_files": ["services/ratehawkSearchValidation.js", "services/checkoutProcessService.js", "services/bookingProcessService.js", "services/bookingRecordPersistence.js"],
+      "recipient_questions": "Confirm the exact fields sent to each accommodation supplier. Supplier confirmation email is configured separately; do not assume the customer's email is sent to every provider.",
+      "retention_gate": "Approve and disclose reservation/accounting retention and deletion handling; do not promise that all historical financial records are immediately erased."
+    },
+    {
+      "flow": "Membership eligibility and identity documents",
+      "observed_data": ["Account-linked application", "Category", "Nationality", "Profession/title", "Consent timestamp/version", "Passport identity-page image or Emirates ID front/back images", "Review status, notes and audit events"],
+      "purposes_observed": ["Eligibility review", "App access management", "Security/audit"],
+      "source_files": ["models/MembershipApplication.js", "models/MembershipDocument.js", "services/membershipService.js", "services/membershipDocuments.js", "services/membershipReviewWorker.js"],
+      "storage_observed": "Documents are encrypted and access-scoped. Draft upload expiry is 24 hours; submission/review changes expiry, with final decision retention capped at 30 days in the inspected implementation. Application/review metadata is a separate retained record.",
+      "release_gates": ["Verify the actual cleanup/TTL behavior operationally; a schema expiry is not evidence every record has been removed.", "Explain document collection and retention clearly before upload.", "Confirm final Play data categories, required/optional status, processors and any OCR SDK/provider behavior.", "Never include real identity documents in store screenshots, fixtures or reviewer instructions."]
+    },
+    {
+      "flow": "Payment and refund orchestration",
+      "observed_data": ["Amount and currency", "Payment intent/reference", "Payment/refund status", "Supplier settlement terms", "Encrypted checkout contact/traveler details"],
+      "purposes_observed": ["Payment processing", "Booking fulfillment", "Refund servicing", "Fraud prevention"],
+      "source_files": ["services/checkoutProcessService.js", "services/paymentService.js", "services/ziinaClient.js", "models/CheckoutAttempt.js", "services/postBookingService.js"],
+      "provider_gate": "Audit the final hosted-payment/native SDK flow. Do not declare Remal card-number/CVC collection merely because a payment gateway handles cards, or declare no collection without checking the shipped integration.",
+      "retention_gate": "Payment and booking references may have legitimate retention requirements; the actual policy and associated-data deletion process remain to be approved."
+    },
+    {
+      "flow": "Booking network/security metadata",
+      "observed_data": ["Booking user IP supplied to supplier booking-form creation", "Session/security records", "Sanitized operational logs"],
+      "source_files": ["services/bookingProcessService.js", "services/authSessionService.js", "services/loggerService.js"],
+      "classification_gate": "Inspect final logging, retention and purposes. Hotel coordinates or a searched destination do not by themselves prove device GPS/location collection. Do not request or declare location access without the actual feature/permission inventory."
+    },
+    {
+      "flow": "Support, transactional email and reviews",
+      "observed_data": ["Support messages and account/booking linkage", "Transactional email recipient/contact details", "Hotel name/location/place identifier for backend reviews lookup"],
+      "source_files": ["services/customerSupportRoutes.js", "services/membershipMail.js", "services/notificationService.js", "services/googleHotelReviews.js", "frontend/src/pages/LegalPage.jsx"],
+      "provider_gate": "Confirm email/support providers and logs. Current review lookup describes hotel data rather than guest booking details; external author-image/link requests can expose network metadata to Google. Re-audit if a native Maps SDK is selected."
+    },
+    {
+      "flow": "Analytics, crash reporting, push and other native SDKs",
+      "observed_data": ["Existing web analytics helper dispatches local DOM events; this alone does not establish off-device analytics transmission"],
+      "source_files": ["frontend/src/services/analytics.js", "apps/mobile/package.json"],
+      "status": "Final native SDK inventory and telemetry design pending. No completed analytics/crash/push Data Safety answers are claimed.",
+      "release_gate": "Inspect all direct/transitive SDKs, permissions, default collection and opt-in behavior before declaring collection/sharing or adding advertising/device identifiers."
+    }
+  ],
+  "declaration_review_questions": [
+    "Which flows actually run in the released native app, including account creation and membership?",
+    "What leaves the device, including SDKs and relevant server-to-server transfers?",
+    "For each actual data type, what purpose, required/optional status and deletion behavior apply?",
+    "Do any service-provider or user-initiated transfer exceptions apply? Do not blanket-declare no sharing.",
+    "Is all user data transmitted with appropriate transport protection across the complete app/SDK inventory?",
+    "Do the privacy notice, native disclosures, external deletion resource and actual backend retention agree?"
+  ],
+  "submission_completed": false
+}

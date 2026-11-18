@@ -71,8 +71,8 @@ export const searchByRegion = async (regionData) =>
  * @param {number} [limit=250] - Maximum number of hotel IDs to return.
  * @returns {Promise<object>} Sorted hotel ID response.
  */
-export const sortRegionHotels = async (regionId, limit = 250) =>
-    responseData(await api.get(`/search/sort/${encodeURIComponent(regionId)}`, { params: { limit } }));
+export const sortRegionHotels = async (regionId, limit = 250, { signal } = {}) =>
+    responseData(await api.get(`/search/sort/${encodeURIComponent(regionId)}`, { params: { limit }, signal }));
 
 /**
  * Retrieve full hotelpage rates for prebooking validation.
@@ -106,8 +106,8 @@ export const getAffiliateBookingStatus = async (processId, accessToken) =>
  * @param {object} searchData - Dates, guests, and search options.
  * @returns {Promise<{staticData: object, liveData: object}>}
  */
-export const getHotelStatic = async (hid, language = 'en') =>
-    responseData(await api.get(`/v1/hotels/${encodeURIComponent(hid)}`, { params: { language } }));
+export const getHotelStatic = async (hid, language = 'en', { signal } = {}) =>
+    responseData(await api.get(`/v1/hotels/${encodeURIComponent(hid)}`, { params: { language }, signal }));
 
 /**
  * Validate a hotel rate through the standard ETG prebook endpoint.
@@ -145,6 +145,10 @@ export const createZiinaIntent = async (paymentData, idempotencyKey) =>
     }));
 
 export const paymentAvailability = async () => responseData(await api.get('/payment/availability'));
+export const recoverZiinaIntent = async idempotencyKey =>
+    responseData(await api.post('/payment/ziina/recover', {}, {
+        authScope: 'user', headers: { 'Idempotency-Key': idempotencyKey }
+    }));
 export const createPaymentQuote = async data => responseData(await api.post('/payment/quote', data, { authScope: 'user', timeout: 45000 }));
 
 export const getCheckoutStatus = async (reference, accessToken) =>
@@ -251,11 +255,13 @@ export const logoutUser = async () =>
     responseData(await api.post('/auth/logout', {}, { authScope: 'user' }));
 
 /** Download a booking voucher only for the authenticated owner of that booking. */
-export const getOwnedBookingVoucher = async reference => {
+export const getOwnedBookingVoucher = async (reference, language = 'ar', format = 'pdf', signal) => {
     if (typeof reference !== 'string' || !reference.trim()) throw new Error('booking_reference_invalid');
     return api.get(`/owned/bookings/pdf/${encodeURIComponent(reference)}`, {
+        params: { language: language === 'ar' ? 'ar' : 'en', format },
+        signal,
         authScope: 'user',
-        responseType: 'blob',
+        responseType: format === 'html' ? 'text' : 'blob',
         timeout: 30000
     });
 };
@@ -279,6 +285,7 @@ export default {
     getOwnedCancellationStatus,
     getOwnedCancellationReceipt,
     paymentAvailability,
+    recoverZiinaIntent,
     suggest,
     searchByIds,
     searchByGeo,

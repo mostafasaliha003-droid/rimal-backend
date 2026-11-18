@@ -44,7 +44,7 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
         if (!booking && !payment) throw error('support_reference_not_found', 404);
         const profile = isStaff && UserModel ? await UserModel.findOne({ _id: req.auth.subject }).select('name email phone').lean() : null;
         const provider = booking?.provider || (payment ? 'ratehawk' : null);
-        const voucherAvailable = booking?.status === 'active' && ['CONFIRMED', 'COMPLETED'].includes(String(booking.supplierStatus).toUpperCase());
+        const voucherAvailable = require('./stayVoucher').supplierConfirmed(booking);
         return { reference, hotelName: booking?.hotelName || '', customerName: booking?.customerName || '',
             bookingStatus: booking?.status || null, paymentStatus: payment?.state || null,
             paid: !!payment?.payment_verified_at, amount: payment?.amount_minor != null

@@ -3,6 +3,8 @@ import { Check, CheckCheck, CreditCard, Hotel, Mail, MessageCircle, ShieldCheck,
 import { useLanguage } from '../i18n';
 import './LiveBookingStatus.css';
 import SupportContactLink from './SupportContactLink';
+import PillowBrand from './PillowBrand';
+import { paymentRedirect } from '../services/pendingPayment';
 
 export default function LiveBookingStatus({ status, reference, connection, updatedAt }) {
     const { t, direction, language } = useLanguage();
@@ -22,36 +24,35 @@ export default function LiveBookingStatus({ status, reference, connection, updat
         { icon: Hotel, key: 'booking', done: confirmed, active: paid && !confirmed },
         { icon: Mail, key: 'voucher', done: sent, active: confirmed && !sent }
     ];
-    const headline = t(sent ? 'tracking.sentTitle' : confirmed ? 'tracking.confirmedTitle' : paid ? 'tracking.bookingTitle' : 'tracking.checkingTitle');
+    const redirect = connected && !paid && status?.status === 'awaiting_payment' && paymentRedirect(status.payment_url);
+    const headline = t(redirect ? 'tracking.resumeTitle' : sent ? 'tracking.sentTitle' : confirmed ? 'tracking.confirmedTitle' : paid ? 'tracking.bookingTitle' : 'tracking.checkingTitle');
     const body = t(sent ? 'tracking.sentBody' : deliveryReview ? 'tracking.deliveryReviewBody'
-        : confirmed ? 'tracking.confirmedBody' : paid ? 'tracking.bookingBody' : 'tracking.checkingBody');
+        : confirmed ? 'tracking.confirmedBody' : paid ? 'tracking.bookingBody' : redirect ? 'tracking.resumeBody' : 'tracking.checkingBody');
     const terminal = sent || deliveryReview;
-    const HeroIcon = confirmed ? CheckCheck : Hotel;
+    const HeroIcon = confirmed ? CheckCheck : redirect ? CreditCard : Hotel;
     return (
         <main dir={direction} className="booking-live" data-booking-live data-tracking-state={sent ? 'sent' : confirmed ? 'confirmed' : 'pending'}>
-            <div className="booking-live__ambient" aria-hidden="true" />
             <section className="booking-live__card" aria-labelledby="payment-status-title">
                 <header className="booking-live__header">
-                    <span className="booking-live__brand">REMAL<span>{t('tracking.brandLine')}</span></span>
+                    <PillowBrand />
                     <span className={`booking-live__badge ${!connected && !terminal ? 'is-reconnecting' : ''}`}>
                         <span className={!terminal && connected ? 'is-pulsing' : ''} aria-hidden="true" />
                         {t(sent ? 'tracking.complete' : deliveryReview ? 'tracking.confirmedBadge' : !connected ? 'tracking.reconnecting' : 'tracking.live')}
                     </span>
                 </header>
                 <div className="booking-live__hero">
-                    <div className={`booking-live__orbit ${confirmed ? 'is-confirmed' : ''}`} aria-hidden="true"><div /><span><HeroIcon size={36} strokeWidth={1.5} /></span></div>
-                    <p className="booking-live__eyebrow">{t(confirmed ? 'tracking.confirmedEyebrow' : 'tracking.eyebrow')}</p>
+                    <div className={`booking-live__orbit ${confirmed ? 'is-confirmed' : ''}`} aria-hidden="true"><HeroIcon size={32} strokeWidth={1.6} /></div>
                     <div role="status" aria-live="polite" aria-atomic="true">
                         <h1 id="payment-status-title">{headline}</h1>
                         <p className="booking-live__description">{body}</p>
                     </div>
+                    {redirect && <a className="booking-live__resume" href={redirect}>{t('tracking.resumeAction')} <ArrowUpRight size={17} aria-hidden="true" /></a>}
                 </div>
                 <ol className="booking-live__steps" aria-label={t('tracking.stepsLabel')}>
-                    {steps.map(({ icon: Icon, key, done, active }, index) => (
+                    {steps.map(({ icon: Icon, key, done, active }) => (
                         <li key={key} className={`${done ? 'is-done' : active ? 'is-active' : ''}`} aria-current={active ? 'step' : undefined}>
                             <span className="booking-live__step-icon" aria-hidden="true">{done ? <Check size={19} /> : <Icon size={19} strokeWidth={1.6} />}</span>
-                            <span className="booking-live__step-copy"><strong>{t(`tracking.${key}`)}</strong><span>{t(done ? 'tracking.done' : active ? deliveryReview ? 'tracking.deliveryAttention' : 'tracking.inProgress' : 'tracking.next')}</span></span>
-                            <span className="booking-live__step-number" aria-hidden="true">{String(index + 1).padStart(2, '0')}</span>
+                            <span className="booking-live__step-copy"><strong>{t(`tracking.${key}`)}</strong><span>{t(done ? 'tracking.done' : active ? deliveryReview ? 'tracking.deliveryAttention' : redirect ? 'tracking.awaitingPayment' : 'tracking.inProgress' : 'tracking.next')}</span></span>
                         </li>
                     ))}
                 </ol>
@@ -60,7 +61,7 @@ export default function LiveBookingStatus({ status, reference, connection, updat
                     <span>{t(!connected ? 'tracking.connectionNote' : elapsed >= 180000 ? confirmed ? 'tracking.deliveryDelayNote' : 'tracking.delayNote' : 'tracking.autoUpdate')}</span>
                     {updatedAt && <time dateTime={new Date(updatedAt).toISOString()}>{new Intl.DateTimeFormat(language, { hour: '2-digit', minute: '2-digit' }).format(updatedAt)}</time>}
                 </div>}
-                <div className="booking-live__assurance"><ShieldCheck size={18} aria-hidden="true" /><span>{t(sent ? 'tracking.inboxNote' : 'tracking.noRetry')}</span></div>
+                {!redirect && <div className="booking-live__assurance"><ShieldCheck size={18} aria-hidden="true" /><span>{t(sent ? 'tracking.inboxNote' : 'tracking.noRetry')}</span></div>}
                 <div className="booking-live__reference"><span>{t('checkout.requestReference')}</span><span dir="ltr">{reference}</span></div>
                 {confirmed && status.supplier_reference && <p className="booking-live__supplier">{t('checkout.supplierReference', 'مرجع المورد: {{reference}}', { reference: status.supplier_reference })}</p>}
                 <footer className="booking-live__footer">
@@ -68,7 +69,6 @@ export default function LiveBookingStatus({ status, reference, connection, updat
                     <a href="/">{t('checkout.home', 'العودة للرئيسية')}<ArrowUpRight size={15} aria-hidden="true" /></a>
                 </footer>
             </section>
-            <p className="booking-live__signature">REMAL <span aria-hidden="true">·</span> {t('tracking.signature')}</p>
         </main>
     );
 }

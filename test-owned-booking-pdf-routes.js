@@ -2,7 +2,6 @@ const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const express = require('express');
 const http = require('node:http');
-const path = require('node:path');
 const { createOwnedBookingPdfRouter } = require('./services/ownedBookingPdfRoutes');
 const { decryptBookingRecordPayload, encryptBookingRecordPayload } = require('./services/bookingRecordPersistence');
 const {
@@ -93,22 +92,20 @@ function makeRouter(record, puppeteerFixture, lookupFilters = [], {
         env,
         now,
         puppeteer: puppeteerFixture.puppeteer,
-        templatePath: path.join(__dirname, 'voucher-template.html'),
-        hotelbedsTemplatePath: path.join(__dirname, 'hotelbeds-voucher-template.html'),
         requireUser,
         requireAdmin,
-        realm,
-        sanitizeText: value => String(value || 'N/A').replace(/[<>]/g, '')
+        realm
     });
 }
 
-test('owned booking voucher renders exact status, currency and stay dates without external page requests', async context => {
+test('confirmed voucher uses the selected language, hotel details and owner scope without embedding transaction or contact data', async context => {
     const record = {
-        bookingReference: 'HBX-PENDING-1',
+        bookingReference: 'OWNED-CONFIRMED-1',
         ownerSubject: 'owner-1',
         realm,
-        status: 'pending',
-        supplierStatus: 'ON_REQUEST',
+        status: 'active',
+        supplierStatus: 'CONFIRMED',
+        supplierReference: 'PARTNER-1',
         supplierPaymentType: 'AT_HOTEL',
         paymentMethod: 'hotel',
         hotelName: 'Fixture <Hotel>',
@@ -128,7 +125,7 @@ test('owned booking voucher renders exact status, currency and stay dates withou
     const router = makeRouter(record, puppeteerFixture, filters);
 
     await withServer(context, router, async baseUrl => {
-        const response = await fetch(`${baseUrl}/api/owned/bookings/pdf/${record.bookingReference}`);
+        const response = await fetch(`${baseUrl}/api/owned/bookings/pdf/${record.bookingReference}?language=en`);
         assert.equal(response.status, 200);
         assert.equal(response.headers.get('content-type'), 'application/pdf');
         assert.equal(response.headers.get('cache-control').includes('no-store'), true);
@@ -136,13 +133,12 @@ test('owned booking voucher renders exact status, currency and stay dates withou
     });
 
     assert.deepEqual(filters[0], { bookingReference: record.bookingReference, realm, ownerSubject: 'owner-1' });
-    assert.match(puppeteerFixture.state.html, /بانتظار تأكيد الفندق — غير مؤكّد بعد/);
-    assert.match(puppeteerFixture.state.html, /السعر المحجوز — الدفع عند الوصول إلى الفندق/);
-    assert.match(puppeteerFixture.state.html, /495\.25 AED/);
-    assert.match(puppeteerFixture.state.html, /تاريخ الوصول: 2026-11-10/);
-    assert.match(puppeteerFixture.state.html, /تاريخ المغادرة: 2026-11-12/);
-    assert.match(puppeteerFixture.state.html, /Fixture Hotel/);
-    assert.doesNotMatch(puppeteerFixture.state.html, /\{\{[A-Za-z][A-Za-z0-9]*\}\}/);
+    assert.match(puppeteerFixture.state.html, /lang="en" dir="ltr"/);
+    assert.match(puppeteerFixture.state.html, /Confirmed/);
+    assert.match(puppeteerFixture.state.html, /10 November 2026/);
+    assert.match(puppeteerFixture.state.html, /12 November 2026/);
+    assert.match(puppeteerFixture.state.html, /Fixture &lt;Hotel&gt;/);
+    assert.doesNotMatch(puppeteerFixture.state.html, /495\.25|ada@example|971500000000|DESIGN SAMPLE/);
     assert.equal(puppeteerFixture.state.intercepted, 1);
     assert.equal(puppeteerFixture.state.closed, 1);
 });
@@ -323,18 +319,49 @@ test('owner mismatch returns not found without launching a browser', async conte
     assert.equal(puppeteerFixture.state.launches, 0);
 });
 
-test('confirmed and cancelled voucher states are never mislabeled', async context => {
-    for (const record of [
-        { bookingReference: 'HBX-CONFIRMED-1', ownerSubject: 'owner-1', realm, status: 'active', supplierStatus: 'CONFIRMED' },
-        { bookingReference: 'HBX-CANCELLED-1', ownerSubject: 'owner-1', realm, status: 'cancelled', supplierStatus: 'CONFIRMED' }
-    ]) {
-        const puppeteerFixture = createPuppeteerFixture();
-        const router = makeRouter(record, puppeteerFixture);
-        await withServer(context, router, async baseUrl => {
-            const response = await fetch(`${baseUrl}/api/owned/bookings/pdf/${record.bookingReference}`);
-            assert.equal(response.status, 200);
+test('pending, inconsistent and cancelled bookings cannot issue a voucher', async context => {
+    for (const [status, supplierStatus] of [['cancelled', 'CONFIRMED'], ['active', 'PENDING'],
+        ['pending', 'ON_REQUEST'], ['pending', 'CONFIRMED'], ['active', undefined]]) {
+        const record = { bookingReference: 'OWNED-1', ownerSubject: 'owner-1', realm, status, supplierStatus };
+        const browser = createPuppeteerFixture();
+        await withServer(context, makeRouter(record, browser), async base => {
+            for (const format of ['pdf', 'html']) {
+                const response = await fetch(base + '/api/owned/bookings/pdf/OWNED-1?format=' + format);
+                assert.equal(response.status, 409);
+            }
         });
-        assert.match(puppeteerFixture.state.html, record.status === 'active' ? />مؤكد<\/span>/ : />ملغي<\/span>/);
-        if (record.status === 'cancelled') assert.doesNotMatch(puppeteerFixture.state.html, />مؤكد<\/span>/);
+        assert.equal(browser.state.launches, 0);
     }
+});
+
+test('approved room list is encrypted, scoped, and unavailable after five days from checkout', async context => {
+    const { ratePlan, makeVoucherSnapshot, readVoucherSnapshot } = require('./services/ratehawkStayVoucherSnapshot');
+    const details = { hid: 123, checkout: '2026-10-10', roomName: 'Queen', user: { comment: 'Quiet room requested' },
+        rooms: [{ guests: [{ first_name: 'آمنة', last_name: 'الحداد' }] },
+            { guests: [{ first_name: 'Alexandra', last_name: 'Taylor' }, { first_name: 'Sam', last_name: 'Taylor', is_child: true, age: 7 }] }] };
+    const selected = { book_hash: 'p-fixture', amount: 12, currency: 'USD' };
+    const data = { hotels: [{ hid: 123, rates: [{ book_hash: 'p-fixture', room_name: 'Queen', meal: 'Breakfast',
+        payment_options: { payment_types: [{ type: 'deposit', currency_code: 'USD', amount: '12.00',
+            tax_data: { taxes: [{ name: 'City tax', amount: '5', currency_code: 'AED', included_by_supplier: false },
+                { name: 'Included VAT', amount: '1', currency_code: 'AED', included_by_supplier: true }] } }] } }] }] };
+    const record = { reference: 'OWNED-2', ownerSubject: 'owner-1', realm, partner_order_id: 'PARTNER-2',
+        prebook_snapshot: ratePlan(data, details, selected) };
+    const booking = { bookingReference: record.reference, supplierReference: record.partner_order_id, realm, ownerSubject: 'owner-1',
+        status: 'active', supplierStatus: 'CONFIRMED', provider: 'ratehawk', hotelName: 'Fixture Hotel', customerName: 'آمنة الحداد',
+        checkInDate: '2026-10-08', checkOutDate: details.checkout, ...makeVoucherSnapshot(record, details, {}, VOUCHER_ENV) };
+    assert.doesNotMatch(JSON.stringify(booking.stayVoucherEncrypted), /Taylor|الحداد/);
+    assert.equal(readVoucherSnapshot(booking, new Date('2026-10-15T00:00:00Z'), VOUCHER_ENV), undefined);
+    assert.throws(() => readVoucherSnapshot({ ...booking, realm: 'changed' }, VOUCHER_NOW, VOUCHER_ENV), /mismatch/);
+    const browser = createPuppeteerFixture();
+    await withServer(context, makeRouter(booking, browser), async base => {
+        const response = await fetch(base + '/api/owned/bookings/pdf/OWNED-2?format=html&language=ar');
+        assert.equal(response.status, 200);
+        assert.match(response.headers.get('content-security-policy'), /default-src 'none'/);
+        const html = await response.text();
+        for (const string of ['dir="rtl"', 'الحداد', 'Alexandra Taylor', 'Sam Taylor', 'Quiet room requested', 'City tax', '5 · AED']) {
+            assert.ok(html.includes(string), string);
+        }
+        assert.doesNotMatch(html, /Included VAT|p-fixture/);
+    });
+    assert.equal(browser.state.launches, 0);
 });

@@ -1,7 +1,9 @@
 import { useEffect, useRef, useState } from 'react';
 import { Download, FileText, LoaderCircle, X } from 'lucide-react';
+import { useLanguage } from '../i18n';
 import { supportDocument } from '../services/customerSupport';
 export default function SupportDocumentViewer({ document, context, conversationId, staff, L, direction, onClose }) {
+    const { language } = useLanguage();
     const dialog = useRef(null), [url, setUrl] = useState(''), [failed, setFailed] = useState(false);
     const title = document === 'voucher' ? L.voucherPdf : L.cancellationPdf;
     useEffect(() => { const node = dialog.current; const prior = window.document.body.style.overflow;
@@ -11,11 +13,11 @@ export default function SupportDocumentViewer({ document, context, conversationI
     useEffect(() => {
         let active = true, objectUrl; const controller = new AbortController();
         const timer = setTimeout(() => controller.abort(), 45000);
-        supportDocument({ conversationId, reference: context.reference, kind: document, staff, signal: controller.signal })
+        supportDocument({ conversationId, reference: context.reference, kind: document, staff, language, signal: controller.signal })
             .then(blob => { if (active) { objectUrl = URL.createObjectURL(blob); setUrl(objectUrl); } })
             .catch(() => { if (active) setFailed(true); }).finally(() => clearTimeout(timer));
         return () => { active = false; clearTimeout(timer); controller.abort(); if (objectUrl) URL.revokeObjectURL(objectUrl); };
-    }, [document, conversationId]);
+    }, [document, conversationId, language]);
     return <dialog data-support-document ref={dialog} dir={direction} onCancel={onClose} aria-labelledby="support-document-title" className="support-document-viewer">
         <header><div><FileText size={21} /><h2 id="support-document-title">{title}</h2></div><button autoFocus onClick={onClose} aria-label={L.close}><X size={22} /></button></header>
         <p className="support-reference" dir="ltr">{context.reference}</p>

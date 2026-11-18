@@ -5,6 +5,7 @@ import PriceDisplay from './PriceDisplay';
 import BookingAPI from '../services/bookingApi'; // تأكد من مسار API الخاص بك
 import { responsiveImageSources, roomCardImages } from '../services/hotelImages.js';
 import { paymentFor, rateAmount, rateCurrency } from '../services/offers';
+import { taxInclusion } from '../services/stayCharges';
 import { useLanguage } from '../i18n';
 import { formatRatehawkDateTime } from '../services/ratehawkDateTime.js';
 
@@ -52,7 +53,7 @@ export function CancellationPolicy({ cancellation, currency }) {
 }
 
 export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', displayRates = null, headingLevel = 'h3' }) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const [status, setStatus] = useState('idle');
     const [errorMsg, setErrorMsg] = useState('');
     const [prebookResult, setPrebookResult] = useState(null);
@@ -83,7 +84,9 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
             && room.paymentType === 'hotel'
         : ['AED', 'USD', 'SAR', 'EUR'].includes(room.currency) && room.paymentType === 'deposit'
         && Number.isFinite(room.price) && room.price > 0 && room.book_hash;
-    const additionalTaxes = (currentRoom.taxes || []).filter(tax => !tax.included_by_supplier);
+    const additionalTaxes = (currentRoom.taxes || []).filter(tax => tax && taxInclusion(tax.included_by_supplier) === 'excluded');
+    const termsChanged = status === 'success' && (JSON.stringify(currentRoom.cancellation) !== JSON.stringify(room.cancellation)
+        || JSON.stringify(currentRoom.taxes) !== JSON.stringify(room.taxes) || currentRoom.taxesDisclosed !== room.taxesDisclosed || currentRoom.paymentType !== room.paymentType);
 
     const handleBook = async () => {
         if (affiliateOffer) {
@@ -99,17 +102,26 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
         try {
             const result = await BookingAPI.prebook(room.book_hash || room.roomId, undefined, room.offer_context);
             const validatedRate = result?.rate || result?.hotels?.[0]?.rates?.[0];
+            const validatedHash = result?.bookHash || validatedRate?.book_hash;
+            const payment = paymentFor(validatedRate);
+            if (!validatedRate || !validatedHash || !result.prebook_context || payment?.type !== 'deposit' ||
+                !Number.isFinite(rateAmount(validatedRate)) || !['AED','USD','SAR','EUR'].includes(rateCurrency(validatedRate))) {
+                setStatus('error');
+                setErrorMsg(t('room.rateChanged', 'تغيّر السعر أو التوفر. ارجع إلى الغرف لاختيار عرض متاح.'));
+                return;
+            }
             const validatedRoom = {
                 ...room,
                 ...result,
-                book_hash: result?.bookHash || validatedRate?.book_hash || room.book_hash,
+                book_hash: validatedHash,
                 prebook_context: result?.prebook_context,
-                price: validatedRate ? rateAmount(validatedRate) : room.price,
-                currency: validatedRate ? rateCurrency(validatedRate) : room.currency,
-                paymentType: paymentFor(validatedRate)?.type || room.paymentType,
-                cancellation: paymentFor(validatedRate)?.cancellation_penalties ?? room.cancellation,
-                taxes: paymentFor(validatedRate)?.tax_data?.taxes ?? room.taxes,
-                originalRate: validatedRate || room.originalRate,
+                price: rateAmount(validatedRate),
+                currency: rateCurrency(validatedRate),
+                paymentType: payment.type,
+                cancellation: payment.cancellation_penalties,
+                taxes: payment.tax_data?.taxes || [],
+                taxesDisclosed: Array.isArray(payment.tax_data?.taxes),
+                originalRate: validatedRate,
                 prebookResult: result
             };
             setPrebookResult(validatedRoom);
@@ -206,7 +218,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                             {room.guests && (
                                 <span className="inline-flex items-center gap-1.5 rounded-lg bg-slate-50 border border-slate-100 px-3 py-2">
                                     <UsersIcon size={16} className="text-slate-400" />
-                                    {t('room.guests', `حتى ${room.guests.reduce((total, group) => total + group.adults + group.children.length, 0)} ضيوف`, { count: room.guests.reduce((total, group) => total + group.adults + group.children.length, 0) })}
+                                    {language === 'ar' ? 'ضيوف البحث' : language === 'es' ? 'Huéspedes en tu búsqueda' : 'Guests in your search'} · {room.guests.reduce((total, group) => total + group.adults + group.children.length, 0)}
                                 </span>
                             )}
                             
@@ -238,7 +250,7 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                     
                     <div aria-live="polite" aria-atomic="true" className="relative z-10 text-right mb-5 lg:mb-6">
                         <div className="mb-3 inline-flex rounded-full bg-cyan-50 border border-cyan-100 px-3 py-1 text-[10px] font-black text-[var(--remal-blue)] w-fit">
-                            تحقق من السعر والتوفر قبل الدفع
+                            {language === 'ar' ? 'تحقق من السعر والتوفر قبل الدفع' : 'Check price and availability before paying'}
                         </div>
                             <span className="text-[11px] font-bold uppercase tracking-wider text-slate-500 mb-1">{affiliateOffer ? t('room.payAtHotel', 'الدفع في الفندق') : t('room.payNow', 'ادفع الآن بأمان عبر Ziina')}</span>
                         
@@ -251,7 +263,8 @@ export default function RoomCard({ room = {}, onBook, displayCurrency = 'USD', d
                         </div>
                         {priceChanged && <p data-updated-room-price role="status" className="mt-2 text-xs font-bold leading-6 text-amber-800">{t('room.priceUpdated', 'تم تحديث السعر. راجع السعر الجديد قبل المتابعة.')}</p>}
                         <p className="mt-1 text-xs font-semibold text-slate-500 flex items-center justify-end gap-1">
-                            <Info size={12} /> {t('room.included', 'شامل الضرائب والرسوم')}
+                            <Info size={12} /> {termsChanged ? (language === 'ar' ? 'تغيّرت شروط العرض. راجع الرسوم والإلغاء قبل المتابعة.' : 'Offer terms changed. Review fees and cancellation before continuing.') :
+                                (language === 'ar' ? 'سعر الإقامة وفق شروط العرض' : 'Stay price under this rate’s terms')}
                         </p>
 
                         {additionalTaxes.length > 0 && (
