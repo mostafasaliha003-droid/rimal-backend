@@ -82,7 +82,7 @@ function RatePlan({ now, entry, requestedCurrency, onReview, failed, onRefresh, 
     <View style={{ gap: 5 }}><Txt kind="small">{copy.rateNumber(entry.index + 1)}</Txt><Txt kind="heading">{offer.name}</Txt></View>
     {offer.images.length > 0 && <HotelGallery images={offer.images} name={offer.name} room/>}
     <Txt kind="small">{copy.meals}: {roomMealLabel(offer.meal, t('roomOnly'), copy.missingMeal, language)}</Txt>
-    <View style={styles.ratePrice}><Txt kind="small">{t('priceForStay')}</Txt><MoneyText large money={offer.price}/><Txt kind="small">{copy.priceScope}</Txt></View>
+    <View style={styles.ratePrice}><Txt kind="small">{copy.priceScope}</Txt><MoneyText large money={offer.price}/></View>
     <Taxes taxes={offer.taxes}/>
     <Cancellation offer={offer} now={now}/>
     <Button title={t('reviewOffer')} disabled={!reviewable} onPress={() => onReview(entry)}/>

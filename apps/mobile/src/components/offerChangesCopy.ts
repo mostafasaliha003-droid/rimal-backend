@@ -17,8 +17,7 @@ const en = {
   roomDetailsChanged: 'Supplier room details changed.', roomDetailsSupplied: 'Supplier room details supplied.',
   roomDetailsMissing: 'Supplier room details are no longer supplied.',
   taxesChanged: 'Taxes or their inclusion changed.', cancellationChanged: 'Cancellation charges, periods or deadlines changed.',
-  details: 'View changed conditions', noTaxes: 'No taxes or fees were supplied for this offer.',
-  chargeUnknown: 'Charge name not supplied', amountUnknown: 'Amount not supplied', currencyUnknown: 'Currency not supplied',
+  details: 'View changed conditions',
 };
 const ar: typeof en = {
   before: 'المعروض سابقاً', after: 'العرض المحدّث',
@@ -35,8 +34,7 @@ const ar: typeof en = {
   roomDetailsChanged: 'تغيّرت تفاصيل الغرفة لدى المورّد.', roomDetailsSupplied: 'وردت تفاصيل الغرفة من المورّد.',
   roomDetailsMissing: 'لم تعد تفاصيل الغرفة واردة من المورّد.',
   taxesChanged: 'تغيّرت الرسوم أو شمولها في السعر.', cancellationChanged: 'تغيّرت رسوم الإلغاء أو فتراته أو مواعيده.',
-  details: 'عرض الشروط المتغيّرة', noTaxes: 'لم ترد ضرائب أو رسوم لهذا العرض.',
-  chargeUnknown: 'اسم الرسم غير محدّد', amountUnknown: 'المبلغ غير محدّد', currencyUnknown: 'العملة غير محدّدة',
+  details: 'عرض الشروط المتغيّرة',
 };
 export const offerChangesCopy = (language: Language) => language === 'ar' ? ar : en;
 

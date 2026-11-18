@@ -4,6 +4,8 @@ Native Android application foundation operated by **Remal Tourism**, using the e
 
 The owner-approved store name is **مخدّة | Mkhadda**. The planned, configured production package is `com.remalbookings.app`; its first-AAB/Play assignment is not yet verified. The isolated development package is `com.remalbookings.app.preview`. Play Console's application dashboard was observed after the owner completed phone verification and created the unpublished draft. A staging test APK is available; no Play upload or public release is claimed.
 
+Version 0.10 shows the taxes and fees the supplier lists as payable at the property beside the room rate. The app groups those charges by currency, shows incomplete amounts as unconfirmed and keeps the original line items available. Offer review compares changed fee terms. Checkout gets the payment amount from the existing server quote. [RateHawk hotelpage tax fields](https://docs.emergingtravel.com/docs/b2b-api/hotel-search/retrieve-hotelpage/)
+
 Version 0.9 brings changed room prices and terms to the top of the offer review. Travelers can inspect the original total, the checked total and the exact difference for their full stay. Each acceptance applies to one checked offer and expires with it. A new check requests fresh acceptance when terms change.
 
 Version 0.8 adds a free-cancellation filter to the room chooser. Each rate shows the charge that applies now, the supplier’s UTC deadline when available, and the full schedule on demand. Ambiguous schedules are marked unconfirmed. The filter updates when a fee period changes while the screen is open or when the traveler returns to the app.

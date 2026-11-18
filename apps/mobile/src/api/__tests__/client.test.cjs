@@ -211,6 +211,17 @@ test('taxes preserve selected-payment amounts/currencies/zero and never infer in
   assert.deepEqual(adapters.normalizeOffers([rate()])[0].taxes, []);
 });
 
+test('large tax amounts retain source decimal text and never expose an unsafe numeric approximation', () => {
+  const value = rate();
+  value.payment_options.payment_types[0].tax_data = { taxes: [
+    { name: 'city_tax', amount: '9007199254740993.00001', currency_code: 'AED', included_by_supplier: false },
+    { name: 'city_tax', amount: Number('9007199254740993'), currency_code: 'AED', included_by_supplier: false },
+  ] };
+  const { taxes } = adapters.normalizeOffers([value])[0];
+  assert.deepEqual(taxes.map(row => row.amount), ['9007199254740993.00001', null]);
+  assert.deepEqual(taxes.map(row => row.included_by_supplier), [false, false]);
+});
+
 test('all offer identities survive and only complete static rg_ext matches supply room photographs', () => {
   const group = { rg_ext: rg, images_ext: [{ url: 'https://cdn.worldota.net/t/{size}/content/room.jpeg', category_slug: 'bedroom' }] };
   const hotel = { room_groups: [group], image: 'https://cdn.worldota.net/t/640x480/content/hotel.jpeg' };

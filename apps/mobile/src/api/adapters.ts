@@ -95,7 +95,9 @@ export function normalizeOffers(value: unknown, hotel: unknown = {}): RoomOffer[
       images: matched.flatMap(group => images(group.images_ext, group.images)),
       taxes: array(object(payment?.tax_data).taxes).map(value => {
         const tax = object(value);
-        return { name: label(tax.name), amount: decimal(tax.amount, true), currency_code: currency(tax.currency_code),
+        // A large JSON number may already have lost digits before it reaches the adapter.
+        const amount = typeof tax.amount === 'number' && Math.abs(tax.amount) > Number.MAX_SAFE_INTEGER ? null : decimal(tax.amount, true);
+        return { name: label(tax.name), amount, currency_code: currency(tax.currency_code),
           included_by_supplier: typeof tax.included_by_supplier === 'boolean' ? tax.included_by_supplier : null };
       }),
       cancellation: cancellationTerms(payment) }];
