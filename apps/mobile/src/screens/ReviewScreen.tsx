@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { ScrollView, View } from 'react-native';
+import React, { useRef, useState } from 'react';
+import { AccessibilityInfo, Platform, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -12,7 +12,7 @@ import ApiState from '../components/ApiState';
 import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
-import OfferChanges from '../components/OfferChanges';
+import OfferChanges, { ExactReviewMoney } from '../components/OfferChanges';
 import { useAppState } from '../components/AppState';
 import { NATIVE_CHECKOUT_ENABLED } from '../api/config';
 
@@ -28,6 +28,9 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const { t, language } = useLanguage();
   const state = useAppState();
   const router = useRouter();
+  const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const changeHeading = useRef<React.ComponentRef<typeof View>>(null);
+  const panelTop = useRef(0);
   const [opening, setOpening] = useState(false);
   const [handoffError, setHandoffError] = useState(false);
   const [handoffExpired, setHandoffExpired] = useState(false);
@@ -35,7 +38,21 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const offer = currentOffer || draft?.offer;
   const checked = Boolean(currentOffer && (status === 'ready' || status === 'changed'));
   const expired = status === 'expired' || handoffExpired;
-  const recheckOffer = () => { setHandoffError(false); setHandoffExpired(false); void recheck(); };
+  const showChanges = checked && status === 'changed' && !expired;
+  const Price = showChanges ? ExactReviewMoney : MoneyText;
+  const reviewChanges = () => {
+    const heading = changeHeading.current;
+    if (!heading) return;
+    if (Platform.OS === 'web') heading.focus();
+    else AccessibilityInfo.sendAccessibilityEvent(heading, 'focus');
+    scroll.current?.scrollTo({ y: Math.max(0, panelTop.current - 8), animated: false });
+  };
+  const recheckOffer = () => {
+    setHandoffError(false);
+    setHandoffExpired(false);
+    scroll.current?.scrollTo({ y: 0, animated: false });
+    void recheck();
+  };
   const returnToOffers = () => {
     clear();
     if (draft) router.replace({ pathname: '/hotel/[hid]', params: { hid: String(draft.hid) } });
@@ -64,17 +81,28 @@ function ReviewContents({ session }: { session: ReviewSession }) {
 
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
     <BrandHeader back/><EnvironmentBanner/>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={ui.page}>
+    <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={ui.page}>
       <View style={{ gap: 8 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{t('reviewNoReservation')}</Txt><Txt accessibilityRole="header" kind="title">{t('reviewTitle')}</Txt><Txt style={{ color: colors.muted }}>{t('reviewBody')}</Txt></View>
       {!draft || !offer ? <><StatePanel title={t('reviewMissingTitle')} body={t('reviewMissingBody')}/><Button title={t('search')} onPress={() => router.replace('/')}/></> : <>
-        <View style={[ui.card, { padding: 16, gap: 7, borderColor: colors.blueStrong }]}>
+        {showChanges ? <View onLayout={event => { panelTop.current = event.nativeEvent.layout.y; }}
+          style={[ui.card, { backgroundColor: colors.softGold, borderColor: '#E6CFAC' }]}>
+          <View ref={changeHeading} accessible accessibilityRole="header" accessibilityLabel={t('reviewChangedTitle')}
+            accessibilityLiveRegion="polite" tabIndex={-1} collapsable={false}>
+            <Txt kind="heading">{t('reviewChangedTitle')}</Txt>
+          </View>
+          <OfferChanges key={session.confirmationRevision} before={draft.offer} after={offer}/>
+          {changesAccepted
+            ? <Txt accessibilityLiveRegion="polite" style={{ color: colors.success, fontFamily: fonts.bold }}>{t('reviewChangesAccepted')}</Txt>
+            : <Button title={t('reviewAcceptChanges')} disabled={opening} onPress={acceptChanges}/>}
+          <Button compact variant="quiet" title={t('reviewRefreshOffers')} onPress={returnToOffers}/>
+        </View> : <View style={[ui.card, { padding: 16, gap: 7, borderColor: colors.blueStrong }]}>
           <Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><MoneyText large money={offer.price}/>
           <Txt kind="small">{staySummary} · {t('reviewNoReservation')}</Txt>
-        </View>
+        </View>}
         {expired && <StatePanel title={t('reviewExpiredTitle')} body={t('reviewExpiredBody')}/>}
         {status === 'pending' && <View accessibilityLiveRegion="polite"><StatePanel title={t('reviewChecking')} body={t('reviewNoReservation')} busy/></View>}
         {status === 'error' && (membershipError ? <ApiState error={error} retry={recheckOffer}/> : <View accessibilityLiveRegion="polite"><StatePanel title={t('reviewErrorTitle')} body={t(error instanceof ApiError && error.status === 429 ? 'rateLimited' : 'reviewErrorBody')}/></View>)}
-        {checked && !expired && <View style={[ui.card, { backgroundColor: colors.softBlue, borderColor: '#B8DCE1' }]} accessibilityLiveRegion="polite"><Txt kind="heading" accessibilityRole="header">{t('reviewChecked')}</Txt><Txt kind="small">{t('reviewCheckedBody')}</Txt></View>}
+        {checked && !expired && !showChanges && <View style={[ui.card, { backgroundColor: colors.softBlue, borderColor: '#B8DCE1' }]} accessibilityLiveRegion="polite"><Txt kind="heading" accessibilityRole="header">{t('reviewChecked')}</Txt><Txt kind="small">{t('reviewCheckedBody')}</Txt></View>}
         <View style={[ui.card, { padding: 0, overflow: 'hidden', gap: 0 }]}>
           <Photo uri={draft.hotelImage} label={draft.hotelName} height={160}/>
           <View style={{ padding: 20, gap: 8 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{t('reviewStay')}</Txt><Txt kind="heading" accessibilityRole="header">{draft.hotelName}</Txt>{draft.hotelAddress && <Txt kind="small">{draft.hotelAddress}</Txt>}</View>
@@ -88,23 +116,21 @@ function ReviewContents({ session }: { session: ReviewSession }) {
         <View style={[ui.card, { padding: 0, overflow: 'hidden', gap: 0 }]}>
           <Photo uri={offer.images[0] || draft.offer.images[0]} room label={offer.name} height={180}/>
           <View style={{ padding: 20, gap: 18 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{t('reviewRoom')}</Txt><Txt kind="heading" accessibilityRole="header">{offer.name}</Txt><Txt kind="small">{t('meal')}: {offer.meal ? offer.meal === 'nomeal' ? t('roomOnly') : offer.meal.replace(/[-_]/g, ' ') : t('noMeal')}</Txt>
-            {status === 'changed' && checked && !expired && <View style={{ gap: 7, padding: 16, borderRadius: 16, backgroundColor: colors.softGold }}><Txt kind="label">{t('reviewPreviousPrice')}</Txt><MoneyText money={draft.offer.price}/></View>}
-            <View style={{ gap: 6 }}><Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><MoneyText large money={offer.price}/></View>
+            <View style={{ gap: 6 }}><Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><Price large money={offer.price}/></View>
             <Taxes taxes={offer.taxes}/><Cancellation offer={offer} mode={expired ? 'historical' : 'current'}/>
           </View>
         </View>
-        {status === 'changed' && checked && !expired && <View style={[ui.card, { backgroundColor: colors.softGold, borderColor: '#E6CFAC' }]} accessibilityLiveRegion="polite"><Txt kind="heading" accessibilityRole="header">{t('reviewChangedTitle')}</Txt><Txt>{t('reviewChangedBody')}</Txt><OfferChanges before={draft.offer} after={offer}/>{changesAccepted && <Txt style={{ color: colors.success, fontFamily: fonts.bold }}>{t('reviewChangesAccepted')}</Txt>}</View>}
         {!expired && !checked && status !== 'pending' && <Txt kind="small">{t('reviewBeforeRecheck')}</Txt>}
         <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{t('websiteTitle')}</Txt><Txt>{t('websiteBody')}</Txt><Txt style={{ fontFamily: fonts.medium }}>{t('reviewWebsiteReselect')}</Txt>{APP_ENV !== 'production' && <Txt kind="small" style={{ color: colors.goldInk }}>{t('websiteEnvironment')}</Txt>}{handoffError && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t('websiteError')}</Txt>}<Button variant="secondary" title={checkoutLabel} disabled={!canContinue || expired || opening} onPress={openCheckout}/></View>
-        <Button variant="quiet" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>
+        {!showChanges && <Button variant="quiet" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>}
       </>}
     </ScrollView>
     {draft && offer && <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
       <View style={[ui.page, { paddingTop: 12, paddingBottom: 14, gap: 10 }]}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-          <View style={{ flexShrink: 1, gap: 3 }}><Txt kind="small">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><MoneyText money={offer.price}/></View>
+          <View style={{ flexShrink: 1, gap: 3 }}><Txt kind="small">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><Price money={offer.price}/></View>
           <View style={{ flex: 1, minWidth: 170 }}>{expired ? <Button variant="secondary" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>
-            : status === 'changed' && !changesAccepted ? <Button title={t('reviewAcceptChanges')} variant="secondary" disabled={opening} onPress={acceptChanges}/>
+            : showChanges && !changesAccepted ? <Button title={t('reviewSeeChanges')} variant="secondary" disabled={opening} onPress={reviewChanges}/>
               : canContinue ? <Button title={NATIVE_CHECKOUT_ENABLED ? checkoutLabel : t('websiteCta')} busy={opening} onPress={() => NATIVE_CHECKOUT_ENABLED ? openCheckout() : void openWebsite()}/>
                 : <Button title={t(status === 'pending' ? 'reviewChecking' : checked ? 'reviewCheckAgain' : 'reviewCheckPrice')} busy={status === 'pending'} disabled={!canRecheck || opening} onPress={recheckOffer}/>}</View>
         </Row>

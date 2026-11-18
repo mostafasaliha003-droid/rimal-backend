@@ -80,7 +80,7 @@ test('recheck is explicit and only a successful current response permits a searc
 test('changed customer price requires explicit acceptance and a second check resets acceptance', async () => {
   const f = fixture((hid, selected) => result(selected, { priceChanged: true }));
   await f.session.recheck(); assert.equal(f.session.presentation().status, 'changed'); assert.equal(f.session.getHandoff(), null);
-  f.session.acceptChanges(); assert.ok(f.session.getHandoff());
+  f.session.acceptChanges(f.session.presentation().confirmationRevision); assert.ok(f.session.getHandoff());
   await f.session.recheck(); assert.equal(f.session.presentation().changesAccepted, false); assert.equal(f.session.getHandoff(), null);
   assert.equal(f.calls[1].selected.bookHash, 'h-private'); assert.equal(f.calls[1].selected.offerContext, 'signed.private');
 });
@@ -91,6 +91,37 @@ test('tax inclusion, currency, cancellation and meal changes require acceptance 
     await f.session.recheck(); assert.equal(f.session.presentation().status, 'changed'); assert.equal(f.session.getHandoff(), null);
   }
 });
+test('only the exact review displayed to the traveler can be accepted, through refresh and expiry', async () => {
+  const f = fixture((hid, selected) => result(selected, { priceChanged: true }));
+  await f.session.recheck();
+  const first = f.session.presentation().confirmationRevision;
+  await f.session.recheck();
+  const second = f.session.presentation().confirmationRevision;
+  assert.notEqual(first, second);
+  f.session.acceptChanges(first);
+  f.session.acceptChanges(null);
+  assert.equal(f.session.getHandoff(), null);
+  assert.equal(f.session.getCheckoutReview(), null);
+  f.session.acceptChanges(second);
+  assert.ok(f.session.getHandoff());
+  f.advance(REVIEW_CHECK_LIFETIME_MS);
+  f.session.acceptChanges(second);
+  assert.equal(f.session.getHandoff(), null);
+  assert.equal(f.session.getCheckoutReview(), null);
+});
+test('a newly supplied room classification also requires review before continuing', async () => {
+  const f = fixture((hid, selected) => {
+    const next = result(selected);
+    next.offer.roomIdentity = 'newly-supplied';
+    return next;
+  });
+  const original = { ...f.draft, offer: { ...f.draft.offer, roomIdentity: undefined } };
+  f.setDraft(original);
+  await f.session.recheck();
+  assert.equal(f.session.presentation().status, 'changed');
+  assert.equal(f.session.getHandoff(), null);
+});
+
 test('decimal comparisons ignore formatting but preserve distinctions beyond JavaScript numeric precision', () => {
   const first = offer(), same = offer(); same.price.amount = '000107.000'; same.taxes[0].amount = '0';
   assert.equal(offerTerms(first), offerTerms(same));
@@ -155,7 +186,7 @@ test('checkout proof needs current accepted terms and vanishes synchronously aft
   let pending = null;
   const f = fixture((hid, selected) => pending ? pending.promise : result(selected, { priceChanged: true }));
   await f.session.recheck(); assert.equal(f.session.getCheckoutReview(), null);
-  f.session.acceptChanges(); const old = f.session.getCheckoutReview(); assert.ok(old);
+  f.session.acceptChanges(f.session.presentation().confirmationRevision); const old = f.session.getCheckoutReview(); assert.ok(old);
   pending = deferred(); const operation = f.session.recheck(); assert.equal(f.session.getCheckoutReview(), null);
   pending.resolve(result(f.draft.offer)); await operation;
   assert.notEqual(f.session.getCheckoutReview().selectionId, old.selectionId);
