@@ -61,6 +61,19 @@ test('known room-only labels localize, other supplied meals only humanize separa
   assert.equal(choices(rates, { meal: { kind: 'value', value: 'full_board-plus' } }).matchingOffers, 1);
 });
 
+test('known meal codes use the same translation in room selection and offer comparison', () => {
+  const label = (token, lang) => roomMealLabel(token, 'Room only', 'Not supplied', lang);
+  assert.equal(label('breakfast', 'ar'), 'الإفطار');
+  assert.equal(label('continental_breakfast', 'ar'), 'إفطار كونتيننتال');
+  assert.equal(label('breakfast', 'en'), 'Breakfast');
+  assert.equal(label('breakfast', 'es'), 'Desayuno');
+  assert.equal(label('hotel_custom-plan', 'ar'), 'hotel custom plan');
+  assert.equal(label('cash', 'ar'), 'cash');
+  const rate = offer(1, { meal: 'continental_breakfast' });
+  assert.deepEqual(choices([rate]).meals.values, ['continental_breakfast']);
+  assert.equal(rate.meal, 'continental_breakfast');
+});
+
 test('grouping retains all27 rate occurrences, hashes, prices and original object references without mutation', () => {
   const offers = Array.from({ length: 27 }, (_, index) => offer(index, { meal: index % 2 ? 'breakfast' : 'nomeal' }));
   const before = JSON.stringify(offers);

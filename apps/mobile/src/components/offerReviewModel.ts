@@ -66,7 +66,7 @@ export function cancellationTermsKey(terms: RoomOffer['cancellation']): string {
 export function offerTerms(offer: RoomOffer): string {
   const money = (amount: string | null, currency: string | null) => [amount === null ? null : canonicalDecimal(amount), currency];
   const taxes = offer.taxes.map(tax => JSON.stringify([tax.name, ...money(tax.amount, tax.currency_code), tax.included_by_supplier])).sort();
-  return JSON.stringify([offer.name, offer.meal ?? null, offer.price ? money(offer.price.amount, offer.price.currency) : null,
+  return JSON.stringify([offer.name, offer.roomIdentity ?? null, offer.meal ?? null, offer.price ? money(offer.price.amount, offer.price.currency) : null,
     taxes, cancellationTermsKey(offer.cancellation)]);
 }
 
@@ -96,6 +96,7 @@ export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = 
     const status = selectionExpired || checkExpired ? 'expired' as const : state.status;
     const currentOffer = ['ready', 'changed'].includes(status) ? state.currentOffer : null;
     return { draft, status, currentOffer, error: state.error, changesAccepted: state.changesAccepted,
+      confirmationRevision: status === 'changed' && currentOffer ? revision : null,
       canRecheck: Boolean(draft && status !== 'pending' && !selectionExpired && !state.freshHotelRequired),
       canContinue: Boolean(draft && currentOffer?.price && (status === 'ready' || status === 'changed' && state.changesAccepted)) };
   }
@@ -123,9 +124,12 @@ export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = 
       publish({ ...initial(draft.id), status: expired ? 'expired' : 'error', error, freshHotelRequired: expired });
     } finally { if (stamp === revision) request = null; }
   }
-  function acceptChanges() {
-    sync(); const view = presentation();
-    if (view.draft && view.status === 'changed' && view.currentOffer) publish({ ...snapshot, changesAccepted: true });
+  function acceptChanges(confirmationRevision: number | null) {
+    sync();
+    const view = presentation();
+    if (confirmationRevision !== null && confirmationRevision === view.confirmationRevision && !view.changesAccepted) {
+      publish({ ...snapshot, changesAccepted: true });
+    }
   }
   function getHandoff() {
     sync(); const view = presentation();

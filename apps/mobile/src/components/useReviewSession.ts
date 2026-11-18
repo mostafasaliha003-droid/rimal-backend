@@ -1,4 +1,5 @@
 import { useEffect, useState, useSyncExternalStore } from 'react';
+import { AppState } from 'react-native';
 import { api } from '../api';
 import { useAppState } from './AppState';
 import { createOfferReviewSession, REVIEW_SELECTION_LIFETIME_MS } from './offerReviewModel';
@@ -14,8 +15,10 @@ export function useReviewSession() {
     if (!reviewDraft || snapshot.status === 'expired') return;
     const deadline = Math.min(reviewDraft.createdAt + REVIEW_SELECTION_LIFETIME_MS, snapshot.expiresAt ?? Infinity);
     const timer = setTimeout(() => session.sync(), Math.max(0, deadline - Date.now()));
-    return () => clearTimeout(timer);
+    const foreground = AppState.addEventListener('change', state => { if (state === 'active') session.sync(); });
+    return () => { clearTimeout(timer); foreground.remove(); };
   }, [session, reviewDraft, snapshot.expiresAt, snapshot.status]);
-  return { ...session.presentation(), recheck: session.recheck, acceptChanges: session.acceptChanges,
+  const view = session.presentation();
+  return { ...view, recheck: session.recheck, acceptChanges: () => session.acceptChanges(view.confirmationRevision),
     clear: session.clear, getHandoff: session.getHandoff, getCheckoutReview: session.getCheckoutReview };
 }

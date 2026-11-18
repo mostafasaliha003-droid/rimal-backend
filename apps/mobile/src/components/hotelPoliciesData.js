@@ -16,7 +16,7 @@ const copy = {
 // Meanings are from the ETG Content API schema, not inferred from prices or
 // room availability. Unknown values remain visible rather than being guessed.
 // https://docs.emergingtravel.com/docs/content-api/retrieve-hotels-content-by-ids/
-const enumCopy = {
+const propertyValues = {
     unspecified: ['Not specified', 'غير محدد', 'Sin especificar'],
     available: ['Available', 'متاح', 'Disponible'], unavailable: ['Unavailable', 'غير متاح', 'No disponible'],
     included: ['Included in the price', 'مشمول في السعر', 'Incluido en el precio'],
@@ -44,6 +44,8 @@ const enumCopy = {
     luggage_storage: ['Luggage storage', 'حفظ الأمتعة', 'Consigna de equipaje'], tour_guide: ['Tour guide', 'مرشد سياحي', 'Guía turístico'], bicycle_rental: ['Bicycle rental', 'تأجير الدراجات', 'Alquiler de bicicletas'],
     baby_highchair: ['Baby high chair', 'كرسي طعام للأطفال', 'Trona'], bed_linen: ['Bed linen', 'بياضات الأسرّة', 'Ropa de cama'], towels_only: ['Towels only', 'المناشف فقط', 'Solo toallas'],
     luggage_storage_apartment: ['Luggage storage at the apartment', 'حفظ الأمتعة في الشقة', 'Consigna en el apartamento'], luggage_storage_office: ['Luggage storage at the office', 'حفظ الأمتعة في المكتب', 'Consigna en la oficina'],
+};
+const meals = {
     'all-inclusive': ['All inclusive', 'شامل كلياً', 'Todo incluido'], breakfast: ['Breakfast', 'الإفطار', 'Desayuno'], 'breakfast-buffet': ['Breakfast buffet', 'بوفيه إفطار', 'Desayuno bufé'],
     'continental-breakfast': ['Continental breakfast', 'إفطار كونتيننتال', 'Desayuno continental'], dinner: ['Dinner', 'العشاء', 'Cena'], 'full-board': ['Full board', 'إقامة مع ثلاث وجبات', 'Pensión completa'],
     'half-board': ['Half board', 'إقامة مع وجبتين', 'Media pensión'], lunch: ['Lunch', 'الغداء', 'Almuerzo'], nomeal: ['No meals', 'بدون وجبات', 'Sin comidas'], 'some-meal': ['Some meals', 'بعض الوجبات', 'Algunas comidas'],
@@ -55,6 +57,14 @@ const enumCopy = {
     'super-all-inclusive': ['Super all inclusive', 'شامل كلياً سوبر', 'Súper todo incluido'], 'soft-all-inclusive': ['Soft all inclusive', 'شامل كلياً سوفت', 'Todo incluido soft'],
     'ultra-all-inclusive': ['Ultra all inclusive', 'شامل كلياً ألترا', 'Ultra todo incluido'], 'half-board-lunch': ['Half board with lunch', 'نصف إقامة مع الغداء', 'Media pensión con almuerzo'], 'half-board-dinner': ['Half board with dinner', 'نصف إقامة مع العشاء', 'Media pensión con cena']
 };
+
+const enumCopy = { ...propertyValues, ...meals };
+
+export function translatedMeal(value, language) {
+    const code = value.trim().toLowerCase().replace(/_/g, '-');
+    if (!Object.hasOwn(meals, code)) return null;
+    return meals[code][language === 'ar' ? 1 : language === 'es' ? 2 : 0];
+}
 
 export const hotelPolicyCopy = language => copy[language] || copy.en;
 

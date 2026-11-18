@@ -4,6 +4,8 @@ Native Android application foundation operated by **Remal Tourism**, using the e
 
 The owner-approved store name is **مخدّة | Mkhadda**. The planned, configured production package is `com.remalbookings.app`; its first-AAB/Play assignment is not yet verified. The isolated development package is `com.remalbookings.app.preview`. Play Console's application dashboard was observed after the owner completed phone verification and created the unpublished draft. A staging test APK is available; no Play upload or public release is claimed.
 
+Version 0.9 brings changed room prices and terms to the top of the offer review. Travelers can inspect the original total, the checked total and the exact difference for their full stay. Each acceptance applies to one checked offer and expires with it. A new check requests fresh acceptance when terms change.
+
 Version 0.8 adds a free-cancellation filter to the room chooser. Each rate shows the charge that applies now, the supplier’s UTC deadline when available, and the full schedule on demand. Ambiguous schedules are marked unconfirmed. The filter updates when a fee period changes while the screen is open or when the traveler returns to the app.
 
 Version 0.7 lets travelers manage saved hotels immediately after reopening the app. The device retains hotel IDs. The Saved tab loads descriptive hotel information in small batches. Travelers can set dates and guests without re-entering a destination and then request prices for their shortlist. Hotels stay in the shortlist when no rate is returned.
