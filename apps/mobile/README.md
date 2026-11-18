@@ -4,6 +4,8 @@ Native Android application foundation operated by **Remal Tourism**, using the e
 
 The owner-approved store name is **مخدّة | Mkhadda**. The planned, configured production package is `com.remalbookings.app`; its first-AAB/Play assignment is not yet verified. The isolated development package is `com.remalbookings.app.preview`. Play Console's application dashboard was observed after the owner completed phone verification and created the unpublished draft. A staging test APK is available; no Play upload or public release is claimed.
 
+Version 0.12 lets travelers choose arrival and departure in one calendar on Explore and when setting dates for saved hotels. Selecting departure applies the complete stay to the form. Closing the calendar midway preserves the previously entered dates.
+
 Version 0.11 gives travelers a shortcut from a room group to its lowest reviewable room rate in the search currency. The selection follows the active meal and cancellation filters and opens the exact supplier offer shown on the card.
 
 Version 0.10 shows the taxes and fees the supplier lists as payable at the property beside the room rate. The app groups those charges by currency, shows incomplete amounts as unconfirmed and keeps the original line items available. Offer review compares changed fee terms. Checkout gets the payment amount from the existing server quote. [RateHawk hotelpage tax fields](https://docs.emergingtravel.com/docs/b2b-api/hotel-search/retrieve-hotelpage/)
