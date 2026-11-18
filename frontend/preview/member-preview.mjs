@@ -4,6 +4,7 @@ import { createReadStream } from 'node:fs';
 import { resolve, dirname } from 'node:path';
 import { fileURLToPath } from 'node:url';
 const here=dirname(fileURLToPath(import.meta.url)),root=resolve(here,'..');
+process.chdir(root);
 const origin='http://127.0.0.1:4178',user={name:'Demo Member',email:'demo@example.test',points:0};
 const properties=['Palm Cove Retreat','The Courtyard','Cloud House'];
 const photos=properties.map((_,i)=>origin+'/sample-photo/'+i+'.jpg');
