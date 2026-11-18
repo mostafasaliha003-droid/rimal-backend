@@ -57,13 +57,17 @@ export function canonicalDecimal(value: string): string {
   const tail = fraction.replace(/0+$/, '');
   return `${whole.replace(/^0+(?=\d)/, '')}${tail ? `.${tail}` : ''}`;
 }
+export function cancellationTermsKey(terms: RoomOffer['cancellation']): string {
+  const policies = terms.policies.map(policy => JSON.stringify([policy.startAt, policy.endAt,
+    policy.startInvalid === true, policy.endInvalid === true,
+    policy.amount === null ? null : canonicalDecimal(policy.amount), policy.currency])).sort();
+  return JSON.stringify([terms.freeUntil, terms.freeUntilInvalid === true, terms.incomplete === true, policies]);
+}
 export function offerTerms(offer: RoomOffer): string {
   const money = (amount: string | null, currency: string | null) => [amount === null ? null : canonicalDecimal(amount), currency];
   const taxes = offer.taxes.map(tax => JSON.stringify([tax.name, ...money(tax.amount, tax.currency_code), tax.included_by_supplier])).sort();
-  const policies = offer.cancellation.policies.map(policy => JSON.stringify([policy.startAt, policy.endAt,
-    ...money(policy.amount, policy.currency)])).sort();
   return JSON.stringify([offer.name, offer.meal ?? null, offer.price ? money(offer.price.amount, offer.price.currency) : null,
-    taxes, offer.cancellation.freeUntil, policies]);
+    taxes, cancellationTermsKey(offer.cancellation)]);
 }
 
 export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = Date.now }: {

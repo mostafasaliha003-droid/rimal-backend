@@ -1,14 +1,9 @@
 /* global __dirname */
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const fs = require('node:fs');
 const path = require('node:path');
-const ts = require('typescript');
-const moduleValue = { exports: {} };
-new Function('module', 'exports', ts.transpileModule(fs.readFileSync(path.join(__dirname, 'roomChoiceModel.ts'), 'utf8'), {
-  compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
-}).outputText)(moduleValue, moduleValue.exports);
-const { buildRoomChoices, roomMealFacets, compareRoomAmounts, roomHotelId, canReviewRoomOffer, roomMealLabel } = moduleValue.exports;
+const load = require('../../scripts/test-support/load-typescript.cjs');
+const { buildRoomChoices, roomMealFacets, compareRoomAmounts, roomHotelId, canReviewRoomOffer, roomMealLabel } = load(path.join(__dirname, 'roomChoiceModel.ts'));
 const offer = (index, change = {}) => ({ id: `offer-${index}`, name: 'Twin room', bookHash: `h-${index}`, roomIdentity: 'full-identity',
   offerContext: `signed-${index}`, price: { amount: String(60 + index), currency: 'USD' }, meal: 'nomeal', images: [`https://example.test/${index}.jpg`],
   taxes: [{ name: 'city_tax', amount: '0', currency_code: 'USD', included_by_supplier: false }],
@@ -16,13 +11,30 @@ const offer = (index, change = {}) => ({ id: `offer-${index}`, name: 'Twin room'
 const choices = (offers, options = {}) => buildRoomChoices(offers, { currency: 'USD', ...options });
 
 test('stay summary uses English quantity nouns and explicit Arabic quantity labels', () => {
-  const copyModule = { exports: {} };
-  new Function('module', 'exports', ts.transpileModule(fs.readFileSync(path.join(__dirname, 'roomChoiceCopy.ts'), 'utf8'), {
-    compilerOptions: { module: ts.ModuleKind.CommonJS, target: ts.ScriptTarget.ES2022 }
-  }).outputText)(copyModule, copyModule.exports);
-  assert.equal(copyModule.exports.roomChoiceCopy('en').staySummary(1, 1), '1 guest · 1 room');
-  assert.equal(copyModule.exports.roomChoiceCopy('en').staySummary(2, 2), '2 guests · 2 rooms');
-  assert.equal(copyModule.exports.roomChoiceCopy('ar').staySummary(2, 1), 'الضيوف: 2 · الغرف: 1');
+  const { roomChoiceCopy } = load(path.join(__dirname, 'roomChoiceCopy.ts'));
+  assert.equal(roomChoiceCopy('en').staySummary(1, 1), '1 guest · 1 room');
+  assert.equal(roomChoiceCopy('en').staySummary(2, 2), '2 guests · 2 rooms');
+  assert.equal(roomChoiceCopy('ar').staySummary(2, 1), 'الضيوف: 2 · الغرف: 1');
+});
+
+test('free filter keeps the original offer, intersects other filters, and expires exactly at the boundary', () => {
+  const end = '2027-02-15T12:00:00.000Z', cutoff = Date.parse(end);
+  const free = offer(2, { meal: 'breakfast', cancellation: { freeUntil: end, policies: [
+    { startAt: null, endAt: end, amount: '0.00', currency: 'EUR' },
+    { startAt: end, endAt: null, amount: '0.0001', currency: 'EUR' },
+  ] } });
+  const paid = offer(0, { cancellation: { freeUntil: null, policies: [{ startAt: null, endAt: null, amount: '1', currency: 'USD' }] } });
+  const advisory = offer(1, { cancellation: { freeUntil: end, policies: [] } });
+  const rates = [paid, advisory, free], options = { freeOnly: true, now: cutoff - 1 };
+  const all = choices(rates, { now: cutoff - 1 });
+  assert.equal(all.groups[0].freeNowCount, 1);
+  assert.equal(all.fromPrice, paid.price);
+  const filtered = choices(rates, options);
+  assert.equal(filtered.groups[0].entries[0].offer, free);
+  assert.equal(filtered.fromPrice, free.price);
+  assert.equal(filtered.matchingOffers, 1);
+  assert.equal(choices(rates, { ...options, meal: { kind: 'value', value: 'nomeal' } }).matchingOffers, 0);
+  assert.equal(choices(rates, { ...options, now: cutoff }).matchingOffers, 0);
 });
 
 test('review requires the requested currency while foreign and unknown prices remain in the chooser', () => {

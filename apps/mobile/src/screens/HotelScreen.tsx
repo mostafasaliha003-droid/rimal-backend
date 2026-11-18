@@ -12,6 +12,7 @@ import { useAppState } from '../components/AppState';
 import ApiState from '../components/ApiState';
 import { Button, Field, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 import Cancellation from '../components/Cancellation';
+import { useCancellationClock } from '../components/useCancellationClock';
 import Policies from '../components/Policies';
 import Taxes from '../components/Taxes';
 import { buildRoomChoices, canReviewRoomOffer, roomHotelId, roomMealLabel, type MealFacet, type RoomChoiceEntry, type RoomChoiceGroup, type RoomChoiceSort } from '../components/roomChoiceModel';
@@ -47,8 +48,8 @@ function HotelGallery({ images, name, room = false }: { images: string[]; name: 
   </View>;
 }
 
-function RatePlan({ entry, requestedCurrency, onReview, failed, onRefresh, onEditSearch }: {
-  entry: RoomChoiceEntry; requestedCurrency: string; onReview: (entry: RoomChoiceEntry) => void; failed: boolean; onRefresh: () => void; onEditSearch: () => void;
+function RatePlan({ now, entry, requestedCurrency, onReview, failed, onRefresh, onEditSearch }: {
+  now: number; entry: RoomChoiceEntry; requestedCurrency: string; onReview: (entry: RoomChoiceEntry) => void; failed: boolean; onRefresh: () => void; onEditSearch: () => void;
 }) {
   const { language, t } = useLanguage(); const copy = roomChoiceCopy(language); const offer = entry.offer;
   const reviewable = canReviewRoomOffer(offer, requestedCurrency);
@@ -59,7 +60,7 @@ function RatePlan({ entry, requestedCurrency, onReview, failed, onRefresh, onEdi
     <Txt kind="small">{copy.meals}: {roomMealLabel(offer.meal, t('roomOnly'), copy.missingMeal)}</Txt>
     <View style={styles.ratePrice}><Txt kind="small">{t('priceForStay')}</Txt><MoneyText large money={offer.price}/><Txt kind="small">{copy.priceScope}</Txt></View>
     <Taxes taxes={offer.taxes}/>
-    <Cancellation offer={offer}/>
+    <Cancellation offer={offer} now={now}/>
     <Button title={t('reviewOffer')} disabled={!reviewable} onPress={() => onReview(entry)}/>
     {currencyMismatch ? <View style={{ gap: 10 }}><Txt kind="small">{copy.currencyMismatch(offer.price!.currency, requestedCurrency)}</Txt>
       <Button variant="secondary" title={t('searchAgain')} onPress={onEditSearch}/></View> : !reviewable && <Txt kind="small">{copy.notReady}</Txt>}
@@ -68,8 +69,8 @@ function RatePlan({ entry, requestedCurrency, onReview, failed, onRefresh, onEdi
   </View>;
 }
 
-function RoomGroup({ group, requestedCurrency, onReview, reviewError, onRefresh, onEditSearch }: {
-  group: RoomChoiceGroup; requestedCurrency: string; onReview: (entry: RoomChoiceEntry) => void; reviewError: string; onRefresh: () => void; onEditSearch: () => void;
+function RoomGroup({ now, group, requestedCurrency, onReview, reviewError, onRefresh, onEditSearch }: {
+  now: number; group: RoomChoiceGroup; requestedCurrency: string; onReview: (entry: RoomChoiceEntry) => void; reviewError: string; onRefresh: () => void; onEditSearch: () => void;
 }) {
   const { language } = useLanguage(); const copy = roomChoiceCopy(language);
   const [expanded, setExpanded] = useState(false); const [limit, setLimit] = useState(4);
@@ -81,6 +82,7 @@ function RoomGroup({ group, requestedCurrency, onReview, reviewError, onRefresh,
         <View style={styles.roomThumb}><Photo uri={preview.images[0]} room label={group.name} height={96}/></View>
         <View style={{ flex: 1, gap: 5 }}><Txt kind="heading" style={{ fontSize: 18, lineHeight: 26 }}>{group.name}</Txt>
           <Txt kind="small">{copy.ratePlans(group.entries.length)}</Txt>
+          {group.freeNowCount > 0 && <Txt kind="small">{copy.freeCount(group.freeNowCount, group.entries.length)}</Txt>}
           {group.fromPrice ? <View><Txt kind="small">{copy.from}</Txt><MoneyText money={group.fromPrice}/></View> : <Txt kind="small">{copy.openPrices}</Txt>}
         </View>
       </Row>
@@ -88,7 +90,7 @@ function RoomGroup({ group, requestedCurrency, onReview, reviewError, onRefresh,
       {group.entries.length !== group.totalCount && <Txt kind="small">{copy.filteredCount(group.entries.length, group.totalCount)}</Txt>}
     </Pressable>
     {expanded && <View style={{ borderTopWidth: 1, borderTopColor: colors.border }}>
-      {group.entries.slice(0, limit).map(entry => <RatePlan key={entry.key} entry={entry} requestedCurrency={requestedCurrency} onReview={onReview} failed={reviewError === entry.key} onRefresh={onRefresh} onEditSearch={onEditSearch}/>)}
+      {group.entries.slice(0, limit).map(entry => <RatePlan key={entry.key} now={now} entry={entry} requestedCurrency={requestedCurrency} onReview={onReview} failed={reviewError === entry.key} onRefresh={onRefresh} onEditSearch={onEditSearch}/>)}
       <View style={{ padding: 16, gap: 10 }}><Txt kind="small">{copy.rateCount(Math.min(limit, group.entries.length), group.entries.length)}</Txt>
         {limit < group.entries.length && <Button variant="secondary" title={copy.moreRates(group.entries.length - limit)} onPress={() => setLimit(value => value + 4)}/>}
       </View>
@@ -107,7 +109,11 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
   const [query, setQuery] = useState(''); const [meal, setMeal] = useState<MealFacet>({ kind: 'all' });
   const [sort, setSort] = useState<RoomChoiceSort>('original'); const [groupLimit, setGroupLimit] = useState(6);
   const [reviewError, setReviewError] = useState('');
-  const model = useMemo(() => buildRoomChoices(hotel.offers, { currency: criteria.currency, query, meal, sort }), [hotel.offers, criteria.currency, query, meal, sort]);
+  const [freeOnly, setFreeOnly] = useState(false);
+  const cancellations = useMemo(() => hotel.offers.map(offer => offer.cancellation), [hotel.offers]);
+  const now = useCancellationClock(cancellations);
+  const model = useMemo(() => buildRoomChoices(hotel.offers, { currency: criteria.currency, query, meal, sort, freeOnly, now }),
+    [hotel.offers, criteria.currency, query, meal, sort, freeOnly, now]);
   useEffect(() => () => { jumpRevision.current++; }, []);
   const jump = (section: Section) => {
     Keyboard.dismiss(); const revision = ++jumpRevision.current;
@@ -121,7 +127,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
       scroll.current.scrollTo({ y: Math.max(0, y - 12), animated: true });
     }, () => {});
   };
-  const clear = () => { setQuery(''); setMeal({ kind: 'all' }); };
+  const clear = () => { setQuery(''); setMeal({ kind: 'all' }); setFreeOnly(false); };
   const review = (entry: RoomChoiceEntry) => {
     setReviewError('');
     if (authSession.getRevision() !== sessionRevision || authSession.getSnapshot().status !== authStatus) { setReviewError(entry.key); return; }
@@ -131,7 +137,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
       hotelImage: hotel.images[0], criteria, offer: entry.offer, language });
     if (accepted) router.push('/review'); else setReviewError(entry.key);
   };
-  const filtered = Boolean(query.trim() || meal.kind !== 'all');
+  const filtered = Boolean(query.trim() || meal.kind !== 'all' || freeOnly);
   const savedHere = saved.includes(hid);
   const guestCount = criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0);
   const narrowDock = width < 380 || fontScale > 1.4;
@@ -166,13 +172,22 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
                 {model.meals.hasMissing && <ChoiceChip label={copy.missingMeal} selected={meal.kind === 'missing'} onPress={() => setMeal({ kind: 'missing' })}/>}
               </Row>
             </View>
+            <Pressable accessibilityRole="checkbox" accessibilityLabel={copy.freeOnly} accessibilityState={{ checked: freeOnly }}
+              onPress={() => setFreeOnly(value => !value)} style={({ pressed }) => [styles.freeFilter, { opacity: pressed ? .75 : 1 }]}>
+              <Row style={{ alignItems: 'center', gap: 10 }}>
+                <View accessible={false} style={[styles.check, freeOnly && { backgroundColor: colors.navy }]}>
+                  {freeOnly && <Txt accessible={false} style={{ color: colors.surface }}>✓</Txt>}
+                </View>
+                <Txt kind="label" style={{ flexShrink: 1 }}>{copy.freeOnly}</Txt>
+              </Row>
+            </Pressable>
             <Row style={{ flexWrap: 'wrap', gap: 8 }}><ChoiceChip label={copy.original} selected={sort === 'original'} onPress={() => setSort('original')}/>
               <ChoiceChip label={copy.lowest(criteria.currency)} selected={sort === 'price'} onPress={() => setSort('price')}/></Row>
             <Txt accessibilityLiveRegion="polite" kind="small">{copy.count(model.matchingOffers, model.totalOffers, model.groups.length)}</Txt>
             {filtered && <Button variant="quiet" title={copy.clear} onPress={clear}/>}
           </View>
           {model.groups.length === 0 ? <View style={{ gap: 12 }}><StatePanel title={copy.noMatch} body={copy.noMatchBody}/><Button variant="secondary" title={copy.clear} onPress={clear}/></View>
-            : <>{model.groups.slice(0, groupLimit).map(group => <RoomGroup key={group.key} group={group} requestedCurrency={criteria.currency} onReview={review} reviewError={reviewError} onRefresh={onRefresh} onEditSearch={() => router.push('/')}/>)}
+            : <>{model.groups.slice(0, groupLimit).map(group => <RoomGroup key={group.key} group={group} now={now} requestedCurrency={criteria.currency} onReview={review} reviewError={reviewError} onRefresh={onRefresh} onEditSearch={() => router.push('/')}/>)}
               <Txt kind="small">{copy.groupCount(Math.min(groupLimit, model.groups.length), model.groups.length)}</Txt>
               {groupLimit < model.groups.length && <Button variant="secondary" title={copy.moreGroups(model.groups.length - groupLimit)} onPress={() => setGroupLimit(value => value + 6)}/>}</>}
         </>}
@@ -233,6 +248,8 @@ export default function HotelScreen() {
 }
 
 const styles = StyleSheet.create({
+  freeFilter: { minHeight: 48, justifyContent: 'center', alignSelf: 'stretch' },
+  check: { width: 26, height: 26, borderWidth: 2, borderColor: colors.navy, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   chip: { minHeight: 48, paddingHorizontal: 14, paddingVertical: 11, borderWidth: 1, borderRadius: 15, justifyContent: 'center', flexShrink: 1 },
   save: { minWidth: 48, minHeight: 48, padding: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.border,
     alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },

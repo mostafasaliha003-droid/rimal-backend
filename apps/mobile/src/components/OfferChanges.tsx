@@ -25,7 +25,7 @@ export default function OfferChanges({ before, after }: { before: RoomOffer; aft
           {kind === 'price' ? <MoneyText money={offer.price}/> : kind === 'room' ? <Txt>{offer.name}</Txt>
             : kind === 'meal' ? <Txt>{offer.meal ? offer.meal === 'nomeal' ? t('roomOnly') : offer.meal.replace(/[-_]/g, ' ') : t('noMeal')}</Txt>
               : kind === 'taxes' ? offer.taxes.length ? <Taxes taxes={offer.taxes}/> : <Txt kind="small">{language === 'ar' ? 'لم تُقدّم رسوم لهذا العرض.' : 'No charges supplied for this offer.'}</Txt>
-                : <Cancellation offer={offer}/>}
+                : <Cancellation offer={offer} mode={side === 'before' ? 'historical' : 'current'} defaultExpanded/>}
         </View>)}
       </View>)}
     </>}

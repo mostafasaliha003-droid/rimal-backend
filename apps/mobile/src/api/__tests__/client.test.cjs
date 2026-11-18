@@ -179,6 +179,17 @@ test('customer totals and cancellation amounts keep authoritative currency and z
   assert.deepEqual(hotel.price, { amount: '107', currency: 'USD' });
 });
 
+test('malformed source bounds, deadlines and collections retain their uncertainty', () => {
+  const sample = rate(), terms = sample.payment_options.payment_types[0].cancellation_penalties;
+  terms.free_cancellation_before = '2099-02-14T24:00:00';
+  terms.policies = [{ end_at: null, amount_charge: '0' }];
+  const normalized = () => adapters.normalizeOffers([sample])[0].cancellation;
+  assert.equal(normalized().freeUntilInvalid, true);
+  assert.deepEqual(normalized().policies[0], { startAt: null, endAt: null, startInvalid: true, amount: null, currency: null });
+  terms.policies = {};
+  assert.deepEqual(normalized(), { freeUntil: null, freeUntilInvalid: true, incomplete: true, policies: [] });
+  assert.equal(adapters.utcTimestamp('2027-02-14T10:00:01.123+04:00'), '2027-02-14T06:00:01.123Z');
+});
 test('taxes preserve selected-payment amounts/currencies/zero and never infer inclusion or conversion', () => {
   const value = rate();
   const supplied = [
