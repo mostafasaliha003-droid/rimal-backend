@@ -8,6 +8,9 @@ export function resolveEnvironment(value: unknown): AppEnvironment {
 }
 // This is an environment name, never a caller-provided backend URL or API key.
 export const APP_ENV = resolveEnvironment(process.env.EXPO_PUBLIC_API_ENV);
+// Financial dispatch needs a separately validated release decision. Read-only
+// quotes and recovery remain available when the server reports the right mode.
+export const NATIVE_CHECKOUT_ENABLED = process.env.EXPO_PUBLIC_NATIVE_CHECKOUT_ENABLED === 'true';
 export function endpoints(environment: AppEnvironment) {
   const env = resolveEnvironment(environment);
   return env === 'production'

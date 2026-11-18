@@ -13,6 +13,8 @@ import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Pr
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
 import OfferChanges from '../components/OfferChanges';
+import { useAppState } from '../components/AppState';
+import { NATIVE_CHECKOUT_ENABLED } from '../api/config';
 
 type ReviewSession = ReturnType<typeof useReviewSession>;
 
@@ -24,10 +26,12 @@ export default function ReviewScreen() {
 function ReviewContents({ session }: { session: ReviewSession }) {
   const { draft, status, currentOffer, error, changesAccepted, canRecheck, canContinue, recheck, acceptChanges, clear, getHandoff } = session;
   const { t, language } = useLanguage();
+  const state = useAppState();
   const router = useRouter();
   const [opening, setOpening] = useState(false);
   const [handoffError, setHandoffError] = useState(false);
   const [handoffExpired, setHandoffExpired] = useState(false);
+  const checkoutLabel = language === 'ar' ? 'عرض خيارات الحجز والدفع' : 'View booking and payment options';
   const offer = currentOffer || draft?.offer;
   const checked = Boolean(currentOffer && (status === 'ready' || status === 'changed'));
   const expired = status === 'expired' || handoffExpired;
@@ -47,6 +51,10 @@ function ReviewContents({ session }: { session: ReviewSession }) {
       await WebBrowser.openBrowserAsync(bookingWebsiteUrl(handoff.hid, handoff.criteria, language), { toolbarColor: colors.navy });
     } catch { setHandoffError(true); }
     finally { setOpening(false); }
+  };
+  const openCheckout = () => {
+    if (!state.setCheckoutReviewAuthority(session.getCheckoutReview)) { setHandoffExpired(true); return; }
+    router.push('/checkout');
   };
   const membershipError = error instanceof ApiError && error.kind === 'membership';
   const nights = draft ? Math.round((Date.parse(`${draft.criteria.checkout}T00:00:00Z`) - Date.parse(`${draft.criteria.checkin}T00:00:00Z`)) / 86400000) : 0;
@@ -87,7 +95,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
         </View>
         {status === 'changed' && checked && !expired && <View style={[ui.card, { backgroundColor: colors.softGold, borderColor: '#E6CFAC' }]} accessibilityLiveRegion="polite"><Txt kind="heading" accessibilityRole="header">{t('reviewChangedTitle')}</Txt><Txt>{t('reviewChangedBody')}</Txt><OfferChanges before={draft.offer} after={offer}/>{changesAccepted && <Txt style={{ color: colors.success, fontFamily: fonts.bold }}>{t('reviewChangesAccepted')}</Txt>}</View>}
         {!expired && !checked && status !== 'pending' && <Txt kind="small">{t('reviewBeforeRecheck')}</Txt>}
-        <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{t('websiteTitle')}</Txt><Txt>{t('websiteBody')}</Txt><Txt style={{ fontFamily: fonts.medium }}>{t('reviewWebsiteReselect')}</Txt>{APP_ENV !== 'production' && <Txt kind="small" style={{ color: colors.goldInk }}>{t('websiteEnvironment')}</Txt>}{handoffError && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t('websiteError')}</Txt>}</View>
+        <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{t('websiteTitle')}</Txt><Txt>{t('websiteBody')}</Txt><Txt style={{ fontFamily: fonts.medium }}>{t('reviewWebsiteReselect')}</Txt>{APP_ENV !== 'production' && <Txt kind="small" style={{ color: colors.goldInk }}>{t('websiteEnvironment')}</Txt>}{handoffError && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t('websiteError')}</Txt>}<Button variant="secondary" title={checkoutLabel} disabled={!canContinue || expired || opening} onPress={openCheckout}/></View>
         <Button variant="quiet" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>
       </>}
     </ScrollView>
@@ -97,7 +105,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
           <View style={{ flexShrink: 1, gap: 3 }}><Txt kind="small">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><MoneyText money={offer.price}/></View>
           <View style={{ flex: 1, minWidth: 170 }}>{expired ? <Button variant="secondary" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>
             : status === 'changed' && !changesAccepted ? <Button title={t('reviewAcceptChanges')} variant="secondary" disabled={opening} onPress={acceptChanges}/>
-              : canContinue ? <Button title={t('websiteCta')} busy={opening} onPress={() => void openWebsite()}/>
+              : canContinue ? <Button title={NATIVE_CHECKOUT_ENABLED ? checkoutLabel : t('websiteCta')} busy={opening} onPress={() => NATIVE_CHECKOUT_ENABLED ? openCheckout() : void openWebsite()}/>
                 : <Button title={t(status === 'pending' ? 'reviewChecking' : checked ? 'reviewCheckAgain' : 'reviewCheckPrice')} busy={status === 'pending'} disabled={!canRecheck || opening} onPress={recheckOffer}/>}</View>
         </Row>
         {checked && !expired && <Button compact variant="quiet" title={t('reviewCheckAgain')} disabled={!canRecheck || opening} onPress={recheckOffer}/>}<Txt kind="small">{t('reviewNoReservation')}</Txt>

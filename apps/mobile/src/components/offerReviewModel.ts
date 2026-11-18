@@ -1,6 +1,7 @@
 import type { Language, PrebookResult, RoomOffer, SearchCriteria } from '../types';
 import { ApiError } from '../api/errors';
 import { assertCriteria, hotelId } from '../api/validation';
+import type { CheckoutSelection } from './checkoutSessionModel';
 
 export const REVIEW_SELECTION_LIFETIME_MS = 5 * 60_000;
 export const REVIEW_CHECK_LIFETIME_MS = 2 * 60_000;
@@ -70,9 +71,10 @@ export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = 
   prebook: (hid: number, offer: RoomOffer, signal?: AbortSignal) => Promise<PrebookResult>; now?: () => number;
 }) {
   let snapshot = initial(null), revision = 0, request: AbortController | null = null;
+  let checkoutContext: string | null = null;
   const listeners = new Set<() => void>();
   const publish = (next: Snapshot) => { snapshot = next; listeners.forEach(listener => listener()); };
-  const cancel = () => { revision++; request?.abort(); request = null; };
+  const cancel = () => { revision++; request?.abort(); request = null; checkoutContext = null; };
   function sync() {
     const draft = getDraft();
     if ((draft?.id ?? null) !== snapshot.draftId) { cancel(); publish(initial(draft?.id ?? null)); }
@@ -107,6 +109,7 @@ export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = 
       const checkedAt = now();
       if (checkedAt >= draft.createdAt + REVIEW_SELECTION_LIFETIME_MS) { sync(); return; }
       const changed = result.priceChanged || offerTerms(draft.offer) !== offerTerms(result.offer);
+      checkoutContext = result.prebookContext;
       publish({ ...initial(draft.id), status: changed ? 'changed' : 'ready', currentOffer: result.offer,
         expiresAt: Math.min(draft.createdAt + REVIEW_SELECTION_LIFETIME_MS, checkedAt + REVIEW_CHECK_LIFETIME_MS) });
     } catch (error) {
@@ -124,8 +127,20 @@ export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = 
     sync(); const view = presentation();
     return view.canContinue && view.draft ? { hid: view.draft.hid, criteria: copyCriteria(view.draft.criteria) } : null;
   }
+  function getCheckoutReview(): CheckoutSelection | null {
+    const view = presentation();
+    if (!view.canContinue || !view.draft || !view.currentOffer?.price || !checkoutContext
+      || snapshot.expiresAt === null || !view.currentOffer.bookHash.startsWith('p-')) return null;
+    // This private RAM-only authority is separate from the search-only website
+    // URL. Every use rechecks the current owner, selection, terms and clock.
+    return freeze({ selectionId: `${view.draft.id}:${revision}`, expiresAt: snapshot.expiresAt,
+      termsAccepted: true, review: { hid: view.draft.hid, hotelName: view.draft.hotelName,
+        criteria: copyCriteria(view.draft.criteria),
+        offer: JSON.parse(JSON.stringify(view.currentOffer)) as RoomOffer,
+        prebookContext: checkoutContext } });
+  }
   function clear() { cancel(); clearDraft(); publish(initial(null)); }
-  return { getSnapshot: () => snapshot, presentation, sync, recheck, acceptChanges, getHandoff, clear,
+  return { getSnapshot: () => snapshot, presentation, sync, recheck, acceptChanges, getHandoff, getCheckoutReview, clear,
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     dispose() { cancel(); listeners.clear(); } };
 }

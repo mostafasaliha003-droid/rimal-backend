@@ -17,5 +17,5 @@ export function useReviewSession() {
     return () => clearTimeout(timer);
   }, [session, reviewDraft, snapshot.expiresAt, snapshot.status]);
   return { ...session.presentation(), recheck: session.recheck, acceptChanges: session.acceptChanges,
-    clear: session.clear, getHandoff: session.getHandoff };
+    clear: session.clear, getHandoff: session.getHandoff, getCheckoutReview: session.getCheckoutReview };
 }

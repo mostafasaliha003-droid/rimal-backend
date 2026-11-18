@@ -37,16 +37,23 @@ export function createSessionManager(network: ApiClient['auth'], storage: TokenS
   }
   async function restore(signal?: AbortSignal) {
     const stamp = ++revision;
+    // A failed validation quarantines the cached credential. An explicit retry
+    // may re-read SecureStore, but signed-out callers cannot keep using it.
+    token = undefined;
     publish({ ...snapshot, status: 'loading', error: null });
     try {
       if (!await getToken()) {
         if (stamp === revision) publish({ status: 'signedOut', user: null, error: null });
         return;
       }
+      if (stamp !== revision) return;
       const user = await network.session(signal);
       if (stamp === revision) publish({ status: 'signedIn', user, error: null });
     } catch (error) {
-      if (stamp === revision) publish({ status: 'signedOut', user: null, error: asApiError(error) });
+      if (stamp === revision) {
+        token = null;
+        publish({ status: 'signedOut', user: null, error: asApiError(error) });
+      }
     }
   }
   async function authenticate(operation: () => ReturnType<ApiClient['auth']['login']>) {
@@ -79,7 +86,7 @@ export function createSessionManager(network: ApiClient['auth'], storage: TokenS
     let failure: ApiError | null = null;
     try { await stored(async () => {
       // Queue deletion before a newer sign-in can queue its credential write.
-      if (previous === undefined) { try { previous = await storage.get(); } catch { failure = new ApiError('storage', 'secure_storage_unavailable'); } }
+      if (previous === undefined || previous === null) { try { previous = await storage.get(); } catch { failure = new ApiError('storage', 'secure_storage_unavailable'); } }
       await storage.clear();
     }); } catch { failure = new ApiError('storage', 'secure_storage_unavailable'); }
     if (validToken(previous)) {

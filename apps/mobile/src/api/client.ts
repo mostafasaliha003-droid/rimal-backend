@@ -5,6 +5,7 @@ import { assertCriteria, hotelId, searchBody } from './validation';
 import { createTransport, validToken } from './transport';
 import { getOwnedBookings } from './bookings';
 import { getAccountDeletionRequest, requestAccountDeletion } from './accountDeletion';
+import { createCheckoutApi } from './checkout';
 
 const sameAmount = (left: string, right: string) => {
   const normalize = (value: string) => { const [whole, fraction = ''] = value.split('.'); const tail = fraction.replace(/0+$/, '');
@@ -55,6 +56,7 @@ export function createApiClient(request: Request) {
     return object(data.hotel);
   };
   return {
+    checkout: createCheckoutApi(request),
     auth, getHotelStatic,
     getBookings: (signal?: AbortSignal) => getOwnedBookings(request, signal),
     getAccountDeletionRequest: (signal?: AbortSignal) => getAccountDeletionRequest(request, signal),

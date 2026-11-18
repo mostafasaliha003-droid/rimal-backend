@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Keyboard, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { api, authSession } from '../api';
@@ -136,7 +136,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
   const guestCount = criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0);
   const narrowDock = width < 380 || fontScale > 1.4;
   return <>
-    <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={ui.page} keyboardShouldPersistTaps="handled" keyboardDismissMode="on-drag">
+    <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={ui.page} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}>
       <View style={{ gap: 14 }}>
         <Row style={{ alignItems: 'flex-start', gap: 10 }}><View style={{ flex: 1, gap: 4 }}>
           <Txt accessibilityRole="header" kind="title">{hotel.name}</Txt>

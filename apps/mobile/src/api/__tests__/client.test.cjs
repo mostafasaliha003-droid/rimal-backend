@@ -61,14 +61,14 @@ const authNetwork = overrides => ({ login: async email => ({ user: user(email), 
   session: async () => user('restored'), logout: async () => {}, requestRegistration: async () => {},
   verifyRegistration: async () => ({ user: user('verified'), token: 'b'.repeat(64) }), ...overrides });
 
-test('environment and routes are fixed allowlists; financial/private endpoints cannot be called', async () => {
+test('environment and routes are fixed allowlists; privileged and unrecognized endpoints cannot be called', async () => {
   assert.equal(resolveEnvironment(undefined), 'staging');
   assert.equal(APP_ENV, 'staging');
   assert.equal(endpoints('production').api, 'https://rimal-api.onrender.com/api');
   for (const invalid of ['https://api.ratehawk.com', 'Production', 'https://evil.test/api']) assert.throws(() => endpoints(invalid), /invalid_app_environment/);
   let requests = 0;
   const request = createTransport({ environment: 'staging', fetcher: async () => { requests++; return response({ success: true }); } });
-  for (const target of ['/payment/ziina/intent', '/v1/booking/finish', '/auth/session/../login', '//evil.test', 'https://api.ratehawk.com']) {
+  for (const target of ['/payment/stripe/intent', '/booking/form', '/v1/booking/finish', '/auth/session/../login', '//evil.test', 'https://api.ratehawk.com']) {
     await assert.rejects(request('POST', target), error => error.kind === 'configuration');
   }
   assert.equal(allowedRoute('POST', '/booking/prebook'), true);
@@ -234,7 +234,7 @@ test('actual BFF envelopes adapt suggestions/search/details; wrong hotel IDs and
   assert.throws(() => adapters.normalizeSuggestions({ success: true, suggestions: {} }));
 });
 
-test('readonly prebook retains exact hashes and proof, detects changed customer price, and exposes no financial create method', async () => {
+test('readonly prebook retains exact hashes and proof and detects changed customer price', async () => {
   let body;
   const api = createApiClient(createTransport({ environment: 'staging', fetcher: async (_url, init) => {
     body = JSON.parse(init.body); return response({ success: true, hotels: [{ hid: 123, rates: [rate('p-fixture', '110.00')] }],

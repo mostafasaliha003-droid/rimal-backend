@@ -1,12 +1,13 @@
 {
   "name": "@remal/mkhadda",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
     "expo": "~58.0.26",
     "expo-build-properties": "~58.0.12",
     "expo-constants": "~58.0.16",
+    "expo-crypto": "~58.0.8",
     "expo-dev-client": "~58.0.21",
     "expo-font": "~58.0.12",
     "expo-linking": "~58.0.17",
@@ -39,7 +40,7 @@
     "check": "npm run typecheck && npm run lint",
     "export:web": "expo export --platform web --output-dir .expo-preview/web",
     "export:android": "expo export --platform android --output-dir .expo-preview/android",
-    "test:unit": "node --test src/api/__tests__/client.test.cjs src/api/__tests__/bookings.test.cjs src/components/calendarModel.test.cjs src/components/guestAgeModel.test.cjs src/components/hotelPoliciesData.test.cjs src/components/foundationContracts.test.cjs src/components/offerReviewModel.test.cjs src/components/discoverySessionModel.test.cjs src/components/offerChangeSummary.test.cjs src/components/resultsDecisionModel.test.cjs src/components/roomChoiceModel.test.cjs src/components/searchJourneyModel.test.cjs",
+    "test:unit": "node --test src/api/__tests__/client.test.cjs src/api/__tests__/bookings.test.cjs src/components/calendarModel.test.cjs src/components/guestAgeModel.test.cjs src/components/hotelPoliciesData.test.cjs src/components/foundationContracts.test.cjs src/components/offerReviewModel.test.cjs src/components/discoverySessionModel.test.cjs src/components/offerChangeSummary.test.cjs src/components/resultsDecisionModel.test.cjs src/components/roomChoiceModel.test.cjs src/components/searchJourneyModel.test.cjs src/auth/session.test.cjs src/api/__tests__/checkout.test.cjs src/components/checkoutSessionModel.test.cjs src/components/checkoutTravelerModel.test.cjs",
     "test:build": "node --test scripts/__tests__/android-preview-attempt.test.cjs",
     "preview:web": "node scripts/serve-preview.cjs",
     "export:preview": "expo export --platform web --platform android --output-dir .expo-preview/verified"
