@@ -73,7 +73,7 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true },
   // Verified HTTPS App Links require the real Play signing fingerprint. Do not
   // advertise an unverified association or treat a deep link as payment proof.
-  extra: { environment, releaseStage: 'arabic-search-currency',
+  extra: { environment, releaseStage: 'design-system',
     nativePaymentsEnabled: process.env.EXPO_PUBLIC_NATIVE_CHECKOUT_ENABLED === 'true' },
 };
 
