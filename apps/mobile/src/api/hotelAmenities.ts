@@ -67,6 +67,14 @@ function internetEvidence(name: string, policies: RecordValue[], listedFees: Set
   return undefined;
 }
 
+const genericInternet = /^(?:internet(?: access)?|(?:خدمة |اتصال )?(?:ال)?[إا]نترنت|الاتصال بال[إا]نترنت)$/;
+function groupPriority(name: string) {
+  const key = nameKey(name);
+  if (genericInternet.test(key)) return 0;
+  if (/^(?:pool and beach|المسبح والشاطئ|حمام السباحة والشاطئ)$/.test(key)) return 1;
+  return 2;
+}
+
 function normalizeGroup(group: RecordValue, policies: RecordValue[]): Group {
   const byName = new Map<string, {name: string; fees: Set<Fee>}>();
   function add(rawName: string, listedAsPaid: boolean) {
@@ -79,8 +87,12 @@ function normalizeGroup(group: RecordValue, policies: RecordValue[]): Group {
   }
   names(group.amenities).forEach(name => add(name, false));
   names(group.non_free_amenities).forEach(name => add(name, true));
+  const hasSpecificConnection = byName.has('wifi') || byName.has('wired internet');
   const items: HotelAmenity[] = [];
-  for (const {name, fees} of byName.values()) {
+  for (const [key, {name, fees}] of byName) {
+    // "Internet access" adds no information beside a named connection in the same group.
+    // Keep scoped names and every independent charge or conflicting fee record.
+    if (hasSpecificConnection && genericInternet.test(key) && fees.size === 0) continue;
     const internet = internetEvidence(name, policies, fees);
     if (internet) fees.add(internet);
     items.push({ name, fee: fees.size === 1 ? [...fees][0] : 'unknown' });
@@ -91,7 +103,7 @@ function normalizeGroup(group: RecordValue, policies: RecordValue[]): Group {
 export function normalizeHotelAmenities(groups: unknown, internetPolicies?: unknown, flatNames?: unknown): Group[] {
   const policies = records(internetPolicies);
   const result = records(groups).map(group => normalizeGroup(group, policies)).filter(group => group.items.length);
-  if (result.length) return result;
+  if (result.length) return result.sort((a, b) => groupPriority(a.name) - groupPriority(b.name));
   const legacy = records(flatNames).map(row => ({
     name: typeof row.name === 'string' ? row.name : row.title,
     paid: row.paid === true

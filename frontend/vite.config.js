@@ -25,6 +25,7 @@ export default defineConfig(({ mode }) => {
     const stagingPreview = process.env.PILLOW_PREVIEW_STAGING === '1';
     return {
         base: '/',
+        tsconfig: './tsconfig.json',
         envDir: '..',
         plugins: [react(), {
             name: 'remal-release-revision',

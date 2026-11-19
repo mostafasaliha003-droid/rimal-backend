@@ -184,6 +184,10 @@ async function run() {
                             author: { name: 'Fixture Google Author', url: 'https://www.google.com/maps/contrib/fixture', photo: '' } }], attributions: [] };
                 }
                 else if (url.pathname.includes('/v1/hotels/')) body = { hotel: { ...hotels[1],
+                    amenity_groups: [
+                        { group_name: 'Internet', amenities: ['Free Wi-Fi'], non_free_amenities: [] },
+                        { group_name: 'Recreation', amenities: ['Pool', 'Spa', 'Fitness facilities', 'Garden', 'Terrace'], non_free_amenities: ['Spa', 'Massage'] }
+                    ],
                     metapolicy_struct: { deposit: [{ price: '100.00', currency: 'AED', future_field: 'Fixture extra policy requirement' }], visa: { visa_support: false } },
                     metapolicy_extra_info: '<p>Fixture original passport required.</p><p>Fixture check-in instruction.</p>',
                     images: Array.from({ length: 6 }, (_, index) => `${base}/icon-512.png?photo=${index}`), room_groups: [
@@ -369,6 +373,21 @@ async function run() {
         assert.match(await page.$eval('link[rel="canonical"]', link => link.href), /\/hotel\/2\?lang=en$/);
         assert.equal(await page.$eval('html', element => element.lang), 'ar');
         assert.match(await page.$eval('main', element => element.textContent), /عن هذا المكان/);
+        const readFacilities = () => page.$$eval('#hotel-amenity-list li', rows => rows.map(row => ({
+            name: row.firstElementChild.textContent, fee: row.dataset.amenityFee, label: row.lastElementChild.textContent
+        })));
+        const previewFacilities = await readFacilities();
+        assert.equal(previewFacilities.length, 6);
+        assert.deepEqual(previewFacilities.slice(0, 3), [
+            { name: 'واي فاي', fee: 'free', label: 'مجاني' },
+            { name: 'مسبح', fee: 'unknown', label: 'التكلفة غير محددة' },
+            { name: 'سبا', fee: 'paid', label: 'برسوم' }
+        ]);
+        assert.match(await page.$eval('#hotel-amenity-list', node => node.textContent), /الترفيه/);
+        await page.click('button[aria-controls="hotel-amenity-list"]');
+        assert.deepEqual((await readFacilities()).at(-1), { name: 'تدليك', fee: 'paid', label: 'برسوم' });
+        await page.click('button[aria-controls="hotel-amenity-list"]');
+        assert.equal((await readFacilities()).length, 6);
         assert.deepEqual(await page.$$eval('link[rel="alternate"][data-remal-hreflang]', links => links.map(link => link.hreflang).sort()), ['en', 'x-default']);
         assert.equal(await page.$eval('main', element => element.innerText.includes('كاش باك')), false);
         assert.match(await page.$eval('main h1', node => node.innerText), /Test Hotel 60/);

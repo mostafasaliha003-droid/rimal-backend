@@ -387,6 +387,34 @@ test('internet pricing requires matching connection type and scope with consiste
   assert.equal(items([included], 'Pool'), 'unknown');
 });
 
+test('real supplier Internet group shows free Wi-Fi once and puts connectivity ahead of other facilities', () => {
+  const groups = facilities([
+    {group_name:'General', amenities:['Elevator']}, {group_name:'Pool and beach', amenities:['Swimming pool']},
+    {group_name:'Rooms', amenities:['TV']}, {group_name:'Internet', amenities:['Free Wi-Fi', 'Internet access'], non_free_amenities:[]},
+    {group_name:'Recreation', amenities:['Outdoor seating']}
+  ]);
+  assert.deepEqual(groups.map(group => group.name), ['Internet','Pool and beach','General','Rooms','Recreation']);
+  assert.deepEqual(groups[0].items, [{name:'Wi-Fi', fee:'free'}]);
+  assert.deepEqual(facilities([{group_name:'الإنترنت', amenities:['الإنترنت', 'واي فاي مجاني']}])[0].items,
+    [{name:'واي فاي', fee:'free'}]);
+});
+
+test('generic internet keeps its own fees, scope and group if the supplier distinguishes it', () => {
+  const groups = facilities([
+    {group_name:'Internet', amenities:['Free Wi-Fi','Internet access','Internet access in the business center'],
+      non_free_amenities:['Internet access']},
+    {group_name:'Rooms', amenities:['Internet access']},
+    {group_name:'Lobby', amenities:['Free Internet access', 'Paid Internet access', 'Wired internet']}
+  ]);
+  assert.deepEqual(groups.map(group => group.items), [
+    [{name:'Wi-Fi',fee:'free'}, {name:'Internet access',fee:'paid'}, {name:'Internet access in the business center',fee:'unknown'}],
+    [{name:'Internet access',fee:'unknown'}],
+    [{name:'Internet access',fee:'unknown'},{name:'Wired internet',fee:'unknown'}]
+  ]);
+  assert.deepEqual(facilities([{amenities:['Internet access','Wi-Fi in the lobby']}])[0].items,
+    [{name:'Internet access',fee:'unknown'},{name:'Wi-Fi in the lobby',fee:'unknown'}]);
+});
+
 test('flat legacy amenity names keep explicit fee evidence and do not convert missing fees to zero', () => {
   assert.deepEqual(facilities(undefined, [], ['Wi-Fi', {title: 'Pool', paid: false}, {name: 'Spa', paid: true},
     {title: 'Complimentary breakfast'}]), [{name: '', items: [

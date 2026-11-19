@@ -1,11 +1,12 @@
 import { useEffect, useMemo, useState } from 'react';
-import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CheckCircle2, CalendarDays, Users } from 'lucide-react';
+import { ArrowRight, BedDouble, ImageOff, MapPin, ShieldCheck, Star, CalendarDays, Users } from 'lucide-react';
 import { lazy, Suspense } from 'react';
 const HotelLocationMap = lazy(() => import('./components/HotelLocationMap'));
 import RoomOfferGroups from './components/RoomOfferGroups';
 import HotelGuestReviews from './components/HotelGuestReviews';
 import HotelPhotoGallery from './components/HotelPhotoGallery';
 import HotelPolicies from './components/HotelPolicies';
+import HotelAmenities from './components/HotelAmenities';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom, rateAmount, rateCurrency } from './services/offers';
 import PriceDisplay from './components/PriceDisplay';
@@ -306,17 +307,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
                             <p className="mt-4 leading-relaxed text-slate-600 font-medium">{hotel.description}</p>
                             )}
                             
-                            <hr className="my-8 border-slate-100" />
-                            
-                            <h3 className="mb-5 text-xl font-black text-slate-900">{t('hotel.amenities', 'أهم المرافق')}</h3>
-                            <div className="grid grid-cols-2 gap-y-4 gap-x-2 sm:grid-cols-3">
-                                {(hotel?.amenities || hotel?.staticData?.amenities || []).slice(0, 6).map((amenity) => (
-                                    <span key={String(amenity)} className="flex items-center gap-2 text-sm font-bold text-slate-700">
-                                        <CheckCircle2 size={18} className="text-emerald-500 shrink-0" />
-                                        {typeof amenity === 'string' ? amenity : amenity.name || amenity.title}
-                                    </span>
-                                ))}
-                            </div>
+                            <HotelAmenities key={hid + ':' + language} hotel={hotel} language={language} />
                         </article>
 
                         {hotel && <Suspense fallback={null}><HotelLocationMap hotels={[hotel]} /></Suspense>}
