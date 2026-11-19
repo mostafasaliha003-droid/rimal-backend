@@ -5,29 +5,11 @@ import { useLanguage } from '../i18n';
 import { colors, fonts, ui } from '../theme';
 import { Button, Icon, Row, Txt } from './Primitives';
 import HotelMapLink from './HotelMapLink';
+import HotelFacilities from './HotelFacilities';
 import Policies from './Policies';
 import { policyPlainText } from './hotelPoliciesData';
 import { addDays } from './calendarModel';
 import { displayTravelDate, stayNights } from './searchJourneyModel';
-
-type Amenity = { name: string; paid: boolean };
-const facilityNames: Record<string, string> = {
-  'wi-fi': 'واي فاي', wifi: 'واي فاي', pool: 'مسبح', 'swimming pool': 'مسبح', gym: 'صالة رياضية',
-  spa: 'سبا', massage: 'تدليك', sauna: 'ساونا', parking: 'مواقف السيارات', 'airport shuttle': 'النقل من وإلى المطار',
-  'air conditioning': 'تكييف', terrace: 'تراس', garden: 'حديقة', elevator: 'مصعد', internet: 'الإنترنت',
-  general: 'عام', transfer: 'النقل', 'beauty and wellness': 'العناية والاستجمام', 'pool and beach': 'المسبح والشاطئ',
-};
-function amenityLabel(name: string, ar: boolean) {
-  const cleaned = name.replace(/_/g, ' ').trim();
-  return (ar && facilityNames[cleaned.toLowerCase()]) || cleaned;
-}
-
-function Facility({ item, ar }: { item: Amenity; ar: boolean }) {
-  return <Row style={styles.facility}>
-    <View style={styles.bullet}/><Txt style={{ flex: 1, fontSize: 15 }}>{amenityLabel(item.name, ar)}</Txt>
-    {item.paid && <Txt kind="label" style={styles.paid}>{ar ? 'برسوم' : 'Extra charge'}</Txt>}
-  </Row>;
-}
 
 function More({ id, expanded, title, onPress }: { id: string; expanded: boolean; title: string; onPress: () => void }) {
   return <Pressable testID={id} accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded}
@@ -83,17 +65,7 @@ export default function HotelAbout({ hotel, criteria, onChooseRooms, initialSect
   const { language, t } = useLanguage();
   const ar = language === 'ar';
   const [section, setSection] = useState<GuideSection>(initialSection);
-  const [paidOnly, setPaidOnly] = useState(false);
-  const [allAmenities, setAllAmenities] = useState(false);
   const [allDescription, setAllDescription] = useState(false);
-  const groups = hotel.amenityGroups?.length ? hotel.amenityGroups :
-    [{ name: '', items: hotel.amenities.map(name => ({ name, paid: false })) }];
-  const items = groups.flatMap(group => group.items);
-  const paidNames = new Set(items.filter(item => item.paid).map(item => item.name));
-  const unique = [...new Set(items.map(item => item.name))].map(name => ({ name, paid: paidNames.has(name) }));
-  const grouped = groups.some(group => group.name);
-  const moreAmenities = unique.length > 4 || grouped;
-  const visibleFacilities = paidOnly ? unique.filter(item => item.paid) : unique;
   const paragraphs = hotel.description.flatMap(value => policyPlainText(value).split(/\n+/)).map(value => value.trim()).filter(Boolean);
   const moreDescription = paragraphs.length > 1 || (paragraphs[0]?.length || 0) > 160;
   const guides: {key: GuideSection; title: string}[] = [
@@ -122,20 +94,7 @@ export default function HotelAbout({ hotel, criteria, onChooseRooms, initialSect
           title={allDescription ? (ar ? 'عرض أقل' : 'Show less') : (ar ? 'اقرأ وصف الفندق كاملًا' : 'Read full description')}/>}</> :
         <Txt kind="small">{t('noDescription')}</Txt>}
     </View></>}
-    {section === 'facilities' && <View style={styles.section}><Txt accessibilityRole="header" kind="heading">{ar ? 'المرافق والخدمات' : 'Facilities & services'}</Txt>
-      {unique.length ? <View style={{ gap: 5 }}>
-        {paidNames.size > 0 && <Pressable testID="hotel-guide-paid" accessibilityRole="checkbox" accessibilityState={{ checked: paidOnly }} aria-checked={paidOnly}
-          onPress={() => setPaidOnly(!paidOnly)} style={styles.paidFilter}><Row style={{ gap: 8 }}><View style={[styles.check, paidOnly && { backgroundColor: colors.grape }]}>
-            {paidOnly && <Icon name="check" size={13} color={colors.surface}/>}</View>
-            <Txt kind="label">{ar ? 'الخدمات برسوم فقط' : 'Show paid services only'}</Txt></Row></Pressable>}
-        {allAmenities && !paidOnly ? groups.map((group, index) => <View key={index} style={{ gap: 3 }}>
-          {!!group.name && <Txt kind="label" style={styles.groupName}>{amenityLabel(group.name, ar)}</Txt>}
-          {group.items.map(item => <Facility key={item.name} item={{ name: item.name, paid: paidNames.has(item.name) }} ar={ar}/>)}
-        </View>) : (paidOnly ? visibleFacilities : visibleFacilities.slice(0, 4)).map(item => <Facility key={item.name} item={item} ar={ar}/>)}
-        {!paidOnly && moreAmenities && <More id="hotel-all-amenities" expanded={allAmenities} onPress={() => setAllAmenities(!allAmenities)}
-          title={allAmenities ? (ar ? 'عرض أقل' : 'Show less') : (ar ? 'جميع المرافق' : 'All facilities') + ' (' + unique.length + ')'}/>}
-      </View> : <Txt kind="small">{t('noAmenities')}</Txt>}
-    </View>}
+    {section === 'facilities' && <HotelFacilities key={hotel.hid} hotel={hotel}/>}
     <Button title={ar ? 'عرض الغرف والأسعار' : 'View rooms and rates'} onPress={onChooseRooms}/>
   </View>;
 }
@@ -150,10 +109,6 @@ const styles = StyleSheet.create({
   latest: { color: colors.pistachio, fontSize: 12, lineHeight: 19 }, lightLabel: { color: colors.pistachio },
   navigation: { gap: 4, flexWrap: 'wrap', borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 4 },
   navButton: { flexGrow: 1, flexBasis: 82, minHeight: 44, paddingHorizontal: 4, justifyContent: 'center', borderRadius: 11 },
-  navActive: { backgroundColor: colors.softBlue }, paidFilter: { minHeight: 44, justifyContent: 'center' },
-  check: { width: 18,height: 18,borderRadius: 5,borderWidth: 1,borderColor: colors.grape,justifyContent:'center',alignItems:'center' },
-  groupName: { marginTop: 8, color: colors.violetInk }, facility: { gap: 9, minHeight: 32, paddingVertical: 2 },
-  bullet: { width: 6, height: 6, borderRadius: 3, backgroundColor: colors.grape },
-  paid: { color: colors.goldInk, backgroundColor: colors.softGold, borderRadius: 8, paddingHorizontal: 8, fontSize: 12 },
+  navActive: { backgroundColor: colors.softBlue },
   more: { minHeight: 44, justifyContent: 'center' }, toggleMark: { fontSize: 18, lineHeight: 22, color: colors.violetInk },
 });

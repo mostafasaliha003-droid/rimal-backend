@@ -28,10 +28,11 @@ export interface HotelSummary {
   location?: { latitude: number; longitude: number };
   imageUrl?: string; images?: string[]; price: Money | null;
 }
+export interface HotelAmenity { name: string; fee: 'free' | 'paid' | 'unknown' }
 export interface HotelDetails extends HotelSummary {
   offers: RoomOffer[];
   description: string[]; amenities: string[]; images: string[];
-  amenityGroups?: { name: string; items: { name: string; paid: boolean }[] }[];
+  amenityGroups?: { name: string; items: HotelAmenity[] }[];
   checkInTime?: string; checkInEnds?: string; checkOutTime?: string;
   policyExtraInfo: string | null; policies: Record<string, unknown>;
 }

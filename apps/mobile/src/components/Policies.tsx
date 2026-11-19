@@ -12,6 +12,11 @@ function rowValue(row: PolicyRow, rtl: boolean) {
   return row.segments ? row.segments.map(part => part.direction === 'ltr' && rtl ? '\u2066' + part.text + '\u2069' : part.text).join(row.separator) : row.value;
 }
 function summary(section: PolicySection, rtl: boolean) {
+  if (section.key === 'internet') {
+    if (section.entries.length > 1) return rtl ? 'تختلف الشروط حسب الاتصال أو المكان' : 'Terms by connection or location';
+    return section.entries[0].rows.filter(row => fieldNames(row).some(key => key === 'internet_type' || key === 'work_area' || key === 'inclusion'))
+      .map(row => rowValue(row, rtl)).join(' · ');
+  }
   if (section.entries.length > 1) return rtl ? 'حالات مختلفة (' + section.entries.length + ')' : section.entries.length + ' policy cases';
   const rows = section.entries[0].rows;
   const price = rows.find(row => row.emphasis && fieldNames(row).includes('price'));
@@ -19,11 +24,11 @@ function summary(section: PolicySection, rtl: boolean) {
   return [context && rowValue(context, rtl), price && rowValue(price, rtl)].filter(Boolean).join(' · ');
 }
 
-function PolicyDetails({ section, rtl }: { section: PolicySection; rtl: boolean }) {
+function PolicyDetails({ section, rtl, testID }: { section: PolicySection; rtl: boolean; testID?: string }) {
   const [expanded, setExpanded] = useState(false);
   const preview = summary(section, rtl);
   return <View style={styles.group}>
-    <Pressable testID={'property-policy-' + section.key} accessibilityRole="button" accessibilityState={{ expanded }}
+    <Pressable testID={testID ?? 'property-policy-' + section.key} accessibilityRole="button" accessibilityState={{ expanded }}
       aria-expanded={expanded} onPress={() => setExpanded(!expanded)} style={({ pressed }) => [styles.toggle, pressed && { backgroundColor: colors.softBlue }]}>
       <Row style={{ gap: 8 }}>
         <View style={{ flex: 1, gap: 2 }}>
@@ -44,6 +49,20 @@ function PolicyDetails({ section, rtl }: { section: PolicySection; rtl: boolean 
       </View>)}
     </View>)}</View>}
   </View>;
+}
+
+export function InternetConditions({ source }: { source: Record<string, unknown> }) {
+  const { language, rtl } = useLanguage();
+  const entries = Array.isArray(source.internet) ? source.internet : [source.internet];
+  const useful = entries.filter(entry => entry && typeof entry === 'object' &&
+    ['inclusion', 'work_area', 'internet_type', 'price'].some(key => {
+      const value: unknown = entry[key];
+      return typeof value === 'number' ? Number.isFinite(value) : typeof value === 'string' && !!value.trim() && value.trim() !== 'unspecified';
+    }));
+  if (!useful.length) return null;
+  const [section] = hotelPolicySections({ metapolicy_struct: { internet: useful } }, language);
+  return <View style={styles.groups}><PolicyDetails testID="facility-internet-conditions" rtl={rtl}
+    section={{ ...section, title: rtl ? 'تفاصيل اتصال الإنترنت' : 'Internet access details' }}/></View>;
 }
 
 export default function Policies({ source, extra }: { source: Record<string, unknown>; extra: string | null }) {

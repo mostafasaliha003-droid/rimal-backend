@@ -330,10 +330,69 @@ test('property arrival hours are local and extra-cost amenities survive grouping
       {group_name: 'Unknown', amenities: null}, null] });
   assert.deepEqual([hotel.checkInTime, hotel.checkInEnds, hotel.checkOutTime], ['14:00','00:30','11:30:45']);
   assert.deepEqual(hotel.amenities, ['pool','massage','sauna']);
-  assert.deepEqual(hotel.amenityGroups, [{name: 'Wellness',items: [{name:'pool',paid:false},{name:'massage',paid:true},{name:'sauna',paid:true}]}]);
+  assert.deepEqual(hotel.amenityGroups, [{name: 'Wellness',items: [{name:'pool',fee:'unknown'},{name:'massage',fee:'paid'},{name:'sauna',fee:'paid'}]}]);
   const sparse = details({check_in_time: '24:90', check_out_time: {}, amenity_groups: {}});
   assert.equal(sparse.checkInTime, undefined); assert.equal(sparse.checkOutTime, undefined);
   assert.deepEqual(sparse.amenityGroups, []);
+});
+
+const facilities = (groups, internet = [], flatNames) => adapters.normalizeDetails(123, {
+  amenity_groups: groups, metapolicy_struct: {internet}, amenities: flatNames
+}, {hotel: {hid: 123}, rates: []}, 'USD').amenityGroups;
+
+test('amenity fees apply to the service and group named by the supplier', () => {
+  const groups = facilities([
+    {group_name: 'Internet', amenities: ['Wi-Fi'], non_free_amenities: []},
+    {group_name: 'Recreation', amenities: ['Pool', 'Spa', 'Smoke-free property'], non_free_amenities: ['SPA', 'Massage']},
+    {group_name: 'Package', amenities: ['Free Spa', 'Pool (free of charge)']},
+    {group_name: 'عربي', amenities: ['واي فاي مجاني', 'مسبح برسوم', 'خدمة تنظيف مجانية']},
+  ]);
+  assert.deepEqual(groups.map(group => group.items), [
+    [{name: 'Wi-Fi', fee: 'unknown'}],
+    [{name: 'Pool', fee: 'unknown'}, {name: 'Spa', fee: 'paid'}, {name: 'Smoke-free property', fee: 'unknown'}, {name: 'Massage', fee: 'paid'}],
+    [{name: 'Spa', fee: 'free'}, {name: 'Pool', fee: 'free'}],
+    [{name: 'واي فاي', fee: 'free'}, {name: 'مسبح', fee: 'paid'}, {name: 'خدمة تنظيف', fee: 'free'}]
+  ]);
+});
+
+test('contradictory supplier flags and qualified or negated fee wording do not promise a free service', () => {
+  assert.deepEqual(facilities([{amenities: ['Free Wi-Fi', 'wifi', 'Free Wi-Fi for the first hour', 'Wi-Fi not free', 'Free of allergens'],
+    non_free_amenities: ['Wi‑Fi']}])[0].items, [
+    {name: 'Wi-Fi', fee: 'unknown'}, {name: 'Free Wi-Fi for the first hour', fee: 'unknown'},
+    {name: 'Wi-Fi not free', fee: 'unknown'}, {name: 'Free of allergens', fee: 'unknown'}
+  ]);
+  const ambiguous = ['Free weights', 'Allergen-free room', 'Free parking subject to availability', 'Free parking and paid breakfast',
+    'Free parking (paid)', 'Free parking is unavailable', 'Paid Wi-Fi (free)'];
+  assert.deepEqual(facilities([{amenities: ambiguous}])[0].items, ambiguous.map(name => ({name, fee:'unknown'})));
+});
+
+test('internet pricing requires matching connection type and scope with consistent supplier evidence', () => {
+  const items = (policies, name = 'واي فاي') => facilities([{amenities: [name]}], policies)[0].items[0].fee;
+  const included = {internet_type: 'wireless', work_area: 'whole_hotel', inclusion: 'included', price: '0'};
+  const charged = {...included, inclusion: 'not_included', price: '5.00'};
+  assert.equal(items([included]), 'free');
+  assert.equal(items([charged]), 'paid');
+  assert.equal(items([{...included, internet_type: 'wired'}]), 'unknown');
+  assert.equal(items([{...included, work_area: 'room'}]), 'unknown');
+  assert.equal(items([{...included, work_area: 'hotel'}]), 'free');
+  assert.equal(items([{...charged, work_area: 'hotel'}]), 'paid');
+  assert.equal(items([{...charged, work_area: 'unspecified'}]), 'unknown');
+  assert.equal(items([included, {...charged, work_area: 'room'}]), 'unknown');
+  assert.equal(items([{...charged, work_area: 'room'}], 'Free Wi-Fi'), 'unknown');
+  assert.equal(items([{...included, price: 'invalid'}]), 'unknown');
+  assert.equal(items([{...included, price: '8.00'}]), 'unknown');
+  assert.equal(items([{...charged, price: '0'}]), 'unknown');
+  assert.equal(items([{...included, internet_type: 'unspecified'}]), 'unknown');
+  assert.equal(items([included, {...charged, internet_type: 'wired'}]), 'free');
+  assert.equal(items([included], 'Pool'), 'unknown');
+});
+
+test('flat legacy amenity names keep explicit fee evidence and do not convert missing fees to zero', () => {
+  assert.deepEqual(facilities(undefined, [], ['Wi-Fi', {title: 'Pool', paid: false}, {name: 'Spa', paid: true},
+    {title: 'Complimentary breakfast'}]), [{name: '', items: [
+    {name: 'Wi-Fi', fee: 'unknown'}, {name: 'Pool', fee: 'unknown'}, {name: 'Spa', fee: 'paid'},
+    {name: 'breakfast', fee: 'free'}
+  ]}]);
 });
 
 test('readonly prebook retains exact hashes and proof and detects changed customer price', async () => {
