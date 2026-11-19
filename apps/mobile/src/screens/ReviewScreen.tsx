@@ -1,5 +1,5 @@
 import React, { useRef, useState } from 'react';
-import { AccessibilityInfo, Platform, Pressable, ScrollView, View } from 'react-native';
+import { AccessibilityInfo, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -9,7 +9,7 @@ import { colors, fonts, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useReviewSession } from '../components/useReviewSession';
 import ApiState from '../components/ApiState';
-import { Button, Icon, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
+import { Button, Icon, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import { taxTermsKey } from '../components/offerReviewModel';
 import { MealBadge } from '../components/RateHighlights';
@@ -45,7 +45,6 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const expired = status === 'expired' || handoffExpired;
   const showChanges = checked && status === 'changed' && !expired;
   const showRoomFees = Boolean(showChanges && draft && offer && taxTermsKey(draft.offer.taxes) === taxTermsKey(offer.taxes));
-  const Price = showChanges ? ExactReviewMoney : MoneyText;
   const reviewChanges = () => {
     const heading = changeHeading.current;
     if (!heading) return;
@@ -95,7 +94,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
     <ScrollView ref={scroll} style={{ flex: 1 }} contentContainerStyle={ui.page}>
       <Txt accessibilityRole="header" kind="title">{t('reviewTitle')}</Txt>
       {!draft || !offer ? <><StatePanel title={t('reviewMissingTitle')} body={t('reviewMissingBody')}/><Button title={t('search')} onPress={() => router.replace('/')}/></> : <>
-        <View style={ui.card} testID="review-stay-summary">
+        <View style={[ui.card, reviewStyles.stay]} testID="review-stay-summary">
           <Row style={{ alignItems: 'center', gap: 12 }}>
             {offer.images.length > 0 && <View style={{ width: 68, borderRadius: 12, overflow: 'hidden' }}>
               <Photo alternatives={offer.images} room label={offer.name} height={70} thumbnail/>
@@ -105,14 +104,17 @@ function ReviewContents({ session }: { session: ReviewSession }) {
               <Txt style={{ fontFamily: fonts.medium }}>{offer.name}</Txt>
             </View>
           </Row>
-          <View style={ui.rule}/>
-          <Row style={{ gap: 8 }}><Icon name="calendar" size={18}/><Txt kind="small" style={{ flex: 1 }}>{dateLabel(draft.criteria.checkin)} – {dateLabel(draft.criteria.checkout)}</Txt></Row>
-          <Row style={{ gap: 8 }}><Icon name="bed" size={18}/><Txt kind="small" style={{ flex: 1 }}>{staySummary}</Txt></Row>
+          <Row style={reviewStyles.itinerary}>
+            <View style={reviewStyles.date}><Txt kind="small">{t('checkin')}</Txt><Txt kind="label">{dateLabel(draft.criteria.checkin)}</Txt></View>
+            <Icon name="chevron" size={15} color={colors.violetInk}/>
+            <View style={reviewStyles.date}><Txt kind="small">{t('checkout')}</Txt><Txt kind="label">{dateLabel(draft.criteria.checkout)}</Txt></View>
+          </Row>
+          <Txt kind="small">{staySummary}</Txt>
           <MealBadge offer={offer}/>
           {(offer.bedding || draft.offer.bedding) && <Row style={{ gap: 8 }}><Icon name="bed" size={18}/><Txt testID="review-bedding" kind="small" style={{ flex: 1 }}>{rateLabels.bedding} · {offer.bedding || rateLabels.unknown}</Txt></Row>}
           <Row style={{ gap: 8 }}><Icon name="info" size={18}/><Txt testID="review-payment-channel" kind="small" style={{ flex: 1 }}>{rateLabels.payment} · {roomPaymentLabel(offer, language)}</Txt></Row>
           <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }} aria-expanded={detailsOpen}
-            onPress={() => setDetailsOpen(open => !open)} style={{ minHeight: 48, justifyContent: 'center' }}>
+            onPress={() => setDetailsOpen(open => !open)} style={reviewStyles.disclosure}>
             <Row style={{ justifyContent: 'space-between' }}>
               <Txt kind="label" style={{ flex: 1 }}>{language === 'ar' ? 'تفاصيل الإقامة والنزلاء' : 'Stay and guest details'}</Txt>
               <Txt accessible={false}>{detailsOpen ? '−' : '+'}</Txt>
@@ -139,8 +141,8 @@ function ReviewContents({ session }: { session: ReviewSession }) {
             ? <Txt accessibilityLiveRegion="polite" style={{ color: colors.success, fontFamily: fonts.bold }}>{t('reviewChangesAccepted')}</Txt>
             : <Button title={t('reviewAcceptChanges')} disabled={opening} onPress={acceptChanges}/>}
           <Button compact variant="quiet" title={t('reviewRefreshOffers')} onPress={returnToOffers}/>
-        </View> : <View style={[ui.card, { padding: 16, gap: 7, borderColor: colors.blueStrong }]}>
-          <Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><MoneyText large money={offer.price}/>
+        </View> : <View testID="review-price-breakdown" style={[ui.card, reviewStyles.receipt]}>
+          <Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><ExactReviewMoney large money={offer.price}/>
           {checked && !expired && <Row style={{ gap: 6 }}><Icon name="check" size={17} color={colors.success}/><Txt accessibilityLiveRegion="polite" kind="small" style={{ color: colors.success, flex: 1 }}>{t('reviewChecked')}</Txt></Row>}
           <View style={ui.rule}/>
           <Taxes taxes={offer.taxes} mode={expired ? 'historical' : 'current'}/>
@@ -159,7 +161,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
     {draft && offer && <View style={{ backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border }}>
       <View style={[ui.page, { paddingVertical: 9, paddingBottom: 9, gap: 0 }]}>
         <Row style={{ justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap' }}>
-          <View style={{ flexGrow: 1, flexBasis: 120, flexShrink: 1, gap: 1 }}><Txt kind="small">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><Price money={offer.price}/></View>
+          <View style={{ flexGrow: 1, flexBasis: 120, flexShrink: 1, gap: 1 }}><Txt kind="small">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><ExactReviewMoney money={offer.price}/></View>
           <View style={{ flexGrow: 1, flexBasis: 156, flexShrink: 1 }}>{expired ? <Button variant="secondary" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>
             : showChanges && !changesAccepted ? <Button title={t('reviewSeeChanges')} variant="secondary" disabled={opening} onPress={reviewChanges}/>
               : canContinue ? <Button label={NATIVE_CHECKOUT_ENABLED ? checkoutLabel : t('websiteCta')} title={NATIVE_CHECKOUT_ENABLED ? (language === 'ar' ? 'متابعة الحجز' : 'Continue booking') : t('websiteCta')} busy={opening} onPress={() => NATIVE_CHECKOUT_ENABLED ? openCheckout() : void openWebsite()}/>
@@ -169,3 +171,11 @@ function ReviewContents({ session }: { session: ReviewSession }) {
     </View>}
   </SafeAreaView>;
 }
+
+const reviewStyles = StyleSheet.create({
+  stay: { gap: 9, padding: 15, borderRadius: 22 },
+  itinerary: { backgroundColor: colors.lavenderMist, borderRadius: 14, paddingHorizontal: 13, paddingVertical: 9, gap: 7 },
+  date: { flex: 1, minWidth: 0 },
+  disclosure: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.background },
+  receipt: { padding: 16, gap: 8, borderColor: colors.lilac },
+});

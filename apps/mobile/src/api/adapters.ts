@@ -147,6 +147,21 @@ export function normalizeHotel(value: unknown, code: string): HotelSummary {
     imageUrl: photos[0], images: photos,
     price: cheapest(row.rates, code) };
 }
+function propertyClock(value: unknown): string | undefined {
+  if (typeof value !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(value.trim())) return undefined;
+  return value.trim().replace(/^(\d\d:\d\d):00$/, '$1');
+}
+
+function propertyAmenities(source: unknown) {
+  const names = (value: unknown) => array(value).filter((item): item is string => typeof item === 'string')
+    .map(item => item.trim()).filter(Boolean);
+  return array(source).flatMap(value => {
+    const group = object(value);
+    const paid = new Set(names(group.non_free_amenities));
+    const items = [...new Set([...names(group.amenities), ...paid])].map(name => ({ name, paid: paid.has(name) }));
+    return items.length ? [{ name: label(group.group_name), items }] : [];
+  });
+}
 export function normalizeDetails(hid: number, value: unknown, page: unknown, code: string): HotelDetails {
   const raw = object(value), content = Object.keys(object(raw.staticData)).length ? { ...object(raw.staticData), ...raw } : raw;
   const hp = object(page), supplied = object(hp.hotel ?? array(hp.hotels)[0]);
@@ -159,8 +174,11 @@ export function normalizeDetails(hid: number, value: unknown, page: unknown, cod
   const description = label(content.description);
   const paragraphs = description ? [description] : array(content.description_struct).flatMap(section =>
     array(object(section).paragraphs).filter((item): item is string => typeof item === 'string' && Boolean(item.trim())));
+  const amenityGroups = propertyAmenities(content.amenity_groups);
   return { ...summary, description: paragraphs,
-    amenities: array(content.amenity_groups).flatMap(group => array(object(group).amenities)).filter((item): item is string => typeof item === 'string'),
+    amenities: [...new Set(amenityGroups.flatMap(group => group.items.map(item => item.name)))], amenityGroups,
+    checkInTime: propertyClock(content.check_in_time), checkInEnds: propertyClock(content.check_in_time_end),
+    checkOutTime: propertyClock(content.check_out_time),
     images: images(summary.images, hotelPhotos(supplied)),
     policyExtraInfo: label(content.metapolicy_extra_info) || null, policies: object(content.metapolicy_struct),
     offers: normalizeOffers(hp.rates, content) };

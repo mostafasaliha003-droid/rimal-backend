@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import type { Tax } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, fonts } from '../theme';
@@ -25,13 +25,13 @@ export default function Taxes({ taxes, defaultExpanded = false, mode = 'current'
 
   return (
     <View testID="taxes" style={{ gap: 10 }}>
-      <Txt kind="label">{copy.title}</Txt>
+      <Txt kind="heading" accessibilityRole="header" style={{ fontSize: 18, lineHeight: 26 }}>{copy.title}</Txt>
       {mode !== 'current' && <Txt kind="small">{copy[mode === 'historical' ? 'historical' : 'updated']}</Txt>}
       <View testID="taxes-summary" style={{ gap: 7 }}>
         {model.dataState === 'notSupplied' ? <Txt kind="small">{copy.informationMissing}</Txt> : (
           <>
             {model.hasExcluded && (
-              <View style={{ gap: 6 }}>
+              <View style={styles.subtotal}>
                 <Txt kind="label" style={{ color: colors.navy }}>{copy.payable}</Txt>
                 {model.excludedGroups.map(group => (
                   <View key={group.currency} testID={`taxes-excluded-${group.currency}`} style={{ gap: 3 }}>
@@ -59,16 +59,16 @@ export default function Taxes({ taxes, defaultExpanded = false, mode = 'current'
           <Pressable testID="taxes-breakdown-toggle" accessibilityRole="button"
             accessibilityState={{ expanded }} aria-expanded={expanded}
             onPress={() => setExpanded(value => !value)}
-            style={{ minHeight: 48, paddingVertical: 11, justifyContent: 'center' }}>
+            style={styles.toggle}>
             <Row style={{ justifyContent: 'space-between' }}>
               <Txt kind="label" style={{ color: colors.blueStrong, flex: 1 }}>{copy.breakdown(model.rows.length)}</Txt>
               <Txt accessible={false} style={{ color: colors.blueStrong }}>{expanded ? '−' : '+'}</Txt>
             </Row>
           </Pressable>
           {expanded && model.rows.map(row => (
-            <View key={row.index} testID={`taxes-row-${row.index}`} style={{ padding: 13, borderRadius: 13,
-              gap: 5, backgroundColor: colors.background, borderWidth: 1, borderColor: colors.border }}>
-              <Txt style={{ fontFamily: fonts.medium }}>{taxName(row.name, language)}</Txt>
+            <View key={row.index} testID={`taxes-row-${row.index}`} style={styles.receiptLine}>
+              <Row style={{ flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline', gap: 6 }}>
+              <Txt style={{ fontFamily: fonts.medium, flexGrow: 1, flexShrink: 1, minWidth: 84 }}>{taxName(row.name, language)}</Txt>
               {row.money ? (
                 <Txt style={{ fontFamily: fonts.bold, writingDirection: 'ltr', flexShrink: 1 }}>
                   {row.money.currency} {row.money.amount}
@@ -81,7 +81,8 @@ export default function Taxes({ taxes, defaultExpanded = false, mode = 'current'
                   </Txt>
                 </View>
               )}
-              <Txt kind="small">{copy[row.inclusion]}</Txt>
+              </Row>
+              <Txt kind="small" style={{ color: row.inclusion === 'included' ? colors.success : row.inclusion === 'excluded' ? colors.goldInk : colors.muted }}>{copy[row.inclusion]}</Txt>
             </View>
           ))}
         </View>
@@ -89,3 +90,9 @@ export default function Taxes({ taxes, defaultExpanded = false, mode = 'current'
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  subtotal: { gap: 4, paddingHorizontal: 12, paddingVertical: 10, backgroundColor: colors.softGold, borderRadius: 13 },
+  toggle: { minHeight: 48, paddingVertical: 6, paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.background, justifyContent: 'center' },
+  receiptLine: { paddingVertical: 9, borderBottomWidth: 1, borderBottomColor: colors.border, gap: 1 },
+});

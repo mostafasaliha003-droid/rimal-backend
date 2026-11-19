@@ -2,89 +2,153 @@ import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
-import { colors, fonts } from '../theme';
+import { colors } from '../theme';
 import { Button, Icon, Row, Txt } from './Primitives';
-import { roomChoiceCopy } from './roomChoiceCopy';
 import { canReviewRoomOffer, type RoomChoiceEntry } from './roomChoiceModel';
-import { rateCopy, roomFactKeys, roomRateFacts } from './roomRateFacts';
+import { roomChoiceCopy } from './roomChoiceCopy';
+import { mealDescription, rateCopy, roomFactKeys, roomRateFacts } from './roomRateFacts';
+import { compareStayPrices } from './offerChangeSummary';
+import { padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
 import Taxes from './Taxes';
 
-export default function RoomComparison({ entries, now, currency, visible, onClose, onReview }: {
+interface Props {
   entries: RoomChoiceEntry[]; now: number; currency: string; visible: boolean;
   onClose: () => void; onReview: (entry: RoomChoiceEntry) => void;
-}) {
-  const { language } = useLanguage(); const copy = rateCopy(language); const roomCopy = roomChoiceCopy(language);
+}
+
+const fields = ['price', 'meal', 'cancellation', 'fees', 'bedding', 'payment'] as const;
+const icons = { price: 'trips', meal: 'meal', cancellation: 'clock', fees: 'pin', bedding: 'bed', payment: 'info' } as const;
+
+export default function RoomComparison(props: Props) {
+  if (!props.visible || props.entries.length !== 2) return null;
+  return <ComparisonSheet key={JSON.stringify(props.entries.map(entry => entry.key))} {...props}/>;
+}
+
+function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
+  const { language } = useLanguage();
+  const ar = language === 'ar', copy = rateCopy(language), roomCopy = roomChoiceCopy(language);
   const [differentOnly, setDifferentOnly] = useState(false);
   const [detail, setDetail] = useState<'fees' | 'cancellation' | null>(null);
   const { width, height, fontScale } = useWindowDimensions();
-  if (entries.length !== 2 || !visible) return null;
-  const [a,b] = entries.map(entry => roomRateFacts(entry.offer, language, now));
-  const [aKeys,bKeys] = entries.map(entry => roomFactKeys(entry.offer));
-  const keys = (['price', 'bedding', 'meal', 'cancellation', 'payment', 'fees'] as const)
-    .filter(key => key !== 'bedding' || entries.some(entry => entry.offer.bedding))
-    .filter(key => !differentOnly || aKeys[key] !== bKeys[key]);
   const stacked = width / Math.max(fontScale, 1) < 305;
-  const names = entries.map(entry => `${roomCopy.rateNumber(entry.index + 1)} · ${entry.offer.name}`);
-  const close = () => { setDifferentOnly(false); setDetail(null); onClose(); };
-  return <Modal transparent visible onRequestClose={close} animationType="slide">
+  const docked = !stacked && height > 580 && fontScale <= 1.4;
+  const facts = entries.map(entry => roomRateFacts(entry.offer, language, now));
+  const [aKeys, bKeys] = entries.map(entry => roomFactKeys(entry.offer));
+  const keys = fields.filter(key => key !== 'bedding' || entries.some(entry => entry.offer.bedding));
+  const visibleKeys = keys.filter(key => !differentOnly || aKeys[key] !== bKeys[key]);
+  const planLabels = entries.map(entry => ar ? `العرض ${entry.index + 1}` : `Offer ${entry.index + 1}`);
+  const accessibleNames = entries.map((entry,i) => `${planLabels[i]} · ${entry.offer.name}`);
+  const sameName = entries[0].offer.name === entries[1].offer.name;
+  const price = compareStayPrices(entries[0].offer.price, entries[1].offer.price);
+  let priceNote = '';
+  if (price.status === 'unchanged') priceNote = ar ? 'سعر الغرفة متساوٍ في العرضين.' : 'Both offers have the same room price for the stay.';
+  if (price.status === 'differentCurrency') priceNote = ar ? 'السعران بعملتين مختلفتين.' : 'The room prices are in different currencies.';
+  if ((price.status === 'increase' || price.status === 'decrease') && price.difference) {
+    const lower = planLabels[price.status === 'increase' ? 0 : 1];
+    const delta = padStayPriceDifference(price.difference, language);
+    const money = `\u2066${delta.currency}\u00a0${delta.amount}\u2069`;
+    priceNote = ar ? `سعر الغرفة في ${lower} أقل بمقدار ${money} لكل الليالي.`
+      : `${lower} costs ${money} less for the room across all nights.`;
+  }
+  const columns = { alignItems: 'stretch' as const, gap: 8, ...(stacked && { flexDirection: 'column' as const }) };
+  const labelStyle = (i: number) => i === 0 ? styles.lilac : styles.leaf;
+  const labels = <Row style={columns}>{entries.map((entry,i) => <View key={entry.key}
+    style={[styles.legend, labelStyle(i), !stacked && styles.flex]}>
+    <Txt kind="label">{planLabels[i]}</Txt>
+    {!sameName && <Txt kind="small">{entry.offer.name}</Txt>}
+  </View>)}</Row>;
+  const keepLabels = docked && (sameName || entries.every(entry => entry.offer.name.length < 55));
+  const actions = <Row style={{ ...columns, ...styles.actions }}>{entries.map((entry,i) =>
+    <View key={entry.key} testID={`compare-review-${entry.index + 1}`} style={!stacked && styles.flex}>
+      <Button compact disabled={!canReviewRoomOffer(entry.offer,currency)}
+        title={ar ? `مراجعة ${planLabels[i]}` : `Review ${planLabels[i].toLowerCase()}`}
+        label={`${copy.choose} · ${accessibleNames[i]}`} onPress={() => { onClose(); onReview(entry); }}/>
+    </View>)}</Row>;
+  return <Modal transparent visible onRequestClose={onClose} animationType="slide">
     <SafeAreaView edges={['top','bottom']} style={styles.scrim}>
-      <View testID="room-comparison" accessibilityViewIsModal style={[styles.sheet, { maxHeight: Math.max(180, height * .9) }]}>
-        <Row style={{ gap: 12 }}><View style={styles.flex}><Txt accessibilityRole="header" kind="heading">{copy.compareTitle}</Txt></View>
-          <Pressable accessibilityRole="button" accessibilityLabel={copy.close} onPress={close} style={styles.close}><Icon name="close" size={20}/></Pressable>
+      <View testID="room-comparison" accessibilityViewIsModal style={[styles.sheet, { maxHeight: height * .94 }]}>
+        <Row style={styles.header}><View style={styles.flex}>
+          <Txt accessibilityRole="header" kind="heading" style={styles.heading}>{copy.compareTitle}</Txt>
+          {sameName && <Txt kind="small" numberOfLines={docked ? 2 : 1} accessibilityLabel={entries[0].offer.name}>{entries[0].offer.name}</Txt>}
+        </View>
+          <Pressable accessibilityRole="button" accessibilityLabel={copy.close} onPress={onClose} style={styles.close}><Icon name="close" size={18}/></Pressable>
         </Row>
-        <ScrollView contentContainerStyle={{ gap: 12, paddingBottom: 8 }}>
-          <Row style={{ gap: 8, alignItems: 'flex-start', ...(stacked && { flexDirection: 'column' as const }) }}>
-            {entries.map(entry => <View key={entry.key} style={[styles.columnName, !stacked && styles.flex]}>
-              <Txt kind="small">{roomCopy.rateNumber(entry.index + 1)}</Txt><Txt kind="label">{entry.offer.name}</Txt>
-            </View>)}
-          </Row>
-          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: differentOnly }}
-            onPress={() => setDifferentOnly(value => !value)} style={{ minHeight: 44, justifyContent: 'center' }}>
-            <Row style={{ gap: 9 }}><View style={[styles.box, differentOnly && { backgroundColor: colors.navy }]}>
-              {differentOnly && <Icon name="check" color={colors.surface} size={15}/>}</View><Txt kind="label">{copy.differences}</Txt></Row>
+        {keepLabels && <View style={styles.inset}>{labels}</View>}
+        <ScrollView style={{ flexShrink: 1 }} contentContainerStyle={styles.content}>
+          {!keepLabels && (!stacked || !sameName) && labels}
+          <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: differentOnly }} aria-checked={differentOnly}
+            onPress={() => setDifferentOnly(value => !value)} style={styles.toggle}>
+            <Row style={{ gap: 8 }}><View style={[styles.box, differentOnly && styles.checked]}>
+              {differentOnly && <Icon name="check" color={colors.surface} size={13}/>}</View>
+              <Txt kind="label" style={styles.flex}>{copy.differences}</Txt></Row>
           </Pressable>
-          {keys.map(key => <View key={key} testID={`comparison-row-${key}`} style={[styles.fact, aKeys[key] !== bKeys[key] && styles.difference]}>
-            <Txt kind="small" style={{ fontFamily: fonts.medium }}>{copy[key]}</Txt>
-            <Row style={{ alignItems: 'stretch', gap: 12, ...(stacked && { flexDirection: 'column' as const }) }}>
-              {[a[key],b[key]].map((value,i) => <View key={i} style={!stacked && styles.flex}>
-                {stacked && <Txt kind="small">{roomCopy.rateNumber(entries[i].index + 1)}</Txt>}
-                <Txt accessibilityLabel={`${names[i]} · ${copy[key]} · ${value}`} kind="label">{value}</Txt>
-              </View>)}
-            </Row>
+          {visibleKeys.map(key => <View key={key} testID={`comparison-row-${key}`} style={styles.fact}>
+            <Row style={styles.factLabel}><Icon name={icons[key]} color={colors.violetInk} size={16}/>
+              <Txt kind="label" style={styles.factTitle}>{copy[key]}</Txt></Row>
+            <Row style={columns}>{entries.map((entry,i) => {
+              const fact = facts[i];
+              const value = key === 'meal' && (entries[0].offer.noChildMeal === true) !== (entries[1].offer.noChildMeal === true)
+                ? mealDescription(entry.offer, language, true) : fact[key];
+              return <View key={entry.key} style={[styles.cell, !stacked && styles.flex]}>
+                {(!keepLabels || stacked) && <Txt kind="small" style={styles.small}>{planLabels[i]}</Txt>}
+                {key === 'cancellation' ? <View accessible accessibilityLabel={`${accessibleNames[i]} · ${copy[key]} · ${value}`} style={{ gap: 4 }}>
+                  <Txt kind="label" style={{ color: fact.decision.kind === 'free' ? colors.success : colors.ink }}>{fact.decision.headline}</Txt>
+                  {!!fact.decision.detail && <Txt kind="small">{fact.decision.detail}</Txt>}
+                </View> : <Txt accessibilityLabel={`${accessibleNames[i]} · ${copy[key]} · ${value}`} kind={key === 'price' ? 'heading' : 'label'}
+                  style={key === 'price' ? [styles.amount, entry.offer.price && { writingDirection: 'ltr' }] : undefined}>{value}</Txt>}
+              </View>;
+            })}</Row>
+            {key === 'price' && !!priceNote && <View testID="comparison-price-difference" style={styles.priceNote}><Txt kind="small" style={{ color: colors.leafInk }}>{priceNote}</Txt></View>}
             {(key === 'fees' || key === 'cancellation') && <>
               <Pressable accessibilityRole="button" accessibilityState={{ expanded: detail === key }} aria-expanded={detail === key}
                 onPress={() => setDetail(detail === key ? null : key)} style={styles.expand}>
-                <Txt kind="label">{key === 'fees' ? copy.taxDetails : copy.schedules}</Txt>
+                <Row style={{ gap: 8 }}><Txt kind="label" style={[styles.flex, { color: colors.violetInk }]}>{key === 'fees' ? copy.taxDetails : copy.schedules}</Txt>
+                  <Txt accessible={false} kind="label">{detail === key ? '−' : '+'}</Txt></Row>
               </Pressable>
-              {detail === key && entries.map((entry,i) => <View key={entry.key} style={{ gap: 6, paddingVertical: 6 }}>
-                <Txt kind="label">{names[i]}</Txt>
+              {detail === key && entries.map((entry,i) => <View key={entry.key} style={styles.fullDetail}>
+                <View style={[styles.legend, labelStyle(i)]}><Txt kind="label">{accessibleNames[i]}</Txt></View>
                 {key === 'fees' ? <Taxes taxes={entry.offer.taxes} defaultExpanded/> : <Cancellation offer={entry.offer} now={now} defaultExpanded/>}
               </View>)}
             </>}
           </View>)}
-          {keys.length === 0 && <Txt kind="small">{copy.same}</Txt>}
-          <Row style={{ alignItems: 'stretch', gap: 8, ...(stacked && { flexDirection: 'column' as const }) }}>
-            {entries.map((entry,i) => <View key={entry.key} testID={`compare-review-${entry.index + 1}`} style={!stacked && styles.flex}>
-              <Button compact variant="secondary" disabled={!canReviewRoomOffer(entry.offer,currency)} title={roomCopy.reviewRate(entry.index + 1)}
-                label={`${copy.choose} · ${names[i]}`} onPress={() => { close(); onReview(entry); }}/>
-            </View>)}
-          </Row>
+          {!visibleKeys.length && <Txt style={styles.empty}>{ar ? 'لا يظهر فرق في الشروط المتاحة لهذين العرضين.' : 'No differences in the listed terms.'}</Txt>}
+          {entries.filter(entry => !canReviewRoomOffer(entry.offer,currency)).map(entry => <Txt kind="small" key={entry.key}>
+            {roomCopy.rateNumber(entry.index + 1)} · {entry.offer.price && entry.offer.price.currency !== currency
+              ? roomCopy.currencyMismatch(entry.offer.price.currency, currency) : roomCopy.notReady}
+          </Txt>)}
+          {!docked && actions}
         </ScrollView>
+        {docked && actions}
       </View>
     </SafeAreaView>
   </Modal>;
 }
 
 const styles = StyleSheet.create({
-  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(32,22,38,.42)', direction: 'ltr' },
-  sheet: { width: '100%', maxWidth: 640, alignSelf: 'center', borderTopLeftRadius: 22, borderTopRightRadius: 22,
-    paddingHorizontal: 16, paddingTop: 12, paddingBottom: 12, gap: 8, backgroundColor: colors.surface, flexShrink: 1 },
+  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(32,22,38,.46)', direction: 'ltr' },
+  sheet: { width: '100%', maxWidth: 640, alignSelf: 'center', borderTopLeftRadius: 26, borderTopRightRadius: 26, overflow: 'hidden', backgroundColor: colors.surface },
   flex: { flex: 1, minWidth: 0 },
-  columnName: { padding: 10, backgroundColor: colors.softBlue, borderRadius: 12, gap: 2 },
-  close: { minWidth: 44, minHeight: 44, justifyContent: 'center', alignItems: 'center' },
-  box: { width: 21, height: 21, borderRadius: 6, borderWidth: 1, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center' },
-  fact: { paddingHorizontal: 10, paddingVertical: 9, gap: 5, borderBottomWidth: 1, borderBottomColor: colors.border },
-  difference: { borderRadius: 10, backgroundColor: colors.background },
-  expand: { minHeight: 44, justifyContent: 'center' },
+  header: { paddingHorizontal: 16, paddingTop: 12, paddingBottom: 8, gap: 10 },
+  heading: { fontSize: 22, lineHeight: 31 },
+  close: { minWidth: 48, minHeight: 48, borderRadius: 24, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
+  inset: { paddingHorizontal: 16 },
+  content: { paddingHorizontal: 16, paddingBottom: 10, gap: 4 },
+  legend: { paddingVertical: 7, paddingHorizontal: 10, borderRadius: 10 },
+  lilac: { backgroundColor: colors.lavenderMist },
+  leaf: { backgroundColor: colors.pistachioMist },
+  toggle: { minHeight: 48, justifyContent: 'center' },
+  box: { width: 19, height: 19, borderRadius: 5, borderWidth: 1, borderColor: colors.muted, justifyContent: 'center', alignItems: 'center' },
+  checked: { borderColor: colors.primary, backgroundColor: colors.primary },
+  fact: { gap: 4, paddingBottom: 8, borderBottomColor: colors.border, borderBottomWidth: 1 },
+  factLabel: { gap: 7, paddingTop: 7, paddingBottom: 2 },
+  factTitle: { flex: 1, color: colors.violetInk, fontSize: 14, lineHeight: 21 },
+  cell: { paddingHorizontal: 9, paddingVertical: 6, gap: 1 },
+  amount: { fontSize: 20, lineHeight: 30, color: colors.primary },
+  priceNote: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: colors.pistachioMist },
+  small: { fontSize: 12, lineHeight: 18 },
+  expand: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.background },
+  fullDetail: { gap: 8, paddingVertical: 5 },
+  actions: { paddingHorizontal: 12, paddingVertical: 8, borderTopColor: colors.border, borderTopWidth: 1, backgroundColor: colors.surface },
+  empty: { paddingVertical: 14 },
 });

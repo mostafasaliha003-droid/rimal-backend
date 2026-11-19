@@ -31,6 +31,8 @@ export interface HotelSummary {
 export interface HotelDetails extends HotelSummary {
   offers: RoomOffer[];
   description: string[]; amenities: string[]; images: string[];
+  amenityGroups?: { name: string; items: { name: string; paid: boolean }[] }[];
+  checkInTime?: string; checkInEnds?: string; checkOutTime?: string;
   policyExtraInfo: string | null; policies: Record<string, unknown>;
 }
 export interface PrebookResult { offer: RoomOffer; priceChanged: boolean; prebookContext: string }

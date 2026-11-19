@@ -323,6 +323,19 @@ test('actual BFF envelopes adapt suggestions/search/details; wrong hotel IDs and
   assert.throws(() => adapters.normalizeSuggestions({ success: true, suggestions: {} }));
 });
 
+test('property arrival hours are local and extra-cost amenities survive grouping and sparse content', () => {
+  const details = content => adapters.normalizeDetails(123, {staticData: content}, {hotel: {hid: 123}, rates: []}, 'USD');
+  const hotel = details({ check_in_time: ' 14:00:00 ', check_in_time_end: '00:30:00', check_out_time: '11:30:45',
+    amenity_groups: [{group_name: 'Wellness', amenities: ['pool','massage','massage'], non_free_amenities: ['massage','sauna']},
+      {group_name: 'Unknown', amenities: null}, null] });
+  assert.deepEqual([hotel.checkInTime, hotel.checkInEnds, hotel.checkOutTime], ['14:00','00:30','11:30:45']);
+  assert.deepEqual(hotel.amenities, ['pool','massage','sauna']);
+  assert.deepEqual(hotel.amenityGroups, [{name: 'Wellness',items: [{name:'pool',paid:false},{name:'massage',paid:true},{name:'sauna',paid:true}]}]);
+  const sparse = details({check_in_time: '24:90', check_out_time: {}, amenity_groups: {}});
+  assert.equal(sparse.checkInTime, undefined); assert.equal(sparse.checkOutTime, undefined);
+  assert.deepEqual(sparse.amenityGroups, []);
+});
+
 test('readonly prebook retains exact hashes and proof and detects changed customer price', async () => {
   let body;
   const api = createApiClient(createTransport({ environment: 'staging', fetcher: async (_url, init) => {
