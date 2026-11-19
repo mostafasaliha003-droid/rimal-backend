@@ -1,34 +1,33 @@
 import React, { useEffect, useState } from 'react';
-import { AppState as NativeAppState, ScrollView, View, useWindowDimensions } from 'react-native';
+import { AppState as NativeAppState, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useIsFocused, useRouter } from 'expo-router';
 import { api, authSession } from '../api';
 import { memberRateAccessDenied } from '../api/membership';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import { colors, tokens, ui } from '../theme';
+import { colors, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
 import ApiState from '../components/ApiState';
 import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
 
+import { COMPARISON_PRICE_LIFETIME_MS, type ComparisonHotel } from '../components/discoverySessionModel';
+import { compareStayPrices } from '../components/offerChangeSummary';
+import { padStayPriceDifference } from '../components/offerChangesCopy';
+import { displayTravelDate } from '../components/searchJourneyModel';
+
 const copy = {
-  en: { title: 'Your shortlist, side by side', intro: 'Compare the same dates, guests and currency before choosing a property.',
-    scope: 'These are captured search prices, not reserved rooms. Property charges and current room terms must be checked on the hotel page.',
-    price: 'From · total for this stay', classification: 'Property star rating', missingStars: 'Star rating not supplied',
-    address: 'Location supplied by the property', missingAddress: 'Address not supplied', remove: 'Remove from comparison',
-    empty: 'Choose at least two stays', emptyBody: 'Add up to three hotels from the same search. Your shortlist stays in memory during this session.',
-    search: 'Back to stays', clear: 'Clear shortlist', expired: 'The display period for this captured price has ended. Open the hotel to load a fresh offer.',
-    swipe: 'Swipe across to compare all selected hotels.', view: 'Open hotel and room options', count: 'Selected stays',
-    nights: 'nights', rooms: 'rooms', guests: 'guests' },
-  ar: { title: 'قارن إقاماتك جنباً إلى جنب', intro: 'قارن الفنادق لنفس التواريخ والضيوف والعملة قبل الاختيار.',
-    scope: 'هذه أسعار محفوظة من نتيجة البحث، وليست غرفاً محجوزة. راجع رسوم الفندق وشروط الغرفة الحالية في صفحة الفندق.',
-    price: 'ابتداءً من · إجمالي هذه الإقامة', classification: 'تصنيف نجوم المنشأة', missingStars: 'لم يُقدّم تصنيف النجوم',
-    address: 'الموقع كما ورد من المنشأة', missingAddress: 'لم يُقدّم عنوان', remove: 'إزالة من المقارنة',
-    empty: 'اختر إقامتين على الأقل', emptyBody: 'أضف حتى ثلاثة فنادق من نفس البحث. تبقى قائمة المقارنة في ذاكرة التطبيق خلال هذه الجلسة.',
-    search: 'العودة إلى الإقامات', clear: 'مسح قائمة المقارنة', expired: 'انتهت مهلة عرض هذا السعر المحفوظ في المقارنة. افتح الفندق لتحميل عرض جديد.',
-    swipe: 'مرّر أفقياً لمقارنة كل الفنادق المختارة.', view: 'عرض الفندق وخيارات الغرف', count: 'الإقامات المختارة',
-    nights: 'ليالٍ', rooms: 'غرف', guests: 'ضيوف' },
+  en: { title: 'Compare hotels', price: 'Stay total from', classification: 'Hotel stars', missing: 'Not provided',
+    address: 'Location', remove: 'Remove', search: 'Back to results', clear: 'Clear shortlist',
+    empty: 'Choose two hotels to compare', emptyBody: 'Select Compare on the hotels you like in search results.',
+    view: 'View rooms', switch: 'Switch hotel', equal: 'Same starting price for this stay',
+    expired: 'Price expired. Open rooms for a fresh price.', scope: 'Starting prices from your search. Check room terms and charges payable at the property before booking.' },
+  ar: { title: 'مقارنة الفنادق', price: 'سعر الإقامة يبدأ من', classification: 'تصنيف الفندق', missing: 'غير مذكور',
+    address: 'الموقع', remove: 'إزالة', search: 'العودة إلى النتائج', clear: 'مسح المقارنة',
+    empty: 'اختر فندقين للمقارنة', emptyBody: 'اضغط «قارن» على الفنادق التي أعجبتك في نتائج البحث.',
+    view: 'عرض الغرف', switch: 'تبديل الفندق', equal: 'سعر البداية متساوٍ لهذه الإقامة',
+    expired: 'انتهت صلاحية السعر. افتح الغرف لمعرفة السعر الحالي.', scope: 'هذه أسعار البداية وقت البحث. راجع شروط الغرفة وأي رسوم تُدفع في الفندق قبل الحجز.' },
 };
 
 export default function CompareScreen() {
@@ -72,51 +71,94 @@ function VerifiedComparison({ contextKey, sessionRevision, retry }: { contextKey
   </SafeAreaView>;
 }
 function CompareContents() {
-  const state = useAppState(), { language, rtl } = useLanguage(), router = useRouter();
-  const L = copy[language], { width } = useWindowDimensions();
+  const state = useAppState(), { language } = useLanguage(), router = useRouter();
+  const L = copy[language], { width, fontScale } = useWindowDimensions();
   const contextKey = state.comparisonContextKey;
-  // Read the live context rather than a retained screen's selection snapshot.
   const items = state.getComparisonItems(contextKey), criteria = state.criteria;
-  const columnWidth = Math.max(236, Math.min(280, (Math.min(width, tokens.layout.maxWidth) - 64) / Math.max(2, items.length)));
-  const nights = criteria ? Math.round((Date.parse(`${criteria.checkout}T00:00:00Z`) - Date.parse(`${criteria.checkin}T00:00:00Z`)) / 86400000) : 0;
+  const [slots, setSlots] = useState<number[]>([]);
+  const [, updatePrices] = useState(0);
+  const nextExpiry = Math.min(...items.filter(item => item.price).map(item => item.capturedAt + COMPARISON_PRICE_LIFETIME_MS));
+  useEffect(() => {
+    if (!Number.isFinite(nextExpiry)) return;
+    const timer = setTimeout(() => updatePrices(value => value + 1), Math.max(0, nextExpiry - Date.now()));
+    return () => clearTimeout(timer);
+  }, [nextExpiry]);
+  const selected = slots.flatMap(id => items.filter(item => item.hid === id));
+  const ordered = [...selected, ...items.filter(item => !slots.includes(item.hid))];
+  const columns = width / Math.max(fontScale, 1) >= 680 ? items : ordered.slice(0, 2);
+  const alternate = items.find(item => !columns.some(column => column.hid === item.hid));
+  const pair = columns.length === 2 ? compareStayPrices(columns[0].price, columns[1].price) : null;
+  let difference = '';
+  if (pair?.difference && (pair.status === 'increase' || pair.status === 'decrease')) {
+    const lower = columns[pair.status === 'increase' ? 0 : 1].name;
+    const money = padStayPriceDifference(pair.difference, language);
+    const amount = `\u2066${money.currency} ${money.amount}\u2069`;
+    difference = language === 'ar' ? `سعر البداية في ${lower} أقلّ بمقدار ${amount} لهذه الإقامة.`
+      : `${lower} starts ${amount} lower for this stay.`;
+  }
   const rooms = criteria?.guests.length || 0;
-  const guests = criteria?.guests.reduce((n, room) => n + room.adults + room.children.length, 0) || 0;
-  const staySummary = language === 'ar' ? `الليالي: ${nights} · الغرف: ${rooms} · الضيوف: ${guests}`
-    : `${nights} ${nights === 1 ? 'night' : 'nights'} · ${rooms} ${rooms === 1 ? 'room' : 'rooms'} · ${guests} ${guests === 1 ? 'guest' : 'guests'}`;
+  const guests = criteria?.guests.reduce((count, room) => count + room.adults + room.children.length, 0) || 0;
+  const occupancy = language === 'ar' ? `الغرف ${rooms} · الضيوف ${guests}`
+    : `${rooms} ${rooms === 1 ? 'room' : 'rooms'} · ${guests} ${guests === 1 ? 'guest' : 'guests'}`;
   const back = () => router.replace('/results');
   const open = (hid: number) => {
-    if (!state.getComparisonItems(contextKey).some(item => item.hid === hid)) return;
-    router.push({ pathname: '/hotel/[hid]', params: { hid: String(hid) } });
+    if (state.getComparisonItems(contextKey).some(item => item.hid === hid)) {
+      router.push({ pathname: '/hotel/[hid]', params: { hid: String(hid) } });
+    }
   };
+  function row(render: (item: ComparisonHotel) => React.ReactNode) {
+    return <Row style={styles.row}>{columns.map(item =>
+      <View key={item.hid} style={styles.cell}>{render(item)}</View>)}</Row>;
+  }
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
     <BrandHeader back/>
-    <ScrollView contentContainerStyle={{ paddingBottom: 28 }}>
-      <View style={ui.page}>
-        <View style={{ gap: 8 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{L.count} · {items.length}/3</Txt>
-          <Txt kind="title" accessibilityRole="header">{L.title}</Txt><Txt style={{ color: colors.muted }}>{L.intro}</Txt></View>
-        {items.length > 0 && criteria && <View style={[ui.card, { padding: 16, gap: 8 }]}>
-          <Txt kind="heading">{state.destinationName}</Txt>
-          <Txt kind="small" style={{ writingDirection: 'ltr' }}>{criteria.checkin} → {criteria.checkout}</Txt>
-          <Txt kind="small">{staySummary} · {criteria.currency}</Txt>
-        </View>}
-        {items.length < 2 ? <><StatePanel title={L.empty} body={L.emptyBody}/><Button title={L.search} onPress={back}/></>
-          : <><Txt kind="small">{L.scope}</Txt>{width < 840 && <Txt kind="label" style={{ color: colors.blueStrong }}>{L.swipe}</Txt>}</>}
+    <ScrollView contentContainerStyle={ui.page}>
+      <View style={styles.heading}>
+        <Txt kind="title" accessibilityRole="header">{L.title}</Txt>
+        {criteria && <Txt kind="small">{state.destinationName} · {displayTravelDate(criteria.checkin, language)} – {displayTravelDate(criteria.checkout, language)}</Txt>}
+        {criteria && <Txt kind="small">{occupancy} · {criteria.currency}</Txt>}
       </View>
-      {items.length >= 2 && <ScrollView horizontal showsHorizontalScrollIndicator contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 8, gap: 16, flexGrow: 1, justifyContent: 'center', flexDirection: rtl ? 'row-reverse' : 'row' }}>
-        {items.map(item => <View key={item.hid} style={[ui.card, { width: columnWidth, padding: 0, overflow: 'hidden', gap: 0 }]}>
-          <Photo uri={item.imageUrl} alternatives={item.images} label={item.name} height={150}/>
-          <View style={{ padding: 18, gap: 16, flex: 1 }}>
-            <Txt kind="heading" accessibilityRole="header">{item.name}</Txt>
-            <View style={{ gap: 6 }}><Txt kind="small">{L.price}</Txt><MoneyText money={item.price}/>
-              {item.priceExpired && <Txt kind="small" style={{ color: colors.goldInk }}>{L.expired}</Txt>}</View>
-            <View style={ui.rule}/><View style={{ gap: 6 }}><Txt kind="label">{L.classification}</Txt><Txt>{item.stars ? `${'★'.repeat(item.stars)} · ${item.stars}` : L.missingStars}</Txt></View>
-            <View style={ui.rule}/><View style={{ gap: 6 }}><Txt kind="label">{L.address}</Txt><Txt kind="small">{item.address || L.missingAddress}</Txt></View>
-            <View style={{ flex: 1 }}/><Button title={L.view} onPress={() => open(item.hid)}/>
-            <Button variant="quiet" title={`${L.remove}: ${item.name}`} onPress={() => state.removeComparison(item.hid, contextKey)}/>
+      {items.length < 2
+        ? <><StatePanel title={L.empty} body={L.emptyBody}/><Button title={L.search} onPress={back}/></>
+        : <View testID="hotel-comparison-grid" style={styles.table}>
+          {row(item => <View style={styles.property}>
+            <Photo uri={item.imageUrl} alternatives={item.images} label={item.name} height={105} thumbnail/>
+            <Txt kind="label" accessibilityRole="header" style={styles.name}>{item.name}</Txt>
+            {alternate && <Button compact variant="quiet" title={L.switch} label={`${L.switch} · ${item.name} → ${alternate.name}`}
+              onPress={() => setSlots(columns.map(column => column.hid === item.hid ? alternate.hid : column.hid))}/>}
+          </View>)}
+          <View style={styles.band}><Txt kind="label">{L.price}</Txt>
+            {row(item => item.priceExpired ? <Txt kind="small" style={{color: colors.goldInk}}>{L.expired}</Txt> : <MoneyText money={item.price}/>)}
           </View>
-        </View>)}
-      </ScrollView>}
-      {items.length > 0 && <View style={ui.page}><Row style={{ flexWrap: 'wrap' }}><Button variant="secondary" title={L.search} onPress={back}/><Button variant="quiet" title={L.clear} onPress={state.clearComparison}/></Row></View>}
+          {pair?.status === 'unchanged' && <Txt kind="label" style={styles.fact}>{L.equal}</Txt>}
+          {!!difference && <Txt kind="small" style={styles.delta}>{difference}</Txt>}
+          <View style={styles.fact}><Txt kind="label">{L.classification}</Txt>
+            {row(item => <Txt kind="small" accessibilityLabel={item.stars ? `${item.stars} / 5` : L.missing}
+              style={item.stars ? styles.stars : undefined}>{item.stars ? '★'.repeat(item.stars) : L.missing}</Txt>)}</View>
+          <View style={styles.fact}><Txt kind="label">{L.address}</Txt>
+            {row(item => <Txt kind="small">{item.address || L.missing}</Txt>)}</View>
+          <View style={styles.fact}>{row(item => <View style={styles.actions}>
+            <Button compact title={L.view} label={`${L.view} · ${item.name}`} onPress={() => open(item.hid)}/>
+            <Button compact variant="quiet" title={L.remove} label={`${L.remove} · ${item.name}`} onPress={() => state.removeComparison(item.hid, contextKey)}/>
+          </View>)}</View>
+        </View>}
+      {items.length >= 2 && <Txt kind="small">{L.scope}</Txt>}
+      {items.length > 0 && <Row style={{ flexWrap: 'wrap' }}>
+        {items.length >= 2 && <Button variant="secondary" title={L.search} onPress={back}/>}
+        <Button variant="quiet" title={L.clear} onPress={state.clearComparison}/></Row>}
     </ScrollView>
   </SafeAreaView>;
 }
+const styles = StyleSheet.create({
+  heading: { gap: 3 },
+  table: { backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1, borderRadius: 20, overflow: 'hidden' },
+  row: { gap: 10, alignItems: 'stretch' },
+  cell: { flex: 1, minWidth: 0 },
+  property: { gap: 6, flex: 1 },
+  name: { fontSize: 16, lineHeight: 23, paddingHorizontal: 9, paddingBottom: 8 },
+  band: { padding: 12, gap: 6, backgroundColor: colors.pistachioMist },
+  fact: { padding: 12, gap: 6, borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
+  stars: { color: colors.goldInk, letterSpacing: 1 },
+  delta: { paddingHorizontal: 12, paddingBottom: 10, color: colors.leafInk, backgroundColor: colors.pistachioMist },
+  actions: { gap: 3 },
+});

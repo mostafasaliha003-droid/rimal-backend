@@ -1,12 +1,13 @@
 import type { Language } from '../types';
 
 const en = {
+  compactView: 'Compact view', compactOption: 'Compact', budgetChoices: 'Budgets from these results',
   totalFrom: 'Stay total from', photoUnavailable: 'Photo unavailable',
   largeSearchTitle: 'This search returned more data than the app can display',
   largeSearchBody: 'Search for a specific hotel or change your travel dates to narrow the results.',
   guests: (count: number) => `${count} ${count === 1 ? 'guest' : 'guests'}`,
   from: 'From', stayContext: (nights: number, rooms: number) => `${nights} ${nights === 1 ? 'night' : 'nights'} · ${rooms} ${rooms === 1 ? 'room' : 'rooms'}`,
-  stayTotal: 'Stay total', taxesNote: 'Room details show taxes and fees payable at the hotel.',
+  stayTotal: 'Stay total', taxesNote: 'Room details show any taxes and fees due at the hotel.',
   filtersTitle: 'Find your stay', name: 'Hotel name', nameHint: 'Search these returned hotels',
   budget: 'Maximum total for the stay', budgetHint: 'No maximum', budgetHelp: 'A full-stay customer-price limit in the search currency. Prices in other currencies or not supplied are excluded when a budget is set.',
   budgetError: 'Enter a positive amount, using a decimal point or ٫. Group thousands in threes. Up to 12 whole digits and 6 decimals.',
@@ -27,12 +28,13 @@ const en = {
   compareUnavailable: 'This stay cannot be added right now. Refresh current results.', clearCompare: 'Clear selection',
 };
 const ar: typeof en = {
+  compactView: 'عرض النتائج في قائمة مختصرة', compactOption: 'مختصر', budgetChoices: 'ميزانيات من هذه النتائج',
   totalFrom: 'إجمالي الإقامة من', photoUnavailable: 'تعذّر تحميل الصورة',
   largeSearchTitle: 'حجم نتائج هذا البحث كبير',
   largeSearchBody: 'ابحث باسم فندق معيّن أو غيّر تواريخ إقامتك لعرض نتائج أقل.',
   guests: count => count === 1 ? 'ضيف واحد' : count === 2 ? 'ضيفان' : `${count} ${count <= 10 ? 'ضيوف' : 'ضيفاً'}`,
   from: 'ابتداءً من', stayContext: (nights, rooms) => `${nights === 1 ? 'ليلة واحدة' : nights === 2 ? 'ليلتان' : `${nights} ${nights <= 10 ? 'ليالٍ' : 'ليلة'}`} · ${rooms === 1 ? 'غرفة واحدة' : rooms === 2 ? 'غرفتان' : `${rooms} غرف`}`,
-  stayTotal: 'إجمالي الإقامة', taxesNote: 'راجع الضرائب والرسوم المستحقة في الفندق ضمن تفاصيل الغرفة.',
+  stayTotal: 'إجمالي الإقامة', taxesNote: 'تفاصيل الغرفة تبيّن أي ضرائب ورسوم تُدفع في الفندق.',
   filtersTitle: 'اعثر على إقامتك', name: 'اسم الفندق', nameHint: 'ابحث ضمن الفنادق الواردة',
   budget: 'الحد الأقصى لإجمالي الإقامة', budgetHint: 'دون حد أقصى', budgetHelp: 'حد لسعر العميل عن الإقامة كاملة بعملة البحث. تُستبعد الأسعار غير المحددة أو الواردة بعملة أخرى عند تحديد ميزانية.',
   budgetError: 'أدخل مبلغًا موجبًا باستخدام النقطة أو ٫ للفاصل العشري. افصل الآلاف بمجموعات من ثلاث خانات. حتى 12 خانة صحيحة و6 عشرية.',

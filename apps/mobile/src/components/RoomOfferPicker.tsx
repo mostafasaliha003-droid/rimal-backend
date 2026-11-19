@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { useLanguage } from '../i18n';
 import { colors, fonts, ui } from '../theme';
 import { Button, Icon, Row, Txt } from './Primitives';
-import { rateCopy, roomRateFacts } from './roomRateFacts';
+import { mealPlanTitle, rateCopy, roomPriceDifference, roomRateFacts } from './roomRateFacts';
 import { canReviewRoomOffer, compareRoomAmounts, type RoomChoiceEntry } from './roomChoiceModel';
 import { roomChoiceCopy } from './roomChoiceCopy';
 import OfferTermsSheet from './OfferTermsSheet';
@@ -34,8 +34,8 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
 
   return <View style={styles.picker} testID={multiple ? 'room-offer-picker' : undefined}>
     {multiple && <Row style={{ gap: 5, flexWrap: 'wrap', justifyContent: 'space-between', alignItems: 'baseline' }}>
-      <Txt kind="label" accessibilityRole="header" style={styles.title}>{ar ? 'خيارات الإقامة' : 'Rate options'}</Txt>
-      <Txt kind="small">{ar ? 'السعر لكل الليالي' : 'Full-stay prices'}</Txt>
+      <Txt kind="label" accessibilityRole="header" style={styles.title}>{ar ? 'اختر عرض الغرفة' : 'Choose your rate'}</Txt>
+      <Txt kind="small">{rate.price}</Txt>
     </Row>}
     {visible.map(entry => {
       const offer = entry.offer, number = entry.index + 1;
@@ -45,17 +45,21 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
       const canReview = canReviewRoomOffer(offer, currency);
       const facts = roomRateFacts(offer, language, now);
       const cheapest = distinguishLowest && basePrice && compareRoomAmounts(offer.price!.amount, basePrice.amount) === 0;
-      const reviewLabel = `${room.reviewRate(number)} · ${offer.name}`;
+      const title = mealPlanTitle(offer.meal, language);
+      const reviewLabel = [rate.choose, title, offer.name, facts.price].join(' · ');
+      const difference = roomPriceDifference(basePrice, offer.price, language);
       const mismatch = Boolean(offer.price && offer.price.currency !== currency);
       const price = offer.price ? `\u2066${offer.price.currency}\u00a0${offer.price.amount}\u2069` : facts.price;
       const rateHeading = <Row style={{ gap: 8, alignItems: 'flex-start' }}>
         {multiple && <View style={[styles.circle, active && styles.selectedCircle]}>{active && <Icon name="check" size={12} color={colors.surface}/>}</View>}
         <View style={{ flex: 1, gap: 3, minWidth: 0 }}>
-          {cheapest && <Txt kind="label" style={styles.lowest}>{ar ? 'أقل سعر غرفة ضمن الخيارات' : 'Lowest room price shown'}</Txt>}
           <Row style={{ gap: 7, alignItems: 'baseline', flexWrap: 'wrap', ...(stacked && { flexDirection: 'column', alignItems: 'stretch' }) }}>
-            <Txt kind="label" style={styles.meal}>{facts.meal}</Txt>
+            <Txt kind="label" style={styles.meal}>{title}</Txt>
             <Txt kind="heading" style={[styles.price, offer.price && { writingDirection: 'ltr' }]}>{price}</Txt>
           </Row>
+          {cheapest && <Txt kind="small" style={styles.lowest}>{ar ? 'أقل سعر للغرفة' : 'Lowest room price'}</Txt>}
+          {difference && <Txt testID={`rate-difference-${number}`} kind="small" style={styles.difference}>{difference}</Txt>}
+          {facts.meal !== title && <Txt kind="small" style={{ color: colors.goldInk }}>{ar ? 'وجبات الأطفال غير مشمولة' : 'Children’s meals excluded'}</Txt>}
           {offer.name !== groupName && <Txt kind="small">{offer.name}</Txt>}
           {!multiple && <Txt kind="small">{ar ? 'السعر لكل الليالي' : 'Full-stay price'}</Txt>}
         </View>
@@ -64,7 +68,8 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
         style={[styles.card, active && multiple && styles.selectedCard]}>
         {multiple ? <Pressable testID={`pick-rate-${number}`} accessibilityRole="button" aria-pressed={active}
           accessibilityState={{ selected: active }} accessibilityLabel={[facts.meal, facts.price, facts.decision.headline, offer.name].join(' · ')}
-          onPress={() => onSelect(entry)} style={({ pressed }) => [styles.heading, active && styles.activeHeading, pressed && styles.pressed]}>
+          accessibilityHint={ar ? 'اختيار العرض للاطلاع على شروطه ومراجعته' : 'Select to see full terms and review this rate'}
+          onPress={() => onSelect(entry)} style={({ pressed }) => [styles.heading, pressed && styles.pressed]}>
           {rateHeading}
         </Pressable> : <View style={styles.heading}>{rateHeading}</View>}
         <View style={styles.body}>
@@ -75,31 +80,33 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
             </Row>
             {active && !!facts.decision.detail && <Txt kind="small">{facts.decision.detail}</Txt>}
           </View>
-          <Row style={{ gap: 7, alignItems: 'flex-start' }}><Icon name="info" size={16} color={colors.muted}/>
-            <Txt kind="small" style={styles.fill}>{rate.fees} · {facts.fees}</Txt></Row>
-          {active && <Row style={{ gap: 7, alignItems: 'flex-start' }}><Icon name="info" size={16} color={colors.muted}/>
-            <Txt kind="small" style={styles.fill}>{rate.payment} · {facts.payment}</Txt></Row>}
-          {active && offer.bedding && <Row style={{ gap: 7, alignItems: 'flex-start' }}><Icon name="bed" size={16} color={colors.muted}/>
-            <Txt kind="small" style={styles.fill}>{facts.bedding}</Txt></Row>}
+          <Row style={{ gap: 6, alignItems: 'center', ...(stacked && { flexDirection: 'column', alignItems: 'stretch' }) }}>
+            <Row style={{ gap: 7, alignItems: 'flex-start', ...(stacked ? {} : styles.fill) }}><Icon name="pin" size={16} color={colors.muted}/>
+              <Txt kind="small" style={styles.fill}>{rate.fees} · {facts.fees}</Txt></Row>
+            {showCompare && <Pressable testID={`compare-rate-${number}`} accessibilityRole="checkbox" aria-checked={compared}
+              accessibilityState={{ checked: compared, disabled: disableCompare }} accessibilityLabel={`${rate.compare} · ${title} · ${offer.name} · ${facts.price}`}
+              disabled={disableCompare} onPress={() => onToggle(entry)}
+              style={({ pressed }) => [styles.action, compared && styles.compared, pressed && styles.pressed, disableCompare && { opacity: .5 }]}>
+              <Row style={{ gap: 5 }}>
+                <View style={[styles.box, compared && styles.checked]}>{compared && <Icon name="check" size={12} color={colors.surface}/>}</View>
+                <Txt kind="label" style={styles.link}>{rate.compare}</Txt>
+              </Row>
+            </Pressable>}
+          </Row>
         </View>
-        <View style={ui.rule}/>
-        <Row style={styles.actions}>
-          <Pressable testID={`terms-rate-${number}`} accessibilityRole="button" aria-expanded={termsKey === entry.key}
-            accessibilityState={{ expanded: termsKey === entry.key }} accessibilityLabel={`${rate.terms} · ${reviewLabel}`}
-            onPress={() => setTermsKey(entry.key)} style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
-            <Txt kind="label" style={styles.link}>{ar ? 'شروط العرض' : 'Rate terms'}</Txt>
-          </Pressable>
-          {showCompare && <Pressable testID={`compare-rate-${number}`} accessibilityRole="checkbox" aria-checked={compared}
-            accessibilityState={{ checked: compared, disabled: disableCompare }} accessibilityLabel={`${rate.compare} · ${reviewLabel}`}
-            disabled={disableCompare} onPress={() => onToggle(entry)}
-            style={({ pressed }) => [styles.action, compared && styles.compared, pressed && styles.pressed, disableCompare && { opacity: .5 }]}>
-            <Row style={{ gap: 5 }}><Icon name={compared ? 'check' : 'compare'} size={15} color={colors.violetInk}/>
-              <Txt kind="label" style={styles.link}>{compared ? rate.selected : rate.compare}</Txt></Row>
-          </Pressable>}
-          <View testID={`review-rate-${number}`} style={styles.review}>
-            <Button compact variant={active ? 'primary' : 'secondary'} title={ar ? 'مراجعة' : 'Review'} label={reviewLabel} disabled={!canReview} onPress={() => onReview(entry)}/>
-          </View>
-        </Row>
+        {active && <>
+          <View style={ui.rule}/>
+          <Row style={styles.actions}>
+            <Pressable testID={`terms-rate-${number}`} accessibilityRole="button" aria-expanded={termsKey === entry.key}
+              accessibilityState={{ expanded: termsKey === entry.key }} accessibilityLabel={`${rate.terms} · ${title} · ${offer.name}`}
+              onPress={() => setTermsKey(entry.key)} style={({ pressed }) => [styles.action, pressed && styles.pressed]}>
+              <Txt kind="label" style={styles.link}>{ar ? 'شروط العرض' : 'Rate terms'}</Txt>
+            </Pressable>
+            <View testID={`review-rate-${number}`} style={styles.review}>
+              <Button compact title={rate.choose} label={reviewLabel} disabled={!canReview} onPress={() => onReview(entry)}/>
+            </View>
+          </Row>
+        </>}
         {!canReview && <View style={styles.recovery}>
           <Txt kind="small">{mismatch ? room.currencyMismatch(offer.price!.currency, currency) : room.notReady}</Txt>
           <Button variant="quiet" title={mismatch ? t('searchAgain') : t('retry')} onPress={mismatch ? onEditSearch : onRefresh}/>
@@ -122,22 +129,24 @@ const styles = StyleSheet.create({
   picker: { padding: 12, gap: 10, backgroundColor: colors.background, borderTopWidth: 1, borderTopColor: colors.border },
   title: { fontSize: 17, lineHeight: 25 },
   card: { borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, borderRadius: 15, overflow: 'hidden' },
-  selectedCard: { borderColor: colors.grape },
-  heading: { paddingHorizontal: 11, paddingVertical: 11, minHeight: 48, justifyContent: 'center' },
-  activeHeading: { backgroundColor: colors.lavenderMist },
-  lowest: { fontSize: 12, lineHeight: 18, color: colors.violetInk },
+  selectedCard: { borderColor: colors.primary },
+  heading: { paddingHorizontal: 12, paddingTop: 10, paddingBottom: 5, minHeight: 48, justifyContent: 'center' },
+  lowest: { fontSize: 13, lineHeight: 20, color: colors.leafInk, fontFamily: fonts.medium },
+  difference: { fontSize: 13, lineHeight: 20 },
   meal: { fontSize: 16, lineHeight: 23, flexGrow: 1, flexShrink: 1 },
-  price: { fontSize: 20, lineHeight: 26, color: colors.primary, flexShrink: 1 },
+  price: { fontSize: 20, lineHeight: 26, color: colors.ink, flexShrink: 1 },
   pressed: { opacity: .76 },
   fill: { flex: 1, minWidth: 0 },
-  body: { paddingHorizontal: 12, paddingBottom: 9, paddingTop: 7, gap: 6 },
+  body: { paddingHorizontal: 12, paddingBottom: 5, paddingTop: 2, gap: 1 },
   actions: { justifyContent: 'space-between', gap: 4, flexWrap: 'wrap', paddingHorizontal: 7, paddingVertical: 5 },
   action: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center', paddingHorizontal: 5 },
-  link: { fontSize: 13, lineHeight: 20, color: colors.violetInk },
-  compared: { borderRadius: 10, backgroundColor: colors.lavenderMist },
+  link: { fontSize: 14, lineHeight: 21, color: colors.ink },
+  compared: { borderRadius: 10, backgroundColor: colors.pistachioMist },
+  box: { width: 16, height: 16, borderWidth: 1, borderColor: colors.muted, borderRadius: 4, alignItems: 'center', justifyContent: 'center' },
+  checked: { backgroundColor: colors.leafInk, borderColor: colors.leafInk },
   review: { minWidth: 80, maxWidth: '100%', flexGrow: 1, flexBasis: 74 },
   circle: { marginTop: 4, width: 17, height: 17, borderRadius: 9, borderWidth: 1, borderColor: colors.muted, alignItems: 'center', justifyContent: 'center' },
-  selectedCircle: { backgroundColor: colors.grape, borderColor: colors.grape },
+  selectedCircle: { backgroundColor: colors.primary, borderColor: colors.primary },
   more: { minHeight: 46, alignItems: 'center', justifyContent: 'center' },
   recovery: { padding: 10, gap: 5 },
 });

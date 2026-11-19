@@ -1,5 +1,5 @@
 import React, { useCallback, useRef, useState } from 'react';
-import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
+import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api, authSession, COUNTRY_CODES, validateSearchCriteria } from '../api';
@@ -10,13 +10,13 @@ import { colors, fonts, localizedFont, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
 import { hotelId } from '../api/validation';
-import DiscoveryShelves, { DestinationPicks, DiscoveryHero, destinationLookupName, type DestinationId } from '../components/DiscoveryShelves';
+import DiscoveryShelves, { DestinationPicks, DiscoveryHero } from '../components/DiscoveryShelves';
 import ApiState from '../components/ApiState';
 import { Button, Icon, Row, StatePanel, Txt } from '../components/Primitives';
 import CalendarPicker from '../components/CalendarPicker';
 import GuestPicker from '../components/GuestPicker';
 import CountryPicker, { countryName } from '../components/CountryPicker';
-import { copyGuestRooms, destinationFromSearch, displayTravelDate, quickStayDates, recentSearchDraft, shouldSuggestDestination, stayNights, type QuickStay } from '../components/searchJourneyModel';
+import { copyGuestRooms, destinationFromSearch, destinationLookupName, displayTravelDate, quickStayDates, recentSearchDraft, resolveFeaturedCity, shouldSuggestDestination, stayNights, type DestinationId, type QuickStay } from '../components/searchJourneyModel';
 import { searchCopy } from './searchCopy';
 
 type TravelDraft = Pick<SearchCriteria, 'checkin' | 'checkout' | 'guests' | 'residency' | 'currency'>;
@@ -31,12 +31,15 @@ function initialTravel(criteria: SearchCriteria | null): TravelDraft {
 
 export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolean }) {
   const { t, language, rtl } = useLanguage(); const router = useRouter(); const state = useAppState(); const copy = searchCopy(language);
+  const { fontScale, width } = useWindowDimensions();
   const [query, setQuery] = useState(state.destinationName); const [selected, select] = useState<Suggestion | null>(() => destinationFromSearch(state.criteria, state.destinationName));
   const [featuredCity, setFeaturedCity] = useState<DestinationId>('dubai');
+  const [pickedCity, setPickedCity] = useState<DestinationId | null>(null);
+  const [allRecent, setAllRecent] = useState(false);
   const [suggestionResult, setSuggestionResult] = useState<{ key: string; values: Suggestion[]; error: unknown }>({ key: '', values: [], error: null });
   const [suggestionRetry, retrySuggestion] = useState(0);
   const { status: authStatus, sessionRevision } = useAuth();
-  const suggestionKey = JSON.stringify([sessionRevision, authStatus, language, query.trim(), suggestionRetry]);
+  const suggestionKey = JSON.stringify([sessionRevision, authStatus, language, query.trim(), pickedCity, suggestionRetry]);
   const suggestions = suggestionResult.key === suggestionKey ? suggestionResult.values : [];
   const needsSuggestions = !savedOnly && shouldSuggestDestination(query, selected);
   const suggesting = needsSuggestions && suggestionResult.key !== suggestionKey;
@@ -63,13 +66,19 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     setSuggestionResult({ key: '', values: [], error: null });
     const timer = setTimeout(() => {
       api.searchSuggestions(destinationLookupName(query), language, controller.signal).then(values => {
-        if (current()) setSuggestionResult({ key: suggestionKey, values, error: null });
+        if (!current()) return;
+        const match = pickedCity && resolveFeaturedCity(pickedCity, values);
+        if (match) {
+          select({ ...match, name: query });
+          setErrors(previous => ({ ...previous, destination: false }));
+        }
+        setSuggestionResult({ key: suggestionKey, values, error: null });
       }).catch(error => {
         if (current()) setSuggestionResult({ key: suggestionKey, values: [], error });
       });
-    }, 350);
+    }, pickedCity ? 0 : 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [query, language, suggestionKey, needsSuggestions, authStatus, sessionRevision]));
+  }, [query, language, suggestionKey, needsSuggestions, authStatus, sessionRevision, pickedCity, setErrors]));
   const savedIds = state.saved.filter(id => hotelId(id) !== null);
   const submit = () => {
     const destination = selected?.name === query ? selected : query === state.destinationName ? destinationFromSearch(state.criteria, query) : null;
@@ -86,27 +95,29 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       router.push('/results');
     }
   };
+  const returnToForm = () => scroll.current?.scrollTo({ y: Math.max(0, formTop.current - 8), animated: false });
   const restoreRecent = (id: string) => {
     // Re-resolve ownership at press time: an old session's rendered handler
     // must not restore a record after logout or same-account reauthentication.
     const recent = state.getRecentSearches().find(value => value.id === id);
     if (!recent) return;
     const draft = recentSearchDraft(recent); if (!draft) return;
-    setQuery(draft.query); select(draft.selected); updateTravel({ checkin: draft.checkin, checkout: draft.checkout,
+    setPickedCity(null); setQuery(draft.query); select(draft.selected); updateTravel({ checkin: draft.checkin, checkout: draft.checkout,
       guests: draft.guests, residency: draft.residency, currency: draft.currency });
-    setErrors({}); setSubmitted(false); setSuggestionResult({ key: '', values: [], error: null }); Keyboard.dismiss();
+    setErrors({}); setSubmitted(false); setSuggestionResult({ key: '', values: [], error: null }); Keyboard.dismiss(); returnToForm();
   };
   const chooseQuickStay = (kind: QuickStay) => {
     const dates = quickStayDates(kind); updateTravel(dates);
     setErrors(current => ({ ...current, dates: false }));
+    returnToForm();
   };
   const nights = stayNights(checkin, checkout);
   const adults = guests.reduce((sum, room) => sum + room.adults, 0); const childCount = guests.reduce((sum, room) => sum + room.children.length, 0);
   const guestSummary = copy.guests(adults, childCount, guests.length);
   const chooseDestination = (id: DestinationId, name: string) => {
-    setFeaturedCity(id); setQuery(name); select(null); setSubmitted(false);
+    setFeaturedCity(id); setPickedCity(id); setQuery(name); select(null); setSubmitted(false);
     setErrors(previous => ({ ...previous, destination: false }));
-    scroll.current?.scrollTo({ y: Math.max(0, formTop.current - 8), animated: false });
+    returnToForm();
   };
   if (savedOnly && (!state.savedReady || !savedIds.length)) {
     return <SafeAreaView edges={['top','bottom']} style={ui.screen}><BrandHeader back/>
@@ -116,17 +127,17 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   }
   return <SafeAreaView edges={savedOnly ? ['top','bottom'] : ['top']} style={ui.screen}><BrandHeader back={savedOnly} /><ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'} contentContainerStyle={{ paddingBottom: 28 }}>
     <View style={[ui.page, { paddingTop: savedOnly ? 12 : 0, gap: 18 }]}>
-    {!savedOnly && <View style={{marginHorizontal:-16}}><DiscoveryHero cityId={featuredCity} preview={setFeaturedCity} choose={chooseDestination}/></View>}
+    {!savedOnly && <View style={{marginHorizontal:-8}}><DiscoveryHero cityId={featuredCity} preview={setFeaturedCity} choose={chooseDestination}/></View>}
     <View testID="search-form" onLayout={event => { formTop.current = event.nativeEvent.layout.y; }}
       style={[ui.card, ui.shadow, styles.form, !savedOnly && styles.insetForm]}>
       {savedOnly && <Txt kind="heading" accessibilityRole="header">{t('savedDatesTitle')}</Txt>}
       {!savedOnly && <View style={{ gap: 4 }}>
-        <Row style={{...styles.destinationRow, borderColor: errors.destination ? colors.red : destinationFocused ? colors.grape : colors.lavenderMist}}>
-          <Icon name="search" size={22} color={colors.violetInk}/>
+        <Row style={{...styles.destinationRow, borderColor: errors.destination ? colors.red : destinationFocused ? colors.grape : colors.border}}>
+          <View style={styles.destinationIcon}><Icon name="pin" size={20} color={colors.violetInk}/></View>
           <View style={{ flex: 1 }}><Txt kind="small" style={styles.fieldCaption}>{rtl ? 'الوجهة' : 'Destination'}</Txt>
             <TextInput testID="search-destination" accessibilityLabel={t('destination')} accessibilityHint={errors.destination ? t('pickDestination') : undefined}
               onFocus={() => setDestinationFocused(true)} onBlur={() => setDestinationFocused(false)}
-              value={query} onChangeText={value => { setQuery(value); select(null); setSubmitted(false); setErrors(current => ({ ...current, destination: false })); }}
+              value={query} onChangeText={value => { setPickedCity(null); setQuery(value); select(null); setSubmitted(false); setErrors(current => ({ ...current, destination: false })); }}
               placeholder={t('destinationHint')} placeholderTextColor={colors.muted} autoCorrect={false} returnKeyType="search"
               style={[styles.destination, { fontFamily: localizedFont(language, fonts.bold), textAlign: rtl ? 'right' : 'left', writingDirection: rtl ? 'rtl' : 'ltr' }]}/>
           </View>
@@ -135,12 +146,12 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         {suggesting && <Txt kind="small" accessibilityLiveRegion="polite">{t('loading')}</Txt>}
         {!suggesting && needsSuggestions && (suggestError ? <ApiState error={suggestError} retry={() => retrySuggestion(value => value + 1)} /> : suggestions.length === 0 ? <Txt kind="small">{t('noSuggestions')}</Txt> : <View style={styles.suggestions}>{suggestions.map(item => <Pressable key={item.id} accessibilityRole="button" accessibilityLabel={`${item.name}${item.subtitle ? `, ${item.subtitle}` : ''}`} onPress={() => { select(item); setQuery(item.name); setErrors(current => ({ ...current, destination: false })); Keyboard.dismiss(); }} style={styles.suggestion}><Row><Icon name={item.type === 'region' ? 'pin' : 'bed'} color={colors.violetInk} size={19} /><View style={{ flex: 1 }}><Txt kind="label">{item.name}</Txt>{item.subtitle && <Txt kind="small">{item.subtitle}</Txt>}</View><Icon name="chevron" size={14}/></Row></Pressable>)}</View>)}
       </View>}
-      <Row style={{ alignItems: 'stretch', gap: 8 }}>{(['checkin', 'checkout'] as const).map(key =>
+      <Row style={{ alignItems: 'stretch', gap: 8, ...(fontScale > 1.4 || width < 335 ? {flexDirection:'column'} : {}) }}>{(['checkin', 'checkout'] as const).map(key =>
         <Pressable key={key} testID={`search-date-${key}`} accessibilityRole="button"
           onPress={() => { Keyboard.dismiss(); setCalendar({ field: key, source: state.criteria }); }}
           style={({pressed}) => [styles.dateControl, {backgroundColor:pressed ? colors.pistachio : colors.pistachioMist}]}>
           <Row style={{gap:6}}><Icon name="calendar" size={15} color={colors.leafInk}/><Txt kind="small" style={[styles.fieldCaption,{color:colors.leafInk}]}>{t(key)}</Txt></Row>
-          <Txt kind="label" style={{ color: errors.dates ? colors.red : colors.ink }}>
+          <Txt kind="label" style={[styles.fieldValue, { color: errors.dates ? colors.red : colors.ink }]}>
             {displayTravelDate(key === 'checkin' ? checkin : checkout, language) || t('selectDate')}
           </Txt>
         </Pressable>)}</Row>
@@ -148,7 +159,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       <Pressable testID="search-guests" accessibilityRole="button" onPress={() => { Keyboard.dismiss(); setGuestEditor({ source: state.criteria }); }}
         style={({pressed}) => [styles.guestControl, pressed && {backgroundColor:colors.background}]}>
         <Row style={styles.fieldRow}><Icon name="users" size={19} color={colors.muted}/><View style={{ flex: 1 }}>
-          <Txt kind="small" style={styles.fieldCaption}>{t('guests')}</Txt><Txt kind="label">{guestSummary}</Txt></View><Icon name="chevron" size={15}/></Row>
+          <Txt kind="small" style={styles.fieldCaption}>{t('guests')}</Txt><Txt kind="label" style={styles.fieldValue}>{guestSummary}</Txt></View><Icon name="chevron" size={15}/></Row>
       </Pressable>
       {submitted && (errors.residency || errors.guests) && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t(errors.residency ? 'residencyError' : 'guestsError')}</Txt>}
       <View testID="search-submit"><Pressable accessibilityRole="button"
@@ -156,14 +167,36 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         accessibilityHint={nights !== null ? copy.nights(nights) : undefined} onPress={submit}
         style={({pressed}) => [styles.submit, {backgroundColor:pressed ? colors.blue : colors.primary}]}>
         <Row style={{gap:9, justifyContent:'center'}}><Icon name={savedOnly ? 'check' : 'search'} size={18} color={colors.surface}/>
-          <Txt kind="label" style={styles.submitText}>{savedOnly ? t('applyStayDates') : rtl ? 'ابحث عن فنادق' : 'Search hotels'}</Txt></Row>
+          <Txt kind="label" style={styles.submitText}>{savedOnly ? t('applyStayDates') : rtl ? 'ابحث عن فنادق' : 'Search hotels'}</Txt>
+          {nights !== null && !savedOnly && <Txt kind="small" style={styles.stayLength}>{copy.nights(nights)}</Txt>}</Row>
       </Pressable></View>
     </View>
+    {!savedOnly && state.recentSearches.length > 0 && <View style={{gap:8}}>
+      <Row style={{justifyContent:'space-between', flexWrap:'wrap', gap:4}}>
+        <Txt kind="heading" accessibilityRole="header">{copy.recent}</Txt>
+        <Pressable accessibilityRole="button" accessibilityLabel={copy.clearRecent} onPress={state.clearRecentSearches} style={styles.textAction}>
+          <Txt kind="label" style={{color:colors.muted}}>{t('clear')}</Txt>
+        </Pressable>
+      </Row>
+      {(allRecent ? state.recentSearches : state.recentSearches.slice(0,1)).map(recent => <Pressable key={recent.id}
+        testID="restore-recent-search" accessibilityRole="button" accessibilityHint={copy.recentHint} onPress={() => restoreRecent(recent.id)}
+        style={({pressed}) => [styles.recentCard, pressed && {backgroundColor:colors.pistachioMist}]}>
+        <Row><View style={styles.recentIcon}><Icon name="clock" color={colors.leafInk} size={21}/></View>
+          <View style={{flex:1}}><Txt kind="label" style={styles.fieldValue}>{recent.name}</Txt>
+            <Txt kind="small">{displayTravelDate(recent.criteria.checkin, language)} – {displayTravelDate(recent.criteria.checkout, language)}</Txt>
+          </View><Icon name="chevron" size={16}/>
+        </Row>
+      </Pressable>)}
+      {state.recentSearches.length > 1 && <Pressable accessibilityRole="button" accessibilityState={{expanded:allRecent}} aria-expanded={allRecent}
+        onPress={() => setAllRecent(previous => !previous)} style={styles.textAction}>
+        <Txt kind="label" style={{color:colors.violetInk}}>{allRecent ? t('less') : copy.showRecent(state.recentSearches.length)}</Txt>
+      </Pressable>}
+    </View>}
     {!savedOnly && <DestinationPicks choose={chooseDestination}/>}
     <View style={{ gap: 5 }}><Txt kind="heading" accessibilityRole="header">{rtl ? 'تواريخ سريعة' : 'Quick dates'}</Txt><Row style={styles.quickRow}>
       {(['tonight','tomorrow','nextWeek'] as const).map(kind => {
         const dates = quickStayDates(kind); const chosen = dates.checkin === checkin && dates.checkout === checkout;
-        return <Pressable key={kind} accessibilityRole="button" accessibilityLabel={copy[kind]} aria-pressed={chosen} accessibilityState={{ selected: chosen }}
+        return <Pressable key={kind} testID={'quick-stay-' + kind} accessibilityRole="button" accessibilityLabel={copy[kind]} aria-pressed={chosen} accessibilityState={{ selected: chosen }}
           onPress={() => chooseQuickStay(kind)} style={[styles.quickOption, {
             borderColor: chosen ? colors.navy : colors.border, backgroundColor: chosen ? colors.softBlue : colors.surface }]}>
           <Txt kind="label">{({ tonight: rtl ? 'الليلة' : 'Tonight', tomorrow: rtl ? 'غداً' : 'Tomorrow', nextWeek: rtl ? 'الأسبوع المقبل' : 'Next week' })[kind]}</Txt>
@@ -191,7 +224,6 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
           <Txt kind="label">{code}</Txt></Pressable>)}</Row>
       </View>
     </View>}
-    {!savedOnly && state.recentSearches.length > 0 && <View style={[ui.card, { padding: 16 }]}><Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}><Txt kind="heading" accessibilityRole="header">{copy.recent}</Txt><Pressable accessibilityRole="button" accessibilityLabel={`${t('clear')} · ${copy.clearRecent}`} onPress={state.clearRecentSearches} style={{ minHeight: 48, justifyContent: 'center', paddingHorizontal: 12 }}><Txt kind="label" style={{ color: colors.blueStrong }}>{t('clear')}</Txt></Pressable></Row><Txt kind="small">{copy.recentBody}</Txt>{state.recentSearches.map(recent => <Pressable key={recent.id} accessibilityRole="button" accessibilityHint={copy.recentHint} onPress={() => restoreRecent(recent.id)} style={{ minHeight: 72, padding: 14, gap: 6, backgroundColor: colors.background, borderRadius: 14 }}><Txt kind="label">{recent.name}</Txt><Txt kind="small" style={{ writingDirection: 'ltr' }}>{recent.criteria.checkin} → {recent.criteria.checkout}</Txt></Pressable>)}</View>}
     </View>
   </ScrollView>
     {calendar && calendar.source === state.criteria && <CalendarPicker initialField={calendar.field} checkin={checkin} checkout={checkout}
@@ -211,15 +243,21 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
 
 const styles = StyleSheet.create({
   form: { padding:12, gap:8, borderRadius:22 },
-  insetForm: { marginTop:-40 },
+  insetForm: { marginTop:-31 },
   fieldRow: { gap:11, minHeight:45 },
-  fieldCaption: { fontSize:12, lineHeight:17, color:colors.muted },
-  destinationRow: { paddingHorizontal:12, paddingTop:5, minHeight:65, gap:10, borderRadius:13, borderWidth:1, backgroundColor:colors.lavenderMist },
-  destination: { color:colors.ink, minHeight:44, fontSize:17, lineHeight:24, paddingHorizontal:0, paddingVertical:0 },
+  fieldCaption: { fontSize:13, lineHeight:19, color:colors.muted },
+  fieldValue: { fontSize:16, lineHeight:23 },
+  destinationRow: { paddingHorizontal:10, paddingTop:4, minHeight:67, gap:10, borderRadius:13, borderWidth:1, backgroundColor:colors.surface },
+  destinationIcon: { width:36, height:36, borderRadius:12, backgroundColor:colors.lavenderMist, alignItems:'center', justifyContent:'center' },
+  destination: { color:colors.ink, minHeight:44, fontSize:18, lineHeight:25, paddingHorizontal:0, paddingVertical:0 },
   dateControl: { flex:1, gap:2, minHeight:54, borderRadius:12, justifyContent:'center', paddingHorizontal:10, paddingVertical:5 },
   guestControl: { minHeight:48, justifyContent:'center', paddingHorizontal:10, borderRadius:10 },
   submit: { minHeight:50, borderRadius:14, alignItems:'center', justifyContent:'center', padding:8 },
   submitText: { color:colors.surface, fontSize:16, lineHeight:24, textAlign:'center', flexShrink:1 },
+  stayLength: { color:colors.pistachio, fontSize:14, lineHeight:22 },
+  recentCard: { minHeight:64, justifyContent:'center', paddingHorizontal:12, paddingVertical:9, backgroundColor:colors.surface, borderRadius:16, borderColor:colors.border, borderWidth:1 },
+  recentIcon: { width:36, height:36, backgroundColor:colors.pistachioMist, borderRadius:18, alignItems:'center', justifyContent:'center' },
+  textAction: { minHeight:44, justifyContent:'center', paddingHorizontal:5 },
   suggestions: { borderWidth:1, borderColor:colors.border, borderRadius:14, overflow:'hidden' },
   suggestion: { minHeight:58, padding:12, justifyContent:'center', borderBottomWidth:StyleSheet.hairlineWidth, borderBottomColor:colors.border },
   membership: { minHeight:52, justifyContent:'center', paddingHorizontal:14, borderRadius:16, backgroundColor:colors.lavenderMist },

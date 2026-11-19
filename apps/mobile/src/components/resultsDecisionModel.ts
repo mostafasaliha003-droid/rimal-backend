@@ -35,6 +35,20 @@ export function parseStayBudget(input: string): { valid: boolean; amount: string
 }
 const searchable = (value: string) => value.normalize('NFKD').replace(/\p{M}/gu, '').toLocaleLowerCase().trim();
 export const starFacet = (hotel: HotelSummary) => Number.isInteger(hotel.stars) && Number(hotel.stars) >= 1 && Number(hotel.stars) <= 5 ? Number(hotel.stars) : 0;
+export function suggestedStayBudgets(hotels: readonly HotelSummary[], name: string, stars: readonly number[], currency: string): string[] {
+  const query = searchable(name);
+  const amounts = hotels.flatMap(hotel => {
+    if ((query && !searchable(hotel.name).includes(query)) || (stars.length && !stars.includes(starFacet(hotel)))) return [];
+    const price = priceInCurrency(hotel.price, currency);
+    if (!price) return [];
+    const budget = parseStayBudget(decimal(price.amount) || '');
+    return budget.amount ? [budget.amount] : [];
+  }).sort(compareDecimalAmounts);
+  if (amounts.length < 2) return [];
+  const ceiling = amounts[amounts.length - 1];
+  const candidates = [.25, .5, .75].map(share => amounts[Math.ceil(amounts.length * share) - 1]);
+  return [...new Set(candidates)].filter(amount => amount !== ceiling);
+}
 export function activeResultFilters(filters: ResultFilters): number {
   return Number(Boolean(filters.name.trim())) + Number(Boolean(filters.maxBudget.trim())) + Number(filters.stars.length > 0);
 }

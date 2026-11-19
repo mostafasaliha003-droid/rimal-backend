@@ -11,6 +11,31 @@ const offer = (index, change = {}) => ({ id: `offer-${index}`, name: 'Twin room'
 const choices = (offers, options = {}) => buildRoomChoices(offers, { currency: 'USD', ...options });
 const deviceClock = iso => new Date(iso).toTimeString().slice(0,5);
 
+test('comparison identifies named meals, then distinct supplied rooms or amounts, without inventing differences', () => {
+  const { comparedPlanNames } = load(path.join(__dirname, 'roomRateFacts.ts'));
+  const rate = (a, b, lang = 'en') => comparedPlanNames([a,b].map((offer,index) => ({offer,index,key:offer.id})), lang, 0);
+  const only = offer(0), breakfast = offer(1, {meal:'breakfast'});
+  assert.deepEqual(rate(only,breakfast), ['Room only','Breakfast included']);
+  assert.deepEqual(rate(only,breakfast,'ar'), ['غرفة فقط','يشمل الإفطار']);
+  assert.deepEqual(rate(only,offer(1)), ['Room only · USD 60','Room only · USD 61']);
+  assert.deepEqual(rate(only,offer(1,{name:'Suite'})), ['Room only · Twin room','Room only · Suite']);
+  assert.deepEqual(rate(only,offer(1,{price:{currency:'USD',amount:'60.00'}})), ['Room only · Option 1','Room only · Option 2']);
+  const family = rate(breakfast, { ...breakfast, noChildMeal:true });
+  assert.match(family[0], /coverage unspecified/);
+  assert.match(family[1], /Children’s meals excluded/);
+  assert.match(rate(only,offer(1,{meal:undefined}))[1], /unspecified/);
+});
+
+test('price increments between room options retain exact precision, currency and scope', () => {
+  const { roomPriceDifference } = load(path.join(__dirname, 'roomRateFacts.ts'));
+  const money = (amount, currency = 'USD') => ({amount,currency});
+  const base = money('9007199254740993.0051');
+  assert.match(roomPriceDifference(base,money('9007199254740994.0162'),'en'), /USD\s1\.0111/);
+  assert.match(roomPriceDifference(money('10'),money('21'),'ar'), /USD\s11\.00/);
+  for (const value of [null,money('15','AED'),money('4'),money('10.00')])
+    assert.equal(roomPriceDifference(money('10'),value,'en'), null);
+});
+
 test('room filter uses the supplier room identity and scopes prices and meal counts to that exact room', () => {
   const twin = offer(1);
   const suite = offer(2, { roomIdentity: 'suite', meal: 'breakfast' });

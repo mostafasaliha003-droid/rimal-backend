@@ -1,8 +1,11 @@
-import type { RoomOffer } from '../types';
+import type { Money, RoomOffer } from '../types';
+import type { Language } from '../i18n';
 import { presentTaxes } from './taxPresentationModel';
 import { presentCancellation } from './cancellationPresentationModel';
 import { cancellationDecision } from './cancellationDecision';
-import { roomMealLabel } from './roomChoiceModel';
+import { roomMealLabel, type RoomChoiceEntry } from './roomChoiceModel';
+import { compareStayPrices } from './offerChangeSummary';
+import { padStayPriceDifference } from './offerChangesCopy';
 import { cancellationTermsKey, canonicalDecimal, taxTermsKey } from './offerReviewModel';
 
 const en = {
@@ -80,4 +83,33 @@ export function mealDescription(offer: Pick<RoomOffer, 'meal' | 'noChildMeal'>, 
   if (showMissingChildTerm && !offer.noChildMeal)
     return title + (language === 'ar' ? ' · تغطية وجبات الأطفال غير محددة' : ' · Children’s meal coverage unspecified');
   return title;
+}
+
+export function roomPriceDifference(lowest: Money | null, current: Money | null, language: Language) {
+  const change = compareStayPrices(lowest, current);
+  if (change.status !== 'increase' || !change.difference) return null;
+  const delta = padStayPriceDifference(change.difference, language);
+  const amount = `\u2066${delta.currency}\u00a0${delta.amount}\u2069`;
+  return language === 'ar' ? `أعلى من أقل سعر للغرفة بـ ${amount}` : `${amount} above lowest room price`;
+}
+
+/** Label both choices with the first visible fact that distinguishes them. */
+export function comparedPlanNames(entries: readonly RoomChoiceEntry[], language: Language, now: number) {
+  const names = entries.map(({ offer }) => mealPlanTitle(offer.meal, language));
+  if (entries.length !== 2 || names[0] !== names[1]) return names;
+  const offers = entries.map(entry => entry.offer);
+  if (offers[0].noChildMeal !== offers[1].noChildMeal && offers.every(offer => offer.meal?.toLowerCase() !== 'nomeal'))
+    return offers.map(offer => mealDescription(offer, language, true));
+  const facts = offers.map(offer => roomRateFacts(offer, language, now));
+  const prices = compareStayPrices(offers[0].price, offers[1].price);
+  const qualifiers = [
+    offers.map(offer => offer.name),
+    ...(prices.status === 'unchanged' ? [] : [facts.map(fact => fact.price)]),
+    facts.map(fact => fact.decision.headline),
+    facts.map(fact => fact.bedding),
+    facts.map(fact => fact.fees),
+  ];
+  const distinction = qualifiers.find(([a,b]) => a !== b) ?? entries.map(entry =>
+    language === 'ar' ? `خيار ${entry.index + 1}` : `Option ${entry.index + 1}`);
+  return names.map((name, index) => `${name} · ${distinction[index]}`);
 }

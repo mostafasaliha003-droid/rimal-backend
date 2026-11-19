@@ -6,7 +6,7 @@ import { colors } from '../theme';
 import { Button, Icon, Row, Txt } from './Primitives';
 import { canReviewRoomOffer, type RoomChoiceEntry } from './roomChoiceModel';
 import { roomChoiceCopy } from './roomChoiceCopy';
-import { mealDescription, rateCopy, roomFactKeys, roomRateFacts } from './roomRateFacts';
+import { comparedPlanNames, mealDescription, rateCopy, roomFactKeys, roomRateFacts } from './roomRateFacts';
 import { compareStayPrices } from './offerChangeSummary';
 import { padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
@@ -32,12 +32,12 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
   const [detail, setDetail] = useState<'fees' | 'cancellation' | null>(null);
   const { width, height, fontScale } = useWindowDimensions();
   const stacked = width / Math.max(fontScale, 1) < 305;
-  const docked = !stacked && height > 580 && fontScale <= 1.4;
+  const planLabels = comparedPlanNames(entries, language, now);
+  const docked = !stacked && height > 580 && fontScale <= 1.4 && planLabels.every(label => label.length < 48);
   const facts = entries.map(entry => roomRateFacts(entry.offer, language, now));
   const [aKeys, bKeys] = entries.map(entry => roomFactKeys(entry.offer));
   const keys = fields.filter(key => key !== 'bedding' || entries.some(entry => entry.offer.bedding));
   const visibleKeys = keys.filter(key => !differentOnly || aKeys[key] !== bKeys[key]);
-  const planLabels = entries.map(entry => ar ? `العرض ${entry.index + 1}` : `Offer ${entry.index + 1}`);
   const accessibleNames = entries.map((entry,i) => `${planLabels[i]} · ${entry.offer.name}`);
   const sameName = entries[0].offer.name === entries[1].offer.name;
   const price = compareStayPrices(entries[0].offer.price, entries[1].offer.price);
@@ -62,7 +62,7 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
   const actions = <Row style={{ ...columns, ...styles.actions }}>{entries.map((entry,i) =>
     <View key={entry.key} testID={`compare-review-${entry.index + 1}`} style={!stacked && styles.flex}>
       <Button compact disabled={!canReviewRoomOffer(entry.offer,currency)}
-        title={ar ? `مراجعة ${planLabels[i]}` : `Review ${planLabels[i].toLowerCase()}`}
+        title={ar ? `مراجعة · ${planLabels[i]}` : `Review · ${planLabels[i]}`}
         label={`${copy.choose} · ${accessibleNames[i]}`} onPress={() => { onClose(); onReview(entry); }}/>
     </View>)}</Row>;
   return <Modal transparent visible onRequestClose={onClose} animationType="slide">
@@ -113,8 +113,8 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
             </>}
           </View>)}
           {!visibleKeys.length && <Txt style={styles.empty}>{ar ? 'لا يظهر فرق في الشروط المتاحة لهذين العرضين.' : 'No differences in the listed terms.'}</Txt>}
-          {entries.filter(entry => !canReviewRoomOffer(entry.offer,currency)).map(entry => <Txt kind="small" key={entry.key}>
-            {roomCopy.rateNumber(entry.index + 1)} · {entry.offer.price && entry.offer.price.currency !== currency
+          {entries.map((entry, i) => !canReviewRoomOffer(entry.offer,currency) && <Txt kind="small" key={entry.key}>
+            {planLabels[i]} · {entry.offer.price && entry.offer.price.currency !== currency
               ? roomCopy.currencyMismatch(entry.offer.price.currency, currency) : roomCopy.notReady}
           </Txt>)}
           {!docked && actions}
@@ -142,9 +142,9 @@ const styles = StyleSheet.create({
   checked: { borderColor: colors.primary, backgroundColor: colors.primary },
   fact: { gap: 4, paddingBottom: 8, borderBottomColor: colors.border, borderBottomWidth: 1 },
   factLabel: { gap: 7, paddingTop: 7, paddingBottom: 2 },
-  factTitle: { flex: 1, color: colors.violetInk, fontSize: 14, lineHeight: 21 },
+  factTitle: { flex: 1, color: colors.ink, fontSize: 14, lineHeight: 21 },
   cell: { paddingHorizontal: 9, paddingVertical: 6, gap: 1 },
-  amount: { fontSize: 20, lineHeight: 30, color: colors.primary },
+  amount: { fontSize: 20, lineHeight: 30, color: colors.ink },
   priceNote: { paddingHorizontal: 10, paddingVertical: 6, borderRadius: 9, backgroundColor: colors.pistachioMist },
   small: { fontSize: 12, lineHeight: 18 },
   expand: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 10, borderRadius: 10, backgroundColor: colors.background },

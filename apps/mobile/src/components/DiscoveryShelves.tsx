@@ -7,19 +7,14 @@ import { colors, ui } from '../theme';
 import { useAppState } from './AppState';
 import { Icon, Photo, Row, Txt } from './Primitives';
 import { useSavedHotelCards } from './useSavedHotelCards';
+import { featuredCities, type DestinationId } from './searchJourneyModel';
 
 const destinations = [
-  { id: 'dubai', en: 'Dubai', ar: 'دبي', country: 'United Arab Emirates', countryAr: 'الإمارات', place: 'Dubai Marina', placeAr: 'دبي مارينا', title: 'Dubai at dusk', titleAr: 'دبي عند الغروب', cover: require('../../assets/dubai-marina-dusk.jpg'), photo: require('../../assets/dubai-destination.jpg') },
-  { id: 'istanbul', en: 'Istanbul', ar: 'إسطنبول', country: 'Türkiye', countryAr: 'تركيا', place: 'Ortaköy', placeAr: 'أورتاكوي', title: 'On the Bosphorus', titleAr: 'على ضفاف البوسفور', cover: require('../../assets/istanbul-destination.jpg'), photo: require('../../assets/istanbul-destination.jpg') },
-  { id: 'paris', en: 'Paris', ar: 'باريس', country: 'France', countryAr: 'فرنسا', place: 'Eiffel Tower', placeAr: 'برج إيفل', title: 'A day in Paris', titleAr: 'يوم في باريس', cover: require('../../assets/paris-destination.jpg'), photo: require('../../assets/paris-destination.jpg') },
+  { id: 'dubai', ...featuredCities.dubai, place: 'Dubai Marina', placeAr: 'مرسى دبي', title: 'Dubai at dusk', titleAr: 'دبي عند الغروب', cover: require('../../assets/dubai-marina-dusk.jpg'), photo: require('../../assets/dubai-destination.jpg') },
+  { id: 'istanbul', ...featuredCities.istanbul, place: 'Ortaköy', placeAr: 'أورتاكوي', title: 'On the Bosphorus', titleAr: 'على ضفاف البوسفور', cover: require('../../assets/istanbul-destination.jpg'), photo: require('../../assets/istanbul-destination.jpg') },
+  { id: 'paris', ...featuredCities.paris, place: 'Eiffel Tower', placeAr: 'برج إيفل', title: 'A day in Paris', titleAr: 'يوم في باريس', cover: require('../../assets/paris-destination.jpg'), photo: require('../../assets/paris-destination.jpg') },
 ] as const;
-export type DestinationId = typeof destinations[number]['id'];
 type ChooseDestination = (id: DestinationId, name: string) => void;
-
-// The suggestion endpoint searches the English supplier index and localizes its response.
-export function destinationLookupName(value: string) {
-  return destinations.find(city => value.trim() === city.ar)?.en ?? value.trim();
-}
 
 export function DiscoveryHero({ cityId, preview, choose }: { cityId: DestinationId; preview: (id: DestinationId) => void; choose: ChooseDestination }) {
   const { rtl } = useLanguage();
@@ -31,30 +26,30 @@ export function DiscoveryHero({ cityId, preview, choose }: { cityId: Destination
   return <View testID="search-hero" style={styles.hero}>
     <Image key={city.id} source={city.cover} accessible={false} resizeMode="cover" style={styles.heroPhoto}/>
     <Image source={require('../../assets/destination-shade.png')} accessible={false} resizeMode="stretch" style={styles.heroPhoto}/>
-    <View style={[styles.heroContent, {minHeight: width >= 640 ? 330 : width < 370 ? 230 : 254}]}>
-      <Row style={{justifyContent:'space-between', alignItems:'flex-start'}}>
+    <View style={[styles.heroContent, {minHeight: width >= 640 ? 295 : width < 370 ? 196 : 216}]}>
+      <Row style={{justifyContent:'space-between', flexWrap:'wrap'}}>
         <Row style={styles.place}><Icon name="pin" size={14} color={colors.surface}/>
           <Txt kind="label" style={styles.location}>{rtl ? city.placeAr : city.place}</Txt></Row>
         <Pressable accessibilityRole="button" testID="discovery-next-city"
           accessibilityLabel={rtl ? 'اعرض وجهة ' + next.ar : 'Show ' + next.en}
           onPress={() => preview(next.id)} style={({pressed}) => [styles.nextCity, { opacity: pressed ? .75 : 1 }]}>
-          <Row style={{gap:7}}>
-            <Row style={{gap:3}}>{destinations.map(item => <View key={item.id} style={[styles.dot, item.id === city.id && styles.activeDot]}/>)}</Row>
+          <Row style={{gap:5}}>
+            <Txt kind="label" style={styles.location}>{rtl ? 'التالية' : 'Next'}</Txt>
             <Icon name="chevron" size={14} color={colors.surface}/>
           </Row>
         </Pressable>
       </Row>
-      <View style={{ gap: 3 }}>
-        <Txt kind="title" accessibilityRole="header" style={[styles.heroTitle, fontScale > 1.35 && {fontSize:30,lineHeight:42}]}>
-          {rtl ? city.titleAr : city.title}
-        </Txt>
-        <Row><Pressable accessibilityRole="button" testID="discovery-search-city"
+      <Pressable accessibilityRole="button" testID="discovery-search-city"
           accessibilityLabel={rtl ? 'ابحث عن إقامات في ' + name : 'Search stays in ' + name}
           onPress={() => choose(city.id, name)} style={({pressed}) => [styles.cityControl, {opacity:pressed ? .75 : 1}]}>
-          <Row style={{gap:10}}><Txt kind="label" style={styles.heroLink}>{rtl ? 'اكتشف فنادق ' + name : 'Explore hotels in ' + name}</Txt>
-            <Icon name="chevron" size={14} color={colors.pistachio}/></Row>
-        </Pressable></Row>
-      </View>
+        <Row style={{gap:12}}>
+          <View style={{flex:1}}>
+            <Txt kind="title" style={[styles.heroTitle, fontScale > 1.35 && {fontSize:28,lineHeight:38}]}>{rtl ? city.titleAr : city.title}</Txt>
+            <Txt kind="label" style={styles.heroLink}>{rtl ? 'اكتشف فنادق ' + name : 'Explore hotels in ' + name}</Txt>
+          </View>
+          <View style={styles.heroArrow}><Icon name="chevron" size={19} color={colors.primary}/></View>
+        </Row>
+      </Pressable>
     </View>
   </View>;
 }
@@ -62,30 +57,21 @@ export function DiscoveryHero({ cityId, preview, choose }: { cityId: Destination
 export function DestinationPicks({ choose }: { choose: ChooseDestination }) {
   const { rtl } = useLanguage();
   const {width, fontScale} = useWindowDimensions();
-  const wide = width >= 600;
-  const tile = (city: typeof destinations[number], featured = false) => {
+  const stacked = fontScale > 1.45 || width < 335;
+  const tile = (city: typeof destinations[number]) => {
     const name = rtl ? city.ar : city.en;
     return <Pressable key={city.id} testID={'destination-' + city.id} accessibilityRole="button"
       accessibilityLabel={rtl ? 'ابحث عن فنادق في ' + name : 'Find hotels in ' + name}
-      onPress={() => choose(city.id, name)} style={({pressed}) => [styles.pick, {
-        minHeight: wide ? 175 : featured ? 204 : 96, opacity: pressed ? .82 : 1,
-      }]}>
-      <Image accessible={false} source={city.photo} resizeMode="cover" style={styles.heroPhoto}/>
-      <Image accessible={false} source={require('../../assets/destination-shade.png')} resizeMode="stretch" style={styles.heroPhoto}/>
-      <View style={styles.pickLabel}>
-        <Txt kind="label" style={[styles.tileTitle, featured && {fontSize:25,lineHeight:34}]}>{name}</Txt>
-        <Txt kind="small" style={styles.tileCountry}>{rtl ? city.countryAr : city.country}</Txt>
+      onPress={() => choose(city.id, name)} style={({pressed}) => [styles.pick, {opacity: pressed ? .8 : 1}]}>
+      <View style={[styles.pickPhoto, {aspectRatio:stacked ? 3.2 : width >= 600 ? 1.55 : 0.95}]}>
+        <Image accessible={false} source={city.photo} resizeMode="cover" style={styles.heroPhoto}/>
       </View>
+      <Txt kind="label" style={styles.tileTitle}>{name}</Txt>
     </Pressable>;
   };
   return <View style={{ gap: 11 }}>
     <Txt kind="heading" accessibilityRole="header" style={styles.sectionTitle}>{rtl ? 'استكشف الوجهات' : 'Explore destinations'}</Txt>
-    {wide || fontScale > 1.45
-      ? <Row style={{gap:9, alignItems:'stretch', ...(wide ? {} : {flexDirection:'column'})}}>{destinations.map(city => tile(city))}</Row>
-      : <Row style={{gap:9, alignItems:'stretch'}}>
-          {tile(destinations[1], true)}
-          <View style={{flex:.9, gap:9}}>{tile(destinations[2])}{tile(destinations[0])}</View>
-        </Row>}
+    <Row style={{gap:9, alignItems:'stretch', ...(stacked ? {flexDirection:'column'} : {})}}>{destinations.map(tile)}</Row>
   </View>;
 }
 
@@ -111,20 +97,18 @@ export default function DiscoveryShelves() {
 }
 
 const styles = StyleSheet.create({
-  hero: { backgroundColor: colors.navy, overflow: 'hidden' },
+  hero: { backgroundColor: colors.navy, overflow: 'hidden', borderRadius:22 },
   heroPhoto: { position: 'absolute', width: '100%', height: '100%' },
-  heroContent: { justifyContent:'space-between', paddingHorizontal:20, paddingTop:12, paddingBottom:27 },
-  heroTitle: { color:colors.surface, fontSize:39, lineHeight:52 },
+  heroContent: { justifyContent:'space-between', padding:14, paddingBottom:24, gap:18 },
+  heroTitle: { color:colors.surface, fontSize:33, lineHeight:45 },
   place: { gap:5, paddingHorizontal:10, minHeight:31, borderRadius:16, backgroundColor:'rgba(32,22,38,0.79)' },
-  location: { color:colors.surface, fontSize:12, lineHeight:19 },
-  nextCity: { minHeight:44, minWidth:62, alignItems:'center', justifyContent:'center', borderRadius:24, backgroundColor:'rgba(32,22,38,0.79)' },
-  dot: { width:4, height:4, borderRadius:4, backgroundColor:colors.lilac },
-  activeDot: { width:13, backgroundColor:colors.surface },
+  location: { color:colors.surface, fontSize:13, lineHeight:20 },
+  nextCity: { minHeight:44, paddingHorizontal:12, alignItems:'center', justifyContent:'center', borderRadius:24, backgroundColor:'rgba(32,22,38,0.79)' },
   cityControl: { minHeight:44, justifyContent:'center' },
+  heroArrow: {width:36, height:36, borderRadius:18, backgroundColor:colors.pistachio, alignItems:'center', justifyContent:'center'},
   heroLink: {color:colors.pistachio, fontSize:15, lineHeight:22},
   sectionTitle: {fontSize:23, lineHeight:32},
-  pick: { flex:1, borderRadius:18, overflow:'hidden', justifyContent:'flex-end', backgroundColor:colors.primary },
-  pickLabel: { paddingHorizontal:12, paddingVertical:9 },
-  tileTitle: {color:colors.surface, fontSize:18, lineHeight:24},
-  tileCountry: {color:colors.surface, fontSize:13, lineHeight:19},
+  pick: { flex:1, gap:4 },
+  pickPhoto: { width:'100%', borderRadius:15, overflow:'hidden', backgroundColor:colors.pistachioMist },
+  tileTitle: { color:colors.primary, fontSize:16, lineHeight:24, paddingHorizontal:3 },
 });

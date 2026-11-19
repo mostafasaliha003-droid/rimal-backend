@@ -1,7 +1,7 @@
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { emptyResultFilters, copyResultFilters, compareDecimalAmounts, parseStayBudget, decideResults,
-  priceInCurrency, activeResultFilters, stayNights, resultContextKey, beginResultRefresh } = require('./resultsDecisionModel.ts');
+  priceInCurrency, activeResultFilters, stayNights, resultContextKey, beginResultRefresh, suggestedStayBudgets } = require('./resultsDecisionModel.ts');
 const hotel = (hid, amount, stars = 4, name = `Hotel ${hid}`, currency = 'USD') => ({ hid, id: String(hid), name, stars, offers: [],
   price: amount === null ? null : { amount, currency } });
 
@@ -56,4 +56,12 @@ test('stay context uses real dates and handles month/year boundaries without inv
   assert.equal(stayNights({ checkin: '2027-02-16', checkout: '2027-02-18' }), 2);
   assert.equal(stayNights({ checkin: '2026-12-31', checkout: '2027-01-02' }), 2);
   for (const dates of [null, { checkin: '2027-02-30', checkout: '2027-03-02' }, { checkin: '2027-02-18', checkout: '2027-02-16' }]) assert.equal(stayNights(dates), null);
+});
+test('budget shortcuts match returned prices, current name and stars, and the full-stay currency', () => {
+  const hotels = [hotel(1, '10.00', 4, 'Café'), hotel(2, '10', 4, 'Cafe'), hotel(3, '30.125', 4, 'Cafe'), hotel(4, '100', 4, 'Cafe'),
+    hotel(5, '2', 3, 'Cafe'), hotel(6, '3', 4, 'Elsewhere'), hotel(7, '4', 4, 'Cafe', 'AED'), hotel(8, null, 4, 'Cafe')];
+  assert.deepEqual(suggestedStayBudgets(hotels, 'cafe', [4], 'USD'), ['10', '30.125']);
+  assert.deepEqual(suggestedStayBudgets(hotels, '', [], 'EUR'), []);
+  assert.deepEqual(suggestedStayBudgets([hotel(1, '0'), hotel(2, '1.0000001'), hotel(3, '1000000000000')], '', [], 'USD'), []);
+  assert.deepEqual(suggestedStayBudgets([hotel(1, '10'), hotel(2, '10.0')], '', [], 'USD'), []);
 });

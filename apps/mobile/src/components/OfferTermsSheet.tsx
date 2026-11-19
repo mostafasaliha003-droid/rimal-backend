@@ -7,7 +7,7 @@ import type { RoomOffer } from '../types';
 import Cancellation from './Cancellation';
 import HotelGallery from './HotelGallery';
 import { Button, Icon, Row, Txt } from './Primitives';
-import { rateCopy, roomRateFacts } from './roomRateFacts';
+import { mealPlanTitle, rateCopy, roomRateFacts } from './roomRateFacts';
 import Taxes from './Taxes';
 
 interface OfferTermsProps { offer: RoomOffer; visible: boolean; onClose: () => void; now: number; roomName: string }
@@ -31,7 +31,8 @@ function TermsContent({ offer, now, roomName, onClose }: OfferTermsProps) {
       <View accessibilityViewIsModal testID="offer-terms-sheet" style={[styles.sheet, { maxHeight: Math.max(160, height * .92) }]}>
         <Row style={styles.header}>
           <View style={{ flex: 1, minWidth: 0 }}>
-            <Txt kind="heading" accessibilityRole="header">{rtl ? 'شروط العرض' : 'Rate terms'}</Txt>
+            <Txt kind="small">{rtl ? 'شروط العرض' : 'Rate terms'}</Txt>
+            <Txt kind="heading" accessibilityRole="header">{mealPlanTitle(offer.meal, language)}</Txt>
             <Txt kind="small" numberOfLines={2}>{offer.name || roomName}</Txt>
           </View>
           <Pressable testID="offer-terms-close" accessibilityRole="button" accessibilityLabel={closeLabel}

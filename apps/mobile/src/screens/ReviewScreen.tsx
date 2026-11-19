@@ -102,6 +102,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
             <View style={{ flex: 1, gap: 3 }}>
               <Txt accessibilityRole="header" kind="heading">{draft.hotelName}</Txt>
               <Txt style={{ fontFamily: fonts.medium }}>{offer.name}</Txt>
+              <MealBadge offer={offer}/>
             </View>
           </Row>
           <Row style={reviewStyles.itinerary}>
@@ -110,7 +111,6 @@ function ReviewContents({ session }: { session: ReviewSession }) {
             <View style={reviewStyles.date}><Txt kind="small">{t('checkout')}</Txt><Txt kind="label">{dateLabel(draft.criteria.checkout)}</Txt></View>
           </Row>
           <Txt kind="small">{staySummary}</Txt>
-          <MealBadge offer={offer}/>
           {(offer.bedding || draft.offer.bedding) && <Row style={{ gap: 8 }}><Icon name="bed" size={18}/><Txt testID="review-bedding" kind="small" style={{ flex: 1 }}>{rateLabels.bedding} · {offer.bedding || rateLabels.unknown}</Txt></Row>}
           <Row style={{ gap: 8 }}><Icon name="info" size={18}/><Txt testID="review-payment-channel" kind="small" style={{ flex: 1 }}>{rateLabels.payment} · {roomPaymentLabel(offer, language)}</Txt></Row>
           <Pressable accessibilityRole="button" accessibilityState={{ expanded: detailsOpen }} aria-expanded={detailsOpen}

@@ -3,6 +3,35 @@ import { addDays, todayDate, validDate } from './calendarModel';
 
 export type QuickStay = 'tonight' | 'tomorrow' | 'nextWeek';
 
+export const featuredCities = {
+  dubai: { en: 'Dubai', ar: 'دبي', countries: ['AE', 'UAE', 'United Arab Emirates', 'الإمارات العربية المتحدة', 'الإمارات'] },
+  istanbul: { en: 'Istanbul', ar: 'إسطنبول', countries: ['TR', 'Türkiye', 'Turkey', 'تركيا'] },
+  paris: { en: 'Paris', ar: 'باريس', countries: ['FR', 'France', 'فرنسا'] },
+} as const;
+export type DestinationId = keyof typeof featuredCities;
+
+function lookupText(value: string) {
+  return value.trim().normalize('NFD').replace(/\p{M}/gu, '').toLowerCase();
+}
+
+export function destinationLookupName(value: string) {
+  return Object.values(featuredCities).find(city => lookupText(value) === lookupText(city.ar))?.en ?? value.trim();
+}
+
+// Curated photographs select a city. Only a matching city/country pair from the
+// supplier can resolve the shortcut directly; ambiguous results remain selectable.
+export function resolveFeaturedCity(id: DestinationId, suggestions: Suggestion[]) {
+  const city = featuredCities[id];
+  const names = [lookupText(city.ar), lookupText(city.en)];
+  const matches = suggestions.filter(item => item.type === 'region' && !!item.regionId && names.includes(lookupText(item.name)));
+  const candidates = matches.filter(item => {
+    if (item.subtitle) return city.countries.some(country => lookupText(country) === lookupText(item.subtitle!));
+    // This city has been verified in the supplier index, which can omit its country label.
+    return id === 'dubai' && item.regionId === 6053839;
+  });
+  return candidates.length === 1 ? candidates[0] : null;
+}
+
 export function displayTravelDate(value: string, language: string) {
   if (!validDate(value)) return value;
   const locale = language === 'ar' ? 'ar-u-nu-arab' : 'en-GB';
