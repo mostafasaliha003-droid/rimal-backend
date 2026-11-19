@@ -18,11 +18,33 @@ function load(filename) {
   new Function('require', 'module', 'exports', output)(localRequire, module, module.exports);
   return module.exports;
 }
-const { presentCancellation, parseCancellationTimestamp, cancellationMoneyText } = load('./cancellationPresentationModel.ts');
+const { presentCancellation, parseCancellationTimestamp, cancellationMoneyText, futureCancellationBoundaries } = load('./cancellationPresentationModel.ts');
 const before = '2027-02-15T12:00:00.123Z', boundary = '2027-02-16T12:00:00.123Z', later = '2027-02-18T12:00:00.123Z';
 const now = Date.parse(before), at = Date.parse(boundary);
 const period = (startAt, endAt, amount = '0.00', currency = 'USD') => ({ startAt, endAt, amount, currency });
 const source = (policies, freeUntil = null, patch = {}) => ({ freeUntil, policies, ...patch });
+
+test('explorer offers chronological future supplier boundaries, including uncovered times and exact touching cutoffs', () => {
+  const end=Date.parse(later);
+  const supplied=source([period(boundary,later,'4.5000','KWD'), period(null,boundary,'0','KWD')]);
+  const live=presentCancellation(supplied,now);
+  assert.deepEqual(futureCancellationBoundaries(live,now),[at,end]);
+  assert.equal(presentCancellation(supplied,at).fee.amount,'4.5000');
+  assert.equal(presentCancellation(supplied,end).reason,'gap');
+  assert.equal(live.kind,'free');
+  assert.deepEqual(futureCancellationBoundaries(presentCancellation(supplied,at),at),[end]);
+  assert.deepEqual(futureCancellationBoundaries(presentCancellation(supplied,end),end),[]);
+  const futureOnly=source([period(boundary,null,'1')]);
+  assert.deepEqual(futureCancellationBoundaries(presentCancellation(futureOnly,now),now),[at]);
+});
+
+test('explorer never offers speculative times for ambiguous, advisory or unlimited schedules', () => {
+  for(const supplied of [source([],boundary),source([period(null,null,'1')]),source([period(null,boundary),period(null,later)]),
+    source([period(null,boundary),period(boundary,null,'8','JPY')]),source([period(null,'bad')])]) {
+    assert.deepEqual(futureCancellationBoundaries(presentCancellation(supplied,now),now),[]);
+  }
+  assert.deepEqual(futureCancellationBoundaries(presentCancellation(source([]),NaN),NaN),[]);
+});
 
 test('timestamps are exact UTC instants with strict calendar, clock, offset and millisecond precision validation', () => {
   const expected = Date.UTC(2027, 1, 16, 12, 0, 0, 123);

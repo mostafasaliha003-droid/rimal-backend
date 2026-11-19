@@ -10,7 +10,7 @@ export interface RoomChoiceGroup {
   key: string; identity: string | null; name: string; entries: RoomChoiceEntry[]; totalCount: number; freeNowCount: number; fromPrice: Money | null;
   lowestReviewable: RoomChoiceEntry | null;
 }
-export interface RoomChoiceOptions { currency: string; query?: string; meal?: MealFacet; sort?: RoomChoiceSort; freeOnly?: boolean; now?: number }
+export interface RoomChoiceOptions { currency: string; query?: string; meal?: MealFacet; roomKey?: string; sort?: RoomChoiceSort; freeOnly?: boolean; now?: number }
 
 const mealValue = (offer: RoomOffer) => typeof offer.meal === 'string' && offer.meal.trim() ? offer.meal : null;
 const identityValue = (offer: RoomOffer) => typeof offer.roomIdentity === 'string' && offer.roomIdentity.trim() ? offer.roomIdentity : null;
@@ -53,7 +53,7 @@ export function roomMealFacets(offers: readonly RoomOffer[]): { values: string[]
 // This is a display model, not a supplier-rate normalizer. Entries retain the
 // original object and occurrence, including duplicate hashes and rate variants.
 export function buildRoomChoices(offers: readonly RoomOffer[], {
-  currency, query = '', meal = { kind: 'all' }, sort = 'original', freeOnly = false, now = Date.now(),
+  currency, query = '', meal = { kind: 'all' }, roomKey, sort = 'original', freeOnly = false, now = Date.now(),
 }: RoomChoiceOptions) {
   const entries = offers.map((offer, index) => ({ offer, index, key: JSON.stringify([offer.id, offer.bookHash, index]) }));
   const groupKey = (entry: RoomChoiceEntry) => {
@@ -69,7 +69,9 @@ export function buildRoomChoices(offers: readonly RoomOffer[], {
     .map(entry => ({ ...entry, freeNow: presentCancellation(entry.offer.cancellation, now).kind === 'free' }))
     .filter(entry => !freeOnly || entry.freeNow);
   const mealPlans = new Map<string | null, MealPlanOption>();
-  for (const { offer } of options) {
+  for (const entry of options) {
+    if (roomKey && roomKey !== groupKey(entry)) continue;
+    const { offer } = entry;
     const value = mealValue(offer);
     let plan = mealPlans.get(value);
     if (!plan) { plan = { value, count: 0, fromPrice: null }; mealPlans.set(value, plan); }
@@ -103,8 +105,12 @@ export function buildRoomChoices(offers: readonly RoomOffer[], {
   }
   // Insertion follows sorted entries: each group's first comparable offer is
   // its lowest matching price. Other-currency and unknown prices stay last.
-  return { groups: [...grouped.values()], matchingOffers: matching.length, totalOffers: offers.length,
-    totalGroups: totals.size, fromPrice, meals: roomMealFacets(offers), mealOptions: [...mealPlans.values()] };
+  const roomTypes = [...grouped.values()];
+  const chosen = roomKey ? grouped.get(roomKey) : undefined;
+  const groups = roomKey ? (chosen ? [chosen] : []) : roomTypes;
+  return { roomTypes, groups, matchingOffers: roomKey ? chosen?.entries.length ?? 0 : matching.length,
+    totalOffers: offers.length, totalGroups: totals.size, fromPrice: roomKey ? chosen?.fromPrice ?? null : fromPrice,
+    meals: roomMealFacets(offers), mealOptions: [...mealPlans.values()] };
 }
 
 export function roomHotelId(parameter: unknown): number | null {

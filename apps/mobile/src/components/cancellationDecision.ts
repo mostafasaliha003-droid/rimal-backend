@@ -23,14 +23,17 @@ export function policyTime(raw: string | null, language: string, clock: 'utc' | 
   } catch { return date.toISOString(); }
 }
 
+export function isFullStayCharge(fee: Readonly<Money> | null, roomTotal?: Money | null) {
+  return Boolean(fee && roomTotal && fee.currency === roomTotal.currency
+    && canonicalDecimal(fee.amount) === canonicalDecimal(roomTotal.amount) && canonicalDecimal(fee.amount) !== '0');
+}
+
 /** Describe only the current interval and the next contiguous change in a verified supplier schedule. */
 export function cancellationDecision(model: CancellationPresentation, language: string, roomTotal?: Money | null) {
   const arabic = language === 'ar';
   const describeFee = (fee: Readonly<Money> | null) => {
     const text = cancellationMoneyText(fee);
-    const isWholeStay = fee && roomTotal && fee.currency === roomTotal.currency
-      && canonicalDecimal(fee.amount) === canonicalDecimal(roomTotal.amount) && canonicalDecimal(fee.amount) !== '0';
-    return text && isWholeStay ? text + (arabic ? ' (كامل سعر الإقامة)' : ' (the full stay price)') : text;
+    return text && isFullStayCharge(fee, roomTotal) ? text + (arabic ? ' (كامل سعر الإقامة)' : ' (the full stay price)') : text;
   };
   const amount = describeFee(model.fee);
   const headline = model.kind === 'free' ? (arabic ? 'الإلغاء مجاني الآن' : 'Free to cancel now')

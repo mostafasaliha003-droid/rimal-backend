@@ -9,6 +9,7 @@ import { cancellationCopy } from './cancellationCopy';
 import { useCancellationClock } from './useCancellationClock';
 import { cancellationDecision, policyTime } from './cancellationDecision';
 import { CancellationSummary } from './RateHighlights';
+import CancellationExplorer from './CancellationExplorer';
 
 // Kept as a named export for account-deletion receipts as well as policy times.
 export function utcTimestamp(value: string | null | undefined, language = 'en'): string | null {
@@ -26,8 +27,8 @@ export function utcTimestamp(value: string | null | undefined, language = 'en'):
   }
 }
 
-export default function Cancellation({ offer, now, mode = 'current', defaultExpanded = false }: {
-  offer: RoomOffer; now?: number; mode?: 'current' | 'historical'; defaultExpanded?: boolean;
+export default function Cancellation({ offer, now, mode = 'current', defaultExpanded = false, explore = false }: {
+  offer: RoomOffer; now?: number; mode?: 'current' | 'historical'; defaultExpanded?: boolean; explore?: boolean;
 }) {
   const { language } = useLanguage();
   const copy = cancellationCopy(language);
@@ -41,8 +42,10 @@ export default function Cancellation({ offer, now, mode = 'current', defaultExpa
 
   return (
     <View style={{ gap: 10 }}>
-      <Txt kind="heading" accessibilityRole="header" style={styles.heading}>{historical ? copy.historical : copy.title}</Txt>
-      {historical ? <Txt kind="small">{copy.historicalNote}</Txt> : <View accessibilityLiveRegion="polite" style={{ gap: 5 }}>
+      {!explore && <Txt kind="heading" accessibilityRole="header" style={styles.heading}>{historical ? copy.historical : copy.title}</Txt>}
+      {historical ? <Txt kind="small">{copy.historicalNote}</Txt> : explore
+        ? <CancellationExplorer offer={offer} live={model} now={now ?? clock}/>
+        : <View accessibilityLiveRegion="polite" style={{ gap: 5 }}>
         <CancellationSummary decision={cancellationDecision(model, language, offer.price)}/>
         {model.kind === 'unknown' && model.reason && <Txt kind="small">{copy.reasons[model.reason]}</Txt>}
       </View>}
@@ -61,7 +64,7 @@ export default function Cancellation({ offer, now, mode = 'current', defaultExpa
           </Pressable>
           {expanded && <Row style={styles.zoneGroup}>
             {(['utc', 'device'] as const).map(zone => <Pressable key={zone} testID={'cancellation-zone-' + zone}
-              accessibilityRole="button" accessibilityState={{ selected: clockZone === zone }} onPress={() => setClockZone(zone)}
+              accessibilityRole="button" accessibilityState={{ selected: clockZone === zone }} aria-pressed={clockZone === zone} onPress={() => setClockZone(zone)}
               style={[styles.zone, clockZone === zone && styles.selectedZone]}><Txt kind="label" style={[styles.zoneText, clockZone === zone && { color: colors.surface }]}>
               {zone === 'utc' ? (language === 'ar' ? 'توقيت المورّد (UTC)' : 'Supplier time (UTC)') : (language === 'ar' ? 'توقيت جهازي' : 'My local time')}
             </Txt></Pressable>)}

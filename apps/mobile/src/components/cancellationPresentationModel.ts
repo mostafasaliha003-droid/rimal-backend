@@ -41,6 +41,18 @@ export function cancellationMoneyText(value: Money | null): string | null {
   return value && amount(value.amount) && currency(value.currency) ? `${value.currency} ${value.amount}` : null;
 }
 
+/** Start and end boundaries are both selectable: an end can lead into an unpriced gap. */
+export function futureCancellationBoundaries(model: CancellationPresentation, now: number): number[] {
+  if (!Number.isFinite(now) || (model.reason && model.reason !== 'gap')) return [];
+  const times = new Set<number>();
+  for (const period of model.periods) {
+    for (const time of [period.startTime, period.endTime]) {
+      if (time !== null && time > now) times.add(time);
+    }
+  }
+  return Array.from(times).sort((a,b) => a - b);
+}
+
 function periodView(source: CancellationInterval, index: number, now: number): Readonly<CancellationPeriodView> {
   const startAt = typeof source?.startAt === 'string' ? source.startAt : null;
   const endAt = typeof source?.endAt === 'string' ? source.endAt : null;

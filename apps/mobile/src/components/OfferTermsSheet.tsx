@@ -50,29 +50,24 @@ function TermsContent({ offer, now, roomName, onClose }: OfferTermsProps) {
                 <Txt testID="offer-terms-property-fees" kind="label" style={styles.propertyAmount}>{facts.fees}</Txt>
               </View>
             </Row>
-          </View>
-          <View style={styles.inclusions}>
-            <Row style={styles.fact}><Icon name="meal" size={18} color={colors.goldInk}/><View style={styles.factText}>
-              <Txt kind="small">{copy.meal}</Txt><Txt kind="label">{facts.meal}</Txt>
-            </View></Row>
-            <View style={styles.rule}/>
-            <Row style={styles.fact}><Icon name="info" size={18} color={colors.violetInk}/><View style={styles.factText}>
-              <Txt kind="small">{copy.payment}</Txt><Txt kind="label">{facts.payment}</Txt>
-            </View></Row>
-            {offer.bedding && <><View style={styles.rule}/><Row style={styles.fact}>
-              <Icon name="bed" size={18}/><View style={styles.factText}><Txt kind="small">{copy.bedding}</Txt><Txt kind="label">{offer.bedding}</Txt></View>
-            </Row></>}
+            <View style={styles.priceRule}/>
+            <Row style={styles.meal}><Icon name="meal" size={15} color={colors.pistachio}/><Txt kind="label" style={styles.included}>{facts.meal}</Txt></Row>
+            {offer.bedding && <Row style={styles.meal}><Icon name="bed" size={15} color={colors.pistachio}/><Txt kind="small" style={styles.included}>{offer.bedding}</Txt></Row>}
           </View>
           <Row style={styles.sections}>
             {(['cancellation','fees'] as const).map(key => <Pressable key={key} testID={'offer-terms-' + key}
-              accessibilityRole="button" accessibilityState={{ selected: section === key }} onPress={() => setSection(key)}
+              accessibilityRole="button" accessibilityState={{ selected: section === key }} aria-pressed={section === key} onPress={() => setSection(key)}
               style={[styles.section, section === key && styles.selected]}>
               <Txt kind="label" style={[styles.tabLabel, section === key && { color: colors.surface }]}>
-                {key === 'cancellation' ? copy.cancellation : rtl ? 'الضرائب والرسوم' : 'Taxes & fees'}</Txt>
+                {key === 'cancellation' ? copy.cancellation : rtl ? 'الدفع والرسوم' : 'Payment & fees'}</Txt>
             </Pressable>)}
           </Row>
-          {section === 'cancellation' ? <Cancellation offer={offer} now={now} defaultExpanded/>
-            : <Taxes taxes={offer.taxes} defaultExpanded/>}
+          {section === 'cancellation' ? <Cancellation offer={offer} now={now} explore/>
+            : <View style={{ gap: 12 }}>
+              <Row style={styles.payment}><Icon name="info" size={17} color={colors.violetInk}/>
+                <Txt kind="small">{copy.payment}</Txt><Txt kind="label" style={styles.factText}>{facts.payment}</Txt></Row>
+              <Taxes taxes={offer.taxes} defaultExpanded/>
+            </View>}
           {offer.images.length > 0 && <View style={{ gap: 8 }}>
             <Pressable testID="offer-terms-photos" accessibilityRole="button" accessibilityState={{ expanded: photosOpen }}
               aria-expanded={photosOpen} onPress={() => setPhotosOpen(value => !value)} style={styles.photoButton}>
@@ -100,9 +95,10 @@ const styles = StyleSheet.create({
   amount: { color: colors.surface, fontSize: 22, lineHeight: 30 },
   propertyAmount: { color: colors.surface, fontSize: 16, lineHeight: 24 },
   divider: { backgroundColor: colors.grape },
-  inclusions: { borderRadius: 16, borderWidth: 1, borderColor: colors.border, paddingHorizontal: 12 },
-  fact: { minHeight: 44, gap: 10, paddingVertical: 5 }, factText: { flex: 1, minWidth: 0 },
-  rule: { height: 1, backgroundColor: colors.border },
+  priceRule: { height: 1, marginTop: 10, marginBottom: 3, backgroundColor: colors.grape },
+  meal: { gap: 7, paddingTop: 3 }, included: { color: colors.surface, flex: 1 },
+  factText: { flex: 1, minWidth: 0 },
+  payment: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: colors.lavenderMist },
   sections: { padding: 3, gap: 4, borderRadius: 15, backgroundColor: colors.background },
   section: { flex: 1, minWidth: 0, minHeight: 46, borderRadius: 12, alignItems: 'center', justifyContent: 'center', padding: 4 },
   selected: { backgroundColor: colors.primary }, tabLabel: { textAlign: 'center' },

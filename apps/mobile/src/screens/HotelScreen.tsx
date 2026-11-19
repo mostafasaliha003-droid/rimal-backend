@@ -13,14 +13,13 @@ import ApiState from '../components/ApiState';
 import { Button, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
 import HotelGallery from '../components/HotelGallery';
 import HotelAbout from '../components/HotelAbout';
-import OfferTermsSheet from '../components/OfferTermsSheet';
 import RoomOfferPicker from '../components/RoomOfferPicker';
 import { useCancellationClock } from '../components/useCancellationClock';
-import { buildRoomChoices, canReviewRoomOffer, roomHotelId, type MealFacet, type RoomChoiceEntry, type RoomChoiceGroup, type RoomChoiceSort } from '../components/roomChoiceModel';
-import { CancellationSummary, MealBadge } from '../components/RateHighlights';
+import { buildRoomChoices, roomHotelId, type MealFacet, type RoomChoiceEntry, type RoomChoiceGroup, type RoomChoiceSort } from '../components/roomChoiceModel';
 import MealPlanPicker from '../components/MealPlanPicker';
 import RoomComparison from '../components/RoomComparison';
-import { rateCopy, roomRateFacts } from '../components/roomRateFacts';
+import RoomTypePicker, { type RoomTypeSelection } from '../components/RoomTypePicker';
+import { rateCopy } from '../components/roomRateFacts';
 import { roomChoiceCopy } from '../components/roomChoiceCopy';
 import { displayTravelDate } from '../components/searchJourneyModel';
 
@@ -58,77 +57,13 @@ function FreeCancellationFilter({ checked, onChange }: { checked: boolean; onCha
   </Pressable>;
 }
 
-function RateReviewError({ onRefresh }: { onRefresh: () => void }) {
-  const { t } = useLanguage();
-  return <View style={{ gap: 10 }}>
-    <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t('reviewExpiredBody')}</Txt>
-    <Button variant="secondary" title={t('retry')} onPress={onRefresh}/>
-  </View>;
-}
-
-function RateOption({ entry, groupName, requestedCurrency, now, checked, comparisonFull, showCompare, onToggle, onReview, reviewError, onRefresh, onEditSearch }: {
-  entry: RoomChoiceEntry; groupName: string; requestedCurrency: string; now: number; checked: boolean; comparisonFull: boolean; showCompare: boolean;
-  onToggle: (entry: RoomChoiceEntry) => void; onReview: (entry: RoomChoiceEntry) => void; reviewError: string;
-  onRefresh: () => void; onEditSearch: () => void;
-}) {
-  const { language, t } = useLanguage();
-  const copy = rateCopy(language), roomCopy = roomChoiceCopy(language), offer = entry.offer, number = entry.index + 1;
-  const facts = roomRateFacts(offer, language, now);
-  const [details, setDetails] = useState(false);
-  const reviewable = canReviewRoomOffer(offer, requestedCurrency);
-  const canCompare = checked || !comparisonFull;
-  const mismatch = Boolean(offer.price && offer.price.currency !== requestedCurrency);
-  const reviewLabel = `${roomCopy.reviewRate(number)} · ${offer.name}`;
-  return <View style={styles.ratePlan}>
-    {offer.name !== groupName && <Txt kind="label">{offer.name}</Txt>}
-    <Row style={{ gap: 7, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-      <View style={{ maxWidth: '100%', flexShrink: 1 }}><MealBadge offer={offer}/></View>
-      {showCompare && <Pressable testID={`compare-rate-${number}`} accessibilityRole="checkbox" accessibilityLabel={`${copy.compare} · ${reviewLabel}`}
-        accessibilityState={{ checked, disabled: !canCompare }} disabled={!canCompare} onPress={() => onToggle(entry)}
-        style={[styles.compareControl, checked && { backgroundColor: colors.softBlue }, !canCompare && { opacity: .55 }]}>
-        <Row style={{ gap: 5 }}><Icon name={checked ? 'check' : 'compare'} size={16}/><Txt kind="label">{checked ? copy.selected : copy.compare}</Txt></Row>
-      </Pressable>}
-    </Row>
-    {offer.bedding && <Row style={{ gap: 7 }}><Icon name="bed" size={17} color={colors.muted}/>
-      <Txt kind="small" style={{ flex: 1 }}>{facts.bedding}</Txt></Row>}
-    <CancellationSummary decision={facts.decision}/>
-    <View style={styles.priceBox}>
-      <Row style={{ flexWrap: 'wrap', gap: 5, justifyContent: 'space-between', alignItems: 'baseline' }}>
-        <Txt kind="label">{copy.price}</Txt>
-        <Txt kind="heading" style={{ writingDirection: 'ltr', fontSize: 23, lineHeight: 31 }}>{facts.price}</Txt>
-      </Row>
-      <View style={ui.rule}/>
-      {(['fees', 'payment'] as const).map(key => <Row key={key} style={{ gap: 8, alignItems: 'flex-start' }}>
-        <Txt kind="small">{copy[key]}</Txt>
-        <Txt kind="small" style={{ flex: 1, color: colors.ink, fontFamily: fonts.medium, textAlign: language === 'ar' ? 'left' : 'right' }}>{facts[key]}</Txt>
-      </Row>)}
-    </View>
-    <Row style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
-      <View testID={`review-rate-${number}`} style={{ flexGrow: 1, flexBasis: 136 }}>
-        <Button compact title={copy.choose} label={reviewLabel} disabled={!reviewable} onPress={() => onReview(entry)}/>
-      </View>
-      <Pressable testID={`terms-rate-${number}`} accessibilityRole="button" accessibilityState={{ expanded: details }} aria-expanded={details}
-        accessibilityLabel={`${copy.terms} · ${reviewLabel}`} onPress={() => setDetails(true)} style={styles.termsControl}>
-        <Row style={{ justifyContent: 'center', gap: 5 }}><Txt kind="label" style={{ color: colors.violetInk, textAlign: 'center' }}>{copy.terms}</Txt>
-          <Icon name="chevron" size={14} color={colors.violetInk}/></Row>
-      </Pressable>
-    </Row>
-    {!reviewable && <View style={{ gap: 4 }}>
-      <Txt kind="small">{mismatch ? roomCopy.currencyMismatch(offer.price!.currency, requestedCurrency) : roomCopy.notReady}</Txt>
-      <Button variant="quiet" title={mismatch ? t('searchAgain') : t('retry')} onPress={mismatch ? onEditSearch : onRefresh}/>
-    </View>}
-    {reviewError === entry.key && <RateReviewError onRefresh={onRefresh}/>}
-    {details && <OfferTermsSheet offer={offer} roomName={offer.name} visible onClose={() => setDetails(false)} now={now}/>}
-  </View>;
-}
-
-function RoomGroup({ now, group, requestedCurrency, onReview, reviewError, onRefresh, onEditSearch, selected, onToggle, showCompare }: {
+function RoomGroup({ now, group, requestedCurrency, onReview, reviewError, onRefresh, onEditSearch, selected, onToggle, showCompare, chosenKey, choose }: {
   now: number; group: RoomChoiceGroup; requestedCurrency: string; onReview: (entry: RoomChoiceEntry) => void; reviewError: string;
   onRefresh: () => void; onEditSearch: () => void; selected: RoomChoiceEntry[]; onToggle: (entry: RoomChoiceEntry) => void; showCompare: boolean;
+  chosenKey: string | null; choose: (key: string) => void;
 }) {
   const { language, t } = useLanguage(); const short = rateCopy(language);
   const first = group.lowestReviewable || group.entries[0], multiple = group.entries.length > 1;
-  const [chosenKey, choose] = useState<string | null>(null);
   const active = group.entries.find(entry => entry.key === chosenKey) || first;
   const options = multiple ? [first, ...group.entries.filter(entry => entry.key !== first.key)] : group.entries;
   const parts = group.name.match(/^(.+?)\s+\(([^()]+)\)$/);
@@ -147,11 +82,9 @@ function RoomGroup({ now, group, requestedCurrency, onReview, reviewError, onRef
         </View>
       </Row>
     </View>
-    {multiple && <RoomOfferPicker entries={options} selected={active} onSelect={entry => choose(entry.key)} now={now}/>}
-    <View key={active.key} testID={active.key === group.lowestReviewable?.key && multiple ? 'lowest-reviewable-rate' : undefined}>
-      <RateOption entry={active} groupName={group.name} now={now} requestedCurrency={requestedCurrency} checked={selected.some(item => item.key === active.key)}
-        comparisonFull={selected.length === 2} showCompare={showCompare} onToggle={onToggle} onReview={onReview} reviewError={reviewError} onRefresh={onRefresh} onEditSearch={onEditSearch}/>
-    </View>
+    <RoomOfferPicker entries={options} selected={active} preferredKey={group.lowestReviewable?.key} groupName={group.name}
+      currency={requestedCurrency} now={now} comparison={selected} reviewError={reviewError} showCompare={showCompare}
+      onSelect={entry => choose(entry.key)} onToggle={onToggle} onReview={onReview} onRefresh={onRefresh} onEditSearch={onEditSearch}/>
   </View>;
 }
 
@@ -162,14 +95,23 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
   const router = useRouter(); const { width } = useWindowDimensions();
   const short = rateCopy(language);
   const [section, setSection] = useState<Section>('rooms');
+  const [guideEntry, setGuideEntry] = useState<{ section: 'arrival' | 'location'; visit: number }>({ section: 'arrival', visit: 0 });
   const scroller = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const tabTop = useRef(0);
   const position = useRef(0);
   const showSection = (next: Section) => {
     if (position.current > tabTop.current) scroller.current?.scrollTo({ y: tabTop.current, animated: false });
+    if (next === 'about' && section !== 'about') setGuideEntry(previous => ({ section: 'arrival', visit: previous.visit + 1 }));
     setSection(next);
   };
+  const showLocation = () => {
+    setGuideEntry(previous => ({ section: 'location', visit: previous.visit + 1 }));
+    setSection('about');
+    scroller.current?.scrollTo({ y: tabTop.current, animated: false });
+  };
   const [filtersOpen, setFiltersOpen] = useState(false);
+  const [roomType, setRoomType] = useState<RoomTypeSelection | null>(null);
+  const [chosenByRoom, setChosenByRoom] = useState<Record<string, string>>({});
   const [selected, setSelected] = useState<RoomChoiceEntry[]>([]);
   const [comparisonOpen, setComparisonOpen] = useState(false);
   const toggleComparison = (entry: RoomChoiceEntry) => setSelected(current => current.some(item => item.key === entry.key)
@@ -180,9 +122,9 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
   const [freeOnly, setFreeOnly] = useState(false);
   const cancellations = useMemo(() => hotel.offers.map(offer => offer.cancellation), [hotel.offers]);
   const now = useCancellationClock(cancellations);
-  const model = useMemo(() => buildRoomChoices(hotel.offers, { currency: criteria.currency, query, meal, sort, freeOnly, now }),
-    [hotel.offers, criteria.currency, query, meal, sort, freeOnly, now]);
-  const clear = () => { setQuery(''); setMeal({ kind: 'all' }); setFreeOnly(false); setSort('original'); };
+  const model = useMemo(() => buildRoomChoices(hotel.offers, { currency: criteria.currency, query, meal, roomKey: roomType?.key, sort, freeOnly, now }),
+    [hotel.offers, criteria.currency, query, meal, roomType, sort, freeOnly, now]);
+  const clear = () => { setRoomType(null); setQuery(''); setMeal({ kind: 'all' }); setFreeOnly(false); setSort('original'); };
   const review = (entry: RoomChoiceEntry) => {
     setReviewError('');
     if (authSession.getRevision() !== sessionRevision || authSession.getSnapshot().status !== authStatus) { setReviewError(entry.key); return; }
@@ -192,7 +134,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
       hotelImage: hotel.images[0], criteria, offer: entry.offer, language });
     if (accepted) router.push('/review'); else setReviewError(entry.key);
   };
-  const filtered = Boolean(query.trim() || meal.kind !== 'all' || freeOnly || sort !== 'original');
+  const filtered = Boolean(roomType || query.trim() || meal.kind !== 'all' || freeOnly || sort !== 'original');
   const savedHere = saved.includes(hid);
   const guestCount = criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0);
   return <>
@@ -205,7 +147,11 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
         <Row style={{ alignItems: 'flex-start', gap: 10 }}><View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           {Number.isInteger(hotel.stars) && hotel.stars! >= 1 && hotel.stars! <= 5 && <Txt accessibilityLabel={copy.stars(hotel.stars!)} style={{ color: colors.goldInk, fontSize: 13, lineHeight: 18 }}>{'★'.repeat(hotel.stars!)}</Txt>}
           <Txt accessibilityRole="header" kind="title" style={styles.propertyName}>{hotel.name}</Txt>
-          {hotel.address && <Row style={{ gap: 5, alignItems: 'flex-start' }}><Icon name="pin" size={16} color={colors.muted}/><Txt kind="small" style={{ flex: 1 }}>{hotel.address}</Txt></Row>}
+          {hotel.address && <Pressable testID="hotel-location-link" accessibilityRole="button" accessibilityLabel={`${language === 'ar' ? 'موقع الفندق' : 'Hotel location'} · ${hotel.address}`}
+            onPress={showLocation} style={{ minHeight: 44, justifyContent: 'center' }}>
+            <Row style={{ gap: 6, alignItems: 'center' }}><Icon name="pin" size={17} color={colors.violetInk}/>
+              <Txt kind="small" numberOfLines={2} style={{ flex: 1, color: colors.violetInk }}>{hotel.address}</Txt><Icon name="chevron" size={14} color={colors.violetInk}/></Row>
+          </Pressable>}
         </View><Pressable accessibilityRole="button" accessibilityLabel={t(savedHere ? 'removeSaved' : 'saveStay')} aria-pressed={savedHere}
           accessibilityState={{ disabled: !savedReady, selected: savedHere }} disabled={!savedReady} onPress={() => toggleSaved(hid)}
           style={[styles.save, savedHere && { backgroundColor: colors.pistachioMist }, { opacity: savedReady ? 1 : .5 }]}><Icon name={savedHere ? 'check' : 'saved'} size={22} color={savedHere ? colors.success : colors.violetInk}/></Pressable></Row>
@@ -233,6 +179,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
           {hotel.offers.length > 0 && <Txt accessibilityLiveRegion="polite" kind="small" style={{ color: colors.violetInk }}>{short.plans(model.matchingOffers)}</Txt>}
         </Row>
         {hotel.offers.length > 0 && <Row style={{ flexWrap: 'wrap', gap: 8 }}>
+          {model.totalGroups > 1 && <RoomTypePicker groups={model.roomTypes} value={roomType} onChange={setRoomType}/>}
           <MealPlanPicker value={meal} options={model.mealOptions} onChange={setMeal}/>
           <Pressable testID="room-filters-toggle" accessibilityRole="button" accessibilityState={{ expanded: filtersOpen }}
             aria-expanded={filtersOpen} onPress={() => setFiltersOpen(value => !value)}
@@ -250,11 +197,14 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
             {filtered && <Button variant="quiet" title={copy.clear} onPress={clear}/>}
           </View>}
           {model.groups.length === 0 ? <View style={{ gap: 12 }}><StatePanel title={copy.noMatch} body={copy.noMatchBody}/><Button variant="secondary" title={copy.clear} onPress={clear}/></View>
-            : <>{model.groups.slice(0, groupLimit).map(group => <RoomGroup key={group.key} group={group} now={now} selected={selected} showCompare={model.totalOffers > 1} onToggle={toggleComparison} requestedCurrency={criteria.currency} onReview={review} reviewError={reviewError} onRefresh={onRefresh} onEditSearch={() => router.push('/')}/>)}
+            : <>{model.groups.slice(0, groupLimit).map(group => <RoomGroup key={group.key} group={group} now={now} selected={selected}
+              chosenKey={chosenByRoom[group.key] ?? null} choose={key => setChosenByRoom(previous => ({ ...previous, [group.key]: key }))}
+              showCompare={model.totalOffers > 1} onToggle={toggleComparison} requestedCurrency={criteria.currency}
+              onReview={review} reviewError={reviewError} onRefresh={onRefresh} onEditSearch={() => router.push('/')}/>)}
 
               {groupLimit < model.groups.length && <Button variant="secondary" title={copy.moreGroups(model.groups.length - groupLimit)} onPress={() => setGroupLimit(value => value + 6)}/>}</>}
         </>}
-      </View> : <HotelAbout hotel={hotel} onChooseRooms={() => showSection('rooms')}/>}
+      </View> : <HotelAbout key={guideEntry.visit} initialSection={guideEntry.section} hotel={hotel} criteria={criteria} onChooseRooms={() => showSection('rooms')}/>}
     </ScrollView>
     {section === 'rooms' && selected.length > 0 && <View style={styles.dock}><Row style={styles.dockInner}>
       <View style={{ flex: 1, minWidth: 0 }}><Txt kind="label" accessibilityLiveRegion="polite">{short.compareCount(selected.length)}</Txt>
@@ -311,10 +261,7 @@ const styles = StyleSheet.create({
   roomHeader: { gap: 12, padding: 14, backgroundColor: colors.surface },
   roomIcon: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: colors.lavenderMist },
   roomName: { fontSize: 21, lineHeight: 28 },
-  priceBox: { gap: 5, backgroundColor: colors.background, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 13 },
   compareControl: { minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 9, paddingVertical: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface },
-  termsControl: { flexGrow: 1, flexBasis: 115, minHeight: 44, justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4 },
-  ratePlan: { padding: 14, gap: 12, borderTopWidth: 1, borderTopColor: colors.border },
   clearCompare: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   dock: { borderTopWidth: 1, borderTopColor: colors.border, backgroundColor: colors.surface },
   dockInner: { width: '100%', maxWidth: 880, alignSelf: 'center', paddingHorizontal: 16, paddingVertical: 8, gap: 6 },

@@ -11,6 +11,24 @@ const offer = (index, change = {}) => ({ id: `offer-${index}`, name: 'Twin room'
 const choices = (offers, options = {}) => buildRoomChoices(offers, { currency: 'USD', ...options });
 const deviceClock = iso => new Date(iso).toTimeString().slice(0,5);
 
+test('room filter uses the supplier room identity and scopes prices and meal counts to that exact room', () => {
+  const twin = offer(1);
+  const suite = offer(2, { roomIdentity: 'suite', meal: 'breakfast' });
+  const all = choices([twin, suite]);
+  const suiteKey = all.groups[1].key;
+  const onlySuite = choices([twin, suite], {roomKey:suiteKey});
+  assert.equal(onlySuite.groups.length, 1);
+  assert.equal(onlySuite.groups[0].entries[0].offer, suite);
+  assert.deepEqual(onlySuite.mealOptions.map(plan=>plan.value), ['breakfast']);
+  assert.deepEqual(onlySuite.fromPrice, suite.price);
+  assert.equal(onlySuite.roomTypes.length, 2);
+  const unavailable = choices([twin, suite], {roomKey:suiteKey, meal:{kind:'value',value:'nomeal'}});
+  assert.equal(unavailable.matchingOffers, 0);
+  assert.equal(unavailable.fromPrice, null);
+  assert.equal(unavailable.groups.length, 0);
+  assert.equal(unavailable.roomTypes[0].entries[0].offer, twin);
+});
+
 test('rate summaries use confirmed payment and bed, exact source totals and individual property currencies', () => {
   const { normalizeOffers } = load(path.join(__dirname, '../api/adapters.ts'));
   const { roomRateFacts } = load(path.join(__dirname, 'roomRateFacts.ts'));
