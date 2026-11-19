@@ -27,7 +27,7 @@ function NoticeList({ signedIn, loading }: { signedIn: boolean; loading: boolean
   return <SafeAreaView style={ui.screen}><BrandHeader back/><ScrollView contentContainerStyle={ui.page}>
     <Txt kind="title" accessibilityRole="header">{title}</Txt>
     {loading || signedIn && result?.attempt !== attempt ? <StatePanel title={t('loading')} busy/> :
-      !signedIn ? <Button title={t('signIn')} onPress={() => router.navigate('/account')}/> :
+      !signedIn ? <Button title={t('signIn')} onPress={() => router.navigate({ pathname: '/account', params: { returnTo: '/notifications' } })}/> :
       !result?.rows ? <StatePanel title={rtl ? 'تعذّر تحميل الإشعارات' : 'Notifications unavailable'} retry={refresh}/> :
       <>{!result.rows.length && <StatePanel title={rtl ? 'لا توجد إشعارات حتى الآن' : 'No notifications yet'}/>}
         {result.rows.map(row => <View key={row.id} style={ui.card}>

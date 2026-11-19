@@ -145,7 +145,7 @@ export function normalizeHotel(value: unknown, code: string): HotelSummary {
     ...(Number.isFinite(star) && star > 0 && star <= 5 ? { stars: star } : {}),
     location: hotelLocation(row),
     imageUrl: photos[0], images: photos,
-    price: cheapest(row.rates, code), offers: normalizeOffers(row.rates, row) };
+    price: cheapest(row.rates, code) };
 }
 export function normalizeDetails(hid: number, value: unknown, page: unknown, code: string): HotelDetails {
   const raw = object(value), content = Object.keys(object(raw.staticData)).length ? { ...object(raw.staticData), ...raw } : raw;

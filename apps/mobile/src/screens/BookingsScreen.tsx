@@ -241,7 +241,7 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
           ) : status !== 'signedIn' ? (
             <>
               <StatePanel title={copy.signInTitle} body={copy.signInBody} />
-              <Button title={t('signIn')} onPress={() => router.navigate('/account')} />
+              <Button title={t('signIn')} onPress={() => router.navigate({ pathname: '/account', params: { returnTo: '/bookings' } })} />
               <Button title={copy.findStay} variant="secondary" onPress={findStay} />
             </>
           ) : current?.error ? (

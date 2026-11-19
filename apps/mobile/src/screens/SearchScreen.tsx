@@ -1,8 +1,9 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { api, COUNTRY_CODES, validateSearchCriteria } from '../api';
+import { useFocusEffect, useRouter } from 'expo-router';
+import { api, authSession, COUNTRY_CODES, validateSearchCriteria } from '../api';
+import { useAuth } from '../auth';
 import type { SearchCriteria, Suggestion } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, fonts, localizedFont, ui } from '../theme';
@@ -34,7 +35,8 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const [featuredCity, setFeaturedCity] = useState<DestinationId>('dubai');
   const [suggestionResult, setSuggestionResult] = useState<{ key: string; values: Suggestion[]; error: unknown }>({ key: '', values: [], error: null });
   const [suggestionRetry, retrySuggestion] = useState(0);
-  const suggestionKey = `${language}:${query}:${suggestionRetry}`;
+  const { status: authStatus, sessionRevision } = useAuth();
+  const suggestionKey = JSON.stringify([sessionRevision, authStatus, language, query.trim(), suggestionRetry]);
   const suggestions = suggestionResult.key === suggestionKey ? suggestionResult.values : [];
   const needsSuggestions = !savedOnly && shouldSuggestDestination(query, selected);
   const suggesting = needsSuggestions && suggestionResult.key !== suggestionKey;
@@ -51,12 +53,21 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const scroll = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const [preferences, setPreferences] = useState(false);
   const [countryOpen, showCountry] = useState(false); const [errors, setErrors] = useState<Record<string, boolean>>({}); const [submitted, setSubmitted] = useState(false);
-  useEffect(() => {
-    if (!needsSuggestions) return;
+  useFocusEffect(useCallback(() => {
+    if (!needsSuggestions || authStatus === 'loading') return;
     const controller = new AbortController();
-    const timer = setTimeout(() => { api.searchSuggestions(query.trim(), language, controller.signal).then(values => { if (!controller.signal.aborted) setSuggestionResult({ key: suggestionKey, values, error: null }); }).catch(error => { if (!controller.signal.aborted) setSuggestionResult({ key: suggestionKey, values: [], error }); }); }, 350);
+    const current = () => !controller.signal.aborted && authSession.getRevision() === sessionRevision
+      && authSession.getSnapshot().status === authStatus;
+    setSuggestionResult({ key: '', values: [], error: null });
+    const timer = setTimeout(() => {
+      api.searchSuggestions(query.trim(), language, controller.signal).then(values => {
+        if (current()) setSuggestionResult({ key: suggestionKey, values, error: null });
+      }).catch(error => {
+        if (current()) setSuggestionResult({ key: suggestionKey, values: [], error });
+      });
+    }, 350);
     return () => { clearTimeout(timer); controller.abort(); };
-  }, [query, language, suggestionKey, needsSuggestions]);
+  }, [query, language, suggestionKey, needsSuggestions, authStatus, sessionRevision]));
   const savedIds = state.saved.filter(id => hotelId(id) !== null);
   const submit = () => {
     const destination = selected?.name === query ? selected : query === state.destinationName ? destinationFromSearch(state.criteria, query) : null;

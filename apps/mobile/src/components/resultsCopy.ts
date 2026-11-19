@@ -1,6 +1,8 @@
 import type { Language } from '../types';
 
 const en = {
+  largeSearchTitle: 'This search returned more data than the app can display',
+  largeSearchBody: 'Search for a specific hotel or change your travel dates to narrow the results.',
   guests: (count: number) => `${count} ${count === 1 ? 'guest' : 'guests'}`,
   from: 'From', stayContext: (nights: number, rooms: number) => `${nights} ${nights === 1 ? 'night' : 'nights'} · ${rooms} ${rooms === 1 ? 'room' : 'rooms'}`,
   stayTotal: 'Stay total', taxesNote: 'Room details show taxes and fees payable at the hotel.',
@@ -24,6 +26,8 @@ const en = {
   compareUnavailable: 'This stay cannot be added right now. Refresh current results.', clearCompare: 'Clear selection',
 };
 const ar: typeof en = {
+  largeSearchTitle: 'حجم نتائج هذا البحث كبير',
+  largeSearchBody: 'ابحث باسم فندق معيّن أو غيّر تواريخ إقامتك لعرض نتائج أقل.',
   guests: count => count === 1 ? 'ضيف واحد' : count === 2 ? 'ضيفان' : `${count} ${count <= 10 ? 'ضيوف' : 'ضيفاً'}`,
   from: 'ابتداءً من', stayContext: (nights, rooms) => `${nights === 1 ? 'ليلة واحدة' : nights === 2 ? 'ليلتان' : `${nights} ${nights <= 10 ? 'ليالٍ' : 'ليلة'}`} · ${rooms === 1 ? 'غرفة واحدة' : rooms === 2 ? 'غرفتان' : `${rooms} غرف`}`,
   stayTotal: 'إجمالي الإقامة', taxesNote: 'راجع الضرائب والرسوم المستحقة في الفندق ضمن تفاصيل الغرفة.',

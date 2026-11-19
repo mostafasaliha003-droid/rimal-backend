@@ -140,6 +140,10 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   else if (savedOnly && saved.length === 0) content = <StatePanel title={t('savedEmpty')} body={t('savedBody')}/>;
   else if (!criteria || savedOnly && !plan) content = <View style={{ gap: 14 }}><StatePanel title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={edit}/></View>;
   else if (pending && !hotels.length) content = <StatePanel title={t('loading')} busy/>;
+  else if (!hotels.length && error instanceof ApiError && error.code === 'search_result_too_large') {
+    content = <View style={{ gap: 14 }}><StatePanel title={L.largeSearchTitle} body={L.largeSearchBody}/>
+      <Button title={t('searchAgain')} onPress={edit}/></View>;
+  }
   else if (error && !hotels.length) content = <ApiState error={error} retry={refreshResults}/>;
   else if (!decision.hotels.length) content = <View style={{ gap: 14 }}><StatePanel title={hotels.length ? L.noMatch : t('noResults')} body={hotels.length ? L.noMatchBody : t(savedOnly ? 'savedNoAvailability' : 'noResultsBody')}/>{hotels.length > 0 && <><Button title={L.clearAll} variant="secondary" onPress={() => apply(emptyResultFilters())}/><Button title={t('filters')} variant="quiet" onPress={openFilters}/></>}<Button title={t('searchAgain')} variant="quiet" onPress={edit}/></View>;
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>

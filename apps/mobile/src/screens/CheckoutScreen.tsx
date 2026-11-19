@@ -58,7 +58,7 @@ export default function CheckoutScreen() {
   };
   return <CheckoutContents session={session} readSelection={state.getCheckoutReview} identityKey={`${status}:${sessionRevision}`}
     signedIn={status === 'signedIn'} creationEnabled={nativeCreationPolicy()} onFreshOffer={freshOffer}
-    onSignIn={() => router.push('/account')} onSupport={() => router.push('/support')} onWebsite={openWebsite}
+    onSignIn={() => router.navigate({ pathname: '/account', params: { returnTo: '/checkout' } })} onSupport={() => router.push('/support')} onWebsite={openWebsite}
     onPayment={openPayment} onClearCompleted={clearCompleted} onPrivacy={() => void policy('/privacy')} onTerms={() => void policy('/terms')}/>;
 }
 

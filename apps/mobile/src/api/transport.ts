@@ -7,6 +7,10 @@ export interface DocumentUpload { mime: 'image/jpeg' | 'image/png'; bytes: Array
 export interface RequestOptions { upload?: DocumentUpload; signal?: AbortSignal; query?: Record<string, string>; body?: unknown; token?: string | null; anonymous?: boolean; timeoutMs?: number; idempotencyKey?: string }
 export const validToken = (value: unknown): value is string => typeof value === 'string' && /^[a-f\d]{64}$/i.test(value);
 const checkoutStatusRoute = (path: string) => /^\/payment\/ziina\/[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}\/status$/i.test(path);
+const NORMAL_RESPONSE_CHARS = 2_000_000;
+// Older BFFs return full supplier rates for every search hit. Keep a separate
+// ceiling on successful SERPs while the compact card response rolls out.
+const LEGACY_SEARCH_RESPONSE_CHARS = 8 * 1024 * 1024;
 function bareCheckoutRoute(method: string, path: string) {
   return method === 'GET' && (path === '/payment/availability' || checkoutStatusRoute(path))
     || method === 'POST' && ['/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover'].includes(path);
@@ -70,7 +74,11 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
       if (response.redirected || response.url && new URL(response.url).href !== url.href) throw invalidResponse();
       const text = await abortable(response.text(), controller.signal);
       if (controller.signal.aborted) throw timedOut ? new ApiError('timeout', 'request_timeout') : aborted();
-      if (text.length > 2_000_000) throw invalidResponse();
+      const searchResult = response.ok && method === 'POST' && (path === '/search/rates' || path === '/search/rates/region');
+      if (text.length > (searchResult ? LEGACY_SEARCH_RESPONSE_CHARS : NORMAL_RESPONSE_CHARS)) {
+        if (searchResult) throw new ApiError('invalid_response', 'search_result_too_large');
+        throw invalidResponse();
+      }
       let payload: unknown;
       try { payload = JSON.parse(text); } catch { if (response.ok) throw invalidResponse(); payload = {}; }
       const data = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload as Record<string, unknown> : null;

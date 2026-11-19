@@ -92,7 +92,7 @@ function AccountDeletionContents({ status, sessionRevision, email }: Owner) {
       <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}>
         <View style={{ gap: 10 }}><Txt accessibilityRole="header" kind="title">{t('accountDeletion')}</Txt><Txt>{t('deletionIntro')}</Txt></View>
         <View style={[ui.card, { backgroundColor: colors.softGold }]}><Txt>{t('deletionScope')}</Txt></View>
-        {status === 'loading' ? <StatePanel title={t('accountChecking')} busy/> : !signedIn ? <><StatePanel title={t('deletionSignIn')}/><Button title={t('signIn')} onPress={() => router.push('/account')}/></> : <>
+        {status === 'loading' ? <StatePanel title={t('accountChecking')} busy/> : !signedIn ? <><StatePanel title={t('deletionSignIn')}/><Button title={t('signIn')} onPress={() => router.navigate({ pathname: '/account', params: { returnTo: '/account-deletion' } })}/></> : <>
           <View style={ui.card}><Txt kind="label">{t('deletionAccount')}</Txt><Txt style={{ writingDirection: 'ltr' }}>{email}</Txt></View>
           {view.phase === 'loading' ? <StatePanel title={t('loading')} busy/> : receipt ? <View style={[ui.card, { backgroundColor: colors.softBlue }]} accessibilityLiveRegion="polite">
             <Txt accessibilityRole="header" kind="heading">{t('deletionReceivedTitle')}</Txt><Txt>{t('deletionReceivedBody')}</Txt>

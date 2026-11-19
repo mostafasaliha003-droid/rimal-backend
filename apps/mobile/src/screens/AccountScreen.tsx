@@ -1,7 +1,7 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useRef, useState } from 'react';
 import { KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useFocusEffect, useRouter } from 'expo-router';
+import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { api, websiteUrl } from '../api';
 import type { MemberStatus } from '../api/membership';
@@ -10,7 +10,7 @@ import { useLanguage } from '../i18n';
 import { colors, ui } from '../theme';
 import BrandHeader, { AccountAvatar } from '../components/BrandHeader';
 import { Button, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
-import { normalizeVerificationCode, registrationFormReady } from '../components/foundationContracts';
+import { afterSignInRoute, normalizeVerificationCode, registrationFormReady } from '../components/foundationContracts';
 import { statusText } from '../components/membershipCopy';
 
 function AccountMembership() {
@@ -19,37 +19,68 @@ function AccountMembership() {
   const ar = language === 'ar';
   const [membership, setMembership] = useState<MemberStatus | null>(null);
   const [failed, setFailed] = useState(false);
-  useFocusEffect(useCallback(() => {
+  const inFlight = useRef<AbortController | null>(null);
+  const check = useCallback(() => {
+    inFlight.current?.abort();
     const controller = new AbortController();
+    inFlight.current = controller;
     setMembership(null);
     setFailed(false);
     api.getMembershipStatus(controller.signal).then(value => {
       if (!controller.signal.aborted) setMembership(value);
     }).catch(() => { if (!controller.signal.aborted) setFailed(true); });
-    return () => controller.abort();
-  }, []));
+  }, []);
+  useFocusEffect(useCallback(() => {
+    check();
+    return () => inFlight.current?.abort();
+  }, [check]));
   let detail = ar ? 'جارٍ التحقق من حالة العضوية' : 'Checking membership';
   if (failed || membership && (!membership.enabled || !membership.authenticated)) {
     detail = ar ? 'تعذّر التحقق من حالة العضوية' : 'Membership status unavailable';
   } else if (membership) {
     detail = membership.status ? statusText[membership.status][ar ? 0 : 1] : ar ? 'تقديم طلب العضوية' : 'Apply for membership';
   }
-  return <Pressable testID="account-membership" accessibilityRole="button" onPress={() => router.push('/membership')} style={ui.card}>
+  return <View style={ui.card}><Pressable testID="account-membership" accessibilityRole="button" onPress={() => router.push('/membership')}>
     <Row><View style={{ flex: 1, gap: 3 }}>
       <Txt kind="label">{ar ? 'عضوية مخدة' : 'Pillow stays membership'}</Txt>
       <Txt kind="small" accessibilityLiveRegion="polite" style={membership?.canAccess ? { color: colors.success } : undefined}>{detail}</Txt>
     </View><Icon name="chevron" size={18}/></Row>
-  </Pressable>;
+  </Pressable>
+    {(failed || membership && (!membership.enabled || !membership.authenticated)) &&
+      <Button compact variant="secondary" title={ar ? 'إعادة التحقق من العضوية' : 'Check membership again'} onPress={check}/>}
+  </View>;
 }
 
 export default function AccountScreen() {
-  const {sessionRevision}=useAuth();
-  return <AccountContents key={sessionRevision}/>;
-}
-function AccountContents() {
-  const {user,status,error:sessionError,restorePending,signIn,requestRegistration,verifyRegistration,signOut,refresh}=useAuth(); const {t,language}=useLanguage(); const router=useRouter();
+  const {user,status,sessionRevision,error:sessionError,restorePending,signIn,requestRegistration,verifyRegistration,signOut,refresh}=useAuth(); const {t,language}=useLanguage(); const router=useRouter();
+  const navigation = useNavigation();
+  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
   const [mode,setMode]=useState<'login'|'register'|'verify'>('login'); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [name,setName]=useState(''); const [phone,setPhone]=useState(''); const [code,setCode]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
-  const submit=async()=>{setError('');const validEmail=/^\S+@\S+\.\S+$/.test(email.trim());if(mode==='login'&&(!validEmail||!password)){setError(t('loginRequired'));return;}if(mode==='register'&&(!registrationFormReady(name,email,password))){setError(t('registrationRequired'));return;}if(mode==='verify'&&!/^\d{6}$/.test(code)){setError(t('code'));return;}setBusy(true);try{if(mode==='login')await signIn(email.trim(),password);else if(mode==='register'){await requestRegistration({name:name.trim(),email:email.trim(),password,phone:phone.trim()});setMode('verify');}else await verifyRegistration(email.trim(),code);setPassword('');}catch{setError(t('authError'));}finally{setBusy(false);}};
+  const submit = async () => {
+    if (busy) return;
+    setError('');
+    if (mode === 'login' && (!/^\S+@\S+\.\S+$/.test(email.trim()) || !password)) { setError(t('loginRequired')); return; }
+    if (mode === 'register' && !registrationFormReady(name,email,password)) { setError(t('registrationRequired')); return; }
+    if (mode === 'verify' && !/^\d{6}$/.test(code)) { setError(t('code')); return; }
+    setBusy(true);
+    try {
+      if (mode === 'register') {
+        await requestRegistration({ name: name.trim(), email: email.trim(), password, phone: phone.trim() });
+        setPassword(''); setMode('verify');
+        return;
+      }
+      if (mode === 'verify') await verifyRegistration(email.trim(), code);
+      else await signIn(email.trim(), password);
+      setPassword(''); setCode(''); setEmail(''); setName(''); setPhone(''); setMode('login');
+      if (navigation.isFocused()) {
+        const destination = afterSignInRoute(returnTo);
+        if (returnTo) router.setParams({ returnTo: undefined });
+        if (destination === '/' || destination === '/saved' || destination === '/bookings') router.navigate(destination);
+        else router.dismissTo(destination);
+      }
+    } catch { setError(t('authError')); }
+    finally { setBusy(false); }
+  };
   const website=async()=>{try{await WebBrowser.openBrowserAsync(websiteUrl('/account'),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
   const openPolicy=async(path:'/privacy'|'/terms')=>{try{await WebBrowser.openBrowserAsync(websiteUrl(path),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
   const visibleError=error||(status==='signedOut'&&sessionError&&!restorePending?t('authError'):'');
@@ -67,7 +98,7 @@ function AccountContents() {
         </View></Row>
       </View>
       <View testID="account-explore"><Button title={language==='ar'?'استكشف الفنادق':'Explore hotels'} onPress={()=>router.navigate('/')}/></View>
-      <AccountMembership/>
+      <AccountMembership key={sessionRevision}/>
       <View style={ui.card}><Button variant="secondary" title={t('bookingsTitle')} onPress={()=>router.navigate('/bookings')}/>
         <Button variant="quiet" title={t('myBookings')} onPress={()=>void website()}/><Txt kind="small">{language==='ar'?'يفتح حساب رمال في المتصفح. قد يُطلب منك تسجيل الدخول هناك.':'Opens your Remal account in the browser. You may need to sign in there.'}</Txt>
       </View>

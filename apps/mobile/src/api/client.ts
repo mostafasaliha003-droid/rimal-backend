@@ -83,7 +83,8 @@ export function createApiClient(request: Request) {
       let payload: unknown;
       try {
         payload = await request('POST', criteria.regionId ? '/search/rates/region' : '/search/rates', { signal,
-          body: { ...searchBody(criteria), ...(criteria.regionId ? { region_id: criteria.regionId } : { hids: criteria.hids }) } });
+          body: { ...searchBody(criteria), ...(criteria.regionId ? { region_id: criteria.regionId } : { hids: criteria.hids }),
+            response_view: 'mobile_cards_v1' } });
       } catch (error) {
         if (error instanceof ApiError && error.status === 404 && error.code === 'HOTELS_NOT_FOUND') return [];
         throw error;

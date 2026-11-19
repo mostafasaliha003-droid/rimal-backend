@@ -26,9 +26,10 @@ export interface RoomOffer {
 export interface HotelSummary {
   hid: number; id: string; name: string; address?: string; stars?: number;
   location?: { latitude: number; longitude: number };
-  imageUrl?: string; images?: string[]; price: Money | null; offers: RoomOffer[];
+  imageUrl?: string; images?: string[]; price: Money | null;
 }
 export interface HotelDetails extends HotelSummary {
+  offers: RoomOffer[];
   description: string[]; amenities: string[]; images: string[];
   policyExtraInfo: string | null; policies: Record<string, unknown>;
 }

@@ -1,6 +1,6 @@
 import React from 'react';
 import { ActivityIndicator, Image, Pressable, Text, View } from 'react-native';
-import { useRouter } from 'expo-router';
+import { usePathname, useRouter } from 'expo-router';
 import { useLanguage } from '../i18n';
 import { colors, fonts } from '../theme';
 import { APP_ENV } from '../api';
@@ -33,6 +33,7 @@ export default function BrandHeader({ back = false }: { back?: boolean }) {
   const { language, setLanguage, t } = useLanguage();
   const { user, status, restorePending } = useAuth();
   const router = useRouter();
+  const pathname = usePathname();
   const ar = language === 'ar';
   const signedIn = status === 'signedIn' && user;
   const firstName = signedIn && !signedIn.name.includes('@') ? signedIn.name.trim().split(/\s+/u)[0] : '';
@@ -53,7 +54,7 @@ export default function BrandHeader({ back = false }: { back?: boolean }) {
         {status === 'loading' ? <View style={action} accessibilityLabel={t('accountChecking')}><ActivityIndicator size="small" color={colors.navy}/></View> :
           <Pressable testID={signedIn ? 'header-signed-in' : restorePending ? 'header-restore-session' : 'header-sign-in'} accessibilityRole="button"
             accessibilityLabel={signedIn ? [t('account'), ar ? 'مسجّل الدخول' : 'Signed in', firstName].filter(Boolean).join(' · ') : guestLabel}
-            style={action} onPress={() => router.navigate('/account')}>
+            style={action} onPress={() => signedIn ? router.navigate('/account') : router.navigate({ pathname: '/account', params: { returnTo: pathname } })}>
             {signedIn ? <Row style={{ gap: 5, maxWidth: 105 }}>
               <AccountAvatar name={signedIn.name}/><Txt kind="label" numberOfLines={1} style={{ flexShrink: 1 }}>{firstName || t('account')}</Txt>
             </Row> : <Row style={{ gap: 4 }}><Icon name="account" size={18}/>

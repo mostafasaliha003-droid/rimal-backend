@@ -41,7 +41,7 @@ function MembershipContent() {
         !result || generation !== attempt ? <StatePanel title={t('loading')} busy/> :
         !result.enabled ? <StatePanel title={ar ? 'خدمة العضوية غير متاحة حالياً' : 'Membership is currently unavailable'} retry={retry}/> :
         needsSignIn ? <View style={ui.card}><Txt>{ar ? 'سجّل الدخول لمتابعة طلبك والاطلاع على تحديثاته.' : 'Sign in to apply and check your membership updates.'}</Txt>
-          <Button title={t('signIn')} onPress={() => router.navigate('/account')}/></View> :
+          <Button title={t('signIn')} onPress={() => router.navigate({ pathname: '/account', params: { returnTo: '/membership' } })}/></View> :
         <View style={ui.card}>
           <Txt kind="heading">{statusLabel || (ar ? 'طلب العضوية' : 'Apply for membership')}</Txt>
           {!!result.note && <Txt>{result.note}</Txt>}

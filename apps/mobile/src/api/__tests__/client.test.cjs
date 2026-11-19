@@ -146,6 +146,47 @@ test('malformed/redirected responses and private network failures never become c
   await assert.rejects(request('GET', '/auth/session'), error => error.kind === 'network' && error.message === 'network_unavailable');
 });
 
+test('regional and hotel searches accept compact cards and historical large payloads with identical member prices', async () => {
+  const base = { hid: 123, name: 'Dubai hotel', stars: 4, address: 'Dubai', images: [] };
+  const projected = { ...base, rates: [{ customer_display_amount: '107.00', customer_display_currency: 'USD' }] };
+  const legacy = { ...base, description: 'x'.repeat(2_300_000), rates: [
+    { payment_options: { payment_types: [{ amount: '5', currency_code: 'USD' }] } },
+    rate('h-eur', '1.00', 'EUR'), rate('h-base', '109.00'), rate('h-lower', '107.00')] };
+  const input = futureCriteria();
+  for (const selected of [input, { ...input, regionId: undefined, hids: [123] }]) {
+    let payload = projected;
+    const request = createTransport({ environment: 'staging', fetcher: async (url, init) => {
+      const body = JSON.parse(init.body);
+      assert.equal(new URL(url).pathname, selected.regionId ? '/api/search/rates/region' : '/api/search/rates');
+      assert.equal(body.response_view, 'mobile_cards_v1');
+      if (selected.regionId) assert.equal(body.region_id, selected.regionId);
+      else assert.deepEqual(body.hids, [123]);
+      return response({ success: true, hotels: [payload] });
+    } });
+    const api = createApiClient(request);
+    const compact = await api.searchHotels(selected);
+    payload = legacy;
+    assert.deepEqual(await api.searchHotels(selected), compact);
+    assert.deepEqual(compact[0].price, { amount: '107.00', currency: 'USD' });
+    assert.equal(Object.hasOwn(compact[0], 'offers'), false);
+  }
+});
+
+test('only successful hotel searches get a bounded larger response budget', async () => {
+  let size = 8 * 1024 * 1024, status = 200;
+  const request = createTransport({ environment: 'staging',
+    fetcher: async () => response({ success: true, padding: 'x'.repeat(size) }, status) });
+  for (const route of ['/search/rates', '/search/rates/region']) {
+    await assert.rejects(request('POST', route), error => error.code === 'search_result_too_large');
+  }
+  size = 2_000_000;
+  for (const [method, route] of [['GET', '/auth/session'], ['POST', '/payment/quote'], ['POST', '/booking/prebook'], ['POST', '/search/hotelpage']]) {
+    await assert.rejects(request(method, route), error => error.code === 'invalid_response');
+  }
+  status = 502;
+  await assert.rejects(request('POST', '/search/rates/region'), error => error.code === 'invalid_response');
+});
+
 test('timeouts and cancellation reject late responses and do not automatically retry', async () => {
   let calls = 0;
   const timeout = createTransport({ environment: 'staging', timeoutMs: 3, fetcher: (_url, init) => {
