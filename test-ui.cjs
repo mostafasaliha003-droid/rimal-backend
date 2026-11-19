@@ -380,10 +380,12 @@ async function run() {
         assert.equal(previewFacilities.length, 6);
         assert.deepEqual(previewFacilities.slice(0, 3), [
             { name: 'واي فاي', fee: 'free', label: 'مجاني' },
-            { name: 'مسبح', fee: 'unknown', label: 'التكلفة غير محددة' },
+            { name: 'مسبح', fee: 'unknown', label: 'متاح' },
             { name: 'سبا', fee: 'paid', label: 'برسوم' }
         ]);
         assert.match(await page.$eval('#hotel-amenity-list', node => node.textContent), /الترفيه/);
+        assert.equal(await page.$$eval('#hotel-amenity-cost-note', nodes => nodes.length), 1);
+        assert.match(await page.$eval('#hotel-amenity-cost-note', node => node.textContent), /عندما يحدّد الفندق تكلفة المرفق/);
         await page.click('button[aria-controls="hotel-amenity-list"]');
         assert.deepEqual((await readFacilities()).at(-1), { name: 'تدليك', fee: 'paid', label: 'برسوم' });
         await page.click('button[aria-controls="hotel-amenity-list"]');

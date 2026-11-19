@@ -33,7 +33,7 @@ function namedAmenity(rawName: string): HotelAmenity {
   // Distinguish monetary "free" from vocabulary such as "free weights" or "free parking is unavailable".
   const advertised = /^(?:free|complimentary)\s+(.+)$/i.exec(rawName);
   const free = advertised && isServiceName(advertised[1]) ? advertised :
-    /^(.+?)\s*(?:\((?:free|free of charge|complimentary|at no extra charge)\)|\s+(?:free of charge|at no extra charge|مجاني(?:ة)?|مجانا[ً]?|مجانًا|بدون رسوم|دون رسوم))$/i.exec(rawName);
+    /^(.+?)\s*(?:\((?:free|free of charge|complimentary|at no extra charge|مجاني(?:ة)?|بدون رسوم|دون رسوم)\)|\s+(?:free of charge|at no extra charge|مجاني(?:ة)?|مجانا[ً]?|مجانًا|بدون رسوم|دون رسوم))$/i.exec(rawName);
   const paid = /^(?:paid)\s+(.+)$/i.exec(rawName)
     || /^(.+?)\s*(?:\((?:extra charge|additional charge|surcharge|paid|برسوم(?: إضافية)?)\)|\s+(?:for (?:a fee|an additional fee)|برسوم(?: إضافية)?))$/i.exec(rawName);
   if (free && !paid && !/^paid\s/i.test(rawName)) return { name: free[1].trim(), fee: 'free' };
@@ -51,17 +51,20 @@ function policyFee(policy: RecordValue): Fee {
 }
 
 function internetEvidence(name: string, policies: RecordValue[], listedFees: Set<Fee>): Fee | undefined {
-  // Room-only or public-area service cannot establish an unqualified property-wide price.
-  const key = nameKey(name);
+  const label = nameKey(name);
+  const inRooms = /^(?:in[- ]room\s+(.+)|(.+?)\s+(?:in (?:the |guest )?rooms?|داخل الغرف(?:ة)?|في الغرف(?:ة)?))$/.exec(label);
+  const key = inRooms ? nameKey(inRooms[1] || inRooms[2]) : label;
   if (key !== 'wifi' && key !== 'wired internet') return undefined;
   const type = key === 'wifi' ? 'wireless' : 'wired';
   // ETG documents "hotel" and also supplies "whole_hotel" in its hotel content example.
-  const whole = policies.find(policy => policy.internet_type === type
-    && (policy.work_area === 'hotel' || policy.work_area === 'whole_hotel'));
-  const relevant = policies.filter(policy => policy.internet_type === type || policy.internet_type === 'unspecified' || !policy.internet_type);
+  const isHotelWide = (area: unknown) => area === 'hotel' || area === 'whole_hotel';
+  const relevant = policies.filter(policy =>
+    (policy.internet_type === type || policy.internet_type === 'unspecified' || !policy.internet_type) &&
+    (!inRooms || isHotelWide(policy.work_area) || policy.work_area === 'room' || policy.work_area === 'unspecified' || !policy.work_area));
   const fees = new Set(relevant.map(policyFee));
   if (fees.size > 1) return 'unknown';
-  if (whole) return policyFee(whole);
+  const match = relevant.find(policy => policy.internet_type === type && (isHotelWide(policy.work_area) || (inRooms && policy.work_area === 'room')));
+  if (match) return policyFee(match);
   // A narrower policy may contradict an explicit label. Never use it alone to confirm the price everywhere.
   if ((fees.has('paid') && listedFees.has('free')) || (fees.has('free') && listedFees.has('paid'))) return 'unknown';
   return undefined;

@@ -5,14 +5,13 @@ import { normalizeHotelAmenities } from '../api/hotelAmenities';
 import { useLanguage } from '../i18n';
 import { colors, ui } from '../theme';
 import { InternetConditions } from './Policies';
-import { facilityLabel } from './hotelFacilityLabels';
+import { canShowFacilityAvailability, facilityLabel } from './hotelFacilityLabels';
 import { Row, Txt } from './Primitives';
 
-
-const priceLabels = {
+const serviceLabels = {
   free: { ar: 'مجاني', en: 'Free', color: colors.leafInk, surface: colors.pistachioMist },
   paid: { ar: 'برسوم إضافية', en: 'Extra charge', color: colors.goldInk, surface: colors.softGold },
-  unknown: { ar: 'التكلفة غير محددة', en: 'Cost not specified', color: colors.muted, surface: colors.canvas },
+  unknown: { ar: 'متاح', en: 'Available', color: colors.muted, surface: 'transparent' },
 };
 
 type Filter = 'all' | 'free' | 'paid';
@@ -20,13 +19,13 @@ const previewCount = 6;
 
 function FacilityRow({ item, ar, divider }: { item: HotelAmenity; ar: boolean; divider: boolean }) {
   const name = facilityLabel(item.name, ar);
-  const { ar: arabic, en: english, surface, color } = priceLabels[item.fee];
-  const price = ar ? arabic : english;
-  return <View testID={'hotel-facility-' + item.fee} accessible accessibilityLabel={name + (ar ? '، ' : ', ') + price}
+  const { ar: arabic, en: english, surface, color } = serviceLabels[item.fee];
+  const status = item.fee !== 'unknown' || canShowFacilityAvailability(item.name) ? (ar ? arabic : english) : '';
+  return <View testID={'hotel-facility-' + item.fee} accessible accessibilityLabel={status ? name + (ar ? '، ' : ', ') + status : name}
     style={divider && styles.divider}>
     <Row style={styles.serviceRow}>
       <Txt style={styles.serviceName}>{name}</Txt>
-      <Txt kind="label" style={[styles.priceTag, { color, backgroundColor: surface }]}>{price}</Txt>
+      {!!status && <Txt kind="label" style={[styles.priceTag, { color, backgroundColor: surface }]}>{status}</Txt>}
     </Row>
   </View>;
 }
@@ -54,6 +53,7 @@ export default function HotelFacilities({ hotel }: { hotel: HotelDetails }) {
     matchingCount += matches.length;
   }
   const hiddenCount = matchingCount - previewCount;
+  const showCostNote = visible.some(group => group.items.some(item => item.fee === 'unknown'));
 
   return <View testID="hotel-facilities" style={styles.section}>
     <Txt accessibilityRole="header" kind="heading">{ar ? 'المرافق والخدمات' : 'Facilities & services'}</Txt>
@@ -71,6 +71,9 @@ export default function HotelFacilities({ hotel }: { hotel: HotelDetails }) {
       {!!group.name && <Txt kind="label" accessibilityRole="header" style={styles.groupTitle}>{facilityLabel(group.name, ar)}</Txt>}
       {group.items.map((item, i) => <FacilityRow key={item.name} item={item} ar={ar} divider={i > 0}/>)}
     </View>) : <Txt kind="small">{t('noAmenities')}</Txt>}
+    {showCostNote && <Txt testID="hotel-service-cost-note" kind="small">
+      {ar ? 'تظهر عبارة «مجاني» أو «برسوم» عندما يحدّد الفندق تكلفة المرفق.' : 'Free or extra charge is shown when the hotel specifies the cost.'}
+    </Txt>}
     {hiddenCount > 0 && <Pressable testID="hotel-all-amenities" accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded}
       onPress={() => setExpanded(!expanded)} style={({ pressed }) => [styles.more, pressed && { opacity: .75 }]}>
       <Txt kind="label" style={styles.moreText}>{expanded ? (ar ? 'عرض أقل' : 'Show fewer') :

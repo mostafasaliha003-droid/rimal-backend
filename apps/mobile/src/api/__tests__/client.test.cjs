@@ -387,6 +387,17 @@ test('internet pricing requires matching connection type and scope with consiste
   assert.equal(items([included], 'Pool'), 'unknown');
 });
 
+test('a confirmed in-room Wi-Fi policy only prices the matching connection and coverage', () => {
+  const inRoom = {internet_type: 'wireless', work_area: 'room', inclusion: 'included'};
+  const group = {amenities: ['Wi-Fi', 'Wi-Fi in rooms', 'واي فاي داخل الغرفة', 'In-room Wi-Fi', 'Wired internet in rooms', 'Wi-Fi in public areas']};
+  const fees = policies => facilities([group], policies)[0].items.map(item => item.fee);
+  assert.deepEqual(fees([inRoom]), ['unknown','free','free','free','unknown','unknown']);
+  assert.deepEqual(fees([{...inRoom, inclusion: 'not_included', price: '12.50'}]), ['unknown','paid','paid','paid','unknown','unknown']);
+  assert.deepEqual(fees([inRoom, {...inRoom, work_area: 'hotel', inclusion: 'not_included'}]), Array(6).fill('unknown'));
+  assert.deepEqual(facilities([{amenities:['واي فاي (مجاني)', 'استخدام المسبح (بدون رسوم)']}])[0].items,
+    [{name:'واي فاي',fee:'free'}, {name:'استخدام المسبح',fee:'free'}]);
+});
+
 test('real supplier Internet group shows free Wi-Fi once and puts connectivity ahead of other facilities', () => {
   const groups = facilities([
     {group_name:'General', amenities:['Elevator']}, {group_name:'Pool and beach', amenities:['Swimming pool']},
