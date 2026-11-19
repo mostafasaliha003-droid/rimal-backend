@@ -18,6 +18,7 @@ const AuthSession = require('./models/AuthSession');
 const ratehawkService = require('./services/ratehawkService');
 const dubailinkService = require('./services/dubailinkService'); 
 const paymentService = require('./services/paymentService');
+const { rateSearchResponse } = require('./services/rateSearchResponse');
 const { getReleaseReadiness, releaseRevision } = require('./services/releaseReadiness');
 const notificationService = require('./services/notificationService'); 
 const webhookService = require('./services/webhookService'); 
@@ -637,12 +638,10 @@ app.post('/api/search/rates', publicSearchGuard, async (req, res) => {
         const hotels = Array.isArray(result)
             ? result
             : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
-        const enrichedHotels = paymentService.decorateHotels(await enrichRateHotels(hotels.map(hotel => ({
+        const enrichedHotels = await enrichRateHotels(hotels.map(hotel => ({
             ...hotel, displayLanguage, supplierLanguage: body.language || 'en'
-        }))));
-        const resolvedLanguages = [...new Set(enrichedHotels.map(hotel => hotel.resolvedLanguage).filter(Boolean))];
-        return res.status(200).json({ success: true, ...(Array.isArray(result) ? {} : result), hotels: enrichedHotels,
-            requested_language: displayLanguage, resolved_language: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || body.language || 'en' });
+        })));
+        return res.status(200).json(rateSearchResponse(enrichedHotels, body, result));
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
@@ -809,12 +808,10 @@ app.post('/api/search/rates/region', publicSearchGuard, async (req, res) => {
         const hotels = Array.isArray(result)
             ? result
             : (result?.hotels || result?.data?.hotels || result?.data?.data?.hotels || []);
-        const enrichedHotels = paymentService.decorateHotels(await enrichRateHotels(hotels.map(hotel => ({
+        const enrichedHotels = await enrichRateHotels(hotels.map(hotel => ({
             ...hotel, displayLanguage, supplierLanguage: body.language || 'en'
-        }))));
-        const resolvedLanguages = [...new Set(enrichedHotels.map(hotel => hotel.resolvedLanguage).filter(Boolean))];
-        return res.status(200).json({ success: true, hotels: enrichedHotels,
-            requested_language: displayLanguage, resolved_language: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || body.language || 'en' });
+        })));
+        return res.status(200).json(rateSearchResponse(enrichedHotels, body));
     } catch (error) {
         if (error.ratehawkError === 'invalid_params') {
             return res.status(400).json({ success: false, error: 'INVALID_SEARCH_CRITERIA', message: error.message });
