@@ -205,7 +205,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
     };
 
     if (loading && !hotel && !error) return <main dir={direction} className="pillow-wait-page"><PillowWait stage="hotel" /></main>;
-    if (error) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-3xl rounded-3xl bg-red-50 p-10 text-center font-bold text-red-600 shadow-sm"><p className="text-lg">{error}</p><button type="button" onClick={onBack} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm text-white hover:bg-red-700 transition-colors"><ArrowRight size={18} /> {t('hotel.back', 'العودة للنتائج')}</button></div></main>;
+    if (error) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div role="alert" className="mx-auto max-w-3xl rounded-3xl bg-red-50 p-10 text-center font-bold text-red-600 shadow-sm"><p className="text-lg">{error}</p><button type="button" onClick={onBack} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm text-white hover:bg-red-700 transition-colors"><ArrowRight size={18} /> {t('hotel.back', 'العودة للنتائج')}</button></div></main>;
 
     // Calculate total guests safely
     const totalGuests = searchParams.guests.reduce((acc, g) => acc + (g.adults || 0) + (g.children?.length || 0), 0);
