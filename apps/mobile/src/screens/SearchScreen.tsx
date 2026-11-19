@@ -81,7 +81,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   }, [query, language, suggestionKey, needsSuggestions, authStatus, sessionRevision, pickedCity, setErrors]));
   const savedIds = state.saved.filter(id => hotelId(id) !== null);
   const submit = () => {
-    const destination = selected?.name === query ? selected : query === state.destinationName ? destinationFromSearch(state.criteria, query) : null;
+    const destination = selected?.name === query ? selected : !pickedCity && query === state.destinationName ? destinationFromSearch(state.criteria, query) : null;
     const criteria: SearchCriteria = { checkin, checkout, guests: copyGuestRooms(guests), residency, currency, language, ...(savedOnly ? { hids: savedIds } : destination?.regionId ? { regionId: destination.regionId } : destination?.hid ? { hids: [destination.hid] } : {}) };
     const validation = validateSearchCriteria(criteria); const next = { destination: savedOnly ? !savedIds.length : !destination || !query.trim(), dates: validation.errors.includes('invalid_checkin') || validation.errors.includes('invalid_checkout'), residency: !COUNTRY_CODES.includes(residency), guests: validation.errors.includes('invalid_guests') };
     setErrors(next); setSubmitted(true);
