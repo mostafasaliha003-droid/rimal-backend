@@ -1,3 +1,5 @@
+const { cleanTravelText, englishTravelQuery } = require('../shared/arabicTravelSearch');
+
 const ARABIC_TO_LATIN = {
     ا: 'a', أ: 'a', إ: 'a', آ: 'a', ٱ: 'a', ب: 'b', ت: 't', ث: 'th', ج: 'j', ح: 'h', خ: 'kh',
     د: 'd', ذ: 'dh', ر: 'r', ز: 'z', س: 's', ش: 'sh', ص: 's', ض: 'd', ط: 't', ظ: 'z',
@@ -49,7 +51,10 @@ function candidateNames(hotel) {
     const translatedNames = Object.values(translations)
         .filter(translation => translation?.name && translation.reviewStatus === 'approved')
         .map(translation => normalizeHotelSearchText(translation.name));
-    return [...new Set([hotel.normalizedSupplierName, ...aliases, ...translatedNames].filter(Boolean))];
+    const name = hotel.normalizedSupplierName || normalizeHotelSearchText(hotel.name);
+    const names = [name, ...aliases, ...translatedNames].filter(Boolean);
+    if (name && hotel.city) names.push(name + ' ' + normalizeHotelSearchText(hotel.city));
+    return [...new Set(names)];
 }
 
 function scoreHotel(query, hotel) {
@@ -59,6 +64,7 @@ function scoreHotel(query, hotel) {
         return query.split(' ').reduce((total, queryWord) => total + Math.min(...words.map(word => {
             if (word === queryWord) return 0;
             if (word.startsWith(queryWord)) return 0.1;
+            if (queryWord.length <= 2) return Infinity;
             return editDistance(queryWord, word);
         })), 0);
     }), Infinity);
@@ -73,35 +79,60 @@ async function findHotelSuggestions(query, { Hotel, language = 'en', limit = 5 }
     const normalized = normalizeHotelSearchText(query);
     if (normalized.length < 2 || normalized.length > 160 || !Hotel || typeof Hotel.find !== 'function') return [];
 
-    const prefix = normalized.slice(0, Math.min(3, normalized.length));
-    const tokens = hotelSearchTokens(normalized);
-    const queryBranches = [
-        { normalizedSupplierName: { $regex: `^${escapeRegex(prefix)}` } },
-        { 'searchAliases.normalized': { $regex: `^${escapeRegex(prefix)}` }, 'searchAliases.reviewStatus': 'approved' },
-        ...['ar', 'en', 'es'].map(code => ({
-            [`translations.${code}.name`]: { $regex: `^${escapeRegex(prefix)}`, $options: 'i' },
-            [`translations.${code}.reviewStatus`]: 'approved'
-        }))
-    ];
-    if (tokens.length) {
-        queryBranches.push(
-            { searchTokens: { $in: tokens } },
-            { translationSearchTokens: { $in: tokens } }
-        );
+    const english = englishTravelQuery(query);
+    const queries = [...new Set([normalized, normalizeHotelSearchText(english)].filter(Boolean))];
+    const tokens = [...new Set(queries.flatMap(hotelSearchTokens))];
+    const firstWord = english?.split(' ')[0];
+    const rawNames = [...new Set([query.trim(), cleanTravelText(query.trim()), english,
+        firstWord?.length >= 3 ? firstWord : null].filter(Boolean))];
+    const prefixes = queries.flatMap(value => [
+        { normalizedSupplierName: { $regex: '^'+escapeRegex(value) } },
+        { searchAliases: { $elemMatch: { normalized: { $regex: '^'+escapeRegex(value) }, reviewStatus: 'approved' } } },
+    ]);
+    for (const raw of rawNames) {
+        const regex = { $regex: '^'+escapeRegex(raw) };
+        prefixes.push({name: regex}, {'translations.ar.name': regex, 'translations.ar.reviewStatus': 'approved'});
     }
-
-    const documents = await Hotel.find({
+    // Exact prefixes and localized names get a separate candidate window: common
+    // trigrams in a large inventory must not crowd out the property actually typed.
+    const find = branches => Hotel.find({
         provider: 'ratehawk',
         deleted: { $ne: true },
         'staticData.deleted': { $ne: true },
-        $or: queryBranches
+        $or: branches
     }).select({ hid: 1, hotelId: 1, name: 1, city: 1, address: 1, translations: 1, searchAliases: 1, normalizedSupplierName: 1 })
-        .limit(500).lean();
-
-    return documents.map(hotel => ({ hotel, score: scoreHotel(normalized, hotel) }))
+        .limit(500).maxTimeMS(1200).lean();
+    let direct;
+    try {
+        direct = await find(prefixes);
+    } catch (error) {
+        // A collection still building its prefix indexes can use the existing trigram indexes.
+        if (error.code !== 50) throw error;
+        direct = [];
+    }
+    const ranked = documents => documents.map(hotel => {
+        const scores = queries.map(value => scoreHotel(value, hotel)).filter(score => score !== null);
+        return { hotel, score: scores.length ? Math.min(...scores) : null };
+    })
         .filter(entry => entry.score !== null)
-        .sort((first, second) => first.score - second.score || String(first.hotel.name || '').localeCompare(String(second.hotel.name || '')))
-        .slice(0, limit).map(({ hotel }) => {
+        .sort((a,b) => a.score - b.score || String(a.hotel.name || '').localeCompare(String(b.hotel.name || '')));
+    const directMatches = ranked(direct);
+    let fuzzy = [];
+    if (directMatches.length < limit && tokens.length) {
+        try {
+            fuzzy = ranked(await find([{ searchTokens: { $in: tokens } }, { translationSearchTokens: { $in: tokens } }]));
+        } catch (error) {
+            if (!directMatches.length || error.code !== 50) throw error;
+        }
+    }
+    const ordered = [...directMatches,...fuzzy];
+    const seen = new Set();
+    return ordered.filter(({ hotel }) => {
+        const hid = String(hotel.hid || '');
+        if (!/^\d+$/.test(hid) || seen.has(hid)) return false;
+        seen.add(hid);
+        return true;
+    }).slice(0, limit).map(({ hotel }) => {
             const translations = hotel.translations instanceof Map
                 ? Object.fromEntries(hotel.translations)
                 : hotel.translations || {};

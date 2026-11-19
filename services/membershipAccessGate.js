@@ -3,6 +3,8 @@ const {rateLimit}=require('express-rate-limit');
 function publicApi(req){
     const path=req.path.replace(/\/+$/,''),method=req.method;
     if(method==='OPTIONS')return true;
+    if(method==='GET'&&path==='/api/client-region')return true;
+    if(method==='GET'&&path==='/api/display-rates'&&req.query?.scope==='world')return true;
     if(method==='GET'&&['/api/v1/ready','/api/v1/health','/api/v1/health-check','/api/payment/availability'].includes(path))return true;
     if(path.startsWith('/api/auth/')||path.startsWith('/api/membership/'))return true;
     if(method==='POST'&&path==='/api/v1/admin/login')return true;
