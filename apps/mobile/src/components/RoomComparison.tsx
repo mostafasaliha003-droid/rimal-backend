@@ -10,6 +10,7 @@ import { comparedPlanNames, mealDescription, rateCopy, roomFactKeys, roomRateFac
 import { compareStayPrices } from './offerChangeSummary';
 import { padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
+import StayEstimate from './StayEstimate';
 import Taxes from './Taxes';
 
 interface Props {
@@ -97,6 +98,7 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
                   {!!fact.decision.detail && <Txt kind="small">{fact.decision.detail}</Txt>}
                 </View> : <Txt accessibilityLabel={`${accessibleNames[i]} · ${copy[key]} · ${value}`} kind={key === 'price' ? 'heading' : 'label'}
                   style={key === 'price' ? [styles.amount, entry.offer.price && { writingDirection: 'ltr' }] : undefined}>{value}</Txt>}
+                {key === 'price' && <StayEstimate money={entry.offer.price}/>}
               </View>;
             })}</Row>
             {key === 'price' && !!priceNote && <View testID="comparison-price-difference" style={styles.priceNote}><Txt kind="small" style={{ color: colors.leafInk }}>{priceNote}</Txt></View>}

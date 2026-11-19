@@ -1,3 +1,4 @@
+import StayEstimate from './StayEstimate';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -43,7 +44,7 @@ function TermsContent({ offer, now, roomName, onClose }: OfferTermsProps) {
             <Row style={{ alignItems: 'stretch', gap: 12, ...(stacked && { flexDirection: 'column' }) }}>
               <View style={[styles.priceColumn, stacked && styles.stackedPrice]}>
                 <Txt kind="small" style={styles.priceLabel}>{copy.price}</Txt>
-                <Txt testID="offer-terms-stay-total" kind="heading" style={[styles.amount, offer.price && { writingDirection: 'ltr' }]}>{facts.price}</Txt>
+                <Txt testID="offer-terms-stay-total" kind="heading" style={[styles.amount, offer.price && { writingDirection: 'ltr' }]}>{facts.price}</Txt><StayEstimate money={offer.price}/>
               </View>
               <View style={[styles.divider, stacked ? { height: 1 } : { width: 1 }]}/>
               <View style={[styles.priceColumn, stacked && styles.stackedPrice]}>

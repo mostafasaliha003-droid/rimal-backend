@@ -27,13 +27,30 @@ function parseUsdDisplayRates(rows, now = Date.now()) {
     return { date, rates };
 }
 
-function createDisplayCurrencyService({ fetcher = globalThis.fetch } = {}) {
+function parseWorldRates(rows, now) {
+    if (!Array.isArray(rows) || !Number.isFinite(now) || rows.length > 1000) return null;
+    const rates = {}, dates = {}, seen = new Set();
+    for (const row of rows) {
+        if (row?.base !== 'USD' || typeof row.quote !== 'string' || !/^[A-Z]{3}$/.test(row.quote) || row.quote === 'USD') continue;
+        const code = row.quote;
+        if (seen.has(code)) { delete rates[code]; delete dates[code]; continue; }
+        seen.add(code);
+        if (typeof row.rate !== 'number' || !Number.isFinite(row.rate) || row.rate <= 0 || !/^\d{4}-\d{2}-\d{2}$/.test(row.date)) continue;
+        const day = Date.parse(row.date + 'T00:00:00Z');
+        if (!Number.isFinite(day) || new Date(day).toISOString().slice(0, 10) !== row.date || now - day > MAX_RATE_AGE_MS || day - now > DAY_MS) continue;
+        rates[code] = row.rate;
+        dates[code] = row.date;
+    }
+    return Object.keys(rates).length ? { base: 'USD', rates, dates } : null;
+}
+
+function rateFeed(fetcher, url, parse) {
     let cached = null;
     let pending = null;
 
     async function getRates({ now = Date.now() } = {}) {
         if (!Number.isFinite(now)) throw new TypeError('now must be a finite timestamp');
-        const cachedRates = cached && parseUsdDisplayRates(cached.rows, now);
+        const cachedRates = cached && parse(cached.rows, now);
         if (cachedRates && cached.fetchedAt <= now && now - cached.fetchedAt < CACHE_TTL_MS) {
             return { ...cachedRates, stale: false };
         }
@@ -41,15 +58,15 @@ function createDisplayCurrencyService({ fetcher = globalThis.fetch } = {}) {
         if (!pending) {
             pending = (async () => {
                 try {
-                    const response = await fetcher(RATE_URL, { signal: AbortSignal.timeout(8000) });
+                    const response = await fetcher(url, { signal: AbortSignal.timeout(8000) });
                     if (!response?.ok) throw new Error('Display exchange rates unavailable');
                     const rows = await response.json();
-                    const parsed = parseUsdDisplayRates(rows, now);
+                    const parsed = parse(rows, now);
                     if (!parsed) throw new Error('Invalid display exchange rates');
                     cached = { fetchedAt: now, rows };
                     return { ...parsed, stale: false };
                 } catch (error) {
-                    const fallback = cached && parseUsdDisplayRates(cached.rows, now);
+                    const fallback = cached && parse(cached.rows, now);
                     if (fallback && cached.fetchedAt <= now
                         && now - cached.fetchedAt <= MAX_RATE_AGE_MS) {
                         return { ...fallback, stale: true };
@@ -63,7 +80,12 @@ function createDisplayCurrencyService({ fetcher = globalThis.fetch } = {}) {
         return pending;
     }
 
-    return { getRates };
+    return getRates;
+}
+
+function createDisplayCurrencyService({ fetcher = globalThis.fetch } = {}) {
+    return { getRates: rateFeed(fetcher, RATE_URL, parseUsdDisplayRates),
+        getWorldRates: rateFeed(fetcher, 'https://api.frankfurter.dev/v2/rates?base=USD', parseWorldRates) };
 }
 
 module.exports = { CACHE_TTL_MS, MAX_RATE_AGE_MS, parseUsdDisplayRates, createDisplayCurrencyService };

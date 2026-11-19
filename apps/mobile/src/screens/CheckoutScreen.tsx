@@ -18,6 +18,7 @@ import { createTravelerDraft, validateTravelerDraft, type TravelerError } from '
 import { Button, Field, MoneyText, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
+import StayEstimate from '../components/StayEstimate';
 import { MealBadge } from '../components/RateHighlights';
 import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
 
@@ -117,7 +118,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
             <MealBadge offer={offer}/>
             <Txt kind="small" style={{ writingDirection: 'ltr' }}>{selected.review.criteria.checkin} → {selected.review.criteria.checkout}</Txt>
             <Txt kind="small">{selected.review.criteria.guests.map((room,i)=>`${copy.room(i+1)}: ${room.adults + room.children.length}`).join(' · ')}</Txt>
-            <Txt kind="label">{copy.offer}</Txt><MoneyText large money={offer.price}/>
+            <Txt kind="label">{copy.offer}</Txt><MoneyText large money={offer.price}/><StayEstimate money={offer.price}/>
             {session.quote && <><View style={ui.rule}/><Txt kind="label" style={{ color: colors.blueStrong }}>{copy.charge}</Txt><MoneyText large money={{ amount: session.quote.amount, currency: session.quote.currency }}/><Txt kind="small">{copy.sameCurrency}</Txt></>}
             <Txt kind="small">{copy.notReserved}</Txt>
             <View style={ui.rule}/>

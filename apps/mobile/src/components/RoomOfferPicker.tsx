@@ -6,6 +6,7 @@ import { Button, Icon, Row, Txt } from './Primitives';
 import { mealPlanTitle, rateCopy, roomPriceDifference, roomRateFacts } from './roomRateFacts';
 import { canReviewRoomOffer, compareRoomAmounts, type RoomChoiceEntry } from './roomChoiceModel';
 import { roomChoiceCopy } from './roomChoiceCopy';
+import StayEstimate from './StayEstimate';
 import OfferTermsSheet from './OfferTermsSheet';
 
 interface OptionsProps {
@@ -57,6 +58,7 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
             <Txt kind="label" style={styles.meal}>{title}</Txt>
             <Txt kind="heading" style={[styles.price, offer.price && { writingDirection: 'ltr' }]}>{price}</Txt>
           </Row>
+          <StayEstimate money={offer.price}/>
           {cheapest && <Txt kind="small" style={styles.lowest}>{ar ? 'أقل سعر للغرفة' : 'Lowest room price'}</Txt>}
           {difference && <Txt testID={`rate-difference-${number}`} kind="small" style={styles.difference}>{difference}</Txt>}
           {facts.meal !== title && <Txt kind="small" style={{ color: colors.goldInk }}>{ar ? 'وجبات الأطفال غير مشمولة' : 'Children’s meals excluded'}</Txt>}

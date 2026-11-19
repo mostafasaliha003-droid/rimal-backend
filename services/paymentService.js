@@ -19,7 +19,7 @@ function customerPrice(rate) {
     try {
         const priced = calculateDisplayPrice({ price: { supplierAmount: {
             amount: sourceAmount, currency: sourceCurrency
-        } } }, sourceCurrency, { markupPercent: B2C_MARKUP_PERCENT });
+        } } }, sourceCurrency, { markupPercent: B2C_MARKUP_PERCENT, exchangeRatesToAED: { [sourceCurrency]: '1' } });
         return { amount: Number(priced.price.display.amount), currency: priced.price.display.currency };
     } catch { throw new Error('RATE_CHANGED'); }
 }

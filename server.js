@@ -146,6 +146,7 @@ app.use(express.json());
 
 // 🛡️ تطبيق جدار الحماية العام على كل السيرفر
 app.use(securityService.globalLimiter);
+app.get('/api/client-region', require('./services/clientRegion').clientRegion);
 
 // ==========================================
 // 🛡️ 2. إعدادات الحماية (CORS Policy)

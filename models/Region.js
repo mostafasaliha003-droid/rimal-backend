@@ -14,4 +14,7 @@ const regionSchema = new mongoose.Schema({
     hotels: [{ type: String }]
 });
 
+regionSchema.index({ 'name.ar': 1 });
+regionSchema.index({ 'name.en': 1 });
+
 module.exports = mongoose.models.Region || mongoose.model('Region', regionSchema);

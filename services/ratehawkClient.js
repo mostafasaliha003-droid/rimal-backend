@@ -650,7 +650,8 @@ async function suggestHotelAndRegion(query, language = 'en') {
     try {
         response = await call('post', '/api/b2b/v3/search/multicomplete/', {
             data: { query, language },
-            timeout: 30000
+            // Typeahead may consult two languages within the mobile request's 20s window.
+            timeout: 7000, retries: 0, rateLimitRetry: false
         });
     } catch (error) {
         if (error.ratehawkError === 'invalid_params' || error.ratehawkError === 'core_search_error') {

@@ -36,3 +36,38 @@ test('existing search consumers still receive full decorated offers and original
     assert.equal(result.hotels[0].rates[1].customer_display_amount, customerPrice(property.rates[1]).amount);
     assert.equal(rateSearchResponse([], {response_view:'mobile_cards_v1'}).resolved_language, 'en');
 });
+
+test('all ten checkout currencies keep the same marked-up customer amount from search through prebook, intent and confirmed receipt', () => {
+    const { resolveValidatedPayment } = require('../services/paymentService');
+    const { minorUnits,validateIntent } = require('../services/ziinaClient');
+    const { confirmationDetails } = require('../services/reservationConfirmationService');
+    const currencies = require('../shared/paymentCurrencies.json');
+    assert.deepEqual(Object.keys(currencies).sort(), ['AED','BHD','EUR','GBP','INR','KWD','OMR','QAR','SAR','USD']);
+    for (const [currency, spec] of Object.entries(currencies)) {
+        const offer = rate('123.45', currency);
+        const expected = { hid:10, total:132.09, currency, roomName:'Suite' };
+        assert.deepEqual(customerPrice(offer), { amount:132.09,currency });
+        const search = rateSearchResponse([{ ...property,rates:[offer] }], {response_view:'mobile_cards_v1',currency});
+        assert.deepEqual(search.hotels[0].rates, [{customer_display_amount:132.09,customer_display_currency:currency}]);
+        const validated = resolveValidatedPayment({hotels:[{hid:10,rates:[offer]}]},expected);
+        assert.equal(validated.customerAmount,132.09);assert.equal(validated.customerCurrency,currency);
+        assert.equal(validated.amount,123.45);assert.equal(validated.currency,currency);
+        const customerMinor = minorUnits(validated.customerAmount,currency);
+        assert.equal(customerMinor, spec.decimals === 3 ? 132090 : 13209);
+        const intent = {id:'fixture-intent',account_id:'fixture-account',operation_id:'fixture-operation',
+            status:'completed',amount:customerMinor,currency_code:currency,tip_amount:0,test:true};
+        assert.equal(validateIntent(intent,{amount:customerMinor,currency,test:true}), intent);
+        assert.throws(()=>validateIntent({...intent, currency_code:currency==='USD'?'EUR':'USD'},{amount:customerMinor,currency}));
+        assert.throws(()=>validateIntent({...intent, amount:customerMinor+spec.step},{amount:customerMinor,currency}));
+        const booking = {provider:'ratehawk',status:'active',supplierStatus:'CONFIRMED',bookingReference:'fixture-booking',
+            supplierReference:'fixture-supplier',email:'guest@example.test',customerName:'Guest',hotelName:'Hotel',roomType:'Suite',
+            checkInDate:'2027-01-01',checkOutDate:'2027-01-02',price:validated.customerAmount,priceCurrency:currency};
+        const input = {reference:booking.bookingReference,supplierReference:booking.supplierReference,
+            email:booking.email, sandbox:true, amountMinor:customerMinor, currency};
+        assert.equal(confirmationDetails(booking,input).amount, spec.decimals === 3 ? '132.090':'132.09');
+        assert.throws(()=>confirmationDetails(booking,{...input,amountMinor:customerMinor+spec.step}));
+        assert.throws(()=>resolveValidatedPayment({hotels:[{hid:10,rates:[offer]}]}, {...expected,total:132.10}),/RATE_CHANGED/);
+        assert.throws(()=>resolveValidatedPayment({hotels:[{hid:10,rates:[rate('123.451',currency)]}]},expected),/RATE_CHANGED/);
+    }
+    assert.throws(()=>customerPrice(rate('125','JPY')), /RATE_CHANGED/);
+});

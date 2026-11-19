@@ -60,7 +60,14 @@ export function createApiClient(request: Request) {
   };
   return {
     checkout: createCheckoutApi(request),
+    worldDisplayRates: (signal: AbortSignal) => request('GET', '/display-rates', {
+      anonymous: true, signal, timeoutMs: 12000, query: { scope: 'world' },
+    }),
     auth, getHotelStatic,
+    async getClientRegion(signal?: AbortSignal): Promise<string | null> {
+      const { country } = object(await request('GET', '/client-region', { anonymous: true, timeoutMs: 2500, signal }));
+      return typeof country === 'string' && /^[A-Z]{2}$/.test(country) ? country : null;
+    },
     saveMembershipDetails: (details: MemberDetails, language: Language, token: string, signal: AbortSignal) =>
       request('PUT', '/membership/application', { body: { ...details, language }, token, signal }),
     uploadMembershipDocument: (kind: DocumentKind, upload: DocumentUpload, token: string, signal: AbortSignal) =>
@@ -76,7 +83,7 @@ export function createApiClient(request: Request) {
     async searchSuggestions(query: string, language: Language = 'en', signal?: AbortSignal) {
       if (!query.trim() || query.trim().length > 160 || !['ar', 'en', 'es'].includes(language)) throw new ApiError('validation', 'invalid_query');
       return normalizeSuggestions(await request('GET', '/search/suggest', { signal, timeoutMs: 20000,
-        query: { query: query.trim(), language: 'en', display_language: language } }));
+        query: { query: query.trim(), language: /\p{Script=Arabic}/u.test(query) ? 'ar' : 'en', display_language: language } }));
     },
     async searchHotels(criteria: SearchCriteria, signal?: AbortSignal) {
       assertCriteria(criteria);

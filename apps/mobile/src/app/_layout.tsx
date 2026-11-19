@@ -6,6 +6,7 @@ import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider } from '../i18n';
 import { AuthProvider } from '../auth';
+import { StayEstimateProvider } from '../components/StayEstimate';
 import { AppStateProvider } from '../components/AppState';
 import { colors } from '../theme';
 
@@ -16,4 +17,4 @@ export default function RootLayout(){const [ready,error]=useFonts({
     ManropeMedium:require('../../assets/fonts/Manrope-Medium.ttf'),
     PlexArabicBold:require('../../assets/fonts/IBMPlexSansArabic-Bold.ttf'),
     ManropeBold:require('../../assets/fonts/Manrope-Bold.ttf')
-  });if(!ready&&!error)return <View style={{flex:1,backgroundColor:colors.background,justifyContent:'center'}}><ActivityIndicator color={colors.blueStrong}/></View>;return <SafeAreaProvider><LanguageProvider><AuthProvider><AppStateProvider><StatusBar style="dark"/><Stack screenOptions={{headerShown:false,contentStyle:{backgroundColor:colors.background},animation:'slide_from_right'}}><Stack.Screen name="(tabs)"/><Stack.Screen name="results"/><Stack.Screen name="saved-dates"/><Stack.Screen name="saved-offers"/><Stack.Screen name="hotel/[hid]"/><Stack.Screen name="review"/><Stack.Screen name="compare"/><Stack.Screen name="checkout"/><Stack.Screen name="account-deletion"/><Stack.Screen name="support"/><Stack.Screen name="membership"/><Stack.Screen name="notifications"/></Stack></AppStateProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;}
+  });if(!ready&&!error)return <View style={{flex:1,backgroundColor:colors.background,justifyContent:'center'}}><ActivityIndicator color={colors.blueStrong}/></View>;return <SafeAreaProvider><LanguageProvider><AuthProvider><AppStateProvider><StayEstimateProvider><StatusBar style="dark"/><Stack screenOptions={{headerShown:false,contentStyle:{backgroundColor:colors.background},animation:'slide_from_right'}}><Stack.Screen name="(tabs)"/><Stack.Screen name="results"/><Stack.Screen name="saved-dates"/><Stack.Screen name="saved-offers"/><Stack.Screen name="hotel/[hid]"/><Stack.Screen name="review"/><Stack.Screen name="compare"/><Stack.Screen name="checkout"/><Stack.Screen name="account-deletion"/><Stack.Screen name="support"/><Stack.Screen name="membership"/><Stack.Screen name="notifications"/></Stack></StayEstimateProvider></AppStateProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;}

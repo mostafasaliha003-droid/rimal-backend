@@ -8,7 +8,7 @@ function createDisplayCurrencyRouter(service) {
     router.get('/display-rates', async (req, res) => {
         res.vary('Accept-Encoding');
         try {
-            const rates = await service.getRates();
+            const rates = req.query.scope === 'world' ? await service.getWorldRates() : await service.getRates();
             res.set('Cache-Control', rates.stale
                 ? 'public, max-age=0, stale-while-revalidate=300'
                 : 'public, max-age=900, stale-while-revalidate=3600');

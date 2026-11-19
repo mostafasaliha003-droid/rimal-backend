@@ -18,6 +18,8 @@ const mappingService = require('./mappingService');
 const { validateRatehawkSearchCriteria } = require('./ratehawkSearchValidation');
 const logger = require('./loggerService');
 const { findHotelSuggestions } = require('./hotelSearchIndex');
+const { findArabicRegionSuggestions } = require('./regionSuggestions');
+const { englishTravelQuery } = require('../shared/arabicTravelSearch');
 const offerContext = require('./ratehawkOfferContext');
 
 // Fallback name for hotels not yet present in our local static-content cache.
@@ -488,47 +490,55 @@ async function getAutocompleteSuggestions(query, language = 'en', displayLanguag
     if (!['ar', 'en', 'es'].includes(language) || !['ar', 'en', 'es'].includes(displayLanguage)) {
         throw Object.assign(new TypeError('Unsupported display language'), { httpStatus: 400 });
     }
-    const [providerResult, localResult] = await Promise.allSettled([
-        (async () => {
-            const suggestions = await client.suggestHotelAndRegion(query, language);
-            const hasHotels = Array.isArray(suggestions?.hotels) && suggestions.hotels.length > 0;
-            const hasRegions = Array.isArray(suggestions?.regions) && suggestions.regions.length > 0;
-            if (language !== 'en' && !hasHotels && !hasRegions) {
-                return { suggestions: await client.suggestHotelAndRegion(query, 'en'), language: 'en' };
-            }
-            return { suggestions, language };
-        })(),
-        mongoose.connection.readyState === 1
-            ? findHotelSuggestions(query, { Hotel: getHotelModel(), language: displayLanguage })
-            : Promise.resolve([])
-    ]);
-
-    if (localResult.status === 'rejected') {
-        logger.warn('Local hotel autocomplete unavailable; using supplier suggestions', { error: localResult.reason?.message });
+    const raw = query.trim();
+    const arabic = /\p{Script=Arabic}/u.test(raw);
+    const firstLanguage = arabic ? 'ar' : language;
+    const alternate = arabic ? englishTravelQuery(raw) : language !== 'en' ? raw : null;
+    async function supplierSuggestions() {
+        const firstQuery = arabic ? raw.normalize('NFKC').replace(/[\u0640\p{M}]/gu, '') : raw;
+        const first = await client.suggestHotelAndRegion(firstQuery, firstLanguage);
+        if (first?.hotels?.length || first?.regions?.length || !alternate) {
+            // Sandbox ignores the requested language; a Latin-only sandbox result is English.
+            const names = [...(first?.hotels || []), ...(first?.regions || [])].map(item => item?.name);
+            const sandboxEnglish = firstLanguage === 'ar' && new URL(client.BASE_URL).hostname === 'api-sandbox.ratehawk.com'
+                && names.length && !names.some(name => /\p{Script=Arabic}/u.test(name));
+            return { suggestions: first, language: sandboxEnglish ? 'en' : firstLanguage };
+        }
+        return { suggestions: await client.suggestHotelAndRegion(alternate, 'en'), language: 'en' };
     }
-    const localHotels = localResult.status === 'fulfilled' ? localResult.value : [];
-    if (providerResult.status === 'rejected' && !localHotels.length) throw providerResult.reason;
+    const connected = mongoose.connection.readyState === 1;
+    const [providerResult, hotelResult, regionResult] = await Promise.allSettled([
+        supplierSuggestions(),
+        connected ? findHotelSuggestions(raw, { Hotel: getHotelModel(), language: displayLanguage }) : [],
+        connected && arabic ? findArabicRegionSuggestions(raw, { Region: require('../models/Region'), language: displayLanguage }) : [],
+    ]);
+    for (const result of [hotelResult,regionResult]) {
+        if (result.status === 'rejected') logger.warn('Local autocomplete unavailable; using other suggestion sources', { error: result.reason?.message });
+    }
+    const localHotels = hotelResult.status === 'fulfilled' ? hotelResult.value : [];
+    const localRegions = regionResult.status === 'fulfilled' ? regionResult.value : [];
+    if (providerResult.status === 'rejected' && !localHotels.length && !localRegions.length) throw providerResult.reason;
 
-    const provider = providerResult.status === 'fulfilled' ? providerResult.value.suggestions : { hotels: [], regions: [] };
+    const provider = providerResult.status === 'fulfilled' ? providerResult.value.suggestions : null;
     const supplierLanguage = providerResult.status === 'fulfilled' ? providerResult.value.language : null;
-    const providerHotels = Array.isArray(provider?.hotels)
-        ? provider.hotels.map(hotel => ({ ...hotel, resolvedLanguage: supplierLanguage })) : [];
-    const regions = (Array.isArray(provider?.regions) ? provider.regions : [])
-        .map(region => ({ ...region, resolvedLanguage: supplierLanguage }));
-    const localIds = new Set(localHotels.map(hotel => String(hotel.hid || hotel.hotel_id)));
-    const hotels = [...localHotels, ...providerHotels.filter(hotel => !localIds.has(String(hotel?.hid || hotel?.hotel_id || hotel?.id)))];
-    const resolvedLanguages = [...new Set([
-        ...localHotels.map(hotel => hotel.resolvedLanguage),
-        ...providerHotels.map(hotel => hotel.resolvedLanguage),
-        ...regions.map(region => region.resolvedLanguage)
-    ].filter(Boolean))];
+    function merge(local, supplied, id) {
+        const seen = new Set(local.map(id));
+        const rows = (Array.isArray(supplied) ? supplied : []).filter(row => {
+            const value = id(row);
+            if (seen.has(value)) return false;
+            seen.add(value);
+            return true;
+        }).map(row => ({ ...row, resolvedLanguage: supplierLanguage }));
+        return [...local, ...rows];
+    }
+    const hotels = merge(localHotels, provider?.hotels, hotel => String(hotel?.hid || hotel?.hotel_id || hotel?.id));
+    const regions = merge(localRegions, provider?.regions, region => String(region?.id || region?.region_id));
+    const resolved = new Set([...hotels,...regions].map(row => row.resolvedLanguage).filter(Boolean));
     return {
-        ...provider,
-        regions,
-        hotels,
-        requestedLanguage: displayLanguage,
-        resolvedLanguage: resolvedLanguages.length > 1 ? 'mixed' : resolvedLanguages[0] || supplierLanguage || displayLanguage,
-        supplierLanguage
+        ...provider, regions, hotels, requestedLanguage: displayLanguage,
+        resolvedLanguage: resolved.size > 1 ? 'mixed' : [...resolved][0] || supplierLanguage || displayLanguage,
+        supplierLanguage,
+        ...(arabic && { arabicSearchHandled: true }),
     };
 }
 const searchLiveRates = (searchCriteria = {}, options) => client.searchHotels(validatedSearchParams(searchCriteria, options));

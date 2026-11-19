@@ -2,7 +2,7 @@ import React, { useCallback, useRef, useState } from 'react';
 import { Keyboard, Platform, Pressable, ScrollView, StyleSheet, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { api, authSession, COUNTRY_CODES, validateSearchCriteria } from '../api';
+import { api, APP_ENV, authSession, COUNTRY_CODES, validateSearchCriteria } from '../api';
 import { useAuth } from '../auth';
 import type { SearchCriteria, Suggestion } from '../types';
 import { useLanguage } from '../i18n';
@@ -18,14 +18,17 @@ import GuestPicker from '../components/GuestPicker';
 import CountryPicker, { countryName } from '../components/CountryPicker';
 import { copyGuestRooms, destinationFromSearch, destinationLookupName, displayTravelDate, quickStayDates, recentSearchDraft, resolveFeaturedCity, shouldSuggestDestination, stayNights, type DestinationId, type QuickStay } from '../components/searchJourneyModel';
 import { searchCopy } from './searchCopy';
+import CurrencyPicker from '../components/CurrencyPicker';
+import { bookingCurrency, currencyName } from '../components/currencyCatalog';
+import { useCurrencyPreference } from '../components/useCurrencyPreference';
 
-type TravelDraft = Pick<SearchCriteria, 'checkin' | 'checkout' | 'guests' | 'residency' | 'currency'>;
+type TravelDraft = Pick<SearchCriteria, 'checkin' | 'checkout' | 'guests' | 'residency'>;
 
 function initialTravel(criteria: SearchCriteria | null): TravelDraft {
   return {
     checkin: criteria?.checkin || '', checkout: criteria?.checkout || '',
     guests: copyGuestRooms(criteria?.guests || [{ adults: 2, children: [] }]),
-    residency: criteria?.residency || 'ae', currency: criteria?.currency || 'USD',
+    residency: criteria?.residency || 'ae',
   };
 }
 
@@ -47,7 +50,14 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const [draft, setDraft] = useState(() => ({ source: state.criteria, value: initialTravel(state.criteria) }));
   // Applying travel details elsewhere updates the dates on Explore and retains its destination input.
   const travel = draft.source === state.criteria ? draft.value : initialTravel(state.criteria);
-  const { checkin, checkout, guests, residency, currency } = travel;
+  const { checkin, checkout, guests, residency } = travel;
+  const preference = useCurrencyPreference();
+  const currency = bookingCurrency(preference.currency, APP_ENV);
+  const [currencyOpen, showCurrency] = useState(false);
+  const currencySource = preference.source === 'manual' ? (rtl ? 'اختيارك' : 'Your choice')
+    : preference.source === 'network' ? (rtl ? 'حسب بلد الاتصال' : 'Network country')
+    : preference.source === 'device' ? (rtl ? 'حسب إعداد الجهاز' : 'Device region')
+    : preference.detecting ? (rtl ? 'جارٍ التحديد' : 'Detecting') : (rtl ? 'افتراضي' : 'Default');
   const updateTravel = (changes: Partial<TravelDraft>) => setDraft(previous => ({
     source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria)), ...changes },
   }));
@@ -65,7 +75,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       && authSession.getSnapshot().status === authStatus;
     setSuggestionResult({ key: '', values: [], error: null });
     const timer = setTimeout(() => {
-      api.searchSuggestions(destinationLookupName(query), language, controller.signal).then(values => {
+      api.searchSuggestions(pickedCity ? destinationLookupName(query) : query, language, controller.signal).then(values => {
         if (!current()) return;
         const match = pickedCity && resolveFeaturedCity(pickedCity, values);
         if (match) {
@@ -81,6 +91,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   }, [query, language, suggestionKey, needsSuggestions, authStatus, sessionRevision, pickedCity, setErrors]));
   const savedIds = state.saved.filter(id => hotelId(id) !== null);
   const submit = () => {
+    if (!preference.ready) return;
     const destination = selected?.name === query ? selected : !pickedCity && query === state.destinationName ? destinationFromSearch(state.criteria, query) : null;
     const criteria: SearchCriteria = { checkin, checkout, guests: copyGuestRooms(guests), residency, currency, language, ...(savedOnly ? { hids: savedIds } : destination?.regionId ? { regionId: destination.regionId } : destination?.hid ? { hids: [destination.hid] } : {}) };
     const validation = validateSearchCriteria(criteria); const next = { destination: savedOnly ? !savedIds.length : !destination || !query.trim(), dates: validation.errors.includes('invalid_checkin') || validation.errors.includes('invalid_checkout'), residency: !COUNTRY_CODES.includes(residency), guests: validation.errors.includes('invalid_guests') };
@@ -103,7 +114,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     if (!recent) return;
     const draft = recentSearchDraft(recent); if (!draft) return;
     setPickedCity(null); setQuery(draft.query); select(draft.selected); updateTravel({ checkin: draft.checkin, checkout: draft.checkout,
-      guests: draft.guests, residency: draft.residency, currency: draft.currency });
+      guests: draft.guests, residency: draft.residency });
     setErrors({}); setSubmitted(false); setSuggestionResult({ key: '', values: [], error: null }); Keyboard.dismiss(); returnToForm();
   };
   const chooseQuickStay = (kind: QuickStay) => {
@@ -162,7 +173,16 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
           <Txt kind="small" style={styles.fieldCaption}>{t('guests')}</Txt><Txt kind="label" style={styles.fieldValue}>{guestSummary}</Txt></View><Icon name="chevron" size={15}/></Row>
       </Pressable>
       {submitted && (errors.residency || errors.guests) && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t(errors.residency ? 'residencyError' : 'guestsError')}</Txt>}
-      <View testID="search-submit"><Pressable accessibilityRole="button"
+      <Pressable testID="search-currency" accessibilityRole="button" onPress={() => showCurrency(true)}
+        style={({pressed}) => [styles.currencyControl, pressed && {backgroundColor:colors.lavenderMist}]}>
+        <Row style={{gap:9}}><View style={{flex:1}}>
+          <Txt kind="small">{rtl ? 'عملة الأسعار' : 'Price currency'}</Txt>
+          <Txt kind="label">{currencyName(preference.currency, language)} · {preference.currency}</Txt>
+        </View><Txt kind="small">{currencySource}</Txt><Icon name="chevron" size={15}/></Row>
+      </Pressable>
+      {preference.saveFailed && <Txt kind="small" accessibilityRole="alert">{rtl ? 'تعذّر حفظ العملة على الجهاز. ينطبق اختيارك على هذه الجلسة.' : 'Could not save your currency on this device. It applies for this session.'}</Txt>}
+      {currency !== preference.currency && <Txt kind="small">{rtl ? 'نعرض تقديراً بالعملة المختارة عند توفر سعر صرف حديث. عملة الحجز هي الدولار الأمريكي (USD).' : 'A recent exchange rate is used for estimates when available. Your booking currency is USD.'}</Txt>}
+      <View testID="search-submit"><Pressable accessibilityRole="button" accessibilityState={{disabled:!preference.ready}} disabled={!preference.ready}
         accessibilityLabel={savedOnly ? t('applyStayDates') : rtl ? 'ابحث عن فنادق' : 'Search hotels'}
         accessibilityHint={nights !== null ? copy.nights(nights) : undefined} onPress={submit}
         style={({pressed}) => [styles.submit, {backgroundColor:pressed ? colors.blue : colors.primary}]}>
@@ -210,19 +230,12 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     <Pressable accessibilityRole="button" accessibilityState={{ expanded: preferences }} aria-expanded={preferences}
       onPress={() => setPreferences(value => !value)} style={{ minHeight: 48, justifyContent: 'center' }}>
       <Row style={{ gap: 8 }}><Icon name="filter" size={18}/><View style={{ flex: 1 }}><Txt kind="label">{rtl ? 'إعدادات البحث' : 'Search settings'}</Txt>
-        <Txt kind="small">{countryName(residency, language)} · {currency}</Txt></View><Txt kind="heading">{preferences ? '−' : '+'}</Txt></Row>
+        <Txt kind="small">{countryName(residency, language)}</Txt></View><Txt kind="heading">{preferences ? '−' : '+'}</Txt></Row>
     </Pressable>
     {preferences && <View style={ui.card}>
       <Pressable accessibilityRole="button" onPress={() => showCountry(true)} style={{ minHeight: 48 }}>
         <Txt kind="small">{t('residency')}</Txt><Txt kind="label">{countryName(residency, language)}</Txt>
       </Pressable>
-      <View accessibilityRole="radiogroup" accessibilityLabel={t('currency')} style={{ gap: 6 }}><Txt kind="small">{t('currency')}</Txt>
-        <Row style={{ gap: 5 }}>{['USD','AED','SAR','EUR'].map(code => <Pressable key={code}
-          accessibilityRole="radio" aria-checked={code === currency} accessibilityState={{ checked: code === currency }}
-          onPress={() => updateTravel({ currency: code })} style={{ flex: 1, minHeight: 44, justifyContent: 'center', alignItems: 'center',
-            borderRadius: 22, borderWidth: 1, borderColor: colors.border, backgroundColor: currency === code ? colors.lilac : colors.surface }}>
-          <Txt kind="label">{code}</Txt></Pressable>)}</Row>
-      </View>
     </View>}
     </View>
   </ScrollView>
@@ -238,10 +251,13 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         setErrors(current => ({ ...current, guests: false }));
       }}/>}
     <CountryPicker visible={countryOpen} value={residency} onClose={() => showCountry(false)} onChange={residency => updateTravel({ residency })} />
+    <CurrencyPicker visible={currencyOpen} value={preference.currency} automatic={preference.source !== 'manual'}
+      onClose={() => showCurrency(false)} onChange={preference.choose} onAutomatic={preference.useAutomatic}/>
   </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
+  currencyControl: { minHeight: 48, paddingHorizontal: 9, paddingVertical: 4, justifyContent:'center', borderRadius:12 },
   form: { padding:12, gap:8, borderRadius:22 },
   insetForm: { marginTop:-31 },
   fieldRow: { gap:11, minHeight:45 },

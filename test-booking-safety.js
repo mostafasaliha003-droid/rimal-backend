@@ -1772,7 +1772,7 @@ test('autocomplete falls back to English only for empty localized results', asyn
     localResponse = localized;
     assert.deepEqual(await getAutocompleteSuggestions('دبي', 'ar'), {
         ...localized, regions: localized.regions.map(region => ({ ...region, resolvedLanguage: 'ar' })),
-        hotels: [], requestedLanguage: 'ar', resolvedLanguage: 'ar', supplierLanguage: 'ar'
+        hotels: [], requestedLanguage: 'ar', resolvedLanguage: 'ar', supplierLanguage: 'ar', arabicSearchHandled: true
     });
     assert.deepEqual(calls, [{ query: 'دبي', language: 'ar' }]);
     calls.length = 0;

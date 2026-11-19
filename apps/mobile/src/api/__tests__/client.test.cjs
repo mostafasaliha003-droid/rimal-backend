@@ -42,6 +42,18 @@ const { createSessionManager } = load('../../auth/session.ts');
 const response = (value, status = 200, headers = {}) => new Response(JSON.stringify(value), { status, headers });
 const criteria = () => ({ checkin: '2099-02-16', checkout: '2099-02-18', residency: 'ae', currency: 'USD',
   guests: [{ adults: 2, children: [0, 17] }], regionId: 6053839, language: 'ar' });
+test('the currency-region request omits account credentials and accepts an unknown country', async () => {
+  let country = 'AE';
+  const transport = createTransport({ environment: 'staging', getToken: async () => { throw Error('unexpected account read'); },
+    fetcher: async (url, init) => {
+      assert.equal(new URL(url).pathname, '/api/client-region'); assert.equal(init.credentials, 'omit');
+      assert.equal(init.headers.Authorization, undefined); return response({ success: true, country });
+    } });
+  const client = createApiClient(transport);
+  assert.equal(await client.getClientRegion(), 'AE');
+  country = null;
+  assert.equal(await client.getClientRegion(), null);
+});
 // Use a bounded future date relative to the test clock, like the website model.
 function futureCriteria() { const date = new Date(); date.setDate(date.getDate() + 30); const start = date.toISOString().slice(0, 10);
   date.setDate(date.getDate() + 2); return { ...criteria(), checkin: start, checkout: date.toISOString().slice(0, 10) }; }
@@ -314,6 +326,11 @@ test('actual BFF envelopes adapt suggestions/search/details; wrong hotel IDs and
   } });
   const api = createApiClient(request);
   assert.equal((await api.searchSuggestions('Dubai', 'ar'))[0].regionId, 6053839);
+  await api.searchSuggestions(' هِيلتون دبي ', 'en');
+  const typed = new URL(calls[calls.length - 1].url).searchParams;
+  assert.equal(typed.get('query'), 'هِيلتون دبي');
+  assert.equal(typed.get('language'), 'ar');
+  assert.equal(typed.get('display_language'), 'en');
   assert.equal((await api.searchHotels(futureCriteria()))[0].price.amount, '107.00');
   const details = await api.getHotel(123, futureCriteria(), 'ar');
   assert.deepEqual(details.description, ['Actual supplied text']);

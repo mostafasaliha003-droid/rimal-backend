@@ -7,6 +7,7 @@ import { colors, ui } from '../theme';
 import { useAppState } from './AppState';
 import { Icon, MoneyText, Photo, Row, Txt } from './Primitives';
 import { priceInCurrency, stayNights } from './resultsDecisionModel';
+import StayEstimate from './StayEstimate';
 import { resultsCopy } from './resultsCopy';
 
 export default function HotelCard({ hotel, comparisonDisabled = false, compact = false }: { hotel: HotelSummary; comparisonDisabled?: boolean; compact?: boolean }) {
@@ -56,7 +57,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, compact =
             {stars}
             <Txt kind="heading" numberOfLines={fontScale <= 1.4 ? 2 : undefined} style={styles.listName}>{hotel.name}</Txt>
             {!!hotel.address && <Txt kind="small" numberOfLines={1}>{hotel.address}</Txt>}
-            <View testID={`hotel-price-${hotel.hid}`}>{!!price && <Txt kind="small" style={styles.note}>{L.totalFrom}</Txt>}<MoneyText money={price}/></View>
+            <View testID={`hotel-price-${hotel.hid}`}>{!!price && <Txt kind="small" style={styles.note}>{L.totalFrom}</Txt>}<MoneyText money={price}/><StayEstimate money={price}/></View>
           </View>
         </Row>
       </Pressable>
@@ -83,7 +84,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, compact =
     <Row style={fontScale > 1.35 ? { ...styles.footer, flexDirection: 'column', alignItems: 'stretch' } : styles.footer}>
       <View testID={`hotel-price-${hotel.hid}`} style={styles.total}>
         {!!price && <Txt kind="small" style={styles.note}>{L.totalFrom}{stayContext ? ` · ${stayContext}` : ''}</Txt>}
-        <MoneyText money={price}/>
+        <MoneyText money={price}/><StayEstimate money={price}/>
         {!price && !!stayContext && <Txt kind="small" style={styles.note}>{stayContext}</Txt>}
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={t('viewStay')} onPress={open}

@@ -2,6 +2,7 @@ import type { AppEnvironment, RoomOffer, SearchCriteria } from '../types';
 import { APP_ENV, resolveEnvironment } from './config';
 import { ApiError, invalidResponse } from './errors';
 import { assertCriteria, hotelId } from './validation';
+import { paymentCurrencyUnits as units } from './paymentCurrencies';
 import type { createTransport } from './transport';
 
 export type PaymentMode = 'sandbox' | 'production' | 'unconfigured';
@@ -30,11 +31,6 @@ type Request = ReturnType<typeof createTransport>;
 const statuses = new Set<CheckoutStatus>(['preparing', 'preflight_failed', 'intent_creating', 'intent_unknown', 'awaiting_payment',
   'payment_failed', 'payment_verified', 'booking_pending', 'booking_confirmed', 'booking_cancelled', 'booking_failed',
   'refund_creating', 'refund_unknown', 'refund_pending', 'refund_completed', 'refund_review', 'manual_review']);
-const units: Record<string, { decimals: number; step: number }> = {
-  AED: { decimals: 2, step: 1 }, SAR: { decimals: 2, step: 1 }, KWD: { decimals: 3, step: 10 },
-  BHD: { decimals: 3, step: 10 }, OMR: { decimals: 3, step: 10 }, QAR: { decimals: 2, step: 1 },
-  USD: { decimals: 2, step: 1 }, EUR: { decimals: 2, step: 1 }, GBP: { decimals: 2, step: 1 }, INR: { decimals: 2, step: 1 }
-};
 const uuid = /^[a-f\d]{8}(?:-[a-f\d]{4}){3}-[a-f\d]{12}$/i;
 const token = /^[a-f\d]{64}$/i;
 export const validCheckoutKey = (value: unknown): value is string => typeof value === 'string' && /^[A-Za-z0-9_-]{16,128}$/.test(value);

@@ -49,5 +49,7 @@ hotelSchema.index({ provider: 1, normalizedSupplierName: 1 }, { name: 'hotel_sup
 hotelSchema.index({ provider: 1, searchTokens: 1 }, { name: 'hotel_supplier_search_tokens' });
 hotelSchema.index({ provider: 1, translationSearchTokens: 1 }, { name: 'hotel_translation_search_tokens' });
 hotelSchema.index({ provider: 1, 'searchAliases.normalized': 1 }, { name: 'hotel_editorial_alias_search' });
+hotelSchema.index({ provider: 1, name: 1 }, { name: 'hotel_original_name_prefix' });
+hotelSchema.index({ provider: 1, 'translations.ar.name': 1 }, { name: 'hotel_arabic_name_prefix' });
 
 module.exports = mongoose.models.Hotel || mongoose.model('Hotel', hotelSchema);

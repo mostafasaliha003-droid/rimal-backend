@@ -15,6 +15,7 @@ import { taxTermsKey } from '../components/offerReviewModel';
 import { MealBadge } from '../components/RateHighlights';
 import { rateCopy, roomPaymentLabel } from '../components/roomRateFacts';
 import Cancellation from '../components/Cancellation';
+import StayEstimate from '../components/StayEstimate';
 import OfferChanges, { ExactReviewMoney } from '../components/OfferChanges';
 import { useAppState } from '../components/AppState';
 import { NATIVE_CHECKOUT_ENABLED } from '../api/config';
@@ -142,7 +143,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
             : <Button title={t('reviewAcceptChanges')} disabled={opening} onPress={acceptChanges}/>}
           <Button compact variant="quiet" title={t('reviewRefreshOffers')} onPress={returnToOffers}/>
         </View> : <View testID="review-price-breakdown" style={[ui.card, reviewStyles.receipt]}>
-          <Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><ExactReviewMoney large money={offer.price}/>
+          <Txt kind="label">{t(checked && !expired ? 'reviewCurrentPrice' : 'reviewPreviousPrice')}</Txt><ExactReviewMoney large money={offer.price}/><StayEstimate money={offer.price}/>
           {checked && !expired && <Row style={{ gap: 6 }}><Icon name="check" size={17} color={colors.success}/><Txt accessibilityLiveRegion="polite" kind="small" style={{ color: colors.success, flex: 1 }}>{t('reviewChecked')}</Txt></Row>}
           <View style={ui.rule}/>
           <Taxes taxes={offer.taxes} mode={expired ? 'historical' : 'current'}/>
