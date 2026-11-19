@@ -1,126 +1,155 @@
 import React, { useState } from 'react';
-import { Pressable, StyleSheet, useWindowDimensions, View } from 'react-native';
+import { Animated, Platform, Pressable, StyleSheet, View } from 'react-native';
+import type { PressableStateCallbackType } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { HotelSummary } from '../types';
 import { useLanguage } from '../i18n';
-import { colors, ui } from '../theme';
+import { color, elevation, radius, space, touch } from '../theme';
 import { useAppState } from './AppState';
-import { Icon, MoneyText, Photo, Row, Txt } from './Primitives';
+import { Badge, Icon, Photo, Row, Txt } from './Primitives';
 import { priceInCurrency, stayNights } from './resultsDecisionModel';
 import StayEstimate from './StayEstimate';
 import { resultsCopy } from './resultsCopy';
+import { formatMoney, stayLine } from './format';
+import { useLayout, useReducedMotion } from './motion';
+import { useToast } from './Toast';
 
-export default function HotelCard({ hotel, comparisonDisabled = false, compact = false }: { hotel: HotelSummary; comparisonDisabled?: boolean; compact?: boolean }) {
+const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
+
+export function StarRating({ stars, size = 14 }: { stars?: number; size?: number }) {
+  const { language } = useLanguage();
+  const valid = Number.isInteger(stars) && Number(stars) >= 1 && Number(stars) <= 5;
+  if (!valid) return <Txt kind="caption">{language === 'ar' ? 'التصنيف غير متوفر' : 'Rating not supplied'}</Txt>;
+  return <Row accessible accessibilityRole="image" accessibilityLabel={language === 'ar' ? `فندق ${stars} نجوم` : `${stars}-star hotel`} style={{ gap: 1 }}>
+    {Array.from({ length: Number(stars) }, (_, index) => <Icon key={index} name="star" filled size={size} color={color.rating}/>)}
+  </Row>;
+}
+
+export default function HotelCard({ hotel, comparisonDisabled = false, variant = 'list', recentlyViewed = false, onOpen }: {
+  hotel: HotelSummary; comparisonDisabled?: boolean; variant?: 'list' | 'photo'; recentlyViewed?: boolean; onOpen?: (hid: number) => void;
+}) {
   const { t, language, rtl } = useLanguage(), L = resultsCopy(language), router = useRouter();
+  const ar = language === 'ar';
   const { criteria, saved, savedReady, toggleSaved, comparisonItems, comparisonContextKey, toggleComparison } = useAppState();
+  const toast = useToast();
+  const reduced = useReducedMotion();
+  const { wide, width } = useLayout();
+  const thumbWidth = wide ? 184 : width < 360 ? 104 : 120;
   const selected = saved.includes(hotel.hid), compared = comparisonItems.some(item => item.hid === hotel.hid);
   const [feedback, setFeedback] = useState<{ context: string; code: 'limit' | 'context_changed' | 'unavailable' } | null>(null);
-  const { width, fontScale } = useWindowDimensions();
   const [failedPhotos, setFailedPhotos] = useState<ReadonlySet<string>>(() => new Set());
+  const [pop] = useState(() => new Animated.Value(1));
   const hasPhoto = [hotel.imageUrl, ...(hotel.images || [])].some(uri => uri && !failedPhotos.has(uri));
-  const photoHeight = Math.min(218, Math.round((width - 32) * 0.50));
-  const open = () => router.push({ pathname: '/hotel/[hid]', params: { hid: String(hotel.hid) } });
+  const open = () => { onOpen?.(hotel.hid); router.push({ pathname: '/hotel/[hid]', params: { hid: String(hotel.hid) } }); };
   const price = priceInCurrency(hotel.price, criteria?.currency || ''), nights = stayNights(criteria);
+  const stay = criteria ? stayLine(nights, criteria.guests, language) : '';
   const compare = () => {
     const result = toggleComparison(hotel, comparisonContextKey);
     setFeedback(result === 'added' || result === 'removed' ? null : { context: comparisonContextKey, code: result });
   };
-  const stayContext = nights !== null && criteria ? L.stayContext(nights, criteria.guests.length) : '';
-  const hasStars = Number.isInteger(hotel.stars) && Number(hotel.stars) > 0 && Number(hotel.stars) <= 5;
-  const stars = hasStars && <Txt kind="label" accessibilityLabel={`${hotel.stars} ${t('stars')}`} style={styles.stars}>{'★'.repeat(Number(hotel.stars))}</Txt>;
-  const openHint = [hotel.address, hasStars && `${hotel.stars} ${t('stars')}`, price ? `${L.from} ${price.amount} ${price.currency}, ${L.stayTotal}` : t('priceUnknown'), stayContext].filter(Boolean).join('. ');
-  const iconOnly = compact || !hasPhoto;
-  const controls = <Row style={iconOnly ? styles.iconRail : styles.actions}>
-      <Pressable testID={`hotel-compare-${hotel.hid}`} accessibilityRole="checkbox" aria-checked={compared} accessibilityState={{ checked: compared, disabled: comparisonDisabled || !comparisonContextKey }}
-        accessibilityLabel={`${compared ? L.compareAdded : L.compare}: ${hotel.name}`} disabled={comparisonDisabled || !comparisonContextKey} onPress={compare}
-        style={({ pressed }) => [iconOnly ? styles.save : styles.compare, compared && styles.chosen, pressed && styles.pressed]}>
-        <Row style={{ gap: 6 }}><Icon name={compared ? 'check' : 'compare'} color={compared ? colors.surface : colors.navy} size={16}/>
-          {!iconOnly && <Txt kind="label" style={[styles.compareText, compared && styles.white]}>{L.compare}</Txt>}</Row>
-      </Pressable>
-      <Pressable accessibilityRole="button" accessibilityLabel={`${t(selected ? 'removeSaved' : 'saveStay')}: ${hotel.name}`} aria-pressed={selected}
-        accessibilityState={{ selected, disabled: !savedReady }} disabled={!savedReady} onPress={() => toggleSaved(hotel.hid)}
-        style={({ pressed }) => [styles.save, pressed && styles.pressed]}>
-        {selected ? <Txt style={{ color: colors.red, fontSize: 22 }}>♥</Txt> : <Icon name="saved" size={20}/>}
-      </Pressable>
-    </Row>;
+  const save = () => {
+    const adding = !selected;
+    toggleSaved(hotel.hid);
+    if (!reduced) Animated.sequence([
+      Animated.spring(pop, { toValue: 1.25, useNativeDriver: Platform.OS !== 'web', speed: 40, bounciness: 12 }),
+      Animated.spring(pop, { toValue: 1, useNativeDriver: Platform.OS !== 'web', speed: 30 }),
+    ]).start();
+    toast(adding ? { message: ar ? `حُفظ ${hotel.name} في المفضلة` : `${hotel.name} saved`, icon: 'saved', action: { label: ar ? 'عرض المفضلة' : 'View saved', onPress: () => router.navigate('/saved') } }
+      : { message: ar ? 'أُزيل من المفضلة' : 'Removed from saved', icon: 'info', action: { label: ar ? 'تراجع' : 'Undo', onPress: () => toggleSaved(hotel.hid) } });
+  };
+  const priceText = formatMoney(price);
+  const onPhotoError = (uri: string) => setFailedPhotos(previous => new Set(previous).add(uri));
   const notice = feedback?.context === comparisonContextKey && <Txt accessibilityRole="alert" kind="small" style={styles.notice}>
     {feedback.code === 'limit' ? L.compareLimit : feedback.code === 'context_changed' ? L.compareChanged : L.compareUnavailable}</Txt>;
-  const onPhotoError = (uri: string) => setFailedPhotos(previous => new Set(previous).add(uri));
-  if (compact) return <View testID={`hotel-card-${hotel.hid}`} style={styles.card}>
-    <Row style={styles.listRow}>
-      <Pressable testID={`hotel-open-${hotel.hid}`} accessibilityRole="button" accessibilityLabel={`${t('viewStay')}: ${hotel.name}`}
-        accessibilityHint={openHint} onPress={open} style={({ pressed }) => [styles.listMain, pressed && styles.pressed]}>
-        <Row style={{ gap: 10, alignItems: 'center' }}>
-          {hasPhoto && fontScale <= 1.4 && <View style={styles.thumbnail}><Photo uri={hotel.imageUrl} alternatives={hotel.images} label={hotel.name}
-            height="100%" thumbnail onFailed={onPhotoError}/></View>}
-          <View style={styles.listDescription}>
-            {stars}
-            <Txt kind="heading" numberOfLines={fontScale <= 1.4 ? 2 : undefined} style={styles.listName}>{hotel.name}</Txt>
-            {!!hotel.address && <Txt kind="small" numberOfLines={1}>{hotel.address}</Txt>}
-            <View testID={`hotel-price-${hotel.hid}`}>{!!price && <Txt kind="small" style={styles.note}>{L.totalFrom}</Txt>}<MoneyText money={price}/><StayEstimate money={price}/></View>
-          </View>
-        </Row>
-      </Pressable>
-      {controls}
+
+  const heart = <Animated.View style={{ transform: [{ scale: pop }] }}>
+    <Pressable accessibilityRole="button" accessibilityLabel={`${t(selected ? 'removeSaved' : 'saveStay')}: ${hotel.name}`} aria-pressed={selected}
+      accessibilityState={{ selected, disabled: !savedReady }} disabled={!savedReady} onPress={save} testID={`hotel-save-${hotel.hid}`}
+      style={state => [styles.heart, elevation.card, (state.pressed || hovered(state)) && { backgroundColor: color.bgSelected }]}>
+      <Icon name="saved" size={20} filled={selected} color={selected ? color.danger : color.textBrand}/>
+    </Pressable>
+  </Animated.View>;
+  const compareToggle = <Pressable testID={`hotel-compare-${hotel.hid}`} accessibilityRole="checkbox" aria-checked={compared}
+    accessibilityState={{ checked: compared, disabled: comparisonDisabled || !comparisonContextKey }}
+    accessibilityLabel={`${compared ? L.compareAdded : L.compare}: ${hotel.name}`} disabled={comparisonDisabled || !comparisonContextKey} onPress={compare}
+    style={state => [styles.compare, compared && styles.compared, (state.pressed || hovered(state)) && !compared && { backgroundColor: color.bgMuted },
+      (comparisonDisabled || !comparisonContextKey) && { opacity: 0.45 }]}>
+    <Row style={{ gap: space.xs }}>
+      <View style={[styles.box, compared && styles.boxChecked]}>{compared && <Icon name="check" size={12} strokeWidth={3} color={color.textOnDark}/>}</View>
+      <Txt kind="micro" style={{ color: compared ? color.interactiveStrong : color.textBrand }}>{L.compare}</Txt>
     </Row>
+  </Pressable>;
+
+  const priceBlock = <View testID={`hotel-price-${hotel.hid}`} style={[styles.price, { alignItems: rtl ? 'flex-start' : 'flex-end' }]}>
+    {priceText ? <>
+      <Txt kind="caption" align="end">{ar ? 'الإجمالي' : 'Total'} · {stay}</Txt>
+      <Txt kind="price" align="end" style={styles.amount}>{priceText}</Txt>
+      <StayEstimate money={price}/>
+    </> : <>
+      <Txt kind="caption" align="end">{stay}</Txt>
+      <Txt kind="small" align="end">{ar ? 'لا يتوفر سعر لهذه التواريخ' : 'No price for these dates'}</Txt>
+    </>}
+  </View>;
+
+  const summary = <>
+    <Row style={{ gap: space.sm, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+      <StarRating stars={hotel.stars} size={13}/>
+      {recentlyViewed && <Badge tone="info" icon="history" label={ar ? 'شاهدته مؤخراً' : 'Recently viewed'}/>}
+    </Row>
+    <Txt kind="subheading" numberOfLines={2} accessibilityRole="header">{hotel.name}</Txt>
+    {!!hotel.address && <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
+      <View style={{ paddingTop: 2 }}><Icon name="pin" size={14} color={color.textSecondary}/></View>
+      <Txt kind="caption" numberOfLines={1} style={{ flex: 1 }}>{hotel.address}</Txt></Row>}
+  </>;
+
+  if (variant === 'photo') return <View testID={`hotel-card-${hotel.hid}`} style={[styles.card, recentlyViewed && styles.viewed]}>
+    <Pressable testID={`hotel-open-${hotel.hid}`} accessibilityRole="button" accessibilityHint={t('viewStay')}
+      onPress={open} style={state => [(state.pressed || hovered(state)) && styles.pressed]}>
+      <View style={{ aspectRatio: 16 / 10, width: '100%' }}>
+        {hasPhoto ? <Photo uri={hotel.imageUrl} alternatives={hotel.images} label={hotel.name} height="100%" onFailed={onPhotoError}/>
+          : <Photo label={hotel.name} height="100%"/>}
+      </View>
+      <View style={styles.details}>{summary}{priceBlock}</View>
+    </Pressable>
+    <View pointerEvents="box-none" style={[styles.overlay, { flexDirection: rtl ? 'row-reverse' : 'row' }]}>{compareToggle}{heart}</View>
     {notice}
   </View>;
-  return <View testID={`hotel-card-${hotel.hid}`} style={styles.card}>
-    <Pressable testID={`hotel-open-${hotel.hid}`} accessibilityRole="button" accessibilityLabel={`${t('viewStay')}: ${hotel.name}`}
-      accessibilityHint={openHint}
-      onPress={open} style={({ pressed }) => pressed && styles.pressed}>
-      {hasPhoto && <View><Photo uri={hotel.imageUrl} alternatives={hotel.images} label={hotel.name} height={photoHeight} onFailed={onPhotoError}/>
-        {hasStars && <View style={[styles.rating, rtl ? { right: 12 } : { left: 12 }]}>{stars}</View>}</View>}
-      <View style={[styles.details, !hasPhoto && [styles.compactDetails, rtl ? { paddingLeft: 70 } : { paddingRight: 70 }]]}>
-        {!hasPhoto && stars}
-        <Txt kind="heading" accessibilityRole="header" style={styles.name}>{hotel.name}</Txt>
-        {!!hotel.address && <Row style={{ gap: 6, alignItems: 'flex-start' }}><View style={{ marginTop: 2 }}><Icon name="pin" size={16} color={colors.muted}/></View>
-          <Txt kind="small" numberOfLines={2} style={{ flex: 1 }}>{hotel.address}</Txt></Row>}
-        {!hasPhoto && <Txt kind="small" style={styles.note}>{hotel.imageUrl || hotel.images?.length ? L.photoUnavailable : t('photoUnknown')}</Txt>}
+
+  return <View testID={`hotel-card-${hotel.hid}`} style={[styles.card, recentlyViewed && styles.viewed]}>
+    <Pressable testID={`hotel-open-${hotel.hid}`} accessibilityRole="button" accessibilityHint={t('viewStay')}
+      onPress={open} style={state => [{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'stretch' }, (state.pressed || hovered(state)) && styles.pressed]}>
+      <View style={[styles.thumb, { width: thumbWidth }]}>
+        {hasPhoto ? <Photo uri={hotel.imageUrl} alternatives={hotel.images} label={hotel.name} height="100%" thumbnail onFailed={onPhotoError}/>
+          : <Photo label={hotel.name} height="100%" thumbnail/>}
+      </View>
+      <View style={[styles.details, { flex: 1, minWidth: 0 }]}>
+        {summary}
+        <View style={{ flex: 1 }}/>
+        {priceBlock}
       </View>
     </Pressable>
-    <View pointerEvents="box-none" style={hasPhoto ? styles.overlay : [styles.compactControls, rtl ? { left: 10 } : { right: 10 }]}>{controls}</View>
-    <View style={ui.rule}/>
-    <Row style={fontScale > 1.35 ? { ...styles.footer, flexDirection: 'column', alignItems: 'stretch' } : styles.footer}>
-      <View testID={`hotel-price-${hotel.hid}`} style={styles.total}>
-        {!!price && <Txt kind="small" style={styles.note}>{L.totalFrom}{stayContext ? ` · ${stayContext}` : ''}</Txt>}
-        <MoneyText money={price}/><StayEstimate money={price}/>
-        {!price && !!stayContext && <Txt kind="small" style={styles.note}>{stayContext}</Txt>}
-      </View>
-      <Pressable accessibilityRole="button" accessibilityLabel={t('viewStay')} onPress={open}
-        style={({ pressed }) => [styles.openStay, pressed && styles.pressed]}>
-        <Row style={{ justifyContent: 'center', gap: 4 }}><Txt kind="label" style={styles.white}>{t('viewStay')}</Txt><Icon name="chevron" color={colors.surface} size={15}/></Row>
-      </Pressable>
-    </Row>
+    <View pointerEvents="box-none" style={[styles.thumbOverlay, { width: thumbWidth - space.lg }, rtl ? { right: space.sm, alignItems: 'flex-end' } : { left: space.sm, alignItems: 'flex-start' }]}>
+      {heart}{compareToggle}
+    </View>
     {notice}
   </View>;
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: 22, overflow: 'hidden', backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border },
-  pressed: { opacity: .78 },
-  white: { color: colors.surface },
-  details: { paddingHorizontal: 15, paddingVertical: 10, gap: 4 },
-  name: { fontSize: 21, lineHeight: 29 },
-  stars: { color: colors.goldInk, fontSize: 13, lineHeight: 18, letterSpacing: 1 },
-  rating: { position: 'absolute', bottom: 9, borderRadius: 8, backgroundColor: colors.softGold, paddingHorizontal: 8, paddingVertical: 2 },
-  note: { fontSize: 13, lineHeight: 19 },
-  overlay: { position: 'absolute', top: 9, left: 9, right: 9 },
-  compactDetails: { minHeight: 110, justifyContent: 'center' },
-  compactControls: { position: 'absolute', top: 10 },
-  iconRail: { flexDirection: 'column-reverse', gap: 4 },
-  actions: { gap: 8, justifyContent: 'space-between' },
-  save: { width: 48, minHeight: 48, borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  compare: { minHeight: 48, paddingHorizontal: 12, borderRadius: 24, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, alignItems: 'center', justifyContent: 'center' },
-  compareText: { fontSize: 13 },
-  chosen: { backgroundColor: colors.navy, borderColor: colors.navy },
-  total: { flexGrow: 1, flexShrink: 1, minWidth: 0 },
-  footer: { paddingVertical: 10, paddingHorizontal: 16, gap: 10, justifyContent: 'space-between', flexWrap: 'wrap' },
-  openStay: { backgroundColor: colors.grape, borderRadius: 14, minHeight: 48, paddingHorizontal: 13, justifyContent: 'center' },
-  listRow: { padding: 10, gap: 8, alignItems: 'center' },
-  listMain: { flex: 1, minWidth: 0, minHeight: 48, justifyContent: 'center' },
-  listDescription: { flex: 1, minWidth: 0, gap: 1 },
-  listName: { fontSize: 17, lineHeight: 23 },
-  thumbnail: { width: 75, height: 98, borderRadius: 13, overflow: 'hidden' },
-  notice: { color: colors.red, paddingHorizontal: 12, paddingBottom: 10 },
+  card: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.border },
+  viewed: { borderColor: color.infoBorder, borderWidth: 1.5 },
+  pressed: { backgroundColor: color.bgMuted },
+  details: { paddingHorizontal: space.md, paddingVertical: space.md, gap: space.xs },
+  thumb: { minHeight: 168, backgroundColor: color.photoPlaceholder },
+  thumbOverlay: { position: 'absolute', top: space.sm, bottom: space.sm, justifyContent: 'space-between' },
+  overlay: { position: 'absolute', top: space.sm, left: space.sm, right: space.sm, justifyContent: 'space-between' },
+  heart: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.95)', margin: 2 },
+  compare: { minHeight: 32, minWidth: touch.min, paddingHorizontal: space.sm, borderRadius: radius.pill, justifyContent: 'center',
+    backgroundColor: 'rgba(255,255,255,0.95)', borderWidth: 1, borderColor: color.borderControl },
+  compared: { backgroundColor: color.bgSelected, borderColor: color.borderSelected },
+  box: { width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
+  boxChecked: { backgroundColor: color.interactive, borderColor: color.interactive },
+  price: { gap: 0, marginTop: space.xs },
+  amount: { writingDirection: 'ltr' },
+  notice: { color: color.danger, paddingHorizontal: space.md, paddingBottom: space.sm },
 });

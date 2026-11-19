@@ -3,7 +3,7 @@ import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } f
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
 import { colors } from '../theme';
-import { Button, Icon, Row, Txt } from './Primitives';
+import { Button, Icon, Row, Txt, DisclosureMark } from './Primitives';
 import { canReviewRoomOffer, type RoomChoiceEntry } from './roomChoiceModel';
 import { roomChoiceCopy } from './roomChoiceCopy';
 import { comparedPlanNames, mealDescription, rateCopy, roomFactKeys, roomRateFacts } from './roomRateFacts';
@@ -106,7 +106,7 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
               <Pressable accessibilityRole="button" accessibilityState={{ expanded: detail === key }} aria-expanded={detail === key}
                 onPress={() => setDetail(detail === key ? null : key)} style={styles.expand}>
                 <Row style={{ gap: 8 }}><Txt kind="label" style={[styles.flex, { color: colors.violetInk }]}>{key === 'fees' ? copy.taxDetails : copy.schedules}</Txt>
-                  <Txt accessible={false} kind="label">{detail === key ? '−' : '+'}</Txt></Row>
+                  <DisclosureMark open={detail === key}/></Row>
               </Pressable>
               {detail === key && entries.map((entry,i) => <View key={entry.key} style={styles.fullDetail}>
                 <View style={[styles.legend, labelStyle(i)]}><Txt kind="label">{accessibleNames[i]}</Txt></View>

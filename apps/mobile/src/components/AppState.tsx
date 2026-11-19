@@ -1,4 +1,4 @@
-import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react';
+import React, { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import type { HotelSummary, SearchCriteria } from '../types';
 import { APP_ENV, authSession } from '../api';
@@ -10,8 +10,10 @@ import { addRecentSearch, comparisonItemsFor, emptyComparison, emptyRecentSearch
   removeComparisonSelection, toggleComparisonSelection, type ComparisonHotel, type ComparisonOutcome,
   type ComparisonSelection, type RecentSearch, type RecentSearchSelection } from './discoverySessionModel';
 import { createSavedHotelsStore, savedSearchSetup } from './savedHotelsModel';
+import { createLastSearchStore, type LastSearch } from './lastSearchModel';
 
 export type { ComparisonHotel, RecentSearch } from './discoverySessionModel';
+export type { LastSearch } from './lastSearchModel';
 
 type State = { criteria: SearchCriteria | null; destinationName: string; setSearch: (criteria: SearchCriteria, name: string) => void;
   setSavedSearch: (criteria: SearchCriteria) => void;
@@ -27,11 +29,22 @@ type State = { criteria: SearchCriteria | null; destinationName: string; setSear
   getComparisonItems: (expectedContextKey: string) => ComparisonHotel[];
   toggleComparison: (hotel: HotelSummary, expectedContextKey: string) => ComparisonOutcome;
   removeComparison: (hid: number, expectedContextKey: string) => void; clearComparison: () => void;
-  recentSearches: RecentSearch[]; getRecentSearches: () => RecentSearch[]; clearRecentSearches: () => void };
+  recentSearches: RecentSearch[]; getRecentSearches: () => RecentSearch[]; clearRecentSearches: () => void;
+  lastSearch: LastSearch | null; lastSearchReady: boolean; clearLastSearch: () => void };
 const Context = createContext<State | null>(null);
 const ownerKey = () => `${APP_ENV}:${authSession.getSnapshot().status}:${authSession.getRevision()}`;
 export function AppStateProvider({ children }: { children: React.ReactNode }) {
-  const { status: authStatus, sessionRevision } = useAuth();
+  const { status: authStatus, sessionRevision, error: authError } = useAuth();
+  const [lastSearchStore] = useState(() => createLastSearchStore(AsyncStorage, APP_ENV));
+  const lastSearchSnapshot = useSyncExternalStore(lastSearchStore.subscribe, lastSearchStore.getSnapshot, lastSearchStore.getSnapshot);
+  useEffect(() => { void lastSearchStore.load(); }, [lastSearchStore]);
+  const previousAuth = useRef(authStatus);
+  useEffect(() => {
+    // An explicit sign-out forgets the device's last search; an expired session keeps it for the return visit.
+    if (previousAuth.current === 'signedIn' && authStatus === 'signedOut' && !authError) void lastSearchStore.clear();
+    previousAuth.current = authStatus;
+  }, [authStatus, authError, lastSearchStore]);
+  const clearLastSearch = useCallback(() => { void lastSearchStore.clear(); }, [lastSearchStore]);
   const { language } = useLanguage();
   const languageRef = useRef(language);
   useEffect(() => { languageRef.current = language; }, [language]);
@@ -124,6 +137,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
   return <Context.Provider value={{ criteria, destinationName, setSearch: (value, name) => {
     const next = copyCriteria(value);
     criteriaRef.current = next; destinationNameRef.current = name; clearReviewDraft(); clearComparison(); setCriteria(next); setDestinationName(name);
+    void lastSearchStore.save(next, name);
     if (authSession.getSnapshot().status !== 'loading') {
       recentRef.current = addRecentSearch(recentRef.current, ownerKey(), next, name); storeRecent(recentRef.current);
     }
@@ -132,6 +146,7 @@ export function AppStateProvider({ children }: { children: React.ReactNode }) {
     toggleSaved, removeSaved, restoreSaved, retrySaved, reviewDraft, setReviewDraft, getReviewDraft, clearReviewDraft,
     getCheckoutReview, setCheckoutReviewAuthority, clearCheckoutReview,
     comparisonContextKey, comparisonItems, getComparisonItems, toggleComparison, removeComparison, clearComparison,
-    recentSearches, getRecentSearches, clearRecentSearches }}>{children}</Context.Provider>;
+    recentSearches, getRecentSearches, clearRecentSearches,
+    lastSearch: lastSearchSnapshot.record, lastSearchReady: lastSearchSnapshot.ready, clearLastSearch }}>{children}</Context.Provider>;
 }
 export function useAppState() { const value = useContext(Context); if (!value) throw new Error('AppStateProvider missing'); return value; }

@@ -10,7 +10,7 @@ import { colors, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
 import { Button, Photo, Row, StatePanel, Txt } from '../components/Primitives';
-import { formatTripDate } from '../components/tripsModel';
+import { formatDay, guestLine, nightsBetween, stayWords } from '../components/format';
 import { useSavedHotelCards, type SavedHotelCard } from '../components/useSavedHotelCards';
 import { SAVED_HOTELS_LIMIT } from '../components/savedHotelsModel';
 import { savedCopy } from './savedCopy';
@@ -103,8 +103,8 @@ export default function SavedScreen() {
         <View style={[ui.card, { backgroundColor: colors.softBlue, padding: 16, gap: 10 }]}>
           {validStay && criteria ? (
             <>
-              <Txt kind="label">{formatTripDate(criteria.checkin, language)} → {formatTripDate(criteria.checkout, language)}</Txt>
-              <Txt kind="small">{copy.occupancy(criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0), criteria.guests.length)} · {criteria.currency}</Txt>
+              <Txt kind="label">{formatDay(criteria.checkin, language, { weekday: true })} – {formatDay(criteria.checkout, language, { weekday: true })}{nightsBetween(criteria.checkin, criteria.checkout) ? ` · ${stayWords(language).nights(nightsBetween(criteria.checkin, criteria.checkout)!)}` : ''}</Txt>
+              <Txt kind="small">{guestLine(criteria.guests, language)} · {criteria.currency}</Txt>
               <Button title={copy.checkPrices} disabled={!state.savedReady} onPress={() => router.push('/saved-offers')} />
               <Button compact title={copy.editDates} variant="quiet" onPress={chooseDates} />
             </>

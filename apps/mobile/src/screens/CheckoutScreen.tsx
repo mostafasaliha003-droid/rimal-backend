@@ -5,17 +5,17 @@ import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { authSession, bookingWebsiteUrl, websiteUrl } from '../api';
 import { NATIVE_CHECKOUT_ENABLED } from '../api/config';
-import type { CheckoutGuestData } from '../api/checkout';
+import type { CheckoutGuestData, CheckoutStatus } from '../api/checkout';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import type { GuestRoom, RoomOffer } from '../types';
-import { colors, fonts, ui } from '../theme';
+import { color, colors, fonts, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import { useCheckoutSession } from '../components/useCheckoutSession';
 import type { CheckoutQuoteView, CheckoutSelection } from '../components/checkoutSessionModel';
 import { createTravelerDraft, validateTravelerDraft, type TravelerError } from '../components/checkoutTravelerModel';
-import { Button, Field, MoneyText, Row, StatePanel, Txt } from '../components/Primitives';
+import { Badge, Button, Field, Icon, MoneyText, Notice, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
 import StayEstimate from '../components/StayEstimate';
@@ -95,10 +95,11 @@ export function CheckoutContents(props: CheckoutContentsProps) {
       <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'} contentContainerStyle={ui.page}>
         <View style={{ gap: 6 }}><Txt kind="title" accessibilityRole="header">{copy.title}</Txt><Txt>{copy.intro}</Txt></View>
         {existing ? <>
-          <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{copy.recovery}</Txt><Txt>{copy.recoveryBody}</Txt></View>
-          {session.phase === 'unknown' && <StatePanel title={copy.unknown} body={copy.unknownBody}/>}
+          <Notice tone="info" icon="shield" title={copy.recovery} body={copy.recoveryBody}/>
+          {session.phase === 'unknown' && <StatePanel icon="hourglass" tone="warning" title={copy.unknown} body={copy.unknownBody}/>}
           {session.attempt ? <View style={ui.card} accessibilityLiveRegion="polite">
-            {session.error && <Txt kind="label">{copy.lastKnown}</Txt>}
+            {session.error && <Badge tone="warning" icon="history" label={copy.lastKnown}/>}
+            <CheckoutProgress status={session.attempt.status}/>
             <Txt kind="heading" accessibilityRole="header">{checkoutStatusCopy(language,session.attempt.status)[0]}</Txt>
             <Txt>{checkoutStatusCopy(language,session.attempt.status)[1]}</Txt>
             <Txt kind="label">{copy.reference}</Txt><Txt selectable style={{ writingDirection: 'ltr' }}>{session.attempt.reference}</Txt>
@@ -193,4 +194,38 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
       <Button title={copy.create} disabled={!accepted||!canSubmit} onPress={submit}/>
     </>:null}
   </View>;
+}
+
+type StageState = 'done' | 'active' | 'failed' | 'waiting';
+/** Three server-reported stages. Payment verification and hotel confirmation stay visibly separate. */
+function stages(status: CheckoutStatus): [StageState, StageState, StageState] {
+  switch (status) {
+    case 'preparing': case 'intent_creating': return ['active', 'waiting', 'waiting'];
+    case 'preflight_failed': return ['failed', 'waiting', 'waiting'];
+    case 'intent_unknown': case 'awaiting_payment': return ['done', 'active', 'waiting'];
+    case 'payment_failed': return ['done', 'failed', 'waiting'];
+    case 'payment_verified': case 'booking_pending': return ['done', 'done', 'active'];
+    case 'booking_confirmed': return ['done', 'done', 'done'];
+    case 'booking_cancelled': case 'booking_failed': return ['done', 'done', 'failed'];
+    default: return ['done', 'active', 'waiting'];
+  }
+}
+export function CheckoutProgress({ status }: { status: CheckoutStatus }) {
+  const { language } = useLanguage();
+  const ar = language === 'ar';
+  if (status.startsWith('refund') || status === 'manual_review') return null;
+  const labels = ar ? ['الطلب', 'الدفع', 'تأكيد الفندق'] : ['Request', 'Payment', 'Hotel confirmation'];
+  const state = stages(status);
+  const tint = (value: StageState) => value === 'done' ? color.success : value === 'failed' ? color.danger : value === 'active' ? color.warning : color.borderControl;
+  return <Row testID="checkout-progress" accessibilityRole="progressbar" accessibilityLabel={labels.map((label, i) => `${label}: ${state[i]}`).join(' · ')}
+    style={{ gap: space.xs, alignItems: 'flex-start' }}>
+    {labels.map((label, i) => <View key={label} style={{ flex: 1, gap: space.xs, alignItems: 'center' }}>
+      <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: tint(state[i]),
+        backgroundColor: state[i] === 'done' ? color.success : color.bgSurface }}>
+        <Icon name={state[i] === 'done' ? 'check' : state[i] === 'failed' ? 'close' : state[i] === 'active' ? 'hourglass' : 'clock'} size={16}
+          color={state[i] === 'done' ? color.textOnDark : tint(state[i])}/>
+      </View>
+      <Txt kind="caption" align="center" style={{ color: state[i] === 'waiting' ? color.textSecondary : color.textPrimary }}>{label}</Txt>
+    </View>)}
+  </Row>;
 }

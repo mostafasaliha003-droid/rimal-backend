@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import { useLanguage } from '../i18n';
 import { colors, fonts, ui } from '../theme';
-import { Icon, Row, Txt } from './Primitives';
+import { Icon, Row, Txt, DisclosureMark } from './Primitives';
 import { hotelPolicySections, hotelExtraInformation, type PolicySection, type PolicyRow } from './hotelPoliciesData';
 
 const arrivalCosts = new Set(['deposit', 'add_fee']);
@@ -35,7 +35,7 @@ function PolicyDetails({ section, rtl, testID }: { section: PolicySection; rtl: 
           <Txt kind="label">{section.title}</Txt>
           {!expanded && !!preview && <Txt kind="small" style={{ color: arrivalCosts.has(section.key) ? colors.goldInk : colors.muted }}>{preview}</Txt>}
         </View>
-        <Txt accessible={false} style={styles.mark}>{expanded ? '−' : '+'}</Txt>
+        <DisclosureMark open={expanded}/>
       </Row>
     </Pressable>
     {expanded && <View style={styles.entries}>{section.entries.map((entry, index) => <View key={index}

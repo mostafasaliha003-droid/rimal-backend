@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { RoomOffer } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, fonts } from '../theme';
-import { Row, Txt } from './Primitives';
+import { Row, Txt, DisclosureMark } from './Primitives';
 import { cancellationMoneyText, parseCancellationTimestamp, presentCancellation } from './cancellationPresentationModel';
 import { cancellationCopy } from './cancellationCopy';
 import { useCancellationClock } from './useCancellationClock';
@@ -59,7 +59,7 @@ export default function Cancellation({ offer, now, mode = 'current', defaultExpa
             style={styles.disclosure}>
             <Row style={{ justifyContent: 'space-between' }}>
               <Txt kind="label" style={{ color: colors.blueStrong, flex: 1 }}>{copy.allCharges(model.periods.length)}</Txt>
-              <Txt accessible={false} style={{ color: colors.blueStrong }}>{expanded ? '−' : '+'}</Txt>
+              <DisclosureMark open={expanded}/>
             </Row>
           </Pressable>
           {expanded && <Row style={styles.zoneGroup}>

@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api, ApiError, authSession } from '../api';
@@ -8,35 +8,47 @@ import { memberRateAccessDenied } from '../api/membership';
 import { returnedSavedHotels } from '../components/savedHotelCards';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import { colors, ui } from '../theme';
+import { color, elevation, layout, radius, space, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
-import BrandedWait from '../components/BrandedWait';
 import HotelMapLink from '../components/HotelMapLink';
 import HotelCard from '../components/HotelCard';
 import ApiState from '../components/ApiState';
-import { Button, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
-import { displayTravelDate } from '../components/searchJourneyModel';
+import { Button, Card, Chip, Field, Icon, Notice, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
 import { hotelSearchPlan } from '../components/foundationContracts';
 import { activeResultFilters, beginResultRefresh, copyResultFilters, decideResults, emptyResultFilters,
   resultContextKey, stayNights, suggestedStayBudgets, type ResultFilters, type ResultSnapshot, type ResultSort } from '../components/resultsDecisionModel';
 import { resultsCopy } from '../components/resultsCopy';
+import { StaySummaryBar, useStayEditor } from '../components/StayFields';
+import { stayLine } from '../components/format';
+import { useLayout } from '../components/motion';
 
-function FilterChip({ text, label, clear }: { text: string; label: string; clear: () => void }) {
-  return <Pressable accessibilityRole="button" accessibilityLabel={`${text}: ${label}`} onPress={clear}
-    style={{ minHeight: 48, maxWidth: '100%', justifyContent: 'center', paddingHorizontal: 13, paddingVertical: 9, borderRadius: 14, backgroundColor: colors.softBlue, borderWidth: 1, borderColor: colors.border }}>
-    <Txt kind="small" style={{ color: colors.blueStrong }}>{text} ×</Txt>
-  </Pressable>;
+// Returning from a hotel within this window keeps the same list, order and scroll
+// position instead of reshuffling prices mid-comparison. Older results refresh.
+const FRESH_RESULTS_MS = 5 * 60_000;
+const viewedHotels = new Set<number>(); // session memory only, never stored
+
+function ResultsSkeleton({ columns }: { columns: number }) {
+  return <View style={{ gap: space.md }}>
+    {Array.from({ length: columns > 1 ? 4 : 3 }, (_, index) => <Card key={index} padded={false} style={{ flexDirection: 'row', overflow: 'hidden', minHeight: 168 }}>
+      <Skeleton width={120} height={168} rounded={0}/>
+      <View style={{ flex: 1, padding: space.md, gap: space.sm }}>
+        <Skeleton width="30%" height={12}/><Skeleton width="85%" height={18}/><Skeleton width="60%" height={12}/>
+        <View style={{ flex: 1 }}/><Skeleton width="45%" height={22} style={{ alignSelf: 'flex-end' }}/>
+      </View>
+    </Card>)}
+  </View>;
 }
 
 export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boolean }) {
   const { criteria, destinationName, saved, savedReady, savedErrorKind, retrySaved, comparisonItems, comparisonContextKey, getComparisonItems, clearComparison } = useAppState();
   const { t, language, rtl } = useLanguage(), L = resultsCopy(language), router = useRouter();
+  const ar = language === 'ar';
   const { status: authStatus, sessionRevision } = useAuth();
-  const { width, fontScale } = useWindowDimensions();
-  const columns = width >= 760 && fontScale <= 1.3 ? 2 : 1;
+  const { fontScale, size, gutter, desktop } = useLayout();
+  const [variant, setVariant] = useState<'list' | 'photo'>('list');
+  const columns = variant === 'photo' ? (size === 'compact' ? 1 : size === 'medium' ? 2 : 3) : (desktop && fontScale <= 1.3 ? 2 : 1);
   const [mapContext, setMapContext] = useState<string | null>(null);
-  const [compactView, setCompactView] = useState(false);
   const [snapshot, setSnapshot] = useState<ResultSnapshot>({ context: '', hotels: [], pending: false, error: null });
   const refreshRevision = useRef(0);
   const [refresh, recheck] = useState(0), [paging, setPaging] = useState({ context: '', limit: 20 });
@@ -44,6 +56,11 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const [draft, setDraft] = useState<ResultFilters>(emptyResultFilters), [sheetContext, setSheetContext] = useState<string | null>(null);
   const [sheetPane, setSheetPane] = useState<'filters' | 'sort'>('filters');
   const generation = useRef(0), inFlight = useRef<AbortController | null>(null), currentContext = useRef('');
+  const lastFetch = useRef<{ context: string; at: number; refresh: number } | null>(null);
+  const listRef = useRef<FlatList>(null);
+  const scrollPosition = useRef<{ context: string; offset: number }>({ context: '', offset: 0 });
+  const [, markViewed] = useState(0);
+  const stayEditor = useStayEditor({ savedOnly });
   const [savedAtEntry, setSavedAtEntry] = useState(() => savedOnly ? saved.filter(id => hotelId(id) !== null) : null);
   const requestSavedIds = savedAtEntry, requestSavedReady = !savedOnly || savedReady;
   const candidate = useMemo(() => requestSavedReady ? hotelSearchPlan(criteria, language, requestSavedIds) : null,
@@ -61,13 +78,14 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const refreshing = pending && hotels.length > 0;
   const defaults = useMemo(() => emptyResultFilters(), []);
   const applied = appliedState.context === context ? appliedState.value : defaults;
-  const decision = useMemo(() => decideResults(hotels, applied, criteria?.currency || ''), [hotels, applied, criteria?.currency]);
-  const preview = useMemo(() => decideResults(hotels, draft, criteria?.currency || ''), [hotels, draft, criteria?.currency]);
+  const currency = criteria?.currency || '';
+  const decision = useMemo(() => decideResults(hotels, applied, currency), [hotels, applied, currency]);
+  const preview = useMemo(() => decideResults(hotels, draft, currency), [hotels, draft, currency]);
   const activeCount = activeResultFilters(applied), limit = paging.context === context ? paging.limit : 20;
   const sheet = sheetContext === context;
   const budgets = useMemo(() => sheet && sheetPane === 'filters'
-    ? suggestedStayBudgets(hotels, draft.name, draft.stars, criteria?.currency || '') : [],
-  [sheet, sheetPane, hotels, draft.name, draft.stars, criteria?.currency]);
+    ? suggestedStayBudgets(hotels, draft.name, draft.stars, currency) : [],
+  [sheet, sheetPane, hotels, draft.name, draft.stars, currency]);
   const setLimit = (value: number) => setPaging({ context, limit: value });
   const apply = (value: ResultFilters) => { setAppliedState({ context, value: copyResultFilters(value) }); setLimit(20); };
   const clearFilters = () => apply({ ...emptyResultFilters(), sort: applied.sort });
@@ -81,13 +99,22 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   useFocusEffect(useCallback(() => {
     currentContext.current = context;
     if (!plan || authStatus === 'loading') return;
+    // Coming back from a hotel: restore the exact scroll position (browsers drop it for hidden screens).
+    if (scrollPosition.current.context === context && scrollPosition.current.offset > 0) {
+      const offset = scrollPosition.current.offset;
+      requestAnimationFrame(() => listRef.current?.scrollToOffset({ offset, animated: false }));
+    }
+    const previous = lastFetch.current;
+    if (!savedOnly && previous && previous.context === context && previous.refresh === refresh && Date.now() - previous.at < FRESH_RESULTS_MS) return;
     const controller = new AbortController(), stamp = ++generation.current;
     inFlight.current = controller;
     if (savedOnly) setSnapshot({ context, hotels: [], pending: true, error: null });
     const current = () => refreshRevision.current === refresh && !controller.signal.aborted && stamp === generation.current && currentContext.current === context
       && authSession.getRevision() === sessionRevision && authSession.getSnapshot().status === authStatus;
     api.searchHotels(plan.criteria, controller.signal).then(hotels => {
-      if (current()) setSnapshot({ context, hotels: requestSavedIds ? returnedSavedHotels(requestSavedIds, hotels) : hotels, pending: false, error: null });
+      if (!current()) return;
+      lastFetch.current = { context, at: Date.now(), refresh };
+      setSnapshot({ context, hotels: requestSavedIds ? returnedSavedHotels(requestSavedIds, hotels) : hotels, pending: false, error: null });
     }).catch(error => {
       if (!current()) return;
       const denied = error instanceof ApiError && (error.kind === 'auth' || error.kind === 'membership');
@@ -97,111 +124,126 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
     return () => { controller.abort(); if (inFlight.current === controller) inFlight.current = null; };
   }, [plan, context, refresh, authStatus, sessionRevision, savedOnly, requestSavedIds, comparisonContextKey, getComparisonItems, clearComparison]));
   const edit = () => router.push(savedOnly ? '/saved-dates' : '/');
-  const nights = stayNights(criteria), roomCount = criteria?.guests.length || 0;
-  const mapLabel = rtl ? 'مواقع الفنادق على الخريطة' : 'Hotel locations on the map';
-  const filtersLabel = `${t('filters')}${activeCount ? ` · ${activeCount}` : ''}`;
+  const nights = stayNights(criteria);
+  const mapLabel = ar ? 'مواقع الفنادق على الخريطة' : 'Hotel locations on the map';
   const hasMap = decision.hotels.some(hotel => hotel.location);
   const title = savedOnly ? t('savedOfferTitle') : destinationName || t('results');
   const sortLabel = applied.sort === 'recommended' ? t('sort') : t(applied.sort);
   const count = hotels.length ? L.results(decision.hotels.length, hotels.length) : '';
-  const header = <View style={{ gap: 7 }}>
-    {savedOnly && <Button compact variant="quiet" title={t('saved')} onPress={() => router.dismissTo('/saved')}/>}
+  const stay = criteria ? stayLine(nights, criteria.guests, language) : '';
+
+  // One-tap ways out of an empty filtered list, each keeping the dates and guests.
+  const relaxations = useMemo(() => {
+    if (!hotels.length || decision.hotels.length || !activeCount) return [];
+    const options: { key: string; label: string; next: ResultFilters }[] = [];
+    if (applied.name.trim()) options.push({ key: 'name', label: `${L.removeName}: ${applied.name.trim()}`, next: { ...applied, name: '' } });
+    if (decision.budget.amount !== null) options.push({ key: 'budget', label: L.removeBudget, next: { ...applied, maxBudget: '' } });
+    for (const star of applied.stars) options.push({ key: `star-${star}`, label: L.removeStar(star), next: { ...applied, stars: applied.stars.filter(value => value !== star) } });
+    return options.map(option => ({ ...option, count: decideResults(hotels, option.next, currency).hotels.length }))
+      .filter(option => option.count > 0).sort((a, b) => b.count - a.count);
+  }, [hotels, decision, activeCount, applied, currency, L]);
+
+  const header = <View style={{ gap: space.md, paddingBottom: space.md }}>
+    {savedOnly && <Button compact variant="quiet" icon="back" title={t('saved')} onPress={() => router.dismissTo('/saved')}/>}
     {savedOnly && plan && sameContext && !pending && !error && hotels.length < saved.length &&
-      <Txt kind="small">{language === 'ar' ? `عادت نتائج لـ ${hotels.length} من ${saved.length} فنادق محفوظة.` : `Results returned for ${hotels.length} of ${saved.length} saved stays.`}</Txt>}
-    {criteria ? <Pressable testID="results-summary" accessibilityRole="button" accessibilityLabel={`${t('searchAgain')}: ${title}${count ? `, ${count}` : ''}`}
-      accessibilityHint={`${title}, ${criteria.checkin}, ${criteria.checkout}, ${nights !== null ? L.stayContext(nights, roomCount) : ''}`}
-      onPress={edit} style={({ pressed }) => [styles.summary, pressed && styles.pressed]}>
-      <Row style={{ gap: 12, alignItems: 'center' }}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          <Row style={{ gap: 7, flexWrap: 'wrap' }}>
-            <Txt kind="title" style={styles.destination} accessibilityRole="header">{title}</Txt>
-            {!!count && <View style={styles.count}><Txt kind="label" accessibilityLiveRegion="polite" style={styles.countText}>{count}</Txt></View>}
-          </Row>
-          <Txt kind="small">{displayTravelDate(criteria.checkin, language)} – {displayTravelDate(criteria.checkout, language)} · {L.guests(criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0))}</Txt>
-        </View><Row style={styles.edit}><Icon name="search" color={colors.primary} size={16}/><Txt kind="label">{rtl ? 'تعديل' : 'Edit'}</Txt></Row>
+      <Txt kind="small">{ar ? `عادت نتائج لـ ${hotels.length} من ${saved.length} فنادق محفوظة.` : `Results returned for ${hotels.length} of ${saved.length} saved stays.`}</Txt>}
+    <Row style={{ gap: space.sm, flexWrap: 'wrap', alignItems: 'center', justifyContent: 'space-between' }}>
+      <Row style={{ gap: space.sm, flexShrink: 1, flexWrap: 'wrap' }}>
+        <Txt kind="title" accessibilityRole="header" style={{ flexShrink: 1 }}>{title}</Txt>
+        {!!count && <Txt testID="results-count" kind="label" accessibilityLiveRegion="polite" style={styles.count}>{count}</Txt>}
       </Row>
-    </Pressable> : <Txt kind="title" accessibilityRole="header">{title}</Txt>}
-    {savedErrorKind && <View><Txt accessibilityRole="alert" style={{ color: colors.red }}>{t(savedErrorKind === 'load' ? 'savedError' : 'savedSaveFailed')}</Txt>
-      <Button compact variant="quiet" title={t('retry')} onPress={() => void retrySaved()}/></View>}
+      {criteria && <Button testID="results-summary" compact variant="quiet" icon="search" title={ar ? 'بحث جديد' : 'New search'}
+        label={`${ar ? 'بحث جديد' : 'New search'} · ${title}`} onPress={edit}/>}
+    </Row>
+    {criteria && <StaySummaryBar testID="results-stay" criteria={criteria} onEditDates={() => stayEditor.editDates()} onEditGuests={stayEditor.editGuests}/>}
+    {savedErrorKind && <Notice tone="danger" title={t(savedErrorKind === 'load' ? 'savedError' : 'savedSaveFailed')} action={{ label: t('retry'), onPress: () => void retrySaved() }}/>}
     {hotels.length > 0 && <>
-      <Row style={{ gap: 5, flexWrap: 'wrap', alignItems: 'stretch' }}>
-        <Pressable testID="results-filters" accessibilityRole="button" accessibilityLabel={filtersLabel} onPress={openFilters}
-          style={({ pressed }) => [styles.tool, activeCount > 0 && styles.activeTool, pressed && styles.pressed]}>
-          <Row style={styles.toolContents}><Icon name="filter" size={18}/><Txt kind="label">{filtersLabel}</Txt></Row>
-        </Pressable>
-        <Pressable testID="results-sort" accessibilityRole="button" accessibilityLabel={`${t('sort')}: ${t(applied.sort)}`} onPress={() => openSheet('sort')}
-          style={({ pressed }) => [styles.tool, applied.sort !== 'recommended' && styles.activeTool, pressed && styles.pressed]}>
-          <Row style={styles.toolContents}><Txt accessibilityElementsHidden importantForAccessibility="no" style={styles.sortIcon}>↕</Txt><Txt kind="label">{sortLabel}</Txt></Row>
-        </Pressable>
-        {hasMap && <Pressable accessibilityRole="button" accessibilityLabel={mapLabel} accessibilityState={{ expanded: mapContext === context }}
-          onPress={() => setMapContext(current => current === context ? null : context)}
-          style={({ pressed }) => [styles.tool, mapContext === context && styles.activeTool, pressed && styles.pressed]}>
-          <Row style={{ gap: 6, justifyContent: 'center' }}><Icon name="map" size={17}/><Txt kind="label">{rtl ? 'الخريطة' : 'Map'}</Txt></Row>
-        </Pressable>}
-        <Pressable testID="results-density" accessibilityRole="button" aria-pressed={compactView}
-          accessibilityState={{ selected: compactView }} accessibilityLabel={L.compactView} onPress={() => setCompactView(value => !value)}
-          style={({ pressed }) => [styles.tool, compactView && styles.activeTool, pressed && styles.pressed]}>
-          <Row style={styles.toolContents}>
-            <View accessible={false} accessibilityElementsHidden importantForAccessibility="no" style={{ gap: 3 }}>
-              {[0, 1, 2].map(line => <View key={line} style={styles.listIconLine}/>)}
-            </View><Txt kind="label">{L.compactOption}</Txt>
-          </Row>
-        </Pressable>
+      {/* Wrapping keeps every tool visible; a sideways scroller hides the first chip in right-to-left layouts. */}
+      <Row style={{ gap: space.sm, flexWrap: 'wrap' }}>
+        <Chip testID="results-filters" icon="filter" selected={activeCount > 0} label={`${t('filters')}${activeCount ? ` · ${activeCount}` : ''}`} onPress={openFilters}/>
+        <Chip testID="results-sort" icon="sort" selected={applied.sort !== 'recommended'} label={sortLabel} accessibilityLabel={`${t('sort')}: ${t(applied.sort)}`} onPress={() => openSheet('sort')}/>
+        {hasMap && <Chip icon="map" selected={mapContext === context} label={ar ? 'الخريطة' : 'Map'} accessibilityLabel={mapLabel}
+          onPress={() => setMapContext(current => current === context ? null : context)}/>}
+        <Chip testID="results-density" icon={variant === 'list' ? 'image' : 'list'} label={variant === 'list' ? (ar ? 'عرض الصور' : 'Photo view') : (ar ? 'عرض القائمة' : 'List view')}
+          accessibilityLabel={variant === 'list' ? (ar ? 'عرض النتائج بصور كبيرة' : 'Show results with large photos') : L.compactView}
+          onPress={() => setVariant(value => value === 'list' ? 'photo' : 'list')}/>
       </Row>
-      {hasMap && mapContext === context && decision.hotels.filter(hotel => hotel.location).slice(0, limit).map(hotel =>
-        <HotelMapLink key={hotel.hid} hotel={hotel} showName/>)}
-      {decision.hotels.length > 0 && <Txt kind="small" style={styles.note}>{L.taxesNote}</Txt>}
-      {activeCount > 0 && <Row style={{ flexWrap: 'wrap' }}>
-        {!!applied.name.trim() && <FilterChip text={applied.name.trim()} label={`${L.removeName}: ${applied.name}`} clear={() => apply({ ...applied, name: '' })}/>}
-        {decision.budget.amount !== null && <FilterChip text={L.budgetChip(decision.budget.amount, criteria?.currency || '')} label={L.removeBudget} clear={() => apply({ ...applied, maxBudget: '' })}/>}
-        {applied.stars.map(star => <FilterChip key={star} text={star ? `${star} ${t('stars')}` : L.unknownStars} label={L.removeStar(star)} clear={() => apply({ ...applied, stars: applied.stars.filter(value => value !== star) })}/>)}
+      {activeCount > 0 && <Row style={{ flexWrap: 'wrap', gap: space.sm }}>
+        {!!applied.name.trim() && <Chip label={applied.name.trim()} accessibilityLabel={`${L.removeName}: ${applied.name}`} onRemove={() => apply({ ...applied, name: '' })}/>}
+        {decision.budget.amount !== null && <Chip label={L.budgetChip(decision.budget.amount, currency)} accessibilityLabel={L.removeBudget} onRemove={() => apply({ ...applied, maxBudget: '' })}/>}
+        {applied.stars.map(star => <Chip key={star} label={star ? `${star} ${t('stars')}` : L.unknownStars} accessibilityLabel={L.removeStar(star)} onRemove={() => apply({ ...applied, stars: applied.stars.filter(value => value !== star) })}/>)}
         <Button compact variant="quiet" title={L.clearAll} onPress={clearFilters}/>
       </Row>}
-      {decision.unknownPriceCount > 0 && (decision.budget.amount !== null || applied.sort !== 'recommended') && <Txt kind="small">{decision.budget.amount !== null ? L.budgetExcluded(decision.unknownPriceCount) : L.unknownPrice(decision.unknownPriceCount)}</Txt>}
-      {refreshing && <View accessibilityLiveRegion="polite"><Txt kind="label">{L.refreshing}</Txt><Txt kind="small">{L.oldPrices}</Txt></View>}
-      {!!error && <View style={[ui.card, { backgroundColor: colors.softGold }]}><Txt accessibilityRole="alert">{L.refreshFailed}</Txt><Button compact variant="secondary" title={L.refresh} onPress={refreshResults}/></View>}
+      {hasMap && mapContext === context && <Card style={{ gap: space.xs }}>{decision.hotels.filter(hotel => hotel.location).slice(0, limit).map(hotel =>
+        <HotelMapLink key={hotel.hid} hotel={hotel} showName/>)}</Card>}
+      {decision.hotels.length > 0 && <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
+        <View style={{ paddingTop: 2 }}><Icon name="info" size={14} color={color.textSecondary}/></View>
+        <Txt kind="caption" style={{ flex: 1 }}>{ar ? `الأسعار إجمالية لكامل الإقامة (${stay}) بعملة البحث. تظهر أي رسوم تُدفع في الفندق في تفاصيل كل عرض.`
+          : `Prices are totals for the whole stay (${stay}). Any fees payable at the hotel are shown on each room offer.`}</Txt>
+      </Row>}
+      {decision.unknownPriceCount > 0 && (decision.budget.amount !== null || applied.sort !== 'recommended') && <Txt kind="caption">{decision.budget.amount !== null ? L.budgetExcluded(decision.unknownPriceCount) : L.unknownPrice(decision.unknownPriceCount)}</Txt>}
+      {refreshing && <Notice tone="info" live title={L.refreshing} body={L.oldPrices}/>}
+      {!!error && <Notice tone="warning" live title={L.refreshFailed} action={{ label: L.refresh, onPress: refreshResults }}/>}
     </>}
   </View>;
+
   let content: React.ReactNode = null;
   if (savedOnly && !savedReady || authStatus === 'loading') content = <StatePanel title={t('loading')} busy/>;
-  else if (savedOnly && saved.length === 0) content = <StatePanel title={t('savedEmpty')} body={t('savedBody')}/>;
-  else if (!criteria || savedOnly && !plan) content = <View style={{ gap: 14 }}><StatePanel title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={edit}/></View>;
-  else if (pending && !hotels.length) content = <BrandedWait key={context} stage="results"/>;
+  else if (savedOnly && saved.length === 0) content = <StatePanel icon="saved" title={t('savedEmpty')} body={t('savedBody')}/>;
+  else if (!criteria || savedOnly && !plan) content = <View style={{ gap: space.md }}><StatePanel icon="calendar" title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={edit}/></View>;
+  else if (pending && !hotels.length) content = <View style={{ gap: space.md }}>
+    <Txt testID="brand-wait-results" kind="subheading" accessibilityRole="progressbar" accessibilityLiveRegion="polite" aria-live="polite">
+      {ar ? 'نبحث عن فنادق لتواريخك…' : 'Finding hotels for your dates…'}</Txt>
+    <ResultsSkeleton columns={columns}/></View>;
   else if (!hotels.length && error instanceof ApiError && error.code === 'search_result_too_large') {
-    content = <View style={{ gap: 14 }}><StatePanel title={L.largeSearchTitle} body={L.largeSearchBody}/>
+    content = <View style={{ gap: space.md }}><StatePanel icon="search" title={L.largeSearchTitle} body={L.largeSearchBody}/>
       <Button title={t('searchAgain')} onPress={edit}/></View>;
   }
   else if (error && !hotels.length) content = <ApiState error={error} retry={refreshResults}/>;
-  else if (!decision.hotels.length) content = <View style={{ gap: 14 }}><StatePanel title={hotels.length ? L.noMatch : t('noResults')} body={hotels.length ? L.noMatchBody : t(savedOnly ? 'savedNoAvailability' : 'noResultsBody')}/>{hotels.length > 0 && <><Button title={L.clearAll} variant="secondary" onPress={clearFilters}/><Button title={t('filters')} variant="quiet" onPress={openFilters}/></>}<Button title={t('searchAgain')} variant="quiet" onPress={edit}/></View>;
+  else if (!decision.hotels.length) content = hotels.length ? <View testID="results-no-match" style={{ gap: space.md }}>
+    <StatePanel icon="filter" title={L.noMatch} body={ar ? 'تواريخك وضيوفك كما هي. أزل فلتراً واحداً لرؤية إقامات مناسبة.' : 'Your dates and guests stay the same. Remove one filter to see matching stays.'}/>
+    {relaxations.map(option => <Button key={option.key} testID={`results-relax-${option.key}`} variant="secondary" icon="close"
+      title={`${option.label} · ${L.results(option.count, option.count)}`} onPress={() => apply(option.next)}/>)}
+    <Button variant="quiet" title={L.clearAll} onPress={clearFilters}/>
+  </View> : <View testID="results-empty" style={{ gap: space.md }}>
+    <StatePanel icon="calendar" title={t('noResults')} body={ar ? 'لم تَرِد إقامات متاحة لهذه التواريخ. جرّب تواريخ أخرى أو وجهة قريبة؛ نحتفظ بعدد الضيوف.' : 'No stays were returned for these dates. Try other dates or a nearby destination; your guests are kept.'}/>
+    {criteria && !savedOnly && <Button icon="calendar" title={ar ? 'غيّر التواريخ' : 'Change dates'} onPress={() => stayEditor.editDates()}/>}
+    <Button variant="secondary" title={t('searchAgain')} onPress={edit}/>
+  </View>;
+
+  const openedHotel = (hid: number) => { viewedHotels.add(hid); markViewed(value => value + 1); };
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
     <BrandHeader back/>
-    <FlatList key={`results-${columns}`} numColumns={columns} columnWrapperStyle={columns === 2 ? { justifyContent: 'space-between', flexDirection: rtl ? 'row-reverse' : 'row' } : undefined}
-      data={content ? [] : decision.hotels.slice(0, limit)} keyExtractor={hotel => String(hotel.hid)} contentContainerStyle={[ui.page, { gap: 0, paddingTop: 6 }]}
-      renderItem={({ item }) => <View style={{ width: columns === 2 ? '49%' : '100%' }}><HotelCard hotel={item} compact={compactView} comparisonDisabled={refreshing || Boolean(error)}/></View>}
-      ItemSeparatorComponent={() => <View style={{ height: compactView ? 9 : 14 }}/>} ListHeaderComponent={<View style={{ paddingBottom: 9 }}>{header}</View>} ListEmptyComponent={content || undefined}
-      ListFooterComponent={!content && limit < decision.hotels.length ? <View style={{ paddingTop: 18 }}><Button variant="secondary" title={`${t('loadMore')} (${Math.min(20, decision.hotels.length - limit)})`} onPress={() => setLimit(limit + 20)}/></View> : undefined}
+    <FlatList ref={listRef} key={`results-${columns}-${variant}`} numColumns={columns}
+      columnWrapperStyle={columns > 1 ? { gap: space.md, flexDirection: rtl ? 'row-reverse' : 'row' } : undefined}
+      data={content ? [] : decision.hotels.slice(0, limit)} keyExtractor={hotel => String(hotel.hid)}
+      contentContainerStyle={[styles.list, { paddingHorizontal: gutter, maxWidth: desktop ? layout.maxContent : layout.maxReading + 160 }]}
+      onScroll={event => { scrollPosition.current = { context, offset: event.nativeEvent.contentOffset.y }; }} scrollEventThrottle={64}
+      renderItem={({ item }) => <View style={{ flex: 1 / columns, minWidth: 0 }}>
+        <HotelCard hotel={item} variant={variant} recentlyViewed={viewedHotels.has(item.hid)} onOpen={openedHotel} comparisonDisabled={refreshing || Boolean(error)}/></View>}
+      ItemSeparatorComponent={() => <View style={{ height: space.md }}/>} ListHeaderComponent={header} ListEmptyComponent={content || undefined}
+      initialNumToRender={8} windowSize={9} removeClippedSubviews={Platform.OS === 'android'}
+      ListFooterComponent={!content && limit < decision.hotels.length ? <View style={{ paddingTop: space.lg }}>
+        <Button variant="secondary" title={`${t('loadMore')} (${Math.min(20, decision.hotels.length - limit)})`} onPress={() => setLimit(limit + 20)}/></View> : undefined}
       refreshing={refreshing} onRefresh={enabled ? refreshResults : undefined}/>
-    {sameContext && !pending && !error && comparisonItems.length > 0 && <View style={{ borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
-      <View testID="results-comparison" style={{ width: '100%', maxWidth: 880, alignSelf: 'center', paddingHorizontal: 14, paddingVertical: 6 }}>
-        <Row style={{ gap: 8, justifyContent: 'space-between' }}>
-          <View style={{ flex: 1 }}><Txt kind="label">{L.compareTitle(comparisonItems.length)}</Txt>
-            <Txt kind="small" numberOfLines={2}>{comparisonItems.length === 1 ? L.compareNeedTwo : comparisonItems.map(item => item.name).join(' · ')}</Txt>
-          </View><Button compact variant="quiet" title={t('clear')} label={L.clearCompare} onPress={clearComparison}/>
-          {comparisonItems.length > 1 && <Button compact title={L.compare} label={`${L.compareCta(comparisonItems.length)}: ${comparisonItems.map(item => item.name).join(', ')}`} onPress={() => router.push('/compare')}/>}
-        </Row>
-      </View></View>}
+    {sameContext && !pending && !error && comparisonItems.length > 0 && <View style={[styles.dock, elevation.raised]}>
+      <Row testID="results-comparison" style={[styles.dockInner, { maxWidth: desktop ? layout.maxContent : layout.maxReading + 160 }]}>
+        <View style={{ flex: 1 }}><Txt kind="label">{L.compareTitle(comparisonItems.length)}</Txt>
+          <Txt kind="caption" numberOfLines={2}>{comparisonItems.length === 1 ? L.compareNeedTwo : comparisonItems.map(item => item.name).join(' · ')}</Txt>
+        </View><Button compact variant="quiet" title={t('clear')} label={L.clearCompare} onPress={clearComparison}/>
+        {comparisonItems.length > 1 && <Button compact icon="compare" title={L.compare} label={`${L.compareCta(comparisonItems.length)}: ${comparisonItems.map(item => item.name).join(', ')}`} onPress={() => router.push('/compare')}/>}
+      </Row></View>}
     <Modal visible={sheet} transparent animationType="slide" accessibilityLabel={sheetPane === 'sort' ? t('sort') : L.filtersTitle} onRequestClose={() => setSheetContext(null)}>
-      <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: '#2D173A66' }}>
-        <Pressable accessible={false} onPress={() => setSheetContext(null)} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}/>
-        <SafeAreaView edges={['bottom']} accessibilityViewIsModal
-          style={{ maxHeight: '92%', width: '100%', maxWidth: 640, alignSelf: 'center', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.surface, direction: 'ltr' }}>
-          <View style={styles.handle}/>
-          <Row style={{ paddingHorizontal: 18, paddingVertical: 4, justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border }}>
+      <View style={[styles.scrim, desktop && { justifyContent: 'center' }]}>
+        <Pressable accessible={false} onPress={() => setSheetContext(null)} style={StyleSheet.absoluteFill}/>
+        <SafeAreaView edges={['bottom']} accessibilityViewIsModal style={[styles.sheet, desktop && styles.dialog, elevation.overlay]}>
+          {!desktop && <View style={styles.handle}/>}
+          <Row style={styles.sheetHeader}>
             <Txt kind="heading" accessibilityRole="header" style={{ flexShrink: 1 }}>{sheetPane === 'sort' ? t('sort') : L.filtersTitle}</Txt>
             <Button compact variant="quiet" title={L.cancel} onPress={() => setSheetContext(null)}/>
           </Row>
-          {sheetPane === 'sort' ? <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: 16 }}>
-            <View accessibilityRole="radiogroup" accessibilityLabel={t('sort')} style={{ gap: 7 }}>
+          {sheetPane === 'sort' ? <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: space.lg }}>
+            <View accessibilityRole="radiogroup" accessibilityLabel={t('sort')} style={{ gap: space.sm }}>
               {(['recommended', 'lowPrice', 'highPrice'] as ResultSort[]).map(sort => {
                 const selected = applied.sort === sort;
                 return <Pressable key={sort} accessibilityRole="radio" accessibilityLabel={t(sort)} aria-checked={selected} accessibilityState={{ checked: selected }}
@@ -209,73 +251,66 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
                     if (currentContext.current !== sheetContext) return;
                     apply({ ...applied, sort });
                     setSheetContext(null);
-                  }} style={({ pressed }) => [styles.sortOption, selected && styles.activeTool, pressed && styles.pressed]}>
-                  <Row style={{ justifyContent: 'space-between', gap: 8 }}>
-                    <Txt kind="label" style={{ flex: 1 }}>{t(sort)}</Txt><View style={[styles.radio, selected && styles.selectedRadio]}>
-                      {selected && <Icon name="check" color={colors.surface} size={15}/>}
-                    </View>
+                  }} style={({ pressed }) => [styles.sortOption, selected && styles.sortSelected, pressed && { backgroundColor: color.bgMuted }]}>
+                  <Row style={{ justifyContent: 'space-between', gap: space.sm }}>
+                    <Txt kind="label" style={{ flex: 1 }}>{t(sort)}</Txt>
+                    <View style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot}/>}</View>
                   </Row>
                 </Pressable>;
               })}
             </View>
           </ScrollView> : <>
-          <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
+          <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
             <Field label={L.name} placeholder={L.nameHint} value={draft.name} maxLength={120} autoCorrect={false} onChangeText={name => setDraft(value => ({ ...value, name }))}/>
-            <Field label={`${L.budget} · ${criteria?.currency || ''}`} placeholder={L.budgetHint} value={draft.maxBudget} maxLength={30} keyboardType="decimal-pad" ltr
-              error={preview.budget.valid ? undefined : L.budgetError} onChangeText={maxBudget => setDraft(value => ({ ...value, maxBudget }))}/>
-            {budgets.length > 0 && <View style={{ gap: 4 }}>
-              <Txt kind="small">{L.budgetChoices}</Txt>
-              <Row style={{ gap: 6, flexWrap: 'wrap' }}>
-                {budgets.map(amount => {
-                  const selected = preview.budget.amount === amount;
-                  return <Pressable key={amount} testID={`results-budget-${amount}`} accessibilityRole="button"
-                    accessibilityLabel={L.budgetChip(amount, criteria?.currency || '')} accessibilityState={{ selected }}
-                    onPress={() => setDraft(value => ({ ...value, maxBudget: amount }))}
-                    style={({ pressed }) => [styles.budgetChoice, selected && styles.activeTool, pressed && styles.pressed]}>
-                    <Txt kind="label">{amount} {criteria?.currency}</Txt>
-                  </Pressable>;
-                })}
-              </Row>
-            </View>}
-            <Txt kind="small">{L.budgetHelp}</Txt>
-            <View style={{ gap: 6 }}><Row style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}><Txt kind="label">{L.stars}</Txt>
+            <View style={{ gap: space.sm }}>
+              <Field label={`${L.budget} · ${currency}`} placeholder={L.budgetHint} value={draft.maxBudget} maxLength={30} keyboardType="decimal-pad" ltr
+                hint={L.budgetHelp} error={preview.budget.valid ? undefined : L.budgetError} onChangeText={maxBudget => setDraft(value => ({ ...value, maxBudget }))}/>
+              {budgets.length > 0 && <View style={{ gap: space.xs }}>
+                <Txt kind="caption">{L.budgetChoices}</Txt>
+                <Row style={{ gap: space.sm, flexWrap: 'wrap' }}>
+                  {budgets.map(amount => <Chip key={amount} testID={`results-budget-${amount}`} selected={preview.budget.amount === amount}
+                    label={`${amount} ${currency}`} accessibilityLabel={L.budgetChip(amount, currency)} onPress={() => setDraft(value => ({ ...value, maxBudget: amount }))}/>)}
+                </Row>
+              </View>}
+            </View>
+            <View style={{ gap: space.sm }}><Row style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: space.xxs }}><Txt kind="label">{L.stars}</Txt>
               <Button compact variant="quiet" title={L.allStars} onPress={() => setDraft(value => ({ ...value, stars: [] }))}/></Row>
-              <Row style={{ flexWrap: 'wrap' }}>{[5, 4, 3, 2, 1, 0].map(star => {
-                const selected = draft.stars.includes(star), count = preview.facetCounts[star];
-                return <Pressable key={star} accessibilityRole="checkbox" aria-checked={selected} accessibilityState={{ checked: selected }}
-                  accessibilityLabel={star ? L.starChoice(star, count) : L.unknownChoice(count)}
-                  onPress={() => setDraft(value => ({ ...value, stars: selected ? value.stars.filter(item => item !== star) : [...value.stars, star] }))}
-                  style={{ minHeight: 48, padding: 13, borderWidth: 1, borderColor: selected ? colors.blueStrong : colors.border, borderRadius: 13, backgroundColor: selected ? colors.softBlue : colors.surface }}><Txt kind="label">{selected ? '✓ ' : ''}{star ? `${star} ★` : L.unknownStars} · {count}</Txt></Pressable>;
+              <Row style={{ flexWrap: 'wrap', gap: space.sm }}>{[5, 4, 3, 2, 1, 0].map(star => {
+                const selected = draft.stars.includes(star), starCount = preview.facetCounts[star];
+                return <Chip key={star} role="checkbox" selected={selected} icon={star ? 'star' : undefined}
+                  label={star ? L.starChoice(star, starCount) : L.unknownChoice(starCount)}
+                  onPress={() => setDraft(value => ({ ...value, stars: selected ? value.stars.filter(item => item !== star) : [...value.stars, star] }))}/>;
               })}</Row>
             </View>
           </ScrollView>
-          <Row style={{ paddingHorizontal: 16, paddingVertical: 8, justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, borderTopWidth: 1, borderColor: colors.border }}>
-            <Button compact variant="quiet" title={L.resetDraft} onPress={() => setDraft({ ...emptyResultFilters(), sort: applied.sort })}/><Button title={L.apply(preview.hotels.length)} disabled={!preview.budget.valid} onPress={() => {
-              if (currentContext.current !== sheetContext || !preview.budget.valid) return;
-              apply(draft); setSheetContext(null);
-            }}/></Row></>}
+          <Row style={styles.sheetFooter}>
+            <Button compact variant="quiet" title={L.resetDraft} onPress={() => setDraft({ ...emptyResultFilters(), sort: applied.sort })}/>
+            <View style={{ flexGrow: 1, flexBasis: 160 }} accessibilityLiveRegion="polite">
+              <Button testID="results-apply" title={L.apply(preview.hotels.length)} disabled={!preview.budget.valid} onPress={() => {
+                if (currentContext.current !== sheetContext || !preview.budget.valid) return;
+                apply(draft); setSheetContext(null);
+              }}/></View></Row></>}
         </SafeAreaView>
       </View>
     </Modal>
+    {stayEditor.element}
   </SafeAreaView>;
 }
 
 const styles = StyleSheet.create({
-  summary: { borderRadius: 18, backgroundColor: colors.lavenderMist, paddingHorizontal: 13, paddingVertical: 6 },
-  destination: { fontSize: 25, lineHeight: 33, color: colors.primary, flexShrink: 1 },
-  count: { borderRadius: 7, paddingHorizontal: 6, backgroundColor: colors.surface },
-  countText: { fontSize: 13, lineHeight: 20, color: colors.violetInk },
-  edit: { justifyContent: 'center', minHeight: 48, paddingHorizontal: 7, gap: 4 },
-  tool: { flexGrow: 1, minHeight: 44, maxWidth: '100%', justifyContent: 'center', paddingHorizontal: 7, paddingVertical: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 13, backgroundColor: colors.surface },
-  toolContents: { justifyContent: 'center', gap: 4 },
-  listIconLine: { width: 13, height: 2, borderRadius: 1, backgroundColor: colors.primary },
-  budgetChoice: { minHeight: 48, justifyContent: 'center', paddingHorizontal: 11, borderWidth: 1, borderColor: colors.border, borderRadius: 13 },
-  activeTool: { borderColor: colors.grape, backgroundColor: colors.lavenderMist },
-  sortIcon: { fontSize: 18, lineHeight: 23, color: colors.navy },
-  pressed: { opacity: .8 },
-  note: { fontSize: 13, lineHeight: 20 },
-  handle: { alignSelf: 'center', marginTop: 8, width: 38, height: 4, borderRadius: 2, backgroundColor: colors.border },
-  sortOption: { minHeight: 56, justifyContent: 'center', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
-  radio: { width: 21, height: 21, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.muted },
-  selectedRadio: { backgroundColor: colors.navy, borderColor: colors.navy },
+  list: { width: '100%', alignSelf: 'center', paddingTop: space.lg, paddingBottom: space.xxxl },
+  count: { color: color.interactiveStrong, backgroundColor: color.bgSelected, borderRadius: radius.sm, paddingHorizontal: space.sm, overflow: 'hidden' },
+  dock: { borderTopWidth: 1, borderColor: color.border, backgroundColor: color.bgSurface },
+  dockInner: { width: '100%', alignSelf: 'center', paddingHorizontal: space.lg, paddingVertical: space.sm, gap: space.sm, justifyContent: 'space-between' },
+  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: color.scrim },
+  sheet: { maxHeight: '92%', width: '100%', maxWidth: layout.maxSheet, alignSelf: 'center', borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, backgroundColor: color.bgSurface, direction: 'ltr' },
+  dialog: { borderRadius: radius.xl, maxHeight: '86%' },
+  handle: { alignSelf: 'center', marginTop: space.sm, width: 40, height: 4, borderRadius: 2, backgroundColor: color.border },
+  sheetHeader: { paddingHorizontal: space.lg, paddingVertical: space.xs, justifyContent: 'space-between', borderBottomWidth: 1, borderColor: color.border },
+  sheetFooter: { paddingHorizontal: space.lg, paddingVertical: space.sm, justifyContent: 'space-between', flexWrap: 'wrap', gap: space.sm, borderTopWidth: 1, borderColor: color.border },
+  sortOption: { minHeight: 56, justifyContent: 'center', paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1, borderColor: color.border },
+  sortSelected: { borderColor: color.borderSelected, backgroundColor: color.bgSelected },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: color.interactive },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.interactive },
 });

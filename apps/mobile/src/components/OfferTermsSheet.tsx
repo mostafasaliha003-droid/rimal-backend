@@ -7,7 +7,7 @@ import { colors } from '../theme';
 import type { RoomOffer } from '../types';
 import Cancellation from './Cancellation';
 import HotelGallery from './HotelGallery';
-import { Button, Icon, Row, Txt } from './Primitives';
+import { Button, Icon, Row, Txt, DisclosureMark } from './Primitives';
 import { mealPlanTitle, rateCopy, roomRateFacts } from './roomRateFacts';
 import Taxes from './Taxes';
 
@@ -74,7 +74,7 @@ function TermsContent({ offer, now, roomName, onClose }: OfferTermsProps) {
             <Pressable testID="offer-terms-photos" accessibilityRole="button" accessibilityState={{ expanded: photosOpen }}
               aria-expanded={photosOpen} onPress={() => setPhotosOpen(value => !value)} style={styles.photoButton}>
               <Row><Icon name="bed" size={17}/><Txt kind="label" style={styles.factText}>{rtl ? 'صور هذه الغرفة' : 'Photos of this room'}</Txt>
-                <Txt accessible={false} kind="label">{photosOpen ? '−' : '+'}</Txt></Row>
+                <DisclosureMark open={photosOpen}/></Row>
             </Pressable>
             {photosOpen && <HotelGallery images={offer.images} name={offer.name} room/>}
           </View>}

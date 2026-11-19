@@ -1,14 +1,16 @@
 import React, { useCallback, useMemo, useState } from 'react';
-import { AppState, Platform, Pressable, ScrollView, SectionList, View } from 'react-native';
+import { AppState, Platform, Pressable, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api, websiteUrl } from '../api';
 import type { BookingHistoryItem } from '../api/bookings';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import { colors, fonts, ui } from '../theme';
+import { color, colors, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
-import { Button, Field, MoneyText, Row, StatePanel, Txt } from '../components/Primitives';
+import { Badge, Button, Card, Chip, Field, MoneyText, Notice, Row, StatePanel, Txt, DisclosureMark, type BadgeTone, type IconName, type NoticeTone } from '../components/Primitives';
+import { canDownloadVoucher } from '../api/voucher';
+import { formatWeekday, stayWords } from '../components/format';
 import {
   buildTripsModel, filterTrips, formatTripDate, localTodayKey,
   type TripBucket, type TripFilter, type TripRow,
@@ -23,10 +25,19 @@ const noBookings: readonly BookingHistoryItem[] = Object.freeze([]);
 type HistoryResult = { key: string; bookings: BookingHistoryItem[]; error: boolean };
 type AuthStatus = 'loading' | 'signedIn' | 'signedOut';
 
+const statusMeta: Record<TripRow['statusKind'], { tone: BadgeTone; notice: NoticeTone; icon: IconName }> = {
+  confirmed: { tone: 'success', notice: 'success', icon: 'checkCircle' }, pending: { tone: 'warning', notice: 'warning', icon: 'hourglass' },
+  cancelled: { tone: 'neutral', notice: 'neutral', icon: 'close' }, failed: { tone: 'danger', notice: 'danger', icon: 'alertCircle' },
+  unknown: { tone: 'neutral', notice: 'neutral', icon: 'info' },
+};
+
 function BookingCard({ row, today }: { row: TripRow; today: string }) {
   const { language } = useLanguage();
+  const ar = language === 'ar';
   const copy = tripsCopy(language);
+  const router = useRouter();
   const booking = row.booking;
+  const meta = statusMeta[row.statusKind];
   const [expanded, setExpanded] = useState(false);
   const [accountError, setAccountError] = useState(false);
   const manage = (amend = false) => {
@@ -36,70 +47,85 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
       if (!/^[A-Za-z0-9_-]{1,120}$/.test(booking.reference)) { setAccountError(true); return; }
       url.searchParams.set('reference', booking.reference); url.searchParams.set('request', 'amendment');
     }
-    void WebBrowser.openBrowserAsync(url.href, { toolbarColor: colors.navy }).catch(() => setAccountError(true));
+    void WebBrowser.openBrowserAsync(url.href, { toolbarColor: color.bgBrand }).catch(() => setAccountError(true));
   };
-  const statusColor = row.statusKind === 'confirmed' ? colors.success
-    : row.statusKind === 'failed' ? colors.red : colors.muted;
-
+  // Received is not confirmed: say so plainly, and discourage a second booking for the same stay.
+  const statusText = {
+    confirmed: { title: ar ? 'مؤكد من الفندق' : 'Confirmed by the hotel', body: ar ? 'حجزك مؤكد. أبرز رقم الحجز أو الفاوجر عند الوصول.' : 'Your booking is confirmed. Show the booking reference or voucher at check-in.' },
+    pending: { title: ar ? 'استلمنا طلبك · بانتظار التأكيد' : 'Request received · awaiting confirmation', body: ar ? 'لا يُعد الحجز مؤكداً حتى يؤكده المورّد، وستتحدّث الحالة هنا. لا تحجز التواريخ نفسها مرة أخرى.' : 'It is not confirmed until the supplier confirms it; the status updates here. Please do not book the same dates again.' },
+    cancelled: { title: copy.status.cancelled, body: ar ? 'هذا الحجز ملغى.' : 'This booking is cancelled.' },
+    failed: { title: copy.status.failed, body: ar ? 'لم يكتمل الحجز. إن ظهر خصم على وسيلة الدفع، تواصل مع الدعم مع رقم الحجز.' : 'The booking did not complete. If you see a charge, contact support with the booking reference.' },
+    unknown: { title: copy.status.unknown, body: ar ? 'تعذّر تأكيد حالة هذا الحجز. تواصل مع الدعم للتحقق قبل أي خطوة.' : 'We could not confirm this booking’s status. Contact support to check before taking any step.' },
+  }[row.statusKind];
+  const bookAgain = () => router.navigate({ pathname: '/', params: { q: booking.hotelName || '' } });
   return (
-    <View style={[ui.card, { gap: 14 }]}>
-      <Txt kind="heading" accessibilityRole="header">{booking.hotelName || copy.hotelUnknown}</Txt>
-      <Txt kind="label" style={{ color: statusColor }}>{copy.statusLabel}: {copy.status[row.statusKind]}</Txt>
-      <View style={{ backgroundColor: colors.background, borderRadius: 14, padding: 14, gap: 8 }}>
-        <Row style={{ alignItems: 'flex-start' }}>
-          {(['checkin', 'checkout'] as const).map(key => (
-            <View key={key} style={{ flex: 1, gap: 4 }}>
-              <Txt kind="small">{copy[key]}</Txt>
-              <Txt kind="label">{formatTripDate(row.dates[key], language) || copy.dateUnknown}</Txt>
-            </View>
-          ))}
-        </Row>
-        {row.dates.nights !== null && <Txt kind="small">{copy.nights(row.dates.nights)}</Txt>}
-        {row.bucket === 'current' && row.dates.checkout === today && (
-          <Txt kind="label" style={{ color: colors.blueStrong }}>{copy.departureToday}</Txt>
-        )}
-        {row.bucket === 'current' && row.dates.checkin === today && (
-          <Txt kind="label" style={{ color: colors.blueStrong }}>{copy.arrivalToday}</Txt>
-        )}
-        {row.dates.issue && (
-          <Txt kind="small">{row.dates.issue === 'missing' ? copy.datesIncomplete : copy.datesInvalid}</Txt>
-        )}
+    <Card testID={`trip-${booking.reference}`} style={{ gap: space.md }}>
+      <Row style={{ justifyContent: 'space-between', gap: space.sm, flexWrap: 'wrap' }}>
+        <Badge tone={meta.tone} icon={meta.icon} label={statusText.title}/>
+        {row.bucket === 'current' && <Badge tone="info" label={copy.groups.current}/>}
+      </Row>
+      <View style={{ gap: space.xxs }}>
+        <Txt kind="subheading" accessibilityRole="header">{booking.hotelName || copy.hotelUnknown}</Txt>
+        {booking.roomName && <Txt kind="small">{booking.roomName}</Txt>}
       </View>
-      <View style={{ gap: 4 }}>
-        <Txt kind="small">{copy.reference}</Txt>
-        <Txt selectable style={{ writingDirection: 'ltr' }}>{booking.reference}</Txt>
-      </View>
-      {booking.roomName && <Txt kind="small">{copy.room}: {booking.roomName}</Txt>}
-      {booking.price && (
-        <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Txt kind="small">{copy.recordedAmount}</Txt>
-          <MoneyText money={booking.price} />
+      <View style={styles.dates}>
+        <Row style={{ gap: space.md, alignItems: 'flex-start' }}>
+        {(['checkin', 'checkout'] as const).map(key => <View key={key} style={{ flex: 1, minWidth: 0 }}>
+          <Txt kind="caption">{copy[key]}</Txt>
+          <Txt kind="bodyStrong">{formatTripDate(row.dates[key], language) || copy.dateUnknown}</Txt>
+          {row.dates[key] && <Txt kind="caption">{formatWeekday(row.dates[key]!, language)}</Txt>}
+        </View>)}
         </Row>
-      )}
-      <VoucherButton booking={booking}/>
-      {booking.recordedStatus?.toLowerCase() === 'active' && booking.supplierStatus?.toUpperCase() === 'CONFIRMED' &&
-        <Button variant="secondary" title={language === 'ar' ? 'طلب تعديل الحجز' : 'Request a booking change'} onPress={() => manage(true)}/>}
-      <Button variant="secondary" title={language === 'ar' ? 'مراجعة الإلغاء والاسترداد على الموقع' : 'Review cancellation and refunds online'} onPress={() => manage()}/>
-      {accountError && <Txt accessibilityRole="alert">{language === 'ar' ? 'تعذّر فتح حسابك على الموقع' : 'Could not open your online account'}</Txt>}
+        {row.dates.nights !== null && <Badge tone="info" icon="moon" label={stayWords(language).nights(row.dates.nights)}/>}
+      </View>
+      {row.bucket === 'current' && row.dates.checkin === today && <Txt kind="label" tone="info">{copy.arrivalToday}</Txt>}
+      {row.bucket === 'current' && row.dates.checkout === today && <Txt kind="label" tone="info">{copy.departureToday}</Txt>}
+      {row.dates.issue && <Txt kind="small">{row.dates.issue === 'missing' ? copy.datesIncomplete : copy.datesInvalid}</Txt>}
+      {row.statusKind !== 'confirmed' && <Notice tone={meta.notice} body={statusText.body}/>}
+      <Row style={{ justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap' }}>
+        <View style={{ gap: space.xxs }}>
+          <Txt kind="caption">{copy.reference}</Txt>
+          <Txt selectable kind="bodyStrong" style={{ writingDirection: 'ltr' }}>{booking.reference}</Txt>
+        </View>
+        {booking.price && <View style={{ gap: space.xxs, alignItems: ar ? 'flex-start' : 'flex-end' }}>
+          <Txt kind="caption">{copy.recordedAmount}</Txt><MoneyText money={booking.price}/>
+        </View>}
+      </Row>
+      {canDownloadVoucher(booking) && <View style={{ gap: space.xs }}>
+        <VoucherButton booking={booking}/>
+        <Txt kind="caption">{ar ? 'يتضمن الفاوجر عنوان الفندق ووقت الوصول عند توفّرهما من المورّد.' : 'The voucher includes the hotel address and check-in time when the supplier provides them.'}</Txt>
+      </View>}
+      <Row style={{ gap: space.sm, flexWrap: 'wrap' }}>
+        <View style={{ flexGrow: 1, flexBasis: 150 }}><Button variant="secondary" icon="support" title={ar ? 'مساعدة بهذا الحجز' : 'Help with this booking'}
+          onPress={() => router.navigate('/support')}/></View>
+        {booking.recordedStatus?.toLowerCase() === 'active' && booking.supplierStatus?.toUpperCase() === 'CONFIRMED' &&
+          <View style={{ flexGrow: 1, flexBasis: 150 }}><Button variant="secondary" icon="edit" title={ar ? 'طلب تعديل' : 'Request a change'} onPress={() => manage(true)}/></View>}
+      </Row>
+      <Row style={{ gap: space.sm, flexWrap: 'wrap' }}>
+        <View style={{ flexGrow: 1, flexBasis: 150 }}><Button variant="quiet" icon="external" title={ar ? 'الإلغاء والاسترداد على الموقع' : 'Cancellation & refunds online'} onPress={() => manage()}/></View>
+        {(row.bucket === 'past' || row.statusKind === 'cancelled') && !!booking.hotelName &&
+          <View style={{ flexGrow: 1, flexBasis: 150 }}><Button testID={`trip-book-again-${booking.reference}`} variant="tonal" icon="refresh" title={ar ? 'احجز مجدداً' : 'Book again'}
+            hint={ar ? 'نبدأ بحثاً جديداً بهذا الفندق ونتحقق من الأسعار والتوفر لتواريخك الجديدة.' : 'Starts a new search for this hotel and checks prices and availability for your new dates.'} onPress={bookAgain}/></View>}
+      </Row>
+      {accountError && <Txt accessibilityRole="alert" kind="small" tone="danger">{ar ? 'تعذّر فتح حسابك على الموقع. حاول مجدداً.' : 'Could not open your online account. Try again.'}</Txt>}
       {(booking.recordedStatus || booking.supplierStatus) && (
-        <View style={{ gap: 8 }}>
+        <View style={{ gap: space.xs }}>
           <Pressable accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded}
-            onPress={() => setExpanded(value => !value)}
-            style={{ minHeight: 48, justifyContent: 'center', paddingVertical: 10 }}>
+            onPress={() => setExpanded(value => !value)} style={{ minHeight: 44, justifyContent: 'center' }}>
             <Row style={{ justifyContent: 'space-between' }}>
-              <Txt kind="label">{copy.recordDetails}</Txt>
-              <Txt accessible={false} style={{ color: colors.blueStrong }}>{expanded ? '−' : '+'}</Txt>
+              <Txt kind="label" tone="link">{copy.recordDetails}</Txt>
+              <DisclosureMark open={expanded}/>
             </Row>
           </Pressable>
           {expanded && (
-            <View style={{ gap: 6 }}>
+            <View style={{ gap: space.xxs }}>
               {booking.recordedStatus && <Txt kind="small">{copy.recordedStatus}: {booking.recordedStatus}</Txt>}
               {booking.supplierStatus && <Txt kind="small">{copy.supplierStatus}: {booking.supplierStatus}</Txt>}
             </View>
           )}
         </View>
       )}
-    </View>
+    </Card>
   );
 }
 
@@ -170,15 +196,7 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
         {filters.map(filter => {
           const selected = activeFilter === filter;
           return (
-            <Pressable key={filter} accessibilityRole="button" accessibilityState={{ selected }} aria-pressed={selected}
-              onPress={() => setFilter(filter)}
-              style={{ minHeight: 48, paddingVertical: 11, paddingHorizontal: 13, borderRadius: 13, borderWidth: 1,
-                borderColor: selected ? colors.navy : colors.border, backgroundColor: selected ? colors.navy : colors.surface,
-                justifyContent: 'center' }}>
-              <Txt style={{ fontFamily: fonts.medium, fontSize: 14, color: selected ? colors.surface : colors.navy }}>
-                {copy.filters[filter]} ({model.counts[filter]})
-              </Txt>
-            </Pressable>
+            <Chip key={filter} selected={selected} label={`${copy.filters[filter]} (${model.counts[filter]})`} onPress={() => setFilter(filter)}/>
           );
         })}
       </Row>
@@ -186,7 +204,7 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
         onPress={() => setLookupOpen(value => !value)} style={{ minHeight: 48, justifyContent: 'center' }}>
         <Row style={{ justifyContent: 'space-between' }}>
           <Txt kind="label" style={{ color: colors.blueStrong }}>{copy.findBooking}</Txt>
-          <Txt accessible={false} style={{ color: colors.blueStrong }}>{lookupOpen ? '−' : '+'}</Txt>
+          <DisclosureMark open={lookupOpen}/>
         </Row>
       </Pressable>
       {lookupOpen && (
@@ -267,3 +285,7 @@ export default function BookingsScreen() {
   // Cleanup aborts pending work; response guards also prevent late publication.
   return <OwnerTrips key={ownerKey} ownerKey={ownerKey} status={status === 'signedIn' && !user ? 'signedOut' : status} />;
 }
+
+const styles = StyleSheet.create({
+  dates: { gap: space.sm, backgroundColor: color.bgMuted, borderRadius: radius.md, padding: space.md },
+});

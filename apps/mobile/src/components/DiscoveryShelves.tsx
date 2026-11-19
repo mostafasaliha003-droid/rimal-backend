@@ -31,7 +31,7 @@ export function DiscoveryHero({ cityId, preview, choose }: { cityId: Destination
         <Row style={styles.place}><Icon name="pin" size={14} color={colors.surface}/>
           <Txt kind="label" style={styles.location}>{rtl ? city.placeAr : city.place}</Txt></Row>
         <Pressable accessibilityRole="button" testID="discovery-next-city"
-          accessibilityLabel={rtl ? 'اعرض وجهة ' + next.ar : 'Show ' + next.en}
+          accessibilityLabel={rtl ? 'التالية · اعرض وجهة ' + next.ar : 'Next · Show ' + next.en}
           onPress={() => preview(next.id)} style={({pressed}) => [styles.nextCity, { opacity: pressed ? .75 : 1 }]}>
           <Row style={{gap:5}}>
             <Txt kind="label" style={styles.location}>{rtl ? 'التالية' : 'Next'}</Txt>
@@ -40,7 +40,7 @@ export function DiscoveryHero({ cityId, preview, choose }: { cityId: Destination
         </Pressable>
       </Row>
       <Pressable accessibilityRole="button" testID="discovery-search-city"
-          accessibilityLabel={rtl ? 'ابحث عن إقامات في ' + name : 'Search stays in ' + name}
+          accessibilityHint={rtl ? 'ابحث عن إقامات في ' + name : 'Search stays in ' + name}
           onPress={() => choose(city.id, name)} style={({pressed}) => [styles.cityControl, {opacity:pressed ? .75 : 1}]}>
         <Row style={{gap:12}}>
           <View style={{flex:1}}>

@@ -3,7 +3,7 @@ import { Pressable, View } from 'react-native';
 import type { Money, RoomOffer } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, fonts } from '../theme';
-import { Row, Txt } from './Primitives';
+import { Row, Txt, DisclosureMark } from './Primitives';
 import { changedOfferSections, compareStayPrices, sourceStayMoney } from './offerChangeSummary';
 import { offerChangesCopy, padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
@@ -92,7 +92,7 @@ export default function OfferChanges({ before, after }: { before: RoomOffer; aft
             onPress={() => setDetailsOpen(value => !value)} style={{ minHeight: 48, justifyContent: 'center', paddingVertical: 10 }}>
             <Row style={{ justifyContent: 'space-between' }}>
               <Txt kind="label" style={{ color: colors.blueStrong, flex: 1 }}>{copy.details}</Txt>
-              <Txt accessible={false} style={{ color: colors.blueStrong }}>{detailsOpen ? '−' : '+'}</Txt>
+              <DisclosureMark open={detailsOpen}/>
             </Row>
           </Pressable>
           {detailsOpen && nestedChanges.map(kind => (

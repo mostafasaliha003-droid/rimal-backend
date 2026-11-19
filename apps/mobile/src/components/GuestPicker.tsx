@@ -4,7 +4,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import type { GuestRoom } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, tokens, ui } from '../theme';
-import { Button, Field, Row, Txt } from './Primitives';
+import { Button, Field, IconButton, Row, Txt } from './Primitives';
+import { guestLine } from './format';
 import { appendRoomWithSameCounts, childAgeInput, firstInvalidChildAge, isValidChildAge, type GuestRoomDraft } from './guestAgeModel';
 
 type CountKind = 'adults' | 'children';
@@ -38,12 +39,15 @@ function Counter({ room, kind, count, onStep }: {
   const copy = copyByLanguage[language];
   return <View testID={'guest-' + kind + '-' + room}>
     <Row style={styles.counter}>
-      <Txt style={styles.flex}>{t(kind)}</Txt>
-      <Row>
-        <Button compact variant="secondary" title="−" label={copy.step(false, kind, room)}
+      <View style={styles.flex}>
+        <Txt kind="bodyStrong">{t(kind)}</Txt>
+        <Txt kind="caption">{kind === 'adults' ? (language === 'ar' ? '18 سنة فأكثر' : '18 and over') : (language === 'ar' ? 'من 0 إلى 17 سنة' : 'Ages 0–17')}</Txt>
+      </View>
+      <Row style={{ gap: tokens.space.sm }}>
+        <IconButton variant="outline" icon="minus" label={copy.step(false, kind, room)}
           disabled={count <= (kind === 'adults' ? 1 : 0)} onPress={() => onStep(-1)}/>
-        <Txt accessibilityLiveRegion="polite" kind="label" style={styles.count}>{count}</Txt>
-        <Button compact variant="secondary" title="+" label={copy.step(true, kind, room)}
+        <Txt accessibilityLiveRegion="polite" kind="subheading" style={styles.count}>{count}</Txt>
+        <IconButton variant="outline" icon="plus" label={copy.step(true, kind, room)}
           disabled={count >= (kind === 'adults' ? 6 : 4)} onPress={() => onStep(1)}/>
       </Row>
     </Row>
@@ -121,7 +125,7 @@ export default function GuestPicker({ visible, value, onClose, onChange }: {
           return <View key={index} testID={'guest-room-' + number} style={ui.card}>
             <Row style={styles.counter}>
               <Txt kind="label" accessibilityRole="header" style={styles.flex}>{roomLabel}</Txt>
-              {draft.length > 1 && <Button compact variant="quiet" title={t('removeRoom')} label={t('removeRoom') + ' · ' + roomLabel}
+              {draft.length > 1 && <Button compact variant="quiet" icon="trash" title={t('removeRoom')} label={t('removeRoom') + ' · ' + roomLabel}
                 onPress={() => setDraft(rooms => rooms.filter((_, position) => position !== index))}/>}
             </Row>
             <Counter room={number} kind="adults" count={room.adults} onStep={delta => step(index, 'adults', delta)}/>
@@ -141,9 +145,10 @@ export default function GuestPicker({ visible, value, onClose, onChange }: {
             </View>}
           </View>;
         })}
-        {draft.length < 9 && <Button variant="secondary" title={t('addRoom')} onPress={() => appendRoom()}/>}
+        {draft.length < 9 && <Button variant="secondary" icon="plus" title={t('addRoom')} onPress={() => appendRoom()}/>}
       </ScrollView>
-      <View style={styles.footer}><Button title={t('done')} onPress={submit}/></View>
+      <View style={styles.footer}><Button label={t('done')} onPress={submit}
+        title={`${t('done')} · ${guestLine(draft.map(room => ({ adults: room.adults, children: room.children.map(() => 0) })), language)}`}/></View>
     </SafeAreaView>
   </Modal>;
 }

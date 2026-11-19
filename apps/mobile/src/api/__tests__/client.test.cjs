@@ -672,7 +672,12 @@ test('opening a saved hotel comparison rechecks the pinned member and fails clos
   await assert.rejects(client.verifyPrivateRateAccess(signal), error => memberRateAccessDenied(error));
   failure = Error('offline');
   await assert.rejects(client.verifyPrivateRateAccess(signal), error => error.code === 'membership_status_unavailable' && !memberRateAccessDenied(error));
-  assert.equal(checks, 3);
+  // Transport connectivity failures stay connectivity failures, so the traveler is told to reconnect.
+  for (const kind of ['network', 'timeout']) {
+    failure = new ApiError(kind, kind === 'network' ? 'network_unavailable' : 'request_timeout');
+    await assert.rejects(client.verifyPrivateRateAccess(signal), error => error.kind === kind && !memberRateAccessDenied(error));
+  }
+  assert.equal(checks, 5);
 });
 
 test('membership routes accept only owner operations and bounded JPEG or PNG bodies', async () => {

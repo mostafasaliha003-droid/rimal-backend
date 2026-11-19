@@ -1,15 +1,18 @@
 import React from 'react';
-import { ColorValue, View, useWindowDimensions } from 'react-native';
+import { ColorValue, View } from 'react-native';
 import { Tabs } from 'expo-router';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLanguage } from '../../i18n';
-import { colors, fonts, localizedFont } from '../../theme';
-import { Icon } from '../../components/Primitives';
+import { color, fonts, localizedFont, radius } from '../../theme';
+import { Icon, type IconName } from '../../components/Icon';
+import { useLayout } from '../../components/motion';
 
-function tabIcon(name: 'search'|'saved'|'trips'|'account') {
-  return function TabIcon({ color, focused }: { color: ColorValue | null; focused: boolean }) {
-    return <View style={{ width: 48, height: 29, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: focused ? colors.primary : 'transparent' }}>
-      <Icon name={name} size={21} color={focused ? colors.surface : color}/>
+function tabIcon(name: IconName) {
+  return function TabIcon({ color: tint, focused }: { color: ColorValue | null; focused: boolean }) {
+    // The indicator sits behind the icon only, so it never overlaps the label.
+    return <View style={{ width: 56, height: 30, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill,
+      backgroundColor: focused ? color.bgSelected : 'transparent' }}>
+      <Icon name={name} size={22} filled={focused && name === 'saved'} color={focused ? color.interactiveStrong : tint}/>
     </View>;
   };
 }
@@ -17,16 +20,18 @@ function tabIcon(name: 'search'|'saved'|'trips'|'account') {
 export default function TabLayout() {
   const { t, rtl, language } = useLanguage();
   const insets = useSafeAreaInsets();
-  const { fontScale } = useWindowDimensions();
+  const { fontScale, desktop } = useLayout();
   return <Tabs screenOptions={{
     headerShown: false,
-    tabBarActiveTintColor: colors.blueStrong,
-    tabBarInactiveTintColor: colors.muted,
-    tabBarLabelStyle: { fontFamily: localizedFont(language, fonts.bold), fontSize: 12 },
-    tabBarStyle: {
-      backgroundColor: colors.surface, borderTopColor: colors.border,
-      height: 60 + insets.bottom + Math.max(0, fontScale - 1) * 16, paddingTop: 3,
-      paddingBottom: insets.bottom + 3, direction: rtl ? 'rtl' : 'ltr',
+    tabBarActiveTintColor: color.interactiveStrong,
+    tabBarInactiveTintColor: color.textSecondary,
+    tabBarLabelPosition: 'below-icon',
+    tabBarLabelStyle: { fontFamily: localizedFont(language, fonts.bold), fontSize: 12, lineHeight: language === 'ar' ? 20 : 16, marginTop: 2 },
+    // Desktop navigation lives in the header; the bottom bar is a phone/tablet pattern.
+    tabBarStyle: desktop ? { display: 'none' } : {
+      backgroundColor: color.bgSurface, borderTopColor: color.border,
+      height: (language === 'ar' ? 70 : 64) + insets.bottom + Math.max(0, fontScale - 1) * 16, paddingTop: 6,
+      paddingBottom: insets.bottom + 6, direction: rtl ? 'rtl' : 'ltr',
     },
     tabBarItemStyle: { minHeight: 52 },
   }}>

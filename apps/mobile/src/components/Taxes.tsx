@@ -3,9 +3,10 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { Tax } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, fonts } from '../theme';
-import { Row, Txt } from './Primitives';
+import { Row, Txt, DisclosureMark } from './Primitives';
 import { presentTaxes } from './taxPresentationModel';
 import { taxCopy, taxName } from './taxCopy';
+import { formatMoney } from './format';
 
 export interface TaxesProps {
   taxes?: readonly Tax[];
@@ -38,7 +39,7 @@ export default function Taxes({ taxes, defaultExpanded = false, mode = 'current'
                     {group.complete && group.subtotal ? (
                       <Txt style={{ fontFamily: fonts.bold, color: colors.navy, fontSize: 19, lineHeight: 28,
                         writingDirection: 'ltr', flexShrink: 1 }}>
-                        {group.subtotal.currency} {group.subtotal.amount}
+                        {formatMoney(group.subtotal) ?? `${group.subtotal.currency} ${group.subtotal.amount}`}
                       </Txt>
                     ) : <Txt kind="label">{group.currency} · {copy.totalUnknown}</Txt>}
                   </View>
@@ -62,7 +63,7 @@ export default function Taxes({ taxes, defaultExpanded = false, mode = 'current'
             style={styles.toggle}>
             <Row style={{ justifyContent: 'space-between' }}>
               <Txt kind="label" style={{ color: colors.blueStrong, flex: 1 }}>{copy.breakdown(model.rows.length)}</Txt>
-              <Txt accessible={false} style={{ color: colors.blueStrong }}>{expanded ? '−' : '+'}</Txt>
+              <DisclosureMark open={expanded}/>
             </Row>
           </Pressable>
           {expanded && model.rows.map(row => (
@@ -71,7 +72,7 @@ export default function Taxes({ taxes, defaultExpanded = false, mode = 'current'
               <Txt style={{ fontFamily: fonts.medium, flexGrow: 1, flexShrink: 1, minWidth: 84 }}>{taxName(row.name, language)}</Txt>
               {row.money ? (
                 <Txt style={{ fontFamily: fonts.bold, writingDirection: 'ltr', flexShrink: 1 }}>
-                  {row.money.currency} {row.money.amount}
+                  {formatMoney(row.money) ?? `${row.money.currency} ${row.money.amount}`}
                 </Txt>
               ) : (
                 <View style={{ gap: 3 }}>

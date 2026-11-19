@@ -41,7 +41,7 @@ export default function HotelGallery({ images, name, room = false }: {
   }
   return <>
     {uri && <Row style={{ ...styles.gallery, height }}>
-      <Pressable accessibilityRole="button" accessibilityLabel={label + ' · ' + name} onPress={() => open(uri)}
+      <Pressable accessibilityRole="button" accessibilityLabel={(available.length === 1 ? (rtl ? 'تكبير الصورة' : 'View photo') : count) + ' · ' + label + ' · ' + name} onPress={() => open(uri)}
         style={{ flex: 2, minWidth: 0, height }}>
         <Photo uri={uri} room={room} label={name} height={height} onFailed={reject}/>
         <View pointerEvents="none" style={[styles.count, rtl ? { right: 10 } : { left: 10 }]}>

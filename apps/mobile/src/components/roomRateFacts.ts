@@ -7,6 +7,7 @@ import { roomMealLabel, type RoomChoiceEntry } from './roomChoiceModel';
 import { compareStayPrices } from './offerChangeSummary';
 import { padStayPriceDifference } from './offerChangesCopy';
 import { cancellationTermsKey, canonicalDecimal, taxTermsKey } from './offerReviewModel';
+import { exactAmount } from './format';
 
 const en = {
   price: 'Room total for all nights', meal: 'Meals', cancellation: 'Cancellation', payment: 'Payment', fees: 'At the property', bedding: 'Beds',
@@ -43,7 +44,7 @@ export function roomRateFacts(offer: RoomOffer, language: string, now: number) {
   const policy = presentCancellation(offer.cancellation, now);
   const taxes = presentTaxes(offer.taxes);
   const amounts = taxes.excludedGroups.map(group => group.subtotal && group.complete
-    ? `${group.currency} ${group.subtotal.amount}` : `${group.currency} · ${copy.unknownTotal}`);
+    ? `${group.currency} ${exactAmount(group.subtotal.amount, group.currency) ?? group.subtotal.amount}` : `${group.currency} · ${copy.unknownTotal}`);
   if (taxes.unassignedExcluded.length) amounts.push(copy.unknownTotal);
   if (amounts.length && taxes.hasUnknown) amounts.push(copy.other);
   const fees = amounts.length ? amounts.join(' + ') : taxes.dataState === 'notSupplied' || taxes.hasUnknown ? copy.feesUnknown : copy.included;

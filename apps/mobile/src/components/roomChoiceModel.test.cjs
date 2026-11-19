@@ -140,14 +140,19 @@ test('a missing or inconsistent policy never advertises a future saving; success
   const period = (startAt,endAt,amount) => ({startAt,endAt,amount,currency:'USD'});
   const rate = policies => offer(1, {cancellation:{freeUntil:null,policies}});
   const contiguous = rate([period(b,null,'3.007'),period(null,a,'0.0'),period(a,b,'00.00')]);
-  const detail = roomRateFacts(contiguous, 'en', now).decision.detail;
-  assert.ok(detail.includes(deviceClock(b) + ' your time (UTC') && detail.includes('USD 3.007'));
+  // Free periods lead with their merged deadline; the later charge follows in the detail.
+  const { headline, detail, freeUntil } = roomRateFacts(contiguous, 'en', now).decision;
+  assert.ok(headline.startsWith('Free cancellation until ') && headline.includes(deviceClock(b) + ' your time (UTC'), headline);
+  assert.equal(freeUntil, headline.replace('Free cancellation until ', ''));
+  assert.ok(detail.includes('USD 3.007') && !detail.includes(deviceClock(a)));
   assert.match(roomRateFacts(contiguous, 'ar', Date.parse(b)).decision.headline, /إذا ألغيت الآن ستدفع USD 3\.007/);
   const ambiguous = rate([period(null,b,'0'),period(a,null,'50')]);
-  assert.deepEqual(roomRateFacts(ambiguous,'en',now).decision, {kind:'unknown',headline:'Cost to cancel now is unconfirmed',detail:''});
+  assert.deepEqual(roomRateFacts(ambiguous,'en',now).decision, {kind:'unknown',headline:'Cost to cancel now is unconfirmed',detail:'',freeUntil:null,nonRefundable:false});
   const fullStay = {...rate([period(null,null,'12.999')]), price:{currency:'USD',amount:'12.9990'}};
-  assert.match(roomRateFacts(fullStay,'ar',now).decision.headline, /USD 12\.999.*كامل سعر الإقامة/);
-  assert.doesNotMatch(roomRateFacts({...fullStay,price:{currency:'EUR',amount:'12.999'}},'en',now).decision.headline, /full stay/);
+  const nonRefundable = roomRateFacts(fullStay,'ar',now).decision;
+  assert.equal(nonRefundable.headline, 'غير قابل للاسترداد');
+  assert.match(nonRefundable.detail, /USD 12\.999.*كامل سعر الإقامة/);
+  assert.doesNotMatch(roomRateFacts({...fullStay,price:{currency:'EUR',amount:'12.999'}},'en',now).decision.headline, /full stay|Non-refundable/);
 });
 
 test('stay summary uses English quantity nouns and explicit Arabic quantity labels', () => {

@@ -164,8 +164,9 @@ test('formatted labels accept only strict dates and use the supplied Gregorian d
     assert.equal(formatTripDate(value, 'en'), null);
     assert.equal(formatTripDate(value, 'ar'), null);
   }
-  assert.equal(formatTripDate('2027-02-17', 'en'), 'Feb 17, 2027');
-  const arabicExpected = new Intl.DateTimeFormat('ar', {
+  // Day-first in both languages, Western digits in Arabic: one date style across the app.
+  assert.equal(formatTripDate('2027-02-17', 'en'), '17 Feb 2027');
+  const arabicExpected = new Intl.DateTimeFormat('ar-AE-u-nu-latn', {
     year: 'numeric', month: 'short', day: 'numeric', calendar: 'gregory', timeZone: 'UTC',
   }).format(new Date(Date.UTC(2027, 1, 17)));
   assert.equal(formatTripDate('2027-02-17', 'ar'), arabicExpected);

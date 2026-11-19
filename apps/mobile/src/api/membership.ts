@@ -58,6 +58,9 @@ export async function requireMemberRateAccess(request: ReturnType<typeof createT
     try { membership = await membershipStatus(request, options.signal, token); }
     catch (error) {
       if (options.signal?.aborted || error instanceof ApiError && error.kind === 'aborted') throw error;
+      // A lost connection is not a membership decision: surface it as connectivity so the
+      // traveler is told to reconnect. The protected rate request is still not sent.
+      if (error instanceof ApiError && (error.kind === 'network' || error.kind === 'timeout')) throw error;
       if (error instanceof ApiError && error.status === 401) throw new ApiError('membership', 'membership_authentication_required', 401);
       if (error instanceof ApiError && error.status === 403) throw new ApiError('membership', 'membership_approval_required', 403);
       throw new ApiError('membership', 'membership_status_unavailable', 503);

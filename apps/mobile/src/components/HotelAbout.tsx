@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { HotelDetails, SearchCriteria } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, fonts, ui } from '../theme';
-import { Button, Icon, Row, Txt } from './Primitives';
+import { Button, Icon, Row, Txt, DisclosureMark } from './Primitives';
 import HotelMapLink from './HotelMapLink';
 import HotelFacilities from './HotelFacilities';
 import Policies from './Policies';
@@ -15,7 +15,7 @@ function More({ id, expanded, title, onPress }: { id: string; expanded: boolean;
   return <Pressable testID={id} accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded}
     onPress={onPress} style={({ pressed }) => [styles.more, pressed && { opacity: .7 }]}>
     <Row style={{ gap: 6 }}><Txt kind="label" style={{ color: colors.violetInk }}>{title}</Txt>
-      <Txt accessible={false} style={styles.toggleMark}>{expanded ? '−' : '+'}</Txt></Row>
+      <DisclosureMark open={expanded}/></Row>
   </Pressable>;
 }
 

@@ -3,7 +3,8 @@ import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
 import { colors, fonts, tokens } from '../theme';
-import { Button, Row, Txt } from './Primitives';
+import { Button, IconButton, Row, Txt } from './Primitives';
+import { localeFor, nightsBetween, stayWords } from './format';
 import { beginCalendarRange, calendarRangeBounds, calendarRangeMonth, monthDays, pickCalendarDate,
   shiftMonth, todayDate, type CalendarField, type StayDates } from './calendarModel';
 
@@ -32,7 +33,7 @@ export default function CalendarPicker({ initialField, checkin, checkout, onSele
   const focusDay = useRef<React.ComponentRef<typeof Pressable>>(null);
   const shouldFocusDay = useRef(false);
   const format = useMemo(() => {
-    const locale = rtl ? 'ar-u-nu-arab' : language;
+    const locale = localeFor(language);
     const options = { timeZone: 'UTC', calendar: 'gregory' };
     const weekdays = new Intl.DateTimeFormat(locale, { ...options, weekday: rtl ? 'narrow' : 'short' });
     return {
@@ -43,6 +44,7 @@ export default function CalendarPicker({ initialField, checkin, checkout, onSele
       number: new Intl.NumberFormat(locale),
     };
   }, [language, rtl]);
+  const stayLength = draft.checkin && draft.checkout ? nightsBetween(draft.checkin, draft.checkout) : null;
   const days = monthDays(month);
   const weekCount = Math.ceil(days.length / 7);
   const focusDate = draft[draft.field] || min;
@@ -112,12 +114,12 @@ export default function CalendarPicker({ initialField, checkin, checkout, onSele
             </Row>
 
             <Row style={styles.monthRow}>
-              <Button compact variant="secondary" title={rtl ? '→' : '←'} label={t('previousMonth')}
+              <IconButton variant="outline" icon="back" label={t('previousMonth')}
                 disabled={month <= min.slice(0, 7)} onPress={() => setMonth(shiftMonth(month, -1))}/>
               <Txt kind="label" style={styles.month} accessibilityLiveRegion="polite" aria-live="polite">
                 {format.month.format(utcDay(month + '-01'))}
               </Txt>
-              <Button compact variant="secondary" title={rtl ? '←' : '→'} label={t('nextMonth')}
+              <IconButton variant="outline" icon="forward" label={t('nextMonth')}
                 disabled={month >= max.slice(0, 7)} onPress={() => setMonth(shiftMonth(month, 1))}/>
             </Row>
 
@@ -151,7 +153,8 @@ export default function CalendarPicker({ initialField, checkin, checkout, onSele
                 </View>
               ))}
             </View>
-            <Button title={rtl ? 'تأكيد التواريخ' : 'Confirm dates'} disabled={!draft.checkin || !draft.checkout} onPress={confirm}/>
+            <Button label={rtl ? 'تأكيد التواريخ' : 'Confirm dates'} disabled={!draft.checkin || !draft.checkout} onPress={confirm}
+              title={(rtl ? 'تأكيد التواريخ' : 'Confirm dates') + (stayLength ? ` · ${stayWords(language).nights(stayLength)}` : '')}/>
           </ScrollView>
         </SafeAreaView>
       </SafeAreaView>

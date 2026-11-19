@@ -1,11 +1,11 @@
 import React, { useEffect, useRef, useState } from 'react';
-import { Pressable, View } from 'react-native';
+import { Pressable, StyleSheet, View } from 'react-native';
 import * as WebBrowser from 'expo-web-browser';
 import { api, ApiError, authSession, COUNTRY_CODES, websiteUrl } from '../api';
 import type { DocumentKind, MemberCategory, MemberDetails, MemberStatus } from '../api/membership';
 import { useLanguage } from '../i18n';
-import { colors, ui } from '../theme';
-import { Button, Field, Row, Txt } from './Primitives';
+import { color, radius, space } from '../theme';
+import { Button, Chip, DisclosureMark, Field, Icon, Notice, Row, Txt } from './Primitives';
 import CountryPicker, { countryName } from './CountryPicker';
 import { chooseMembershipDocument } from './membershipDocument';
 
@@ -68,46 +68,100 @@ export default function MembershipApplication({ initial, finished }: { initial: 
   const chooseCategory = (category: MemberCategory) => {
     if (category !== details.category) setDetails({ category, nationality: '', profession: '', professionTitle: '' });
   };
-  return <View style={{ gap: 12 }}>
-    <Row style={{ flexWrap: 'wrap', gap: 6 }}>{(Object.keys(stepLabels) as Step[]).map((key, i) =>
-      <Txt key={key} kind="small" style={{ paddingHorizontal: 10, paddingVertical: 4, borderRadius: 14,
-        overflow: 'hidden', backgroundColor: step === key ? colors.lilac : colors.canvas }}>{i + 1} · {stepLabels[key][lang]}</Txt>)}</Row>
+  const stepKeys = Object.keys(stepLabels) as Step[];
+  const stepIndex = stepKeys.indexOf(step);
+  const docRow = (kind: DocumentKind) => {
+    const uploaded = docs.includes(kind);
+    return <Row key={kind} style={[styles.docRow, uploaded && { borderColor: color.successBorder, backgroundColor: color.successBg }]}>
+      <Icon name={uploaded ? 'checkCircle' : 'fileUp'} size={20} color={uploaded ? color.success : color.interactiveStrong}/>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Txt kind="label">{labels[kind][lang]}</Txt>
+        <Txt kind="caption" tone={uploaded ? 'success' : 'secondary'}>{uploaded ? text('تم الرفع', 'Uploaded') : text('مطلوبة · JPG أو PNG حتى 5 ميغابايت', 'Required · JPG or PNG up to 5 MB')}</Txt>
+      </View>
+      <Button compact variant={uploaded ? 'quiet' : 'secondary'} disabled={busy} icon={uploaded ? 'refresh' : 'fileUp'}
+        title={uploaded ? text('استبدال', 'Replace') : text('رفع', 'Upload')} label={labels[kind][lang] + ' · ' + (uploaded ? text('استبدال', 'Replace') : text('رفع', 'Upload'))}
+        onPress={() => void upload(kind)}/>
+    </Row>;
+  };
+  return <View style={{ gap: space.md }}>
+    <Row style={{ gap: space.xs }} accessibilityRole="progressbar" accessibilityLabel={`${stepIndex + 1} / ${stepKeys.length} · ${stepLabels[step][lang]}`}>
+      {stepKeys.map((key, i) => <View key={key} style={{ flex: 1, gap: space.xs }}>
+        <View style={[styles.bar, i <= stepIndex && { backgroundColor: color.interactive }]}/>
+        <Txt kind="caption" style={i === stepIndex ? { color: color.interactiveStrong } : undefined}>{i + 1} · {stepLabels[key][lang]}</Txt>
+      </View>)}
+    </Row>
     {step === 'eligibility' ? <>
-      {(['gcc_citizen','uae_professional'] as const).map(category => <Button key={category}
-        variant={details.category === category ? 'primary' : 'secondary'} disabled={busy} onPress={() => chooseCategory(category)}
-        title={category === 'gcc_citizen' ? text('مواطن خليجي', 'GCC citizen') : text('مهني مقيم في الإمارات', 'UAE resident professional')}/>)}
-      <Button variant="secondary" disabled={busy} title={text('الجنسية', 'Nationality') + (details.nationality ? ' · ' + countryName(details.nationality, language) : '')}
-        onPress={() => setCountry(true)}/>
-      {details.category === 'uae_professional' && <><Button variant="secondary" disabled={busy} title={text('المهنة', 'Profession') +
-        (details.profession ? ' · ' + (ar ? professions[details.profession as keyof typeof professions] : details.profession) : '')}
-        onPress={() => setProfession(!showProfession)}/>
-        {showProfession && <View style={{ gap: 3 }}>{Object.entries(professions).map(([key, label]) => <Button compact key={key}
-          variant="quiet" title={ar ? label : key} onPress={() => { setDetails({ ...details, profession: key }); setProfession(false); }}/>)}</View>}
+      <View accessibilityRole="radiogroup" style={{ gap: space.sm }}>
+        {(['gcc_citizen', 'uae_professional'] as const).map(category => {
+          const selected = details.category === category;
+          return <Pressable key={category} accessibilityRole="radio" aria-checked={selected} accessibilityState={{ checked: selected, disabled: busy }} disabled={busy}
+            onPress={() => chooseCategory(category)} style={[styles.option, selected && styles.optionOn]}>
+            <Row style={{ gap: space.md, alignItems: 'flex-start' }}>
+              <View style={[styles.radio, selected && { borderColor: color.interactive }]}>{selected && <View style={styles.dot}/>}</View>
+              <View style={{ flex: 1, gap: space.xxs }}>
+                <Txt kind="label">{category === 'gcc_citizen' ? text('مواطن خليجي', 'GCC citizen') : text('مهني مقيم في الإمارات', 'UAE resident professional')}</Txt>
+                <Txt kind="caption">{category === 'gcc_citizen' ? text('تحتاج جواز السفر.', 'You will need your passport.') : text('تحتاج الهوية الإماراتية بوجهيها.', 'You will need both sides of your Emirates ID.')}</Txt>
+              </View>
+            </Row>
+          </Pressable>;
+        })}
+      </View>
+      <Pressable accessibilityRole="button" disabled={busy} onPress={() => setCountry(true)} style={styles.select}>
+        <Row style={{ gap: space.sm }}><Icon name="globe" size={18} color={color.textSecondary}/>
+          <View style={{ flex: 1 }}><Txt kind="caption">{text('الجنسية', 'Nationality')}</Txt>
+            <Txt kind="bodyStrong" tone={details.nationality ? 'primary' : 'secondary'}>{details.nationality ? countryName(details.nationality, language) : text('اختر الجنسية', 'Choose nationality')}</Txt></View>
+          <Icon name="chevron" size={18} color={color.textSecondary}/></Row>
+      </Pressable>
+      {details.category === 'uae_professional' && <>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded: showProfession }} aria-expanded={showProfession} disabled={busy}
+          onPress={() => setProfession(!showProfession)} style={styles.select}>
+          <Row style={{ gap: space.sm }}><Icon name="badgeCheck" size={18} color={color.textSecondary}/>
+            <View style={{ flex: 1 }}><Txt kind="caption">{text('المهنة', 'Profession')}</Txt>
+              <Txt kind="bodyStrong" tone={details.profession ? 'primary' : 'secondary'}>{details.profession ? (ar ? professions[details.profession as keyof typeof professions] : details.profession) : text('اختر المهنة', 'Choose profession')}</Txt></View>
+            <DisclosureMark open={showProfession}/></Row>
+        </Pressable>
+        {showProfession && <Row style={{ flexWrap: 'wrap', gap: space.sm }}>{Object.entries(professions).map(([key, label]) =>
+          <Chip key={key} role="radio" selected={details.profession === key} label={ar ? label : key} onPress={() => { setDetails({ ...details, profession: key }); setProfession(false); }}/>)}</Row>}
         <Field label={text('المسمى المهني كما في الهوية', 'Job title as printed on your ID')} maxLength={160}
           value={details.professionTitle} onChangeText={professionTitle => setDetails({ ...details, professionTitle })}/></>}
-      <Button title={text('متابعة إلى الوثائق', 'Continue to documents')} busy={busy} disabled={!valid} onPress={() => void save()}/>
+      <Button iconEnd="forward" title={text('متابعة إلى الوثائق', 'Continue to documents')} busy={busy} disabled={!valid} onPress={() => void save()}/>
     </> : step === 'documents' ? <>
-      <Txt kind="small">{text('اختر صورة JPG أو PNG لكل وثيقة، بحد أقصى 5 ميغابايت للصورة.', 'Choose a JPG or PNG for each document, up to 5 MB each.')}</Txt>
-      {needed.map(kind => <Button key={kind} variant="secondary" disabled={busy} title={labels[kind][lang] + (docs.includes(kind) ? ' ✓' : '')}
-        onPress={() => void upload(kind)}/>)}
-      <Button title={text('مراجعة الطلب', 'Review application')} disabled={busy || !allUploaded} onPress={() => setStep('review')}/>
-      <Button variant="quiet" title={text('تعديل بيانات الأهلية', 'Edit eligibility')} disabled={busy} onPress={() => setStep('eligibility')}/>
+      <Txt kind="small" tone="primary">{text('صوّر كل وثيقة كاملة وبإضاءة جيدة دون انعكاس.', 'Photograph each document in full, in good light and without glare.')}</Txt>
+      {needed.map(docRow)}
+      <Button iconEnd="forward" title={text('مراجعة الطلب', 'Review application')} disabled={busy || !allUploaded} onPress={() => setStep('review')}/>
+      <Button variant="quiet" icon="back" title={text('تعديل بيانات الأهلية', 'Edit eligibility')} disabled={busy} onPress={() => setStep('eligibility')}/>
     </> : <>
-      <Txt kind="label">{countryName(details.nationality, language)}</Txt>
-      {!!details.professionTitle && <Txt>{details.professionTitle}</Txt>}
-      {needed.map(kind => <Txt key={kind}>{labels[kind][lang]} ✓</Txt>)}
-      <View style={ui.rule}/>
-      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: consent }} aria-checked={consent} disabled={busy}
-        onPress={() => setConsent(!consent)} style={{ minHeight: 48, justifyContent: 'center' }}>
-        <Txt>{consent ? '☑ ' : '☐ '}{text('أؤكد صحة البيانات وأوافق على استخدام الوثائق لمراجعة أهليتي للعضوية.', 'I confirm my information is accurate and consent to use of my documents to review eligibility.')}</Txt>
+      <View style={styles.summary}>
+        <Txt kind="caption">{text('الجنسية', 'Nationality')}</Txt><Txt kind="bodyStrong">{countryName(details.nationality, language)}</Txt>
+        {!!details.professionTitle && <><Txt kind="caption">{text('المسمى المهني', 'Job title')}</Txt><Txt kind="bodyStrong">{details.professionTitle}</Txt></>}
+        {needed.map(kind => <Row key={kind} style={{ gap: space.xs }}><Icon name="checkCircle" size={16} color={color.success}/><Txt kind="small" tone="primary">{labels[kind][lang]}</Txt></Row>)}
+      </View>
+      <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: consent, disabled: busy }} aria-checked={consent} disabled={busy}
+        onPress={() => setConsent(!consent)} style={[styles.option, consent && styles.optionOn]}>
+        <Row style={{ alignItems: 'flex-start', gap: space.md }}>
+          <View style={[styles.box, consent && { backgroundColor: color.interactive, borderColor: color.interactive }]}>{consent && <Icon name="check" size={14} strokeWidth={3} color={color.textOnDark}/>}</View>
+          <Txt kind="small" tone="primary" style={{ flex: 1 }}>{text('أؤكد صحة البيانات وأوافق على استخدام الوثائق لمراجعة أهليتي للعضوية.', 'I confirm my information is accurate and consent to use of my documents to review eligibility.')}</Txt>
+        </Row>
       </Pressable>
-      <Button variant="quiet" title={text('سياسة الخصوصية', 'Privacy policy')}
+      <Button compact variant="quiet" icon="external" title={text('سياسة الخصوصية', 'Privacy policy')}
         onPress={() => { void WebBrowser.openBrowserAsync(websiteUrl('/privacy')).catch(() => setError(text('تعذّر فتح السياسة', 'Could not open policy'))); }}/>
-      <Button title={text('إرسال طلب العضوية', 'Submit membership application')} disabled={!consent} busy={busy} onPress={() => void submit()}/>
-      <Button variant="quiet" title={text('مراجعة الوثائق', 'Back to documents')} disabled={busy} onPress={() => setStep('documents')}/>
+      <Button icon="check" title={text('إرسال طلب العضوية', 'Submit membership application')} disabled={!consent} busy={busy} onPress={() => void submit()}/>
+      <Button variant="quiet" icon="back" title={text('مراجعة الوثائق', 'Back to documents')} disabled={busy} onPress={() => setStep('documents')}/>
     </>}
-    {!!error && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{error}</Txt>}
+    {!!error && <Notice tone="danger" live title={error}/>}
     <CountryPicker visible={showCountry} value={details.nationality} title={text('الجنسية', 'Nationality')}
       allowed={details.category === 'gcc_citizen' ? gulf : otherCountries} onClose={() => setCountry(false)} onChange={nationality => setDetails({ ...details, nationality })}/>
   </View>;
 }
+
+const styles = StyleSheet.create({
+  bar: { height: 4, borderRadius: 2, backgroundColor: color.border },
+  option: { borderWidth: 1, borderColor: color.borderControl, borderRadius: radius.md, padding: space.md, minHeight: 56, justifyContent: 'center', backgroundColor: color.bgSurface },
+  optionOn: { borderColor: color.borderSelected, borderWidth: 2, backgroundColor: color.bgSelected },
+  radio: { marginTop: 2, width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center' },
+  dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.interactive },
+  box: { marginTop: 2, width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center' },
+  select: { minHeight: 56, borderWidth: 1, borderColor: color.borderControl, borderRadius: radius.md, paddingHorizontal: space.md, paddingVertical: space.sm, justifyContent: 'center', backgroundColor: color.bgSurface },
+  docRow: { gap: space.md, borderWidth: 1, borderColor: color.border, borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSurface },
+  summary: { gap: space.xs, padding: space.md, borderRadius: radius.md, backgroundColor: color.bgMuted },
+});

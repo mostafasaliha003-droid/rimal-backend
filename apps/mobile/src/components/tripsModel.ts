@@ -1,5 +1,6 @@
 import type { BookingHistoryItem, BookingHistoryStatus } from '../api/bookings';
 import { todayDate, validDate } from './calendarModel';
+import { LOCALES } from './format';
 
 export type TripBucket = 'current' | 'upcoming' | 'past' | 'unknown';
 export type TripFilter = 'all' | TripBucket;
@@ -106,8 +107,8 @@ export function filterTrips(model: TripsModel, filter: TripFilter, query = ''): 
 }
 
 const dateFormatters = {
-  en: new Intl.DateTimeFormat('en', { year: 'numeric', month: 'short', day: 'numeric', calendar: 'gregory', timeZone: 'UTC' }),
-  ar: new Intl.DateTimeFormat('ar', { year: 'numeric', month: 'short', day: 'numeric', calendar: 'gregory', timeZone: 'UTC' }),
+  en: new Intl.DateTimeFormat(LOCALES.en, { year: 'numeric', month: 'short', day: 'numeric', calendar: 'gregory', timeZone: 'UTC' }),
+  ar: new Intl.DateTimeFormat(LOCALES.ar, { year: 'numeric', month: 'short', day: 'numeric', calendar: 'gregory', timeZone: 'UTC' }),
 };
 
 /** Format a date-only value without shifting it into a neighbouring local day. */
