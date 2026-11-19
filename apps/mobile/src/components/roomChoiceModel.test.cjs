@@ -111,7 +111,7 @@ test('stay summary uses English quantity nouns and explicit Arabic quantity labe
   const { roomChoiceCopy } = load(path.join(__dirname, 'roomChoiceCopy.ts'));
   assert.equal(roomChoiceCopy('en').staySummary(1, 1), '1 guest · 1 room');
   assert.equal(roomChoiceCopy('en').staySummary(2, 2), '2 guests · 2 rooms');
-  assert.equal(roomChoiceCopy('ar').staySummary(2, 1), 'الضيوف: 2 · الغرف: 1');
+  assert.equal(roomChoiceCopy('ar').staySummary(2, 1), 'ضيفان · غرفة واحدة');
 });
 
 test('free filter keeps the original offer, intersects other filters, and expires exactly at the boundary', () => {

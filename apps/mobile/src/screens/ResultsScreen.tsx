@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, Pressable, ScrollView, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api, ApiError, authSession } from '../api';
@@ -40,6 +40,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const [refresh, recheck] = useState(0), [paging, setPaging] = useState({ context: '', limit: 20 });
   const [appliedState, setAppliedState] = useState<{ context: string; value: ResultFilters }>({ context: '', value: emptyResultFilters() });
   const [draft, setDraft] = useState<ResultFilters>(emptyResultFilters), [sheetContext, setSheetContext] = useState<string | null>(null);
+  const [sheetPane, setSheetPane] = useState<'filters' | 'sort'>('filters');
   const generation = useRef(0), inFlight = useRef<AbortController | null>(null), currentContext = useRef('');
   const [savedAtEntry, setSavedAtEntry] = useState(() => savedOnly ? saved.filter(id => hotelId(id) !== null) : null);
   const requestSavedIds = savedAtEntry, requestSavedReady = !savedOnly || savedReady;
@@ -64,7 +65,13 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const sheet = sheetContext === context;
   const setLimit = (value: number) => setPaging({ context, limit: value });
   const apply = (value: ResultFilters) => { setAppliedState({ context, value: copyResultFilters(value) }); setLimit(20); };
-  const openFilters = () => { setDraft(copyResultFilters(applied)); setSheetContext(context); };
+  const clearFilters = () => apply({ ...emptyResultFilters(), sort: applied.sort });
+  const openSheet = (pane: 'filters' | 'sort') => {
+    setDraft(copyResultFilters(applied));
+    setSheetPane(pane);
+    setSheetContext(context);
+  };
+  const openFilters = () => openSheet('filters');
   const refreshResults = () => { if (savedOnly) setSavedAtEntry(saved.filter(id => hotelId(id) !== null)); inFlight.current?.abort(); ++generation.current; setSnapshot(previous => beginResultRefresh(previous, context)); recheck(++refreshRevision.current); };
   useFocusEffect(useCallback(() => {
     currentContext.current = context;
@@ -87,48 +94,53 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const edit = () => router.push(savedOnly ? '/saved-dates' : '/');
   const nights = stayNights(criteria), roomCount = criteria?.guests.length || 0;
   const mapLabel = rtl ? 'مواقع الفنادق على الخريطة' : 'Hotel locations on the map';
-  const filtersLabel = `${t('filters')}${activeCount ? ` · ${activeCount}` : ''} / ${t('sort')}`;
+  const filtersLabel = `${t('filters')}${activeCount ? ` · ${activeCount}` : ''}`;
   const hasMap = decision.hotels.some(hotel => hotel.location);
   const title = savedOnly ? t('savedOfferTitle') : destinationName || t('results');
-  const header = <View style={{ gap: 9 }}>
+  const sortLabel = applied.sort === 'recommended' ? t('sort') : t(applied.sort);
+  const header = <View style={{ gap: 11 }}>
     {savedOnly && <Button compact variant="quiet" title={t('saved')} onPress={() => router.dismissTo('/saved')}/>}
     {savedOnly && plan && sameContext && !pending && !error && hotels.length < saved.length &&
       <Txt kind="small">{language === 'ar' ? `عادت نتائج لـ ${hotels.length} من ${saved.length} فنادق محفوظة.` : `Results returned for ${hotels.length} of ${saved.length} saved stays.`}</Txt>}
     {criteria ? <Pressable testID="results-summary" accessibilityRole="button" accessibilityLabel={t('searchAgain')}
       accessibilityHint={`${title}, ${criteria.checkin}, ${criteria.checkout}, ${nights !== null ? L.stayContext(nights, roomCount) : ''}`}
-      onPress={edit} style={[ui.card, { paddingVertical: 10, paddingHorizontal: 13, backgroundColor: colors.lavenderMist }]}>
-      <Row style={{ gap: 10 }}><Icon name="search" size={21}/>
-        <View style={{ flex: 1 }}><Txt kind="heading" accessibilityRole="header">{title}</Txt>
-          <Txt kind="small">{displayTravelDate(criteria.checkin, language)} – {displayTravelDate(criteria.checkout, language)} · {L.guests(criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0))}</Txt>
-        </View><Txt kind="label">{rtl ? 'تعديل' : 'Edit'}</Txt>
+      onPress={edit} style={({ pressed }) => [styles.summary, pressed && styles.pressed]}>
+      <Row style={{ gap: 12, alignItems: 'center' }}>
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <Txt kind="title" style={styles.destination} accessibilityRole="header">{title}</Txt>
+          <Txt kind="small" style={{ color: colors.softBlue }}>{displayTravelDate(criteria.checkin, language)} – {displayTravelDate(criteria.checkout, language)} · {L.guests(criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0))}</Txt>
+        </View><Row style={styles.edit}><Icon name="search" color={colors.primary} size={16}/><Txt kind="label">{rtl ? 'تعديل' : 'Edit'}</Txt></Row>
       </Row>
     </Pressable> : <Txt kind="title" accessibilityRole="header">{title}</Txt>}
     {savedErrorKind && <View><Txt accessibilityRole="alert" style={{ color: colors.red }}>{t(savedErrorKind === 'load' ? 'savedError' : 'savedSaveFailed')}</Txt>
       <Button compact variant="quiet" title={t('retry')} onPress={() => void retrySaved()}/></View>}
     {hotels.length > 0 && <>
       <Row style={{ gap: 8, flexWrap: 'wrap', alignItems: 'stretch' }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={filtersLabel} onPress={openFilters}
-          style={[ui.card, { flexGrow: 1, minHeight: 48, paddingHorizontal: 12, paddingVertical: 6, justifyContent: 'center' }]}>
-          <Row style={{ gap: 6, justifyContent: 'center' }}><Icon name="filter" size={17}/><Txt kind="label">{filtersLabel}</Txt></Row>
+        <Pressable testID="results-filters" accessibilityRole="button" accessibilityLabel={filtersLabel} onPress={openFilters}
+          style={({ pressed }) => [styles.tool, activeCount > 0 && styles.activeTool, pressed && styles.pressed]}>
+          <Row style={styles.toolContents}><Icon name="filter" size={18}/><Txt kind="label">{filtersLabel}</Txt></Row>
+        </Pressable>
+        <Pressable testID="results-sort" accessibilityRole="button" accessibilityLabel={`${t('sort')}: ${t(applied.sort)}`} onPress={() => openSheet('sort')}
+          style={({ pressed }) => [styles.tool, applied.sort !== 'recommended' && styles.activeTool, pressed && styles.pressed]}>
+          <Row style={styles.toolContents}><Txt accessibilityElementsHidden importantForAccessibility="no" style={styles.sortIcon}>↕</Txt><Txt kind="label">{sortLabel}</Txt></Row>
         </Pressable>
         {hasMap && <Pressable accessibilityRole="button" accessibilityLabel={mapLabel} accessibilityState={{ expanded: mapContext === context }}
           onPress={() => setMapContext(current => current === context ? null : context)}
-          style={[ui.card, { flexGrow: 1, minHeight: 48, paddingHorizontal: 12, paddingVertical: 6, justifyContent: 'center', backgroundColor: mapContext === context ? colors.softBlue : colors.surface }]}>
+          style={({ pressed }) => [styles.tool, mapContext === context && styles.activeTool, pressed && styles.pressed]}>
           <Row style={{ gap: 6, justifyContent: 'center' }}><Icon name="map" size={17}/><Txt kind="label">{rtl ? 'الخريطة' : 'Map'}</Txt></Row>
         </Pressable>}
       </Row>
       {hasMap && mapContext === context && decision.hotels.filter(hotel => hotel.location).slice(0, limit).map(hotel =>
         <HotelMapLink key={hotel.hid} hotel={hotel} showName/>)}
-      <Row style={{ gap: 6, flexWrap: 'wrap', justifyContent: 'space-between' }}>
-        <Txt kind="heading">{L.results(decision.hotels.length, hotels.length)}</Txt>
-        {applied.sort !== 'recommended' && <Txt kind="small">{t(applied.sort)}</Txt>}
-      </Row>
-      {decision.hotels.length > 0 && <Txt kind="small">{L.taxesNote}</Txt>}
+      <View style={{ gap: 2 }}>
+        <Txt kind="heading" accessibilityRole="header" accessibilityLiveRegion="polite">{L.results(decision.hotels.length, hotels.length)}</Txt>
+        {decision.hotels.length > 0 && <Txt kind="small" style={styles.note}>{L.taxesNote}</Txt>}
+      </View>
       {activeCount > 0 && <Row style={{ flexWrap: 'wrap' }}>
         {!!applied.name.trim() && <FilterChip text={applied.name.trim()} label={`${L.removeName}: ${applied.name}`} clear={() => apply({ ...applied, name: '' })}/>}
         {decision.budget.amount !== null && <FilterChip text={L.budgetChip(decision.budget.amount, criteria?.currency || '')} label={L.removeBudget} clear={() => apply({ ...applied, maxBudget: '' })}/>}
         {applied.stars.map(star => <FilterChip key={star} text={star ? `${star} ${t('stars')}` : L.unknownStars} label={L.removeStar(star)} clear={() => apply({ ...applied, stars: applied.stars.filter(value => value !== star) })}/>)}
-        <Button compact variant="quiet" title={L.clearAll} onPress={() => apply(emptyResultFilters())}/>
+        <Button compact variant="quiet" title={L.clearAll} onPress={clearFilters}/>
       </Row>}
       {decision.unknownPriceCount > 0 && (decision.budget.amount !== null || applied.sort !== 'recommended') && <Txt kind="small">{decision.budget.amount !== null ? L.budgetExcluded(decision.unknownPriceCount) : L.unknownPrice(decision.unknownPriceCount)}</Txt>}
       {refreshing && <View accessibilityLiveRegion="polite"><Txt kind="label">{L.refreshing}</Txt><Txt kind="small">{L.oldPrices}</Txt></View>}
@@ -139,19 +151,24 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   if (savedOnly && !savedReady || authStatus === 'loading') content = <StatePanel title={t('loading')} busy/>;
   else if (savedOnly && saved.length === 0) content = <StatePanel title={t('savedEmpty')} body={t('savedBody')}/>;
   else if (!criteria || savedOnly && !plan) content = <View style={{ gap: 14 }}><StatePanel title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={edit}/></View>;
-  else if (pending && !hotels.length) content = <StatePanel title={t('loading')} busy/>;
+  else if (pending && !hotels.length) content = <View style={styles.loading} accessible accessibilityRole="progressbar" accessibilityState={{ busy: true }}
+    accessibilityLabel={`${L.checkingAvailability}. ${L.checkingAvailabilityBody}`} accessibilityLiveRegion="polite">
+    <Row style={{ gap: 13 }}><ActivityIndicator color={colors.grape}/><View style={{ flex: 1, gap: 2 }}>
+      <Txt kind="heading">{L.checkingAvailability}</Txt><Txt kind="small">{L.checkingAvailabilityBody}</Txt>
+    </View></Row>
+  </View>;
   else if (!hotels.length && error instanceof ApiError && error.code === 'search_result_too_large') {
     content = <View style={{ gap: 14 }}><StatePanel title={L.largeSearchTitle} body={L.largeSearchBody}/>
       <Button title={t('searchAgain')} onPress={edit}/></View>;
   }
   else if (error && !hotels.length) content = <ApiState error={error} retry={refreshResults}/>;
-  else if (!decision.hotels.length) content = <View style={{ gap: 14 }}><StatePanel title={hotels.length ? L.noMatch : t('noResults')} body={hotels.length ? L.noMatchBody : t(savedOnly ? 'savedNoAvailability' : 'noResultsBody')}/>{hotels.length > 0 && <><Button title={L.clearAll} variant="secondary" onPress={() => apply(emptyResultFilters())}/><Button title={t('filters')} variant="quiet" onPress={openFilters}/></>}<Button title={t('searchAgain')} variant="quiet" onPress={edit}/></View>;
+  else if (!decision.hotels.length) content = <View style={{ gap: 14 }}><StatePanel title={hotels.length ? L.noMatch : t('noResults')} body={hotels.length ? L.noMatchBody : t(savedOnly ? 'savedNoAvailability' : 'noResultsBody')}/>{hotels.length > 0 && <><Button title={L.clearAll} variant="secondary" onPress={clearFilters}/><Button title={t('filters')} variant="quiet" onPress={openFilters}/></>}<Button title={t('searchAgain')} variant="quiet" onPress={edit}/></View>;
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
     <BrandHeader back/>
     <FlatList key={`results-${columns}`} numColumns={columns} columnWrapperStyle={columns === 2 ? { justifyContent: 'space-between', flexDirection: rtl ? 'row-reverse' : 'row' } : undefined}
       data={content ? [] : decision.hotels.slice(0, limit)} keyExtractor={hotel => String(hotel.hid)} contentContainerStyle={[ui.page, { gap: 0 }]}
       renderItem={({ item }) => <View style={{ width: columns === 2 ? '49%' : '100%' }}><HotelCard hotel={item} comparisonDisabled={refreshing || Boolean(error)}/></View>}
-      ItemSeparatorComponent={() => <View style={{ height: 10 }}/>} ListHeaderComponent={<View style={{ paddingBottom: 10 }}>{header}</View>} ListEmptyComponent={content || undefined}
+      ItemSeparatorComponent={() => <View style={{ height: 17 }}/>} ListHeaderComponent={<View style={{ paddingBottom: 13 }}>{header}</View>} ListEmptyComponent={content || undefined}
       ListFooterComponent={!content && limit < decision.hotels.length ? <View style={{ paddingTop: 18 }}><Button variant="secondary" title={`${t('loadMore')} (${Math.min(20, decision.hotels.length - limit)})`} onPress={() => setLimit(limit + 20)}/></View> : undefined}
       refreshing={refreshing} onRefresh={enabled ? refreshResults : undefined}/>
     {sameContext && !pending && !error && comparisonItems.length > 0 && <View style={{ borderTopWidth: 1, borderColor: colors.border, backgroundColor: colors.surface }}>
@@ -163,25 +180,40 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
           {comparisonItems.length > 1 && <Button compact title={L.compare} label={`${L.compareCta(comparisonItems.length)}: ${comparisonItems.map(item => item.name).join(', ')}`} onPress={() => router.push('/compare')}/>}
         </Row>
       </View></View>}
-    <Modal visible={sheet} transparent animationType="slide" accessibilityLabel={L.filtersTitle} onRequestClose={() => setSheetContext(null)}>
+    <Modal visible={sheet} transparent animationType="slide" accessibilityLabel={sheetPane === 'sort' ? t('sort') : L.filtersTitle} onRequestClose={() => setSheetContext(null)}>
       <View style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: '#2D173A66' }}>
         <Pressable accessible={false} onPress={() => setSheetContext(null)} style={{ position: 'absolute', top: 0, bottom: 0, left: 0, right: 0 }}/>
         <SafeAreaView edges={['bottom']} accessibilityViewIsModal
           style={{ maxHeight: '92%', width: '100%', maxWidth: 640, alignSelf: 'center', borderTopLeftRadius: 22, borderTopRightRadius: 22, backgroundColor: colors.surface, direction: 'ltr' }}>
-          <Row style={{ paddingHorizontal: 16, paddingVertical: 4, justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border }}>
-            <Txt kind="heading" accessibilityRole="header" style={{ flexShrink: 1 }}>{L.filtersTitle}</Txt><Button compact variant="quiet" title={L.cancel} onPress={() => setSheetContext(null)}/>
+          <View style={styles.handle}/>
+          <Row style={{ paddingHorizontal: 18, paddingVertical: 4, justifyContent: 'space-between', borderBottomWidth: 1, borderColor: colors.border }}>
+            <Txt kind="heading" accessibilityRole="header" style={{ flexShrink: 1 }}>{sheetPane === 'sort' ? t('sort') : L.filtersTitle}</Txt>
+            <Button compact variant="quiet" title={L.cancel} onPress={() => setSheetContext(null)}/>
           </Row>
+          {sheetPane === 'sort' ? <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: 16 }}>
+            <View accessibilityRole="radiogroup" accessibilityLabel={t('sort')} style={{ gap: 7 }}>
+              {(['recommended', 'lowPrice', 'highPrice'] as ResultSort[]).map(sort => {
+                const selected = applied.sort === sort;
+                return <Pressable key={sort} accessibilityRole="radio" accessibilityLabel={t(sort)} aria-checked={selected} accessibilityState={{ checked: selected }}
+                  onPress={() => {
+                    if (currentContext.current !== sheetContext) return;
+                    apply({ ...applied, sort });
+                    setSheetContext(null);
+                  }} style={({ pressed }) => [styles.sortOption, selected && styles.activeTool, pressed && styles.pressed]}>
+                  <Row style={{ justifyContent: 'space-between', gap: 8 }}>
+                    <Txt kind="label" style={{ flex: 1 }}>{t(sort)}</Txt><View style={[styles.radio, selected && styles.selectedRadio]}>
+                      {selected && <Icon name="check" color={colors.surface} size={15}/>}
+                    </View>
+                  </Row>
+                </Pressable>;
+              })}
+            </View>
+          </ScrollView> : <>
           <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: 16, gap: 12 }}>
             <Field label={L.name} placeholder={L.nameHint} value={draft.name} maxLength={120} autoCorrect={false} onChangeText={name => setDraft(value => ({ ...value, name }))}/>
             <Field label={`${L.budget} · ${criteria?.currency || ''}`} placeholder={L.budgetHint} value={draft.maxBudget} maxLength={30} keyboardType="decimal-pad" ltr
               error={preview.budget.valid ? undefined : L.budgetError} onChangeText={maxBudget => setDraft(value => ({ ...value, maxBudget }))}/>
             <Txt kind="small">{L.budgetHelp}</Txt>
-            <View accessibilityRole="radiogroup" accessibilityLabel={t('sort')} style={{ gap: 6 }}><Txt kind="label">{t('sort')}</Txt>
-              <Row style={{ flexWrap: 'wrap', gap: 5 }}>
-              {(['recommended', 'lowPrice', 'highPrice'] as ResultSort[]).map(sort => <Pressable key={sort} accessibilityRole="radio" accessibilityLabel={t(sort)} aria-checked={draft.sort === sort} accessibilityState={{ checked: draft.sort === sort }}
-                onPress={() => setDraft(value => ({ ...value, sort }))} style={{ minHeight: 48, padding: 10, justifyContent: 'center', borderRadius: 12, borderWidth: 1, borderColor: draft.sort === sort ? colors.navy : colors.border, backgroundColor: draft.sort === sort ? colors.softBlue : colors.surface }}><Txt kind="label">{t(sort)}</Txt></Pressable>)}
-              </Row>
-            </View>
             <View style={{ gap: 6 }}><Row style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: 2 }}><Txt kind="label">{L.stars}</Txt>
               <Button compact variant="quiet" title={L.allStars} onPress={() => setDraft(value => ({ ...value, stars: [] }))}/></Row>
               <Row style={{ flexWrap: 'wrap' }}>{[5, 4, 3, 2, 1, 0].map(star => {
@@ -194,12 +226,29 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
             </View>
           </ScrollView>
           <Row style={{ paddingHorizontal: 16, paddingVertical: 8, justifyContent: 'space-between', flexWrap: 'wrap', gap: 6, borderTopWidth: 1, borderColor: colors.border }}>
-            <Button compact variant="quiet" title={L.resetDraft} onPress={() => setDraft(emptyResultFilters())}/><Button title={L.apply(preview.hotels.length)} disabled={!preview.budget.valid} onPress={() => {
+            <Button compact variant="quiet" title={L.resetDraft} onPress={() => setDraft({ ...emptyResultFilters(), sort: applied.sort })}/><Button title={L.apply(preview.hotels.length)} disabled={!preview.budget.valid} onPress={() => {
               if (currentContext.current !== sheetContext || !preview.budget.valid) return;
               apply(draft); setSheetContext(null);
-            }}/></Row>
+            }}/></Row></>}
         </SafeAreaView>
       </View>
     </Modal>
   </SafeAreaView>;
 }
+
+const styles = StyleSheet.create({
+  summary: { borderRadius: 22, backgroundColor: colors.primary, paddingHorizontal: 17, paddingVertical: 13 },
+  destination: { fontSize: 30, lineHeight: 39, color: colors.surface },
+  edit: { justifyContent: 'center', minHeight: 48, paddingHorizontal: 12, gap: 5, borderRadius: 16, backgroundColor: colors.lilac },
+  tool: { flexGrow: 1, minHeight: 48, justifyContent: 'center', paddingHorizontal: 10, paddingVertical: 5, borderWidth: 1, borderColor: colors.border, borderRadius: 15, backgroundColor: colors.surface },
+  toolContents: { justifyContent: 'center', gap: 6 },
+  activeTool: { borderColor: colors.grape, backgroundColor: colors.lavenderMist },
+  sortIcon: { fontSize: 18, lineHeight: 23, color: colors.navy },
+  pressed: { opacity: .8 },
+  note: { fontSize: 13, lineHeight: 20 },
+  loading: { borderRadius: 20, padding: 18, backgroundColor: colors.lavenderMist },
+  handle: { alignSelf: 'center', marginTop: 8, width: 38, height: 4, borderRadius: 2, backgroundColor: colors.border },
+  sortOption: { minHeight: 56, justifyContent: 'center', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
+  radio: { width: 21, height: 21, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.muted },
+  selectedRadio: { backgroundColor: colors.navy, borderColor: colors.navy },
+});

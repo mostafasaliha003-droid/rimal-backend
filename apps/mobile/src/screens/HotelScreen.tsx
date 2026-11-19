@@ -67,8 +67,8 @@ function RateReviewError({ onRefresh }: { onRefresh: () => void }) {
   </View>;
 }
 
-function RateOption({ entry, groupName, requestedCurrency, now, checked, comparisonFull, showCompare, onToggle, onReview, reviewError, onRefresh, onEditSearch }: {
-  entry: RoomChoiceEntry; groupName: string; requestedCurrency: string; now: number; checked: boolean; comparisonFull: boolean; showCompare: boolean;
+function RateOption({ entry, groupName, headerImages, requestedCurrency, now, checked, comparisonFull, showCompare, onToggle, onReview, reviewError, onRefresh, onEditSearch }: {
+  entry: RoomChoiceEntry; groupName: string; headerImages: readonly string[]; requestedCurrency: string; now: number; checked: boolean; comparisonFull: boolean; showCompare: boolean;
   onToggle: (entry: RoomChoiceEntry) => void; onReview: (entry: RoomChoiceEntry) => void; reviewError: string;
   onRefresh: () => void; onEditSearch: () => void;
 }) {
@@ -80,28 +80,28 @@ function RateOption({ entry, groupName, requestedCurrency, now, checked, compari
   const canCompare = checked || !comparisonFull;
   const mismatch = Boolean(offer.price && offer.price.currency !== requestedCurrency);
   const reviewLabel = `${roomCopy.reviewRate(number)} · ${offer.name}`;
-  const factsList = [
-    ...(offer.bedding ? [{ key: 'bedding' as const, icon: 'bed' as const }] : []),
-    { key: 'payment', icon: 'info' }, { key: 'fees', icon: 'pin' },
-  ] as const;
   return <View style={styles.ratePlan}>
-    <Row style={{ alignItems: 'center', gap: 10 }}>
-      <View style={{ gap: 1, flex: 1, minWidth: 0 }}>
-        {offer.name !== groupName && <Txt kind="label">{offer.name}</Txt>}
-        <Txt kind="small">{copy.price}</Txt><Txt kind="heading" style={{ writingDirection: 'ltr' }}>{facts.price}</Txt>
-      </View>
+    {offer.name !== groupName && <Txt kind="label">{offer.name}</Txt>}
+    <Row style={{ gap: 7, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+      <View style={{ maxWidth: '100%', flexShrink: 1 }}><MealBadge offer={offer}/></View>
       {showCompare && <Pressable testID={`compare-rate-${number}`} accessibilityRole="checkbox" accessibilityLabel={`${copy.compare} · ${reviewLabel}`}
         accessibilityState={{ checked, disabled: !canCompare }} disabled={!canCompare} onPress={() => onToggle(entry)}
         style={[styles.compareControl, checked && { backgroundColor: colors.softBlue }, !canCompare && { opacity: .55 }]}>
         <Row style={{ gap: 5 }}><Icon name={checked ? 'check' : 'compare'} size={16}/><Txt kind="label">{checked ? copy.selected : copy.compare}</Txt></Row>
       </Pressable>}
     </Row>
-    <MealBadge offer={offer}/>
+    {offer.bedding && <Row style={{ gap: 7 }}><Icon name="bed" size={17} color={colors.muted}/>
+      <Txt kind="small" style={{ flex: 1 }}>{facts.bedding}</Txt></Row>}
     <CancellationSummary decision={facts.decision}/>
-    <View style={{ gap: 6 }}>
-      {factsList.map(({ key, icon }) => <Row key={key} style={{ gap: 9, alignItems: 'flex-start' }}>
-        <View style={{ paddingTop: 3 }}><Icon name={icon} size={16} color={colors.muted}/></View>
-        <Txt kind="small" style={{ flex: 1 }}><Txt kind="small">{copy[key]} · </Txt><Txt kind="small" style={{ color: colors.ink, fontFamily: fonts.medium }}>{facts[key]}</Txt></Txt>
+    <View style={styles.priceBox}>
+      <Row style={{ flexWrap: 'wrap', gap: 5, justifyContent: 'space-between', alignItems: 'baseline' }}>
+        <Txt kind="label">{copy.price}</Txt>
+        <Txt kind="heading" style={{ writingDirection: 'ltr', fontSize: 23, lineHeight: 31 }}>{facts.price}</Txt>
+      </Row>
+      <View style={ui.rule}/>
+      {(['fees', 'payment'] as const).map(key => <Row key={key} style={{ gap: 8, alignItems: 'flex-start' }}>
+        <Txt kind="small">{copy[key]}</Txt>
+        <Txt kind="small" style={{ flex: 1, color: colors.ink, fontFamily: fonts.medium, textAlign: language === 'ar' ? 'left' : 'right' }}>{facts[key]}</Txt>
       </Row>)}
     </View>
     <Row style={{ gap: 8, flexWrap: 'wrap', alignItems: 'center' }}>
@@ -110,7 +110,8 @@ function RateOption({ entry, groupName, requestedCurrency, now, checked, compari
       </View>
       <Pressable testID={`terms-rate-${number}`} accessibilityRole="button" accessibilityState={{ expanded: details }} aria-expanded={details}
         accessibilityLabel={`${copy.terms} · ${reviewLabel}`} onPress={() => setDetails(value => !value)} style={styles.termsControl}>
-        <Txt kind="label" style={{ textAlign: 'center' }}>{copy.terms}</Txt>
+        <Row style={{ justifyContent: 'center', gap: 5 }}><Txt kind="label" style={{ color: colors.violetInk, textAlign: 'center' }}>{copy.terms}</Txt>
+          <Icon name="chevron" size={14} color={colors.violetInk}/></Row>
       </Pressable>
     </Row>
     {!reviewable && <View style={{ gap: 4 }}>
@@ -119,8 +120,8 @@ function RateOption({ entry, groupName, requestedCurrency, now, checked, compari
     </View>}
     {reviewError === entry.key && <RateReviewError onRefresh={onRefresh}/>}
     {details && <View style={styles.details}>
-      {offer.images.length > 0 && <HotelGallery images={offer.images} name={offer.name} room/>}
-      <Taxes taxes={offer.taxes}/><View style={ui.rule}/><Cancellation offer={offer} now={now}/>
+      <Cancellation offer={offer} now={now} defaultExpanded/><View style={ui.rule}/><Taxes taxes={offer.taxes}/>
+      {offer.images.some(image => !headerImages.includes(image)) && <HotelGallery images={offer.images} name={offer.name} room/>}
     </View>}
   </View>;
 }
@@ -129,21 +130,28 @@ function RoomGroup({ now, group, requestedCurrency, onReview, reviewError, onRef
   now: number; group: RoomChoiceGroup; requestedCurrency: string; onReview: (entry: RoomChoiceEntry) => void; reviewError: string;
   onRefresh: () => void; onEditSearch: () => void; selected: RoomChoiceEntry[]; onToggle: (entry: RoomChoiceEntry) => void; showCompare: boolean;
 }) {
-  const { language } = useLanguage(); const copy = roomChoiceCopy(language); const short = rateCopy(language);
+  const { language, t } = useLanguage(); const copy = roomChoiceCopy(language); const short = rateCopy(language);
   const [expanded, setExpanded] = useState(false), [limit, setLimit] = useState(4);
   const first = group.lowestReviewable || group.entries[0], multiple = group.entries.length > 1;
   const visible = expanded ? [first, ...group.entries.filter(entry => entry.key !== first.key)].slice(0, limit) : [first];
+  const parts = group.name.match(/^(.+?)\s+\(([^()]+)\)$/);
+  const qualifier = parts?.[2];
+  const title = parts?.[1] ?? group.name;
   return <View style={[ui.card, { padding: 0, gap: 0, overflow: 'hidden' }]}>
     <View testID={`room-group-header-${group.entries[0].index + 1}`} style={styles.roomHeader}>
-      <Row style={{ alignItems: 'center', gap: 10 }}>
-        <View style={styles.roomThumb}><HotelGallery images={first.offer.images} name={first.offer.name} room thumbnail/></View>
-        <View style={{ flex: 1, minWidth: 0, gap: 1 }}><Txt accessibilityRole="header" kind="heading" style={{ fontSize: 17, lineHeight: 24 }}>{group.name}</Txt>
-          <Txt kind="small">{short.plans(group.entries.length)}</Txt>
+      {first.offer.images.length > 0 && <HotelGallery images={first.offer.images} name={first.offer.name} room/>}
+      <Row style={{ alignItems: 'flex-start', gap: 10 }}>
+        {!first.offer.images.length && <View style={styles.roomIcon}><Icon name="bed" size={24} color={colors.violetInk}/></View>}
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <Txt accessibilityRole="header" accessibilityLabel={group.name} kind="heading" style={styles.roomName}>{title}</Txt>
+          {qualifier && <Txt kind="small" style={{ color: colors.ink }}>{qualifier}</Txt>}
+          {multiple && <Txt kind="label" style={{ color: colors.violetInk }}>{short.plans(group.entries.length)}</Txt>}
+          {!first.offer.images.length && <Txt kind="small" style={{ fontSize: 12, lineHeight: 18 }}>{t('roomPhotoUnknown')}</Txt>}
         </View>
       </Row>
     </View>
     {visible.map(entry => <View key={entry.key} testID={entry.key === group.lowestReviewable?.key && multiple ? 'lowest-reviewable-rate' : undefined}>
-      <RateOption entry={entry} groupName={group.name} now={now} requestedCurrency={requestedCurrency} checked={selected.some(item => item.key === entry.key)}
+      <RateOption entry={entry} groupName={group.name} headerImages={first.offer.images} now={now} requestedCurrency={requestedCurrency} checked={selected.some(item => item.key === entry.key)}
         comparisonFull={selected.length === 2} showCompare={showCompare} onToggle={onToggle} onReview={onReview} reviewError={reviewError} onRefresh={onRefresh} onEditSearch={onEditSearch}/>
     </View>)}
     {expanded && limit < group.entries.length && <Button variant="quiet" title={copy.moreRates(group.entries.length - limit)} onPress={() => setLimit(value => value + 4)}/>}
@@ -188,34 +196,35 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
   const savedHere = saved.includes(hid);
   const guestCount = criteria.guests.reduce((sum, room) => sum + room.adults + room.children.length, 0);
   return <>
-    <ScrollView style={{ flex: 1 }} contentContainerStyle={[ui.page, { paddingHorizontal: width < 380 ? 12 : 16, gap: 12 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}>
-      <View style={{ gap: 9 }}>
+    <ScrollView style={{ flex: 1 }} contentContainerStyle={[ui.page, { paddingHorizontal: width < 380 ? 12 : 16, paddingTop: 4, gap: 17 }]} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}>
+      <View style={{ gap: 12 }}>
         <HotelGallery images={hotel.images} name={hotel.name}/>
         <Row style={{ alignItems: 'flex-start', gap: 10 }}><View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           {Number.isInteger(hotel.stars) && hotel.stars! >= 1 && hotel.stars! <= 5 && <Txt accessibilityLabel={copy.stars(hotel.stars!)} style={{ color: colors.goldInk, fontSize: 13, lineHeight: 18 }}>{'★'.repeat(hotel.stars!)}</Txt>}
-          <Txt accessibilityRole="header" kind="title" style={{ fontSize: 23, lineHeight: 32 }}>{hotel.name}</Txt>
+          <Txt accessibilityRole="header" kind="title" style={styles.propertyName}>{hotel.name}</Txt>
           {hotel.address && <Row style={{ gap: 5, alignItems: 'flex-start' }}><Icon name="pin" size={16} color={colors.muted}/><Txt kind="small" style={{ flex: 1 }}>{hotel.address}</Txt></Row>}
         </View><Pressable accessibilityRole="button" accessibilityLabel={t(savedHere ? 'removeSaved' : 'saveStay')} aria-pressed={savedHere}
           accessibilityState={{ disabled: !savedReady, selected: savedHere }} disabled={!savedReady} onPress={() => toggleSaved(hid)}
-          style={[styles.save, { opacity: savedReady ? 1 : .5 }]}><Icon name="saved" size={22} color={savedHere ? colors.success : colors.navy}/></Pressable></Row>
+          style={[styles.save, savedHere && { backgroundColor: colors.pistachioMist }, { opacity: savedReady ? 1 : .5 }]}><Icon name={savedHere ? 'check' : 'saved'} size={22} color={savedHere ? colors.success : colors.violetInk}/></Pressable></Row>
         {savedErrorKind && <View style={ui.card}><Txt accessibilityRole="alert">{t(savedErrorKind === 'load' ? 'savedError' : 'savedSaveFailed')}</Txt>
         <Button variant="quiet" title={t('retry')} onPress={() => void retrySaved()}/></View>}
-        <Row style={{ gap: 7, flexWrap: 'wrap' }}><Icon name="calendar" size={16} color={colors.muted}/>
-          <Txt kind="small" accessibilityLabel={short.dates(criteria.checkin, criteria.checkout)}>{short.dates(displayTravelDate(criteria.checkin, language), displayTravelDate(criteria.checkout, language))}</Txt>
-          <Txt kind="small">{'· '}{copy.staySummary(guestCount, criteria.guests.length)}</Txt>
+        <Row style={styles.stayContext}>
+          <Row style={{ gap: 5, flexShrink: 1 }}><Icon name="calendar" size={16} color={colors.violetInk}/>
+            <Txt kind="small" style={{ color: colors.ink, flexShrink: 1 }} accessibilityLabel={short.dates(criteria.checkin, criteria.checkout)}>{short.dates(displayTravelDate(criteria.checkin, language), displayTravelDate(criteria.checkout, language))}</Txt></Row>
+          <Row style={{ gap: 5, flexShrink: 1 }}><Icon name="users" size={16} color={colors.violetInk}/>
+            <Txt kind="small" style={{ color: colors.ink, flexShrink: 1 }}>{copy.staySummary(guestCount, criteria.guests.length)}</Txt></Row>
         </Row>
-        <Row style={{ gap: 4, backgroundColor: colors.softBlue, padding: 3, borderRadius: 14 }}>
+        <Row style={{ gap: 0, borderBottomWidth: 1, borderBottomColor: colors.border }}>
           {(['rooms', 'about'] as const).map(key => <Pressable key={key} accessibilityRole="tab" accessibilityState={{ selected: section === key }}
-            onPress={() => setSection(key)} style={[styles.tab, section === key && { backgroundColor: colors.surface }]}>
+            onPress={() => setSection(key)} style={[styles.tab, section === key && styles.activeTab]}>
             <Txt kind="label" style={{ textAlign: 'center', color: section === key ? colors.navy : colors.muted }}>{key === 'rooms' ? copy.rooms : short.overview}</Txt>
           </Pressable>)}
         </Row>
       </View>
-      {section === 'rooms' ? <View style={{ gap: 9 }}>
+      {section === 'rooms' ? <View style={{ gap: 12 }}>
         <Row style={{ gap: 8, alignItems: 'center' }}>
-          <View style={{ flex: 1, minWidth: 0 }}><Txt accessibilityRole="header" kind="heading">{copy.roomsTitle}</Txt>
-            {hotel.offers.length > 0 && <Txt accessibilityLiveRegion="polite" kind="small">{short.plans(model.matchingOffers)}</Txt>}
-          </View>
+          <Txt accessibilityRole="header" kind="heading" style={{ flex: 1, fontSize: 23, lineHeight: 31 }}>{copy.roomsTitle}</Txt>
+          {hotel.offers.length > 0 && <Txt accessibilityLiveRegion="polite" kind="small" style={{ color: colors.violetInk }}>{short.plans(model.matchingOffers)}</Txt>}
         </Row>
         {hotel.offers.length > 0 && <Row style={{ flexWrap: 'wrap', gap: 8 }}>
           <MealPlanPicker value={meal} options={model.mealOptions} onChange={setMeal}/>
@@ -245,7 +254,8 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
           {!!hotel.location && <HotelMapLink hotel={hotel}/>}
         </View>
         <View style={ui.card}><Txt accessibilityRole="header" kind="heading">{copy.amenities}</Txt>
-          {hotel.amenities.length ? hotel.amenities.map((amenity, index) => <Txt key={`${amenity}-${index}`}>· {amenity}</Txt>) : <Txt kind="small">{t('noAmenities')}</Txt>}
+          {hotel.amenities.length ? <Row style={{ gap: 7, flexWrap: 'wrap' }}>{hotel.amenities.map((amenity, index) =>
+            <View key={`${amenity}-${index}`} style={styles.amenity}><Txt kind="small" style={{ color: colors.leafInk }}>{amenity}</Txt></View>)}</Row> : <Txt kind="small">{t('noAmenities')}</Txt>}
         </View>
         {Object.keys(hotel.policies).length || hotel.policyExtraInfo ? <Policies source={hotel.policies} extra={hotel.policyExtraInfo}/>
           : <View style={ui.card}><Txt accessibilityRole="header" kind="heading">{copy.policies}</Txt><Txt kind="small">{copy.policyUnknown}</Txt></View>}
@@ -295,11 +305,18 @@ const styles = StyleSheet.create({
   freeFilter: { minHeight: 48, justifyContent: 'center', alignSelf: 'stretch' },
   check: { width: 26, height: 26, borderWidth: 2, borderColor: colors.navy, borderRadius: 6, alignItems: 'center', justifyContent: 'center' },
   chip: { minHeight: 48, paddingHorizontal: 14, paddingVertical: 11, borderWidth: 1, borderRadius: 15, justifyContent: 'center', flexShrink: 1 },
-  save: { minWidth: 48, minHeight: 48, padding: 8, borderRadius: 16, borderWidth: 1, borderColor: colors.border,
-    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-  tab: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', paddingVertical: 5, paddingHorizontal: 8, borderRadius: 12 },
-  roomHeader: { padding: 12, backgroundColor: colors.background },
-  roomThumb: { width: 86, borderRadius: 11, overflow: 'hidden' },
+  propertyName: { fontSize: 26, lineHeight: 34 },
+  save: { minWidth: 48, minHeight: 48, padding: 8, borderRadius: 24,
+    alignItems: 'center', justifyContent: 'center', backgroundColor: colors.lavenderMist },
+  stayContext: { gap: 12, rowGap: 5, justifyContent: 'space-between', flexWrap: 'wrap', borderRadius: 12,
+    backgroundColor: colors.lavenderMist, paddingVertical: 8, paddingHorizontal: 11 },
+  tab: { flex: 1, minWidth: 0, minHeight: 46, justifyContent: 'center', paddingHorizontal: 8, borderBottomWidth: 3, borderBottomColor: 'transparent' },
+  activeTab: { borderBottomColor: colors.grape },
+  roomHeader: { gap: 12, padding: 14, backgroundColor: colors.surface },
+  roomIcon: { width: 43, height: 43, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: colors.lavenderMist },
+  roomName: { fontSize: 21, lineHeight: 28 },
+  amenity: { maxWidth: '100%', borderRadius: 10, backgroundColor: colors.pistachioMist, paddingHorizontal: 10, paddingVertical: 6 },
+  priceBox: { gap: 5, backgroundColor: colors.background, paddingHorizontal: 12, paddingVertical: 9, borderRadius: 13 },
   compareControl: { minHeight: 44, minWidth: 44, justifyContent: 'center', paddingHorizontal: 9, paddingVertical: 4, borderWidth: 1, borderColor: colors.border, borderRadius: 12, backgroundColor: colors.surface },
   termsControl: { flexGrow: 1, flexBasis: 115, minHeight: 44, justifyContent: 'center', paddingHorizontal: 6, paddingVertical: 4 },
   groupExpand: { minHeight: 46, justifyContent: 'center', borderTopWidth: 1, borderTopColor: colors.border, paddingHorizontal: 8 },

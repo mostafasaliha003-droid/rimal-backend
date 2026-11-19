@@ -6,8 +6,8 @@ import { colors } from '../theme';
 import { Icon, Photo, Row, Txt } from './Primitives';
 import { roomChoiceCopy } from './roomChoiceCopy';
 
-export default function HotelGallery({ images, name, room = false, thumbnail = false }: {
-  images: readonly string[]; name: string; room?: boolean; thumbnail?: boolean;
+export default function HotelGallery({ images, name, room = false }: {
+  images: readonly string[]; name: string; room?: boolean;
 }) {
   const { language, rtl, t } = useLanguage();
   const copy = roomChoiceCopy(language);
@@ -22,6 +22,9 @@ export default function HotelGallery({ images, name, room = false, thumbnail = f
   const label = room ? (rtl ? 'صور الغرفة' : 'Room photos') : (rtl ? 'صور الفندق' : 'Hotel photos');
   const caption = images.length ? (rtl ? 'تعذّر تحميل الصور' : 'Photos unavailable') : t(room ? 'roomPhotoUnknown' : 'photoUnknown');
   const reject = (source: string) => setFailed(previous => new Set(previous).add(source));
+  const sidePhotos = room ? [] : available.filter(source => source !== uri).slice(0, 2);
+  const height = Math.min(room ? 215 : 320, Math.max(room ? 138 : 182, width * (room ? .39 : .52)));
+  const open = (photo: string) => { setIndex(available.indexOf(photo)); setExpanded(true); };
   const navigate = (next: boolean) => {
     const disabled = next ? current >= available.length - 1 : current === 0;
     return <Pressable accessibilityRole="button" accessibilityLabel={next ? copy.nextPhoto : copy.previousPhoto}
@@ -31,24 +34,31 @@ export default function HotelGallery({ images, name, room = false, thumbnail = f
     </Pressable>;
   };
   if (!uri && !expanded) {
-    return <View style={[styles.empty, thumbnail && { paddingHorizontal: 4, minHeight: 78 }]}>
-      <Icon name={room ? 'bed' : 'pin'} size={18} color={colors.muted}/>
-      <Txt kind="small" style={{ textAlign: 'center', ...(thumbnail && { fontSize: 12, lineHeight: 16 }) }}>{caption}</Txt>
-    </View>;
+    return <Row style={styles.empty}>
+      <Icon name={room ? 'bed' : 'pin'} size={18} color={colors.violetInk}/>
+      <Txt kind="small" style={{ flexShrink: 1 }}>{caption}</Txt>
+    </Row>;
   }
   return <>
-    <View style={[styles.gallery, thumbnail && { borderRadius: 11 }]}>
-      <Pressable accessibilityRole="button" accessibilityLabel={label + ' · ' + name} onPress={() => setExpanded(true)}>
-        <Photo uri={uri} room={room} label={name} height={thumbnail ? 78 : Math.min(230, Math.max(150, width * .44))} onFailed={reject}/>
-      </Pressable>
-      {!thumbnail && available.length > 1 && <>
-        <View style={[styles.edge, rtl ? { right: 8 } : { left: 8 }]}>{navigate(false)}</View>
-        <View style={[styles.edge, rtl ? { left: 8 } : { right: 8 }]}>{navigate(true)}</View>
-        <View pointerEvents="none" style={[styles.count, rtl ? { left: 8 } : { right: 8 }]}>
-          <Txt kind="small" style={{ color: colors.surface }}>{count}</Txt>
+    {uri && <Row style={{ ...styles.gallery, height }}>
+      <Pressable accessibilityRole="button" accessibilityLabel={label + ' · ' + name} onPress={() => open(uri)}
+        style={{ flex: 2, minWidth: 0, height }}>
+        <Photo uri={uri} room={room} label={name} height={height} onFailed={reject}/>
+        <View pointerEvents="none" style={[styles.count, rtl ? { right: 10 } : { left: 10 }]}>
+          <Txt kind="label" style={styles.photoCount}>{available.length === 1 ? (rtl ? 'تكبير الصورة' : 'View photo') : count}</Txt>
         </View>
-      </>}
-    </View>
+      </Pressable>
+      {sidePhotos.length > 0 && <View style={{ flex: 1, height, gap: 3 }}>
+        {sidePhotos.map(source => {
+          const position = available.indexOf(source) + 1;
+          const tileHeight = (height - (sidePhotos.length - 1) * 3) / sidePhotos.length;
+          return <Pressable key={source} accessibilityRole="button" accessibilityLabel={label + ' · ' + copy.photo(position, available.length)}
+            onPress={() => open(source)} style={{ height: tileHeight }}>
+            <Photo uri={source} label={name} height={tileHeight} onFailed={reject}/>
+          </Pressable>;
+        })}
+      </View>}
+    </Row>}
     {expanded && <Modal transparent={false} visible animationType="fade" onRequestClose={() => setExpanded(false)}>
       <SafeAreaView edges={['top','bottom','left','right']} style={styles.viewer}>
         <View accessibilityViewIsModal style={{ flex: 1 }}>
@@ -74,11 +84,11 @@ export default function HotelGallery({ images, name, room = false, thumbnail = f
 }
 
 const styles = StyleSheet.create({
-  gallery: { borderRadius: 17, overflow: 'hidden', backgroundColor: colors.softBlue },
+  gallery: { gap: 3, borderRadius: 19, overflow: 'hidden', backgroundColor: colors.surface },
   viewer: { flex: 1, backgroundColor: colors.ink, direction: 'ltr' },
   bar: { paddingVertical: 10, paddingHorizontal: 16, gap: 10 },
   arrow: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
-  edge: { position: 'absolute', top: '50%', marginTop: -23 },
-  count: { position: 'absolute', bottom: 7, borderRadius: 15, backgroundColor: 'rgba(30,20,37,.8)', paddingVertical: 2, paddingHorizontal: 9 },
-  empty: { minHeight: 48, justifyContent: 'center', alignItems: 'center', backgroundColor: colors.softBlue, borderRadius: 11, padding: 8, gap: 3 },
+  count: { position: 'absolute', bottom: 10, borderRadius: 16, backgroundColor: 'rgba(32,22,38,.84)', paddingVertical: 3, paddingHorizontal: 10 },
+  photoCount: { fontSize: 12, lineHeight: 19, color: colors.surface },
+  empty: { minHeight: 44, gap: 7, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: colors.softBlue, borderRadius: 12 },
 });

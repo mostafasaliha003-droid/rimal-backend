@@ -8,8 +8,8 @@ import { Icon } from '../../components/Primitives';
 
 function tabIcon(name: 'search'|'saved'|'trips'|'account') {
   return function TabIcon({ color, focused }: { color: ColorValue | null; focused: boolean }) {
-    return <View style={{ width: 40, height: 26, alignItems: 'center', justifyContent: 'center', borderRadius: 13, backgroundColor: focused ? colors.softBlue : 'transparent' }}>
-      <Icon name={name} size={23} color={color}/>
+    return <View style={{ width: 48, height: 29, alignItems: 'center', justifyContent: 'center', borderRadius: 16, backgroundColor: focused ? colors.primary : 'transparent' }}>
+      <Icon name={name} size={21} color={focused ? colors.surface : color}/>
     </View>;
   };
 }

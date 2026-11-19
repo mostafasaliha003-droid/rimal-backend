@@ -25,7 +25,7 @@ const ar: typeof en = {
   differences: 'الفروقات فقط', compareCount: count => `${count} من عرضين`, selectAnother: 'اختر عرضاً آخر',
   filters: 'التصفية والترتيب', choose: 'مراجعة العرض', overview: 'تفاصيل الفندق',
   schedules: 'تفاصيل فترات الإلغاء', taxDetails: 'تفاصيل الرسوم',
-  plans: count => count === 1 ? 'عرض واحد' : `عدد العروض: ${count}`, dates: (a,b) => `${a} – ${b}`, same: 'الشروط المذكورة متطابقة في العرضين.',
+  plans: count => count === 0 ? '0 عروض' : count === 1 ? 'عرض واحد' : count === 2 ? 'عرضان' : `${count} ${count <= 10 ? 'عروض' : 'عرضاً'}`, dates: (a,b) => `${a} – ${b}`, same: 'الشروط المذكورة متطابقة في العرضين.',
 };
 export const rateCopy = (language: string) => language === 'ar' ? ar : en;
 

@@ -46,7 +46,10 @@ const ar: typeof en = {
   propertyNote: 'معلومات المنشأة الواردة لهذا الفندق', policyUnknown: 'لم ترد سياسات المنشأة.',
   previousPhoto: 'الصورة السابقة', nextPhoto: 'الصورة التالية', photo: (current, total) => `الصورة ${current} من ${total}`,
   stars: count => `تصنيف المنشأة: ${count} نجوم`, noComparablePrice: currency => `لم يرد سعر مطابق بعملة ${currency}`,
-  staySummary: (guests, rooms) => `الضيوف: ${guests} · الغرف: ${rooms}`,
+  staySummary: (guests, rooms) => [
+    guests === 1 ? 'ضيف واحد' : guests === 2 ? 'ضيفان' : `${guests} ${guests <= 10 ? 'ضيوف' : 'ضيفاً'}`,
+    rooms === 1 ? 'غرفة واحدة' : rooms === 2 ? 'غرفتان' : `${rooms} ${rooms <= 10 ? 'غرف' : 'غرفة'}`,
+  ].join(' · '),
   notReady: 'يحتاج هذا العرض إلى بيانات فندق محدّثة قبل مراجعته.', openPrices: 'افتح عروض الأسعار للاطلاع على الأسعار والعملات الواردة',
   currencyMismatch: (supplied, requested) => `ورد هذا العرض بعملة ${supplied}، بينما عملة بحثك ${requested}. تتطلب المراجعة تطابق عملة العرض مع عملة البحث. عدّل البحث للاطلاع على العملات المدعومة.`,
 };
