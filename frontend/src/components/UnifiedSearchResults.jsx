@@ -1,38 +1,12 @@
 import { useMemo, useState } from 'react';
 import { AlertCircle, ArrowRight, BedDouble, CheckCircle2, Clock3, MapPin, RefreshCw, Search, ShieldCheck, Sparkles } from 'lucide-react';
 import { useLanguage } from '../i18n';
+import PillowWait from './PillowWait';
 import { canCreateHotelbedsCheckout, formatAedPrice, hotelbedsCheckoutUnavailableReason, validateUnifiedSearchResponse } from '../services/nextGenCheckout';
 import { canStartDirectHotelbedsBooking } from '../services/hotelbedsRateReview.js';
 
 const DIRECT_BOOKING_UI_ENABLED = import.meta.env.VITE_HOTELBEDS_DIRECT_BOOKING_UI_ENABLED === 'true';
 
-function SkeletonCard() {
-    return (
-        <article aria-hidden="true" className="glass-surface animate-pulse overflow-hidden rounded-3xl border border-white/70 p-5 shadow-float sm:p-6">
-            <div className="flex gap-5">
-                <div className="hidden h-32 w-40 shrink-0 rounded-2xl bg-slate-200/80 sm:block" />
-                <div className="min-w-0 flex-1 space-y-4">
-                    <div className="h-4 w-24 rounded-full bg-slate-200" />
-                    <div className="h-7 w-2/3 rounded-lg bg-slate-200" />
-                    <div className="h-4 w-1/3 rounded-lg bg-slate-100" />
-                    <div className="flex justify-between gap-5 pt-3">
-                        <div className="h-5 w-28 rounded-lg bg-slate-100" />
-                        <div className="h-10 w-32 rounded-xl bg-slate-200" />
-                    </div>
-                </div>
-            </div>
-        </article>
-    );
-}
-
-function SearchSkeleton({ label }) {
-    return (
-        <section role="status" aria-label={label} className="space-y-5">
-            <span className="sr-only">{label}</span>
-            {Array.from({ length: 3 }, (_, index) => <SkeletonCard key={index} />)}
-        </section>
-    );
-}
 
 function OfferCard({ offer, onChoose, labels, allowVerifiedImages, taxesUnknown }) {
     const amount = formatAedPrice(offer?.price?.amount, offer?.price?.currency);
@@ -133,7 +107,7 @@ function OfferCard({ offer, onChoose, labels, allowVerifiedImages, taxesUnknown 
                     </span>
                 ))}
                 {canCheckout || canDirectCheckout ? (
-                    <button type="button" onClick={() => onChoose?.(offer)} className="cta-red inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white">
+                    <button type="button" disabled={!onChoose} onClick={() => onChoose?.(offer)} className="cta-red inline-flex min-h-11 items-center justify-center gap-2 rounded-xl px-4 py-2.5 text-sm font-black text-white disabled:opacity-60">
                         {labels.choose} <ArrowRight size={16} />
                     </button>
                 ) : payAtProperty || !paymentFlowKnown ? (
@@ -217,7 +191,6 @@ export default function UnifiedSearchResults({
     const { t, direction } = useLanguage();
     const [expandedHotels, setExpandedHotels] = useState(false);
     const labels = useMemo(() => ({
-        loading: t('nextgen.loading', 'جار البحث عن عروض الإقامة...'),
         mockNotice: t('nextgen.mockNotice', 'بيانات توضيحية تجريبية فقط — ليست مخزونًا أو أسعارًا حية.'),
         heading: t('nextgen.heading', 'عروض الفنادق المناسبة لرحلتك'),
         hotel: t('nextgen.hotel', 'فندق'),
@@ -278,7 +251,7 @@ export default function UnifiedSearchResults({
         catch { invalidResponse = true; }
     }
 
-    if (isLoading) return <SearchSkeleton label={labels.loading} />;
+    if (isLoading && !normalized && !error && !invalidResponse) return <PillowWait stage="search" />;
     if (error || invalidResponse) {
         return (
             <section role="alert" data-error-status={errorStatus || ''} dir={direction} className={`glass-surface rounded-3xl border border-red-200/80 p-8 text-center shadow-float sm:p-12 ${className}`}>
@@ -326,7 +299,7 @@ export default function UnifiedSearchResults({
             {normalized.mock === true && <p role="note" className="rounded-2xl border border-cyan-200/70 bg-cyan-50/80 p-4 text-sm font-black text-cyan-950">{labels.mockNotice}</p>}
             {normalized.partialResults && <p role="status" className="flex items-start gap-2 rounded-2xl border border-amber-200/70 bg-amber-50/75 p-4 text-sm font-bold text-amber-950 backdrop-blur-xl"><AlertCircle size={18} className="mt-0.5 shrink-0" />{labels.partial}</p>}
             <div className="space-y-5">
-                {visibleHotels.map((hotel, index) => <HotelCard key={hotel.hotelGroupId || `${hotel.name}-${index}`} hotel={hotel} onChooseOffer={onChooseOffer} labels={labels} allowVerifiedImages={normalized.mock !== true} taxesUnknown={normalized.mock !== true} />)}
+                {visibleHotels.map((hotel, index) => <HotelCard key={hotel.hotelGroupId || `${hotel.name}-${index}`} hotel={hotel} onChooseOffer={isLoading ? undefined : onChooseOffer} labels={labels} allowVerifiedImages={normalized.mock !== true} taxesUnknown={normalized.mock !== true} />)}
             </div>
             {!expandedHotels && hotels.length > visibleHotels.length && (
                 <button type="button" onClick={() => setExpandedHotels(true)} className="glass-light min-h-12 w-full rounded-2xl border border-white/80 px-5 py-3 font-black text-remal-navy shadow-sm backdrop-blur-xl hover:bg-white/90">{labels.showMore}</button>

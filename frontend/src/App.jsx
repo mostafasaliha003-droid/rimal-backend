@@ -1,5 +1,6 @@
 import { lazy, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, Sparkles, X } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, Sparkles, X } from 'lucide-react';
+import PillowWait from './components/PillowWait';
 import TopNavigationBar from './components/TopNavigationBar';
 import { validateSearch } from './components/search/searchModel';
 import SearchComparison from './components/SearchComparison';
@@ -190,7 +191,9 @@ export default function App() {
         setHotelPage(null);
         setSearched(true);
         window.history.pushState({}, '', '#search');
-        window.requestAnimationFrame(() => document.getElementById('results-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        window.requestAnimationFrame(() => document.getElementById('results-heading')?.scrollIntoView({
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start'
+        }));
     };
 
     useEffect(() => {
@@ -219,9 +222,10 @@ export default function App() {
                     setError('');
                 }
             } catch (error) {
-                if (active) trackBookingEvent('search_failed');
+                if (!active) return;
+                trackBookingEvent('search_failed');
                 console.error('Search Error Details:', error);
-            setError(t('results.loadFailed', 'تعذر تحميل الفنادق، يرجى المحاولة مرة أخرى'));
+                setError(t('results.loadFailed', 'تعذر تحميل الفنادق، يرجى المحاولة مرة أخرى'));
             } finally {
                 if (active) setLoading(false);
             }
@@ -386,9 +390,12 @@ export default function App() {
         </>;
     }
     if (hotelRoute) {
+        const stayQuery = new URLSearchParams(window.location.search);
+        const hotelStayKey = JSON.stringify([hotelRoute[1], ...['checkin', 'checkout', 'guests', 'residency'].map(key => stayQuery.get(key))]);
         return <>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <HotelDetails
+                key={hotelStayKey}
                 hid={decodeURIComponent(hotelRoute[1])}
                 displayCurrency={displayCurrency}
                 displayRates={displayRates}
@@ -400,6 +407,7 @@ export default function App() {
         </>;
     }
 
+    const waitingForSearch = loading && !hotels.length && !error;
     return (
         <div className="pillow-home min-h-screen" dir={direction}>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
@@ -425,6 +433,7 @@ export default function App() {
                     requestAnimationFrame(()=>document.getElementById('search-checkin')?.focus());
                 }} /><StayShortcuts /></>}
                 {searched && <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-24 pt-10 lg:px-10 lg:pt-12">
+                    {waitingForSearch ? <PillowWait stage="search" /> : <>
                     
                     {/* Header Section */}
                     <div className="mb-10 flex flex-col gap-5 border-b border-slate-200 pb-8 sm:flex-row sm:items-end sm:justify-between">
@@ -566,20 +575,10 @@ export default function App() {
                                         <ChevronLeft size={18} /> العودة للنتائج
                                     </button>
                                     <h2 className="text-3xl font-black text-slate-900">{selectedHotel.name}</h2>
-                                    {!hotelPage && !error && (
-                                        <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-20 shadow-sm border border-slate-100 gap-4">
-                                            <LoaderCircle size={40} className="animate-spin text-blue-600" />
-                                            <span className="font-bold text-slate-500">{t('results.loadingRooms','جارٍ تحميل الغرف المتاحة...')}</span>
-                                        </div>
-                                    )}
+                                    {!hotelPage && !error && <PillowWait stage="rooms" />}
                                     {error && <p role="alert" className="rounded-2xl bg-red-50 p-6 text-sm font-bold text-red-600 border border-red-100">{error}</p>}
-                                    <RoomOfferGroups rooms={rooms} displayCurrency={displayCurrency} displayRates={displayRates} />
+                                    {hotelPage && <RoomOfferGroups rooms={rooms} displayCurrency={displayCurrency} displayRates={displayRates} />}
                                 </>
-                            ) : loading ? (
-                                <div role="status" className="flex flex-col items-center justify-center gap-4 rounded-3xl bg-white p-24 shadow-sm border border-slate-100">
-                                    <LoaderCircle size={48} className="animate-spin text-blue-600" />
-                                    <span className="font-black text-slate-600 text-lg">{t('results.loadingOffers','جارٍ البحث عن الإقامات المتاحة...')}</span>
-                                </div>
                             ) : error ? (
                                 <div role="alert" className="rounded-3xl bg-red-50 p-10 text-center border border-red-100">
                                     <AlertCircle size={40} className="mx-auto text-red-500 mb-4" />
@@ -630,8 +629,9 @@ export default function App() {
                         </div>
 
                     </div>
+                    </>}
                 </section>}
-                {searched && <div className="mobile-results-toolbar lg:hidden">
+                {searched && !waitingForSearch && <div className="mobile-results-toolbar lg:hidden">
                     <button type="button" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} className="relative flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm active:scale-[0.98]">
                         <SlidersHorizontal size={18} /> {t('results.filters', 'الفلاتر')}
                         {activeFilterCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--remal-blue)] px-1 text-[11px] font-black text-white">{activeFilterCount}</span>}

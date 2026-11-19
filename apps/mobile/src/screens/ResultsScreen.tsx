@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, FlatList, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
+import { FlatList, Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api, ApiError, authSession } from '../api';
@@ -11,6 +11,7 @@ import { useLanguage } from '../i18n';
 import { colors, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
+import BrandedWait from '../components/BrandedWait';
 import HotelMapLink from '../components/HotelMapLink';
 import HotelCard from '../components/HotelCard';
 import ApiState from '../components/ApiState';
@@ -151,12 +152,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   if (savedOnly && !savedReady || authStatus === 'loading') content = <StatePanel title={t('loading')} busy/>;
   else if (savedOnly && saved.length === 0) content = <StatePanel title={t('savedEmpty')} body={t('savedBody')}/>;
   else if (!criteria || savedOnly && !plan) content = <View style={{ gap: 14 }}><StatePanel title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={edit}/></View>;
-  else if (pending && !hotels.length) content = <View style={styles.loading} accessible accessibilityRole="progressbar" accessibilityState={{ busy: true }}
-    accessibilityLabel={`${L.checkingAvailability}. ${L.checkingAvailabilityBody}`} accessibilityLiveRegion="polite">
-    <Row style={{ gap: 13 }}><ActivityIndicator color={colors.grape}/><View style={{ flex: 1, gap: 2 }}>
-      <Txt kind="heading">{L.checkingAvailability}</Txt><Txt kind="small">{L.checkingAvailabilityBody}</Txt>
-    </View></Row>
-  </View>;
+  else if (pending && !hotels.length) content = <BrandedWait key={context} stage="results"/>;
   else if (!hotels.length && error instanceof ApiError && error.code === 'search_result_too_large') {
     content = <View style={{ gap: 14 }}><StatePanel title={L.largeSearchTitle} body={L.largeSearchBody}/>
       <Button title={t('searchAgain')} onPress={edit}/></View>;
@@ -246,7 +242,6 @@ const styles = StyleSheet.create({
   sortIcon: { fontSize: 18, lineHeight: 23, color: colors.navy },
   pressed: { opacity: .8 },
   note: { fontSize: 13, lineHeight: 20 },
-  loading: { borderRadius: 20, padding: 18, backgroundColor: colors.lavenderMist },
   handle: { alignSelf: 'center', marginTop: 8, width: 38, height: 4, borderRadius: 2, backgroundColor: colors.border },
   sortOption: { minHeight: 56, justifyContent: 'center', paddingHorizontal: 15, paddingVertical: 8, borderRadius: 15, borderWidth: 1, borderColor: colors.border },
   radio: { width: 21, height: 21, borderRadius: 11, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: colors.muted },

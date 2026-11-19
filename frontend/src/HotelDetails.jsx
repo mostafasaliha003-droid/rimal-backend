@@ -7,6 +7,7 @@ import HotelGuestReviews from './components/HotelGuestReviews';
 import HotelPhotoGallery from './components/HotelPhotoGallery';
 import HotelPolicies from './components/HotelPolicies';
 import HotelAmenities from './components/HotelAmenities';
+import PillowWait from './components/PillowWait';
 import BookingAPI from './services/bookingApi';
 import { SEARCH_CURRENCY, normalizeRoom, rateAmount, rateCurrency } from './services/offers';
 import PriceDisplay from './components/PriceDisplay';
@@ -35,28 +36,6 @@ function readSearchParams() {
         residency: params.get('residency') || 'ae',
         guests: Array.isArray(guests) && guests.length ? guests : [{ adults: 2, children: [] }]
     };
-}
-
-function LoadingSkeleton({ label }) {
-    return (
-        <div className="space-y-8 animate-pulse" aria-label={label}>
-            <div className="space-y-4">
-                <div className="h-4 w-32 rounded bg-slate-200" />
-                <div className="h-10 w-2/3 rounded-lg bg-slate-200" />
-                <div className="h-4 w-1/3 rounded bg-slate-100" />
-            </div>
-            <div className="h-[50vh] rounded-3xl bg-slate-200" />
-            <div className="grid gap-10 lg:grid-cols-[1fr_350px]">
-                <div className="space-y-4 rounded-3xl bg-white p-8 border border-slate-100">
-                    <div className="h-8 w-1/3 rounded bg-slate-200" />
-                    <div className="h-4 w-full rounded bg-slate-100" />
-                    <div className="h-4 w-5/6 rounded bg-slate-100" />
-                    <div className="h-4 w-4/6 rounded bg-slate-100" />
-                </div>
-                <div className="h-80 rounded-3xl bg-slate-100" />
-            </div>
-        </div>
-    );
 }
 
 function SupplierPicture({ source, fallback, alt, loading = 'lazy', fetchPriority, className = '' }) {
@@ -225,7 +204,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
         window.dispatchEvent(new PopStateEvent('popstate'));
     };
 
-    if (loading) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-7xl"><LoadingSkeleton label={t('hotel.loading', 'جار تحميل تفاصيل الفندق')} /></div></main>;
+    if (loading && !hotel && !error) return <main dir={direction} className="pillow-wait-page"><PillowWait stage="hotel" /></main>;
     if (error) return <main dir={direction} className="min-h-screen bg-[#F8FAFC] px-5 py-10 lg:px-10"><div className="mx-auto max-w-3xl rounded-3xl bg-red-50 p-10 text-center font-bold text-red-600 shadow-sm"><p className="text-lg">{error}</p><button type="button" onClick={onBack} className="mt-6 inline-flex items-center gap-2 rounded-xl bg-red-600 px-6 py-3 text-sm text-white hover:bg-red-700 transition-colors"><ArrowRight size={18} /> {t('hotel.back', 'العودة للنتائج')}</button></div></main>;
 
     // Calculate total guests safely

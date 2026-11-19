@@ -8,6 +8,7 @@ import type { HotelDetails, SearchCriteria } from '../types';
 import { useLanguage } from '../i18n';
 import { colors, fonts, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
+import BrandedWait from '../components/BrandedWait';
 import { useAppState } from '../components/AppState';
 import ApiState from '../components/ApiState';
 import { Button, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
@@ -239,7 +240,7 @@ export default function HotelScreen() {
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}><BrandHeader back/>
     {hid === null ? <ScrollView contentContainerStyle={ui.page}><StatePanel title={copy.invalidHotel} body={copy.invalidHotelBody}/><Button title={t('search')} onPress={() => router.replace('/')}/></ScrollView>
       : !criteria ? <ScrollView contentContainerStyle={ui.page}><StatePanel title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={() => router.push('/')}/></ScrollView>
-        : loading ? <ScrollView contentContainerStyle={ui.page}><StatePanel title={t('loading')} busy/></ScrollView>
+        : loading ? <ScrollView contentContainerStyle={ui.page}><BrandedWait key={requestKey} stage="hotel"/></ScrollView>
           : error ? <ScrollView contentContainerStyle={ui.page}><ApiState error={error} retry={refreshHotel}/></ScrollView>
             : hotel ? <HotelContents key={requestKey} hotel={hotel} hid={hid} criteria={criteria} onRefresh={refreshHotel}/>
               : <ScrollView contentContainerStyle={ui.page}><StatePanel title={t('noOffers')} retry={refreshHotel}/></ScrollView>}

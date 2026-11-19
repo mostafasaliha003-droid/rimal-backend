@@ -3,6 +3,7 @@ import {useLanguage} from '../i18n';
 import {membershipRequest} from '../services/membershipApi';
 import {membershipCopy} from '../services/membershipCopy';
 import { MemberIdentity } from './SavedStays';
+import PillowWait from './PillowWait';
 import MembershipPortal,{MembershipChrome} from '../pages/MembershipPortal';
 const MembershipAdmin=lazy(()=>import('../pages/MembershipAdmin'));
 const CustomerSupport=lazy(()=>import('../pages/CustomerSupport'));
@@ -19,6 +20,7 @@ function safeMemberReturn(url=location) {
 const Checkout=lazy(()=>import('../Checkout'));
 const MemberNotifications=lazy(()=>import('../pages/MemberNotifications'));
 const PaymentStatus=lazy(()=>import('../pages/PaymentStatus'));
+const pageWait=<main className="pillow-wait-page"><PillowWait /></main>;
 
 export default function MembershipBoundary({children}){
     const {language}=useLanguage(),L=membershipCopy(language);
@@ -54,19 +56,20 @@ export default function MembershipBoundary({children}){
         go(path);
     };
     // Public service and legal pages do not mount inventory/search hooks.
-    if(pathname==='/membership-admin')return <Suspense><MembershipAdmin/></Suspense>;
-    if(pathname==='/customer-service')return <Suspense><CustomerSupport staff/></Suspense>;
-    if(['/privacy','/terms'].includes(pathname))return <Suspense><LegalPage kind={pathname.slice(1)}/></Suspense>;
-    if(pathname==='/account-deletion')return <Suspense><AccountDeletion/></Suspense>;
-    if(pathname==='/account-deletion-requests')return <Suspense><AccountDeletionRequests/></Suspense>;
-    if(pathname==='/support')return <Suspense><CustomerSupport/></Suspense>;
+    if(pathname==='/membership-admin')return <Suspense fallback={pageWait}><MembershipAdmin/></Suspense>;
+    if(pathname==='/customer-service')return <Suspense fallback={pageWait}><CustomerSupport staff/></Suspense>;
+    if(['/privacy','/terms'].includes(pathname))return <Suspense fallback={pageWait}><LegalPage kind={pathname.slice(1)}/></Suspense>;
+    if(pathname==='/account-deletion')return <Suspense fallback={pageWait}><AccountDeletion/></Suspense>;
+    if(pathname==='/account-deletion-requests')return <Suspense fallback={pageWait}><AccountDeletionRequests/></Suspense>;
+    if(pathname==='/support')return <Suspense fallback={pageWait}><CustomerSupport/></Suspense>;
     const callbackQuery = new URLSearchParams(location.search);
-    if(pathname==='/checkout' && callbackQuery.has('ref') && (callbackQuery.has('payment') || callbackQuery.has('affiliate')))return <MembershipChrome compact><Suspense><Checkout onBack={()=>go('/bookings')}/></Suspense></MembershipChrome>;
-    if(pathname==='/payment-status')return <MembershipChrome compact><Suspense><PaymentStatus onBack={()=>go('/')}/></Suspense></MembershipChrome>;
-    if(error||!snapshot)return <MembershipChrome compact><section className="membership-panel" style={{maxWidth:520,margin:'60px auto'}} role={error?'alert':'status'}><h1>{error?L.unavailable:L.working}</h1>{error&&<button className="membership-primary" onClick={()=>void refresh()}>{L.retry}</button>}</section></MembershipChrome>;
-    if(pathname==='/notifications' && snapshot.authenticated && !snapshot.canAccess)return <MembershipChrome compact><Suspense><MemberNotifications /></Suspense></MembershipChrome>;
+    if(pathname==='/checkout' && callbackQuery.has('ref') && (callbackQuery.has('payment') || callbackQuery.has('affiliate')))return <MembershipChrome compact><Suspense fallback={<PillowWait />}><Checkout onBack={()=>go('/bookings')}/></Suspense></MembershipChrome>;
+    if(pathname==='/payment-status')return <MembershipChrome compact><Suspense fallback={<PillowWait />}><PaymentStatus onBack={()=>go('/')}/></Suspense></MembershipChrome>;
+    if(error)return <MembershipChrome compact><section className="membership-panel" style={{maxWidth:520,margin:'60px auto'}} role="alert"><h1>{L.unavailable}</h1><button className="membership-primary" onClick={()=>void refresh()}>{L.retry}</button></section></MembershipChrome>;
+    if(!snapshot)return <main className="pillow-wait-page"><PillowWait stage="membership" /></main>;
+    if(pathname==='/notifications' && snapshot.authenticated && !snapshot.canAccess)return <MembershipChrome compact><Suspense fallback={<PillowWait />}><MemberNotifications /></Suspense></MembershipChrome>;
     if(snapshot.enabled===false)return <MembershipPortal snapshot={{...snapshot,authenticated:false,canAccess:false}} refresh={refresh} go={go}/>;
-    if(snapshot.authenticated&&pathname==='/bookings'&&!snapshot.canAccess)return <MembershipChrome compact><Suspense><AccountCenter bookingsOnly onNavigate={go}/></Suspense></MembershipChrome>;
+    if(snapshot.authenticated&&pathname==='/bookings'&&!snapshot.canAccess)return <MembershipChrome compact><Suspense fallback={<PillowWait />}><AccountCenter bookingsOnly onNavigate={go}/></Suspense></MembershipChrome>;
 
     if(snapshot.canAccess&&pathname!=='/membership')return <MemberIdentity.Provider value={snapshot.user}>{children}</MemberIdentity.Provider>;
     return <MembershipPortal snapshot={snapshot} refresh={refresh} go={go} onEnter={enter}/>;

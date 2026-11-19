@@ -141,6 +141,7 @@ export default function NextGenHotels({ initialSearch = null }) {
         activeRequest.current?.abort();
         const controller = new AbortController();
         activeRequest.current = controller;
+        if (JSON.stringify(criteria) !== JSON.stringify(search)) setResponse(null);
         setSearch(criteria);
         setLoading(true);
         setError('');
@@ -179,7 +180,7 @@ export default function NextGenHotels({ initialSearch = null }) {
                 setLoading(false);
             }
         }
-    }, [apiLanguage, language, pilotHotels, t]);
+    }, [apiLanguage, language, pilotHotels, search, t]);
 
     useEffect(() => {
         mounted.current = true;

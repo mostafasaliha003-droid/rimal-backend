@@ -2,7 +2,6 @@ import type { Language } from '../types';
 
 const en = {
   totalFrom: 'Stay total from', photoUnavailable: 'Photo unavailable',
-  checkingAvailability: 'Finding available stays', checkingAvailabilityBody: 'Checking rooms and full-stay prices for your dates.',
   largeSearchTitle: 'This search returned more data than the app can display',
   largeSearchBody: 'Search for a specific hotel or change your travel dates to narrow the results.',
   guests: (count: number) => `${count} ${count === 1 ? 'guest' : 'guests'}`,
@@ -29,7 +28,6 @@ const en = {
 };
 const ar: typeof en = {
   totalFrom: 'إجمالي الإقامة من', photoUnavailable: 'تعذّر تحميل الصورة',
-  checkingAvailability: 'نبحث عن إقامات متاحة', checkingAvailabilityBody: 'نتحقق من توافر الغرف وإجمالي الأسعار لتواريخك.',
   largeSearchTitle: 'حجم نتائج هذا البحث كبير',
   largeSearchBody: 'ابحث باسم فندق معيّن أو غيّر تواريخ إقامتك لعرض نتائج أقل.',
   guests: count => count === 1 ? 'ضيف واحد' : count === 2 ? 'ضيفان' : `${count} ${count <= 10 ? 'ضيوف' : 'ضيفاً'}`,

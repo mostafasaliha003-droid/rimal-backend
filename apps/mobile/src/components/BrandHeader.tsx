@@ -7,12 +7,12 @@ import { APP_ENV } from '../api';
 import { useAuth } from '../auth';
 import { Icon, Row, Txt } from './Primitives';
 
-export function PillowWordmark() {
-  return <View accessible accessibilityLabel="مخدة · pillow stays" style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-    <Image accessible={false} source={require('../../assets/pillow-symbol.png')} resizeMode="contain" style={{ width: 34, height: 34 }}/>
+export function PillowWordmark({ stacked = false }: { stacked?: boolean }) {
+  return <View accessible accessibilityLabel="مخدة · pillow stays" style={{ flexDirection: stacked ? 'column' : 'row', alignItems: 'center', gap: stacked ? 2 : 6 }}>
+    <Image accessible={false} source={require('../../assets/pillow-symbol.png')} resizeMode="contain" style={{ width: stacked ? 67 : 34, height: stacked ? 51 : 34 }}/>
     <View style={{ alignItems: 'center' }}>
-      <Text accessible={false} style={{ fontFamily: fonts.bold, fontSize: 22, lineHeight: 27, color: colors.primary, writingDirection: 'rtl' }}>مخدة</Text>
-      <Text accessible={false} style={{ fontFamily: 'ManropeMedium', fontSize: 10, lineHeight: 13, letterSpacing: .4, color: colors.primary, writingDirection: 'ltr' }}>pillow stays</Text>
+      <Text accessible={false} allowFontScaling={!stacked} style={{ fontFamily: fonts.bold, fontSize: stacked ? 28 : 22, lineHeight: stacked ? 36 : 27, color: colors.primary, writingDirection: 'rtl' }}>مخدة</Text>
+      <Text accessible={false} allowFontScaling={!stacked} style={{ fontFamily: 'ManropeMedium', fontSize: stacked ? 12 : 10, lineHeight: stacked ? 16 : 13, letterSpacing: .4, color: colors.primary, writingDirection: 'ltr' }}>pillow stays</Text>
     </View>
   </View>;
 }
