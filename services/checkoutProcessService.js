@@ -35,6 +35,15 @@ function text(value, name, max = 100) {
     return value.trim();
 }
 
+// RateHawk accepts 1-50 unicode letters, spaces and ' - , . ’ in guest names (no digits or symbols).
+// Names are sent to RateHawk after payment, so they are checked here, before any charge.
+const GUEST_NAME = /^\p{L}[\p{L} '\-,.\u2019]*$/u;
+function guestName(value, name) {
+    const result = text(value, name, 50);
+    if (!GUEST_NAME.test(result)) throw fail(`invalid_${name}`);
+    return result;
+}
+
 function normalizedCheckout(input = {}) {
     const hid = Number(input.hid);
     if (!Number.isSafeInteger(hid) || hid < 1) throw fail('invalid_hotel');
@@ -67,14 +76,14 @@ function normalizedCheckout(input = {}) {
         return { adults: group.adults, children: [...group.children].sort((a, b) => a - b) };
     });
     const holder = input.guest || {};
-    const firstName = text(holder.firstName, 'first_name');
-    const lastName = text(holder.lastName, 'last_name');
+    const firstName = guestName(holder.firstName, 'first_name');
+    const lastName = guestName(holder.lastName, 'last_name');
     const email = text(holder.email, 'email', 254);
     const phone = text(holder.phone, 'phone', 40);
     if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email) || !/^\+[1-9]\d{6,19}$/.test(phone)) throw fail('invalid_contact');
     const bookingRooms = rooms.map((room, roomIndex) => ({ guests: room.guests.map((person, personIndex) => ({
-        first_name: text(roomIndex === 0 && personIndex === 0 ? firstName : person.firstName, 'first_name'),
-        last_name: text(roomIndex === 0 && personIndex === 0 ? lastName : person.lastName, 'last_name'),
+        first_name: guestName(roomIndex === 0 && personIndex === 0 ? firstName : person.firstName, 'first_name'),
+        last_name: guestName(roomIndex === 0 && personIndex === 0 ? lastName : person.lastName, 'last_name'),
         is_child: person.is_child === true,
         ...(person.is_child === true ? { age: person.age } : {}),
         ...(person.gender ? { gender: person.gender } : {})
