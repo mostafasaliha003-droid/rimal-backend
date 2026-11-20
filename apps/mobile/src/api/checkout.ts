@@ -1,5 +1,5 @@
 import type { AppEnvironment, RoomOffer, SearchCriteria } from '../types';
-import { APP_ENV, resolveEnvironment } from './config';
+import { APP_ENV, appScheme, resolveEnvironment } from './config';
 import { ApiError, invalidResponse } from './errors';
 import { assertCriteria, hotelId } from './validation';
 import { chargeCurrency, paymentCurrencyUnits as units } from './paymentCurrencies';
@@ -202,7 +202,7 @@ export function createCheckoutApi(request: Request, {
         amount_formatted: input.quote.amountFormatted, expires_at: input.quote.expiresAt, token: input.quote.token }, input.review, now());
       const credential = await request.captureSessionToken(signal); await mode(signal, true);
       return normalizeCheckoutCreate(await request('POST', '/payment/ziina/intent', { signal, timeoutMs: 90000, idempotencyKey,
-        token: credential, body: { ...selected, ...guests, payment_quote: lockedQuote.token } }));
+        token: credential, body: { ...selected, ...guests, payment_quote: lockedQuote.token, app_return: appScheme(environment) } }));
     },
     async status(capability: CheckoutCapability, signal?: AbortSignal): Promise<CheckoutAttemptView> {
       if (!capability || !uuid.test(capability.reference) || !token.test(capability.accessToken)) throw new ApiError('validation', 'invalid_checkout_capability');

@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePreventRemove, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { APP_ENV, authSession, bookingWebsiteUrl, websiteUrl } from '../api';
-import { NATIVE_CHECKOUT_ENABLED } from '../api/config';
+import { NATIVE_CHECKOUT_ENABLED, paymentReturnUrl } from '../api/config';
 import type { CheckoutGuestData, CheckoutStatus } from '../api/checkout';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
@@ -72,7 +72,9 @@ export default function CheckoutScreen() {
     await session.recover();
     const url = session.getPaymentHandoff();
     if (!url) return false;
-    try { await WebBrowser.openBrowserAsync(url, { toolbarColor: colors.navy }); }
+    // Ziina returns app-started payments to this app address, which closes the
+    // browser. The return is not evidence either way: the status check decides.
+    try { await WebBrowser.openAuthSessionAsync(url, paymentReturnUrl(APP_ENV), { toolbarColor: colors.navy }); }
     catch { return false; }
     await session.refreshStatus(); return true;
   };

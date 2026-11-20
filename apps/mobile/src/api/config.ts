@@ -11,6 +11,13 @@ export const APP_ENV = resolveEnvironment(process.env.EXPO_PUBLIC_API_ENV);
 // Financial dispatch needs a separately validated release decision. Read-only
 // quotes and recovery remain available when the server reports the right mode.
 export const NATIVE_CHECKOUT_ENABLED = process.env.EXPO_PUBLIC_NATIVE_CHECKOUT_ENABLED === 'true';
+// Must match `scheme` in app.config.ts. Ziina returns app-started payments to it.
+export function appScheme(environment: AppEnvironment): 'mkhadda' | 'mkhadda-preview' {
+  return resolveEnvironment(environment) === 'production' ? 'mkhadda' : 'mkhadda-preview';
+}
+export function paymentReturnUrl(environment: AppEnvironment): string {
+  return `${appScheme(environment)}://checkout`;
+}
 export function endpoints(environment: AppEnvironment) {
   const env = resolveEnvironment(environment);
   return env === 'production'

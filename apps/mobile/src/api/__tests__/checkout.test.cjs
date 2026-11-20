@@ -138,6 +138,7 @@ test('fixture-enabled create preserves exact occupancy, private context and idem
   const post = f.calls.find(call => call.path.endsWith('/intent')), sent = JSON.parse(post.options.body);
   assert.equal(post.options.headers.Authorization, 'Bearer ' + sessionToken); assert.equal(post.options.headers['Idempotency-Key'], key);
   assert.equal(sent.prebook_context, selected.prebookContext); assert.equal(sent.payment_quote, signed);
+  assert.equal(sent.app_return, 'mkhadda-preview');
   assert.equal(sent.rooms[0].guests[0].firstName, people.guest.firstName); assert.equal(sent.rooms[0].guests[1].age, 7);
   assert.equal(sent.guest.specialRequests, people.guest.specialRequests); assert.equal(JSON.stringify(people), before);
   const bad = guests(); bad.rooms[0].guests[1].age = 8;
