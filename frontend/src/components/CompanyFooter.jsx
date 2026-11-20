@@ -4,7 +4,7 @@ import './CompanyFooter.css';
 
 const copy = {
     ar: {
-        name: 'Remal Group LLC FZ', tagline: 'إقامتك تبدأ من هنا',
+        name: 'Remal Group LLC FZ', tagline: 'إقامتك تبدأ من هنا', operator: 'الشركة المشغّلة',
         office: 'مكتبنا في دبي',
         address: 'دائرة السياحة والاقتصاد، نفس البناء الحكومي، بلوك ب، مكتب 610',
         city: 'ميناء سعيد، دبي، الإمارات العربية المتحدة', directions: 'عرض الموقع على الخريطة',
@@ -12,7 +12,7 @@ const copy = {
         contact: 'تواصل معنا', privacy: 'الخصوصية', deletion: 'طلب حذف الحساب', terms: 'الشروط والأحكام', rights: 'جميع الحقوق محفوظة',
     },
     en: {
-        name: 'Remal Group LLC FZ', tagline: 'Your stay starts here',
+        name: 'Remal Group LLC FZ', tagline: 'Your stay starts here', operator: 'Operating company',
         office: 'Our Dubai office',
         address: 'Department of Economy and Tourism, same government building, Block B, Office 610',
         city: 'Port Saeed, Dubai, United Arab Emirates', directions: 'View location on map',
@@ -20,7 +20,7 @@ const copy = {
         contact: 'Get in touch', privacy: 'Privacy', deletion: 'Request account deletion', terms: 'Terms & conditions', rights: 'All rights reserved',
     },
     es: {
-        name: 'Remal Group LLC FZ', tagline: 'Tu estancia empieza aquí',
+        name: 'Remal Group LLC FZ', tagline: 'Tu estancia empieza aquí', operator: 'Empresa operadora',
         office: 'Nuestra oficina en Dubái',
         address: 'Departamento de Economía y Turismo, mismo edificio gubernamental, Bloque B, oficina 610',
         city: 'Port Saeed, Dubái, Emiratos Árabes Unidos', directions: 'Ver ubicación en el mapa',
@@ -36,8 +36,8 @@ export default function CompanyFooter() {
     return <footer className="remal-company-footer" dir={direction}>
         <div className="remal-company-footer-main">
             <a href={`/?lang=${language}`} className="remal-company-footer-brand">
-                <img src="/logo.jpg" alt={L.name} width="80" height="80" loading="lazy" decoding="async" />
-                <span><strong>{L.name}</strong><small>{L.tagline}</small></span>
+                <img src="/pillow-symbol.png" alt="" width="80" height="80" loading="lazy" decoding="async" />
+                <span><strong><bdi>مخدة | pillow stays</bdi></strong><small>{L.tagline}</small></span>
             </a>
             <section className="remal-company-footer-office">
                 <h2><MapPin size={18} aria-hidden="true" />{L.office}</h2>
@@ -46,6 +46,7 @@ export default function CompanyFooter() {
             </section>
             <section className="remal-company-footer-registration">
                 <h2><Building2 size={18} aria-hidden="true" />{L.registration}</h2>
+                <p className="remal-company-footer-operator">{L.operator}<strong><bdi dir="ltr">{L.name}</bdi></strong></p>
                 <p>{L.licence}<strong><bdi dir="ltr">2312342.01</bdi></strong></p>
                 <span className="remal-company-footer-since">{L.since}</span>
             </section>
