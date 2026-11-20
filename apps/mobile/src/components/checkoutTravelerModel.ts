@@ -28,6 +28,10 @@ export function normalizeCheckoutPhone(value: string): string {
   }).replace(/[ ()-]/g, '');
 }
 const controls = /[\u0000-\u001f\u007f]/;
+// RateHawk accepts 1-50 unicode letters, spaces and ' - , . ’ in guest names; digits and other
+// symbols are refused. Names reach RateHawk after payment, so they are checked before it.
+export const GUEST_NAME_MAX = 50;
+const guestNamePattern = /^\p{L}[\p{L} '\-,.\u2019]*$/u;
 
 export function validateTravelerDraft(draft: CheckoutTravelerDraft, occupancy: GuestRoom[]): TravelerValidation {
   const errors: Record<string, TravelerError> = {};
@@ -37,7 +41,7 @@ export function validateTravelerDraft(draft: CheckoutTravelerDraft, occupancy: G
   }
   const name = (value: unknown, key: string) => {
     if (typeof value !== 'string' || !value.trim()) { errors[key] = 'required'; return ''; }
-    if (value.length > 100 || controls.test(value)) { errors[key] = 'name'; return ''; }
+    if (value.trim().length > GUEST_NAME_MAX || controls.test(value) || !guestNamePattern.test(value.trim())) { errors[key] = 'name'; return ''; }
     return value.trim();
   };
   const firstName = name(draft.guest.firstName, 'firstName'), lastName = name(draft.guest.lastName, 'lastName');

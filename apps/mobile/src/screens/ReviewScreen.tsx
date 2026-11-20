@@ -215,6 +215,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
             </Section>
             <Section title={ar ? 'ما يشمله الحجز' : 'What is included'} icon="checkCircle">
               <Txt kind="bodyStrong">{localizedRoomName(offer.name, language)}</Txt>
+              {localizedRoomName(offer.name, language) !== offer.name && <Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt>}
               <Row style={{ gap: space.xs }}><Icon name="coffee" size={16} color={color.textSecondary}/><Txt kind="small" tone="primary">{mealDescription(offer, language)}</Txt></Row>
               {(offer.bedding || draft.offer.bedding) && <Row style={{ gap: space.xs }}><Icon name="bed" size={16} color={color.textSecondary}/>
                 <Txt testID="review-bedding" kind="small" tone="primary">{rateLabels.bedding}: {offer.bedding || rateLabels.unknown}</Txt></Row>}

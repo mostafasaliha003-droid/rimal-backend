@@ -183,7 +183,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           {actionError === 'clear' && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.clearError}</Txt>}
         </> : !selected || !offer ? <><StatePanel title={copy.missing} body={copy.missingBody}/><Button title={copy.fresh} onPress={props.onFreshOffer}/></> : <>
           <View style={[ui.card, { padding: 16, gap: 9 }]}>
-            <Txt kind="heading" accessibilityRole="header">{selected.review.hotelName}</Txt><Txt>{localizedRoomName(offer.name, language)}</Txt>
+            <Txt kind="heading" accessibilityRole="header">{selected.review.hotelName}</Txt><Txt>{localizedRoomName(offer.name, language)}</Txt>{localizedRoomName(offer.name, language) !== offer.name && <Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt>}
             <MealBadge offer={offer}/>
             <Txt kind="small" style={{ writingDirection: 'ltr' }}>{selected.review.criteria.checkin} → {selected.review.criteria.checkout}</Txt>
             <Txt kind="small">{selected.review.criteria.guests.map((room,i)=>`${copy.room(i+1)}: ${room.adults + room.children.length}`).join(' · ')}</Txt>
@@ -251,8 +251,8 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
     {Object.keys(errors).length>0&&<Txt accessibilityRole="alert" style={{color:colors.red}}>{errors.occupancy?copy.invalidOccupancy:copy.fieldsError}</Txt>}
     {step==='details'?<>
       <Txt kind="label">{copy.lead}</Txt>
-      <Field label={copy.firstName} value={draft.guest.firstName} maxLength={100} autoCorrect={false} autoCapitalize="words" autoComplete="given-name" error={error('firstName')} onChangeText={v=>contact('firstName',v)}/>
-      <Field label={copy.lastName} value={draft.guest.lastName} maxLength={100} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" error={error('lastName')} onChangeText={v=>contact('lastName',v)}/>
+      <Field label={copy.firstName} value={draft.guest.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="given-name" error={error('firstName')} onChangeText={v=>contact('firstName',v)}/>
+      <Field label={copy.lastName} value={draft.guest.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" error={error('lastName')} onChangeText={v=>contact('lastName',v)}/>
       <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" error={error('email')} onChangeText={v=>contact('email',v)}/>
       <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" accessibilityHint={copy.phoneHint} error={error('phone')} onChangeText={v=>contact('phone',v)}/>
       {residency && <View style={{gap:6}}>
@@ -269,8 +269,8 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
         <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);setNationalityMissing(false);onDirty?.(true);}}/>
       </View>}
       {draft.rooms.map((room,r)=><View key={r} style={{gap:14}}><Txt kind="heading">{copy.room(r+1)}</Txt>{room.guests.map((person,p)=><View key={p} style={{gap:10}}><Txt kind="label">{copy.traveler(p+1,person.is_child,person.age)}</Txt>{r===0&&p===0?<Txt kind="small">{copy.leadUsed}</Txt>:<>
-        <Field label={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={100} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>
-        <Field label={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={100} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>
+        <Field label={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>
+        <Field label={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>
       </>}</View>)}</View>)}
       <Field label={copy.requests} value={draft.guest.specialRequests} multiline numberOfLines={3} maxLength={1000} style={{minHeight:100,textAlignVertical:'top'}} accessibilityHint={copy.requestsHint} error={error('specialRequests')} onChangeText={v=>contact('specialRequests',v)}/>
       <Txt kind="small">{copy.requestsHint}</Txt><Button title={copy.reviewDetails} disabled={repricing} onPress={review}/>

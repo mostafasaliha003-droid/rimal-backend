@@ -205,6 +205,19 @@ test('an app-started checkout asks Ziina to return to the app; unknown targets a
     await assert.rejects(checkout.createCheckout(details(), key, '192.0.2.10'), /checkout_conflict/);
 });
 
+test('guest names RateHawk would refuse are rejected before any booking form or payment', async context => {
+    const scenario = fixture(context);
+    for (const firstName of ['Guest2', 'Ali!', 'A'.repeat(51)]) {
+        const input = details(); input.guest = { ...input.guest, firstName };
+        await assert.rejects(checkout.createCheckout(input, crypto.randomUUID(), '192.0.2.10'), /invalid_first_name/);
+    }
+    assert.equal(scenario.record, undefined);
+    assert.equal(scenario.form.mock.callCount(), 0);
+    assert.equal(scenario.createIntent.mock.callCount(), 0);
+    const arabic = details(); arabic.guest = { ...arabic.guest, firstName: 'عبد الله', lastName: "O'Brien-Smith" };
+    assert.equal((await checkout.createCheckout(arabic, crypto.randomUUID(), '192.0.2.10')).status, 'awaiting_payment');
+});
+
 test('checkout persists cancellation terms from verified prebook, ignoring browser policy fields', async context => {
     const scenario = fixture(context, { bookHash: 'p-fixture', formHash: 'p-fixture' });
     const info = scenario.rateInfo(undefined, 'p-fixture');
