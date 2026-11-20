@@ -14,7 +14,7 @@
     "check:site": "node syncFrontendBuild.js --check",
     "sync:filtered-hotels": "node syncFilteredHotels.js",
     "sync:hotel-search-index": "node syncHotelSearchIndex.js",
-    "test:hotel-search-index": "node --test test-hotel-search-index.js test-hotel-sound-search.js test-arabic-hotel-names.js",
+    "test:hotel-search-index": "node --test test-hotel-search-index.js test-hotel-sound-search.js test-arabic-hotel-names.js test-hotel-arabic-names-catalog.js",
     "sync:hotel-reviews": "node syncHotelReviews.js",
     "check:limits": "node checkApiLimits.js",
     "sync:hotel-dump": "node syncHotelDump.js",
