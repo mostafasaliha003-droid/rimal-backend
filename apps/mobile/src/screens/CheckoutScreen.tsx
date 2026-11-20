@@ -129,6 +129,21 @@ export function CheckoutContents(props: CheckoutContentsProps) {
   const selected = props.readSelection();
   const [opening, setOpening] = useState(false), [actionError, setActionError] = useState<'website'|'payment'|'clear'|null>(null);
   const busy = ['quoting','submitting','recovering'].includes(session.phase);
+  // The review page already rechecked price and availability, so the payment amount is locked
+  // here without a separate button. It is requested again if it lapses; an error stops the loop.
+  const requestQuote = session.requestQuote;
+  const autoQuote = signedIn && session.canQuote && !session.quote && session.phase !== 'quoting' && !session.error && session.availability?.enabled === true;
+  useEffect(() => { if (autoQuote) void requestQuote(); }, [autoQuote, requestQuote]);
+  // A booking submitted in this visit goes straight to Ziina. A recovered one waits for the
+  // guest's tap, so reopening the app never pushes them into a payment page.
+  const submitted = useRef(false), paymentOpened = useRef('');
+  const waitingReference = session.attempt?.status === 'awaiting_payment' ? session.attempt.reference : '';
+  const onPayment = props.onPayment;
+  useEffect(() => {
+    if (!submitted.current || !waitingReference || paymentOpened.current === waitingReference || !creationEnabled) return;
+    paymentOpened.current = waitingReference;
+    void onPayment();
+  }, [waitingReference, creationEnabled, onPayment]);
   const perform = async (kind: 'website'|'payment'|'clear', action: () => Promise<boolean>) => {
     if (opening) return; setOpening(true); setActionError(null);
     try { if (!await action()) setActionError(kind); } catch { setActionError(kind); }
@@ -180,17 +195,19 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           </View>
           {!creationEnabled && <View style={[ui.card, { backgroundColor: colors.softGold }]}><Txt kind="heading" accessibilityRole="header">{copy.gateOff}</Txt><Txt>{copy.gateOffBody}</Txt></View>}
           {!signedIn ? <><StatePanel title={copy.signIn} body={copy.signInBody}/><Button title={copy.signIn} variant="secondary" onPress={props.onSignIn}/></> : <>
-            {!session.recoveryChecked && <Button title={copy.refresh} variant="secondary" busy={session.phase === 'recovering'} disabled={opening} onPress={() => void session.recover()}/>}
-            {session.availability && <View style={{ gap: 8 }}><Txt kind="label">{session.availability.enabled ? session.availability.mode === 'sandbox' ? copy.sandbox : copy.production : copy.unavailable}</Txt>{!session.availability.enabled && <Txt kind="small">{copy.unavailableBody}</Txt>}</View>}
-            <Row style={{ flexWrap: 'wrap' }}><View style={{ flex: 1, minWidth: 160 }}><Button title={session.quote ? copy.quoteAgain : copy.quote} busy={session.phase === 'quoting'} disabled={!session.canQuote || opening} onPress={() => void session.requestQuote()}/></View><View style={{ flex: 1, minWidth: 160 }}><Button title={copy.readiness} variant="quiet" disabled={busy || opening} onPress={() => void session.loadAvailability()}/></View></Row>
-            {session.error && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.quoteError}</Txt>}
+            {session.availability && !session.availability.enabled && <View style={{ gap: 8 }}><Txt kind="label">{copy.unavailable}</Txt><Txt kind="small">{copy.unavailableBody}</Txt></View>}
+            {session.availability?.enabled && session.availability.mode === 'sandbox' && <Txt kind="caption">{copy.sandbox}</Txt>}
+            {!session.quote && !session.error && session.availability?.enabled !== false && <StatePanel busy title={copy.quoteBusy}/>}
+            {session.error && <View style={{ gap: 8 }}><Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.quoteError}</Txt>
+              <Button title={language === 'ar' ? 'أعد المحاولة' : 'Try again'} variant="secondary" busy={busy} disabled={opening}
+                onPress={() => void (session.availability?.enabled ? session.requestQuote() : session.loadAvailability())}/></View>}
           </>}
-          <View style={ui.card}><Cancellation offer={offer}/></View>
           {creationEnabled && session.canCollectTravelers && session.quote && <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
             draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
             occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit}
             residency={selected.review.criteria.residency} onNationalityChange={props.onNationalityChange}
-            onSubmit={(data,consent)=>session.submit(data,consent)} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>}
+            onSubmit={(data,consent)=>{ submitted.current = true; return session.submit(data,consent); }} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>}
+          <View style={ui.card}><Cancellation offer={offer}/></View>
           {/* In-app checkout keeps the whole booking in the app; the website is only the fallback when it is off. */}
           {!creationEnabled && <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{copy.website}</Txt><Txt>{copy.websiteBody}</Txt>
             {actionError === 'website' && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.websiteError}</Txt>}

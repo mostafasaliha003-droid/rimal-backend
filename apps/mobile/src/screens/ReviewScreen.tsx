@@ -145,7 +145,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const footerAction = !draft || !offer ? null : expired ? <Button variant="secondary" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>
     : showChanges && !changesAccepted ? <Button testID="review-see-changes" icon="alert" title={t('reviewSeeChanges')} disabled={opening} onPress={reviewChanges}/>
       : canContinue ? <Button testID="review-continue" iconEnd="forward" label={NATIVE_CHECKOUT_ENABLED ? checkoutLabel : t('websiteCta')}
-        title={NATIVE_CHECKOUT_ENABLED ? (ar ? 'متابعة الحجز' : 'Continue booking') : (ar ? 'المتابعة إلى الحجز' : 'Continue to booking')} busy={opening}
+        title={NATIVE_CHECKOUT_ENABLED ? (ar ? 'متابعة تأكيد الحجز' : 'Continue to confirm booking') : (ar ? 'المتابعة إلى الحجز' : 'Continue to booking')} busy={opening}
         onPress={() => NATIVE_CHECKOUT_ENABLED ? openCheckout() : void openWebsite()}/>
         : <Button testID="review-check-price" icon="refresh" title={t(status === 'pending' ? 'reviewChecking' : checked ? 'reviewCheckAgain' : 'reviewCheckPrice')}
           busy={status === 'pending'} disabled={!canRecheck || opening} onPress={recheckOffer}/>;

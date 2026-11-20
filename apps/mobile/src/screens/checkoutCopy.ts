@@ -1,6 +1,6 @@
 import type { CheckoutStatus } from '../api/checkout';
 const en = {
-  title: 'Booking & payment options', intro: 'Check the amount and conditions before continuing.',
+  title: 'Confirm your booking', intro: 'Enter the guest details, then pay securely.',
   missing: 'Choose a current room offer first', missingBody: 'This room review has expired or belongs to a different app session. Return to the room offers and check again.',
   fresh: 'Return to room offers', signIn: 'Sign in to check payment options', signInBody: 'Use your account to check the charge amount. Your website session is separate.',
   offer: 'Room offer · full stay', charge: 'Checked payment amount', quote: 'Check charge amount', quoteAgain: 'Refresh charge amount', quoteBusy: 'Checking the charge amount…',
@@ -33,7 +33,7 @@ const en = {
   room: (i: number) => `Room ${i}`, traveler: (i: number, child: boolean, age?: number) => `Traveler ${i}${child ? ` · child, age ${age}` : ' · adult'}`,
 };
 const ar: typeof en = {
-  title: 'خيارات الحجز والدفع', intro: 'راجع المبلغ والشروط قبل المتابعة.',
+  title: 'تأكيد الحجز', intro: 'اكتب بيانات الضيف ثم ادفع بأمان.',
   missing: 'اختر عرض غرفة حديثاً أولاً', missingBody: 'انتهت صلاحية مراجعة الغرفة أو تغيّرت جلسة التطبيق. عُد إلى عروض الغرف وتحقق مجدداً.',
   fresh: 'العودة إلى عروض الغرف', signIn: 'سجّل الدخول للاطلاع على خيارات الدفع', signInBody: 'استخدم حسابك للتحقق من المبلغ المطلوب. جلسة الموقع منفصلة عن جلسة التطبيق.',
   offer: 'سعر عرض الغرفة · الإقامة كاملة', charge: 'مبلغ الدفع بعد التحقق', quote: 'التحقق من مبلغ الدفع', quoteAgain: 'تحديث مبلغ الدفع', quoteBusy: 'جارٍ التحقق من مبلغ الدفع…',
