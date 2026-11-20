@@ -1307,6 +1307,9 @@ mongoose.connection.once('connected', () => {
     if (process.env.HOTEL_SOUND_KEY_BACKFILL !== 'off') {
         stopHotelSoundKeyBackfill = require('./services/hotelSoundKeyBackfill').startHotelSoundKeyBackfill({ model: Hotel, logger });
     }
+    // Staging-only reviewer sign-in (see services/reviewAccount.js); does nothing unless configured.
+    require('./services/reviewAccount').provisionReviewAccount({ UserModel: User })
+        .catch(error => logger.warn('Review account provisioning failed', { error: error.message }));
     if (process.env.CHECKOUT_DIAGNOSTICS !== 'off') {
         setTimeout(() => {
             require('./services/checkoutDiagnostics').reportRecentCheckouts()
