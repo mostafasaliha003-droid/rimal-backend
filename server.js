@@ -1292,11 +1292,15 @@ let stopCheckoutWorker = () => {};
 let stopAffiliateBookingStatusWorker = () => {};
 let stopMembershipMailer = () => {};
 let stopMembershipReviewWorker = () => {};
+let stopHotelSoundKeyBackfill = () => {};
 mongoose.connection.once('connected', () => {
     stopBookingStatusWorker = bookingProcessService.startBookingStatusWorker();
     stopCheckoutWorker = checkoutReconciliationService.startCheckoutWorker();
     stopAffiliateBookingStatusWorker = affiliateBookingService.startStatusWorker();
     if(membershipService.enabled()){stopMembershipMailer=membershipMailer.start();stopMembershipReviewWorker=membershipReviewWorker.start();}
+    if (process.env.HOTEL_SOUND_KEY_BACKFILL !== 'off') {
+        stopHotelSoundKeyBackfill = require('./services/hotelSoundKeyBackfill').startHotelSoundKeyBackfill({ model: Hotel, logger });
+    }
 });
-server.once('close', () => { stopBookingStatusWorker(); stopCheckoutWorker(); stopAffiliateBookingStatusWorker(); stopMembershipMailer(); void stopMembershipReviewWorker(); });
+server.once('close', () => { stopBookingStatusWorker(); stopCheckoutWorker(); stopAffiliateBookingStatusWorker(); stopMembershipMailer(); void stopMembershipReviewWorker(); stopHotelSoundKeyBackfill(); });
 connectMongoWithRetry();

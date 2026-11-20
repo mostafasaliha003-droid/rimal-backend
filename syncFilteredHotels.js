@@ -8,7 +8,7 @@ const ratehawkService = require('./services/ratehawkService');
 const logger = require('./services/loggerService');
 const { normalizeSupplierImage } = require('./services/supplierImages');
 const Hotel = require('./models/Hotel');
-const { normalizeHotelSearchText, hotelSearchTokens } = require('./services/hotelSearchIndex');
+const { normalizeHotelSearchText, hotelSearchTokens, hotelSoundKeys } = require('./services/hotelSearchIndex');
 
 const MONGO_URI = process.env.MONGO_URI;
 const CHUNK_SIZE = 100;
@@ -164,6 +164,7 @@ function toHotelOperation(hotel) {
                     provider: 'ratehawk',
                     normalizedSupplierName: normalizeHotelSearchText(hotel.name || ''),
                     searchTokens: hotelSearchTokens(hotel.name || ''),
+                    soundKeys: hotelSoundKeys(hotel.name || ''),
                     staticData: hotel
                 }
             },

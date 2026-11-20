@@ -22,6 +22,83 @@ function hotelSearchTokens(value) {
     return [...new Set(Array.from({ length: normalized.length - 2 }, (_, index) => normalized.slice(index, index + 3)))];
 }
 
+// Arabic spells foreign names by their consonants, so «أتلانتس ذا بالم» and
+// "Atlantis The Palm" share one skeleton (tlnts t blm). Arabic queries are first
+// romanized by englishTravelQuery; both sides then lose vowels, silent letters
+// and the sound distinctions Arabic does not write (p/b, v/f, g/j, z/s, c/k).
+function soundSkeletonWords(value) {
+    if (typeof value !== 'string') return [];
+    const latin = value.normalize('NFKD').replace(/\p{M}/gu, '').toLowerCase().replace(/[^a-z0-9]+/g, ' ');
+    return latin.split(' ').filter(Boolean).map(word => word
+        .replace(/tsh|tch|sch|ch|sh/g, 's').replace(/ph/g, 'f').replace(/[td]h/g, 't').replace(/zh/g, 's')
+        .replace(/kh|ck|qu/g, 'k').replace(/gh/g, 'j').replace(/x/g, 'ks')
+        .replace(/c(?=[eiy])/g, 's').replace(/[cq]/g, 'k').replace(/g/g, 'j').replace(/p/g, 'b')
+        .replace(/v/g, 'f').replace(/z/g, 's').replace(/[aeiouyhw]/g, '').replace(/(.)\1+/g, '$1'))
+        .filter(Boolean);
+}
+
+// One key per word start, so a guest may begin with any word of the name.
+function hotelSoundKeys(name) {
+    const words = soundSkeletonWords(name);
+    const keys = words.map((_, index) => words.slice(index).join('').slice(0, 48)).filter(key => key.length >= 2);
+    return [...new Set(keys)].slice(0, 8);
+}
+
+// Query words as skeletons. Arabic attaches the article (السيف = Al Seef, البرشاء =
+// Al Barsha), so a word may match with or without its leading l.
+function arabicSoundQuery(query) {
+    const english = englishTravelQuery(query);
+    const words = english ? soundSkeletonWords(english).slice(0, 8) : [];
+    return words.some(word => word.length >= 3) ? words : null;
+}
+
+function soundLookup(words) {
+    const starts = [...new Set(words.flatMap(word => word.startsWith('l') && word.length > 3 ? [word, word.slice(1)] : [word])
+        .filter(word => word.length >= 3))];
+    return starts.length ? { soundKeys: { $in: starts.map(word => new RegExp('^' + word)) } } : null;
+}
+
+// Query words must appear in order as the starts of name words (spanning words
+// when Arabic joins them), then the city. Name words the guest leaves out are
+// skipped. One longer query word may go unmatched (e.g. "St." written as سانت) when
+// two others match, but never a short one such as a city (دبي): another city's
+// hotel, or one missing the brand the guest typed, must not match.
+function soundScore(words, hotel) {
+    if (!words) return null;
+    const nameWords = [...soundSkeletonWords(hotel.name), ...soundSkeletonWords(hotel.city)];
+    // The name as one string; a query word starts at a word boundary or continues
+    // where the previous one stopped (سيتي ماكس = Citymax).
+    const joined = nameWords.join('');
+    const boundaries = [];
+    for (let index = 0, position = 0; index < nameWords.length; position += nameWords[index++].length) boundaries.push(position);
+    let position = 0, unmatched = 0, skipped = 0, strong = 0, continued = false;
+    for (const word of words) {
+        const variants = word.startsWith('l') && word.length > 2 ? [word, word.slice(1)] : [word];
+        let match = null;
+        for (const variant of variants) {
+            if (continued && joined.startsWith(variant, position)) { match = { start: position, variant }; break; }
+        }
+        for (const start of boundaries) {
+            if (match || start < position) continue;
+            const variant = variants.find(candidate => joined.startsWith(candidate, start));
+            if (variant) match = { start, variant };
+        }
+        if (!match) {
+            if (word.length < 3) return null;
+            unmatched += 1;
+            continue;
+        }
+        skipped += boundaries.filter(start => start >= position && start < match.start).length;
+        position = match.start + match.variant.length;
+        continued = !boundaries.includes(position) && position < joined.length;
+        if (word.length >= 3) strong += 1;
+    }
+    if (!strong || unmatched > (strong >= 2 ? 1 : 0)) return null;
+    // Ranks after exact spellings; fewer skipped and leftover words rank first.
+    const leftover = boundaries.filter(start => start >= position).length;
+    return 0.5 + unmatched * 0.2 + skipped * 0.02 + leftover * 0.005;
+}
+
 function editDistance(left, right) {
     if (left === right) return 0;
     if (!left) return right.length;
@@ -93,6 +170,9 @@ async function findHotelSuggestions(query, { Hotel, language = 'en', limit = 5 }
         const regex = { $regex: '^'+escapeRegex(raw) };
         prefixes.push({name: regex}, {'translations.ar.name': regex, 'translations.ar.reviewStatus': 'approved'});
     }
+    const soundWords = arabicSoundQuery(query);
+    const soundBranch = soundWords && soundLookup(soundWords);
+    if (soundBranch) prefixes.push(soundBranch);
     // Exact prefixes and localized names get a separate candidate window: common
     // trigrams in a large inventory must not crowd out the property actually typed.
     const find = branches => Hotel.find({
@@ -100,7 +180,7 @@ async function findHotelSuggestions(query, { Hotel, language = 'en', limit = 5 }
         deleted: { $ne: true },
         'staticData.deleted': { $ne: true },
         $or: branches
-    }).select({ hid: 1, hotelId: 1, name: 1, city: 1, address: 1, translations: 1, searchAliases: 1, normalizedSupplierName: 1 })
+    }).select({ hid: 1, hotelId: 1, name: 1, city: 1, address: 1, translations: 1, searchAliases: 1, normalizedSupplierName: 1, soundKeys: 1 })
         .limit(500).maxTimeMS(1200).lean();
     let direct;
     try {
@@ -111,7 +191,8 @@ async function findHotelSuggestions(query, { Hotel, language = 'en', limit = 5 }
         direct = [];
     }
     const ranked = documents => documents.map(hotel => {
-        const scores = queries.map(value => scoreHotel(value, hotel)).filter(score => score !== null);
+        const scores = [...queries.map(value => scoreHotel(value, hotel)), soundScore(soundWords, hotel)]
+            .filter(score => score !== null);
         return { hotel, score: scores.length ? Math.min(...scores) : null };
     })
         .filter(entry => entry.score !== null)
@@ -165,4 +246,4 @@ function buildSearchAlias(value, { language = 'en', source = 'editorial', review
     };
 }
 
-module.exports = { normalizeHotelSearchText, hotelSearchTokens, editDistance, findHotelSuggestions, buildSearchAlias };
+module.exports = { normalizeHotelSearchText, hotelSearchTokens, hotelSoundKeys, arabicSoundQuery, soundScore, editDistance, findHotelSuggestions, buildSearchAlias };

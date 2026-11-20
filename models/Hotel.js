@@ -41,6 +41,8 @@ const hotelSchema = new mongoose.Schema({
     normalizedSupplierName: { type: String, default: undefined },
     searchTokens: { type: [String], default: undefined },
     translationSearchTokens: { type: [String], default: undefined },
+    // Consonant skeletons of the supplier name for Arabic-script search (see hotelSoundKeys).
+    soundKeys: { type: [String], default: undefined },
     translations: { type: Map, of: translationSchema, default: undefined },
     searchAliases: { type: [searchAliasSchema], default: undefined }
 });
@@ -48,6 +50,7 @@ const hotelSchema = new mongoose.Schema({
 hotelSchema.index({ provider: 1, normalizedSupplierName: 1 }, { name: 'hotel_supplier_name_search' });
 hotelSchema.index({ provider: 1, searchTokens: 1 }, { name: 'hotel_supplier_search_tokens' });
 hotelSchema.index({ provider: 1, translationSearchTokens: 1 }, { name: 'hotel_translation_search_tokens' });
+hotelSchema.index({ provider: 1, soundKeys: 1 }, { name: 'hotel_sound_keys' });
 hotelSchema.index({ provider: 1, 'searchAliases.normalized': 1 }, { name: 'hotel_editorial_alias_search' });
 hotelSchema.index({ provider: 1, name: 1 }, { name: 'hotel_original_name_prefix' });
 hotelSchema.index({ provider: 1, 'translations.ar.name': 1 }, { name: 'hotel_arabic_name_prefix' });

@@ -8,7 +8,7 @@ const { pipeline } = require('stream/promises');
 const logger = require('./loggerService');
 const { normalizeSupplierImage } = require('./supplierImages');
 const Hotel = require('../models/Hotel');
-const { normalizeHotelSearchText, hotelSearchTokens } = require('./hotelSearchIndex');
+const { normalizeHotelSearchText, hotelSearchTokens, hotelSoundKeys } = require('./hotelSearchIndex');
 
 const BATCH_SIZE = 500;
 const DOWNLOAD_TIMEOUT_MS = Number(process.env.RATEHAWK_DUMP_DOWNLOAD_TIMEOUT_MS || 30 * 60 * 1000);
@@ -45,6 +45,7 @@ function toStaticOperation(hotel) {
                     provider: 'ratehawk',
                     normalizedSupplierName: normalizeHotelSearchText(hotel.name || ''),
                     searchTokens: hotelSearchTokens(hotel.name || ''),
+                    soundKeys: hotelSoundKeys(hotel.name || ''),
                     staticData: hotel
                 }
             },
