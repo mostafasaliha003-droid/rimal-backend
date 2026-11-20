@@ -3,12 +3,12 @@ import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView,
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePreventRemove, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { APP_ENV, authSession, bookingWebsiteUrl, websiteUrl } from '../api';
+import { api, APP_ENV, authSession, bookingWebsiteUrl, websiteUrl } from '../api';
 import { NATIVE_CHECKOUT_ENABLED, paymentReturnUrl } from '../api/config';
 import type { CheckoutGuestData, CheckoutStatus } from '../api/checkout';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import type { GuestRoom, RoomOffer } from '../types';
+import type { GuestRoom, Money, RoomOffer } from '../types';
 import { color, colors, fonts, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
@@ -23,6 +23,8 @@ import { MealBadge } from '../components/RateHighlights';
 import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 import VoucherButton from '../components/VoucherButton';
+import { matchOfferForNationality, samePrice } from '../components/nationalityRepriceModel';
+import { contextExpiry, REVIEW_CHECK_LIFETIME_MS } from '../components/offerReviewModel';
 import CountryPicker, { countryName, countryNameSecondary } from '../components/CountryPicker';
 
 const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'web';
@@ -32,6 +34,9 @@ type TravelerDraft = NonNullable<ReturnType<typeof createTravelerDraft>>;
 const travelerDrafts = new Map<string, TravelerDraft>();
 // Details typed before a nationality change, carried to the re-priced offer for the same guests.
 const carriedTraveler = new Map<'latest', { occupancy: string; draft: TravelerDraft }>();
+// The nationality the guest chose, so the re-priced form opens with it already selected.
+const chosenNationality = new Map<'latest', string>();
+export type NationalityCheck = { status: 'checking' | 'same' | 'changed' | 'unavailable' | 'error'; residency: string; from?: Money | null; to?: Money | null };
 function takeCarriedTraveler(occupancy: GuestRoom[]): TravelerDraft | null {
   const carried = carriedTraveler.get('latest'); carriedTraveler.delete('latest');
   return carried && carried.occupancy === JSON.stringify(occupancy) ? carried.draft : null;
@@ -87,8 +92,31 @@ export default function CheckoutScreen() {
     catch { return false; }
     await session.refreshStatus(); return true;
   };
-  // RateHawk prices each rate for the guest's nationality. A different nationality needs a new
-  // search, so the guest picks the room again at that nationality's price; typed details are kept.
+  // RateHawk prices each rate for the guest's nationality, and a rate is booked with the nationality
+  // it was searched for. A different nationality is searched again in the background; the same
+  // room at the same price continues silently, a different price is shown before payment.
+  const [nationalityCheck, setNationalityCheck] = useState<NationalityCheck | null>(null);
+  const repriceNationality = async (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => {
+    const current = state.getCheckoutReview(); if (!current) { setNationalityCheck({ status: 'error', residency }); return; }
+    carriedTraveler.set('latest', { occupancy: JSON.stringify(occupancy), draft }); chosenNationality.set('latest', residency);
+    setNationalityCheck({ status: 'checking', residency });
+    const { hid, hotelName, offer } = current.review, criteria = { ...current.review.criteria, residency };
+    try {
+      const hotel = await api.getHotel(hid, criteria, language);
+      const match = matchOfferForNationality(offer, hotel.offers);
+      if (!match) { setNationalityCheck({ status: 'unavailable', residency }); return; }
+      const checked = await api.prebook(hid, match);
+      state.setSearch({ ...(state.criteria || current.review.criteria), residency }, state.destinationName);
+      if (!state.setReviewDraft({ hid, hotelName, criteria, offer: match, language })) throw new Error('review_draft_rejected');
+      const expiresAt = Math.min(Date.now() + REVIEW_CHECK_LIFETIME_MS, (contextExpiry(checked.prebookContext) ?? Infinity) - 60_000);
+      const selection: CheckoutSelection = Object.freeze({ selectionId: `nationality:${residency}:${Date.now()}`, expiresAt, termsAccepted: true,
+        review: Object.freeze({ hid, hotelName, criteria, offer: checked.offer, prebookContext: checked.prebookContext }) });
+      if (!state.setCheckoutReviewAuthority(() => selection.expiresAt > Date.now() ? selection : null)) throw new Error('checkout_review_rejected');
+      const same = !checked.priceChanged && samePrice(offer.price, checked.offer.price);
+      setNationalityCheck({ status: same ? 'same' : 'changed', residency, from: offer.price, to: checked.offer.price });
+    } catch { setNationalityCheck({ status: 'error', residency }); }
+  };
+  // No equivalent rate for that nationality: the guest chooses again from the hotel's rooms.
   const changeNationality = (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => {
     const current = state.getCheckoutReview(); if (!current) return;
     carriedTraveler.set('latest', { occupancy: JSON.stringify(occupancy), draft });
@@ -108,7 +136,8 @@ export default function CheckoutScreen() {
     signedIn={status === 'signedIn'} creationEnabled={nativeCreationPolicy()} onFreshOffer={freshOffer}
     onSignIn={() => router.navigate({ pathname: '/account', params: { returnTo: '/checkout' } })} onSupport={() => router.push('/support')} onWebsite={openWebsite}
     onPayment={openPayment} onClearCompleted={clearCompleted} onPrivacy={() => void policy('/privacy')} onTerms={() => void policy('/terms')}
-    onTravelerDirty={setDirty} onNationalityChange={changeNationality}/>;
+    onTravelerDirty={setDirty} onNationalityChange={repriceNationality} onChooseRoomForNationality={changeNationality}
+    nationalityCheck={nationalityCheck}/>;
 }
 
 export interface CheckoutContentsProps {
@@ -117,6 +146,8 @@ export interface CheckoutContentsProps {
   onWebsite: () => Promise<boolean>; onPayment: () => Promise<boolean>; onClearCompleted: () => Promise<boolean>;
   onPrivacy: () => void; onTerms: () => void; onTravelerDirty?: (dirty: boolean) => void;
   onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
+  onChooseRoomForNationality?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
+  nationalityCheck?: NationalityCheck | null;
 }
 
 // An ordinary presentation seam for an isolated fixture entry. The shipped
@@ -206,6 +237,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
             draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
             occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit}
             residency={selected.review.criteria.residency} onNationalityChange={props.onNationalityChange}
+            onChooseRoomForNationality={props.onChooseRoomForNationality} nationalityCheck={props.nationalityCheck}
             onSubmit={(data,consent)=>{ submitted.current = true; return session.submit(data,consent); }} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>}
           <View style={ui.card}><Cancellation offer={offer}/></View>
           {/* In-app checkout keeps the whole booking in the app; the website is only the fallback when it is off. */}
@@ -220,19 +252,22 @@ export function CheckoutContents(props: CheckoutContentsProps) {
   </SafeAreaView>;
 }
 
-export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, onPrivacy, onTerms, draftKey, onDirty, residency, onNationalityChange }: {
+export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, onPrivacy, onTerms, draftKey, onDirty, residency, onNationalityChange, onChooseRoomForNationality, nationalityCheck }: {
   occupancy: GuestRoom[]; quote: CheckoutQuoteView; canSubmit: boolean; draftKey?: string; onDirty?: (dirty: boolean) => void;
   residency?: string; onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
+  onChooseRoomForNationality?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void; nationalityCheck?: NationalityCheck | null;
   onSubmit: (data: CheckoutGuestData, consent: boolean) => Promise<void>; onPrivacy: () => void; onTerms: () => void;
 }) {
   const { language, t } = useLanguage(), copy = checkoutCopy(language), ar = language === 'ar';
   const [draft,storeDraft] = useState(() => (draftKey && travelerDrafts.get(draftKey)) || takeCarriedTraveler(occupancy) || createTravelerDraft(occupancy));
   useEffect(() => { if (draftKey && travelerDrafts.has(draftKey)) onDirty?.(true); }, [draftKey, onDirty]);
   // Required: the guest chooses it here. It starts empty so it is never assumed.
-  const [nationality,setNationality] = useState('');
+  const [nationality,setNationality] = useState(() => residency && chosenNationality.get('latest') === residency ? residency : '');
   const [nationalityMissing,setNationalityMissing] = useState(false);
   const [picker,showPicker] = useState(false);
+  const checking = nationalityCheck?.status === 'checking';
   const repricing = Boolean(residency && nationality && nationality !== residency);
+  const money = (value?: Money | null) => value ? `${value.currency} ${value.amount}` : '';
   const setDraft = (next: NonNullable<typeof draft>) => { storeDraft(next); if (draftKey) travelerDrafts.set(draftKey, next); carriedTraveler.set('latest', { occupancy: JSON.stringify(occupancy), draft: next }); onDirty?.(true); };
   const [errors,setErrors] = useState<Record<string,TravelerError>>({});
   const [step,setStep] = useState<'details'|'review'>('details');
@@ -263,17 +298,26 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
         </Pressable>
         {nationalityMissing && <Txt kind="small" accessibilityRole="alert" style={{color:colors.red}}>{t('residencyError')}</Txt>}
         <Txt kind="small">{t('residencyNote')}</Txt>
-        {repricing && <Notice tone="warning" title={ar ? 'نعيد فحص السعر لهذه الجنسية' : 'Check the price for this nationality'}
-          body={ar ? `السعر الحالي محسوب لجنسية ${countryName(residency, language)}. قد يختلف السعر أو التوفر لجنسية ${countryName(nationality, language)}، فاختر الغرفة مجدداً بالسعر الصحيح. ستبقى البيانات التي كتبتها.` : `This price is for ${countryName(residency, language)} nationals. The price or availability may differ for ${countryName(nationality, language)}, so choose the room again at the right price. Your details are kept.`}/>}
-        {repricing && <Button title={ar ? 'اعرض الأسعار لهذه الجنسية' : 'Show prices for this nationality'} onPress={()=>onNationalityChange?.(nationality, draft, occupancy)}/>}
-        <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);setNationalityMissing(false);onDirty?.(true);}}/>
+        {checking && <StatePanel busy title={ar ? `نتحقق من السعر لجنسية ${countryName(nationalityCheck.residency, language)}…` : `Checking the price for ${countryName(nationalityCheck.residency, language)} nationals…`}/>}
+        {!checking && nationalityCheck?.status === 'same' && nationalityCheck.residency === residency && <Txt kind="small" tone="success">{ar ? 'تم التحقق: السعر نفسه لهذه الجنسية.' : 'Checked: the price is the same for this nationality.'}</Txt>}
+        {!checking && nationalityCheck?.status === 'changed' && nationalityCheck.residency === residency && <Notice tone="warning"
+          title={ar ? 'تغيّر السعر لهذه الجنسية' : 'The price changed for this nationality'}
+          body={ar ? `السعر لجنسية ${countryName(residency, language)}: ${money(nationalityCheck.to)} بدل ${money(nationalityCheck.from)}. المبلغ المعروض للدفع محدّث.` : `Price for ${countryName(residency, language)} nationals: ${money(nationalityCheck.to)} instead of ${money(nationalityCheck.from)}. The payment amount shown is updated.`}/>}
+        {!checking && repricing && nationalityCheck?.residency === nationality && nationalityCheck.status === 'unavailable' && <Notice tone="warning"
+          title={ar ? 'هذه الغرفة غير متاحة لهذه الجنسية' : 'This room is not offered for this nationality'}
+          body={ar ? 'اختر غرفة أخرى بالأسعار المتاحة لهذه الجنسية؛ ستبقى البيانات التي كتبتها.' : 'Choose another room at the prices for this nationality; your details are kept.'}
+          action={{ label: ar ? 'اختر غرفة' : 'Choose a room', onPress: () => onChooseRoomForNationality?.(nationality, draft, occupancy) }}/>}
+        {!checking && repricing && nationalityCheck?.residency === nationality && nationalityCheck.status === 'error' && <Notice tone="danger"
+          title={ar ? 'تعذّر التحقق من السعر لهذه الجنسية' : 'Could not check the price for this nationality'}
+          action={{ label: ar ? 'أعد المحاولة' : 'Try again', onPress: () => onNationalityChange?.(nationality, draft, occupancy) }}/>}
+        <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);setNationalityMissing(false);onDirty?.(true);if(residency&&code!==residency)onNationalityChange?.(code,draft,occupancy);}}/>
       </View>}
       {draft.rooms.map((room,r)=><View key={r} style={{gap:14}}><Txt kind="heading">{copy.room(r+1)}</Txt>{room.guests.map((person,p)=><View key={p} style={{gap:10}}><Txt kind="label">{copy.traveler(p+1,person.is_child,person.age)}</Txt>{r===0&&p===0?<Txt kind="small">{copy.leadUsed}</Txt>:<>
         <Field label={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>
         <Field label={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>
       </>}</View>)}</View>)}
       <Field label={copy.requests} value={draft.guest.specialRequests} multiline numberOfLines={3} maxLength={1000} style={{minHeight:100,textAlignVertical:'top'}} accessibilityHint={copy.requestsHint} error={error('specialRequests')} onChangeText={v=>contact('specialRequests',v)}/>
-      <Txt kind="small">{copy.requestsHint}</Txt><Button title={copy.reviewDetails} disabled={repricing} onPress={review}/>
+      <Txt kind="small">{copy.requestsHint}</Txt><Button title={copy.reviewDetails} disabled={repricing||checking} onPress={review}/>
     </>:prepared?<>
       <Txt kind="label">{copy.charge}</Txt><MoneyText large money={{amount:quote.amount,currency:quote.currency}}/>
       <Txt>{prepared.guest.firstName} {prepared.guest.lastName}</Txt>{residency && <Txt>{t('residency')}: {countryName(residency, language)} · {countryNameSecondary(residency, language)}</Txt>}<Txt style={{writingDirection:'ltr'}}>{prepared.guest.email}</Txt><Txt style={{writingDirection:'ltr'}}>{prepared.guest.phone}</Txt>
