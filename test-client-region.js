@@ -21,6 +21,9 @@ test('country hints require the public Render/Cloudflare context and a known cou
 test('the country hint needs no membership and never shares coordinates, IPs or a cacheable response', () => {
     assert.equal(publicApi({ path: '/api/client-region', method: 'GET' }), true);
     assert.equal(publicApi({ path: '/api/client-region', method: 'POST' }), false);
+    // Payment display rates are public market data; prices stay behind membership.
+    assert.equal(publicApi({ path: '/api/payment/rates', method: 'GET' }), true);
+    assert.equal(publicApi({ path: '/api/payment/quote', method: 'POST' }), false);
     let cache, body;
     clientRegion({ headers: {} }, { set: (field, value) => { if (field === 'Cache-Control') cache = value; }, json: value => { body = value; } });
     assert.equal(cache, 'private, no-store');
