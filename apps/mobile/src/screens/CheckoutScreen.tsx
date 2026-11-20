@@ -22,13 +22,20 @@ import { useChargeCurrency, useChargeMoney } from '../components/ChargeCurrency'
 import { MealBadge } from '../components/RateHighlights';
 import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
-import { countryName } from '../components/CountryPicker';
 import VoucherButton from '../components/VoucherButton';
+import CountryPicker, { countryName } from '../components/CountryPicker';
 
 const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'web';
 // Traveler details typed but not yet submitted, kept in memory only (never stored on the device),
 // so an accidental back gesture does not erase them. Cleared after submission or a finished booking.
-const travelerDrafts = new Map<string, NonNullable<ReturnType<typeof createTravelerDraft>>>();
+type TravelerDraft = NonNullable<ReturnType<typeof createTravelerDraft>>;
+const travelerDrafts = new Map<string, TravelerDraft>();
+// Details typed before a nationality change, carried to the re-priced offer for the same guests.
+let carriedTraveler: { occupancy: string; draft: TravelerDraft } | null = null;
+function takeCarriedTraveler(occupancy: GuestRoom[]): TravelerDraft | null {
+  const carried = carriedTraveler; carriedTraveler = null;
+  return carried && carried.occupancy === JSON.stringify(occupancy) ? carried.draft : null;
+}
 export type CheckoutController = ReturnType<typeof useCheckoutSession>;
 
 export default function CheckoutScreen() {
@@ -80,6 +87,15 @@ export default function CheckoutScreen() {
     catch { return false; }
     await session.refreshStatus(); return true;
   };
+  // RateHawk prices each rate for the guest's nationality. A different nationality needs a new
+  // search, so the guest picks the room again at that nationality's price; typed details are kept.
+  const changeNationality = (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => {
+    const current = state.getCheckoutReview(); if (!current) return;
+    carriedTraveler = { occupancy: JSON.stringify(occupancy), draft };
+    setDirty(false); allowLeave();
+    state.setSearch({ ...(state.criteria || current.review.criteria), residency }, state.destinationName);
+    router.replace({ pathname: '/hotel/[hid]', params: { hid: String(current.review.hid) } });
+  };
   const clearCompleted = async () => {
     if (!await session.clearCompleted()) return false;
     setDirty(false); allowLeave(); travelerDrafts.clear();
@@ -92,7 +108,7 @@ export default function CheckoutScreen() {
     signedIn={status === 'signedIn'} creationEnabled={nativeCreationPolicy()} onFreshOffer={freshOffer}
     onSignIn={() => router.navigate({ pathname: '/account', params: { returnTo: '/checkout' } })} onSupport={() => router.push('/support')} onWebsite={openWebsite}
     onPayment={openPayment} onClearCompleted={clearCompleted} onPrivacy={() => void policy('/privacy')} onTerms={() => void policy('/terms')}
-    onTravelerDirty={setDirty}/>;
+    onTravelerDirty={setDirty} onNationalityChange={changeNationality}/>;
 }
 
 export interface CheckoutContentsProps {
@@ -100,6 +116,7 @@ export interface CheckoutContentsProps {
   signedIn: boolean; creationEnabled: boolean; onFreshOffer: () => void; onSignIn: () => void; onSupport: () => void;
   onWebsite: () => Promise<boolean>; onPayment: () => Promise<boolean>; onClearCompleted: () => Promise<boolean>;
   onPrivacy: () => void; onTerms: () => void; onTravelerDirty?: (dirty: boolean) => void;
+  onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
 }
 
 // An ordinary presentation seam for an isolated fixture entry. The shipped
@@ -108,7 +125,7 @@ export interface CheckoutContentsProps {
 export function CheckoutContents(props: CheckoutContentsProps) {
   const charge = useChargeMoney();
   const { session, signedIn, creationEnabled } = props;
-  const { language, t } = useLanguage(), copy = checkoutCopy(language);
+  const { language } = useLanguage(), copy = checkoutCopy(language);
   const selected = props.readSelection();
   const [opening, setOpening] = useState(false), [actionError, setActionError] = useState<'website'|'payment'|'clear'|null>(null);
   const busy = ['quoting','submitting','recovering'].includes(session.phase);
@@ -155,8 +172,6 @@ export function CheckoutContents(props: CheckoutContentsProps) {
             <MealBadge offer={offer}/>
             <Txt kind="small" style={{ writingDirection: 'ltr' }}>{selected.review.criteria.checkin} → {selected.review.criteria.checkout}</Txt>
             <Txt kind="small">{selected.review.criteria.guests.map((room,i)=>`${copy.room(i+1)}: ${room.adults + room.children.length}`).join(' · ')}</Txt>
-            <Txt kind="small">{t('residency')}: {countryName(selected.review.criteria.residency, language)}</Txt>
-            <Txt kind="caption">{language === 'ar' ? 'السعر محسوب لهذه الجنسية. لتغييرها ابحث من جديد.' : 'This price is for this nationality. Search again to change it.'}</Txt>
             <Txt kind="label">{copy.offer}</Txt><MoneyText large money={charge(offer.price)}/>
             {session.quote && <><View style={ui.rule}/><Txt kind="label" style={{ color: colors.blueStrong }}>{copy.charge}</Txt><MoneyText large money={{ amount: session.quote.amount, currency: session.quote.currency }}/><Txt kind="small">{copy.sameCurrency}</Txt></>}
             <Txt kind="small">{copy.notReserved}</Txt>
@@ -174,6 +189,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           {creationEnabled && session.canCollectTravelers && session.quote && <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
             draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
             occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit}
+            residency={selected.review.criteria.residency} onNationalityChange={props.onNationalityChange}
             onSubmit={(data,consent)=>session.submit(data,consent)} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>}
           {/* In-app checkout keeps the whole booking in the app; the website is only the fallback when it is off. */}
           {!creationEnabled && <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{copy.website}</Txt><Txt>{copy.websiteBody}</Txt>
@@ -187,13 +203,17 @@ export function CheckoutContents(props: CheckoutContentsProps) {
   </SafeAreaView>;
 }
 
-export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, onPrivacy, onTerms, draftKey, onDirty }: {
+export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, onPrivacy, onTerms, draftKey, onDirty, residency, onNationalityChange }: {
   occupancy: GuestRoom[]; quote: CheckoutQuoteView; canSubmit: boolean; draftKey?: string; onDirty?: (dirty: boolean) => void;
+  residency?: string; onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
   onSubmit: (data: CheckoutGuestData, consent: boolean) => Promise<void>; onPrivacy: () => void; onTerms: () => void;
 }) {
-  const { language } = useLanguage(), copy = checkoutCopy(language);
-  const [draft,storeDraft] = useState(() => (draftKey && travelerDrafts.get(draftKey)) || createTravelerDraft(occupancy));
+  const { language, t } = useLanguage(), copy = checkoutCopy(language), ar = language === 'ar';
+  const [draft,storeDraft] = useState(() => (draftKey && travelerDrafts.get(draftKey)) || takeCarriedTraveler(occupancy) || createTravelerDraft(occupancy));
   useEffect(() => { if (draftKey && travelerDrafts.has(draftKey)) onDirty?.(true); }, [draftKey, onDirty]);
+  const [nationality,setNationality] = useState(residency || '');
+  const [picker,showPicker] = useState(false);
+  const repricing = Boolean(residency && nationality && nationality !== residency);
   const setDraft = (next: NonNullable<typeof draft>) => { storeDraft(next); if (draftKey) travelerDrafts.set(draftKey, next); onDirty?.(true); };
   const [errors,setErrors] = useState<Record<string,TravelerError>>({});
   const [step,setStep] = useState<'details'|'review'>('details');
@@ -216,15 +236,27 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
       <Field label={copy.lastName} value={draft.guest.lastName} maxLength={100} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" error={error('lastName')} onChangeText={v=>contact('lastName',v)}/>
       <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" error={error('email')} onChangeText={v=>contact('email',v)}/>
       <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" accessibilityHint={copy.phoneHint} error={error('phone')} onChangeText={v=>contact('phone',v)}/>
+      {residency && <View style={{gap:6}}>
+        <Txt kind="label">{t('residency')}</Txt>
+        <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${countryName(nationality, language)}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
+          style={{minHeight:52,borderWidth:1,borderColor:repricing?color.warning:colors.border,borderRadius:14,paddingHorizontal:14,justifyContent:'center',backgroundColor:colors.surface}}>
+          <Row style={{justifyContent:'space-between'}}><Txt style={{flex:1}}>{countryName(nationality, language)}</Txt><Icon name="chevronDown" size={18}/></Row>
+        </Pressable>
+        <Txt kind="small">{t('residencyNote')}</Txt>
+        {repricing && <Notice tone="warning" title={ar ? 'نعيد فحص السعر لهذه الجنسية' : 'Check the price for this nationality'}
+          body={ar ? `السعر الحالي محسوب لجنسية ${countryName(residency, language)}. قد يختلف السعر أو التوفر لجنسية ${countryName(nationality, language)}، فاختر الغرفة مجدداً بالسعر الصحيح. ستبقى البيانات التي كتبتها.` : `This price is for ${countryName(residency, language)} nationals. The price or availability may differ for ${countryName(nationality, language)}, so choose the room again at the right price. Your details are kept.`}/>}
+        {repricing && <Button title={ar ? 'اعرض الأسعار لهذه الجنسية' : 'Show prices for this nationality'} onPress={()=>onNationalityChange?.(nationality, draft, occupancy)}/>}
+        <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);onDirty?.(true);}}/>
+      </View>}
       {draft.rooms.map((room,r)=><View key={r} style={{gap:14}}><Txt kind="heading">{copy.room(r+1)}</Txt>{room.guests.map((person,p)=><View key={p} style={{gap:10}}><Txt kind="label">{copy.traveler(p+1,person.is_child,person.age)}</Txt>{r===0&&p===0?<Txt kind="small">{copy.leadUsed}</Txt>:<>
         <Field label={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={100} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>
         <Field label={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={100} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>
       </>}</View>)}</View>)}
       <Field label={copy.requests} value={draft.guest.specialRequests} multiline numberOfLines={3} maxLength={1000} style={{minHeight:100,textAlignVertical:'top'}} accessibilityHint={copy.requestsHint} error={error('specialRequests')} onChangeText={v=>contact('specialRequests',v)}/>
-      <Txt kind="small">{copy.requestsHint}</Txt><Button title={copy.reviewDetails} onPress={review}/>
+      <Txt kind="small">{copy.requestsHint}</Txt><Button title={copy.reviewDetails} disabled={repricing} onPress={review}/>
     </>:prepared?<>
       <Txt kind="label">{copy.charge}</Txt><MoneyText large money={{amount:quote.amount,currency:quote.currency}}/>
-      <Txt>{prepared.guest.firstName} {prepared.guest.lastName}</Txt><Txt style={{writingDirection:'ltr'}}>{prepared.guest.email}</Txt><Txt style={{writingDirection:'ltr'}}>{prepared.guest.phone}</Txt>
+      <Txt>{prepared.guest.firstName} {prepared.guest.lastName}</Txt>{residency && <Txt>{t('residency')}: {countryName(residency, language)}</Txt>}<Txt style={{writingDirection:'ltr'}}>{prepared.guest.email}</Txt><Txt style={{writingDirection:'ltr'}}>{prepared.guest.phone}</Txt>
       {prepared.rooms.map((room,r)=><View key={r} style={{gap:6}}><Txt kind="label">{copy.room(r+1)}</Txt>{room.guests.map((p,i)=><Txt key={i}>{copy.traveler(i+1,p.is_child,p.age)}: {p.firstName} {p.lastName}</Txt>)}</View>)}
       {prepared.guest.specialRequests&&<Txt>{copy.requests}: {prepared.guest.specialRequests}</Txt>}
       <Button title={copy.edit} variant="quiet" onPress={()=>{setConsent({quote,accepted:false});setStep('details');}}/>

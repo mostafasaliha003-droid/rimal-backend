@@ -37,8 +37,8 @@ function initialTravel(criteria: SearchCriteria | null): TravelDraft {
   return {
     checkin: criteria?.checkin || '', checkout: criteria?.checkout || '',
     guests: copyGuestRooms(criteria?.guests || [{ adults: 2, children: [] }]),
-    // RateHawk prices rates for the guest's nationality: the guest chooses it; it is never assumed.
-    residency: criteria?.residency || '',
+    // A starting nationality for pricing. The guest confirms or changes it with the booking details.
+    residency: criteria?.residency || 'ae',
   };
 }
 
@@ -245,13 +245,6 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       })}
     </Row>
     <GuestsField guests={guests} error={submitted && errors.guests} onOpen={() => { Keyboard.dismiss(); setGuestEditor({ source: state.criteria }); }}/>
-    <Pressable testID="search-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${residency ? countryName(residency, language) : t('residencyChoose')}`}
-      onPress={() => { Keyboard.dismiss(); showCountry(true); }} style={state => [styles.currencyControl, submitted && errors.residency && { borderColor: color.danger }, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
-      <Row style={{ gap: space.sm }}><Icon name="globe" size={18} color={submitted && errors.residency ? color.danger : color.textSecondary}/>
-        <Txt kind="small" style={{ flex: 1 }}>{t('residency')} · <Txt kind="label">{residency ? countryName(residency, language) : t('residencyChoose')}</Txt></Txt>
-        <Icon name="chevron" size={16} color={color.textSecondary}/></Row>
-    </Pressable>
-    <Txt kind="caption">{t('residencyNote')}</Txt>
     {submitted && (errors.residency || errors.guests) && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
       <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t(errors.residency ? 'residencyError' : 'guestsError')}</Txt></Row>}
     <Pressable testID="search-currency" accessibilityRole="button"
