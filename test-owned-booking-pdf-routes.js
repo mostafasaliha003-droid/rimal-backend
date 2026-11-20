@@ -136,11 +136,15 @@ test('owned booking voucher renders exact status, currency and stay dates withou
     });
 
     assert.deepEqual(filters[0], { bookingReference: record.bookingReference, realm, ownerSubject: 'owner-1' });
-    assert.match(puppeteerFixture.state.html, /بانتظار تأكيد الفندق — غير مؤكّد بعد/);
-    assert.match(puppeteerFixture.state.html, /السعر المحجوز — الدفع عند الوصول إلى الفندق/);
+    assert.match(puppeteerFixture.state.html, /بانتظار تأكيد الفندق · Awaiting hotel confirmation/);
+    assert.match(puppeteerFixture.state.html, /class="ar">مخدة</);
+    assert.doesNotMatch(puppeteerFixture.state.html, /Remal &amp; Chill|Remal & Chill|رمال وفلّها|شركة الرمال/);
+    assert.match(puppeteerFixture.state.html, /Operated by Remal Group LLC FZ/);
+    assert.match(puppeteerFixture.state.html, /@font-face{font-family:.Plex Arabic./);
+    assert.match(puppeteerFixture.state.html, /الدفع في الفندق · Pay at the hotel/);
     assert.match(puppeteerFixture.state.html, /495\.25 AED/);
-    assert.match(puppeteerFixture.state.html, /تاريخ الوصول: 2026-11-10/);
-    assert.match(puppeteerFixture.state.html, /تاريخ المغادرة: 2026-11-12/);
+    assert.match(puppeteerFixture.state.html, /Check-in<\/div><div class="v">2026-11-10</);
+    assert.match(puppeteerFixture.state.html, /Check-out<\/div><div class="v">2026-11-12</);
     assert.match(puppeteerFixture.state.html, /Fixture Hotel/);
     assert.doesNotMatch(puppeteerFixture.state.html, /\{\{[A-Za-z][A-Za-z0-9]*\}\}/);
     assert.equal(puppeteerFixture.state.intercepted, 1);
@@ -334,7 +338,7 @@ test('confirmed and cancelled voucher states are never mislabeled', async contex
             const response = await fetch(`${baseUrl}/api/owned/bookings/pdf/${record.bookingReference}`);
             assert.equal(response.status, 200);
         });
-        assert.match(puppeteerFixture.state.html, record.status === 'active' ? />مؤكد<\/span>/ : />ملغي<\/span>/);
-        if (record.status === 'cancelled') assert.doesNotMatch(puppeteerFixture.state.html, />مؤكد<\/span>/);
+        assert.match(puppeteerFixture.state.html, record.status === 'active' ? />مؤكد · Confirmed<\/div>/ : />ملغي · Cancelled<\/div>/);
+        if (record.status === 'cancelled') assert.doesNotMatch(puppeteerFixture.state.html, />مؤكد · Confirmed<\/div>/);
     }
 });

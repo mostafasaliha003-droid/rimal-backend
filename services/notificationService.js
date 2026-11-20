@@ -103,7 +103,8 @@ async function generateVoucher(bookingDetails, hcn) {
             .replace('{{roomBed}}', bookingDetails.roomName || 'سرير مزدوج / كينج')
             .replace('{{boardType}}', bookingDetails.board || 'شامل الوجبات')
             .replace('{{price}}', bookingDetails.price || 0)
-            .replace('{{policyText}}', cleanPolicyText);
+            .replace('{{policyText}}', cleanPolicyText)
+            .replace('/*{{brandFontFaces}}*/', documentBrand.pdfFontFaces());
 
         // تشغيل Puppeteer بإعدادات متوافقة مع Render
         browser = await puppeteer.launch({

@@ -362,7 +362,9 @@ async function reconcileConfirmation(record) {
     let pdfBuffer;
     try {
         pdfBuffer = await ratehawk.retrieveVoucher({ partner_order_id: record.partner_order_id, language: 'en' });
-    } catch {
+    } catch (error) {
+        // Codes only: no guest details reach the log.
+        logger.warn('Checkout confirmation waiting for supplier voucher', { reference: record.reference, error: /^[a-z][a-z0-9_]{0,79}$/.test(error?.message || '') ? error.message : 'unexpected_error' });
         await releaseClaim(record, { next_check_at: followUp(60000),
             action_required: 'voucher_unavailable', error: 'voucher_unavailable' }, {},
         { cancellation_request_hash: { $exists: false } });
@@ -378,7 +380,9 @@ async function reconcileConfirmation(record) {
         await releaseClaim(claimed, { notification_status: 'sent', notification_sent_at: new Date(),
             next_check_at: null },
         { error: '', action_required: '' });
-    } catch {
+        logger.info('Checkout confirmation email sent', { reference: claimed.reference });
+    } catch (error) {
+        logger.warn('Checkout confirmation email failed', { reference: claimed.reference, error: /^[a-z][a-z0-9_]{0,79}$/.test(error?.message || '') ? error.message : 'unexpected_error' });
         await releaseClaim(claimed, { notification_status: 'unknown', next_check_at: null,
             action_required: 'reconcile_confirmation_email', error: 'notification_outcome_unknown' });
     }

@@ -1307,6 +1307,12 @@ mongoose.connection.once('connected', () => {
     if (process.env.HOTEL_SOUND_KEY_BACKFILL !== 'off') {
         stopHotelSoundKeyBackfill = require('./services/hotelSoundKeyBackfill').startHotelSoundKeyBackfill({ model: Hotel, logger });
     }
+    if (process.env.CHECKOUT_DIAGNOSTICS !== 'off') {
+        setTimeout(() => {
+            require('./services/checkoutDiagnostics').reportRecentCheckouts()
+                .catch(error => logger.warn('Checkout diagnostics failed', { error: error.message }));
+        }, 15000).unref();
+    }
     // Researched Arabic hotel names (data/hotel-arabic-names.json), then the hotels still without one.
     setTimeout(async () => {
         const names = require('./services/hotelArabicNames');

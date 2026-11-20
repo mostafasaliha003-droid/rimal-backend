@@ -129,17 +129,17 @@ function createOwnedBookingPdfRouter({ BookingModel, HotelbedsContentModel, hote
                 const replacements = {
                 bookingReference: booking.bookingReference,
                 bookingStatus: ['cancelled', 'canceled'].includes(String(booking.status).toLowerCase())
-                    ? 'ملغي'
+                    ? 'ملغي · Cancelled'
                     : ['ON_REQUEST', 'PENDING'].includes(String(booking.supplierStatus || '').toUpperCase())
-                        ? 'بانتظار تأكيد الفندق — غير مؤكّد بعد'
+                        ? 'بانتظار تأكيد الفندق · Awaiting hotel confirmation'
                         : booking.status === 'active' || booking.supplierStatus === 'CONFIRMED'
-                            ? 'مؤكد'
+                            ? 'مؤكد · Confirmed'
                             : booking.status === 'pending'
-                                ? 'بانتظار تأكيد الفندق — غير مؤكّد بعد'
-                            : 'الحالة قيد المراجعة',
+                                ? 'بانتظار تأكيد الفندق · Awaiting hotel confirmation'
+                            : 'قيد المراجعة · Under review',
                 priceLabel: booking.supplierPaymentType === 'AT_HOTEL' || booking.paymentMethod === 'hotel'
-                    ? 'السعر المحجوز — الدفع عند الوصول إلى الفندق'
-                    : 'إجمالي المبلغ',
+                    ? 'الدفع في الفندق · Pay at the hotel'
+                    : 'المبلغ المدفوع · Amount paid',
                 hotelName: cleanHotelName,
                 encodedHotelName: encodeURIComponent(cleanHotelName),
                 customerName: booking.customerName,
@@ -157,6 +157,8 @@ function createOwnedBookingPdfRouter({ BookingModel, HotelbedsContentModel, hote
                     const safe = key === 'encodedHotelName' ? value : escapeHtml(value);
                     html = html.replaceAll(`{{${key}}}`, safe || 'N/A');
                 }
+                // The PDF renderer blocks network requests, so the brand font is embedded.
+                html = html.replace('/*{{brandFontFaces}}*/', require('./documentBrand').pdfFontFaces());
             }
 
             browser = await puppeteer.launch({
@@ -171,7 +173,7 @@ function createOwnedBookingPdfRouter({ BookingModel, HotelbedsContentModel, hote
             const pdf = await page.pdf({ format: 'A4', printBackground: true,
                 margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' } });
             res.set('Content-Type', 'application/pdf');
-            res.set('Content-Disposition', `attachment; filename="Rimal-Voucher-${reference}.pdf"`);
+            res.set('Content-Disposition', `attachment; filename="Pillow-Stays-Voucher-${reference}.pdf"`);
             return res.status(200).send(pdf);
         } catch {
             if (!res.headersSent) return res.status(503).send('Voucher unavailable');

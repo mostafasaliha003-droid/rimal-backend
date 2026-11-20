@@ -1,363 +1,114 @@
 <!DOCTYPE html>
 <html lang="ar" dir="rtl">
 <head>
-    <meta charset="UTF-8">
-    <title>Official Voucher - Remal International</title>
-    <link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700;800;900&display=swap" rel="stylesheet">
-    <style>
-        /* 🚀 إعدادات طباعة A4 دقيقة لمنع الانقسام والخطوط السوداء */
-        @page { size: A4 portrait; margin: 0; }
-        body { 
-            font-family: 'Cairo', sans-serif; 
-            margin: 0; padding: 0;
-            background-color: white; /* يجب أن تكون الخلفية بيضاء للطباعة */
-            display: flex; justify-content: center; align-items: flex-start; /* تغيير المحاذاة للأعلى */
-            -webkit-print-color-adjust: exact !important;
-            print-color-adjust: exact !important;
-        }
-
-        * { box-sizing: border-box; }
-
-        :root {
-            --primary: #1f3a40;
-            --cyan: #00b4d8;
-            --coral: #ff595e;
-            --gray-light: #f8fafc;
-            --gray-border: #e2e8f0;
-        }
-
-        /* حاوية الـ A4 الصارمة */
-        .a4-canvas {
-            width: 794px;
-            height: 1122px; /* الارتفاع الدقيق لورقة A4 */
-            background: white;
-            position: relative;
-            overflow: hidden; /* لمنع أي شيء من الخروج عن حدود الصفحة */
-            display: flex;
-            flex-direction: column;
-        }
-
-        /* ==================================
-           1. الهيدر الفاخر (مضغوط قليلاً لتوفير المساحة)
-           ================================== */
-        .voucher-header {
-            background: linear-gradient(135deg, var(--primary) 0%, #2a4d53 100%);
-            padding: 25px 40px;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            border-bottom: 5px solid var(--cyan);
-            height: 115px; /* تقليل الارتفاع */
-            flex-shrink: 0;
-        }
-
-        .brand-wrapper { display: flex; align-items: center; gap: 15px; }
-        .logo-svg { width: 50px; height: 50px; filter: drop-shadow(0 4px 6px rgba(0,0,0,0.3)); }
-        .brand-text-box h1 { font-size: 28px; font-weight: 900; margin: 0; color: white; line-height: 1;}
-        .brand-text-box p { font-size: 10px; letter-spacing: 3px; color: var(--cyan); font-weight: 800; margin: 5px 0 0 0; text-transform: uppercase;}
-        
-        .status-badge {
-            background: rgba(255,255,255,0.1); border: 1px solid rgba(255,255,255,0.25);
-            padding: 8px 18px; border-radius: 50px; font-size: 12px; font-weight: 800; color: white;
-            display: flex; align-items: center; gap: 8px; box-shadow: 0 4px 15px rgba(0,0,0,0.1);
-        }
-
-        /* ==================================
-           2. منطقة التذكرة (الجسم)
-           ================================== */
-        .ticket-body {
-            display: flex;
-            flex: 1; /* تأخذ المساحة المتبقية بذكاء */
-            position: relative;
-            background: white;
-        }
-
-        /* العلامة المائية */
-        .watermark {
-            position: absolute; top: 50%; left: 40%; transform: translate(-50%, -50%) rotate(-10deg);
-            width: 450px; height: 450px; opacity: 0.02; pointer-events: none; z-index: 0;
-        }
-
-        /* ==================================
-           القسم الأيسر (المرجع والـ QR)
-           ================================== */
-        .left-stub {
-            width: 270px;
-            background: var(--gray-light);
-            padding: 30px 25px; /* تقليل الحشو العلوي والسفلي */
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            border-left: 3px dashed #cbd5e1;
-            position: relative;
-            z-index: 10;
-        }
-
-        /* مقص التذكرة المذهل */
-        .left-stub::before, .left-stub::after {
-            content: ''; position: absolute; left: -16px; width: 30px; height: 30px;
-            background-color: white; border-radius: 50%; z-index: 20;
-        }
-        .left-stub::before { top: -15px; border-bottom: 3px solid var(--gray-border); }
-        .left-stub::after { bottom: -15px; border-top: 3px solid var(--gray-border); }
-
-        .ref-box { margin-bottom: 25px; width: 100%; text-align: center; }
-        .ref-label { font-size: 11px; color: #64748b; font-weight: 900; text-transform: uppercase; letter-spacing: 1px; display: block; margin-bottom: 5px; }
-        .ref-value { font-size: 20px; color: var(--coral); font-weight: 900; letter-spacing: 1px; background: white; padding: 10px; border-radius: 12px; border: 2px dashed #fda4af; margin: 0; }
-
-        /* نظام الـ Dual QR الاحترافي */
-        .dual-qr-section { width: 100%; display: flex; flex-direction: column; gap: 15px; align-items: center; margin-bottom: auto;}
-        
-        .qr-card {
-            background: white; padding: 12px; border-radius: 16px; width: 100%;
-            display: flex; flex-direction: column; align-items: center; gap: 10px;
-            border: 2px solid; box-shadow: 0 4px 15px rgba(0,0,0,0.03); position: relative;
-        }
-        .qr-card.map { border-color: #bae6fd; }
-        .qr-card.pdf { border-color: #e2e8f0; }
-
-        .qr-img-box { width: 110px; height: 110px; background: white; border-radius: 12px; overflow: hidden; display: flex; align-items: center; justify-content: center; position: relative;}
-        .qr-img-box img { width: 100%; height: 100%; object-fit: contain; }
-        
-        .qr-center-icon {
-            position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%);
-            background: white; padding: 4px; border-radius: 8px; display: flex; align-items: center; justify-content: center;
-        }
-        .qr-center-icon svg { width: 16px; height: 16px; }
-
-        .qr-label { font-size: 10px; font-weight: 900; display: flex; align-items: center; gap: 6px; padding: 6px 16px; border-radius: 50px; width: 100%; justify-content: center;}
-        .map .qr-label { background: #e0f2fe; color: #0284c7; }
-        .pdf .qr-label { background: #f1f5f9; color: var(--primary); }
-
-        .price-box { width: 100%; background: var(--primary); color: white; padding: 20px; border-radius: 20px; text-align: center; margin-top: 25px; position: relative; overflow: hidden;}
-        .price-box::before {
-            content: ""; position: absolute; top: -5px; left: 0; right: 0; height: 10px;
-            background-size: 20px 20px; background-repeat: repeat-x;
-            background-image: radial-gradient(circle at 10px 0px, transparent 10px, var(--primary) 11px);
-        }
-        .price-label { font-size: 11px; font-weight: 800; opacity: 0.8; display: block; margin-bottom: 5px; text-transform: uppercase; letter-spacing: 1px;}
-        .price-value { font-size: 30px; font-weight: 900; margin: 0; direction: ltr; color: #facc15; line-height: 1;}
-
-        /* ==================================
-           القسم الأيمن (التفاصيل الفندقية)
-           ================================== */
-        .right-details {
-            flex: 1; padding: 30px 40px; position: relative; z-index: 10; display: flex; flex-direction: column;
-        }
-
-        .section-header {
-            font-size: 12px; color: #64748b; font-weight: 900; text-transform: uppercase;
-            display: flex; align-items: center; gap: 10px; margin-bottom: 15px;
-            border-bottom: 2px dashed var(--gray-border); padding-bottom: 10px;
-        }
-        .section-icon { width: 16px; height: 16px; fill: var(--cyan); }
-
-        .guest-grid {
-            display: grid; grid-template-columns: 1fr 1fr; gap: 15px; margin-bottom: 30px;
-        }
-        .guest-item { background: var(--gray-bg); padding: 15px; border-radius: 12px; border: 1px solid var(--gray-border); }
-        .guest-label { font-size: 10px; color: #94a3b8; font-weight: 900; margin-bottom: 4px; display: block; text-transform: uppercase; letter-spacing: 0.5px;}
-        .guest-value { font-size: 15px; color: var(--primary); font-weight: 900; margin: 0; unicode-bidi: isolate; }
-
-        /* صندوق الفندق المحصن (العزل اللغوي الكامل) */
-        .hotel-card {
-            background: #ffffff; border: 2px solid #e0f2fe; border-right: 6px solid var(--cyan);
-            padding: 25px; border-radius: 16px; margin-bottom: auto; box-shadow: 0 10px 30px rgba(0,180,216,0.06);
-            display: flex; flex-direction: column;
-        }
-        
-        .hotel-title-wrapper { display: flex; align-items: flex-start; gap: 15px; margin-bottom: 20px;}
-        .hotel-title-icon { width: 26px; height: 26px; fill: var(--cyan); flex-shrink: 0; margin-top: 2px;}
-        .hotel-text-container { display: flex; flex-direction: column; gap: 8px; width: 100%;}
-        
-        /* 🚨 السر هنا: العزل التام وتجريد النص (Plaintext) */
-        .hotel-name { 
-            font-size: 22px; font-weight: 900; color: var(--primary); margin: 0; line-height: 1.4; 
-            unicode-bidi: plaintext; text-align: right; 
-        }
-        .room-name { 
-            font-size: 14px; font-weight: 800; color: #475569; margin: 0; padding: 6px 12px; 
-            background: #f8fafc; border-radius: 8px; border: 1px dashed #cbd5e1; display: inline-block; width: fit-content; 
-            unicode-bidi: plaintext; text-align: right;
-        }
-
-        .tags-row { display: flex; gap: 10px; flex-wrap: wrap; margin-top: auto; padding-top: 15px; border-top: 1px dashed var(--gray-border);}
-        .feature-tag {
-            display: inline-flex; align-items: center; gap: 6px;
-            padding: 8px 14px; border-radius: 10px; font-size: 12px; font-weight: 800;
-        }
-        .tag-bed { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1; }
-        .tag-meal { background: #fffbeb; color: #b45309; border: 1px solid #fde68a; }
-
-        /* سياسة الإلغاء */
-        .policy-card {
-            background: #fff1f2; border: 1px solid #fecdd3; padding: 20px; border-radius: 14px; border-right: 5px solid var(--coral); margin-top: 25px;
-        }
-        .policy-header { display: flex; align-items: center; gap: 8px; color: #be123c; font-size: 13px; font-weight: 900; margin-bottom: 6px;}
-        .policy-header svg { width: 14px; height: 14px; fill: #be123c; }
-        /* عزل نص السياسة */
-        .policy-text { color: #881337; font-size: 13px; font-weight: 700; margin: 0; line-height: 1.5; unicode-bidi: plaintext; text-align: right;}
-
-        /* ==================================
-           3. الفوتر (مضغوط قليلاً لمنع القص)
-           ================================== */
-        .voucher-footer {
-            background: #cbd5e1; padding: 20px 40px; display: flex; flex-direction: column; align-items: center; text-align: center;
-            border-top: 1px solid #94a3b8; height: 105px; flex-shrink: 0;
-        }
-        .footer-company { color: var(--primary); font-weight: 900; font-size: 13px; margin-bottom: 4px;}
-        .footer-info { font-size: 11px; color: #475569; font-weight: 800; margin-bottom: 8px;}
-        .whatsapp-tag { display: inline-flex; align-items: center; gap: 6px; background: #0f766e; color: white; padding: 6px 20px; border-radius: 50px; font-size: 11px; font-weight: 900; box-shadow: 0 4px 10px rgba(15, 118, 110, 0.2); }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>قسيمة الإقامة · Stay voucher — مخدة | pillow stays</title>
+<style>
+/*{{brandFontFaces}}*/
+@page { size: A4; margin: 0; }
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root { --plum900:#201626; --plum800:#2D173A; --plum600:#513069; --cream:#FAF8F4; --sand:#F3EFE9; --lav50:#F9F6FE; --lav100:#F3EBFD; --lav300:#C9B7F5; --muted:#675E6B; --line:#E8E1E9; --green:#23674B; --pist100:#EFF4E6; --pist300:#DFE8C7; --gold700:#805A16; --gold100:#FBF3E4; --gold200:#EBD9B4; }
+html, body { background: var(--cream); color: var(--plum900); font-family: 'Plex Arabic', 'IBM Plex Sans Arabic', Tahoma, Arial, sans-serif; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+.page { width: 210mm; min-height: 297mm; padding: 16mm 14mm 12mm; display: flex; flex-direction: column; gap: 9mm; }
+header { display: flex; align-items: center; justify-content: space-between; }
+.brand { display: flex; align-items: center; gap: 12px; }
+.brand img { width: 58px; height: 45px; display: block; }
+.brand .ar { font-size: 30px; font-weight: 700; color: var(--plum800); line-height: 1.05; }
+.brand .lat { font-size: 13px; letter-spacing: .5px; color: var(--plum800); direction: ltr; }
+.doc-title { text-align: left; }
+.doc-title .t { font-size: 18px; font-weight: 700; color: var(--plum800); }
+.doc-title .s { font-size: 12px; color: var(--muted); direction: ltr; }
+.status { display: inline-block; margin-top: 6px; padding: 5px 14px; border-radius: 999px; background: var(--pist100); color: var(--green); border: 1px solid var(--pist300); font-size: 13px; font-weight: 700; }
+.hero { background: var(--plum800); color: #fff; border-radius: 22px; padding: 22px 26px; display: flex; justify-content: space-between; align-items: center; gap: 18px; }
+.hero .label { font-size: 12px; color: var(--lav300); }
+.hero .hotel { font-size: 24px; font-weight: 700; line-height: 1.35; margin-top: 4px; unicode-bidi: plaintext; }
+.hero .room { font-size: 14px; color: #E9DDF9; margin-top: 6px; unicode-bidi: plaintext; }
+.ref { background: rgba(255,255,255,.1); border: 1px solid rgba(255,255,255,.22); border-radius: 16px; padding: 12px 16px; text-align: center; min-width: 54mm; }
+.ref .v { font-size: 14px; font-weight: 700; direction: ltr; word-break: break-all; margin-top: 4px; }
+.grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.card { background: #fff; border: 1px solid var(--line); border-radius: 18px; padding: 16px 18px; }
+.card h2 { font-size: 13px; color: var(--plum600); font-weight: 700; margin-bottom: 10px; }
+.row { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-top: 1px solid var(--sand); font-size: 13px; }
+.row:first-of-type { border-top: 0; }
+.row .k { color: var(--muted); }
+.row .v { font-weight: 700; text-align: left; unicode-bidi: plaintext; }
+.dates { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+.date { background: var(--lav50); border: 1px solid var(--lav100); border-radius: 16px; padding: 14px 16px; }
+.date .k { font-size: 12px; color: var(--muted); }
+.date .v { font-size: 20px; font-weight: 700; color: var(--plum800); direction: ltr; text-align: right; margin-top: 4px; }
+.price { display: flex; justify-content: space-between; align-items: center; background: var(--lav50); border: 1px solid var(--lav100); border-radius: 16px; padding: 14px 18px; }
+.price .k { font-size: 13px; color: var(--muted); }
+.price .v { font-size: 22px; font-weight: 700; color: var(--plum800); direction: ltr; }
+.policy { background: var(--gold100); border: 1px solid var(--gold200); border-radius: 18px; padding: 16px 18px; }
+.policy h2 { font-size: 13px; color: var(--gold700); font-weight: 700; margin-bottom: 8px; }
+.policy p { font-size: 12.5px; line-height: 1.8; color: var(--plum900); unicode-bidi: plaintext; white-space: pre-line; }
+.note { font-size: 12px; line-height: 1.8; color: var(--muted); }
+footer { margin-top: auto; border-top: 1px solid var(--line); padding-top: 10px; display: flex; justify-content: space-between; align-items: flex-end; gap: 16px; font-size: 11.5px; color: var(--muted); line-height: 1.8; }
+footer .contact { text-align: left; direction: ltr; }
+</style>
 </head>
 <body>
+<div class="page">
+<header>
+<div class="brand">
+<img src="data:image/png;base64,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" alt="">
+<div><div class="ar">مخدة</div><div class="lat">pillow stays</div></div>
+</div>
+<div class="doc-title">
+<div class="t">قسيمة الإقامة</div>
+<div class="s">Stay voucher</div>
+<div class="status">{{bookingStatus}}</div>
+</div>
+</header>
 
-    <div class="a4-canvas">
-        
-        <!-- الهيدر -->
-        <header class="voucher-header">
-            <div class="brand-wrapper">
-                <div class="logo-svg">
-                    <svg viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                        <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#00b4d8"/>
-                        <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="#ff595e"/>
-                    </svg>
-                </div>
-                <div class="brand-text-box">
-                    <h1>رمال وفلّها!</h1>
-                    <p>Remal & Chill</p>
-                </div>
-            </div>
-            <div class="status-badge"><span>{{bookingStatus}}</span></div>
-        </header>
+<section class="hero">
+<div>
+<div class="label">الفندق · Hotel</div>
+<div class="hotel"><bdi dir="auto">{{hotelName}}</bdi></div>
+<div class="room"><bdi dir="auto">{{roomBed}}</bdi></div>
+</div>
+<div class="ref">
+<div class="label">مرجع الحجز · Booking reference</div>
+<div class="v">{{bookingReference}}</div>
+</div>
+</section>
 
-        <!-- الجسم الأساسي -->
-        <main class="ticket-body">
-            
-            <svg class="watermark" viewBox="0 0 120 120" fill="none" xmlns="http://www.w3.org/2000/svg">
-                <path d="M15,45 Q55,25 95,50 Q85,15 25,25 Z" fill="#1f3a40"/>
-                <path d="M105,75 Q65,95 25,70 Q35,105 95,95 Z" fill="#1f3a40"/>
-            </svg>
+<section class="dates">
+<div class="date"><div class="k">تاريخ الوصول · Check-in</div><div class="v">{{checkInDate}}</div></div>
+<div class="date"><div class="k">تاريخ المغادرة · Check-out</div><div class="v">{{checkOutDate}}</div></div>
+</section>
 
-            <!-- القسم الأيمن (التفاصيل الفندقية) -->
-            <div class="right-details">
-                
-                <div class="section-header">
-                    <svg class="section-icon" viewBox="0 0 448 512"><path d="M224 256A128 128 0 1 0 224 0a128 128 0 1 0 0 256zm-45.7 48C79.8 304 0 383.8 0 482.3C0 498.7 13.3 512 29.7 512H418.3c16.4 0 29.7-13.3 29.7-29.7C448 383.8 368.2 304 269.7 304H178.3z"/></svg>
-                    بيانات الضيف الأساسية (Guest Details)
-                </div>
-                
-                <div class="guest-grid">
-                    <div class="guest-item">
-                        <span class="guest-label">الاسم (Name)</span>
-                        <p class="guest-value"><bdi dir="auto">{{customerName}}</bdi></p>
-                    </div>
-                    <div class="guest-item">
-                        <span class="guest-label">التواصل (Phone)</span>
-                        <p class="guest-value" dir="ltr">{{customerPhone}}</p>
-                    </div>
-                    <div class="guest-item" style="grid-column: span 2;">
-                        <span class="guest-label">البريد الإلكتروني (Email)</span>
-                        <p class="guest-value" style="direction: ltr; text-align: right;">{{customerEmail}}</p>
-                    </div>
-                </div>
+<section class="grid">
+<div class="card">
+<h2>بيانات الضيف · Guest</h2>
+<div class="row"><span class="k">الاسم · Name</span><span class="v"><bdi dir="auto">{{customerName}}</bdi></span></div>
+<div class="row"><span class="k">الهاتف · Phone</span><span class="v" dir="ltr">{{customerPhone}}</span></div>
+<div class="row"><span class="k">البريد · Email</span><span class="v" dir="ltr">{{customerEmail}}</span></div>
+</div>
+<div class="card">
+<h2>الإقامة · Stay</h2>
+<div class="row"><span class="k">الغرفة · Room</span><span class="v"><bdi dir="auto">{{roomBed}}</bdi></span></div>
+<div class="row"><span class="k">الوجبات · Meals</span><span class="v"><bdi dir="auto">{{boardType}}</bdi></span></div>
+</div>
+</section>
 
-                <div class="section-header">
-                    <svg class="section-icon" viewBox="0 0 384 512"><path d="M48 0C21.5 0 0 21.5 0 48V464c0 26.5 21.5 48 48 48h96V432c0-26.5 21.5-48 48-48s48 21.5 48 48v80h96c26.5 0 48-21.5 48-48V48c0-26.5-21.5-48-48-48H48zM64 240c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16H80c-8.8 0-16-7.2-16-16V240zm112-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V240c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16zm80 16c0-8.8 7.2-16 16-16h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112zM272 96h32c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-32c-8.8 0-16-7.2-16-16V112c0-8.8 7.2-16 16-16z"/></svg>
-                    تفاصيل الإقامة الفندقية (Stay Details)
-                </div>
-                
-                <div class="hotel-card">
-                    <div class="hotel-title-wrapper">
-                        <!-- أيقونة فندق أنيقة وواضحة -->
-                        <svg class="hotel-title-icon" viewBox="0 0 512 512"><path d="M64 32C28.7 32 0 60.7 0 96v352c0 17.7 14.3 32 32 32h128v-96c0-17.7 14.3-32 32-32h128c17.7 0 32 14.3 32 32v96h128c17.7 0 32-14.3 32-32V96c0-35.3-28.7-64-64-64H64zM128 160h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zM128 288h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16zm192 0h64c8.8 0 16 7.2 16 16v32c0 8.8-7.2 16-16 16h-64c-8.8 0-16-7.2-16-16v-32c0-8.8 7.2-16 16-16z"/></svg>
-                        <div class="hotel-text-container">
-                            <!-- فلتر قوي لمنع انقلاب النص -->
-                            <p class="hotel-name"><bdi dir="auto"><span style="unicode-bidi: plaintext;">{{hotelName}}</span></bdi></p>
-                            <p class="room-name"><bdi dir="auto"><span style="unicode-bidi: plaintext;">الغرفة المحجوزة: {{roomBed}}</span></bdi></p>
-                        </div>
-                    </div>
+<section class="price">
+<span class="k">{{priceLabel}}</span>
+<span class="v"><bdi dir="ltr">{{price}} {{priceCurrency}}</bdi></span>
+</section>
 
-                    <div class="tags-row">
-                        <span class="feature-tag tag-bed">
-                            <svg style="width:14px;height:14px;fill:#475569;" viewBox="0 0 640 512"><path d="M32 32c17.7 0 32 14.3 32 32V320H288V160c0-17.7 14.3-32 32-32H544c53 0 96 43 96 96V448c0 17.7-14.3 32-32 32s-32-14.3-32-32V416H32v32c0 17.7-14.3 32-32 32s-32-14.3-32-32V64C-32 46.3-17.7 32 0 32s32 14.3 32 32zm144 96a80 80 0 1 1 0 160 80 80 0 1 1 0-160z"/></svg>
-                            أسرة مطابقة للحجز
-                        </span>
-                        <span class="feature-tag tag-meal">
-                            <svg style="width:14px;height:14px;fill:#b45309;" viewBox="0 0 448 512"><path d="M416 0C400 0 288 32 288 176V288c0 35.3 28.7 64 64 64h32V480c0 17.7 14.3 32 32 32s32-14.3 32-32V352 24 0H416zM64 16C64 7.8 57.9 1 50 0C34 0 25.1 8 20.1 19.3L-7.4 85.3C-15.2 106.4 0 128 22.6 128H41.4c22.6 0 37.8-21.6 30.1-42.7L43.9 19.3C38.9 8 30 0 14 0c-7.9 1-14 7.8-14 16V480c0 17.7 14.3 32 32 32s32-14.3 32-32V16zM224 16c-17.7 0-32 14.3-32 32V256c0 17.7 14.3 32 32 32s32-14.3 32-32V48c0-17.7-14.3-32-32-32z"/></svg>
-                            <bdi dir="auto">الوجبات: {{boardType}}</bdi>
-                        </span>
-                    </div>
+<section class="policy">
+<h2>سياسة الإلغاء · Cancellation policy</h2>
+<p><bdi dir="auto">{{policyText}}</bdi></p>
+</section>
 
-                    <div class="tags-row">
-                        <span class="feature-tag tag-bed"><bdi dir="auto">تاريخ الوصول: {{checkInDate}}</bdi></span>
-                        <span class="feature-tag tag-bed"><bdi dir="auto">تاريخ المغادرة: {{checkOutDate}}</bdi></span>
-                    </div>
-                </div>
+<p class="note">أظهر هذه القسيمة مع هوية سارية عند تسجيل الوصول. اذكر مرجع الحجز عند التواصل معنا.<br><bdi dir="ltr">Show this voucher with a valid ID at check-in. Quote your booking reference when you contact us.</bdi></p>
 
-                <div class="policy-card">
-                    <div class="policy-header">
-                        <svg viewBox="0 0 512 512"><path d="M256 512A256 256 0 1 0 256 0a256 256 0 1 0 0 512zm0-384c13.3 0 24 10.7 24 24V264c0 13.3-10.7 24-24 24s-24-10.7-24-24V152c0-13.3 10.7-24 24-24zM224 352a32 32 0 1 1 64 0 32 32 0 1 1 -64 0z"/></svg>
-                        سياسة الإلغاء (Cancellation Policy)
-                    </div>
-                    <!-- تنظيف النص بالكامل -->
-                    <p class="policy-text"><bdi dir="auto"><span style="unicode-bidi: plaintext;">{{policyText}}</span></bdi></p>
-                </div>
-
-            </div>
-
-            <!-- القسم الأيسر (المرجع و QR) -->
-            <div class="left-stub">
-                <div class="ref-box">
-                    <span class="ref-label">مرجع الحجز (Booking Ref)</span>
-                    <p class="ref-value" dir="ltr">{{bookingReference}}</p>
-                </div>
-                
-                <div class="dual-qr-section">
-                    
-                    <!-- 1. باركود الخريطة (للسائق) -->
-                    <div class="qr-card map">
-                        <div class="qr-img-box">
-                            <img src="https://quickchart.io/qr?text=https://www.google.com/maps/search/?api=1%26query={{encodedHotelName}}&size=150&margin=0" alt="Map QR" onerror="this.style.display='none'">
-                            <div class="qr-center-icon">
-                                <svg style="fill:#0284c7;" viewBox="0 0 384 512"><path d="M215.7 499.2C267 435 384 279.4 384 192C384 86 298 0 192 0S0 86 0 192c0 87.4 117 243 168.3 307.2c12.3 15.3 35.1 15.3 47.4 0zM192 128a64 64 0 1 1 0 128 64 64 0 1 1 0-128z"/></svg>
-                            </div>
-                        </div>
-                        <span class="qr-label">موقع الفندق (للسائق)</span>
-                    </div>
-
-                    <!-- 2. باركود التأكيد (للاستقبال) -->
-                    <div class="qr-card pdf">
-                        <div class="qr-img-box">
-                            <img src="https://quickchart.io/qr?text=https://rimal-api.onrender.com/api/bookings/pdf/{{bookingReference}}&size=150&margin=0" alt="PDF QR" onerror="this.style.display='none'">
-                            <div class="qr-center-icon">
-                                <svg style="fill:var(--primary);" viewBox="0 0 384 512"><path d="M64 0C28.7 0 0 28.7 0 64V448c0 35.3 28.7 64 64 64H320c35.3 0 64-28.7 64-64V160H256c-17.7 0-32-14.3-32-32V0H64zM256 0V128H384L256 0zM216 232V334.1l31-31c9.4-9.4 24.6-9.4 33.9 0s9.4 24.6 0 33.9l-72 72c-9.4 9.4-24.6 9.4-33.9 0l-72-72c-9.4-9.4-9.4-24.6 0-33.9s24.6-9.4 33.9 0l31 31V232c0-13.3 10.7-24 24-24s24 10.7 24 24z"/></svg>
-                            </div>
-                        </div>
-                        <span class="qr-label">نسخة الفندق (PDF)</span>
-                    </div>
-
-                </div>
-                
-                <div class="price-box">
-                    <span class="price-label">{{priceLabel}}</span>
-                    <p class="price-value"><bdi dir="ltr">{{price}} {{priceCurrency}}</bdi></p>
-                </div>
-            </div>
-
-        </main>
-
-        <!-- الفوتر ثابت بأسفل الصفحة A4 -->
-        <footer class="voucher-footer">
-            <span class="footer-company">شركة الرمال الدولية لتنظيم الرحلات السياحية (L.L.C)</span>
-            <span class="footer-info">دبي، الإمارات العربية المتحدة | management@remaltourismllc.com</span>
-            <div class="whatsapp-tag">
-                <svg viewBox="0 0 448 512" style="width:12px;height:12px;fill:white;"><path d="M380.9 97.1C339 55.1 283.2 32 223.9 32c-122.4 0-222 99.6-222 222 0 39.1 10.2 77.3 29.6 111L0 480l117.7-30.9c32.4 17.7 68.9 27 106.1 27h.1c122.3 0 224.1-99.6 224.1-222 0-59.3-25.2-115-67.1-157zM223.9 413.3c-33.2 0-65.8-8.9-94-25.7l-6.7-4-69.8 18.3L72 334.1l-4.4-7c-18.5-29.4-28.2-63.3-28.2-98.2 0-101.7 82.8-184.5 184.6-184.5 49.3 0 95.6 19.2 130.4 54.1 34.8 34.9 56.2 81.2 56.1 130.5 0 101.8-84.9 184.6-186.6 184.6zm101.2-138.2c-5.5-2.8-32.8-16.2-37.9-18-5.1-1.9-8.8-2.8-12.5 2.8-3.7 5.6-14.3 18-17.6 21.8-3.2 3.7-6.5 4.2-12 1.4-32.6-16.3-54-29.1-75.5-66-2.1-3.6 2.1-3.2 7.6-14.2 2.8-5.6 1.4-10.6-.5-13.4-1.9-2.8-12.5-30.1-17.1-41.2-4.5-10.8-9.1-9.3-12.5-9.5-3.2-.2-6.9-.2-10.6-.2-3.7 0-9.7 1.4-14.8 6.9-5.1 5.6-19.4 19-19.4 46.3 0 27.3 19.9 53.7 22.6 57.4 2.8 3.7 39.1 59.7 94.8 83.8 35.2 15.2 49 16.5 66.6 13.9 10.7-1.6 32.8-13.4 37.4-26.4 4.6-13 4.6-24.1 3.2-26.4-1.3-2.5-5-3.9-10.5-6.6z"/></svg>
-                لأي مساعدة، تواصل عبر الواتساب: 971544757578+
-            </div>
-        </footer>
-
-    </div>
-    
+<footer>
+<div>مخدة | pillow stays<br>تديرها Remal Group LLC FZ · Operated by Remal Group LLC FZ</div>
+<div class="contact">management@remaltourismllc.com<br>WhatsApp +971 54 475 7578</div>
+</footer>
+</div>
 </body>
 </html>
