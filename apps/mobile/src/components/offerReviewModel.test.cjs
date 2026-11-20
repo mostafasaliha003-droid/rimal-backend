@@ -1,4 +1,4 @@
-/* global __dirname */
+/* global __dirname, Buffer */
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const fs = require('node:fs');
@@ -23,7 +23,7 @@ function load(filename) {
   return module.exports;
 }
 const { createOfferReviewDraft, createOfferReviewSession, offerTerms, criteriaIdentity,
-  REVIEW_CHECK_LIFETIME_MS, REVIEW_SELECTION_LIFETIME_MS } = load('./offerReviewModel.ts');
+  REVIEW_CHECK_LIFETIME_MS, contextExpiry } = load('./offerReviewModel.ts');
 const { ApiError } = load('../api/errors.ts');
 const copy = value => JSON.parse(JSON.stringify(value));
 function criteria() {
@@ -176,8 +176,18 @@ test('a late result after sign-out is discarded even if the transport ignores ca
 test('handoff checks the clock synchronously and local freshness never extends the original selection', async () => {
   const f = fixture(); await f.session.recheck(); f.advance(REVIEW_CHECK_LIFETIME_MS + 1);
   assert.equal(f.session.getHandoff(), null); assert.equal(f.session.presentation().status, 'expired');
+  // Past the hotel-page window a recheck is not offered: fresh hotel offers are needed.
+  assert.equal(f.session.presentation().canRecheck, false);
+});
+test('a checked offer stays valid until the expiry the server signed, less one minute', async () => {
+  const start = Date.now();
+  const signed = expiresAt => Buffer.from(JSON.stringify({ version: 1, expires_at: expiresAt })).toString('base64url') + '.signature';
+  assert.equal(contextExpiry(signed(start + 600_000)), start + 600_000);
+  for (const bad of ['', 'not-base64!.x', 'signed.prebook.private', null]) assert.equal(contextExpiry(bad), null);
+  const f = fixture((hid, selected) => result(selected, { prebookContext: signed(start + 10 * 60_000) }));
   await f.session.recheck(); assert.equal(f.session.presentation().status, 'ready');
-  f.advance(REVIEW_SELECTION_LIFETIME_MS); assert.equal(f.session.getHandoff(), null); assert.equal(f.session.presentation().canRecheck, false);
+  f.advance(8 * 60_000); assert.ok(f.session.getCheckoutReview(), 'still valid while the guest fills in details');
+  f.advance(60_000 + 1); assert.equal(f.session.getCheckoutReview(), null);
 });
 test('an invalid or expired signed offer requires fresh hotel offers and is not replayed', async () => {
   const f = fixture(() => { throw new ApiError('validation', 'offer_context_expired', 409); });

@@ -31,9 +31,9 @@ const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'w
 type TravelerDraft = NonNullable<ReturnType<typeof createTravelerDraft>>;
 const travelerDrafts = new Map<string, TravelerDraft>();
 // Details typed before a nationality change, carried to the re-priced offer for the same guests.
-let carriedTraveler: { occupancy: string; draft: TravelerDraft } | null = null;
+const carriedTraveler = new Map<'latest', { occupancy: string; draft: TravelerDraft }>();
 function takeCarriedTraveler(occupancy: GuestRoom[]): TravelerDraft | null {
-  const carried = carriedTraveler; carriedTraveler = null;
+  const carried = carriedTraveler.get('latest'); carriedTraveler.delete('latest');
   return carried && carried.occupancy === JSON.stringify(occupancy) ? carried.draft : null;
 }
 export type CheckoutController = ReturnType<typeof useCheckoutSession>;
@@ -91,7 +91,7 @@ export default function CheckoutScreen() {
   // search, so the guest picks the room again at that nationality's price; typed details are kept.
   const changeNationality = (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => {
     const current = state.getCheckoutReview(); if (!current) return;
-    carriedTraveler = { occupancy: JSON.stringify(occupancy), draft };
+    carriedTraveler.set('latest', { occupancy: JSON.stringify(occupancy), draft });
     setDirty(false); allowLeave();
     state.setSearch({ ...(state.criteria || current.review.criteria), residency }, state.destinationName);
     router.replace({ pathname: '/hotel/[hid]', params: { hid: String(current.review.hid) } });
@@ -233,7 +233,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
   const [nationalityMissing,setNationalityMissing] = useState(false);
   const [picker,showPicker] = useState(false);
   const repricing = Boolean(residency && nationality && nationality !== residency);
-  const setDraft = (next: NonNullable<typeof draft>) => { storeDraft(next); if (draftKey) travelerDrafts.set(draftKey, next); onDirty?.(true); };
+  const setDraft = (next: NonNullable<typeof draft>) => { storeDraft(next); if (draftKey) travelerDrafts.set(draftKey, next); carriedTraveler.set('latest', { occupancy: JSON.stringify(occupancy), draft: next }); onDirty?.(true); };
   const [errors,setErrors] = useState<Record<string,TravelerError>>({});
   const [step,setStep] = useState<'details'|'review'>('details');
   const [consent,setConsent] = useState({ quote, accepted: false });
@@ -243,7 +243,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
   const contact = (key: keyof typeof draft.guest, value: string) => { setDraft({ ...draft,guest:{...draft.guest,[key]:value} }); setErrors(current=>{const next={...current};delete next[key];return next;}); };
   const traveler = (r: number,p: number,key: 'firstName'|'lastName',value: string) => { setDraft({ ...draft, rooms:draft.rooms.map((room,ri)=>ri===r?{guests:room.guests.map((person,pi)=>pi===p?{...person,[key]:value}:person)}:room) }); setErrors(current=>{const next={...current};delete next[`traveler-${r}-${p}-${key}`];return next;}); };
   const review = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);const missing=Boolean(residency&&!nationality);setNationalityMissing(missing);if(checked.data&&!missing){Keyboard.dismiss();setConsent({quote,accepted:false});setStep('review');} };
-  const submit = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);if(checked.data&&accepted&&canSubmit)void onSubmit(checked.data,true).then(()=>{if(draftKey)travelerDrafts.delete(draftKey);onDirty?.(false);}); };
+  const submit = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);if(checked.data&&accepted&&canSubmit)void onSubmit(checked.data,true).then(()=>{if(draftKey)travelerDrafts.delete(draftKey);carriedTraveler.delete('latest');onDirty?.(false);}); };
   const prepared=step==='review'?validateTravelerDraft(draft,occupancy).data:null;
   return <View style={[ui.card, { gap: 18 }]}>
     <Txt kind="heading" accessibilityRole="header">{step==='details'?copy.details:copy.review}</Txt>

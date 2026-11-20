@@ -3,8 +3,24 @@ import { ApiError } from '../api/errors';
 import { assertCriteria, hotelId } from '../api/validation';
 import type { CheckoutSelection } from './checkoutSessionModel';
 
-export const REVIEW_SELECTION_LIFETIME_MS = 5 * 60_000;
-export const REVIEW_CHECK_LIFETIME_MS = 2 * 60_000;
+// The booking server signs a hotel-page offer for 15 minutes and checks that signature again
+// at payment. The app follows the server's clock instead of shorter limits of its own.
+export const REVIEW_SELECTION_LIFETIME_MS = 15 * 60_000;
+// Used only when a checked offer carries no readable expiry.
+export const REVIEW_CHECK_LIFETIME_MS = 15 * 60_000;
+// Leave the guest a minute so a payment never starts on an offer about to lapse.
+const EXPIRY_MARGIN_MS = 60_000;
+
+/** Expiry (ms) the server signed into a prebook context, or null when it cannot be read. */
+export function contextExpiry(token: string | null | undefined): number | null {
+  try {
+    const body = typeof token === 'string' ? token.split('.')[0] : '';
+    if (!body || body.length > 131072) return null;
+    const base64 = body.replace(/-/g, '+').replace(/_/g, '/') + '='.repeat((4 - body.length % 4) % 4);
+    const value = JSON.parse(globalThis.atob(base64)) as { expires_at?: unknown };
+    return typeof value.expires_at === 'number' && Number.isSafeInteger(value.expires_at) ? value.expires_at : null;
+  } catch { return null; }
+}
 export interface OfferReviewInput {
   hid: number; hotelName: string; hotelAddress?: string; hotelImage?: string;
   criteria: SearchCriteria; offer: RoomOffer; language: Language;
@@ -85,7 +101,7 @@ export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = 
   function sync() {
     const draft = getDraft();
     if ((draft?.id ?? null) !== snapshot.draftId) { cancel(); publish(initial(draft?.id ?? null)); }
-    if (draft && (now() >= draft.createdAt + REVIEW_SELECTION_LIFETIME_MS
+    if (draft && (snapshot.expiresAt === null && now() >= draft.createdAt + REVIEW_SELECTION_LIFETIME_MS
       || snapshot.expiresAt !== null && now() >= snapshot.expiresAt) && snapshot.status !== 'expired') {
       cancel(); publish({ ...initial(draft.id), status: 'expired', freshHotelRequired: now() >= draft.createdAt + REVIEW_SELECTION_LIFETIME_MS });
     }
@@ -94,7 +110,7 @@ export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = 
   function presentation() {
     const draft = getDraft();
     const state = draft?.id === snapshot.draftId ? snapshot : initial(draft?.id ?? null);
-    const selectionExpired = Boolean(draft && now() >= draft.createdAt + REVIEW_SELECTION_LIFETIME_MS);
+    const selectionExpired = Boolean(draft && state.expiresAt === null && now() >= draft.createdAt + REVIEW_SELECTION_LIFETIME_MS);
     const checkExpired = state.expiresAt !== null && now() >= state.expiresAt;
     const status = selectionExpired || checkExpired ? 'expired' as const : state.status;
     const currentOffer = ['ready', 'changed'].includes(status) ? state.currentOffer : null;
@@ -119,7 +135,7 @@ export function createOfferReviewSession({ getDraft, clearDraft, prebook, now = 
       const changed = result.priceChanged || offerTerms(draft.offer) !== offerTerms(result.offer);
       checkoutContext = result.prebookContext;
       publish({ ...initial(draft.id), status: changed ? 'changed' : 'ready', currentOffer: result.offer,
-        expiresAt: Math.min(draft.createdAt + REVIEW_SELECTION_LIFETIME_MS, checkedAt + REVIEW_CHECK_LIFETIME_MS) });
+        expiresAt: Math.min(checkedAt + REVIEW_CHECK_LIFETIME_MS, (contextExpiry(result.prebookContext) ?? Infinity) - EXPIRY_MARGIN_MS) });
     } catch (error) {
       if (stamp !== revision || controller.signal.aborted) return;
       if (getDraft()?.id !== draft.id) { sync(); return; }

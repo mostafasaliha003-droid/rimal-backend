@@ -13,7 +13,7 @@ export function useReviewSession() {
   useEffect(() => () => session.dispose(), [session]);
   useEffect(() => {
     if (!reviewDraft || snapshot.status === 'expired') return;
-    const deadline = Math.min(reviewDraft.createdAt + REVIEW_SELECTION_LIFETIME_MS, snapshot.expiresAt ?? Infinity);
+    const deadline = snapshot.expiresAt ?? reviewDraft.createdAt + REVIEW_SELECTION_LIFETIME_MS;
     const timer = setTimeout(() => session.sync(), Math.max(0, deadline - Date.now()));
     const foreground = AppState.addEventListener('change', state => { if (state === 'active') session.sync(); });
     return () => { clearTimeout(timer); foreground.remove(); };

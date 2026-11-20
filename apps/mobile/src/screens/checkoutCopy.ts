@@ -1,7 +1,7 @@
 import type { CheckoutStatus } from '../api/checkout';
 const en = {
   title: 'Confirm your booking', intro: 'Enter the guest details, then pay securely.',
-  missing: 'Choose a current room offer first', missingBody: 'This room review has expired or belongs to a different app session. Return to the room offers and check again.',
+  missing: 'Choose a current room offer first', missingBody: 'The price hold for this room has ended (15 minutes from opening the hotel page) or your account changed. Check the price again to continue; your details are kept.',
   fresh: 'Return to room offers', signIn: 'Sign in to check payment options', signInBody: 'Use your account to check the charge amount. Your website session is separate.',
   offer: 'Room offer · full stay', charge: 'Checked payment amount', quote: 'Check charge amount', quoteAgain: 'Refresh charge amount', quoteBusy: 'Checking the charge amount…',
   sameCurrency: 'The checked amount is supplied by the server. Local charges below remain in their original currencies.',
@@ -34,7 +34,7 @@ const en = {
 };
 const ar: typeof en = {
   title: 'تأكيد الحجز', intro: 'اكتب بيانات الضيف ثم ادفع بأمان.',
-  missing: 'اختر عرض غرفة حديثاً أولاً', missingBody: 'انتهت صلاحية مراجعة الغرفة أو تغيّرت جلسة التطبيق. عُد إلى عروض الغرف وتحقق مجدداً.',
+  missing: 'اختر عرض غرفة حديثاً أولاً', missingBody: 'انتهت مدة تثبيت سعر هذه الغرفة (15 دقيقة من فتح صفحة الفندق) أو تغيّر حسابك. أعد التحقق من السعر لتكمل، وستبقى البيانات التي كتبتها.',
   fresh: 'العودة إلى عروض الغرف', signIn: 'سجّل الدخول للاطلاع على خيارات الدفع', signInBody: 'استخدم حسابك للتحقق من المبلغ المطلوب. جلسة الموقع منفصلة عن جلسة التطبيق.',
   offer: 'سعر عرض الغرفة · الإقامة كاملة', charge: 'مبلغ الدفع بعد التحقق', quote: 'التحقق من مبلغ الدفع', quoteAgain: 'تحديث مبلغ الدفع', quoteBusy: 'جارٍ التحقق من مبلغ الدفع…',
   sameCurrency: 'يرد مبلغ الدفع من الخادم. تبقى الرسوم المحلية أدناه بعملاتها الأصلية.',
