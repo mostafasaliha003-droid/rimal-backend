@@ -6,6 +6,7 @@ const path = require('path');
 const nodemailer = require('nodemailer'); 
 const logger = require('./loggerService'); 
 const reservationConfirmation = require('./reservationConfirmationService');
+const documentBrand = require('./documentBrand');
 
 // 🌟 فلتر ذكي لتنظيف النصوص من الإيموجيز قبل حقنها في الـ PDF
 const sanitizeText = (str) => {
@@ -53,9 +54,10 @@ async function sendVoucherConfirmation(input) {
     const confirmationPdf = await reservationConfirmation.generateConfirmationPdf(details);
     const { subject, text, html } = reservationConfirmation.renderConfirmationEmail(details);
     const result = await transporter.sendMail({
-        from: { name: 'Remal | رمال', address: process.env.SMTP_USER }, to: email,
+        from: { name: documentBrand.BRAND.sender, address: process.env.SMTP_USER }, to: email,
         replyTo: 'management@remaltourismllc.com', subject, text, html,
-        attachments: [{ filename: `Remal-Confirmation-${reference}.pdf`, content: confirmationPdf, contentType: 'application/pdf' }]
+        attachments: [{ filename: `pillow-stays-confirmation-${reference}.pdf`, content: confirmationPdf, contentType: 'application/pdf' },
+            documentBrand.emailSymbolAttachment()]
     });
     if (!result.messageId || !result.accepted?.includes(email)) throw new Error('confirmation_email_outcome_unknown');
     return { messageId: result.messageId };
@@ -195,12 +197,13 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
 
 module.exports = {
     async sendCancellationReceipt({ details, buffer }) {
-        const result = await transporter.sendMail({ from: `Remal Reservations <${process.env.SMTP_USER}>`,
+        const result = await transporter.sendMail({ from: { name: documentBrand.BRAND.sender, address: process.env.SMTP_USER },
             to: details.email, replyTo: 'management@remaltourismllc.com',
-            subject: `Remal | تأكيد الإلغاء وطلب الاسترداد | ${details.reference}`,
+            subject: `${documentBrand.BRAND.sender} | تأكيد الإلغاء وطلب الاسترداد | ${details.reference}`,
             text: `Cancellation confirmed: ${details.reference}. Refund status: ${details.refundStatus}. Amount: ${details.refund} ${details.currency}. Estimated card-credit time: 5–14 business days after the gateway confirms refund processing, depending on your bank and excluding bank non-working days. Your cancellation receipt is attached.`,
             html: require('./cancellationReceiptService').renderReceipt(details),
-            attachments: [{ filename: `Remal-Cancellation-${details.reference}.pdf`, content: buffer, contentType: 'application/pdf' }] });
+            attachments: [{ filename: `pillow-stays-cancellation-${details.reference}.pdf`, content: buffer, contentType: 'application/pdf' },
+                documentBrand.emailSymbolAttachment()] });
         if (!result.messageId || !result.accepted?.includes(details.email)) throw new Error('cancellation_email_outcome_unknown');
         return { messageId: result.messageId };
     },
