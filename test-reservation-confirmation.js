@@ -79,7 +79,7 @@ for (const [name, sandbox, blank] of [
     assert.match(message.html, /cid:mkhadda-symbol@pillowstays/);
     assert.equal(message.from.name, 'مخدة | pillow stays');
     assert.doesNotMatch(message.html, /REMAL/);
-    assert.match(message.html, /Remal Tourism LLC/);
+    assert.match(message.html, /Remal Group LLC FZ/);
     assert.equal(message.attachments.some(item => item.content === value.pdfBuffer), false);
     assert.match(message.html, /Double room/);
     assert.equal(message.replyTo, 'management@remaltourismllc.com');

@@ -4,15 +4,16 @@ const path = require('node:path');
 /*
  * Mkhadda (مخدة | pillow stays) identity for customer documents: booking
  * confirmations and cancellation receipts, as email and PDF. Colours follow the
- * app's design tokens (apps/mobile/src/theme.ts). Remal Tourism LLC remains the
- * operating company and the contact for support.
+ * app's design tokens (apps/mobile/src/theme.ts). Remal Group LLC FZ, the licensed
+ * company, remains the operator and the contact for support. Its name is shown
+ * exactly as on the licence, in Latin script in both languages.
  */
 const BRAND = {
     name: 'مخدة',
     latin: 'pillow stays',
     sender: 'مخدة | pillow stays',
     support: 'management@remaltourismllc.com',
-    operator: 'تديرها رمال للسياحة ذ.م.م · Operated by Remal Tourism LLC',
+    operator: 'تديرها Remal Group LLC FZ · Operated by Remal Group LLC FZ',
 };
 
 const C = {
