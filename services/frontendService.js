@@ -30,6 +30,7 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL, privateM
         'offline.html',
         'icon-192.png',
         'icon-512.png',
+        'pillow-symbol.png',
         'robots.txt',
         'sitemap.xml'
     ];
