@@ -1035,6 +1035,12 @@ app.get('/api/payment/rates', async (_req, res) => {
     }
 });
 
+// Ziina sends app-started payments here; the page hands the guest back to the app.
+app.get('/api/payment/app-return', (req, res) => {
+    const page = require('./services/appPaymentReturn').renderReturnPage(req.query);
+    if (!page) return res.status(404).set('Cache-Control', 'no-store').json({ success: false, error: 'not_found' });
+    return res.status(200).set(page.headers).send(page.html);
+});
 app.post('/api/payment/ziina/recover', requireUser, securityService.searchLimiter,
     createCheckoutRecoveryHandler({ service: checkoutProcessService }));
 

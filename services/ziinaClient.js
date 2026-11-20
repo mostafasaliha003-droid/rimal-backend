@@ -71,27 +71,28 @@ async function request(path, { method = 'GET', payload, token = process.env.ZIIN
     }
 }
 
-function returnUrl(frontendUrl, result, reference) {
+function returnUrl(frontendUrl, result, reference, appReturn) {
     const url = new URL('/checkout', frontendUrl);
     if (url.protocol !== 'https:' && !(url.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(url.hostname))) {
         throw error('invalid_frontend_url');
     }
     if (url.username || url.password) throw error('invalid_frontend_url');
+    if (appReturn) return require('./appPaymentReturn').returnPageUrl(url.origin, appReturn, result);
     url.searchParams.set('payment', result);
     url.searchParams.set('ref', reference);
     return url.href;
 }
 
-async function createIntent({ amount, currency, reference, accountId = process.env.ZIINA_ACCOUNT_ID, test = false, frontendUrl = process.env.FRONTEND_URL || 'https://remalbookings.com', fetcher, token }) {
+async function createIntent({ amount, currency, reference, accountId = process.env.ZIINA_ACCOUNT_ID, test = false, frontendUrl = process.env.FRONTEND_URL || 'https://remalbookings.com', appReturn = null, fetcher, token }) {
     if (!SUPPORTED_CURRENCIES.has(currency) || !validId(reference) || !validId(accountId)) throw error('invalid_payment_context');
     const amountMinor = minorUnits(amount, currency);
     const intent = validateIntent(await request('/payment_intent', {
         method: 'POST', fetcher, token, payload: {
             amount: amountMinor, currency_code: currency, test: test === true, allow_tips: false,
             expiry: String(Date.now() + 20 * 60 * 1000),
-            success_url: returnUrl(frontendUrl, 'success', reference),
-            cancel_url: returnUrl(frontendUrl, 'cancel', reference),
-            failure_url: returnUrl(frontendUrl, 'failed', reference)
+            success_url: returnUrl(frontendUrl, 'success', reference, appReturn),
+            cancel_url: returnUrl(frontendUrl, 'cancel', reference, appReturn),
+            failure_url: returnUrl(frontendUrl, 'failed', reference, appReturn)
         }
     }), { amount: amountMinor, currency, accountId, test });
     let redirect;

@@ -192,6 +192,19 @@ test('a supplier-verified prebook hash proceeds to form without repeating hotel 
     assert.equal(scenario.createIntent.mock.callCount(), 1);
 });
 
+test('an app-started checkout asks Ziina to return to the app; unknown targets are refused', async context => {
+    const scenario = fixture(context);
+    await assert.rejects(checkout.createCheckout({ ...details(), app_return: 'https://example.org' }, crypto.randomUUID(), '192.0.2.10'), /invalid_app_return/);
+    assert.equal(scenario.record, undefined);
+    assert.equal(scenario.createIntent.mock.callCount(), 0);
+    const key = crypto.randomUUID();
+    const result = await checkout.createCheckout({ ...details(), app_return: 'mkhadda-preview' }, key, '192.0.2.10');
+    assert.equal(result.status, 'awaiting_payment');
+    assert.equal(scenario.record.app_return, 'mkhadda-preview');
+    assert.equal(scenario.createIntent.mock.calls[0].arguments[0].appReturn, 'mkhadda-preview');
+    await assert.rejects(checkout.createCheckout(details(), key, '192.0.2.10'), /checkout_conflict/);
+});
+
 test('checkout persists cancellation terms from verified prebook, ignoring browser policy fields', async context => {
     const scenario = fixture(context, { bookHash: 'p-fixture', formHash: 'p-fixture' });
     const info = scenario.rateInfo(undefined, 'p-fixture');

@@ -171,10 +171,11 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
     requireIdentity(identity);
     if (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) throw fail('invalid_idempotency_key');
     const details = normalizedCheckout(input);
+    const appReturn = require('./appPaymentReturn').appReturnScheme(input.app_return);
     const hash = value => crypto.createHmac('sha256', encryptionKey()).update(value).digest('hex');
     const processId = hash(idempotencyKey);
     const requestHash = hash(JSON.stringify({ details, ownerSubject: identity.subject, realm: identity.realm,
-        ...(input.payment_quote ? { payment_quote: input.payment_quote } : {}) }));
+        ...(input.payment_quote ? { payment_quote: input.payment_quote } : {}), ...(appReturn ? { app_return: appReturn } : {}) }));
     let record = await CheckoutAttempt.findById(processId).lean();
     if (record) {
         if (record.request_hash !== requestHash) throw fail('checkout_conflict', 409);
@@ -186,7 +187,7 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
     const reference = crypto.randomUUID();
     try {
         record = await CheckoutAttempt.create({ _id: processId, reference, request_hash: requestHash,
-            ownerSubject: identity.subject, realm: identity.realm,
+            ownerSubject: identity.subject, realm: identity.realm, ...(appReturn ? { app_return: appReturn } : {}),
             encrypted_details: encryptDetails(details), state: 'preparing', next_check_at: new Date(Date.now() + 30000) });
     } catch (error) {
         if (error.code !== 11000) throw error;
@@ -241,7 +242,7 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
     }
     try {
         const intent = await ziina.createIntent({ amount: ziina.majorUnits(record.amount_minor, record.currency), currency: record.currency, reference,
-            test: record.ziina_test, frontendUrl: process.env.FRONTEND_URL, accountId: process.env.ZIINA_ACCOUNT_ID });
+            test: record.ziina_test, frontendUrl: process.env.FRONTEND_URL, accountId: process.env.ZIINA_ACCOUNT_ID, appReturn: record.app_return || null });
         const updated = await CheckoutAttempt.findOneAndUpdate({ _id: processId, state: 'intent_creating' }, { $set: {
             ziina_intent_id: intent.id, ziina_account_id: intent.accountId, ziina_operation_id: intent.operationId,
             redirect_url: intent.redirectUrl, state: 'awaiting_payment',

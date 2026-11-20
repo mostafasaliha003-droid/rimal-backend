@@ -21,6 +21,7 @@ const checkoutAttemptSchema = new mongoose.Schema({
     ziina_operation_id: String,
     payment_verified_at: Date,
     redirect_url: String,
+    app_return: { type: String, enum: ['mkhadda', 'mkhadda-preview'] },
     partner_order_id: String,
     supplier_identity: String,
     cancellation_request_hash: String,
