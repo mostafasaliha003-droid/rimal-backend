@@ -38,6 +38,7 @@ async function startSite(context, withBuild) {
         'offline.html': '<html>offline</html>',
         'icon-192.png': 'icon 192',
         'icon-512.png': 'icon 512',
+        'pillow-symbol.png': 'pillow symbol',
         'robots.txt': 'static robots',
         'sitemap.xml': '<urlset>static sitemap</urlset>',
         'server.js': 'PRIVATE SERVER SOURCE',
@@ -83,7 +84,7 @@ test('serves committed site and SPA routes when Render has no frontend/dist', as
         assert.match(html, /rel="canonical"/);
         if (route.startsWith('/checkout')) assert.match(html, /name="robots" content="noindex,follow"/);
     }
-    for (const route of ['/assets/app.js', '/sw.js', '/manifest.webmanifest', '/offline.html', '/404.html', '/icon-192.png', '/icon-512.png', '/robots.txt', '/sitemap.xml']) {
+    for (const route of ['/assets/app.js', '/sw.js', '/manifest.webmanifest', '/offline.html', '/404.html', '/icon-192.png', '/icon-512.png', '/pillow-symbol.png', '/robots.txt', '/sitemap.xml']) {
         const response = await fetch(`${base}${route}`);
         assert.equal(response.status, 200, route);
     }
