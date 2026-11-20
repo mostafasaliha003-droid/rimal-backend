@@ -139,10 +139,11 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           {creationEnabled && session.canCollectTravelers && session.quote && <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
             occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit}
             onSubmit={(data,consent)=>session.submit(data,consent)} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>}
-          <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{copy.website}</Txt><Txt>{copy.websiteBody}</Txt>
+          {/* In-app checkout keeps the whole booking in the app; the website is only the fallback when it is off. */}
+          {!creationEnabled && <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{copy.website}</Txt><Txt>{copy.websiteBody}</Txt>
             {actionError === 'website' && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.websiteError}</Txt>}
             <Button title={copy.website} busy={opening} disabled={busy || signedIn && !session.recoveryChecked} onPress={() => void perform('website',props.onWebsite)}/>
-          </View>
+          </View>}
           <Button title={copy.fresh} variant="quiet" disabled={busy || opening} onPress={props.onFreshOffer}/>
         </>}
       </ScrollView>

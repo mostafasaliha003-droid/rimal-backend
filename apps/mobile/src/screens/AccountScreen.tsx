@@ -94,7 +94,6 @@ export default function AccountScreen() {
     } catch { setError(t('authError')); }
     finally { setBusy(false); }
   };
-  const website=async()=>{try{await WebBrowser.openBrowserAsync(websiteUrl('/account'),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
   const openPolicy=async(path:'/privacy'|'/terms')=>{try{await WebBrowser.openBrowserAsync(websiteUrl(path),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
   const visibleError=error||(status==='signedOut'&&sessionError&&!restorePending?t('authError'):'');
   return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}>
@@ -114,10 +113,7 @@ export default function AccountScreen() {
       <AccountMembership key={sessionRevision}/>
       <View style={accountStyles.menu}>
         <AccountLink icon="trips" title={t('bookingsTitle')} onPress={()=>router.navigate('/bookings')}/>
-        <View style={ui.rule}/><AccountLink icon="saved" title={t('saved')} onPress={()=>router.navigate('/saved')}/>
-        <View style={ui.rule}/><AccountLink icon="trips" title={t('myBookings')} onPress={()=>void website()}
-          hint={language==='ar'?'يفتح حساب رمال في المتصفح.':'Opens your Remal account in the browser.'}/>
-      </View>
+        <View style={ui.rule}/><AccountLink icon="saved" title={t('saved')} onPress={()=>router.navigate('/saved')}/>      </View>
       <View style={accountStyles.menu}>
         <AccountLink icon="support" title={t('support')} onPress={()=>router.push('/support')}/>
         <View style={ui.rule}/><AccountLink icon="info" title={language === 'ar' ? 'الإشعارات' : 'Notifications'} onPress={()=>router.push('/notifications')}/>
