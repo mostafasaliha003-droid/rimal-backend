@@ -1,6 +1,6 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
-const { EDITOR, readCatalog, applyArabicNameCatalog, reportHotelsWithoutArabicNames } = require('./services/hotelArabicNames');
+const { EDITOR, readCatalog, applyArabicNameCatalog, reportHotelsWithoutArabicNames, reportHotelsWithoutArabicAddresses } = require('./services/hotelArabicNames');
 const catalogFile = require('./data/hotel-arabic-names.json');
 
 function model(hotels) {
@@ -54,4 +54,13 @@ test('the report lists hotels without an approved Arabic name in capped, parseab
     assert.equal(await reportHotelsWithoutArabicNames({ model: hotels, perLine: 2, print: line => lines.push(line) }), 3);
     assert.deepEqual(hotels.state.filter['translations.ar.reviewStatus'], { $ne: 'approved' });
     assert.deepEqual(lines, ['[arabic-name-report 1-2/3] 1|A B|Dubai ;; 2|C|', '[arabic-name-report 3-3/3] 3|D|Doha']);
+});
+
+test('the address report lists named hotels still missing an Arabic address', async () => {
+    const lines = [];
+    const hotels = model([{ hid: '7', address: 'Al Nokhtha Street | Dubai' }]);
+    assert.equal(await reportHotelsWithoutArabicAddresses({ model: hotels, print: line => lines.push(line) }), 1);
+    assert.equal(hotels.state.filter['translations.ar.reviewStatus'], 'approved');
+    assert.deepEqual(hotels.state.filter['translations.ar.address'], { $exists: false });
+    assert.deepEqual(lines, ['[arabic-address-report 1-1/1] 7|Al Nokhtha Street   Dubai']);
 });
