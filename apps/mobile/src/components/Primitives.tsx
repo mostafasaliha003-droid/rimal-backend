@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Platform, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
+import { ActivityIndicator, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DimensionValue, PressableStateCallbackType, StyleProp, TextInputProps, TextProps, TextStyle, ViewProps, ViewStyle } from 'react-native';
-import { border, color, elevation, fonts, localizedFont, radius, space, touch, typeStyle, ui, type TypeVariant } from '../theme';
+import { border, color, elevation, fonts, layout, localizedFont, radius, space, touch, typeStyle, ui, type TypeVariant } from '../theme';
 import { useLanguage } from '../i18n';
 import type { Money } from '../types';
 import { Icon, type IconName } from './Icon';
@@ -96,10 +97,11 @@ export function IconButton({ icon, label, onPress, selected, disabled = false, v
 }
 
 /** Filter/choice chip. With `onRemove` it becomes an active filter that removes itself. */
-export function Chip({ label, selected = false, onPress, onRemove, icon, accessibilityLabel, testID, role = 'button' }: {
+export function Chip({ label, selected = false, onPress, onRemove, icon, accessibilityLabel, testID, role = 'button', size = 'md' }: {
   label: string; selected?: boolean; onPress?: () => void; onRemove?: () => void; icon?: IconName; accessibilityLabel?: string;
-  testID?: string; role?: 'button' | 'checkbox' | 'radio';
+  testID?: string; role?: 'button' | 'checkbox' | 'radio'; size?: 'sm' | 'md';
 }) {
+  const small = size === 'sm';
   const { rtl } = useLanguage();
   const removable = Boolean(onRemove);
   const active = selected || removable;
@@ -107,7 +109,8 @@ export function Chip({ label, selected = false, onPress, onRemove, icon, accessi
   return <Pressable testID={testID} accessibilityRole={role} accessibilityLabel={nameWithVisibleText(label, accessibilityLabel)}
     accessibilityState={checked ? { checked: selected } : role === 'button' && !removable ? { selected } : undefined}
     aria-checked={checked ? selected : undefined} aria-pressed={role === 'button' && !removable ? selected : undefined}
-    onPress={onRemove || onPress} style={state => [styles.chip, { flexDirection: rtl ? 'row-reverse' : 'row' },
+    onPress={onRemove || onPress} hitSlop={small ? { top: (touch.min - 36) / 2, bottom: (touch.min - 36) / 2 } : undefined}
+    style={state => [styles.chip, small && styles.chipSmall, { flexDirection: rtl ? 'row-reverse' : 'row' },
       active && styles.chipActive, (state.pressed || hovered(state)) && { backgroundColor: active ? '#EADFFB' : color.bgMuted }]}>
     {icon && !removable && <Icon name={icon} size={16} color={active ? color.interactiveStrong : color.textBrand}/>}
     {selected && !removable && !icon && <Icon name="check" size={16} color={color.interactiveStrong}/>}
@@ -200,15 +203,17 @@ export function Skeleton({ width = '100%', height = 16, rounded = radius.sm, sty
     style={[{ width, height, borderRadius: rounded, backgroundColor: color.bgSelected, opacity: pulse }, style]}/>;
 }
 
-export function Field({ label, error, errorId, inputRef, style, ltr = false, hint, ...props }: TextInputProps & {
+export function Field({ label, error, errorId, inputRef, style, ltr = false, hint, a11yLabel, ...props }: TextInputProps & {
   label: string; error?: string; errorId?: string; inputRef?: React.Ref<React.ComponentRef<typeof TextInput>>; ltr?: boolean; hint?: string;
+  /** Full accessible name when the visible label relies on nearby context ("First name" under "Room 2 · Traveler 1"). */
+  a11yLabel?: string;
 }) {
   const { rtl, language } = useLanguage(); const [focused, focus] = useState(false);
   const errorLink = Platform.OS === 'web' && error && errorId ? { 'aria-invalid': true, 'aria-describedby': errorId } : undefined;
   return <View style={{ gap: space.xs, flexShrink: 1 }}>
     <Txt kind="label">{label}</Txt>
     <View style={[styles.fieldRing, { borderColor: focused ? color.focusRing : 'transparent' }]}>
-      <TextInput {...props} {...errorLink} ref={inputRef} accessibilityLabel={label} accessibilityHint={error || hint || props.accessibilityHint}
+      <TextInput {...props} {...errorLink} ref={inputRef} accessibilityLabel={a11yLabel ? nameWithVisibleText(label, a11yLabel) : label} accessibilityHint={error || hint || props.accessibilityHint}
         placeholderTextColor={color.textSecondary}
         onFocus={event => { focus(true); props.onFocus?.(event); }} onBlur={event => { focus(false); props.onBlur?.(event); }}
         style={[ui.input, { fontFamily: localizedFont(language, fonts.medium), textAlign: ltr ? 'left' : rtl ? 'right' : 'left',
@@ -254,7 +259,7 @@ export function Photo({ uri, alternatives = [], label, room = false, height = 21
   return <View accessible accessibilityLabel={caption} style={{ height, alignItems: 'center', justifyContent: 'center',
     backgroundColor: color.photoPlaceholder, padding: thumbnail ? space.xs : space.md, gap: space.xs }}>
     <Icon name={room ? 'bed' : 'image'} size={thumbnail ? 18 : 24} color={color.textSecondary}/>
-    {!thumbnail && <Txt kind="caption" align="center">{caption}</Txt>}
+    {!thumbnail && (uri || alternatives.length > 0) && <Txt kind="caption" align="center">{caption}</Txt>}
   </View>;
 }
 
@@ -283,6 +288,82 @@ export function StatePanel({ title, body, retry, busy = false, icon, tone = 'neu
   </View>;
 }
 
+
+/** One fact on one line: a quiet icon and its text. The building block of flat summaries. */
+export function InfoRow({ icon, children, tone, testID, iconColor }: { icon: IconName; children: React.ReactNode; tone?: string; testID?: string; iconColor?: string }) {
+  return <Row testID={testID} style={{ gap: space.sm, alignItems: 'flex-start' }}>
+    <View style={{ paddingTop: 3 }}><Icon name={icon} size={16} color={iconColor || tone || color.textSecondary}/></View>
+    <View style={{ flex: 1, minWidth: 0, gap: 1 }}>{children}</View>
+  </Row>;
+}
+
+/** An inline text action with a full touch target ("Details", "Full schedule"). */
+export function TextLink({ title, onPress, testID, label, icon }: { title: string; onPress: () => void; testID?: string; label?: string; icon?: IconName }) {
+  return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={nameWithVisibleText(title, label)} onPress={onPress} hitSlop={{ top: 8, bottom: 8 }}
+    style={state => [styles.link, (state.pressed || hovered(state)) && { opacity: 0.7 }]}>
+    <Row style={{ gap: space.xxs }}>
+      <Txt kind="label" tone="link">{title}</Txt>
+      {icon && <Icon name={icon} size={16} color={color.textLink}/>}
+    </Row>
+  </Pressable>;
+}
+
+/**
+ * Bottom sheet for details that would otherwise lengthen the page: full cancellation
+ * schedules, every tax line. A dialog on wide windows. Closing never loses the page.
+ */
+export function Sheet({ visible, title, subtitle, onClose, children, testID, closeLabel }: {
+  visible: boolean; title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; testID?: string; closeLabel?: string;
+}) {
+  const { language } = useLanguage();
+  const { width, height } = useWindowDimensions();
+  const wide = width >= layout.breakpoints.expanded;
+  if (!visible) return null;
+  return <Modal visible transparent animationType={wide ? 'fade' : 'slide'} onRequestClose={onClose}>
+    <View style={[styles.scrim, wide && { justifyContent: 'center', padding: space.xl }]}>
+      <Pressable accessible={false} onPress={onClose} style={StyleSheet.absoluteFill}/>
+      <SafeAreaView edges={['bottom']} accessibilityViewIsModal testID={testID}
+        style={[styles.sheet, wide && styles.sheetDialog, { maxHeight: Math.max(240, height * (wide ? 0.86 : 0.9)) }, elevation.overlay]}>
+        {!wide && <View style={styles.sheetHandle}/>}
+        <Row style={styles.sheetHeader}>
+          <View style={{ flex: 1, minWidth: 0, paddingHorizontal: space.sm }}>
+            <Txt kind="subheading" accessibilityRole="header">{title}</Txt>
+            {!!subtitle && <Txt kind="caption" numberOfLines={2}>{subtitle}</Txt>}
+          </View>
+          <IconButton icon="close" label={closeLabel || (language === 'ar' ? 'إغلاق' : 'Close')} onPress={onClose} testID={testID ? testID + '-close' : undefined}/>
+        </Row>
+        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetBody}>{children}</ScrollView>
+      </SafeAreaView>
+    </View>
+  </Modal>;
+}
+
+/**
+ * The fixed bottom bar of a booking step: what it costs, and the one thing to do next.
+ * `stacked` puts a long action under the price instead of beside it, so its label is
+ * never cut off.
+ */
+export function ActionBar({ caption, amount, note, children, stacked = false, testID, amountTestID, maxWidth }: {
+  caption?: string; amount?: string | null; note?: string; children: React.ReactNode; stacked?: boolean; testID?: string; amountTestID?: string; maxWidth?: number;
+}) {
+  const price = (caption || amount || note) ? <View style={stacked ? styles.barPriceRow : styles.barPrice}>
+    {stacked ? <Row style={{ justifyContent: 'space-between', alignItems: 'baseline', gap: space.sm, flexWrap: 'wrap' }}>
+      {!!caption && <Txt kind="caption" style={{ flexShrink: 1 }}>{caption}</Txt>}
+      <View style={{ flexShrink: 0 }}>
+        {!!amount && <Txt testID={amountTestID} kind="subheading" align="end" style={styles.barAmount}>{amount}</Txt>}
+      </View>
+    </Row> : <>
+      {!!caption && <Txt kind="caption" numberOfLines={1}>{caption}</Txt>}
+      {!!amount && <Txt testID={amountTestID} kind="subheading" numberOfLines={1} style={styles.barAmount}>{amount}</Txt>}
+    </>}
+    {!!note && <Txt kind="caption" numberOfLines={1} align={stacked ? 'end' : undefined}>{note}</Txt>}
+  </View> : null;
+  return <View testID={testID} style={[styles.bar, elevation.raised]}>
+    {stacked ? <View style={[styles.barInner, { maxWidth: maxWidth ?? layout.maxReading, gap: space.sm }]}>{price}{children}</View>
+      : <Row style={[styles.barInner, { maxWidth: maxWidth ?? layout.maxReading }]}>{price}<View style={styles.barAction}>{children}</View></Row>}
+  </View>;
+}
+
 /** Legacy image helper kept for the brand symbol (approved raster asset). */
 export function BrandImage({ source, size }: { source: number; size: number }) {
   return <Image accessible={false} source={source} resizeMode="contain" style={{ width: size, height: size }}/>;
@@ -300,6 +381,20 @@ const styles = StyleSheet.create({
   chip: { minHeight: touch.min, maxWidth: '100%', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, borderRadius: radius.pill,
     borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface },
   chipActive: { borderColor: color.borderSelected, backgroundColor: color.bgSelected },
+  chipSmall: { minHeight: 36, paddingHorizontal: space.md - 2 },
+  link: { minHeight: 32, justifyContent: 'center', alignSelf: 'flex-start' },
+  scrim: { flex: 1, justifyContent: 'flex-end', backgroundColor: color.scrim },
+  sheet: { width: '100%', maxWidth: layout.maxSheet, alignSelf: 'center', backgroundColor: color.bgSurface, borderTopLeftRadius: radius.xl, borderTopRightRadius: radius.xl, direction: 'ltr' },
+  sheetDialog: { borderRadius: radius.xl },
+  sheetHandle: { alignSelf: 'center', marginTop: space.sm, width: 40, height: 4, borderRadius: 2, backgroundColor: color.border },
+  sheetHeader: { paddingHorizontal: space.xs, paddingVertical: space.xs, gap: space.sm, borderBottomWidth: 1, borderColor: color.border },
+  sheetBody: { padding: space.lg, gap: space.md, paddingBottom: space.xl },
+  bar: { backgroundColor: color.bgSurface, borderTopWidth: 1, borderTopColor: color.border },
+  barInner: { width: '100%', alignSelf: 'center', paddingHorizontal: space.lg, paddingVertical: space.sm, gap: space.md, alignItems: 'center' },
+  barPrice: { flex: 1, minWidth: 0 },
+  barPriceRow: { alignSelf: 'stretch' },
+  barAction: { flexShrink: 1, maxWidth: '62%' },
+  barAmount: { writingDirection: 'ltr' },
   badge: { alignItems: 'center', gap: space.xs, paddingHorizontal: space.sm, paddingVertical: space.xxs, borderRadius: radius.sm, maxWidth: '100%' },
   notice: { borderRadius: radius.md, borderWidth: 1, padding: space.md, gap: space.md },
   card: { backgroundColor: color.bgSurface, borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: color.border, gap: space.md },

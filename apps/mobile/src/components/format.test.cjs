@@ -54,3 +54,23 @@ test('family occupancy reads the same everywhere: summary line and one line per 
   assert.deepEqual(f.roomLines(rooms, 'ar'), ['الغرفة 1: بالغ واحد، طفل واحد (8)', 'الغرفة 2: بالغ واحد، طفل واحد (5)']);
   assert.deepEqual(f.occupancy(rooms), { rooms: 2, adults: 2, children: 2, guests: 4 });
 });
+
+test('whole prices drop only an all-zero fraction and never round supplier digits', () => {
+  assert.equal(f.formatPrice({ amount: '816.00', currency: 'USD' }), '⁦USD 816⁩');
+  assert.equal(f.formatPrice({ amount: '1585.92', currency: 'USD' }), '⁦USD 1,585.92⁩');
+  assert.equal(f.formatPrice({ amount: '90.5', currency: 'AED' }), '⁦AED 90.50⁩');
+  assert.equal(f.formatPrice({ amount: '15.000', currency: 'KWD' }), '⁦KWD 15⁩');
+  assert.equal(f.formatPrice({ amount: '1500', currency: 'JPY' }), '⁦JPY 1,500⁩');
+  assert.equal(f.formatPrice(null), null);
+});
+
+test('stay ranges read the way people say them, with the year only when needed', () => {
+  const now = new Date('2026-11-21T10:00:00Z');
+  assert.equal(f.formatStayRange('2026-12-21', '2026-12-24', 'en', now), '21–24 Dec');
+  assert.equal(f.formatStayRange('2026-12-28', '2027-01-02', 'en', now), '28 Dec 2026 – 2 Jan 2027');
+  assert.equal(f.formatStayRange('2027-03-01', '2027-03-04', 'en', now), '1–4 Mar 2027');
+  assert.equal(f.formatStayRange('2026-11-29', '2026-12-02', 'en', now), '29 Nov – 2 Dec');
+  const arabic = f.formatStayRange('2026-12-21', '2026-12-24', 'ar', now);
+  assert.match(arabic, /^21–24 \S+$/); assert.doesNotMatch(arabic, /[٠-٩]/);
+  assert.equal(f.formatStayRange('bad', '2026-12-24', 'en', now), 'bad – 2026-12-24');
+});

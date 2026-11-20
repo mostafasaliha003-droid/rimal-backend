@@ -3,7 +3,7 @@ import { FlatList, Modal, Pressable, StyleSheet, View, useWindowDimensions } fro
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
 import { colors } from '../theme';
-import { Field, Icon, Photo, Row, Txt } from './Primitives';
+import { Chip, Field, Icon, Photo, Row, Txt } from './Primitives';
 import type { RoomChoiceGroup } from './roomChoiceModel';
 import { rateCopy } from './roomRateFacts';
 import { localizedRoomName } from './roomNameModel';
@@ -26,11 +26,8 @@ export default function RoomTypePicker({ groups, value, onChange }: {
     setOpen(false);
   };
   return <>
-    <Pressable testID="room-type-picker" accessibilityRole="button" accessibilityState={{ expanded: open }}
-      accessibilityLabel={value ? title + ' · ' + value.name : title} onPress={() => { setSearch(''); setOpen(true); }}
-      style={[styles.trigger, value && styles.picked]}>
-      <Row style={{ gap: 6 }}><Icon name="bed" size={17}/><Txt kind="label" numberOfLines={2} style={{ flexShrink: 1 }}>{value?.name || title}</Txt></Row>
-    </Pressable>
+    <Chip size="sm" testID="room-type-picker" icon="bed" label={value?.name || title} accessibilityLabel={value ? title + ' · ' + value.name : title}
+      selected={Boolean(value)} onPress={() => { setSearch(''); setOpen(true); }}/>
     {open && <Modal visible transparent animationType="slide" onRequestClose={() => setOpen(false)}>
       <SafeAreaView style={styles.scrim} edges={['top','bottom','left','right']}>
         <View testID="room-type-sheet" accessibilityViewIsModal style={[styles.sheet, { maxHeight: height * .88 }]}>

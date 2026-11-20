@@ -1,5 +1,5 @@
-import React, { useCallback, useEffect, useRef, useState } from 'react';
-import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePreventRemove, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -9,17 +9,20 @@ import type { CheckoutGuestData, CheckoutStatus } from '../api/checkout';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import type { GuestRoom, Money, RoomOffer } from '../types';
-import { color, colors, fonts, space, ui } from '../theme';
+import { color, colors, fonts, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import { useCheckoutSession } from '../components/useCheckoutSession';
 import type { CheckoutQuoteView, CheckoutSelection } from '../components/checkoutSessionModel';
 import { createTravelerDraft, validateTravelerDraft, type TravelerError } from '../components/checkoutTravelerModel';
-import { Badge, Button, Field, Icon, MoneyText, Notice, Row, StatePanel, Txt } from '../components/Primitives';
+import { ActionBar, Badge, Button, Card, Divider, Field, Icon, InfoRow, Notice, Row, Sheet, StatePanel, TextLink, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
 import { useChargeCurrency, useChargeMoney } from '../components/ChargeCurrency';
-import { MealBadge } from '../components/RateHighlights';
+import { rateCopy, roomRateFacts } from '../components/roomRateFacts';
+import { useCancellationClock } from '../components/useCancellationClock';
+import { formatPrice, formatStayRange, guestLine, nightsBetween, stayWords } from '../components/format';
+import { useLayout } from '../components/motion';
 import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 import VoucherButton from '../components/VoucherButton';
@@ -150,13 +153,66 @@ export interface CheckoutContentsProps {
   nationalityCheck?: NationalityCheck | null;
 }
 
+const scrollBehaviour = { keyboardShouldPersistTaps: 'handled' as const, keyboardDismissMode: Platform.OS === 'web' ? 'none' as const : 'on-drag' as const };
+
+/*
+ * The booking summary in a few lines: hotel, dates and guests; room and meals; the
+ * cancellation deadline; the amount. The full cancellation schedule and every tax line
+ * stay one tap away in sheets, so the guest form starts on the first screen.
+ */
+function CheckoutSummary({ selection, offer, amount, showAmount = true }: { selection: CheckoutSelection; offer: RoomOffer; amount: Money | null; showAmount?: boolean }) {
+  const { language } = useLanguage(), ar = language === 'ar';
+  const charge = useChargeMoney();
+  const copy = checkoutCopy(language);
+  const [sheet, setSheet] = useState<'cancellation' | 'fees' | null>(null);
+  const cancellations = useMemo(() => [offer.cancellation], [offer.cancellation]);
+  const now = useCancellationClock(cancellations);
+  const facts = roomRateFacts(offer, language, now, charge);
+  const { criteria } = selection.review;
+  const nights = nightsBetween(criteria.checkin, criteria.checkout), words = stayWords(language);
+  const stay = [formatStayRange(criteria.checkin, criteria.checkout, language), nights ? words.nights(nights) : '', guestLine(criteria.guests, language)].filter(Boolean).join(' · ');
+  const roomName = localizedRoomName(offer.name, language);
+  const free = facts.decision.kind === 'free';
+  const cancelTone = free ? color.success : facts.decision.nonRefundable ? color.danger : color.textPrimary;
+  const fees = facts.fees === rateCopy(language).included ? null : facts.fees;
+  return <Card testID="checkout-summary" style={styles.card}>
+    <View style={{ gap: 1 }}>
+      <Txt kind="subheading" accessibilityRole="header" numberOfLines={2}>{selection.review.hotelName}</Txt>
+      <Txt kind="caption">{stay}</Txt>
+    </View>
+    <InfoRow icon="bed">
+      <Txt kind="label" tone="primary">{roomName}</Txt>
+      {roomName !== offer.name && <Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt>}
+      <Txt kind="caption" tone="primary">{facts.meal}</Txt>
+    </InfoRow>
+    <InfoRow icon={free ? 'checkCircle' : facts.decision.nonRefundable ? 'alertCircle' : 'clock'} tone={cancelTone} testID="checkout-cancellation">
+      <Txt kind="small" style={{ color: cancelTone, fontFamily: fonts.medium }}>{facts.decision.headline}</Txt>
+    </InfoRow>
+    {fees && <InfoRow icon="hotel"><Txt kind="small" tone="primary">{ar ? `يُدفع في الفندق (غير مشمول): ${fees}` : `Due at the hotel (not included): ${fees}`}</Txt></InfoRow>}
+    {showAmount && <><Divider/><Row style={{ justifyContent: 'space-between', alignItems: 'baseline', gap: space.md }}>
+      <Txt kind="label" tone="primary" style={{ flexShrink: 1 }}>{copy.charge}</Txt>
+      <Txt testID="checkout-amount" kind="subheading" style={{ writingDirection: 'ltr' }}>{formatPrice(amount) || copy.offer}</Txt>
+    </Row></>}
+    <Row style={{ gap: space.lg, flexWrap: 'wrap' }}>
+      <TextLink testID="checkout-cancellation-details" title={ar ? 'جدول الإلغاء' : 'Cancellation schedule'} onPress={() => setSheet('cancellation')}/>
+      <TextLink testID="checkout-fees-details" title={ar ? 'الضرائب والرسوم' : 'Taxes and fees'} onPress={() => setSheet('fees')}/>
+    </Row>
+    <Sheet visible={sheet === 'cancellation'} testID="checkout-cancellation-sheet" title={ar ? 'الإلغاء' : 'Cancellation'} subtitle={roomName} onClose={() => setSheet(null)}>
+      <Cancellation offer={offer} defaultExpanded/>
+    </Sheet>
+    <Sheet visible={sheet === 'fees'} testID="checkout-fees-sheet" title={ar ? 'الضرائب والرسوم' : 'Taxes and fees'} subtitle={roomName} onClose={() => setSheet(null)}>
+      <Taxes taxes={offer.taxes} defaultExpanded/>
+    </Sheet>
+  </Card>;
+}
+
 // An ordinary presentation seam for an isolated fixture entry. The shipped
 // route always supplies the real guarded controller above; no URL/storage flag
 // can enable payment creation or inject this controller into the application.
 export function CheckoutContents(props: CheckoutContentsProps) {
   const charge = useChargeMoney();
   const { session, signedIn, creationEnabled } = props;
-  const { language } = useLanguage(), copy = checkoutCopy(language);
+  const { language } = useLanguage(), copy = checkoutCopy(language), ar = language === 'ar';
   const selected = props.readSelection();
   const [opening, setOpening] = useState(false), [actionError, setActionError] = useState<'website'|'payment'|'clear'|null>(null);
   const busy = ['quoting','submitting','recovering'].includes(session.phase);
@@ -182,156 +238,197 @@ export function CheckoutContents(props: CheckoutContentsProps) {
   };
   // Presentation copies deliberately omit every hash/context/capability.
   const offer: RoomOffer | null = selected ? { id: 'display-only', bookHash: '', images: [],
-    name: selected.review.offer.name, meal: selected.review.offer.meal, noChildMeal: selected.review.offer.noChildMeal,
+    name: selected.review.offer.name, meal: selected.review.offer.meal, noChildMeal: selected.review.offer.noChildMeal, bedding: selected.review.offer.bedding,
     price: selected.review.offer.price, taxes: selected.review.offer.taxes, cancellation: selected.review.offer.cancellation } : null;
   const existing = session.hasRecovery || session.attempt !== null;
+  const amount: Money | null = session.quote ? { amount: session.quote.amount, currency: session.quote.currency } : offer ? charge(offer.price) : null;
+  const title = <Txt kind="heading" accessibilityRole="header">{copy.title}</Txt>;
+  const sandbox = session.availability?.enabled && session.availability.mode === 'sandbox' ? copy.sandbox : undefined;
+  const showForm = Boolean(!existing && selected && offer && creationEnabled && signedIn && session.canCollectTravelers && session.quote);
+  const fresh = <Button compact title={copy.fresh} variant="quiet" disabled={busy || opening} onPress={props.onFreshOffer}/>;
+
   return <SafeAreaView edges={['top','bottom']} style={ui.screen}>
     <BrandHeader back/>
     <KeyboardAvoidingView style={{ flex: 1 }} enabled={Platform.OS !== 'web'} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      <ScrollView keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'} contentContainerStyle={ui.page}>
-        <View style={{ gap: 6 }}><Txt kind="title" accessibilityRole="header">{copy.title}</Txt><Txt>{copy.intro}</Txt></View>
-        {existing ? <>
-          <Notice tone="info" icon="shield" title={copy.recovery} body={copy.recoveryBody}/>
-          {session.phase === 'unknown' && <StatePanel icon="hourglass" tone="warning" title={copy.unknown} body={copy.unknownBody}/>}
-          {session.attempt ? <View style={ui.card} accessibilityLiveRegion="polite">
-            {session.error && <Badge tone="warning" icon="history" label={copy.lastKnown}/>}
-            <CheckoutProgress status={session.attempt.status}/>
-            <Txt kind="heading" accessibilityRole="header">{checkoutStatusCopy(language,session.attempt.status)[0]}</Txt>
-            <Txt>{checkoutStatusCopy(language,session.attempt.status)[1]}</Txt>
-            <Txt kind="label">{copy.reference}</Txt><Txt selectable style={{ writingDirection: 'ltr' }}>{session.attempt.reference}</Txt>
-            {session.attempt.confirmed && session.attempt.supplierReference && <><Txt kind="label">{copy.supplierReference}</Txt><Txt selectable style={{ writingDirection: 'ltr' }}>{session.attempt.supplierReference}</Txt></>}
-            {session.attempt.confirmed && session.attempt.voucherDelivery && <Txt>{session.attempt.voucherDelivery === 'sent' ? copy.voucherSent : session.attempt.voucherDelivery === 'review' ? copy.voucherReview : copy.voucherPending}</Txt>}
-            {/* The confirmed booking is saved under the checkout reference; the server checks ownership and confirmation again. */}
-            {session.attempt.confirmed && <VoucherButton booking={{ reference: session.attempt.reference, hotelName: null, roomName: null, checkin: null, checkout: null,
-              recordedStatus: 'active', supplierStatus: 'CONFIRMED', statusKind: 'confirmed', price: null }}/>}
-          </View> : <StatePanel title={copy.checking} body={copy.unknownBody} busy={busy}/>}
-          {session.error && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.statusError}</Txt>}
-          {session.attempt?.status === 'awaiting_payment' && creationEnabled && <Button title={copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}
-          {actionError === 'payment' && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.paymentLinkError}</Txt>}
-          <Button title={copy.refresh} busy={busy} variant="secondary" disabled={opening} onPress={() => void (session.attempt ? session.refreshStatus() : session.recover())}/>
-          <Button title={copy.support} variant="quiet" onPress={props.onSupport}/>
-          {session.canClearCompleted && <Button title={copy.clear} variant="secondary" disabled={opening || busy} onPress={() => void perform('clear',props.onClearCompleted)}/>}
-          {actionError === 'clear' && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.clearError}</Txt>}
-        </> : !selected || !offer ? <><StatePanel title={copy.missing} body={copy.missingBody}/><Button title={copy.fresh} onPress={props.onFreshOffer}/></> : <>
-          <View style={[ui.card, { padding: 16, gap: 9 }]}>
-            <Txt kind="heading" accessibilityRole="header">{selected.review.hotelName}</Txt><Txt>{localizedRoomName(offer.name, language)}</Txt>{localizedRoomName(offer.name, language) !== offer.name && <Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt>}
-            <MealBadge offer={offer}/>
-            <Txt kind="small" style={{ writingDirection: 'ltr' }}>{selected.review.criteria.checkin} → {selected.review.criteria.checkout}</Txt>
-            <Txt kind="small">{selected.review.criteria.guests.map((room,i)=>`${copy.room(i+1)}: ${room.adults + room.children.length}`).join(' · ')}</Txt>
-            <Txt kind="label">{copy.offer}</Txt><MoneyText large money={charge(offer.price)}/>
-            {session.quote && <><View style={ui.rule}/><Txt kind="label" style={{ color: colors.blueStrong }}>{copy.charge}</Txt><MoneyText large money={{ amount: session.quote.amount, currency: session.quote.currency }}/><Txt kind="small">{copy.sameCurrency}</Txt></>}
-            <Txt kind="small">{copy.notReserved}</Txt>
-            <View style={ui.rule}/>
-            <Taxes taxes={offer.taxes}/>
-          </View>
-          {!creationEnabled && <View style={[ui.card, { backgroundColor: colors.softGold }]}><Txt kind="heading" accessibilityRole="header">{copy.gateOff}</Txt><Txt>{copy.gateOffBody}</Txt></View>}
-          {!signedIn ? <><StatePanel title={copy.signIn} body={copy.signInBody}/><Button title={copy.signIn} variant="secondary" onPress={props.onSignIn}/></> : <>
-            {session.availability && !session.availability.enabled && <View style={{ gap: 8 }}><Txt kind="label">{copy.unavailable}</Txt><Txt kind="small">{copy.unavailableBody}</Txt></View>}
-            {session.availability?.enabled && session.availability.mode === 'sandbox' && <Txt kind="caption">{copy.sandbox}</Txt>}
-            {!session.quote && !session.error && session.availability?.enabled !== false && <StatePanel busy title={copy.quoteBusy}/>}
-            {session.error && <View style={{ gap: 8 }}><Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.quoteError}</Txt>
-              <Button title={language === 'ar' ? 'أعد المحاولة' : 'Try again'} variant="secondary" busy={busy} disabled={opening}
-                onPress={() => void (session.availability?.enabled ? session.requestQuote() : session.loadAvailability())}/></View>}
+      {showForm && selected && offer && session.quote ? <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
+        draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
+        occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit} submitting={session.phase === 'submitting'}
+        residency={selected.review.criteria.residency} onNationalityChange={props.onNationalityChange}
+        onChooseRoomForNationality={props.onChooseRoomForNationality} nationalityCheck={props.nationalityCheck} note={sandbox}
+        header={<>{title}<CheckoutSummary selection={selected} offer={offer} amount={amount} showAmount={false}/></>} footer={fresh}
+        onSubmit={(data,consent)=>{ submitted.current = true; return session.submit(data,consent); }} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>
+        : <ScrollView {...scrollBehaviour} contentContainerStyle={[ui.page, styles.page]}>
+          {title}
+          {existing ? <>
+            {session.phase === 'unknown' && <StatePanel icon="hourglass" tone="warning" title={copy.unknown} body={copy.unknownBody}/>}
+            {session.attempt ? <Card style={styles.card} accessibilityLiveRegion="polite">
+              {session.error && <Badge tone="warning" icon="history" label={copy.lastKnown}/>}
+              <CheckoutProgress status={session.attempt.status}/>
+              <View style={{ gap: space.xxs }}>
+                <Txt kind="subheading" accessibilityRole="header">{checkoutStatusCopy(language,session.attempt.status)[0]}</Txt>
+                <Txt kind="small" tone="primary">{checkoutStatusCopy(language,session.attempt.status)[1]}</Txt>
+              </View>
+              <Divider/>
+              <Row style={{ justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap' }}>
+                <Txt kind="caption">{copy.reference}</Txt><Txt kind="label" selectable style={{ writingDirection: 'ltr' }}>{session.attempt.reference}</Txt>
+              </Row>
+              {session.attempt.confirmed && session.attempt.supplierReference && <Row style={{ justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap' }}>
+                <Txt kind="caption">{copy.supplierReference}</Txt><Txt kind="label" selectable style={{ writingDirection: 'ltr' }}>{session.attempt.supplierReference}</Txt></Row>}
+              {session.attempt.confirmed && session.attempt.voucherDelivery && <Txt kind="small" tone="primary">{session.attempt.voucherDelivery === 'sent' ? copy.voucherSent : session.attempt.voucherDelivery === 'review' ? copy.voucherReview : copy.voucherPending}</Txt>}
+              {/* The confirmed booking is saved under the checkout reference; the server checks ownership and confirmation again. */}
+              {session.attempt.confirmed && <VoucherButton booking={{ reference: session.attempt.reference, hotelName: null, roomName: null, checkin: null, checkout: null,
+                recordedStatus: 'active', supplierStatus: 'CONFIRMED', statusKind: 'confirmed', price: null }}/>}
+            </Card> : <StatePanel title={copy.checking} body={copy.unknownBody} busy={busy}/>}
+            {session.error && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.statusError}</Txt>}
+            {session.attempt?.status === 'awaiting_payment' && creationEnabled && <Button title={copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}
+            {actionError === 'payment' && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.paymentLinkError}</Txt>}
+            <Button title={copy.refresh} busy={busy} variant="secondary" disabled={opening} onPress={() => void (session.attempt ? session.refreshStatus() : session.recover())}/>
+            {session.canClearCompleted && <Button title={copy.clear} variant="secondary" disabled={opening || busy} onPress={() => void perform('clear',props.onClearCompleted)}/>}
+            {actionError === 'clear' && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.clearError}</Txt>}
+            <Button compact title={copy.support} variant="quiet" onPress={props.onSupport}/>
+            <Txt kind="caption">{copy.recoveryBody}</Txt>
+          </> : !selected || !offer ? <><StatePanel title={copy.missing} body={copy.missingBody}/><Button title={copy.fresh} onPress={props.onFreshOffer}/></> : <>
+            <CheckoutSummary selection={selected} offer={offer} amount={amount}/>
+            {!creationEnabled && <Notice tone="info" title={copy.gateOff} body={copy.websiteBody}>
+              {actionError === 'website' && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.websiteError}</Txt>}
+              <Button title={copy.website} busy={opening} disabled={busy || signedIn && !session.recoveryChecked} onPress={() => void perform('website',props.onWebsite)}/>
+            </Notice>}
+            {!signedIn ? <><StatePanel title={copy.signIn} body={copy.signInBody}/><Button title={copy.signIn} variant="secondary" onPress={props.onSignIn}/></>
+              : creationEnabled && <>
+                {session.availability && !session.availability.enabled && <Notice tone="warning" title={copy.unavailable} body={copy.unavailableBody}/>}
+                {!session.quote && !session.error && session.availability?.enabled !== false && <StatePanel busy title={copy.quoteBusy}/>}
+                {session.error && <Notice tone="danger" live title={copy.quoteError}
+                  action={{ label: ar ? 'أعد المحاولة' : 'Try again', busy, onPress: () => void (session.availability?.enabled ? session.requestQuote() : session.loadAvailability()) }}/>}
+              </>}
+            {fresh}
           </>}
-          {creationEnabled && session.canCollectTravelers && session.quote && <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
-            draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
-            occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit}
-            residency={selected.review.criteria.residency} onNationalityChange={props.onNationalityChange}
-            onChooseRoomForNationality={props.onChooseRoomForNationality} nationalityCheck={props.nationalityCheck}
-            onSubmit={(data,consent)=>{ submitted.current = true; return session.submit(data,consent); }} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>}
-          <View style={ui.card}><Cancellation offer={offer}/></View>
-          {/* In-app checkout keeps the whole booking in the app; the website is only the fallback when it is off. */}
-          {!creationEnabled && <View style={[ui.card, { backgroundColor: colors.softBlue }]}><Txt kind="heading" accessibilityRole="header">{copy.website}</Txt><Txt>{copy.websiteBody}</Txt>
-            {actionError === 'website' && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.websiteError}</Txt>}
-            <Button title={copy.website} busy={opening} disabled={busy || signedIn && !session.recoveryChecked} onPress={() => void perform('website',props.onWebsite)}/>
-          </View>}
-          <Button title={copy.fresh} variant="quiet" disabled={busy || opening} onPress={props.onFreshOffer}/>
-        </>}
-      </ScrollView>
+        </ScrollView>}
     </KeyboardAvoidingView>
   </SafeAreaView>;
 }
 
-export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, onPrivacy, onTerms, draftKey, onDirty, residency, onNationalityChange, onChooseRoomForNationality, nationalityCheck }: {
-  occupancy: GuestRoom[]; quote: CheckoutQuoteView; canSubmit: boolean; draftKey?: string; onDirty?: (dirty: boolean) => void;
+/*
+ * One page: lead guest, nationality, other travelers, optional requests and the
+ * acknowledgement, with the amount and "Confirm and pay" fixed at the bottom. Pressing it
+ * checks every field; the first problem is scrolled into view. No separate review step.
+ */
+export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting = false, onSubmit, onPrivacy, onTerms, draftKey, onDirty, residency, onNationalityChange, onChooseRoomForNationality, nationalityCheck, header, footer, note }: {
+  occupancy: GuestRoom[]; quote: CheckoutQuoteView; canSubmit: boolean; submitting?: boolean; draftKey?: string; onDirty?: (dirty: boolean) => void;
   residency?: string; onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
   onChooseRoomForNationality?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void; nationalityCheck?: NationalityCheck | null;
   onSubmit: (data: CheckoutGuestData, consent: boolean) => Promise<void>; onPrivacy: () => void; onTerms: () => void;
+  header?: React.ReactNode; footer?: React.ReactNode; note?: string;
 }) {
   const { language, t } = useLanguage(), copy = checkoutCopy(language), ar = language === 'ar';
+  const { narrow, fontScale } = useLayout();
   const [draft,storeDraft] = useState(() => (draftKey && travelerDrafts.get(draftKey)) || takeCarriedTraveler(occupancy) || createTravelerDraft(occupancy));
   useEffect(() => { if (draftKey && travelerDrafts.has(draftKey)) onDirty?.(true); }, [draftKey, onDirty]);
   // Required: the guest chooses it here. It starts empty so it is never assumed.
   const [nationality,setNationality] = useState(() => residency && chosenNationality.get('latest') === residency ? residency : '');
   const [nationalityMissing,setNationalityMissing] = useState(false);
   const [picker,showPicker] = useState(false);
+  const [requestsOpen,setRequestsOpen] = useState(() => Boolean(draft?.guest.specialRequests));
+  const scroller = useRef<React.ComponentRef<typeof ScrollView>>(null);
+  const formTop = useRef(0), consentTop = useRef(0);
   const checking = nationalityCheck?.status === 'checking';
   const repricing = Boolean(residency && nationality && nationality !== residency);
-  const money = (value?: Money | null) => value ? `${value.currency} ${value.amount}` : '';
+  const money = (value?: Money | null) => formatPrice(value) || '';
   const setDraft = (next: NonNullable<typeof draft>) => { storeDraft(next); if (draftKey) travelerDrafts.set(draftKey, next); carriedTraveler.set('latest', { occupancy: JSON.stringify(occupancy), draft: next }); onDirty?.(true); };
   const [errors,setErrors] = useState<Record<string,TravelerError>>({});
-  const [step,setStep] = useState<'details'|'review'>('details');
   const [consent,setConsent] = useState({ quote, accepted: false });
+  const [consentMissing,setConsentMissing] = useState(false);
   const accepted = consent.quote === quote && consent.accepted;
-  if (!draft) return <StatePanel title={copy.invalidOccupancy}/>;
+  if (!draft) return <ScrollView contentContainerStyle={[ui.page, styles.page]}>{header}<StatePanel title={copy.invalidOccupancy}/>{footer}</ScrollView>;
+  const side = !narrow && fontScale <= 1.3;
   const error = (key: string) => { const code=errors[key]; return !code ? undefined : code === 'required' ? copy.errorRequired : code === 'name' ? copy.errorName : code === 'email' ? copy.errorEmail : code === 'phone' ? copy.errorPhone : code === 'requests' ? copy.errorRequests : copy.invalidOccupancy; };
   const contact = (key: keyof typeof draft.guest, value: string) => { setDraft({ ...draft,guest:{...draft.guest,[key]:value} }); setErrors(current=>{const next={...current};delete next[key];return next;}); };
   const traveler = (r: number,p: number,key: 'firstName'|'lastName',value: string) => { setDraft({ ...draft, rooms:draft.rooms.map((room,ri)=>ri===r?{guests:room.guests.map((person,pi)=>pi===p?{...person,[key]:value}:person)}:room) }); setErrors(current=>{const next={...current};delete next[`traveler-${r}-${p}-${key}`];return next;}); };
-  const review = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);const missing=Boolean(residency&&!nationality);setNationalityMissing(missing);if(checked.data&&!missing){Keyboard.dismiss();setConsent({quote,accepted:false});setStep('review');} };
-  const submit = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);if(checked.data&&accepted&&canSubmit)void onSubmit(checked.data,true).then(()=>{if(draftKey)travelerDrafts.delete(draftKey);carriedTraveler.delete('latest');onDirty?.(false);}); };
-  const prepared=step==='review'?validateTravelerDraft(draft,occupancy).data:null;
-  return <View style={[ui.card, { gap: 18 }]}>
-    <Txt kind="heading" accessibilityRole="header">{step==='details'?copy.details:copy.review}</Txt>
-    <Txt kind="small">{step==='details'?copy.detailsBody:copy.formNote}</Txt>
-    {Object.keys(errors).length>0&&<Txt accessibilityRole="alert" style={{color:colors.red}}>{errors.occupancy?copy.invalidOccupancy:copy.fieldsError}</Txt>}
-    {step==='details'?<>
-      <Txt kind="label">{copy.lead}</Txt>
-      <Field label={copy.firstName} value={draft.guest.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="given-name" error={error('firstName')} onChangeText={v=>contact('firstName',v)}/>
-      <Field label={copy.lastName} value={draft.guest.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" error={error('lastName')} onChangeText={v=>contact('lastName',v)}/>
-      <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" error={error('email')} onChangeText={v=>contact('email',v)}/>
-      <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" accessibilityHint={copy.phoneHint} error={error('phone')} onChangeText={v=>contact('phone',v)}/>
-      {residency && <View style={{gap:6}}>
-        <Txt kind="label">{t('residency')}</Txt>
-        <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${nationality ? countryName(nationality, language) : t('residencyChoose')}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
-          style={{minHeight:52,borderWidth:1,borderColor:nationalityMissing?color.danger:repricing?color.warning:colors.border,borderRadius:14,paddingHorizontal:14,justifyContent:'center',backgroundColor:colors.surface}}>
-          <Row style={{justifyContent:'space-between'}}><View style={{flex:1}}>{nationality ? <><Txt kind="label">{countryName(nationality, language)}</Txt><Txt kind="caption">{countryNameSecondary(nationality, language)}</Txt></> : <Txt tone="secondary">{t('residencyChoose')}</Txt>}</View><Icon name="chevronDown" size={18}/></Row>
+  const submit = () => {
+    const checked = validateTravelerDraft(draft, occupancy);
+    setErrors(checked.errors);
+    const missing = Boolean(residency && !nationality);
+    setNationalityMissing(missing);
+    setConsentMissing(!accepted);
+    if (!checked.data || missing) { Keyboard.dismiss(); scroller.current?.scrollTo({ y: Math.max(0, formTop.current - space.sm), animated: true }); return; }
+    if (!accepted) { Keyboard.dismiss(); scroller.current?.scrollTo({ y: Math.max(0, consentTop.current - space.xxl), animated: true }); return; }
+    if (!canSubmit || repricing || checking) return;
+    Keyboard.dismiss();
+    void onSubmit(checked.data, true).then(()=>{ if (draftKey) travelerDrafts.delete(draftKey); carriedTraveler.delete('latest'); onDirty?.(false); });
+  };
+  const pair = (first: React.ReactNode, last: React.ReactNode) => side
+    ? <Row style={{ gap: space.sm, alignItems: 'flex-start' }}><View style={{ flex: 1, minWidth: 0 }}>{first}</View><View style={{ flex: 1, minWidth: 0 }}>{last}</View></Row>
+    : <>{first}{last}</>;
+  const others = draft.rooms.map((room, r) => ({ r, guests: room.guests.map((person, p) => ({ person, p })).filter(({ p }) => !(r === 0 && p === 0)) })).filter(room => room.guests.length > 0);
+  const fieldErrors = Object.keys(errors).length > 0;
+  return <>
+    <ScrollView ref={scroller} {...scrollBehaviour} contentContainerStyle={[ui.page, styles.page]}>
+      {header}
+      <Card testID="checkout-traveler-form" style={styles.card} onLayout={event => { formTop.current = event.nativeEvent.layout.y; }}>
+        <View style={{ gap: 1 }}>
+          <Txt kind="subheading" accessibilityRole="header">{copy.details}</Txt>
+          <Txt kind="caption">{copy.detailsBody}</Txt>
+        </View>
+        {fieldErrors && <Notice tone="danger" live title={errors.occupancy ? copy.invalidOccupancy : copy.fieldsError}/>}
+        {pair(<Field label={copy.firstName} value={draft.guest.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="given-name" error={error('firstName')} onChangeText={v=>contact('firstName',v)}/>,
+          <Field label={copy.lastName} value={draft.guest.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" error={error('lastName')} onChangeText={v=>contact('lastName',v)}/>)}
+        <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" error={error('email')} onChangeText={v=>contact('email',v)}/>
+        <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" placeholder="+971" accessibilityHint={copy.phoneHint} error={error('phone')} onChangeText={v=>contact('phone',v)}/>
+        {residency && <View style={{gap:space.xs}}>
+          <Txt kind="label">{t('residency')}</Txt>
+          <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${nationality ? countryName(nationality, language) : t('residencyChoose')}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
+            style={[styles.select, { borderColor: nationalityMissing ? color.danger : repricing && !checking ? color.warning : color.borderControl }]}>
+            <Row style={{justifyContent:'space-between'}}><View style={{flex:1,minWidth:0}}>{nationality ? <><Txt kind="bodyStrong" numberOfLines={1}>{countryName(nationality, language)}</Txt><Txt kind="caption" numberOfLines={1}>{countryNameSecondary(nationality, language)}</Txt></> : <Txt tone="secondary">{t('residencyChoose')}</Txt>}</View><Icon name="chevronDown" size={18}/></Row>
+          </Pressable>
+          {nationalityMissing ? <Txt kind="small" accessibilityRole="alert" tone="danger">{t('residencyError')}</Txt> : <Txt kind="caption">{t('residencyNote')}</Txt>}
+          {checking && <Row style={{ gap: space.xs }}><ActivityIndicator size="small" color={color.interactive}/>
+            <Txt kind="small" accessibilityLiveRegion="polite">{ar ? `نتحقق من السعر لجنسية ${countryName(nationalityCheck.residency, language)}…` : `Checking the price for ${countryName(nationalityCheck.residency, language)} nationals…`}</Txt></Row>}
+          {!checking && nationalityCheck?.status === 'same' && nationalityCheck.residency === residency && <Row style={{ gap: space.xs }}><Icon name="checkCircle" size={16} color={color.success}/>
+            <Txt kind="small" tone="success">{ar ? 'تم التحقق: السعر نفسه لهذه الجنسية.' : 'Checked: the price is the same for this nationality.'}</Txt></Row>}
+          {!checking && nationalityCheck?.status === 'changed' && nationalityCheck.residency === residency && <Notice tone="warning"
+            title={ar ? 'تغيّر السعر لهذه الجنسية' : 'The price changed for this nationality'}
+            body={ar ? `السعر لجنسية ${countryName(residency, language)}: ${money(nationalityCheck.to)} بدل ${money(nationalityCheck.from)}. المبلغ المعروض للدفع محدّث.` : `Price for ${countryName(residency, language)} nationals: ${money(nationalityCheck.to)} instead of ${money(nationalityCheck.from)}. The payment amount shown is updated.`}/>}
+          {!checking && repricing && nationalityCheck?.residency === nationality && nationalityCheck.status === 'unavailable' && <Notice tone="warning"
+            title={ar ? 'هذه الغرفة غير متاحة لهذه الجنسية' : 'This room is not offered for this nationality'}
+            body={ar ? 'اختر غرفة أخرى بالأسعار المتاحة لهذه الجنسية؛ ستبقى البيانات التي كتبتها.' : 'Choose another room at the prices for this nationality; your details are kept.'}
+            action={{ label: ar ? 'اختر غرفة' : 'Choose a room', onPress: () => onChooseRoomForNationality?.(nationality, draft, occupancy) }}/>}
+          {!checking && repricing && nationalityCheck?.residency === nationality && nationalityCheck.status === 'error' && <Notice tone="danger"
+            title={ar ? 'تعذّر التحقق من السعر لهذه الجنسية' : 'Could not check the price for this nationality'}
+            action={{ label: ar ? 'أعد المحاولة' : 'Try again', onPress: () => onNationalityChange?.(nationality, draft, occupancy) }}/>}
+          <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);setNationalityMissing(false);onDirty?.(true);if(residency&&code!==residency)onNationalityChange?.(code,draft,occupancy);}}/>
+        </View>}
+        {others.map(({ r, guests }) => <View key={r} style={styles.group}>
+          <Txt kind="label" accessibilityRole="header">{draft.rooms.length > 1 ? copy.room(r + 1) : copy.otherTravelers}</Txt>
+          {guests.map(({ person, p }) => <View key={p} style={{ gap: space.xs }}>
+            <Txt kind="small" tone="primary" style={{ fontFamily: fonts.medium }}>{copy.traveler(p+1,person.is_child,person.age)}</Txt>
+            {pair(<Field label={copy.firstName} a11yLabel={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>,
+              <Field label={copy.lastName} a11yLabel={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>)}
+          </View>)}
+        </View>)}
+        <View style={styles.group}>
+          {requestsOpen ? <>
+            <Field label={copy.requests} value={draft.guest.specialRequests} multiline numberOfLines={3} maxLength={1000} style={{minHeight:88,textAlignVertical:'top'}} accessibilityHint={copy.requestsHint} error={error('specialRequests')} onChangeText={v=>contact('specialRequests',v)}/>
+            <Txt kind="caption">{copy.requestsHint}</Txt>
+          </> : <TextLink testID="checkout-add-requests" icon="plus" title={copy.addRequests} onPress={() => setRequestsOpen(true)}/>}
+        </View>
+      </Card>
+      <View onLayout={event => { consentTop.current = event.nativeEvent.layout.y; }} style={{ gap: space.xs }}>
+        <Pressable testID="checkout-consent" accessibilityRole="checkbox" aria-checked={accepted} accessibilityState={{checked:accepted}}
+          onPress={()=>{ setConsent({quote,accepted:!accepted}); setConsentMissing(false); }}
+          style={[styles.consent, consentMissing && !accepted && { borderColor: color.danger }]}>
+          <Row style={{alignItems:'flex-start', gap: space.sm}}>
+            <View accessible={false} style={[styles.checkbox, accepted && styles.checkboxOn]}>{accepted && <Icon name="check" size={14} strokeWidth={3} color={color.textOnDark}/>}</View>
+            <Txt kind="small" tone="primary" style={{flex:1}}>{copy.consent}</Txt>
+          </Row>
         </Pressable>
-        {nationalityMissing && <Txt kind="small" accessibilityRole="alert" style={{color:colors.red}}>{t('residencyError')}</Txt>}
-        <Txt kind="small">{t('residencyNote')}</Txt>
-        {checking && <StatePanel busy title={ar ? `نتحقق من السعر لجنسية ${countryName(nationalityCheck.residency, language)}…` : `Checking the price for ${countryName(nationalityCheck.residency, language)} nationals…`}/>}
-        {!checking && nationalityCheck?.status === 'same' && nationalityCheck.residency === residency && <Txt kind="small" tone="success">{ar ? 'تم التحقق: السعر نفسه لهذه الجنسية.' : 'Checked: the price is the same for this nationality.'}</Txt>}
-        {!checking && nationalityCheck?.status === 'changed' && nationalityCheck.residency === residency && <Notice tone="warning"
-          title={ar ? 'تغيّر السعر لهذه الجنسية' : 'The price changed for this nationality'}
-          body={ar ? `السعر لجنسية ${countryName(residency, language)}: ${money(nationalityCheck.to)} بدل ${money(nationalityCheck.from)}. المبلغ المعروض للدفع محدّث.` : `Price for ${countryName(residency, language)} nationals: ${money(nationalityCheck.to)} instead of ${money(nationalityCheck.from)}. The payment amount shown is updated.`}/>}
-        {!checking && repricing && nationalityCheck?.residency === nationality && nationalityCheck.status === 'unavailable' && <Notice tone="warning"
-          title={ar ? 'هذه الغرفة غير متاحة لهذه الجنسية' : 'This room is not offered for this nationality'}
-          body={ar ? 'اختر غرفة أخرى بالأسعار المتاحة لهذه الجنسية؛ ستبقى البيانات التي كتبتها.' : 'Choose another room at the prices for this nationality; your details are kept.'}
-          action={{ label: ar ? 'اختر غرفة' : 'Choose a room', onPress: () => onChooseRoomForNationality?.(nationality, draft, occupancy) }}/>}
-        {!checking && repricing && nationalityCheck?.residency === nationality && nationalityCheck.status === 'error' && <Notice tone="danger"
-          title={ar ? 'تعذّر التحقق من السعر لهذه الجنسية' : 'Could not check the price for this nationality'}
-          action={{ label: ar ? 'أعد المحاولة' : 'Try again', onPress: () => onNationalityChange?.(nationality, draft, occupancy) }}/>}
-        <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);setNationalityMissing(false);onDirty?.(true);if(residency&&code!==residency)onNationalityChange?.(code,draft,occupancy);}}/>
-      </View>}
-      {draft.rooms.map((room,r)=><View key={r} style={{gap:14}}><Txt kind="heading">{copy.room(r+1)}</Txt>{room.guests.map((person,p)=><View key={p} style={{gap:10}}><Txt kind="label">{copy.traveler(p+1,person.is_child,person.age)}</Txt>{r===0&&p===0?<Txt kind="small">{copy.leadUsed}</Txt>:<>
-        <Field label={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>
-        <Field label={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>
-      </>}</View>)}</View>)}
-      <Field label={copy.requests} value={draft.guest.specialRequests} multiline numberOfLines={3} maxLength={1000} style={{minHeight:100,textAlignVertical:'top'}} accessibilityHint={copy.requestsHint} error={error('specialRequests')} onChangeText={v=>contact('specialRequests',v)}/>
-      <Txt kind="small">{copy.requestsHint}</Txt><Button title={copy.reviewDetails} disabled={repricing||checking} onPress={review}/>
-    </>:prepared?<>
-      <Txt kind="label">{copy.charge}</Txt><MoneyText large money={{amount:quote.amount,currency:quote.currency}}/>
-      <Txt>{prepared.guest.firstName} {prepared.guest.lastName}</Txt>{residency && <Txt>{t('residency')}: {countryName(residency, language)} · {countryNameSecondary(residency, language)}</Txt>}<Txt style={{writingDirection:'ltr'}}>{prepared.guest.email}</Txt><Txt style={{writingDirection:'ltr'}}>{prepared.guest.phone}</Txt>
-      {prepared.rooms.map((room,r)=><View key={r} style={{gap:6}}><Txt kind="label">{copy.room(r+1)}</Txt>{room.guests.map((p,i)=><Txt key={i}>{copy.traveler(i+1,p.is_child,p.age)}: {p.firstName} {p.lastName}</Txt>)}</View>)}
-      {prepared.guest.specialRequests&&<Txt>{copy.requests}: {prepared.guest.specialRequests}</Txt>}
-      <Button title={copy.edit} variant="quiet" onPress={()=>{setConsent({quote,accepted:false});setStep('details');}}/>
-      <Pressable accessibilityRole="checkbox" aria-checked={accepted} accessibilityState={{checked:accepted}} onPress={()=>setConsent({quote,accepted:!accepted})} style={{minHeight:48,borderWidth:1,borderColor:accepted?colors.blueStrong:colors.border,borderRadius:14,padding:14,backgroundColor:accepted?colors.softBlue:colors.background}}>
-        <Row style={{alignItems:'flex-start'}}><View accessible={false} style={{width:22,height:22,borderRadius:5,borderWidth:2,borderColor:colors.blueStrong,backgroundColor:accepted?colors.blueStrong:colors.surface,marginTop:2}}/><Txt style={{flex:1,fontFamily:fonts.medium}}>{copy.consent}</Txt></Row>
-      </Pressable>
-      {!accepted&&<Txt kind="small">{copy.consentRequired}</Txt>}
-      <Row style={{flexWrap:'wrap'}}><Button compact title={copy.privacy} variant="quiet" onPress={onPrivacy}/><Button compact title={copy.terms} variant="quiet" onPress={onTerms}/></Row>
-      <Button title={copy.create} disabled={!accepted||!canSubmit} onPress={submit}/>
-    </>:null}
-  </View>;
+        {consentMissing && !accepted && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.consentRequired}</Txt>}
+        <Row style={{flexWrap:'wrap', gap: space.lg}}><TextLink title={copy.privacy} onPress={onPrivacy}/><TextLink title={copy.terms} onPress={onTerms}/></Row>
+      </View>
+      {footer}
+    </ScrollView>
+    <ActionBar testID="checkout-pay-bar" caption={copy.charge} amount={formatPrice({ amount: quote.amount, currency: quote.currency })} amountTestID="checkout-pay-amount" note={note}>
+      <Button testID="checkout-pay" icon="lock" title={copy.create} busy={submitting} disabled={!canSubmit || repricing || checking} onPress={submit}/>
+    </ActionBar>
+  </>;
 }
 
 type StageState = 'done' | 'active' | 'failed' | 'waiting';
@@ -367,3 +464,13 @@ export function CheckoutProgress({ status }: { status: CheckoutStatus }) {
     </View>)}
   </Row>;
 }
+
+const styles = StyleSheet.create({
+  page: { gap: space.md, paddingTop: space.md },
+  card: { gap: space.md, padding: space.md, borderRadius: radius.lg },
+  select: { minHeight: 52, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: space.md, justifyContent: 'center', backgroundColor: color.bgSurface },
+  group: { gap: space.sm, paddingTop: space.md, borderTopWidth: 1, borderTopColor: color.border },
+  consent: { borderWidth: 1, borderColor: color.border, borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSurface },
+  checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: color.interactiveStrong, backgroundColor: color.bgSurface, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
+  checkboxOn: { backgroundColor: color.interactiveStrong },
+});

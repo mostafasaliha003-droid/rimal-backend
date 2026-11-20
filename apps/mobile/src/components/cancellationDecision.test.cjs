@@ -15,13 +15,13 @@ test('a free period followed by a fee leads with the local deadline and states t
     { startAt: null, endAt: '2026-12-10T20:00:00Z', amount: '0.00', currency: 'USD' },
     { startAt: '2026-12-10T20:00:00Z', endAt: null, amount: '404.64', currency: 'USD' }] });
   assert.equal(decision.kind, 'free');
-  assert.match(decision.headline, /^Free cancellation until Fri, 11 Dec 2026, 00:00 your time \(UTC\+04:00\)$/);
+  assert.match(decision.headline, /^Free cancellation until 11 Dec( 2026)?, 00:00 your time$/, 'one line: no weekday, no year this year, a short time-zone label');
   assert.equal(decision.freeUntil, decision.headline.replace('Free cancellation until ', ''));
   assert.equal(decision.detail, 'After that, cancelling costs USD 404.64.');
   const ar = decide({ freeUntil: '2026-12-10T20:00:00Z', policies: [
     { startAt: null, endAt: '2026-12-10T20:00:00Z', amount: '0.00', currency: 'USD' },
     { startAt: '2026-12-10T20:00:00Z', endAt: null, amount: '404.64', currency: 'USD' }] }, 'ar');
-  assert.match(ar.headline, /^إلغاء مجاني حتى .*11.*00:00 بتوقيت جهازك \(UTC\+04:00\)$/);
+  assert.match(ar.headline, /^إلغاء مجاني حتى .*11.*00:00 بتوقيتك$/);
   assert.doesNotMatch(ar.headline, /[٠-٩]/, 'Arabic uses the same Western digits as prices');
 });
 

@@ -10,7 +10,7 @@ import { Badge, Icon, Photo, Row, Txt } from './Primitives';
 import { priceInCurrency, stayNights } from './resultsDecisionModel';
 import { useChargeMoney } from './ChargeCurrency';
 import { resultsCopy } from './resultsCopy';
-import { formatMoney, stayLine } from './format';
+import { formatPrice, stayLine, stayWords } from './format';
 import { useLayout, useReducedMotion } from './motion';
 import { useToast } from './Toast';
 
@@ -35,7 +35,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
   const toast = useToast();
   const reduced = useReducedMotion();
   const { wide, width } = useLayout();
-  const thumbWidth = wide ? 184 : width < 360 ? 104 : 120;
+  const thumbWidth = wide ? 184 : width < 360 ? 104 : 116;
   const selected = saved.includes(hotel.hid), compared = comparisonItems.some(item => item.hid === hotel.hid);
   const [feedback, setFeedback] = useState<{ context: string; code: 'limit' | 'context_changed' | 'unavailable' } | null>(null);
   const [failedPhotos, setFailedPhotos] = useState<ReadonlySet<string>>(() => new Set());
@@ -58,14 +58,16 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
     toast(adding ? { message: ar ? `حُفظ ${hotel.name} في المفضلة` : `${hotel.name} saved`, icon: 'saved', action: { label: ar ? 'عرض المفضلة' : 'View saved', onPress: () => router.navigate('/saved') } }
       : { message: ar ? 'أُزيل من المفضلة' : 'Removed from saved', icon: 'info', action: { label: ar ? 'تراجع' : 'Undo', onPress: () => toggleSaved(hotel.hid) } });
   };
-  const priceText = formatMoney(charge(price));
+  const priceText = formatPrice(charge(price));
+  // The stay (dates, guests, rooms) is stated once above the list; the card says what its total covers.
+  const covers = nights ? (ar ? `الإجمالي لـ ${stayWords(language, { genitive: true }).nights(nights)}` : `Total for ${stayWords(language).nights(nights)}`) : (ar ? 'الإجمالي' : 'Total');
   const onPhotoError = (uri: string) => setFailedPhotos(previous => new Set(previous).add(uri));
   const notice = feedback?.context === comparisonContextKey && <Txt accessibilityRole="alert" kind="small" style={styles.notice}>
     {feedback.code === 'limit' ? L.compareLimit : feedback.code === 'context_changed' ? L.compareChanged : L.compareUnavailable}</Txt>;
 
   const heart = <Animated.View style={{ transform: [{ scale: pop }] }}>
     <Pressable accessibilityRole="button" accessibilityLabel={`${t(selected ? 'removeSaved' : 'saveStay')}: ${hotel.name}`} aria-pressed={selected}
-      accessibilityState={{ selected, disabled: !savedReady }} disabled={!savedReady} onPress={save} testID={`hotel-save-${hotel.hid}`}
+      accessibilityState={{ selected, disabled: !savedReady }} disabled={!savedReady} onPress={save} hitSlop={4} testID={`hotel-save-${hotel.hid}`}
       style={state => [styles.heart, elevation.card, (state.pressed || hovered(state)) && { backgroundColor: color.bgSelected }]}>
       <Icon name="saved" size={20} filled={selected} color={selected ? color.danger : color.textBrand}/>
     </Pressable>
@@ -83,8 +85,8 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
 
   const priceBlock = <View testID={`hotel-price-${hotel.hid}`} style={[styles.price, { alignItems: rtl ? 'flex-start' : 'flex-end' }]}>
     {priceText ? <>
-      <Txt kind="caption" align="end">{ar ? 'الإجمالي' : 'Total'} · {stay}</Txt>
-      <Txt kind="price" align="end" style={styles.amount}>{priceText}</Txt>
+      <Txt kind="price" align="end" accessibilityLabel={`${priceText} · ${ar ? 'الإجمالي' : 'Total'} · ${stay}`} style={styles.amount}>{priceText}</Txt>
+      <Txt kind="caption" align="end">{covers}</Txt>
     </> : <>
       <Txt kind="caption" align="end">{stay}</Txt>
       <Txt kind="small" align="end">{ar ? 'لا يتوفر سعر لهذه التواريخ' : 'No price for these dates'}</Txt>
@@ -96,7 +98,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
       <StarRating stars={hotel.stars} size={13}/>
       {recentlyViewed && <Badge tone="info" icon="history" label={ar ? 'شاهدته مؤخراً' : 'Recently viewed'}/>}
     </Row>
-    <Txt kind="subheading" numberOfLines={2} accessibilityRole="header">{hotel.name}</Txt>
+    <Txt kind="subheading" numberOfLines={2} accessibilityRole="header" style={{ fontSize: 16 }}>{hotel.name}</Txt>
     {!!hotel.address && <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
       <View style={{ paddingTop: 2 }}><Icon name="pin" size={14} color={color.textSecondary}/></View>
       <Txt kind="caption" numberOfLines={1} style={{ flex: 1 }}>{hotel.address}</Txt></Row>}
@@ -139,17 +141,17 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.border },
   viewed: { borderColor: color.infoBorder, borderWidth: 1.5 },
   pressed: { backgroundColor: color.bgMuted },
-  details: { paddingHorizontal: space.md, paddingVertical: space.md, gap: space.xs },
-  thumb: { minHeight: 168, backgroundColor: color.photoPlaceholder },
+  details: { paddingHorizontal: space.md, paddingVertical: space.sm + 2, gap: space.xxs + 1 },
+  thumb: { minHeight: 148, backgroundColor: color.photoPlaceholder },
   thumbOverlay: { position: 'absolute', top: space.sm, bottom: space.sm, justifyContent: 'space-between' },
   overlay: { position: 'absolute', top: space.sm, left: space.sm, right: space.sm, justifyContent: 'space-between' },
-  heart: { width: 40, height: 40, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.95)', margin: 2 },
+  heart: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.95)', margin: 2 },
   compare: { minHeight: 32, minWidth: touch.min, paddingHorizontal: space.sm, borderRadius: radius.pill, justifyContent: 'center',
     backgroundColor: 'rgba(255,255,255,0.95)', borderWidth: 1, borderColor: color.borderControl },
   compared: { backgroundColor: color.bgSelected, borderColor: color.borderSelected },
   box: { width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
   boxChecked: { backgroundColor: color.interactive, borderColor: color.interactive },
-  price: { gap: 0, marginTop: space.xs },
-  amount: { writingDirection: 'ltr' },
+  price: { gap: 0, marginTop: space.xxs },
+  amount: { writingDirection: 'ltr', fontSize: 20, lineHeight: 28 },
   notice: { color: color.danger, paddingHorizontal: space.md, paddingBottom: space.sm },
 });

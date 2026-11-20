@@ -10,7 +10,7 @@ import { color, elevation, layout, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import ApiState from '../components/ApiState';
-import { Button, Card, Chip, Field, Icon, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
+import { ActionBar, Button, Card, Chip, Field, Icon, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
 import HotelGallery from '../components/HotelGallery';
 import HotelAbout from '../components/HotelAbout';
 import RoomOfferPicker from '../components/RoomOfferPicker';
@@ -23,7 +23,7 @@ import { rateCopy } from '../components/roomRateFacts';
 import { roomChoiceCopy } from '../components/roomChoiceCopy';
 import { StarRating } from '../components/HotelCard';
 import { StaySummaryBar, useStayEditor } from '../components/StayFields';
-import { formatMoney, nightsBetween, occupancy, stayWords } from '../components/format';
+import { formatPrice, nightsBetween, occupancy, stayWords } from '../components/format';
 import { useLayout, useReducedMotion } from '../components/motion';
 import { useToast } from '../components/Toast';
 import { useChargeMoney } from '../components/ChargeCurrency';
@@ -45,7 +45,7 @@ function RoomGroup({ now, group, criteria, onReview, reviewError, onRefresh, onE
   onRefresh: () => void; onEditSearch: () => void; selected: RoomChoiceEntry[]; onToggle: (entry: RoomChoiceEntry) => void; showCompare: boolean;
   chosenKey: string | null; choose: (key: string) => void;
 }) {
-  const { language, t } = useLanguage(); const short = rateCopy(language);
+  const { language } = useLanguage(); const short = rateCopy(language);
   const ar = language === 'ar';
   const first = group.lowestReviewable || group.entries[0], multiple = group.entries.length > 1;
   const active = group.entries.find(entry => entry.key === chosenKey) || first;
@@ -57,23 +57,23 @@ function RoomGroup({ now, group, criteria, onReview, reviewError, onRefresh, onE
   const after = stayWords(language, { genitive: true });
   const nights = nightsBetween(criteria.checkin, criteria.checkout);
   const bedding = group.entries.find(entry => entry.offer.bedding)?.offer.bedding;
-  const stayCaption = `${ar ? 'الإجمالي' : 'Total'} · ${[nights ? words.nights(nights) : '', words.rooms(count.rooms)].filter(Boolean).join(' · ')}`;
-  return <Card padded={false} style={{ overflow: 'hidden', gap: 0 }}>
+  const stayCaption = nights ? (ar ? `الإجمالي لـ ${after.nights(nights)}` : `Total for ${words.nights(nights)}`) : (ar ? 'الإجمالي' : 'Total');
+  const variant = parts?.[2] && !bedding ? parts[2] : null; // otherwise the bed line below states it
+  return <Card padded={false} style={{ overflow: 'hidden', gap: 0, borderRadius: 16 }}>
     <View testID={`room-group-header-${group.entries[0].index + 1}`} style={styles.roomHeader}>
       {active.offer.images.length > 0 && <HotelGallery key={active.key} images={active.offer.images} name={active.offer.name} room/>}
-      <View style={{ gap: space.xs }}>
-        <Txt accessibilityRole="header" accessibilityLabel={shownName} kind="heading">{title}</Txt>
-        {parts?.[2] && <Txt kind="small" tone="primary">{parts[2]}</Txt>}
-        <Row style={{ gap: space.md, flexWrap: 'wrap' }}>
+      <View style={{ gap: space.xxs }}>
+        <Txt accessibilityRole="header" accessibilityLabel={shownName} kind="subheading">{title}</Txt>
+        {variant && <Txt kind="small" tone="primary">{variant}</Txt>}
+        <Row style={{ gap: space.md, flexWrap: 'wrap', rowGap: space.xxs }}>
           {bedding && <Row style={{ gap: space.xs }}><Icon name="bed" size={16} color={color.textSecondary}/><Txt kind="small" tone="primary">{bedding}</Txt></Row>}
           <Row style={{ gap: space.xs }}><Icon name="users" size={16} color={color.textSecondary}/>
-            <Txt kind="small" tone="primary">{ar ? `السعر لـ ${after.guests(count.guests)} في ${after.rooms(count.rooms)}` : `Priced for ${words.guests(count.guests)} in ${words.rooms(count.rooms)}`}</Txt></Row>
+            <Txt kind="small" tone="primary">{ar ? `لـ ${after.guests(count.guests)} في ${after.rooms(count.rooms)}` : `For ${words.guests(count.guests)} in ${words.rooms(count.rooms)}`}</Txt></Row>
         </Row>
-        {!active.offer.images.length && <Txt kind="caption">{t('roomPhotoUnknown')}</Txt>}
         {multiple && <Txt kind="caption">{short.plans(group.entries.length)}{group.freeNowCount ? ` · ${ar ? `${group.freeNowCount} منها بإلغاء مجاني` : `${group.freeNowCount} with free cancellation`}` : ''}</Txt>}
       </View>
     </View>
-    <RoomOfferPicker entries={options} selected={active} preferredKey={group.lowestReviewable?.key} groupName={group.name} stayCaption={stayCaption}
+    <RoomOfferPicker entries={options} selected={active} preferredKey={group.lowestReviewable?.key} groupName={group.name} groupBedding={bedding} stayCaption={stayCaption}
       currency={criteria.currency} now={now} comparison={selected} reviewError={reviewError} showCompare={showCompare}
       onSelect={entry => choose(entry.key)} onToggle={onToggle} onReview={onReview} onRefresh={onRefresh} onEditSearch={onEditSearch}/>
   </Card>;
@@ -140,7 +140,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
   };
   const words = stayWords(language), count = occupancy(criteria.guests), nights = nightsBetween(criteria.checkin, criteria.checkout);
   const stayCaption = [nights ? words.nights(nights) : '', words.rooms(count.rooms), words.guests(count.guests)].filter(Boolean).join(' · ');
-  const lowest = formatMoney(charge(model.fromPrice));
+  const lowest = formatPrice(charge(model.fromPrice));
   const [pulse] = useState(() => new Animated.Value(1));
   useEffect(() => {
     // A brief nudge on the result count when filters change it, unless motion is reduced.
@@ -154,12 +154,12 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
       onScroll={event => { position.current = event.nativeEvent.contentOffset.y; }}
       style={{ flex: 1 }} contentContainerStyle={[styles.page, { paddingHorizontal: gutter, maxWidth: desktop ? 1040 : layout.maxReading + 160 }]}
       keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}>
-      <View style={{ gap: space.lg }} onLayout={({ nativeEvent: { layout: frame } }) => { tabTop.current = frame.y + frame.height + space.md; }}>
+      <View style={{ gap: space.md }} onLayout={({ nativeEvent: { layout: frame } }) => { tabTop.current = frame.y + frame.height + space.md; }}>
         <HotelGallery images={hotel.images} name={hotel.name}/>
         <Row style={{ alignItems: 'flex-start', gap: space.md }}>
           <View style={{ flex: 1, minWidth: 0, gap: space.xs }}>
             <StarRating stars={hotel.stars}/>
-            <Txt accessibilityRole="header" kind="title" testID="hotel-name">{hotel.name}</Txt>
+            <Txt accessibilityRole="header" kind="heading" testID="hotel-name">{hotel.name}</Txt>
             {hotel.address && <Pressable testID="hotel-location-link" accessibilityRole="button" accessibilityHint={ar ? 'يعرض موقع الفندق على الخريطة' : 'Shows the hotel location on the map'}
               onPress={showLocation} style={{ minHeight: 44, justifyContent: 'center' }}>
               <Row style={{ gap: space.xs, alignItems: 'center' }}><Icon name="pin" size={16} color={color.interactiveStrong}/>
@@ -174,7 +174,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
         </Row>
         {savedErrorKind && <Card><Txt accessibilityRole="alert">{t(savedErrorKind === 'load' ? 'savedError' : 'savedSaveFailed')}</Txt>
           <Button variant="quiet" title={t('retry')} onPress={() => void retrySaved()}/></Card>}
-        <StaySummaryBar testID="hotel-stay" criteria={criteria} onEditDates={() => stayEditor.editDates()} onEditGuests={stayEditor.editGuests}/>
+        <StaySummaryBar compact testID="hotel-stay" criteria={criteria} onEditDates={() => stayEditor.editDates()} onEditGuests={stayEditor.editGuests}/>
       </View>
       <View accessibilityRole="tablist" style={styles.tabBar}>
         <Row style={styles.tabs}>
@@ -185,17 +185,17 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
           </Pressable>)}
         </Row>
       </View>
-      {section === 'rooms' ? <View style={{ gap: space.md }}>
+      {section === 'rooms' ? <View style={{ gap: space.sm + 2 }}>
         <Row style={{ gap: space.sm, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Txt accessibilityRole="header" kind="heading" style={{ flex: 1 }}>{copy.roomsTitle}</Txt>
+          <Txt accessibilityRole="header" kind="subheading" style={{ flex: 1 }}>{copy.roomsTitle}</Txt>
           {hotel.offers.length > 0 && <Animated.View style={{ opacity: pulse }}><Txt testID="room-match-count" accessibilityLiveRegion="polite" kind="label" tone="link">{short.plans(model.matchingOffers)}</Txt></Animated.View>}
         </Row>
-        {hotel.offers.length > 0 && <Row style={{ flexWrap: 'wrap', gap: space.sm }}>
-          {freeCount > 0 && <Chip testID="room-free-only" role="checkbox" selected={freeOnly} icon="checkCircle"
+        {hotel.offers.length > 0 && <Row style={{ flexWrap: 'wrap', gap: space.xs }}>
+          {freeCount > 0 && <Chip size="sm" testID="room-free-only" role="checkbox" selected={freeOnly} icon="checkCircle"
             label={ar ? `إلغاء مجاني (${freeCount})` : `Free cancellation (${freeCount})`} accessibilityLabel={copy.freeOnly} onPress={() => setFreeOnly(value => !value)}/>}
           {model.totalGroups > 1 && <RoomTypePicker groups={model.roomTypes} value={roomType} onChange={setRoomType}/>}
           <MealPlanPicker value={meal} options={model.mealOptions} onChange={setMeal}/>
-          <Chip testID="room-filters-toggle" icon="filter" selected={filtersOpen || query.trim() !== '' || sort !== 'original'} label={short.filters} onPress={() => setFiltersOpen(value => !value)}/>
+          <Chip size="sm" testID="room-filters-toggle" icon="filter" selected={filtersOpen || query.trim() !== '' || sort !== 'original'} label={short.filters} onPress={() => setFiltersOpen(value => !value)}/>
         </Row>}
         {hotel.offers.length === 0 ? <StatePanel icon="bed" title={t('noOffers')}
           body={ar ? 'قد تكون الغرف نفدت لهذه التواريخ. جرّب تواريخ أخرى؛ نحتفظ بالضيوف.' : 'Rooms may be sold out for these dates. Try other dates; your guests are kept.'}>
@@ -225,18 +225,12 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
       </View>
       <Pressable accessibilityRole="button" accessibilityLabel={short.clear} onPress={() => setSelected([])} style={styles.clearCompare}><Icon name="close" size={18}/></Pressable>
       {selected.length === 2 && <View testID="compare-rates-open"><Button compact icon="compare" title={short.compareTitle} onPress={() => setComparisonOpen(true)}/></View>}
-    </Row></View> : hotel.offers.length > 0 && <View testID="hotel-price-bar" style={[styles.dock, elevation.raised]}>
-      <Row style={[styles.dockInner, { maxWidth: desktop ? 1040 : layout.maxReading + 160 }]}>
-        <View style={{ flex: 1, minWidth: 0 }}>
-          {lowest ? <>
-            <Txt kind="caption">{ar ? 'ابتداءً من · الإجمالي' : 'From · total'}</Txt>
-            <Txt testID="hotel-from-price" kind="subheading" style={{ writingDirection: 'ltr' }}>{lowest}</Txt>
-            <Txt kind="caption" numberOfLines={1}>{stayCaption}</Txt>
-          </> : <Txt kind="small">{copy.noComparablePrice(criteria.currency)}</Txt>}
-        </View>
-        <Button testID="hotel-choose-room" icon="bed" title={copy.chooseRooms} onPress={chooseRooms}/>
-      </Row>
-    </View>}
+    </Row></View> : hotel.offers.length > 0 && (lowest
+      ? <ActionBar testID="hotel-price-bar" maxWidth={desktop ? 1040 : layout.maxReading + 160} caption={ar ? 'ابتداءً من · الإجمالي' : 'From · total'}
+        amount={lowest} amountTestID="hotel-from-price" note={stayCaption}>
+        <Button testID="hotel-choose-room" icon="bed" title={copy.chooseRooms} onPress={chooseRooms}/></ActionBar>
+      : <ActionBar testID="hotel-price-bar" maxWidth={desktop ? 1040 : layout.maxReading + 160} note={copy.noComparablePrice(criteria.currency)}>
+        <Button testID="hotel-choose-room" icon="bed" title={copy.chooseRooms} onPress={chooseRooms}/></ActionBar>)}
     <RoomComparison visible={comparisonOpen} entries={selected} now={now} currency={criteria.currency} onClose={() => setComparisonOpen(false)} onReview={review}/>
     {stayEditor.element}
   </>;
@@ -281,7 +275,7 @@ const styles = StyleSheet.create({
   tabs: { backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.border, padding: space.xxs, borderRadius: radius.md, gap: space.xxs },
   tab: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', paddingHorizontal: space.sm, borderRadius: radius.sm },
   activeTab: { backgroundColor: color.actionPrimary },
-  roomHeader: { gap: space.md, padding: space.md, backgroundColor: color.bgSurface },
+  roomHeader: { gap: space.sm, padding: space.md, backgroundColor: color.bgSurface },
   clearCompare: { minWidth: 44, minHeight: 44, alignItems: 'center', justifyContent: 'center' },
   dock: { borderTopWidth: 1, borderTopColor: color.border, backgroundColor: color.bgSurface },
   dockInner: { width: '100%', alignSelf: 'center', paddingHorizontal: space.lg, paddingVertical: space.sm, gap: space.md },

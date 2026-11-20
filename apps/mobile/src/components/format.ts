@@ -25,14 +25,22 @@ export function exactAmount(amount: string, currency: string): string | null {
   return fraction ? `${whole}.${fraction}` : whole;
 }
 
-/** "AED 1,234.50", isolated left-to-right so it reads correctly inside Arabic sentences. */
-export function formatMoney(money: Readonly<Money> | null | undefined, options: { isolate?: boolean } = {}): string | null {
+/**
+ * "AED 1,234.50", isolated left-to-right so it reads correctly inside Arabic sentences.
+ * `whole` drops a fraction made only of zeros ("AED 816" for 816.00). It stays exact:
+ * any non-zero supplier digit keeps the full fraction ("AED 1,585.92").
+ */
+export function formatMoney(money: Readonly<Money> | null | undefined, options: { isolate?: boolean; whole?: boolean } = {}): string | null {
   if (!money) return null;
-  const amount = exactAmount(String(money.amount), money.currency);
+  let amount = exactAmount(String(money.amount), money.currency);
   if (amount === null) return null;
+  if (options.whole) amount = amount.replace(/\.0+$/, '');
   const text = `${money.currency} ${amount}`;
   return options.isolate === false ? text : LRI + text + PDI;
 }
+
+/** The display price on the booking screens: exact, without a ".00" tail. */
+export const formatPrice = (money: Readonly<Money> | null | undefined) => formatMoney(money, { whole: true });
 
 function utcDay(value: string) {
   if (!/^\d{4}-\d{2}-\d{2}$/.test(value)) return null;
@@ -47,6 +55,25 @@ export function formatDay(value: string, language: string, options: { weekday?: 
   const year = options.year === 'always' || (options.year !== 'never' && date.getUTCFullYear() !== new Date().getFullYear());
   return new Intl.DateTimeFormat(localeFor(language), { day: 'numeric', month: 'short', calendar: 'gregory', timeZone: 'UTC',
     ...(options.weekday ? { weekday: 'short' as const } : {}), ...(year ? { year: 'numeric' as const } : {}) }).format(date);
+}
+
+/**
+ * A stay as people say it: "21–24 Dec", "28 Dec – 2 Jan", with the year only when it
+ * is not this year. Day-first in both languages, Western digits.
+ */
+export function formatStayRange(checkin: string, checkout: string, language: string, now: Date = new Date()) {
+  const start = utcDay(checkin), end = utcDay(checkout);
+  if (!start || !end) return [checkin, checkout].filter(Boolean).join(' – ');
+  const locale = localeFor(language);
+  const part = (date: Date, options: Intl.DateTimeFormatOptions) =>
+    new Intl.DateTimeFormat(locale, { calendar: 'gregory', timeZone: 'UTC', ...options }).format(date);
+  const year = end.getUTCFullYear() !== now.getFullYear() || start.getUTCFullYear() !== end.getUTCFullYear();
+  const month = (date: Date) => part(date, { month: 'short' });
+  const suffix = year ? ` ${end.getUTCFullYear()}` : '';
+  if (start.getUTCFullYear() === end.getUTCFullYear() && start.getUTCMonth() === end.getUTCMonth())
+    return `${start.getUTCDate()}–${end.getUTCDate()} ${month(end)}${suffix}`;
+  const startYear = start.getUTCFullYear() !== end.getUTCFullYear() ? ` ${start.getUTCFullYear()}` : '';
+  return `${start.getUTCDate()} ${month(start)}${startYear} – ${end.getUTCDate()} ${month(end)}${suffix}`;
 }
 
 export function formatWeekday(value: string, language: string) {

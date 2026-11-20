@@ -82,7 +82,7 @@ test('visible cancellation summary stops at the verified free interval even with
     { startAt: lastEnd, endAt: null, amount: '37.01', currency: 'USD' },
   ] } });
   const summary = roomRateFacts(rate, 'en', Date.parse(firstEnd) - 1).cancellation;
-  assert.ok(summary.includes(deviceClock(firstEnd) + ' your time (UTC'));
+  assert.ok(summary.includes(deviceClock(firstEnd) + ' your time'));
   assert.ok(!summary.includes(deviceClock(lastEnd)) && !summary.includes('37.01'));
   assert.equal(roomRateFacts(rate, 'en', Date.parse(firstEnd)).cancellation, 'Cost to cancel now is unconfirmed');
   assert.equal(roomRateFacts(rate, 'en', Date.parse(lastEnd)).cancellation, 'Cancel now for USD 37.01');
@@ -101,7 +101,7 @@ test('the comparison shows the two future penalties even while both offers allow
   assert.equal(roomRateFacts(a,'en',now).decision.headline, roomRateFacts(b,'en',now).decision.headline);
   for (const [rate,charge] of [[a,'USD 20'],[b,'USD 40']]) {
     const summary = roomRateFacts(rate,'en',now).cancellation;
-    assert.ok(summary.includes(deviceClock(edge) + ' your time (UTC') && summary.includes(charge));
+    assert.ok(summary.includes(deviceClock(edge) + ' your time') && summary.includes(charge));
   }
   assert.equal(roomRateFacts(a,'en',now).fees, roomRateFacts(b,'en',now).fees);
   assert.equal(roomFactKeys(a).price, roomFactKeys(b).price);
@@ -142,7 +142,7 @@ test('a missing or inconsistent policy never advertises a future saving; success
   const contiguous = rate([period(b,null,'3.007'),period(null,a,'0.0'),period(a,b,'00.00')]);
   // Free periods lead with their merged deadline; the later charge follows in the detail.
   const { headline, detail, freeUntil } = roomRateFacts(contiguous, 'en', now).decision;
-  assert.ok(headline.startsWith('Free cancellation until ') && headline.includes(deviceClock(b) + ' your time (UTC'), headline);
+  assert.ok(headline.startsWith('Free cancellation until ') && headline.includes(deviceClock(b) + ' your time'), headline);
   assert.equal(freeUntil, headline.replace('Free cancellation until ', ''));
   assert.ok(detail.includes('USD 3.007') && !detail.includes(deviceClock(a)));
   assert.match(roomRateFacts(contiguous, 'ar', Date.parse(b)).decision.headline, /إذا ألغيت الآن ستدفع USD 3\.007/);

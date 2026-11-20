@@ -5,7 +5,7 @@ import type { GuestRoom, SearchCriteria } from '../types';
 import { useLanguage } from '../i18n';
 import { color, radius, space, touch } from '../theme';
 import { Badge, Icon, Row, Txt } from './Primitives';
-import { formatDay, formatWeekday, guestLine, nightsBetween, stayWords } from './format';
+import { formatDay, formatStayRange, formatWeekday, guestLine, nightsBetween, stayWords } from './format';
 import { useAppState } from './AppState';
 import CalendarPicker from './CalendarPicker';
 import GuestPicker from './GuestPicker';
@@ -59,8 +59,8 @@ export function GuestsField({ guests, onOpen, error = false }: { guests: readonl
  * The stay every price on the screen is quoted for. Each part is a button that edits
  * it in place, so changing dates or guests never costs the traveler their place.
  */
-export function StaySummaryBar({ criteria, onEditDates, onEditGuests, testID = 'stay-summary', stacked: forceStacked }: {
-  criteria: SearchCriteria; onEditDates?: () => void; onEditGuests?: () => void; testID?: string; stacked?: boolean;
+export function StaySummaryBar({ criteria, onEditDates, onEditGuests, testID = 'stay-summary', stacked: forceStacked, compact = false }: {
+  criteria: SearchCriteria; onEditDates?: () => void; onEditGuests?: () => void; testID?: string; stacked?: boolean; compact?: boolean;
 }) {
   const { language } = useLanguage();
   const { wide } = useLayout();
@@ -69,6 +69,7 @@ export function StaySummaryBar({ criteria, onEditDates, onEditGuests, testID = '
   const nights = nightsBetween(criteria.checkin, criteria.checkout);
   const words = stayWords(language);
   const dates = `${formatDay(criteria.checkin, language, { weekday: true })} – ${formatDay(criteria.checkout, language, { weekday: true })}`;
+  if (compact) return <CompactStay testID={testID} criteria={criteria} onEditDates={onEditDates} onEditGuests={onEditGuests}/>;
   const part = (key: 'dates' | 'guests', icon: 'calendar' | 'users', text: string, caption: string, onPress?: () => void) =>
     <Pressable key={key} testID={`${testID}-${key}`} accessibilityRole="button" disabled={!onPress}
       accessibilityHint={onPress ? (ar ? 'اضغط للتعديل دون مغادرة الصفحة' : 'Change without leaving this page') : undefined}
@@ -88,6 +89,32 @@ export function StaySummaryBar({ criteria, onEditDates, onEditGuests, testID = '
     {part('guests', 'users', guestLine(criteria.guests, language), ar ? 'الضيوف والغرف' : 'Guests & rooms', onEditGuests)}
   </>;
   return stacked ? <View testID={testID} style={styles.summary}>{body}</View> : <Row testID={testID} style={styles.summary}>{body}</Row>;
+}
+
+/**
+ * One slim line for the stay ("21–24 Dec · 3 nights | 2 adults · 2 rooms"). Each half is
+ * its own edit button, so dates and guests still change in place without leaving the page.
+ */
+function CompactStay({ criteria, onEditDates, onEditGuests, testID }: { criteria: SearchCriteria; onEditDates?: () => void; onEditGuests?: () => void; testID: string }) {
+  const { language } = useLanguage();
+  const ar = language === 'ar';
+  const nights = nightsBetween(criteria.checkin, criteria.checkout);
+  const words = stayWords(language);
+  const dates = [formatStayRange(criteria.checkin, criteria.checkout, language), nights ? words.nights(nights) : ''].filter(Boolean).join(' · ');
+  const hint = ar ? 'اضغط للتعديل دون مغادرة الصفحة' : 'Change without leaving this page';
+  const part = (key: 'dates' | 'guests', icon: 'calendar' | 'users', text: string, label: string, onPress?: () => void) =>
+    <Pressable key={key} testID={`${testID}-${key}`} accessibilityRole="button" accessibilityLabel={`${label}: ${text}`} accessibilityHint={onPress ? hint : undefined}
+      disabled={!onPress} onPress={onPress} style={state => [styles.compactPart, key === 'dates' ? { flexGrow: 1.15 } : null, (state.pressed || hovered(state)) && onPress ? styles.fieldActive : null]}>
+      <Row style={{ gap: space.xs }}>
+        <Icon name={icon} size={16} color={color.interactiveStrong}/>
+        <Txt kind="label" numberOfLines={1} style={{ flexShrink: 1 }}>{text}</Txt>
+      </Row>
+    </Pressable>;
+  return <Row testID={testID} style={styles.compact}>
+    {part('dates', 'calendar', dates, ar ? 'التواريخ' : 'Dates', onEditDates)}
+    <View style={styles.summaryDivider}/>
+    {part('guests', 'users', guestLine(criteria.guests, language), ar ? 'الضيوف والغرف' : 'Guests & rooms', onEditGuests)}
+  </Row>;
 }
 
 /** Opens the calendar or guest editor over the current screen and applies the change as a new search. */
@@ -116,4 +143,6 @@ const styles = StyleSheet.create({
   summaryPart: { flexGrow: 1, flexBasis: 0, minHeight: touch.comfortable, justifyContent: 'center', paddingHorizontal: space.md, paddingVertical: space.sm },
   summaryDivider: { width: 1, backgroundColor: color.border, marginVertical: space.sm },
   summaryRule: { height: 1, backgroundColor: color.border, marginHorizontal: space.md },
+  compact: { gap: 0, alignItems: 'stretch', backgroundColor: color.bgSurface, borderRadius: radius.md, borderWidth: 1, borderColor: color.border, overflow: 'hidden' },
+  compactPart: { flexGrow: 1, flexBasis: 0, minWidth: 0, minHeight: touch.min, justifyContent: 'center', paddingHorizontal: space.sm },
 });

@@ -2,19 +2,26 @@ import { cancellationMoneyText, parseCancellationTimestamp, type CancellationPre
 import { canonicalDecimal } from './offerReviewModel';
 import type { Money } from '../types';
 
-export function policyTime(raw: string | null, language: string, clock: 'utc' | 'device' = 'utc', options: { weekday?: boolean } = {}) {
+/**
+ * A supplier cancellation time. `compact` is the one-line form for summaries: device time,
+ * no weekday, the year only when it is not this year, and a short "your time" label. The
+ * full schedule keeps the long form with the exact UTC offset.
+ */
+export function policyTime(raw: string | null, language: string, clock: 'utc' | 'device' = 'utc', options: { weekday?: boolean; compact?: boolean; now?: number } = {}) {
   const stamp = parseCancellationTimestamp(raw);
   if (stamp === null) return null;
   const date = new Date(stamp);
   try {
     const ms = date.getUTCMilliseconds();
     const formatted = new Intl.DateTimeFormat(language === 'ar' ? 'ar-AE-u-nu-latn' : language === 'en' ? 'en-GB' : language, {
-      ...(options.weekday ? { weekday: 'short' as const } : {}),
-      day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+      ...(options.weekday && !options.compact ? { weekday: 'short' as const } : {}),
+      day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit', hourCycle: 'h23',
+      ...(!options.compact || date.getFullYear() !== new Date(options.now ?? Date.now()).getFullYear() ? { year: 'numeric' as const } : {}),
       ...(date.getUTCSeconds() || ms ? { second: '2-digit' } : {}), ...(ms ? { fractionalSecondDigits: 3 } : {}),
       calendar: 'gregory', ...(clock === 'utc' ? { timeZone: 'UTC' } : {}),
     }).format(date);
     if (clock === 'utc') return formatted + ' UTC';
+    if (options.compact) return formatted + (language === 'ar' ? ' بتوقيتك' : ' your time');
     // Use the offset at the supplier cutoff, including any future daylight-saving change.
     const minutes = -date.getTimezoneOffset();
     const two = (value: number) => String(value).padStart(2, '0');
@@ -65,7 +72,7 @@ export function cancellationDecision(model: CancellationPresentation, language: 
   }
   while (index >= 0 && periods[index].endAt) {
     const end = periods[index];
-    const at = policyTime(end.endAt, language, 'device', { weekday: true });
+    const at = policyTime(end.endAt, language, 'device', { compact: true });
     if (!at) break;
     const next = periods[index + 1];
     if (!next?.fee || next.startTime !== end.endTime) {

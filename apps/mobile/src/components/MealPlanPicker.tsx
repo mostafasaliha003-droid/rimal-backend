@@ -5,7 +5,7 @@ import { useLanguage } from '../i18n';
 import { colors, fonts } from '../theme';
 import type { MealFacet, MealPlanOption } from './roomChoiceModel';
 import { mealPlanTitle, rateCopy } from './roomRateFacts';
-import { Icon, Row, Txt } from './Primitives';
+import { Chip, Icon, Row, Txt } from './Primitives';
 
 export default function MealPlanPicker({ value, options, onChange }: {
   value: MealFacet; options: MealPlanOption[]; onChange: (value: MealFacet) => void;
@@ -39,12 +39,8 @@ export default function MealPlanPicker({ value, options, onChange }: {
       </Row>}
     </Pressable>);
   return <>
-    <Pressable testID="meal-plan-picker" accessibilityRole="button" accessibilityLabel={`${title} · ${selected}`}
-      accessibilityState={{ expanded: open }} onPress={() => setOpen(true)}
-      style={{ minHeight: 46, flexGrow: 1, flexBasis: 126, borderWidth: 1, borderColor: colors.border, borderRadius: 14,
-        paddingHorizontal: 10, justifyContent: 'center', backgroundColor: colors.softGold }}>
-      <Row style={{ gap: 6 }}><Icon name="meal" size={17} color={colors.goldInk}/><Txt kind="label" style={{ flex: 1 }}>{selected}</Txt><Icon name="chevron" size={14}/></Row>
-    </Pressable>
+    <Chip size="sm" testID="meal-plan-picker" icon="meal" label={selected} accessibilityLabel={title + ' · ' + selected}
+      selected={value.kind !== 'all'} onPress={() => setOpen(true)}/>
     <Modal visible={open} transparent animationType="slide" onRequestClose={() => setOpen(false)}>
       <SafeAreaView edges={['top','bottom']} style={{ flex: 1, justifyContent: 'flex-end', backgroundColor: 'rgba(32,22,38,.40)', direction: 'ltr' }}>
         <View testID="meal-plan-options" accessibilityViewIsModal style={{ maxHeight: height * (fontScale > 1.3 || width < 350 ? .94 : .88), width: '100%', maxWidth: 640, alignSelf: 'center',

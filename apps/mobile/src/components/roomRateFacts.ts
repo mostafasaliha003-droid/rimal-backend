@@ -44,7 +44,7 @@ export function roomRateFacts(offer: RoomOffer, language: string, now: number, d
   const policy = presentCancellation(offer.cancellation, now);
   const taxes = presentTaxes(offer.taxes);
   const amounts = taxes.excludedGroups.map(group => group.subtotal && group.complete
-    ? `${group.currency} ${exactAmount(group.subtotal.amount, group.currency) ?? group.subtotal.amount}` : `${group.currency} · ${copy.unknownTotal}`);
+    ? `${group.currency} ${(exactAmount(group.subtotal.amount, group.currency) ?? group.subtotal.amount).replace(/\.0+$/, '')}` : `${group.currency} · ${copy.unknownTotal}`);
   if (taxes.unassignedExcluded.length) amounts.push(copy.unknownTotal);
   if (amounts.length && taxes.hasUnknown) amounts.push(copy.other);
   const fees = amounts.length ? amounts.join(' + ') : taxes.dataState === 'notSupplied' || taxes.hasUnknown ? copy.feesUnknown : copy.included;
