@@ -8,7 +8,7 @@ import { color, elevation, radius, space, touch } from '../theme';
 import { useAppState } from './AppState';
 import { Badge, Icon, Photo, Row, Txt } from './Primitives';
 import { priceInCurrency, stayNights } from './resultsDecisionModel';
-import StayEstimate from './StayEstimate';
+import { useChargeMoney } from './ChargeCurrency';
 import { resultsCopy } from './resultsCopy';
 import { formatMoney, stayLine } from './format';
 import { useLayout, useReducedMotion } from './motion';
@@ -28,6 +28,7 @@ export function StarRating({ stars, size = 14 }: { stars?: number; size?: number
 export default function HotelCard({ hotel, comparisonDisabled = false, variant = 'list', recentlyViewed = false, onOpen }: {
   hotel: HotelSummary; comparisonDisabled?: boolean; variant?: 'list' | 'photo'; recentlyViewed?: boolean; onOpen?: (hid: number) => void;
 }) {
+  const charge = useChargeMoney();
   const { t, language, rtl } = useLanguage(), L = resultsCopy(language), router = useRouter();
   const ar = language === 'ar';
   const { criteria, saved, savedReady, toggleSaved, comparisonItems, comparisonContextKey, toggleComparison } = useAppState();
@@ -57,7 +58,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
     toast(adding ? { message: ar ? `حُفظ ${hotel.name} في المفضلة` : `${hotel.name} saved`, icon: 'saved', action: { label: ar ? 'عرض المفضلة' : 'View saved', onPress: () => router.navigate('/saved') } }
       : { message: ar ? 'أُزيل من المفضلة' : 'Removed from saved', icon: 'info', action: { label: ar ? 'تراجع' : 'Undo', onPress: () => toggleSaved(hotel.hid) } });
   };
-  const priceText = formatMoney(price);
+  const priceText = formatMoney(charge(price));
   const onPhotoError = (uri: string) => setFailedPhotos(previous => new Set(previous).add(uri));
   const notice = feedback?.context === comparisonContextKey && <Txt accessibilityRole="alert" kind="small" style={styles.notice}>
     {feedback.code === 'limit' ? L.compareLimit : feedback.code === 'context_changed' ? L.compareChanged : L.compareUnavailable}</Txt>;
@@ -84,7 +85,6 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
     {priceText ? <>
       <Txt kind="caption" align="end">{ar ? 'الإجمالي' : 'Total'} · {stay}</Txt>
       <Txt kind="price" align="end" style={styles.amount}>{priceText}</Txt>
-      <StayEstimate money={price}/>
     </> : <>
       <Txt kind="caption" align="end">{stay}</Txt>
       <Txt kind="small" align="end">{ar ? 'لا يتوفر سعر لهذه التواريخ' : 'No price for these dates'}</Txt>

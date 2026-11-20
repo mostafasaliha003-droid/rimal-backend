@@ -10,8 +10,10 @@ import { comparedPlanNames, mealDescription, rateCopy, roomFactKeys, roomRateFac
 import { compareStayPrices } from './offerChangeSummary';
 import { padStayPriceDifference } from './offerChangesCopy';
 import Cancellation from './Cancellation';
-import StayEstimate from './StayEstimate';
+import { useChargeMoney } from './ChargeCurrency';
+import { formatMoney } from './format';
 import Taxes from './Taxes';
+import { localizedRoomName } from './roomNameModel';
 
 interface Props {
   entries: RoomChoiceEntry[]; now: number; currency: string; visible: boolean;
@@ -28,6 +30,7 @@ export default function RoomComparison(props: Props) {
 
 function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
   const { language } = useLanguage();
+  const charge = useChargeMoney();
   const ar = language === 'ar', copy = rateCopy(language), roomCopy = roomChoiceCopy(language);
   const [differentOnly, setDifferentOnly] = useState(false);
   const [detail, setDetail] = useState<'fees' | 'cancellation' | null>(null);
@@ -35,13 +38,13 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
   const stacked = width / Math.max(fontScale, 1) < 305;
   const planLabels = comparedPlanNames(entries, language, now);
   const docked = !stacked && height > 580 && fontScale <= 1.4 && planLabels.every(label => label.length < 48);
-  const facts = entries.map(entry => roomRateFacts(entry.offer, language, now));
+  const facts = entries.map(entry => roomRateFacts(entry.offer, language, now, charge));
   const [aKeys, bKeys] = entries.map(entry => roomFactKeys(entry.offer));
   const keys = fields.filter(key => key !== 'bedding' || entries.some(entry => entry.offer.bedding));
   const visibleKeys = keys.filter(key => !differentOnly || aKeys[key] !== bKeys[key]);
-  const accessibleNames = entries.map((entry,i) => `${planLabels[i]} · ${entry.offer.name}`);
+  const accessibleNames = entries.map((entry,i) => `${planLabels[i]} · ${localizedRoomName(entry.offer.name, language)}`);
   const sameName = entries[0].offer.name === entries[1].offer.name;
-  const price = compareStayPrices(entries[0].offer.price, entries[1].offer.price);
+  const price = compareStayPrices(charge(entries[0].offer.price), charge(entries[1].offer.price));
   let priceNote = '';
   if (price.status === 'unchanged') priceNote = ar ? 'سعر الغرفة متساوٍ في العرضين.' : 'Both offers have the same room price for the stay.';
   if (price.status === 'differentCurrency') priceNote = ar ? 'السعران بعملتين مختلفتين.' : 'The room prices are in different currencies.';
@@ -57,7 +60,7 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
   const labels = <Row style={columns}>{entries.map((entry,i) => <View key={entry.key}
     style={[styles.legend, labelStyle(i), !stacked && styles.flex]}>
     <Txt kind="label">{planLabels[i]}</Txt>
-    {!sameName && <Txt kind="small">{entry.offer.name}</Txt>}
+    {!sameName && <Txt kind="small">{localizedRoomName(entry.offer.name, language)}</Txt>}
   </View>)}</Row>;
   const keepLabels = docked && (sameName || entries.every(entry => entry.offer.name.length < 55));
   const actions = <Row style={{ ...columns, ...styles.actions }}>{entries.map((entry,i) =>
@@ -71,7 +74,7 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
       <View testID="room-comparison" accessibilityViewIsModal style={[styles.sheet, { maxHeight: height * .94 }]}>
         <Row style={styles.header}><View style={styles.flex}>
           <Txt accessibilityRole="header" kind="heading" style={styles.heading}>{copy.compareTitle}</Txt>
-          {sameName && <Txt kind="small" numberOfLines={docked ? 2 : 1} accessibilityLabel={entries[0].offer.name}>{entries[0].offer.name}</Txt>}
+          {sameName && <Txt kind="small" numberOfLines={docked ? 2 : 1} accessibilityLabel={localizedRoomName(entries[0].offer.name, language)}>{localizedRoomName(entries[0].offer.name, language)}</Txt>}
         </View>
           <Pressable accessibilityRole="button" accessibilityLabel={copy.close} onPress={onClose} style={styles.close}><Icon name="close" size={18}/></Pressable>
         </Row>
@@ -90,7 +93,7 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
             <Row style={columns}>{entries.map((entry,i) => {
               const fact = facts[i];
               const value = key === 'meal' && (entries[0].offer.noChildMeal === true) !== (entries[1].offer.noChildMeal === true)
-                ? mealDescription(entry.offer, language, true) : fact[key];
+                ? mealDescription(entry.offer, language, true) : key === 'price' ? formatMoney(charge(entry.offer.price)) || fact.price : fact[key];
               return <View key={entry.key} style={[styles.cell, !stacked && styles.flex]}>
                 {(!keepLabels || stacked) && <Txt kind="small" style={styles.small}>{planLabels[i]}</Txt>}
                 {key === 'cancellation' ? <View accessible accessibilityLabel={`${accessibleNames[i]} · ${copy[key]} · ${value}`} style={{ gap: 4 }}>
@@ -98,7 +101,6 @@ function ComparisonSheet({ entries, now, currency, onClose, onReview }: Props) {
                   {!!fact.decision.detail && <Txt kind="small">{fact.decision.detail}</Txt>}
                 </View> : <Txt accessibilityLabel={`${accessibleNames[i]} · ${copy[key]} · ${value}`} kind={key === 'price' ? 'heading' : 'label'}
                   style={key === 'price' ? [styles.amount, entry.offer.price && { writingDirection: 'ltr' }] : undefined}>{value}</Txt>}
-                {key === 'price' && <StayEstimate money={entry.offer.price}/>}
               </View>;
             })}</Row>
             {key === 'price' && !!priceNote && <View testID="comparison-price-difference" style={styles.priceNote}><Txt kind="small" style={{ color: colors.leafInk }}>{priceNote}</Txt></View>}

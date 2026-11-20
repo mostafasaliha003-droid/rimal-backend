@@ -6,7 +6,7 @@ import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider, useLanguage } from '../i18n';
 import { AuthProvider } from '../auth';
-import { StayEstimateProvider } from '../components/StayEstimate';
+import { ChargeCurrencyProvider } from '../components/ChargeCurrency';
 import { AppStateProvider } from '../components/AppState';
 import { ToastProvider } from '../components/Toast';
 import { useReducedMotion } from '../components/motion';
@@ -50,7 +50,7 @@ export default function RootLayout() {
     ManropeBold: require('../../assets/fonts/Manrope-Bold.ttf'),
   });
   if (!ready && !error) return <View style={{ flex: 1, backgroundColor: color.bgCanvas, justifyContent: 'center' }}><ActivityIndicator color={color.interactive}/></View>;
-  return <SafeAreaProvider><LanguageProvider><AuthProvider><AppStateProvider><StayEstimateProvider><ToastProvider>
+  return <SafeAreaProvider><LanguageProvider><AuthProvider><AppStateProvider><ChargeCurrencyProvider><ToastProvider>
     <StatusBar style="dark"/><Navigator/>
-  </ToastProvider></StayEstimateProvider></AppStateProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;
+  </ToastProvider></ChargeCurrencyProvider></AppStateProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;
 }

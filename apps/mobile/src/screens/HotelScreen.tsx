@@ -26,7 +26,8 @@ import { StaySummaryBar, useStayEditor } from '../components/StayFields';
 import { formatMoney, nightsBetween, occupancy, stayWords } from '../components/format';
 import { useLayout, useReducedMotion } from '../components/motion';
 import { useToast } from '../components/Toast';
-import StayEstimate from '../components/StayEstimate';
+import { useChargeMoney } from '../components/ChargeCurrency';
+import { localizedRoomName } from '../components/roomNameModel';
 
 type Section = 'rooms' | 'about';
 
@@ -49,8 +50,9 @@ function RoomGroup({ now, group, criteria, onReview, reviewError, onRefresh, onE
   const first = group.lowestReviewable || group.entries[0], multiple = group.entries.length > 1;
   const active = group.entries.find(entry => entry.key === chosenKey) || first;
   const options = multiple ? [first, ...group.entries.filter(entry => entry.key !== first.key)] : group.entries;
-  const parts = group.name.match(/^(.+?)\s+\(([^()]+)\)$/);
-  const title = parts?.[1] ?? group.name;
+  const shownName = localizedRoomName(group.name, language);
+  const parts = shownName.match(/^(.+?)\s+\(([^()]+)\)$/);
+  const title = parts?.[1] ?? shownName;
   const words = stayWords(language), count = occupancy(criteria.guests);
   const after = stayWords(language, { genitive: true });
   const nights = nightsBetween(criteria.checkin, criteria.checkout);
@@ -60,7 +62,7 @@ function RoomGroup({ now, group, criteria, onReview, reviewError, onRefresh, onE
     <View testID={`room-group-header-${group.entries[0].index + 1}`} style={styles.roomHeader}>
       {active.offer.images.length > 0 && <HotelGallery key={active.key} images={active.offer.images} name={active.offer.name} room/>}
       <View style={{ gap: space.xs }}>
-        <Txt accessibilityRole="header" accessibilityLabel={group.name} kind="heading">{title}</Txt>
+        <Txt accessibilityRole="header" accessibilityLabel={shownName} kind="heading">{title}</Txt>
         {parts?.[2] && <Txt kind="small" tone="primary">{parts[2]}</Txt>}
         <Row style={{ gap: space.md, flexWrap: 'wrap' }}>
           {bedding && <Row style={{ gap: space.xs }}><Icon name="bed" size={16} color={color.textSecondary}/><Txt kind="small" tone="primary">{bedding}</Txt></Row>}
@@ -78,6 +80,7 @@ function RoomGroup({ now, group, criteria, onReview, reviewError, onRefresh, onE
 }
 
 function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetails; hid: number; criteria: SearchCriteria; onRefresh: () => void }) {
+  const charge = useChargeMoney();
   const { language, t } = useLanguage(); const copy = roomChoiceCopy(language);
   const ar = language === 'ar';
   const { saved, toggleSaved, savedReady, savedErrorKind, retrySaved, setReviewDraft } = useAppState();
@@ -137,7 +140,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
   };
   const words = stayWords(language), count = occupancy(criteria.guests), nights = nightsBetween(criteria.checkin, criteria.checkout);
   const stayCaption = [nights ? words.nights(nights) : '', words.rooms(count.rooms), words.guests(count.guests)].filter(Boolean).join(' · ');
-  const lowest = formatMoney(model.fromPrice);
+  const lowest = formatMoney(charge(model.fromPrice));
   const [pulse] = useState(() => new Animated.Value(1));
   useEffect(() => {
     // A brief nudge on the result count when filters change it, unless motion is reduced.
@@ -229,7 +232,6 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
             <Txt kind="caption">{ar ? 'ابتداءً من · الإجمالي' : 'From · total'}</Txt>
             <Txt testID="hotel-from-price" kind="subheading" style={{ writingDirection: 'ltr' }}>{lowest}</Txt>
             <Txt kind="caption" numberOfLines={1}>{stayCaption}</Txt>
-            <StayEstimate money={model.fromPrice}/>
           </> : <Txt kind="small">{copy.noComparablePrice(criteria.currency)}</Txt>}
         </View>
         <Button testID="hotel-choose-room" icon="bed" title={copy.chooseRooms} onPress={chooseRooms}/>

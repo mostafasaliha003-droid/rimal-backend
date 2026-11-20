@@ -8,6 +8,7 @@ import { cancellationMoneyText, parseCancellationTimestamp, presentCancellation 
 import { cancellationCopy } from './cancellationCopy';
 import { useCancellationClock } from './useCancellationClock';
 import { cancellationDecision, policyTime } from './cancellationDecision';
+import { useChargeMoney } from './ChargeCurrency';
 import { CancellationSummary } from './RateHighlights';
 import CancellationExplorer from './CancellationExplorer';
 
@@ -31,6 +32,7 @@ export default function Cancellation({ offer, now, mode = 'current', defaultExpa
   offer: RoomOffer; now?: number; mode?: 'current' | 'historical'; defaultExpanded?: boolean; explore?: boolean;
 }) {
   const { language } = useLanguage();
+  const display = useChargeMoney();
   const copy = cancellationCopy(language);
   const historical = mode === 'historical';
   const clock = useCancellationClock(historical || now !== undefined ? [] : [offer.cancellation]);
@@ -46,7 +48,7 @@ export default function Cancellation({ offer, now, mode = 'current', defaultExpa
       {historical ? <Txt kind="small">{copy.historicalNote}</Txt> : explore
         ? <CancellationExplorer offer={offer} live={model} now={now ?? clock}/>
         : <View accessibilityLiveRegion="polite" style={{ gap: 5 }}>
-        <CancellationSummary decision={cancellationDecision(model, language, offer.price)}/>
+        <CancellationSummary decision={cancellationDecision(model, language, offer.price, display)}/>
         {model.kind === 'unknown' && model.reason && <Txt kind="small">{copy.reasons[model.reason]}</Txt>}
       </View>}
       {deadline && (historical || model.kind === 'unknown' || expanded) && <Txt kind="small">
@@ -72,7 +74,7 @@ export default function Cancellation({ offer, now, mode = 'current', defaultExpa
           {expanded && ordered.map(period => {
             const start = policyTime(period.startAt, language, clockZone);
             const end = policyTime(period.endAt, language, clockZone);
-            const charge = cancellationMoneyText(period.fee);
+            const charge = cancellationMoneyText(period.fee && display(period.fee));
             const rawAmount = typeof period.amount === 'string' && period.amount.length <= 128 && /^\d+(?:\.\d+)?$/.test(period.amount) ? period.amount : null;
             const currency = typeof period.currency === 'string' && /^[A-Z]{3}$/.test(period.currency) ? period.currency : null;
             const current = !historical && model.kind !== 'unknown' && period.active === true;

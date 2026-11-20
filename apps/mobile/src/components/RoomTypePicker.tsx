@@ -6,6 +6,7 @@ import { colors } from '../theme';
 import { Field, Icon, Photo, Row, Txt } from './Primitives';
 import type { RoomChoiceGroup } from './roomChoiceModel';
 import { rateCopy } from './roomRateFacts';
+import { localizedRoomName } from './roomNameModel';
 
 export type RoomTypeSelection = Pick<RoomChoiceGroup, 'key' | 'name'>;
 
@@ -49,9 +50,9 @@ export default function RoomTypePicker({ groups, value, onChange }: {
               return <Pressable testID={`room-type-${group.entries[0].index + 1}`} accessibilityRole="button" aria-pressed={chosen}
                 accessibilityState={{ selected: chosen }} onPress={() => select(group)} style={[styles.item, chosen && styles.picked]}>
                 <Row style={{ gap: 10 }}>
-                  <View style={styles.thumb}>{image ? <Photo uri={image} alternatives={preview.images} label={group.name} room height={54} thumbnail/> : <Icon name="bed" size={23} color={colors.violetInk}/>}</View>
+                  <View style={styles.thumb}>{image ? <Photo uri={image} alternatives={preview.images} label={localizedRoomName(group.name, language)} room height={54} thumbnail/> : <Icon name="bed" size={23} color={colors.violetInk}/>}</View>
                   <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-                    <Txt kind="label">{group.name}</Txt><Txt kind="small">{rateCopy(language).plans(group.entries.length)}</Txt>
+                    <Txt kind="label">{localizedRoomName(group.name, language)}</Txt><Txt kind="small">{rateCopy(language).plans(group.entries.length)}</Txt>
                     {price && <Txt kind="small" style={{ color: colors.violetInk }}>{(ar ? 'لكل الليالي من ' : 'Full stay from ') + '\u2066' + price.currency + ' ' + price.amount + '\u2069'}</Txt>}
                   </View><Icon name={chosen ? 'check' : 'chevron'} size={16} color={colors.violetInk}/>
                 </Row>

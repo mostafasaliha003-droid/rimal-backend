@@ -1,4 +1,5 @@
-import StayEstimate from './StayEstimate';
+import { useChargeMoney } from './ChargeCurrency';
+import { formatMoney } from './format';
 import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -10,6 +11,7 @@ import HotelGallery from './HotelGallery';
 import { Button, Icon, Row, Txt, DisclosureMark } from './Primitives';
 import { mealPlanTitle, rateCopy, roomRateFacts } from './roomRateFacts';
 import Taxes from './Taxes';
+import { localizedRoomName } from './roomNameModel';
 
 interface OfferTermsProps { offer: RoomOffer; visible: boolean; onClose: () => void; now: number; roomName: string }
 
@@ -23,7 +25,8 @@ function TermsContent({ offer, now, roomName, onClose }: OfferTermsProps) {
   const { height, width, fontScale } = useWindowDimensions();
   const [section, setSection] = useState<'cancellation' | 'fees'>('cancellation');
   const [photosOpen, setPhotosOpen] = useState(false);
-  const facts = roomRateFacts(offer, language, now);
+  const charge = useChargeMoney();
+  const facts = roomRateFacts(offer, language, now, charge);
   const copy = rateCopy(language);
   const closeLabel = rtl ? 'إغلاق شروط العرض' : 'Close rate terms';
   const stacked = width / Math.max(1, fontScale) < 320;
@@ -34,7 +37,7 @@ function TermsContent({ offer, now, roomName, onClose }: OfferTermsProps) {
           <View style={{ flex: 1, minWidth: 0 }}>
             <Txt kind="small">{rtl ? 'شروط العرض' : 'Rate terms'}</Txt>
             <Txt kind="heading" accessibilityRole="header">{mealPlanTitle(offer.meal, language)}</Txt>
-            <Txt kind="small" numberOfLines={2}>{offer.name || roomName}</Txt>
+            <Txt kind="small" numberOfLines={2}>{localizedRoomName(offer.name || roomName, language)}</Txt>
           </View>
           <Pressable testID="offer-terms-close" accessibilityRole="button" accessibilityLabel={closeLabel}
             style={styles.close} onPress={onClose}><Icon name="close" size={20}/></Pressable>
@@ -44,7 +47,7 @@ function TermsContent({ offer, now, roomName, onClose }: OfferTermsProps) {
             <Row style={{ alignItems: 'stretch', gap: 12, ...(stacked && { flexDirection: 'column' }) }}>
               <View style={[styles.priceColumn, stacked && styles.stackedPrice]}>
                 <Txt kind="small" style={styles.priceLabel}>{copy.price}</Txt>
-                <Txt testID="offer-terms-stay-total" kind="heading" style={[styles.amount, offer.price && { writingDirection: 'ltr' }]}>{facts.price}</Txt><StayEstimate money={offer.price}/>
+                <Txt testID="offer-terms-stay-total" kind="heading" style={[styles.amount, offer.price && { writingDirection: 'ltr' }]}>{formatMoney(charge(offer.price)) || facts.price}</Txt>
               </View>
               <View style={[styles.divider, stacked ? { height: 1 } : { width: 1 }]}/>
               <View style={[styles.priceColumn, stacked && styles.stackedPrice]}>

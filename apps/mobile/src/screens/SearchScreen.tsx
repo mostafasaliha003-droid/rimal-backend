@@ -249,11 +249,10 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     <Pressable testID="search-currency" accessibilityRole="button"
       onPress={() => showCurrency(true)} style={state => [styles.currencyControl, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
       <Row style={{ gap: space.sm }}><Icon name="wallet" size={18} color={color.textSecondary}/>
-        <Txt kind="small" style={{ flex: 1 }}>{rtl ? 'عملة الأسعار' : 'Price currency'} · <Txt kind="label">{currencyName(preference.currency, language)} ({preference.currency})</Txt></Txt>
+        <Txt kind="small" style={{ flex: 1 }}>{rtl ? 'عملة الدفع' : 'Payment currency'} · <Txt kind="label">{currencyName(preference.currency, language)} ({preference.currency})</Txt></Txt>
         <Txt kind="caption">{currencySource}</Txt><Icon name="chevron" size={16} color={color.textSecondary}/></Row>
     </Pressable>
     {preference.saveFailed && <Txt kind="small" accessibilityRole="alert">{rtl ? 'تعذّر حفظ العملة على الجهاز. ينطبق اختيارك على هذه الجلسة.' : 'Could not save your currency on this device. It applies for this session.'}</Txt>}
-    {currency !== preference.currency && <Txt kind="caption">{rtl ? `الحجز بالدولار الأمريكي (USD). نعرض تقديراً بـ ${preference.currency} عند توفر سعر صرف حديث.` : `Bookings are charged in USD. We show a ${preference.currency} estimate when a recent exchange rate is available.`}</Txt>}
     <View testID="search-submit">
       <Button size="lg" icon={savedOnly ? 'check' : 'search'} disabled={!preference.ready} onPress={submit}
         hint={nights !== null ? copy.nights(nights) : undefined}

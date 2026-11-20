@@ -6,14 +6,18 @@ import { paymentCurrencyUnits } from '../api/paymentCurrencies';
 // The first active tender listed by CLDR for each region is its automatic default.
 // See currencyData.LICENSE.txt. Older Android ICU versions may lack these names.
 const catalog: Readonly<Record<string, { en: string; ar: string; regions: readonly string[] }>> = data;
-export const DISPLAY_CURRENCIES: readonly string[] = Object.freeze(Object.keys(catalog));
+// Only currencies the payment gateway can charge are offered: the price a guest
+// sees is the price they pay, never a display-only estimate.
+export const DISPLAY_CURRENCIES: readonly string[] = Object.freeze(Object.keys(catalog)
+  .filter(code => Object.hasOwn(paymentCurrencyUnits, code)));
+const payable = new Set(DISPLAY_CURRENCIES);
 const byRegion = new Map<string, string>();
 for (const code of DISPLAY_CURRENCIES) {
   for (const region of catalog[code].regions) byRegion.set(region, code);
 }
 
 export function isDisplayCurrency(code: unknown): code is string {
-  return typeof code === 'string' && Object.hasOwn(catalog, code);
+  return typeof code === 'string' && payable.has(code);
 }
 
 /** Local currency requires an actual country; a language on its own is ambiguous. */
@@ -22,12 +26,14 @@ export function currencyForCountry(country: unknown): string | null {
   return byRegion.get(country.trim().toUpperCase()) ?? null;
 }
 
-/** Keep display-only currencies out of supplier, prebook, and payment requests. */
-export function bookingCurrency(code: unknown, environment: 'staging' | 'production' = 'production'): string {
-  // The staging supplier rejects AED searches. Keep its verified USD rates bookable
-  // and use the selected local currency for dated display estimates.
-  if (environment === 'staging') return 'USD';
-  return isDisplayCurrency(code) && Object.hasOwn(paymentCurrencyUnits, code) ? code : 'USD';
+/** The supplier always prices and invoices in US dollars. */
+export function bookingCurrency(_code?: unknown, _environment?: 'staging' | 'production'): string {
+  return 'USD';
+}
+
+/** The currency the guest pays in; prices are converted with the booking server's rates. */
+export function paymentCurrency(code: unknown): string {
+  return isDisplayCurrency(code) ? code : 'USD';
 }
 
 export function currencyName(code: string, language: string): string {

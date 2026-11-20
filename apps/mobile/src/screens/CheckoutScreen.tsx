@@ -3,7 +3,7 @@ import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View }
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
-import { authSession, bookingWebsiteUrl, websiteUrl } from '../api';
+import { APP_ENV, authSession, bookingWebsiteUrl, websiteUrl } from '../api';
 import { NATIVE_CHECKOUT_ENABLED } from '../api/config';
 import type { CheckoutGuestData, CheckoutStatus } from '../api/checkout';
 import { useAuth } from '../auth';
@@ -18,9 +18,10 @@ import { createTravelerDraft, validateTravelerDraft, type TravelerError } from '
 import { Badge, Button, Field, Icon, MoneyText, Notice, Row, StatePanel, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
-import StayEstimate from '../components/StayEstimate';
+import { useChargeCurrency, useChargeMoney } from '../components/ChargeCurrency';
 import { MealBadge } from '../components/RateHighlights';
 import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
+import { localizedRoomName } from '../components/roomNameModel';
 
 const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'web';
 export type CheckoutController = ReturnType<typeof useCheckoutSession>;
@@ -28,6 +29,7 @@ export type CheckoutController = ReturnType<typeof useCheckoutSession>;
 export default function CheckoutScreen() {
   const state = useAppState(), router = useRouter(), { language } = useLanguage();
   const { status, sessionRevision } = useAuth();
+  const payCurrency = useChargeCurrency().selected;
   const session = useCheckoutSession({ getReview: state.getCheckoutReview, canCreate: nativeCreationPolicy });
   const freshOffer = () => {
     const draft = state.getReviewDraft();
@@ -38,7 +40,7 @@ export default function CheckoutScreen() {
     const current = state.getCheckoutReview();
     const currentAuth = authSession.getSnapshot().status;
     if (!current || currentAuth === 'loading' || currentAuth === 'signedIn' && !session.canOpenWebsite()) return false;
-    try { await WebBrowser.openBrowserAsync(bookingWebsiteUrl(current.review.hid, current.review.criteria, language), { toolbarColor: colors.navy }); return true; }
+    try { await WebBrowser.openBrowserAsync(bookingWebsiteUrl(current.review.hid, current.review.criteria, language, APP_ENV, payCurrency), { toolbarColor: colors.navy }); return true; }
     catch { return false; }
   };
   const openPayment = async () => {
@@ -74,6 +76,7 @@ export interface CheckoutContentsProps {
 // route always supplies the real guarded controller above; no URL/storage flag
 // can enable payment creation or inject this controller into the application.
 export function CheckoutContents(props: CheckoutContentsProps) {
+  const charge = useChargeMoney();
   const { session, signedIn, creationEnabled } = props;
   const { language } = useLanguage(), copy = checkoutCopy(language);
   const selected = props.readSelection();
@@ -115,11 +118,11 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           {actionError === 'clear' && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.clearError}</Txt>}
         </> : !selected || !offer ? <><StatePanel title={copy.missing} body={copy.missingBody}/><Button title={copy.fresh} onPress={props.onFreshOffer}/></> : <>
           <View style={[ui.card, { padding: 16, gap: 9 }]}>
-            <Txt kind="heading" accessibilityRole="header">{selected.review.hotelName}</Txt><Txt>{offer.name}</Txt>
+            <Txt kind="heading" accessibilityRole="header">{selected.review.hotelName}</Txt><Txt>{localizedRoomName(offer.name, language)}</Txt>
             <MealBadge offer={offer}/>
             <Txt kind="small" style={{ writingDirection: 'ltr' }}>{selected.review.criteria.checkin} → {selected.review.criteria.checkout}</Txt>
             <Txt kind="small">{selected.review.criteria.guests.map((room,i)=>`${copy.room(i+1)}: ${room.adults + room.children.length}`).join(' · ')}</Txt>
-            <Txt kind="label">{copy.offer}</Txt><MoneyText large money={offer.price}/><StayEstimate money={offer.price}/>
+            <Txt kind="label">{copy.offer}</Txt><MoneyText large money={charge(offer.price)}/>
             {session.quote && <><View style={ui.rule}/><Txt kind="label" style={{ color: colors.blueStrong }}>{copy.charge}</Txt><MoneyText large money={{ amount: session.quote.amount, currency: session.quote.currency }}/><Txt kind="small">{copy.sameCurrency}</Txt></>}
             <Txt kind="small">{copy.notReserved}</Txt>
             <View style={ui.rule}/>

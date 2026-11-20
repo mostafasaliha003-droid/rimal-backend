@@ -29,7 +29,7 @@ test('a full-stay charge that never changes is named non-refundable', () => {
   const decision = decide({ freeUntil: null, policies: [{ startAt: null, endAt: null, amount: '1213.92', currency: 'USD' }] });
   assert.equal(decision.nonRefundable, true);
   assert.equal(decision.headline, 'Non-refundable');
-  assert.equal(decision.detail, 'Cancelling at any time costs USD 1213.92 (the full stay price).');
+  assert.equal(decision.detail, 'Cancelling at any time costs USD 1,213.92 (the full stay price).');
 });
 
 test('a partial fee with no later change is not called non-refundable', () => {

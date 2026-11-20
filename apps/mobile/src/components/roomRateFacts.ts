@@ -2,7 +2,7 @@ import type { Money, RoomOffer } from '../types';
 import type { Language } from '../i18n';
 import { presentTaxes } from './taxPresentationModel';
 import { presentCancellation } from './cancellationPresentationModel';
-import { cancellationDecision } from './cancellationDecision';
+import { cancellationDecision, type DisplayMoney } from './cancellationDecision';
 import { roomMealLabel, type RoomChoiceEntry } from './roomChoiceModel';
 import { compareStayPrices } from './offerChangeSummary';
 import { padStayPriceDifference } from './offerChangesCopy';
@@ -39,7 +39,7 @@ export function roomPaymentLabel(offer: RoomOffer, language: string) {
   return offer.paymentType === 'deposit' ? copy.partnerPayment : copy.unknown;
 }
 
-export function roomRateFacts(offer: RoomOffer, language: string, now: number) {
+export function roomRateFacts(offer: RoomOffer, language: string, now: number, display?: DisplayMoney) {
   const copy = rateCopy(language);
   const policy = presentCancellation(offer.cancellation, now);
   const taxes = presentTaxes(offer.taxes);
@@ -48,9 +48,10 @@ export function roomRateFacts(offer: RoomOffer, language: string, now: number) {
   if (taxes.unassignedExcluded.length) amounts.push(copy.unknownTotal);
   if (amounts.length && taxes.hasUnknown) amounts.push(copy.other);
   const fees = amounts.length ? amounts.join(' + ') : taxes.dataState === 'notSupplied' || taxes.hasUnknown ? copy.feesUnknown : copy.included;
-  const decision = cancellationDecision(policy, language, offer.price);
+  const decision = cancellationDecision(policy, language, offer.price, display);
+  const shown = offer.price && display ? display(offer.price) : offer.price;
   const cancellation = [decision.headline, decision.detail].filter(Boolean).join('\n');
-  return { price: offer.price ? `${offer.price.currency} ${offer.price.amount}` : copy.noPrice,
+  return { price: shown ? `${shown.currency} ${shown.amount}` : copy.noPrice,
     meal: mealDescription(offer, language), cancellation, decision,
     payment: roomPaymentLabel(offer, language), fees, bedding: offer.bedding || copy.unknown };
 }

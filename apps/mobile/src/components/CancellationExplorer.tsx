@@ -6,6 +6,7 @@ import { colors } from '../theme';
 import { Icon, Row, Txt } from './Primitives';
 import { cancellationCopy } from './cancellationCopy';
 import { cancellationDecision, isFullStayCharge, policyTime } from './cancellationDecision';
+import { useChargeMoney } from './ChargeCurrency';
 import { cancellationMoneyText, futureCancellationBoundaries, presentCancellation, type CancellationPresentation } from './cancellationPresentationModel';
 
 function shortTime(time: number, language: string) {
@@ -21,13 +22,14 @@ function shortTime(time: number, language: string) {
 
 export default function CancellationExplorer({ offer, live, now }: { offer: RoomOffer; live: CancellationPresentation; now: number }) {
   const { language } = useLanguage(), ar = language === 'ar';
+  const display = useChargeMoney();
   const [picked, setPicked] = useState<number | null>(null);
   const [all, setAll] = useState(false);
   const boundaries = futureCancellationBoundaries(live, now);
   const selected = picked !== null && boundaries.includes(picked) ? picked : null;
   const model = selected === null ? live : presentCancellation(offer.cancellation, selected);
-  const decision = cancellationDecision(model, language, offer.price);
-  const cost = cancellationMoneyText(model.fee);
+  const decision = cancellationDecision(model, language, offer.price, display);
+  const cost = cancellationMoneyText(model.fee && display(model.fee));
   const tone = model.kind === 'free' ? colors.pistachioMist : model.kind === 'fee' ? colors.softGold : colors.background;
   const ink = model.kind === 'free' ? colors.leafInk : model.kind === 'fee' ? colors.goldInk : colors.muted;
   const description = model.reason === 'gap' ? (ar ? 'لم ترد رسوم إلغاء لهذا الوقت.' : 'No cancellation fee was supplied for this time.')

@@ -18,6 +18,7 @@ import {
 import VoucherButton from '../components/VoucherButton';
 import * as WebBrowser from 'expo-web-browser';
 import { tripsCopy } from './tripsCopy';
+import { localizedRoomName } from '../components/roomNameModel';
 
 const buckets: TripBucket[] = ['current', 'upcoming', 'past', 'unknown'];
 const filters: TripFilter[] = ['all', ...buckets];
@@ -66,7 +67,7 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
       </Row>
       <View style={{ gap: space.xxs }}>
         <Txt kind="subheading" accessibilityRole="header">{booking.hotelName || copy.hotelUnknown}</Txt>
-        {booking.roomName && <Txt kind="small">{booking.roomName}</Txt>}
+        {booking.roomName && <Txt kind="small">{localizedRoomName(booking.roomName, language)}</Txt>}
       </View>
       <View style={styles.dates}>
         <Row style={{ gap: space.md, alignItems: 'flex-start' }}>

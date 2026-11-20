@@ -15,7 +15,7 @@ import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Pr
 import { COMPARISON_PRICE_LIFETIME_MS, type ComparisonHotel } from '../components/discoverySessionModel';
 import { compareStayPrices } from '../components/offerChangeSummary';
 import { padStayPriceDifference } from '../components/offerChangesCopy';
-import StayEstimate from '../components/StayEstimate';
+import { useChargeMoney } from '../components/ChargeCurrency';
 import { displayTravelDate } from '../components/searchJourneyModel';
 
 const copy = {
@@ -72,6 +72,7 @@ function VerifiedComparison({ contextKey, sessionRevision, retry }: { contextKey
   </SafeAreaView>;
 }
 function CompareContents() {
+  const charge = useChargeMoney();
   const state = useAppState(), { language } = useLanguage(), router = useRouter();
   const L = copy[language], { width, fontScale } = useWindowDimensions();
   const contextKey = state.comparisonContextKey;
@@ -129,7 +130,7 @@ function CompareContents() {
               onPress={() => setSlots(columns.map(column => column.hid === item.hid ? alternate.hid : column.hid))}/>}
           </View>)}
           <View style={styles.band}><Txt kind="label">{L.price}</Txt>
-            {row(item => item.priceExpired ? <Txt kind="small" style={{color: colors.goldInk}}>{L.expired}</Txt> : <><MoneyText money={item.price}/><StayEstimate money={item.price}/></>)}
+            {row(item => item.priceExpired ? <Txt kind="small" style={{color: colors.goldInk}}>{L.expired}</Txt> : <MoneyText money={charge(item.price)}/>)}
           </View>
           {pair?.status === 'unchanged' && <Txt kind="label" style={styles.fact}>{L.equal}</Txt>}
           {!!difference && <Txt kind="small" style={styles.delta}>{difference}</Txt>}

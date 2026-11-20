@@ -40,10 +40,12 @@ export interface CancellationDecision {
 }
 
 /** Describe only the current interval and the next contiguous change in a verified supplier schedule. */
-export function cancellationDecision(model: CancellationPresentation, language: string, roomTotal?: Money | null): CancellationDecision {
+/** `display` converts amounts for text only (payment currency); policy logic keeps supplier amounts. */
+export type DisplayMoney = (money: Readonly<Money>) => Readonly<Money>;
+export function cancellationDecision(model: CancellationPresentation, language: string, roomTotal?: Money | null, display?: DisplayMoney): CancellationDecision {
   const arabic = language === 'ar';
   const describeFee = (fee: Readonly<Money> | null) => {
-    const text = cancellationMoneyText(fee);
+    const text = cancellationMoneyText(fee && display ? display(fee) : fee);
     return text && isFullStayCharge(fee, roomTotal) ? text + (arabic ? ' (كامل سعر الإقامة)' : ' (the full stay price)') : text;
   };
   const amount = describeFee(model.fee);

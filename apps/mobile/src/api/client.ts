@@ -60,9 +60,7 @@ export function createApiClient(request: Request) {
   };
   return {
     checkout: createCheckoutApi(request),
-    worldDisplayRates: (signal: AbortSignal) => request('GET', '/display-rates', {
-      anonymous: true, signal, timeoutMs: 12000, query: { scope: 'world' },
-    }),
+    paymentRates: (signal: AbortSignal) => request('GET', '/payment/rates', { anonymous: true, signal, timeoutMs: 12000 }),
     auth, getHotelStatic,
     async getClientRegion(signal?: AbortSignal): Promise<string | null> {
       const { country } = object(await request('GET', '/client-region', { anonymous: true, timeoutMs: 2500, signal }));

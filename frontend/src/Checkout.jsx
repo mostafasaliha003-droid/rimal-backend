@@ -11,7 +11,7 @@ import { useLanguage } from './i18n';
 import { clearUserSession, userAccessToken } from './services/authSession';
 import { pendingPayment, settlePayment, paymentSettled, paymentRedirect } from './services/pendingPayment';
 import { stayCharges, taxInclusion } from './services/stayCharges';
-import { PAYMENT_CURRENCIES, paymentCurrencyForCountry } from './services/paymentCurrency';
+import { PAYMENT_CURRENCIES, preferredPaymentCurrency } from './services/paymentCurrency';
 
 const initialGuest = { firstName: '', lastName: '', email: '', phone: '', specialRequests: '' };
 function rememberPayment(result, key) {
@@ -117,7 +117,7 @@ function BookingSummary({ booking, room, total, currency, displayCurrency, displ
 export default function Checkout({ booking, onBack, displayCurrency, displayRates }) {
     const { t, direction, language } = useLanguage();
     const [selectedBooking] = useState(() => readStoredBooking(booking));
-    const [paymentCurrency, setPaymentCurrency] = useState(() => paymentCurrencyForCountry(readStoredBooking(booking)?.residency || 'ae'));
+    const [paymentCurrency, setPaymentCurrency] = useState(() => preferredPaymentCurrency(readStoredBooking(booking)?.residency || 'ae'));
     const [paymentQuote, setPaymentQuote] = useState(null);
     const [quoteError, setQuoteError] = useState('');
     const [quoteRefresh, setQuoteRefresh] = useState(0);

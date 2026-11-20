@@ -7,10 +7,11 @@ import { Badge, Button, Icon, Row, Txt, type IconName } from './Primitives';
 import { mealPlanTitle, rateCopy, roomPriceDifference, roomRateFacts } from './roomRateFacts';
 import { canReviewRoomOffer, compareRoomAmounts, type RoomChoiceEntry } from './roomChoiceModel';
 import { roomChoiceCopy } from './roomChoiceCopy';
-import StayEstimate from './StayEstimate';
+import { useChargeMoney } from './ChargeCurrency';
 import OfferTermsSheet from './OfferTermsSheet';
 import { formatMoney } from './format';
 import { useLayout } from './motion';
+import { localizedRoomName } from './roomNameModel';
 
 interface OptionsProps {
   entries: readonly RoomChoiceEntry[]; selected: RoomChoiceEntry; preferredKey?: string; groupName: string;
@@ -30,6 +31,7 @@ function Fact({ icon, children, tone }: { icon: IconName; children: React.ReactN
 
 export default function RoomOfferPicker({ entries, selected, preferredKey, groupName, currency, now, comparison, showCompare, reviewError, stayCaption,
   onSelect, onToggle, onReview, onRefresh, onEditSearch }: OptionsProps) {
+  const charge = useChargeMoney();
   const { language, t } = useLanguage();
   const { narrow } = useLayout();
   const ar = language === 'ar', multiple = entries.length > 1;
@@ -55,13 +57,14 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
       const compared = comparison.some(item => item.key === entry.key);
       const disableCompare = !compared && comparison.length >= 2;
       const canReview = canReviewRoomOffer(offer, currency);
-      const facts = roomRateFacts(offer, language, now);
+      const facts = roomRateFacts(offer, language, now, charge);
       const cheapest = distinguishLowest && basePrice && compareRoomAmounts(offer.price!.amount, basePrice.amount) === 0;
       const title = mealPlanTitle(offer.meal, language);
-      const reviewLabel = [rate.choose, title, offer.name, facts.price].join(' · ');
-      const difference = roomPriceDifference(basePrice, offer.price, language);
+      const shownName = localizedRoomName(offer.name, language);
+      const reviewLabel = [rate.choose, title, shownName, facts.price].join(' · ');
+      const difference = roomPriceDifference(charge(basePrice), charge(offer.price), language);
       const mismatch = Boolean(offer.price && offer.price.currency !== currency);
-      const price = formatMoney(offer.price) || facts.price;
+      const price = formatMoney(charge(offer.price)) || facts.price;
       const free = facts.decision.kind === 'free';
       const cancelTone = free ? color.success : facts.decision.nonRefundable ? color.danger : color.textPrimary;
       const heading = <Row style={{ gap: space.md, alignItems: 'flex-start' }}>
@@ -79,7 +82,6 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
             <View style={{ alignItems: narrow ? 'flex-start' : 'flex-end' }}>
               <Txt kind="price" style={styles.amount}>{price}</Txt>
               <Txt kind="caption" align={narrow ? 'start' : 'end'}>{stayCaption}</Txt>
-              <StayEstimate money={offer.price}/>
             </View>
           </Row>
           {difference && <Txt testID={`rate-difference-${number}`} kind="caption">{difference}</Txt>}
@@ -88,7 +90,7 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
       return <View key={entry.key} testID={entry.key === preferredKey && multiple ? 'lowest-reviewable-rate' : undefined}
         style={[styles.card, active && multiple && styles.cardActive]}>
         {multiple ? <Pressable testID={`pick-rate-${number}`} accessibilityRole="radio" aria-checked={active}
-          accessibilityState={{ checked: active }} accessibilityLabel={[facts.meal, facts.price, facts.decision.headline, offer.name].join(' · ')}
+          accessibilityState={{ checked: active }} accessibilityLabel={[facts.meal, facts.price, facts.decision.headline, shownName].join(' · ')}
           accessibilityHint={ar ? 'اختيار العرض للاطلاع على شروطه ومراجعته' : 'Select to see full terms and review this rate'}
           onPress={() => onSelect(entry)} style={state => [styles.heading, (state.pressed || hovered(state)) && !active && { backgroundColor: color.bgMuted }]}>
           {heading}
@@ -104,11 +106,11 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
           {offer.bedding && <Fact icon="bed"><Txt kind="small" tone="primary">{offer.bedding}</Txt></Fact>}
           <Fact icon="card"><Txt kind="small" tone="primary">{rate.payment}: {facts.payment}</Txt></Fact>
           <Fact icon="hotel"><Txt kind="small" tone="primary">{ar ? 'يُدفع في الفندق' : 'Due at the property'}: <Txt kind="small" tone="primary" style={{ fontFamily: fonts.bold }}>{facts.fees}</Txt></Txt></Fact>
-          {offer.name !== groupName && <Txt kind="caption">{offer.name}</Txt>}
+          {offer.name !== groupName && <Txt kind="caption">{localizedRoomName(offer.name, language)}</Txt>}
         </View>
         <Row style={styles.actions}>
           {showCompare ? <Pressable testID={`compare-rate-${number}`} accessibilityRole="checkbox" aria-checked={compared}
-            accessibilityState={{ checked: compared, disabled: disableCompare }} accessibilityLabel={`${rate.compare} · ${title} · ${offer.name} · ${facts.price}`}
+            accessibilityState={{ checked: compared, disabled: disableCompare }} accessibilityLabel={`${rate.compare} · ${title} · ${shownName} · ${facts.price}`}
             disabled={disableCompare} onPress={() => onToggle(entry)}
             style={state => [styles.action, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }, disableCompare && { opacity: 0.45 }]}>
             <Row style={{ gap: space.xs }}>
@@ -118,7 +120,7 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
           </Pressable> : <View/>}
           <Row style={{ gap: space.xs, flexShrink: 1, flexWrap: 'wrap', justifyContent: 'flex-end' }}>
             <Pressable testID={`terms-rate-${number}`} accessibilityRole="button" aria-expanded={termsKey === entry.key}
-              accessibilityState={{ expanded: termsKey === entry.key }} accessibilityLabel={`${rate.terms} · ${title} · ${offer.name}`}
+              accessibilityState={{ expanded: termsKey === entry.key }} accessibilityLabel={`${rate.terms} · ${title} · ${shownName}`}
               onPress={() => setTermsKey(entry.key)} style={state => [styles.action, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
               <Txt kind="label" tone="link">{ar ? 'الشروط كاملة' : 'Full terms'}</Txt>
             </Pressable>

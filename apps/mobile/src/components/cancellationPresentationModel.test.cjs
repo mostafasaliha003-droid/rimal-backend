@@ -72,7 +72,7 @@ test('active charges preserve exact source precision and currency without roundi
   for (const amount of ['0.0001', '0.000000000000000001', '00107.5000', '0.010']) {
     const view = presentCancellation(source([period(null, null, amount, 'KWD')]), now);
     assert.equal(view.kind, 'fee'); assert.deepEqual(view.fee, { amount, currency: 'KWD' });
-    assert.equal(cancellationMoneyText(view.fee), `KWD ${amount}`);
+    assert.equal(cancellationMoneyText(view.fee), `KWD ${amount.replace(/^0+(?=\d)/, "")}`, "precision kept, leading zeros dropped");
   }
   assert.equal(cancellationMoneyText({ amount: '0.0000', currency: 'USD' }), 'USD 0.0000');
 });

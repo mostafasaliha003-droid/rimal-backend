@@ -25,6 +25,24 @@ test('financial quotes fail closed for missing, duplicated or expired FX rates',
     }
 });
 
+test('display rates and checkout quotes read one table with identical rounding', async () => {
+    const now = Date.parse('2026-10-20T12:00:00Z');
+    const rows = [{ base: 'USD', quote: 'AED', date: '2026-10-20', rate: 3.6725 },
+        { base: 'USD', quote: 'KWD', date: '2026-10-20', rate: '0.3068' },
+        { base: 'USD', quote: 'EUR', date: '2026-09-01', rate: '0.92' }];
+    let urls = [];
+    const options = { now, fetcher: async url => { urls.push(url); return { ok: true, json: async () => rows }; } };
+    const table = await fx.paymentRates(options);
+    assert.equal(urls.length, 1);
+    assert.match(urls[0], /quotes=AED,BHD,EUR,GBP,INR,KWD,OMR,QAR,SAR$/);
+    assert.deepEqual(table.rates, { USD: '1', AED: '3.6725', KWD: '0.3068' }, 'stale or missing currencies are left out');
+    assert.deepEqual(table.currencies.KWD, { decimals: 3, step: 10 });
+    assert.equal(table.valid_until, now + 5 * 60 * 1000);
+    const quoteRates = await fx.liveRates('USD', 'AED', options);
+    assert.equal(fx.convertMinor(158592, 'USD', 'AED', quoteRates.rates), fx.convertMinor(158592, 'USD', 'AED', table.rates));
+    await assert.rejects(fx.liveRates('USD', 'EUR', options), /checkout_fx_unavailable/);
+});
+
 test('KWD intent and refund transmit integer fils with Ziina-compatible rounding', async () => {
     const fetcher = async (_url, options) => {
         const payload = JSON.parse(options.body);

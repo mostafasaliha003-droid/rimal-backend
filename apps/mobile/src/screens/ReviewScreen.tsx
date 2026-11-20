@@ -15,7 +15,9 @@ import Taxes from '../components/Taxes';
 import { taxTermsKey } from '../components/offerReviewModel';
 import { mealDescription, rateCopy, roomPaymentLabel } from '../components/roomRateFacts';
 import Cancellation from '../components/Cancellation';
-import StayEstimate from '../components/StayEstimate';
+import { useChargeCurrency, useChargeMoney } from '../components/ChargeCurrency';
+import { currencyName } from '../components/currencyCatalog';
+import type { DisplayMoney } from '../components/cancellationDecision';
 import OfferChanges from '../components/OfferChanges';
 import { useAppState } from '../components/AppState';
 import { NATIVE_CHECKOUT_ENABLED } from '../api/config';
@@ -25,14 +27,15 @@ import { cancellationDecision } from '../components/cancellationDecision';
 import { useCancellationClock } from '../components/useCancellationClock';
 import { formatDay, formatMoney, formatWeekday, nightsBetween, occupancy, roomLines, stayWords } from '../components/format';
 import { useLayout } from '../components/motion';
+import { localizedRoomName } from '../components/roomNameModel';
 
 type ReviewSession = ReturnType<typeof useReviewSession>;
 
 /** What the traveler pays now, what is due at the hotel, and which supplied taxes are already inside the price. */
-function priceParts(offer: RoomOffer) {
+function priceParts(offer: RoomOffer, display: DisplayMoney) {
   const taxes = presentTaxes(offer.taxes);
   const atProperty = taxes.excludedGroups.map(group => group.complete && group.subtotal ? formatMoney(group.subtotal) : null);
-  return { payNow: formatMoney(offer.price), atProperty: atProperty.filter((value): value is string => Boolean(value)),
+  return { payNow: formatMoney(offer.price && display(offer.price)), atProperty: atProperty.filter((value): value is string => Boolean(value)),
     atPropertyIncomplete: atProperty.some(value => !value) || taxes.unassignedExcluded.length > 0 || (taxes.hasExcluded && taxes.hasUnknown),
     included: taxes.rows.filter(row => row.inclusion === 'included').length, notSupplied: taxes.dataState === 'notSupplied' };
 }
@@ -92,8 +95,11 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const showRoomFees = Boolean(showChanges && draft && offer && taxTermsKey(draft.offer.taxes) === taxTermsKey(offer.taxes));
   const cancellations = useMemo(() => offer ? [offer.cancellation] : [], [offer]);
   const clock = useCancellationClock(cancellations);
-  const decision = useMemo(() => offer ? cancellationDecision(presentCancellation(offer.cancellation, clock), language, offer.price) : null, [offer, clock, language]);
-  const money = useMemo(() => offer ? priceParts(offer) : null, [offer]);
+  const charge = useChargeMoney();
+  const { code: payCode, selected: paySelected } = useChargeCurrency();
+  const decision = useMemo(() => offer ? cancellationDecision(presentCancellation(offer.cancellation, clock), language, offer.price, charge) : null, [offer, clock, language, charge]);
+  const money = useMemo(() => offer ? priceParts(offer, charge) : null, [offer, charge]);
+  const payIn = ar ? `عملة الدفع: ${currencyName(payCode, 'ar')} (${payCode})` : `Payment currency: ${currencyName(payCode, 'en')} (${payCode})`;
   const reviewChanges = () => {
     const heading = changeHeading.current;
     if (!heading) return;
@@ -118,7 +124,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
     setOpening(true);
     setHandoffError(false);
     try {
-      await WebBrowser.openBrowserAsync(bookingWebsiteUrl(handoff.hid, handoff.criteria, language), { toolbarColor: color.bgBrand });
+      await WebBrowser.openBrowserAsync(bookingWebsiteUrl(handoff.hid, handoff.criteria, language, APP_ENV, paySelected), { toolbarColor: color.bgBrand });
     } catch { setHandoffError(true); }
     finally { setOpening(false); }
   };
@@ -173,7 +179,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
             <Answer testID="review-answer-total" icon="wallet" tone={color.textBrand} label={ar ? 'كم ستدفع بالمجموع' : 'What you will pay in total'} value={totalLine}
               detail={[stayScope, money.atPropertyIncomplete ? (ar ? 'بعض الرسوم في الفندق غير محددة المبلغ.' : 'Some hotel charges have no stated amount.') : ''].filter(Boolean).join(' · ')}/>
             <Answer testID="review-answer-included" icon="checkCircle" tone={color.textBrand} label={ar ? 'ماذا يشمل حجزك' : 'What your booking includes'}
-              value={[offer.name, mealDescription(offer, language)].join(' · ')} detail={offer.bedding ? `${rateLabels.bedding}: ${offer.bedding}` : undefined}/>
+              value={[localizedRoomName(offer.name, language), mealDescription(offer, language)].join(' · ')} detail={offer.bedding ? `${rateLabels.bedding}: ${offer.bedding}` : undefined}/>
             <Answer testID="review-answer-cancellation" icon={decision.kind === 'free' ? 'checkCircle' : decision.nonRefundable ? 'alertCircle' : 'clock'} tone={cancelTone}
               label={ar ? 'حتى متى يمكنك الإلغاء وبأي تكلفة' : 'Until when you can cancel, and the cost'} value={decision.headline} detail={decision.detail || undefined}/>
             {!checked && !expired && status !== 'pending' && <Notice tone="info" body={t('reviewBeforeRecheck')}/>}
@@ -184,7 +190,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
           <Card testID="review-stay-summary" style={{ gap: space.lg }}>
             <Row style={{ alignItems: 'center', gap: space.md }}>
               {(offer.images.length > 0 || draft.hotelImage) && <View style={styles.thumb}>
-                <Photo uri={offer.images[0] || draft.hotelImage} alternatives={offer.images} room label={offer.name} height={72} thumbnail/>
+                <Photo uri={offer.images[0] || draft.hotelImage} alternatives={offer.images} room label={localizedRoomName(offer.name, language)} height={72} thumbnail/>
               </View>}
               <View style={{ flex: 1, gap: space.xxs, minWidth: 0 }}>
                 <Txt accessibilityRole="header" kind="subheading">{draft.hotelName}</Txt>
@@ -209,7 +215,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
               <Txt kind="caption">{t('residency')}: {criteria.residency.toUpperCase()}</Txt>
             </Section>
             <Section title={ar ? 'ما يشمله الحجز' : 'What is included'} icon="checkCircle">
-              <Txt kind="bodyStrong">{offer.name}</Txt>
+              <Txt kind="bodyStrong">{localizedRoomName(offer.name, language)}</Txt>
               <Row style={{ gap: space.xs }}><Icon name="coffee" size={16} color={color.textSecondary}/><Txt kind="small" tone="primary">{mealDescription(offer, language)}</Txt></Row>
               {(offer.bedding || draft.offer.bedding) && <Row style={{ gap: space.xs }}><Icon name="bed" size={16} color={color.textSecondary}/>
                 <Txt testID="review-bedding" kind="small" tone="primary">{rateLabels.bedding}: {offer.bedding || rateLabels.unknown}</Txt></Row>}
@@ -240,7 +246,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
             <Divider/>
             <Line testID="review-total" strong label={priceLabel} value={money.payNow || t('priceUnknown')}/>
             {money.atProperty.length > 0 && <Txt kind="small" tone="primary" align="end">{ar ? `+ ${money.atProperty.join(' + ')} تُدفع في الفندق` : `+ ${money.atProperty.join(' + ')} paid at the hotel`}</Txt>}
-            <View style={{ alignItems: ar ? 'flex-start' : 'flex-end' }}><StayEstimate money={offer.price}/></View>
+            <Txt testID="review-payment-currency" kind="caption" align="end">{payIn}</Txt>
             <Pressable accessibilityRole="button" accessibilityState={{ expanded: feesOpen }} aria-expanded={feesOpen}
               onPress={() => setFeesOpen(value => !value)} style={styles.disclosure}>
               <Row style={{ justifyContent: 'space-between' }}><Txt kind="label" tone="link" style={{ flex: 1 }}>{ar ? 'كل الضرائب والرسوم' : 'All taxes and fees'}</Txt>

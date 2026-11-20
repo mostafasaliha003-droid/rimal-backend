@@ -1,5 +1,6 @@
 import type { CancellationInterval, Money, RoomOffer } from '../types';
 import { parseCancellationTimestamp } from '../api/validation';
+import { exactAmount } from './format';
 
 export { parseCancellationTimestamp };
 export type CancellationReason = 'missing' | 'incomplete' | 'invalid_period' | 'overlap' | 'currency_conflict'
@@ -38,7 +39,7 @@ const zero = (value: string) => /^0+(?:\.0+)?$/.test(value);
 
 /** Exact decimal source text, deliberately without currency-minor-unit rounding. */
 export function cancellationMoneyText(value: Money | null): string | null {
-  return value && amount(value.amount) && currency(value.currency) ? `${value.currency} ${value.amount}` : null;
+  return value && amount(value.amount) && currency(value.currency) ? `${value.currency} ${exactAmount(value.amount, value.currency) ?? value.amount}` : null;
 }
 
 /** Start and end boundaries are both selectable: an end can lead into an unpriced gap. */
