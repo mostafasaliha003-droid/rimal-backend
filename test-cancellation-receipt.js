@@ -25,6 +25,9 @@ test('cancellation receipt binds the confirmed cancellation, original charge, ow
     assert.match(html, /does not confirm credit to your card/);
     assert.match(html, /SANDBOX/);
     assert.match(html, /16:00/);
+    assert.match(html, /مخدة/); assert.doesNotMatch(html, /REMAL/); assert.match(html, /cid:mkhadda-symbol@pillowstays/);
+    const pdfHtml = service.renderReceiptPdf(details);
+    assert.match(pdfHtml, /data:image\/png;base64,/); assert.match(pdfHtml, /font-family:'Plex Arabic'/); assert.doesNotMatch(pdfHtml, /cid:/);
     for (const bookingChange of [{ ownerSubject: 'other' }, { realm: 'production' }, { status: 'active' }, { supplierReference: 'other' }]) {
         assert.throws(() => service.receiptDetails(f.cancellation, f.checkout, { ...f.booking, ...bookingChange }), /binding_invalid/);
     }

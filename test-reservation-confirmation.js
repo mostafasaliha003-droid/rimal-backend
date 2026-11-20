@@ -40,8 +40,8 @@ test('a KWD confirmation displays the actual charged currency and three-decimal 
 });
 
 for (const [name, sandbox, blank] of [
-    ['sandbox replaces the known blank placeholder with a marked Remal confirmation', true, true],
-    ['production emails only the Remal confirmation at the customer price', false, false],
+    ['sandbox replaces the known blank placeholder with a marked pillow stays confirmation', true, true],
+    ['production emails only the pillow stays confirmation at the customer price', false, false],
     ['production refuses the known blank supplier placeholder', false, true]
 ]) test(name, async context => {
     const oldUser = process.env.SMTP_USER, oldPassword = process.env.SMTP_PASSWORD;
@@ -72,9 +72,24 @@ for (const [name, sandbox, blank] of [
         assert.equal(message, undefined); return;
     }
     await notification.sendVoucherConfirmation(value);
-    assert.equal(message.attachments.length, 1);
-    assert.match(message.attachments[0].filename, /^Remal-Confirmation-/);
+    // The confirmation PDF and the inline brand symbol; never the supplier's voucher.
+    assert.equal(message.attachments.length, 2);
+    assert.match(message.attachments[0].filename, /^pillow-stays-confirmation-/);
+    assert.equal(message.attachments[1].cid, 'mkhadda-symbol@pillowstays');
+    assert.match(message.html, /cid:mkhadda-symbol@pillowstays/);
+    assert.equal(message.from.name, 'مخدة | pillow stays');
+    assert.doesNotMatch(message.html, /REMAL/);
+    assert.match(message.html, /Remal Tourism LLC/);
     assert.equal(message.attachments.some(item => item.content === value.pdfBuffer), false);
     assert.match(message.html, /Double room/);
     assert.equal(message.replyTo, 'management@remaltourismllc.com');
+});
+
+test('the PDF confirmation embeds the Mkhadda symbol and font because the renderer blocks network requests', () => {
+    const details = service.confirmationDetails(booking(), input());
+    const html = service.renderConfirmationPdf(details);
+    assert.match(html, /data:image\/png;base64,/);
+    assert.match(html, /font-family:'Plex Arabic'/);
+    assert.match(html, /مخدة/);
+    assert.doesNotMatch(html, /REMAL|cid:/);
 });
