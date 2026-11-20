@@ -1038,6 +1038,8 @@ app.get('/api/payment/rates', async (_req, res) => {
         return res.status(503).json({ success: false, error: 'payment_rates_unavailable' });
     }
 });
+// Newest Android build for the in-app update prompt (configured with APP_ANDROID_* variables).
+app.get('/api/app/version', require('./services/appVersion').appVersionHandler());
 // Ziina sends app-started payments here; the page hands the guest back to the app.
 app.get('/api/payment/app-return', (req, res) => {
     const page = require('./services/appPaymentReturn').renderReturnPage(req.query);

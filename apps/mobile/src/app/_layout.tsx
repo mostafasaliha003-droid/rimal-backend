@@ -9,6 +9,7 @@ import { AuthProvider } from '../auth';
 import { ChargeCurrencyProvider } from '../components/ChargeCurrency';
 import { AppStateProvider } from '../components/AppState';
 import { ToastProvider } from '../components/Toast';
+import AppUpdatePrompt from '../components/AppUpdatePrompt';
 import { useReducedMotion } from '../components/motion';
 import { color } from '../theme';
 
@@ -51,6 +52,6 @@ export default function RootLayout() {
   });
   if (!ready && !error) return <View style={{ flex: 1, backgroundColor: color.bgCanvas, justifyContent: 'center' }}><ActivityIndicator color={color.interactive}/></View>;
   return <SafeAreaProvider><LanguageProvider><AuthProvider><AppStateProvider><ChargeCurrencyProvider><ToastProvider>
-    <StatusBar style="dark"/><Navigator/>
+    <StatusBar style="dark"/><Navigator/><AppUpdatePrompt/>
   </ToastProvider></ChargeCurrencyProvider></AppStateProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;
 }
