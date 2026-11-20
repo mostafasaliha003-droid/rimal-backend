@@ -5,7 +5,7 @@ import type { GuestRoom, SearchCriteria } from '../types';
 import { useLanguage } from '../i18n';
 import { color, radius, space, touch } from '../theme';
 import { Badge, Icon, Row, Txt } from './Primitives';
-import { formatDay, formatStayRange, formatWeekday, guestLine, nightsBetween, stayWords } from './format';
+import { formatDay, formatStayRange, guestLine, nightsBetween, stayWords } from './format';
 import { useAppState } from './AppState';
 import CalendarPicker from './CalendarPicker';
 import GuestPicker from './GuestPicker';
@@ -30,9 +30,8 @@ export function DateFields({ checkin, checkout, error = false, onOpen }: {
           <Row style={{ gap: space.xs, flexShrink: 1 }}><Icon name="calendar" size={16} color={color.textSecondary}/><Txt kind="caption">{t(field)}</Txt></Row>
           {field === 'checkout' && nights !== null && <Badge tone="info" icon="moon" label={words.nights(nights)}/>}
         </Row>
-        <Txt kind="subheading" numberOfLines={1} style={{ color: value ? color.textPrimary : color.textSecondary }}>
-          {value ? formatDay(value, language) : t('selectDate')}</Txt>
-        {!!value && <Txt kind="caption" numberOfLines={1}>{formatWeekday(value, language)}</Txt>}
+        <Txt kind="bodyStrong" numberOfLines={1} style={{ color: value ? color.textPrimary : color.textSecondary }}>
+          {value ? formatDay(value, language, { weekday: true }) : t('selectDate')}</Txt>
       </Pressable>;
     })}
   </Row>;
@@ -47,7 +46,7 @@ export function GuestsField({ guests, onOpen, error = false }: { guests: readonl
       <Icon name="users" size={20} color={color.textSecondary}/>
       <View style={{ flex: 1, minWidth: 0 }}>
         <Txt kind="caption">{t('guests')}</Txt>
-        <Txt kind="subheading" numberOfLines={2}>{guestLine(guests, language)}</Txt>
+        <Txt kind="bodyStrong" numberOfLines={2}>{guestLine(guests, language)}</Txt>
         {ages.length > 0 && <Txt kind="caption">{language === 'ar' ? `أعمار الأطفال: ${ages.join('، ')}` : `Children’s ages: ${ages.join(', ')}`}</Txt>}
       </View>
       <Icon name="chevron" size={18} color={color.textSecondary}/>
@@ -135,7 +134,7 @@ export function useStayEditor({ savedOnly = false }: { savedOnly?: boolean } = {
 }
 
 const styles = StyleSheet.create({
-  field: { minHeight: 64, justifyContent: 'center', gap: space.xxs, paddingHorizontal: space.md, paddingVertical: space.sm,
+  field: { minHeight: 56, justifyContent: 'center', gap: 0, paddingHorizontal: space.md, paddingVertical: space.xs + 2,
     borderRadius: radius.md, borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface },
   fieldActive: { backgroundColor: color.bgMuted, borderColor: color.interactive },
   fieldError: { borderColor: color.danger, borderWidth: 1.5 },
@@ -143,6 +142,6 @@ const styles = StyleSheet.create({
   summaryPart: { flexGrow: 1, flexBasis: 0, minHeight: touch.comfortable, justifyContent: 'center', paddingHorizontal: space.md, paddingVertical: space.sm },
   summaryDivider: { width: 1, backgroundColor: color.border, marginVertical: space.sm },
   summaryRule: { height: 1, backgroundColor: color.border, marginHorizontal: space.md },
-  compact: { gap: 0, alignItems: 'stretch', backgroundColor: color.bgSurface, borderRadius: radius.md, borderWidth: 1, borderColor: color.border, overflow: 'hidden' },
+  compact: { gap: 0, alignItems: 'stretch', backgroundColor: color.bgSurface, borderRadius: radius.md, borderWidth: 1, borderColor: color.borderCard, overflow: 'hidden' },
   compactPart: { flexGrow: 1, flexBasis: 0, minWidth: 0, minHeight: touch.min, justifyContent: 'center', paddingHorizontal: space.sm },
 });

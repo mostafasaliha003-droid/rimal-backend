@@ -15,7 +15,7 @@ import { useAppState } from '../components/AppState';
 import { useCheckoutSession } from '../components/useCheckoutSession';
 import type { CheckoutQuoteView, CheckoutSelection } from '../components/checkoutSessionModel';
 import { createTravelerDraft, validateTravelerDraft, type TravelerError } from '../components/checkoutTravelerModel';
-import { ActionBar, Badge, Button, Card, Divider, Field, Icon, InfoRow, Notice, Row, Sheet, StatePanel, TextLink, Txt } from '../components/Primitives';
+import { ActionBar, Badge, Button, Card, DisclosureMark, Divider, Field, Icon, InfoRow, Notice, Row, Sheet, StatePanel, TextLink, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
 import { useChargeCurrency, useChargeMoney } from '../components/ChargeCurrency';
@@ -328,6 +328,8 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
   const [nationalityMissing,setNationalityMissing] = useState(false);
   const [picker,showPicker] = useState(false);
   const [requestsOpen,setRequestsOpen] = useState(() => Boolean(draft?.guest.specialRequests));
+  // Each additional room folds to one line of names once it is filled in; a room with a problem always opens.
+  const [collapsed,setCollapsed] = useState<Record<number, boolean>>({});
   const scroller = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const formTop = useRef(0), consentTop = useRef(0);
   const checking = nationalityCheck?.status === 'checking';
@@ -340,7 +342,8 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
   const accepted = consent.quote === quote && consent.accepted;
   if (!draft) return <ScrollView contentContainerStyle={[ui.page, styles.page]}>{header}<StatePanel title={copy.invalidOccupancy}/>{footer}</ScrollView>;
   const side = !narrow && fontScale <= 1.3;
-  const error = (key: string) => { const code=errors[key]; return !code ? undefined : code === 'required' ? copy.errorRequired : code === 'name' ? copy.errorName : code === 'email' ? copy.errorEmail : code === 'phone' ? copy.errorPhone : code === 'requests' ? copy.errorRequests : copy.invalidOccupancy; };
+  const error = (key: string) => { const code=errors[key]; return !code || code === 'required' ? undefined : code === 'name' ? copy.errorName : code === 'email' ? copy.errorEmail : code === 'phone' ? copy.errorPhone : code === 'requests' ? copy.errorRequests : copy.invalidOccupancy; };
+  const missing = (key: string) => errors[key] === 'required';
   const contact = (key: keyof typeof draft.guest, value: string) => { setDraft({ ...draft,guest:{...draft.guest,[key]:value} }); setErrors(current=>{const next={...current};delete next[key];return next;}); };
   const traveler = (r: number,p: number,key: 'firstName'|'lastName',value: string) => { setDraft({ ...draft, rooms:draft.rooms.map((room,ri)=>ri===r?{guests:room.guests.map((person,pi)=>pi===p?{...person,[key]:value}:person)}:room) }); setErrors(current=>{const next={...current};delete next[`traveler-${r}-${p}-${key}`];return next;}); };
   const submit = () => {
@@ -369,10 +372,10 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
           <Txt kind="caption">{copy.detailsBody}</Txt>
         </View>
         {fieldErrors && <Notice tone="danger" live title={errors.occupancy ? copy.invalidOccupancy : copy.fieldsError}/>}
-        {pair(<Field label={copy.firstName} value={draft.guest.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="given-name" error={error('firstName')} onChangeText={v=>contact('firstName',v)}/>,
-          <Field label={copy.lastName} value={draft.guest.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" error={error('lastName')} onChangeText={v=>contact('lastName',v)}/>)}
-        <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" error={error('email')} onChangeText={v=>contact('email',v)}/>
-        <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" placeholder="+971" accessibilityHint={copy.phoneHint} error={error('phone')} onChangeText={v=>contact('phone',v)}/>
+        {pair(<Field label={copy.firstName} value={draft.guest.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="given-name" error={error('firstName')} invalid={missing('firstName')} onChangeText={v=>contact('firstName',v)}/>,
+          <Field label={copy.lastName} value={draft.guest.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" error={error('lastName')} invalid={missing('lastName')} onChangeText={v=>contact('lastName',v)}/>)}
+        <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" error={error('email')} invalid={missing('email')} onChangeText={v=>contact('email',v)}/>
+        <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" placeholder="+971" accessibilityHint={copy.phoneHint} error={error('phone')} invalid={missing('phone')} onChangeText={v=>contact('phone',v)}/>
         {residency && <View style={{gap:space.xs}}>
           <Txt kind="label">{t('residency')}</Txt>
           <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${nationality ? countryName(nationality, language) : t('residencyChoose')}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
@@ -382,8 +385,6 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
           {nationalityMissing ? <Txt kind="small" accessibilityRole="alert" tone="danger">{t('residencyError')}</Txt> : <Txt kind="caption">{t('residencyNote')}</Txt>}
           {checking && <Row style={{ gap: space.xs }}><ActivityIndicator size="small" color={color.interactive}/>
             <Txt kind="small" accessibilityLiveRegion="polite">{ar ? `نتحقق من السعر لجنسية ${countryName(nationalityCheck.residency, language)}…` : `Checking the price for ${countryName(nationalityCheck.residency, language)} nationals…`}</Txt></Row>}
-          {!checking && nationalityCheck?.status === 'same' && nationalityCheck.residency === residency && <Row style={{ gap: space.xs }}><Icon name="checkCircle" size={16} color={color.success}/>
-            <Txt kind="small" tone="success">{ar ? 'تم التحقق: السعر نفسه لهذه الجنسية.' : 'Checked: the price is the same for this nationality.'}</Txt></Row>}
           {!checking && nationalityCheck?.status === 'changed' && nationalityCheck.residency === residency && <Notice tone="warning"
             title={ar ? 'تغيّر السعر لهذه الجنسية' : 'The price changed for this nationality'}
             body={ar ? `السعر لجنسية ${countryName(residency, language)}: ${money(nationalityCheck.to)} بدل ${money(nationalityCheck.from)}. المبلغ المعروض للدفع محدّث.` : `Price for ${countryName(residency, language)} nationals: ${money(nationalityCheck.to)} instead of ${money(nationalityCheck.from)}. The payment amount shown is updated.`}/>}
@@ -396,17 +397,32 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
             action={{ label: ar ? 'أعد المحاولة' : 'Try again', onPress: () => onNationalityChange?.(nationality, draft, occupancy) }}/>}
           <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);setNationalityMissing(false);onDirty?.(true);if(residency&&code!==residency)onNationalityChange?.(code,draft,occupancy);}}/>
         </View>}
-        {others.map(({ r, guests }) => <View key={r} style={styles.group}>
-          <Txt kind="label" accessibilityRole="header">{draft.rooms.length > 1 ? copy.room(r + 1) : copy.otherTravelers}</Txt>
-          {guests.map(({ person, p }) => <View key={p} style={{ gap: space.xs }}>
-            <Txt kind="small" tone="primary" style={{ fontFamily: fonts.medium }}>{copy.traveler(p+1,person.is_child,person.age)}</Txt>
-            {pair(<Field label={copy.firstName} a11yLabel={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>,
-              <Field label={copy.lastName} a11yLabel={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>)}
-          </View>)}
-        </View>)}
+        {others.map(({ r, guests }) => {
+          const roomError = guests.some(({ p }) => errors[`traveler-${r}-${p}-firstName`] || errors[`traveler-${r}-${p}-lastName`]);
+          const open = !collapsed[r] || roomError;
+          const names = guests.map(({ person }) => [person.firstName.trim(), person.lastName.trim()].filter(Boolean).join(' ')).filter(Boolean).join(ar ? '، ' : ', ');
+          const heading = draft.rooms.length > 1 ? copy.room(r + 1) : copy.otherTravelers;
+          return <View key={r} style={styles.group}>
+            <Pressable testID={`checkout-room-${r + 1}`} accessibilityRole="button" accessibilityLabel={open ? heading : `${heading} · ${names || copy.namesMissing}`}
+              aria-expanded={open} accessibilityState={{ expanded: open }} onPress={() => setCollapsed(current => ({ ...current, [r]: open }))} style={styles.groupHeader}>
+              <Row style={{ justifyContent: 'space-between', gap: space.sm }}>
+                <View style={{ flex: 1, minWidth: 0 }}>
+                  <Txt kind="label" accessibilityRole="header">{heading}</Txt>
+                  {!open && <Txt kind="caption" numberOfLines={1}>{names || copy.namesMissing}</Txt>}
+                </View>
+                <DisclosureMark open={open}/>
+              </Row>
+            </Pressable>
+            {open && guests.map(({ person, p }) => <View key={p} style={{ gap: space.xs }}>
+              <Txt kind="small" tone="primary" style={{ fontFamily: fonts.medium }}>{copy.traveler(p+1,person.is_child,person.age)}</Txt>
+              {pair(<Field label={copy.firstName} a11yLabel={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} invalid={missing(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>,
+                <Field label={copy.lastName} a11yLabel={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} invalid={missing(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>)}
+            </View>)}
+          </View>;
+        })}
         <View style={styles.group}>
           {requestsOpen ? <>
-            <Field label={copy.requests} value={draft.guest.specialRequests} multiline numberOfLines={3} maxLength={1000} style={{minHeight:88,textAlignVertical:'top'}} accessibilityHint={copy.requestsHint} error={error('specialRequests')} onChangeText={v=>contact('specialRequests',v)}/>
+            <Field label={copy.requests} value={draft.guest.specialRequests} multiline numberOfLines={3} maxLength={1000} style={{minHeight:88,textAlignVertical:'top'}} accessibilityHint={copy.requestsHint} error={error('specialRequests')} invalid={missing('specialRequests')} onChangeText={v=>contact('specialRequests',v)}/>
             <Txt kind="caption">{copy.requestsHint}</Txt>
           </> : <TextLink testID="checkout-add-requests" icon="plus" title={copy.addRequests} onPress={() => setRequestsOpen(true)}/>}
         </View>
@@ -469,7 +485,8 @@ const styles = StyleSheet.create({
   page: { gap: space.md, paddingTop: space.md },
   card: { gap: space.md, padding: space.md, borderRadius: radius.lg },
   select: { minHeight: 52, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: space.md, justifyContent: 'center', backgroundColor: color.bgSurface },
-  group: { gap: space.sm, paddingTop: space.md, borderTopWidth: 1, borderTopColor: color.border },
+  group: { gap: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.border },
+  groupHeader: { minHeight: 44, justifyContent: 'center' },
   consent: { borderWidth: 1, borderColor: color.border, borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSurface },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: color.interactiveStrong, backgroundColor: color.bgSurface, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxOn: { backgroundColor: color.interactiveStrong },

@@ -119,8 +119,14 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const submit = () => {
     if (!preference.ready) return;
     const destination = selected?.name === query ? selected : !pickedCity && query === state.destinationName ? destinationFromSearch(state.criteria, query) : null;
-    const criteria: SearchCriteria = { checkin, checkout, guests: copyGuestRooms(guests), residency, currency, language, ...(savedOnly ? { hids: savedIds } : destination?.regionId ? { regionId: destination.regionId } : destination?.hid ? { hids: [destination.hid] } : {}) };
-    const validation = validateSearchCriteria(criteria); const next = { destination: savedOnly ? !savedIds.length : !destination || !query.trim(), dates: validation.errors.includes('invalid_checkin') || validation.errors.includes('invalid_checkout'), residency: !COUNTRY_CODES.includes(residency), guests: validation.errors.includes('invalid_guests') };
+    // RateHawk prices each rate for the guest's nationality. Until the guest states it at checkout, the first
+    // search prices for the traveller's own country (network or device region) instead of a fixed one, so
+    // most guests confirm the same nationality at checkout and no second price check is needed. Once a
+    // nationality is chosen it stays on the search for the rest of the session.
+    const detected = preference.country?.toLowerCase();
+    const searchResidency = !state.criteria && residency === 'ae' && detected && COUNTRY_CODES.includes(detected) ? detected : residency;
+    const criteria: SearchCriteria = { checkin, checkout, guests: copyGuestRooms(guests), residency: searchResidency, currency, language, ...(savedOnly ? { hids: savedIds } : destination?.regionId ? { regionId: destination.regionId } : destination?.hid ? { hids: [destination.hid] } : {}) };
+    const validation = validateSearchCriteria(criteria); const next = { destination: savedOnly ? !savedIds.length : !destination || !query.trim(), dates: validation.errors.includes('invalid_checkin') || validation.errors.includes('invalid_checkout'), residency: !COUNTRY_CODES.includes(searchResidency), guests: validation.errors.includes('invalid_guests') };
     setErrors(next); setSubmitted(true);
     if (!validation.valid || Object.values(next).some(Boolean)) {
       if (next.destination) destinationInput.current?.focus();
@@ -201,14 +207,14 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const destinationError = errors.destination;
   const form = <Card testID="search-form" elevated onLayout={event => { formTop.current = event.nativeEvent.layout.y; }} style={[styles.form, desktop && elevation.raised]}>
     {savedOnly ? <Txt kind="heading" accessibilityRole="header">{t('savedDatesTitle')}</Txt>
-      : <Txt kind="subheading" accessibilityRole="header">{continueSource && !continueSource.current ? (rtl ? 'أو ابدأ بحثاً جديداً' : 'Or start a new search') : (rtl ? 'ابحث عن إقامتك' : 'Find your stay')}</Txt>}
+      : continueSource && !continueSource.current && <Txt kind="label" accessibilityRole="header">{rtl ? 'أو ابدأ بحثاً جديداً' : 'Or start a new search'}</Txt>}
     {!savedOnly && <View style={{ gap: space.xs }}>
       <Pressable accessible={false} focusable={false} tabIndex={-1} onPress={() => destinationInput.current?.focus()}
         style={[styles.destinationRow, { flexDirection: rtl ? 'row-reverse' : 'row', borderColor: destinationError ? color.danger : destinationFocused ? color.interactive : color.borderControl },
           destinationFocused && { borderWidth: 2 }]}>
         <Icon name="pin" size={20} color={color.interactiveStrong}/>
         <View style={{ flex: 1 }}>
-          <Txt kind="caption">{rtl ? 'الوجهة' : 'Destination'}</Txt>
+          <Txt kind="caption" style={{ lineHeight: 18 }}>{rtl ? 'الوجهة' : 'Destination'}</Txt>
           <TextInput ref={destinationInput} testID="search-destination" accessibilityLabel={t('destination')} accessibilityHint={destinationError ? t('pickDestination') : undefined}
             onFocus={() => setDestinationFocused(true)} onBlur={() => setDestinationFocused(false)}
             value={query} onChangeText={value => { setPickedCity(null); setQuery(value); select(null); setSubmitted(false); setErrors(current => ({ ...current, destination: false })); }}
@@ -237,7 +243,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     <Row style={styles.quickRow} accessibilityLabel={rtl ? 'تواريخ سريعة' : 'Quick dates'}>
       {(['tonight', 'tomorrow', 'nextWeek'] as const).map(kind => {
         const dates = quickStayDates(kind); const chosen = dates.checkin === checkin && dates.checkout === checkout;
-        return <Chip key={kind} testID={'quick-stay-' + kind} selected={chosen} accessibilityLabel={copy[kind]}
+        return <Chip size="sm" key={kind} testID={'quick-stay-' + kind} selected={chosen} accessibilityLabel={copy[kind]}
           label={({ tonight: rtl ? 'الليلة' : 'Tonight', tomorrow: rtl ? 'غداً' : 'Tomorrow', nextWeek: rtl ? 'بعد 7 أيام' : 'In 7 days' })[kind]}
           onPress={() => chooseQuickStay(kind)}/>;
       })}
@@ -247,9 +253,10 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t(errors.residency ? 'residencyError' : 'guestsError')}</Txt></Row>}
     <Pressable testID="search-currency" accessibilityRole="button"
       onPress={() => showCurrency(true)} style={state => [styles.currencyControl, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
-      <Row style={{ gap: space.sm }}><Icon name="wallet" size={18} color={color.textSecondary}/>
-        <Txt kind="small" style={{ flex: 1 }}>{rtl ? 'عملة الدفع' : 'Payment currency'} · <Txt kind="label">{currencyName(preference.currency, language)} ({preference.currency})</Txt></Txt>
-        <Txt kind="caption">{currencySource}</Txt><Icon name="chevron" size={16} color={color.textSecondary}/></Row>
+      <Row style={{ gap: space.sm }}><Icon name="wallet" size={16} color={color.textSecondary}/>
+        <Txt kind="small" numberOfLines={1} accessibilityLabel={`${rtl ? 'عملة الدفع' : 'Payment currency'}: ${currencyName(preference.currency, language)} (${preference.currency}) · ${currencySource}`} style={{ flex: 1 }}>
+          {rtl ? 'الدفع بـ' : 'Pay in'} <Txt kind="label">{currencyName(preference.currency, language)} ({preference.currency})</Txt></Txt>
+        <Txt kind="caption" tone="link">{rtl ? 'تغيير' : 'Change'}</Txt></Row>
     </Pressable>
     {preference.saveFailed && <Txt kind="small" accessibilityRole="alert">{rtl ? 'تعذّر حفظ العملة على الجهاز. ينطبق اختيارك على هذه الجلسة.' : 'Could not save your currency on this device. It applies for this session.'}</Txt>}
     <View testID="search-submit">
@@ -304,9 +311,9 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
           <DestinationPicks choose={chooseDestination}/>
           <DiscoveryShelves/>
         </> : <>
-          {!savedOnly && <View style={{ gap: space.xs }}>
-            <Txt kind="title" accessibilityRole="header">{rtl ? 'إلى أين وجهتك القادمة؟' : 'Where to next?'}</Txt>
-            <Txt kind="small">{rtl ? 'أسعار إجمالية لكامل الإقامة وشروط واضحة قبل أن تحجز.' : 'Full-stay prices and clear terms before you book.'}</Txt>
+          {!savedOnly && <View style={{ gap: 0 }}>
+            <Txt kind="heading" accessibilityRole="header" style={{ fontSize: 22, lineHeight: rtl ? 34 : 30 }}>{rtl ? 'إلى أين وجهتك القادمة؟' : 'Where to next?'}</Txt>
+            <Txt kind="caption">{rtl ? 'أسعار إجمالية لكامل الإقامة وشروط واضحة قبل أن تحجز.' : 'Full-stay prices and clear terms before you book.'}</Txt>
           </View>}
           {continueCard}
           {form}
@@ -335,15 +342,15 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
 }
 
 const styles = StyleSheet.create({
-  page: { width: '100%', alignSelf: 'center', paddingTop: space.lg, gap: space.lg },
-  form: { gap: space.md, padding: space.lg, borderRadius: radius.xl },
-  destinationRow: { alignItems: 'center', gap: space.md, minHeight: 64, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.md, borderWidth: 1, backgroundColor: color.bgSurface },
-  destination: { color: color.textPrimary, minHeight: 32, fontSize: 18, lineHeight: 26, paddingHorizontal: 0, paddingVertical: 0 },
+  page: { width: '100%', alignSelf: 'center', paddingTop: space.md, gap: space.md },
+  form: { gap: space.sm + 2, padding: space.md, borderRadius: radius.lg },
+  destinationRow: { alignItems: 'center', gap: space.sm + 2, minHeight: 56, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.md, borderWidth: 1, backgroundColor: color.bgSurface },
+  destination: { color: color.textPrimary, minHeight: 28, fontSize: 17, lineHeight: 24, paddingHorizontal: 0, paddingVertical: 0 },
   suggestions: { borderWidth: 1, borderColor: color.border, borderRadius: radius.md, overflow: 'hidden', backgroundColor: color.bgSurface },
   suggestion: { minHeight: 56, paddingHorizontal: space.md, paddingVertical: space.sm, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
   suggestionIcon: { width: 36, height: 36, borderRadius: radius.pill, backgroundColor: color.bgSelected, alignItems: 'center', justifyContent: 'center' },
-  quickRow: { gap: space.sm, flexWrap: 'wrap' },
-  currencyControl: { minHeight: touch.min, paddingHorizontal: space.xs, justifyContent: 'center', borderRadius: radius.sm },
-  membership: { minHeight: 64, justifyContent: 'center', paddingHorizontal: space.lg, paddingVertical: space.md, borderRadius: radius.lg, backgroundColor: color.bgSelected },
+  quickRow: { gap: space.xs, flexWrap: 'wrap' },
+  currencyControl: { minHeight: touch.min - 4, paddingHorizontal: space.xs, justifyContent: 'center', borderRadius: radius.sm },
+  membership: { minHeight: 56, justifyContent: 'center', paddingHorizontal: space.md, paddingVertical: space.sm, borderRadius: radius.lg, backgroundColor: color.bgSelected },
   membershipIcon: { width: 40, height: 40, borderRadius: radius.pill, backgroundColor: color.bgSurface, alignItems: 'center', justifyContent: 'center' },
 });

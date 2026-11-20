@@ -203,21 +203,24 @@ export function Skeleton({ width = '100%', height = 16, rounded = radius.sm, sty
     style={[{ width, height, borderRadius: rounded, backgroundColor: color.bgSelected, opacity: pulse }, style]}/>;
 }
 
-export function Field({ label, error, errorId, inputRef, style, ltr = false, hint, a11yLabel, ...props }: TextInputProps & {
+export function Field({ label, error, errorId, inputRef, style, ltr = false, hint, a11yLabel, invalid = false, ...props }: TextInputProps & {
   label: string; error?: string; errorId?: string; inputRef?: React.Ref<React.ComponentRef<typeof TextInput>>; ltr?: boolean; hint?: string;
   /** Full accessible name when the visible label relies on nearby context ("First name" under "Room 2 · Traveler 1"). */
   a11yLabel?: string;
+  /** Marks the field (red edge, announced) when one message above the form explains the problem. */
+  invalid?: boolean;
 }) {
   const { rtl, language } = useLanguage(); const [focused, focus] = useState(false);
   const errorLink = Platform.OS === 'web' && error && errorId ? { 'aria-invalid': true, 'aria-describedby': errorId } : undefined;
   return <View style={{ gap: space.xs, flexShrink: 1 }}>
     <Txt kind="label">{label}</Txt>
     <View style={[styles.fieldRing, { borderColor: focused ? color.focusRing : 'transparent' }]}>
-      <TextInput {...props} {...errorLink} ref={inputRef} accessibilityLabel={a11yLabel ? nameWithVisibleText(label, a11yLabel) : label} accessibilityHint={error || hint || props.accessibilityHint}
+      <TextInput {...props} {...errorLink} ref={inputRef} accessibilityLabel={a11yLabel ? nameWithVisibleText(label, a11yLabel) : label}
+        accessibilityHint={error || (invalid ? (language === 'ar' ? 'هذا الحقل مطلوب' : 'Required') : undefined) || hint || props.accessibilityHint}
         placeholderTextColor={color.textSecondary}
         onFocus={event => { focus(true); props.onFocus?.(event); }} onBlur={event => { focus(false); props.onBlur?.(event); }}
         style={[ui.input, { fontFamily: localizedFont(language, fonts.medium), textAlign: ltr ? 'left' : rtl ? 'right' : 'left',
-          writingDirection: ltr ? 'ltr' : rtl ? 'rtl' : 'ltr', borderColor: error ? color.danger : focused ? color.interactive : color.borderControl },
+          writingDirection: ltr ? 'ltr' : rtl ? 'rtl' : 'ltr', borderColor: error || invalid ? color.danger : focused ? color.interactive : color.borderControl }, (error || invalid) && !focused && { borderWidth: 1.5 },
           Platform.OS === 'web' && ({ outlineStyle: 'none' } as object), style]}/>
     </View>
     {hint && !error && <Txt kind="caption">{hint}</Txt>}
@@ -397,7 +400,7 @@ const styles = StyleSheet.create({
   barAmount: { writingDirection: 'ltr' },
   badge: { alignItems: 'center', gap: space.xs, paddingHorizontal: space.sm, paddingVertical: space.xxs, borderRadius: radius.sm, maxWidth: '100%' },
   notice: { borderRadius: radius.md, borderWidth: 1, padding: space.md, gap: space.md },
-  card: { backgroundColor: color.bgSurface, borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: color.border, gap: space.md },
+  card: { backgroundColor: color.bgSurface, borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: color.borderCard, gap: space.md, ...elevation.card },
   fieldRing: { borderWidth: border.focus, borderRadius: radius.md + 2, margin: -border.focus },
   photoWaiting: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
   state: { alignItems: 'center', paddingVertical: space.xl, gap: space.md },

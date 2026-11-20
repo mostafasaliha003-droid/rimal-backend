@@ -7,7 +7,7 @@ import { api, websiteUrl } from '../api';
 import type { MemberStatus } from '../api/membership';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import { colors, ui } from '../theme';
+import { color, colors, ui } from '../theme';
 import BrandHeader, { AccountAvatar } from '../components/BrandHeader';
 import { Button, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
 import { afterSignInRoute, normalizeVerificationCode, registrationFormReady } from '../components/foundationContracts';
@@ -97,7 +97,7 @@ export default function AccountScreen() {
   const openPolicy=async(path:'/privacy'|'/terms')=>{try{await WebBrowser.openBrowserAsync(websiteUrl(path),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
   const visibleError=error||(status==='signedOut'&&sessionError&&!restorePending?t('authError'):'');
   return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}>
-    <Txt kind="title" accessibilityRole="header">{t('account')}</Txt>
+    <Txt kind="heading" accessibilityRole="header">{t('account')}</Txt>
     {status==='signedOut'&&restorePending&&<StatePanel title={language==='ar'?'تعذّر التحقق من جلستك':'We couldn’t verify your session'}
       body={language==='ar'?'أعد المحاولة لاستعادة حسابك على هذا الجهاز.':'Try again to restore your account on this device.'}
       retry={()=>void refresh()}/>}
@@ -139,11 +139,11 @@ export default function AccountScreen() {
 }
 
 const accountStyles = StyleSheet.create({
-  profile: { borderRadius: 24, padding: 20, gap: 18, backgroundColor: colors.primary },
+  profile: { borderRadius: 16, padding: 16, gap: 14, backgroundColor: colors.primary },
   explore: { alignSelf: 'stretch' },
-  member: { borderRadius: 18, backgroundColor: colors.pistachioMist, paddingVertical: 6, paddingHorizontal: 14 },
+  member: { borderRadius: 16, backgroundColor: colors.pistachioMist, paddingVertical: 4, paddingHorizontal: 14 },
   memberIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.pistachio, alignItems: 'center', justifyContent: 'center' },
-  menu: { borderRadius: 18, overflow: 'hidden', backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
-  link: { minHeight: 58, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 9 },
+  menu: { borderRadius: 16, overflow: 'hidden', backgroundColor: colors.surface, borderColor: color.borderCard, borderWidth: 1 },
+  link: { minHeight: 52, justifyContent: 'center', paddingHorizontal: 14, paddingVertical: 6 },
   linkIcon: { alignItems: 'center', justifyContent: 'center', width: 32, height: 32, borderRadius: 10, backgroundColor: colors.softBlue },
 });

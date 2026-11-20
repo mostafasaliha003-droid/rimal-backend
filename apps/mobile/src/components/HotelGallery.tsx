@@ -23,7 +23,7 @@ export default function HotelGallery({ images, name, room = false }: {
   const caption = images.length ? (rtl ? 'تعذّر تحميل الصور' : 'Photos unavailable') : t(room ? 'roomPhotoUnknown' : 'photoUnknown');
   const reject = (source: string) => setFailed(previous => new Set(previous).add(source));
   const sidePhotos = room ? [] : available.filter(source => source !== uri).slice(0, 2);
-  const height = Math.min(room ? 215 : 320, Math.max(room ? 138 : 182, width * (room ? .39 : .52)));
+  const height = Math.min(room ? 200 : 300, Math.max(room ? 132 : 168, width * (room ? .36 : .46)));
   const open = (photo: string) => { setIndex(available.indexOf(photo)); setExpanded(true); };
   const navigate = (next: boolean) => {
     const disabled = next ? current >= available.length - 1 : current === 0;

@@ -34,6 +34,8 @@ export const color = {
   scrim: 'rgba(32,22,38,0.48)', photoPlaceholder: palette.lavender100,
   // Borders: decorative separators are quiet; control boundaries keep 3:1 contrast.
   border: palette.neutral200, borderControl: palette.neutral400, borderSelected: palette.plum500,
+  // Cards sit on the cream canvas with a hairline edge and a soft shadow instead of a grey outline.
+  borderCard: 'rgba(45,23,58,0.08)',
   // Status (text on its own background is at least 4.5:1)
   success: palette.green700, successBg: palette.pistachio100, successBorder: palette.pistachio300,
   warning: palette.gold700, warningBg: palette.gold100, warningBorder: palette.gold200,
@@ -137,7 +139,7 @@ export const ui = StyleSheet.create({
   screen: { flex: 1, backgroundColor: color.bgCanvas, direction: 'ltr' },
   page: { padding: space.lg, gap: space.lg, paddingBottom: space.xxl, width: '100%', maxWidth: layout.maxReading + 160, alignSelf: 'center' },
   row: { flexDirection: 'row', alignItems: 'center', gap: space.md },
-  card: { backgroundColor: color.bgSurface, borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: color.border, gap: space.md },
+  card: { backgroundColor: color.bgSurface, borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: color.borderCard, gap: space.md, ...elevation.card },
   title: { fontFamily: fonts.bold, fontSize: typeScale.title.fontSize, lineHeight: typeScale.title.lineHeightAr, color: color.textBrand },
   heading: { fontFamily: fonts.bold, fontSize: typeScale.heading.fontSize, lineHeight: typeScale.heading.lineHeightAr, color: color.textBrand },
   text: { fontFamily: fonts.regular, fontSize: typeScale.body.fontSize, lineHeight: typeScale.body.lineHeightAr, color: color.textPrimary },

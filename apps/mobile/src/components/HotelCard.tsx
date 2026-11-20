@@ -138,7 +138,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
 }
 
 const styles = StyleSheet.create({
-  card: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.border },
+  card: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.borderCard, ...elevation.card },
   viewed: { borderColor: color.infoBorder, borderWidth: 1.5 },
   pressed: { backgroundColor: color.bgMuted },
   details: { paddingHorizontal: space.md, paddingVertical: space.sm + 2, gap: space.xxs + 1 },

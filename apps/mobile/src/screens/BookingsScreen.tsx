@@ -6,11 +6,11 @@ import { api, websiteUrl } from '../api';
 import type { BookingHistoryItem } from '../api/bookings';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import { color, colors, radius, space, ui } from '../theme';
+import { color, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
-import { Badge, Button, Card, Chip, Field, MoneyText, Notice, Row, StatePanel, Txt, DisclosureMark, type BadgeTone, type IconName, type NoticeTone } from '../components/Primitives';
+import { Badge, Button, Card, Chip, Divider, Field, InfoRow, Notice, Row, StatePanel, TextLink, Txt, DisclosureMark, type BadgeTone, type IconName, type NoticeTone } from '../components/Primitives';
 import { canDownloadVoucher } from '../api/voucher';
-import { formatWeekday, stayWords } from '../components/format';
+import { formatPrice, formatStayRange, formatWeekday, stayWords } from '../components/format';
 import {
   buildTripsModel, filterTrips, formatTripDate, localTodayKey,
   type TripBucket, type TripFilter, type TripRow,
@@ -59,73 +59,62 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
     unknown: { title: copy.status.unknown, body: ar ? 'تعذّر تأكيد حالة هذا الحجز. تواصل مع الدعم للتحقق قبل أي خطوة.' : 'We could not confirm this booking’s status. Contact support to check before taking any step.' },
   }[row.statusKind];
   const bookAgain = () => router.navigate({ pathname: '/', params: { q: booking.hotelName || '' } });
+  const range = row.dates.checkin && row.dates.checkout ? formatStayRange(row.dates.checkin, row.dates.checkout, language)
+    : [formatTripDate(row.dates.checkin, language) || copy.dateUnknown, formatTripDate(row.dates.checkout, language) || copy.dateUnknown].join(' – ');
+  const weekdays = row.dates.checkin && row.dates.checkout
+    ? `${copy.checkin} ${formatWeekday(row.dates.checkin, language)} · ${copy.checkout} ${formatWeekday(row.dates.checkout, language)}` : '';
+  const canAmend = booking.recordedStatus?.toLowerCase() === 'active' && booking.supplierStatus?.toUpperCase() === 'CONFIRMED';
+  const canBookAgain = (row.bucket === 'past' || row.statusKind === 'cancelled') && !!booking.hotelName;
   return (
-    <Card testID={`trip-${booking.reference}`} style={{ gap: space.md }}>
+    <Card testID={`trip-${booking.reference}`} style={styles.card}>
       <Row style={{ justifyContent: 'space-between', gap: space.sm, flexWrap: 'wrap' }}>
         <Badge tone={meta.tone} icon={meta.icon} label={statusText.title}/>
         {row.bucket === 'current' && <Badge tone="info" label={copy.groups.current}/>}
       </Row>
-      <View style={{ gap: space.xxs }}>
-        <Txt kind="subheading" accessibilityRole="header">{booking.hotelName || copy.hotelUnknown}</Txt>
-        {booking.roomName && <Txt kind="small">{localizedRoomName(booking.roomName, language)}</Txt>}
+      <View style={{ gap: 1 }}>
+        <Txt kind="subheading" accessibilityRole="header" numberOfLines={2}>{booking.hotelName || copy.hotelUnknown}</Txt>
+        {booking.roomName && <Txt kind="small" numberOfLines={2}>{localizedRoomName(booking.roomName, language)}</Txt>}
       </View>
-      <View style={styles.dates}>
-        <Row style={{ gap: space.md, alignItems: 'flex-start' }}>
-        {(['checkin', 'checkout'] as const).map(key => <View key={key} style={{ flex: 1, minWidth: 0 }}>
-          <Txt kind="caption">{copy[key]}</Txt>
-          <Txt kind="bodyStrong">{formatTripDate(row.dates[key], language) || copy.dateUnknown}</Txt>
-          {row.dates[key] && <Txt kind="caption">{formatWeekday(row.dates[key]!, language)}</Txt>}
-        </View>)}
-        </Row>
-        {row.dates.nights !== null && <Badge tone="info" icon="moon" label={stayWords(language).nights(row.dates.nights)}/>}
-      </View>
-      {row.bucket === 'current' && row.dates.checkin === today && <Txt kind="label" tone="info">{copy.arrivalToday}</Txt>}
-      {row.bucket === 'current' && row.dates.checkout === today && <Txt kind="label" tone="info">{copy.departureToday}</Txt>}
-      {row.dates.issue && <Txt kind="small">{row.dates.issue === 'missing' ? copy.datesIncomplete : copy.datesInvalid}</Txt>}
+      <InfoRow icon="calendar">
+        <Txt kind="bodyStrong">{range}{row.dates.nights !== null ? ` · ${stayWords(language).nights(row.dates.nights)}` : ''}</Txt>
+        {!!weekdays && <Txt kind="caption">{weekdays}</Txt>}
+        {row.bucket === 'current' && row.dates.checkin === today && <Txt kind="label" tone="info">{copy.arrivalToday}</Txt>}
+        {row.bucket === 'current' && row.dates.checkout === today && <Txt kind="label" tone="info">{copy.departureToday}</Txt>}
+        {row.dates.issue && <Txt kind="caption" tone="warning">{row.dates.issue === 'missing' ? copy.datesIncomplete : copy.datesInvalid}</Txt>}
+      </InfoRow>
       {row.statusKind !== 'confirmed' && <Notice tone={meta.notice} body={statusText.body}/>}
-      <Row style={{ justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap' }}>
-        <View style={{ gap: space.xxs }}>
+      <Divider/>
+      <Row style={{ justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap', alignItems: 'flex-end' }}>
+        <View>
           <Txt kind="caption">{copy.reference}</Txt>
-          <Txt selectable kind="bodyStrong" style={{ writingDirection: 'ltr' }}>{booking.reference}</Txt>
+          <Txt selectable kind="label" tone="primary" style={{ writingDirection: 'ltr' }}>{booking.reference}</Txt>
         </View>
-        {booking.price && <View style={{ gap: space.xxs, alignItems: ar ? 'flex-start' : 'flex-end' }}>
-          <Txt kind="caption">{copy.recordedAmount}</Txt><MoneyText money={booking.price}/>
+        {booking.price && <View style={{ alignItems: ar ? 'flex-start' : 'flex-end' }}>
+          <Txt kind="caption">{copy.recordedAmount}</Txt>
+          <Txt kind="subheading" style={{ writingDirection: 'ltr' }}>{formatPrice(booking.price) || ''}</Txt>
         </View>}
       </Row>
-      {canDownloadVoucher(booking) && <View style={{ gap: space.xs }}>
-        <VoucherButton booking={booking}/>
-        <Txt kind="caption">{ar ? 'يتضمن الفاوجر عنوان الفندق ووقت الوصول عند توفّرهما من المورّد.' : 'The voucher includes the hotel address and check-in time when the supplier provides them.'}</Txt>
-      </View>}
-      <Row style={{ gap: space.sm, flexWrap: 'wrap' }}>
-        <View style={{ flexGrow: 1, flexBasis: 150 }}><Button variant="secondary" icon="support" title={ar ? 'مساعدة بهذا الحجز' : 'Help with this booking'}
-          onPress={() => router.navigate('/support')}/></View>
-        {booking.recordedStatus?.toLowerCase() === 'active' && booking.supplierStatus?.toUpperCase() === 'CONFIRMED' &&
-          <View style={{ flexGrow: 1, flexBasis: 150 }}><Button variant="secondary" icon="edit" title={ar ? 'طلب تعديل' : 'Request a change'} onPress={() => manage(true)}/></View>}
-      </Row>
-      <Row style={{ gap: space.sm, flexWrap: 'wrap' }}>
-        <View style={{ flexGrow: 1, flexBasis: 150 }}><Button variant="quiet" icon="external" title={ar ? 'الإلغاء والاسترداد على الموقع' : 'Cancellation & refunds online'} onPress={() => manage()}/></View>
-        {(row.bucket === 'past' || row.statusKind === 'cancelled') && !!booking.hotelName &&
-          <View style={{ flexGrow: 1, flexBasis: 150 }}><Button testID={`trip-book-again-${booking.reference}`} variant="tonal" icon="refresh" title={ar ? 'احجز مجدداً' : 'Book again'}
-            hint={ar ? 'نبدأ بحثاً جديداً بهذا الفندق ونتحقق من الأسعار والتوفر لتواريخك الجديدة.' : 'Starts a new search for this hotel and checks prices and availability for your new dates.'} onPress={bookAgain}/></View>}
+      {canDownloadVoucher(booking) && <VoucherButton booking={booking}/>}
+      <Row style={{ gap: space.lg, flexWrap: 'wrap', rowGap: space.xs }}>
+        <TextLink icon="support" title={ar ? 'مساعدة' : 'Help'} label={ar ? 'مساعدة بهذا الحجز' : 'Help with this booking'} onPress={() => router.navigate('/support')}/>
+        {canAmend && <TextLink icon="edit" title={ar ? 'طلب تعديل' : 'Request a change'} onPress={() => manage(true)}/>}
+        <TextLink icon="external" title={ar ? 'الإلغاء والاسترداد' : 'Cancel & refund'} label={ar ? 'الإلغاء والاسترداد على الموقع' : 'Cancellation & refunds online'} onPress={() => manage()}/>
+        {canBookAgain && <TextLink testID={`trip-book-again-${booking.reference}`} icon="refresh" title={ar ? 'احجز مجدداً' : 'Book again'} onPress={bookAgain}/>}
       </Row>
       {accountError && <Txt accessibilityRole="alert" kind="small" tone="danger">{ar ? 'تعذّر فتح حسابك على الموقع. حاول مجدداً.' : 'Could not open your online account. Try again.'}</Txt>}
-      {(booking.recordedStatus || booking.supplierStatus) && (
-        <View style={{ gap: space.xs }}>
-          <Pressable accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded}
-            onPress={() => setExpanded(value => !value)} style={{ minHeight: 44, justifyContent: 'center' }}>
-            <Row style={{ justifyContent: 'space-between' }}>
-              <Txt kind="label" tone="link">{copy.recordDetails}</Txt>
-              <DisclosureMark open={expanded}/>
-            </Row>
-          </Pressable>
-          {expanded && (
-            <View style={{ gap: space.xxs }}>
-              {booking.recordedStatus && <Txt kind="small">{copy.recordedStatus}: {booking.recordedStatus}</Txt>}
-              {booking.supplierStatus && <Txt kind="small">{copy.supplierStatus}: {booking.supplierStatus}</Txt>}
-            </View>
-          )}
-        </View>
-      )}
+      {(booking.recordedStatus || booking.supplierStatus) && <View style={{ gap: space.xxs }}>
+        <Pressable accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded}
+          onPress={() => setExpanded(value => !value)} style={{ minHeight: 36, justifyContent: 'center' }}>
+          <Row style={{ gap: space.xs }}>
+            <Txt kind="caption" tone="link">{copy.recordDetails}</Txt>
+            <DisclosureMark open={expanded}/>
+          </Row>
+        </Pressable>
+        {expanded && <>
+          {booking.recordedStatus && <Txt kind="caption">{copy.recordedStatus}: {booking.recordedStatus}</Txt>}
+          {booking.supplierStatus && <Txt kind="caption">{copy.supplierStatus}: {booking.supplierStatus}</Txt>}
+        </>}
+      </View>}
     </Card>
   );
 }
@@ -186,26 +175,25 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
   const refresh = () => setRetry(value => value + 1);
   const reset = () => { setFilter('all'); setQuery(''); };
   const findStay = () => router.navigate('/');
-  const heading = <Txt kind="title" accessibilityRole="header">{copy.title}</Txt>;
+  const heading = <Txt kind="heading" accessibilityRole="header">{copy.title}</Txt>;
   const controls = (
-    <View style={{ gap: 10 }}>
-      <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <Txt kind="label">{copy.filtersLabel}</Txt>
-        <Button compact title={copy.refresh} variant="quiet" onPress={refresh} />
-      </Row>
-      <Row style={{ gap: 8, flexWrap: 'wrap' }}>
-        {filters.map(filter => {
+    <View style={{ gap: space.sm }}>
+      <Row style={{ gap: space.xs, flexWrap: 'wrap' }}>
+        {/* Empty groups add no choice; they stay hidden unless selected. */}
+        {filters.filter(filter => filter === 'all' || filter === activeFilter || model.counts[filter] > 0).map(filter => {
           const selected = activeFilter === filter;
           return (
-            <Chip key={filter} selected={selected} label={`${copy.filters[filter]} (${model.counts[filter]})`} onPress={() => setFilter(filter)}/>
+            <Chip size="sm" key={filter} selected={selected} label={`${copy.filters[filter]} (${model.counts[filter]})`} accessibilityLabel={`${copy.filtersLabel}: ${copy.filters[filter]}`} onPress={() => setFilter(filter)}/>
           );
         })}
       </Row>
       <Pressable accessibilityRole="button" accessibilityState={{ expanded: lookupOpen }} aria-expanded={lookupOpen}
-        onPress={() => setLookupOpen(value => !value)} style={{ minHeight: 48, justifyContent: 'center' }}>
+        onPress={() => setLookupOpen(value => !value)} style={{ minHeight: 40, justifyContent: 'center' }}>
         <Row style={{ justifyContent: 'space-between' }}>
-          <Txt kind="label" style={{ color: colors.blueStrong }}>{copy.findBooking}</Txt>
-          <DisclosureMark open={lookupOpen}/>
+          <Txt kind="label" tone="link">{copy.findBooking}</Txt>
+          <Row style={{ gap: space.md }}>
+            <DisclosureMark open={lookupOpen}/>
+          </Row>
         </Row>
       </Pressable>
       {lookupOpen && (
@@ -218,7 +206,10 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
           <Button compact title={copy.clearLookup} variant="quiet" onPress={() => setQuery('')} />
         </Row>
       )}
-      <Txt kind="small" accessibilityLiveRegion="polite">{copy.results(visible.length, model.rows.length)}</Txt>
+      <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap', gap: space.sm }}>
+        <Txt kind="caption" accessibilityLiveRegion="polite" style={{ flexShrink: 1 }}>{copy.results(visible.length, model.rows.length)}</Txt>
+        <TextLink icon="refresh" title={copy.refresh} onPress={refresh}/>
+      </Row>
     </View>
   );
   const footer = (
@@ -235,16 +226,16 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
         <SectionList sections={sections} keyExtractor={row => row.booking.reference}
           renderItem={({ item }) => <BookingCard row={item} today={today} />}
           renderSectionHeader={({ section }) => (
-            <View style={{ paddingTop: 8, paddingBottom: 12 }}>
-              <Txt kind="heading" accessibilityRole="header">{copy.groups[section.bucket]} ({section.data.length})</Txt>
+            <View style={{ paddingTop: space.xs, paddingBottom: space.sm }}>
+              <Txt kind="subheading" accessibilityRole="header">{copy.groups[section.bucket]} ({section.data.length})</Txt>
             </View>
           )}
-          contentContainerStyle={ui.page} stickySectionHeadersEnabled={false}
+          contentContainerStyle={[ui.page, styles.page]} stickySectionHeadersEnabled={false}
           initialNumToRender={8} maxToRenderPerBatch={8} windowSize={5}
           keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'}
-          ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+          ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
           renderSectionFooter={() => <View style={{ height: 8 }} />}
-          ListHeaderComponent={<View style={{ gap: 12, paddingBottom: 8 }}>{heading}{controls}</View>}
+          ListHeaderComponent={<View style={{ gap: space.sm, paddingBottom: space.xs }}>{heading}{controls}</View>}
           ListEmptyComponent={(
             <View style={{ gap: 14 }}>
               <StatePanel title={copy.noMatchesTitle} body={copy.noMatchesBody} />
@@ -253,7 +244,7 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
           )}
           ListFooterComponent={footer} />
       ) : (
-        <ScrollView contentContainerStyle={ui.page}>
+        <ScrollView contentContainerStyle={[ui.page, styles.page]}>
           {heading}
           {status === 'loading' || status === 'signedIn' && !current ? (
             <StatePanel title={copy.loadingTitle} body={copy.loadingBody} busy />
@@ -288,5 +279,6 @@ export default function BookingsScreen() {
 }
 
 const styles = StyleSheet.create({
-  dates: { gap: space.sm, backgroundColor: color.bgMuted, borderRadius: radius.md, padding: space.md },
+  page: { gap: space.md, paddingTop: space.md },
+  card: { gap: space.sm + 2, padding: space.md, borderRadius: radius.lg },
 });

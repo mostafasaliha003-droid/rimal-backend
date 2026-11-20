@@ -14,7 +14,7 @@ export default function MealPlanPicker({ value, options, onChange }: {
   const { height, width, fontScale } = useWindowDimensions();
   const [open, setOpen] = useState(false);
   const all = rtl ? 'عرض جميع الخطط' : 'Show all plans';
-  const selected = value.kind === 'all' ? (rtl ? 'اختيار الوجبات' : 'Meal plans') : mealPlanTitle(value.kind === 'value' ? value.value : undefined, language);
+  const selected = value.kind === 'all' ? (rtl ? 'الوجبات' : 'Meals') : mealPlanTitle(value.kind === 'value' ? value.value : undefined, language);
   const title = rtl ? 'اختر وجبات الإقامة' : 'Choose your meal plan';
   const choose = (next: MealFacet) => { onChange(next); setOpen(false); };
   const row = (label: string, next: MealFacet, checked: boolean, option?: MealPlanOption) => (

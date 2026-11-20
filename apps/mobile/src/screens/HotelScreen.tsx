@@ -10,7 +10,7 @@ import { color, elevation, layout, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import ApiState from '../components/ApiState';
-import { ActionBar, Button, Card, Chip, Field, Icon, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
+import { ActionBar, Button, Card, Chip, Field, Icon, IconButton, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
 import HotelGallery from '../components/HotelGallery';
 import HotelAbout from '../components/HotelAbout';
 import RoomOfferPicker from '../components/RoomOfferPicker';
@@ -157,19 +157,19 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
       <View style={{ gap: space.md }} onLayout={({ nativeEvent: { layout: frame } }) => { tabTop.current = frame.y + frame.height + space.md; }}>
         <HotelGallery images={hotel.images} name={hotel.name}/>
         <Row style={{ alignItems: 'flex-start', gap: space.md }}>
-          <View style={{ flex: 1, minWidth: 0, gap: space.xs }}>
+          <View style={{ flex: 1, minWidth: 0, gap: space.xxs }}>
             <StarRating stars={hotel.stars}/>
-            <Txt accessibilityRole="header" kind="heading" testID="hotel-name">{hotel.name}</Txt>
+            <Txt accessibilityRole="header" accessibilityLabel={hotel.name} kind="heading" testID="hotel-name" numberOfLines={2}>{hotel.name}</Txt>
             {hotel.address && <Pressable testID="hotel-location-link" accessibilityRole="button" accessibilityHint={ar ? 'يعرض موقع الفندق على الخريطة' : 'Shows the hotel location on the map'}
-              onPress={showLocation} style={{ minHeight: 44, justifyContent: 'center' }}>
+              onPress={showLocation} style={{ minHeight: 40, justifyContent: 'center' }}>
               <Row style={{ gap: space.xs, alignItems: 'center' }}><Icon name="pin" size={16} color={color.interactiveStrong}/>
-                <Txt kind="small" tone="link" numberOfLines={2} style={{ flex: 1 }}>{hotel.address}</Txt>
+                <Txt kind="small" tone="link" numberOfLines={1} style={{ flex: 1 }}>{hotel.address}</Txt>
                 <Txt kind="label" tone="link">{ar ? 'الخريطة' : 'Map'}</Txt></Row>
             </Pressable>}
           </View>
           <Pressable accessibilityRole="button" accessibilityLabel={t(savedHere ? 'removeSaved' : 'saveStay')} aria-pressed={savedHere}
             accessibilityState={{ disabled: !savedReady, selected: savedHere }} disabled={!savedReady} onPress={save}
-            style={[styles.save, elevation.card, { opacity: savedReady ? 1 : .5 }]}>
+            hitSlop={4} style={[styles.save, elevation.card, { opacity: savedReady ? 1 : .5 }]}>
             <Icon name="saved" filled={savedHere} size={22} color={savedHere ? color.danger : color.textBrand}/></Pressable>
         </Row>
         {savedErrorKind && <Card><Txt accessibilityRole="alert">{t(savedErrorKind === 'load' ? 'savedError' : 'savedSaveFailed')}</Txt>
@@ -189,13 +189,14 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
         <Row style={{ gap: space.sm, alignItems: 'center', flexWrap: 'wrap' }}>
           <Txt accessibilityRole="header" kind="subheading" style={{ flex: 1 }}>{copy.roomsTitle}</Txt>
           {hotel.offers.length > 0 && <Animated.View style={{ opacity: pulse }}><Txt testID="room-match-count" accessibilityLiveRegion="polite" kind="label" tone="link">{short.plans(model.matchingOffers)}</Txt></Animated.View>}
+          {hotel.offers.length > 0 && <IconButton testID="room-filters-toggle" icon="filter" variant="outline" size={18} label={short.filters}
+            selected={filtersOpen || query.trim() !== '' || sort !== 'original'} onPress={() => setFiltersOpen(value => !value)}/>}
         </Row>
         {hotel.offers.length > 0 && <Row style={{ flexWrap: 'wrap', gap: space.xs }}>
           {freeCount > 0 && <Chip size="sm" testID="room-free-only" role="checkbox" selected={freeOnly} icon="checkCircle"
             label={ar ? `إلغاء مجاني (${freeCount})` : `Free cancellation (${freeCount})`} accessibilityLabel={copy.freeOnly} onPress={() => setFreeOnly(value => !value)}/>}
           {model.totalGroups > 1 && <RoomTypePicker groups={model.roomTypes} value={roomType} onChange={setRoomType}/>}
           <MealPlanPicker value={meal} options={model.mealOptions} onChange={setMeal}/>
-          <Chip size="sm" testID="room-filters-toggle" icon="filter" selected={filtersOpen || query.trim() !== '' || sort !== 'original'} label={short.filters} onPress={() => setFiltersOpen(value => !value)}/>
         </Row>}
         {hotel.offers.length === 0 ? <StatePanel icon="bed" title={t('noOffers')}
           body={ar ? 'قد تكون الغرف نفدت لهذه التواريخ. جرّب تواريخ أخرى؛ نحتفظ بالضيوف.' : 'Rooms may be sold out for these dates. Try other dates; your guests are kept.'}>
@@ -270,7 +271,7 @@ export default function HotelScreen() {
 
 const styles = StyleSheet.create({
   page: { width: '100%', alignSelf: 'center', paddingTop: space.md, paddingBottom: space.xxxl, gap: space.lg },
-  save: { width: 48, height: 48, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
+  save: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
   tabBar: { backgroundColor: color.bgCanvas, paddingVertical: space.xs },
   tabs: { backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.border, padding: space.xxs, borderRadius: radius.md, gap: space.xxs },
   tab: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', paddingHorizontal: space.sm, borderRadius: radius.sm },
