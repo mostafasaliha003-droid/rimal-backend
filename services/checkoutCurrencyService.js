@@ -41,32 +41,57 @@ function convertMinor(amount, source, target, rates) {
     if (!Number.isSafeInteger(value) || value <= 0) throw fail('invalid_checkout_quote');
     return value;
 }
-async function liveRates(source, target, { fetcher = globalThis.fetch, now = Date.now() } = {}) {
-    if (source === target) return { rates: { [source]: 1 }, date: new Date(now).toISOString().slice(0, 10) };
-    const quotes = [...new Set([source, target].filter(c => c !== 'USD'))].sort();
-    const cacheKey = quotes.join(',');
-    const previous = cache.get(cacheKey);
-    if (fetcher === globalThis.fetch && previous && now - previous.at < 5 * 60 * 1000) return previous.value;
+// One USD-based rate table for every payable currency. Displayed prices and the
+// signed checkout quote read the same cached table, so the amount a guest sees is
+// the amount the payment gateway is asked to charge (until the next refresh).
+const PAYABLE_QUOTES = Object.keys(currencies).filter(code => code !== 'USD').sort();
+const RATE_CACHE_MS = 5 * 60 * 1000;
+function validRow(rows, currency, now) {
+    const matches = rows.filter(r => r?.base === 'USD' && r?.quote === currency);
+    const row = matches[0], published = Date.parse(`${row?.date}T00:00:00Z`);
+    if (matches.length !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(row.date || '')
+        || !Number.isFinite(published) || new Date(published).toISOString().slice(0, 10) !== row.date
+        || now - published > 5 * 86400000 || published - now > 86400000
+        || !Number.isFinite(Number(row.rate)) || Number(row.rate) <= 0) return null;
+    try { parts(row.rate); } catch { return null; }
+    return row;
+}
+async function rateTable({ fetcher = globalThis.fetch, now = Date.now() } = {}) {
+    const previous = cache.get('payable');
+    if (fetcher === globalThis.fetch && previous && now >= previous.at && now - previous.at < RATE_CACHE_MS) return previous.value;
     let rows;
     try {
-        const r = await fetcher(`https://api.frankfurter.dev/v2/rates?base=USD&quotes=${quotes.join(',')}`, { signal: AbortSignal.timeout(8000), redirect: 'error' });
+        const r = await fetcher(`https://api.frankfurter.dev/v2/rates?base=USD&quotes=${PAYABLE_QUOTES.join(',')}`, { signal: AbortSignal.timeout(8000), redirect: 'error' });
         if (!r.ok) throw fail('checkout_fx_unavailable');
         rows = await r.json();
     } catch { throw fail('checkout_fx_unavailable'); }
     if (!Array.isArray(rows)) throw fail('checkout_fx_unavailable');
-    const rates = { USD: 1 }, dates = [];
-    for (const currency of quotes) {
-        const matches = rows.filter(r => r.base === 'USD' && r.quote === currency);
-        const row = matches[0], published = Date.parse(`${row?.date}T00:00:00Z`);
-        if (matches.length !== 1 || !/^\d{4}-\d{2}-\d{2}$/.test(row.date || '')
-            || !Number.isFinite(published) || new Date(published).toISOString().slice(0, 10) !== row.date
-            || now - published > 5 * 86400000 || published - now > 86400000
-            || !Number.isFinite(Number(row.rate)) || Number(row.rate) <= 0) throw fail('checkout_fx_unavailable');
-        parts(row.rate); rates[currency] = row.rate; dates.push(row.date);
+    const rates = { USD: '1' }, dates = {};
+    for (const currency of PAYABLE_QUOTES) {
+        const row = validRow(rows, currency, now);
+        if (row) { rates[currency] = String(row.rate); dates[currency] = row.date; }
     }
-    const value = { rates, date: dates.sort()[0] };
-    if (fetcher === globalThis.fetch) cache.set(cacheKey, { at: now, value });
+    const value = { rates, dates, fetchedAt: now };
+    if (fetcher === globalThis.fetch) cache.set('payable', { at: now, value });
     return value;
+}
+async function liveRates(source, target, options = {}) {
+    const now = options.now ?? Date.now();
+    if (source === target) return { rates: { [source]: 1 }, date: new Date(now).toISOString().slice(0, 10) };
+    const table = await rateTable({ ...options, now });
+    const needed = [...new Set([source, target].filter(c => c !== 'USD'))];
+    if (needed.some(currency => !table.rates[currency])) throw fail('checkout_fx_unavailable');
+    const rates = { USD: 1 };
+    for (const currency of needed) rates[currency] = table.rates[currency];
+    return { rates, date: needed.map(currency => table.dates[currency]).sort()[0] };
+}
+/** Public rate table for price display; the same values sign checkout quotes. */
+async function paymentRates(options = {}) {
+    const table = await rateTable(options);
+    const units = Object.fromEntries(Object.entries(currencies).filter(([code]) => table.rates[code])
+        .map(([code, value]) => [code, { decimals: value.decimals, step: value.step }]));
+    return { base: 'USD', rates: table.rates, dates: table.dates, currencies: units,
+        valid_until: table.fetchedAt + RATE_CACHE_MS };
 }
 function sign(payload) {
     const data = Buffer.from(JSON.stringify(payload)).toString('base64url');
@@ -101,4 +126,4 @@ function readQuote(token, details, identity, now = Date.now()) {
         || q.amount_minor % currencies[q.currency].step !== 0) throw fail('checkout_quote_expired_or_changed');
     return q;
 }
-module.exports = { createQuote, readQuote, convertMinor, liveRates };
+module.exports = { createQuote, readQuote, convertMinor, liveRates, paymentRates };

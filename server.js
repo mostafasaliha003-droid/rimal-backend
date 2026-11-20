@@ -1022,6 +1022,18 @@ app.post('/api/booking/prebook-serp', publicSearchGuard, async (req, res) => {
 });
 
 app.get('/api/payment/availability', createPaymentAvailabilityHandler({ payment: paymentService, database: mongoose.connection }));
+// Rates for displaying prices in the guest's payment currency. The signed checkout
+// quote converts with this same table and rounding, so shown and charged amounts agree.
+app.get('/api/payment/rates', async (_req, res) => {
+    try {
+        const rates = await require('./services/checkoutCurrencyService').paymentRates();
+        res.set('Cache-Control', 'public, max-age=120, stale-while-revalidate=180');
+        return res.json({ success: true, ...rates });
+    } catch {
+        res.set('Cache-Control', 'no-store');
+        return res.status(503).json({ success: false, error: 'payment_rates_unavailable' });
+    }
+});
 
 app.post('/api/payment/ziina/recover', requireUser, securityService.searchLimiter,
     createCheckoutRecoveryHandler({ service: checkoutProcessService }));
