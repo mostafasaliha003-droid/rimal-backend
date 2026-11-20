@@ -22,6 +22,8 @@ import { useChargeCurrency, useChargeMoney } from '../components/ChargeCurrency'
 import { MealBadge } from '../components/RateHighlights';
 import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
+import { countryName } from '../components/CountryPicker';
+import VoucherButton from '../components/VoucherButton';
 
 const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'web';
 // Traveler details typed but not yet submitted, kept in memory only (never stored on the device),
@@ -106,7 +108,7 @@ export interface CheckoutContentsProps {
 export function CheckoutContents(props: CheckoutContentsProps) {
   const charge = useChargeMoney();
   const { session, signedIn, creationEnabled } = props;
-  const { language } = useLanguage(), copy = checkoutCopy(language);
+  const { language, t } = useLanguage(), copy = checkoutCopy(language);
   const selected = props.readSelection();
   const [opening, setOpening] = useState(false), [actionError, setActionError] = useState<'website'|'payment'|'clear'|null>(null);
   const busy = ['quoting','submitting','recovering'].includes(session.phase);
@@ -136,6 +138,9 @@ export function CheckoutContents(props: CheckoutContentsProps) {
             <Txt kind="label">{copy.reference}</Txt><Txt selectable style={{ writingDirection: 'ltr' }}>{session.attempt.reference}</Txt>
             {session.attempt.confirmed && session.attempt.supplierReference && <><Txt kind="label">{copy.supplierReference}</Txt><Txt selectable style={{ writingDirection: 'ltr' }}>{session.attempt.supplierReference}</Txt></>}
             {session.attempt.confirmed && session.attempt.voucherDelivery && <Txt>{session.attempt.voucherDelivery === 'sent' ? copy.voucherSent : session.attempt.voucherDelivery === 'review' ? copy.voucherReview : copy.voucherPending}</Txt>}
+            {/* The confirmed booking is saved under the checkout reference; the server checks ownership and confirmation again. */}
+            {session.attempt.confirmed && <VoucherButton booking={{ reference: session.attempt.reference, hotelName: null, roomName: null, checkin: null, checkout: null,
+              recordedStatus: 'active', supplierStatus: 'CONFIRMED', statusKind: 'confirmed', price: null }}/>}
           </View> : <StatePanel title={copy.checking} body={copy.unknownBody} busy={busy}/>}
           {session.error && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{copy.statusError}</Txt>}
           {session.attempt?.status === 'awaiting_payment' && creationEnabled && <Button title={copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}
@@ -150,6 +155,8 @@ export function CheckoutContents(props: CheckoutContentsProps) {
             <MealBadge offer={offer}/>
             <Txt kind="small" style={{ writingDirection: 'ltr' }}>{selected.review.criteria.checkin} → {selected.review.criteria.checkout}</Txt>
             <Txt kind="small">{selected.review.criteria.guests.map((room,i)=>`${copy.room(i+1)}: ${room.adults + room.children.length}`).join(' · ')}</Txt>
+            <Txt kind="small">{t('residency')}: {countryName(selected.review.criteria.residency, language)}</Txt>
+            <Txt kind="caption">{language === 'ar' ? 'السعر محسوب لهذه الجنسية. لتغييرها ابحث من جديد.' : 'This price is for this nationality. Search again to change it.'}</Txt>
             <Txt kind="label">{copy.offer}</Txt><MoneyText large money={charge(offer.price)}/>
             {session.quote && <><View style={ui.rule}/><Txt kind="label" style={{ color: colors.blueStrong }}>{copy.charge}</Txt><MoneyText large money={{ amount: session.quote.amount, currency: session.quote.currency }}/><Txt kind="small">{copy.sameCurrency}</Txt></>}
             <Txt kind="small">{copy.notReserved}</Txt>

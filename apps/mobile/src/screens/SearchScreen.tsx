@@ -37,7 +37,8 @@ function initialTravel(criteria: SearchCriteria | null): TravelDraft {
   return {
     checkin: criteria?.checkin || '', checkout: criteria?.checkout || '',
     guests: copyGuestRooms(criteria?.guests || [{ adults: 2, children: [] }]),
-    residency: criteria?.residency || 'ae',
+    // RateHawk prices rates for the guest's nationality: the guest chooses it; it is never assumed.
+    residency: criteria?.residency || '',
   };
 }
 
@@ -244,6 +245,13 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       })}
     </Row>
     <GuestsField guests={guests} error={submitted && errors.guests} onOpen={() => { Keyboard.dismiss(); setGuestEditor({ source: state.criteria }); }}/>
+    <Pressable testID="search-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${residency ? countryName(residency, language) : t('residencyChoose')}`}
+      onPress={() => { Keyboard.dismiss(); showCountry(true); }} style={state => [styles.currencyControl, submitted && errors.residency && { borderColor: color.danger }, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
+      <Row style={{ gap: space.sm }}><Icon name="globe" size={18} color={submitted && errors.residency ? color.danger : color.textSecondary}/>
+        <Txt kind="small" style={{ flex: 1 }}>{t('residency')} · <Txt kind="label">{residency ? countryName(residency, language) : t('residencyChoose')}</Txt></Txt>
+        <Icon name="chevron" size={16} color={color.textSecondary}/></Row>
+    </Pressable>
+    <Txt kind="caption">{t('residencyNote')}</Txt>
     {submitted && (errors.residency || errors.guests) && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
       <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t(errors.residency ? 'residencyError' : 'guestsError')}</Txt></Row>}
     <Pressable testID="search-currency" accessibilityRole="button"
@@ -287,13 +295,13 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     <Pressable accessibilityRole="button" accessibilityState={{ expanded: preferences }} aria-expanded={preferences}
       onPress={() => setPreferences(value => !value)} style={{ minHeight: touch.comfortable, justifyContent: 'center' }}>
       <Row style={{ gap: space.sm }}><Icon name="filter" size={18}/><View style={{ flex: 1 }}><Txt kind="label">{rtl ? 'إعدادات البحث' : 'Search settings'}</Txt>
-        <Txt kind="caption">{t('residency')}: {countryName(residency, language)}</Txt></View>
+        <Txt kind="caption">{t('residency')}: {residency ? countryName(residency, language) : t('residencyChoose')}</Txt></View>
         <Icon name="chevronDown" size={18} color={color.textSecondary}/></Row>
     </Pressable>
     {preferences && <Card style={{ padding: space.md }}>
       <Pressable accessibilityRole="button" onPress={() => showCountry(true)} style={{ minHeight: touch.comfortable, justifyContent: 'center' }}>
-        <Txt kind="caption">{t('residency')}</Txt><Txt kind="label">{countryName(residency, language)}</Txt>
-        <Txt kind="caption">{rtl ? 'تعتمد بعض الأسعار على بلد الإقامة.' : 'Some rates depend on your country of residence.'}</Txt>
+        <Txt kind="caption">{t('residency')}</Txt><Txt kind="label">{residency ? countryName(residency, language) : t('residencyChoose')}</Txt>
+        <Txt kind="caption">{t('residencyNote')}</Txt>
       </Pressable>
     </Card>}
   </View>;
