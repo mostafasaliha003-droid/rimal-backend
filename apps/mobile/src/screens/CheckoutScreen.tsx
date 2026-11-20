@@ -23,7 +23,7 @@ import { MealBadge } from '../components/RateHighlights';
 import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 import VoucherButton from '../components/VoucherButton';
-import CountryPicker, { countryName } from '../components/CountryPicker';
+import CountryPicker, { countryName, countryNameSecondary } from '../components/CountryPicker';
 
 const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'web';
 // Traveler details typed but not yet submitted, kept in memory only (never stored on the device),
@@ -211,7 +211,9 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
   const { language, t } = useLanguage(), copy = checkoutCopy(language), ar = language === 'ar';
   const [draft,storeDraft] = useState(() => (draftKey && travelerDrafts.get(draftKey)) || takeCarriedTraveler(occupancy) || createTravelerDraft(occupancy));
   useEffect(() => { if (draftKey && travelerDrafts.has(draftKey)) onDirty?.(true); }, [draftKey, onDirty]);
-  const [nationality,setNationality] = useState(residency || '');
+  // Required: the guest chooses it here. It starts empty so it is never assumed.
+  const [nationality,setNationality] = useState('');
+  const [nationalityMissing,setNationalityMissing] = useState(false);
   const [picker,showPicker] = useState(false);
   const repricing = Boolean(residency && nationality && nationality !== residency);
   const setDraft = (next: NonNullable<typeof draft>) => { storeDraft(next); if (draftKey) travelerDrafts.set(draftKey, next); onDirty?.(true); };
@@ -223,7 +225,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
   const error = (key: string) => { const code=errors[key]; return !code ? undefined : code === 'required' ? copy.errorRequired : code === 'name' ? copy.errorName : code === 'email' ? copy.errorEmail : code === 'phone' ? copy.errorPhone : code === 'requests' ? copy.errorRequests : copy.invalidOccupancy; };
   const contact = (key: keyof typeof draft.guest, value: string) => { setDraft({ ...draft,guest:{...draft.guest,[key]:value} }); setErrors(current=>{const next={...current};delete next[key];return next;}); };
   const traveler = (r: number,p: number,key: 'firstName'|'lastName',value: string) => { setDraft({ ...draft, rooms:draft.rooms.map((room,ri)=>ri===r?{guests:room.guests.map((person,pi)=>pi===p?{...person,[key]:value}:person)}:room) }); setErrors(current=>{const next={...current};delete next[`traveler-${r}-${p}-${key}`];return next;}); };
-  const review = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);if(checked.data){Keyboard.dismiss();setConsent({quote,accepted:false});setStep('review');} };
+  const review = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);const missing=Boolean(residency&&!nationality);setNationalityMissing(missing);if(checked.data&&!missing){Keyboard.dismiss();setConsent({quote,accepted:false});setStep('review');} };
   const submit = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);if(checked.data&&accepted&&canSubmit)void onSubmit(checked.data,true).then(()=>{if(draftKey)travelerDrafts.delete(draftKey);onDirty?.(false);}); };
   const prepared=step==='review'?validateTravelerDraft(draft,occupancy).data:null;
   return <View style={[ui.card, { gap: 18 }]}>
@@ -238,15 +240,16 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
       <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" accessibilityHint={copy.phoneHint} error={error('phone')} onChangeText={v=>contact('phone',v)}/>
       {residency && <View style={{gap:6}}>
         <Txt kind="label">{t('residency')}</Txt>
-        <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${countryName(nationality, language)}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
-          style={{minHeight:52,borderWidth:1,borderColor:repricing?color.warning:colors.border,borderRadius:14,paddingHorizontal:14,justifyContent:'center',backgroundColor:colors.surface}}>
-          <Row style={{justifyContent:'space-between'}}><Txt style={{flex:1}}>{countryName(nationality, language)}</Txt><Icon name="chevronDown" size={18}/></Row>
+        <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${nationality ? countryName(nationality, language) : t('residencyChoose')}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
+          style={{minHeight:52,borderWidth:1,borderColor:nationalityMissing?color.danger:repricing?color.warning:colors.border,borderRadius:14,paddingHorizontal:14,justifyContent:'center',backgroundColor:colors.surface}}>
+          <Row style={{justifyContent:'space-between'}}><View style={{flex:1}}>{nationality ? <><Txt kind="label">{countryName(nationality, language)}</Txt><Txt kind="caption">{countryNameSecondary(nationality, language)}</Txt></> : <Txt tone="secondary">{t('residencyChoose')}</Txt>}</View><Icon name="chevronDown" size={18}/></Row>
         </Pressable>
+        {nationalityMissing && <Txt kind="small" accessibilityRole="alert" style={{color:colors.red}}>{t('residencyError')}</Txt>}
         <Txt kind="small">{t('residencyNote')}</Txt>
         {repricing && <Notice tone="warning" title={ar ? 'نعيد فحص السعر لهذه الجنسية' : 'Check the price for this nationality'}
           body={ar ? `السعر الحالي محسوب لجنسية ${countryName(residency, language)}. قد يختلف السعر أو التوفر لجنسية ${countryName(nationality, language)}، فاختر الغرفة مجدداً بالسعر الصحيح. ستبقى البيانات التي كتبتها.` : `This price is for ${countryName(residency, language)} nationals. The price or availability may differ for ${countryName(nationality, language)}, so choose the room again at the right price. Your details are kept.`}/>}
         {repricing && <Button title={ar ? 'اعرض الأسعار لهذه الجنسية' : 'Show prices for this nationality'} onPress={()=>onNationalityChange?.(nationality, draft, occupancy)}/>}
-        <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);onDirty?.(true);}}/>
+        <CountryPicker visible={picker} value={nationality} title={t('residency')} onClose={()=>showPicker(false)} onChange={code=>{setNationality(code);setNationalityMissing(false);onDirty?.(true);}}/>
       </View>}
       {draft.rooms.map((room,r)=><View key={r} style={{gap:14}}><Txt kind="heading">{copy.room(r+1)}</Txt>{room.guests.map((person,p)=><View key={p} style={{gap:10}}><Txt kind="label">{copy.traveler(p+1,person.is_child,person.age)}</Txt>{r===0&&p===0?<Txt kind="small">{copy.leadUsed}</Txt>:<>
         <Field label={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={100} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>
@@ -256,7 +259,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
       <Txt kind="small">{copy.requestsHint}</Txt><Button title={copy.reviewDetails} disabled={repricing} onPress={review}/>
     </>:prepared?<>
       <Txt kind="label">{copy.charge}</Txt><MoneyText large money={{amount:quote.amount,currency:quote.currency}}/>
-      <Txt>{prepared.guest.firstName} {prepared.guest.lastName}</Txt>{residency && <Txt>{t('residency')}: {countryName(residency, language)}</Txt>}<Txt style={{writingDirection:'ltr'}}>{prepared.guest.email}</Txt><Txt style={{writingDirection:'ltr'}}>{prepared.guest.phone}</Txt>
+      <Txt>{prepared.guest.firstName} {prepared.guest.lastName}</Txt>{residency && <Txt>{t('residency')}: {countryName(residency, language)} · {countryNameSecondary(residency, language)}</Txt>}<Txt style={{writingDirection:'ltr'}}>{prepared.guest.email}</Txt><Txt style={{writingDirection:'ltr'}}>{prepared.guest.phone}</Txt>
       {prepared.rooms.map((room,r)=><View key={r} style={{gap:6}}><Txt kind="label">{copy.room(r+1)}</Txt>{room.guests.map((p,i)=><Txt key={i}>{copy.traveler(i+1,p.is_child,p.age)}: {p.firstName} {p.lastName}</Txt>)}</View>)}
       {prepared.guest.specialRequests&&<Txt>{copy.requests}: {prepared.guest.specialRequests}</Txt>}
       <Button title={copy.edit} variant="quiet" onPress={()=>{setConsent({quote,accepted:false});setStep('details');}}/>

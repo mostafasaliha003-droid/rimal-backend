@@ -58,6 +58,12 @@ export function useCheckoutSession({ getReview, canCreate = buildPolicy }: UseCh
     const timer = setTimeout(() => session.sync(), Math.max(0, deadline - Date.now() + 1));
     return () => clearTimeout(timer);
   }, [session, snapshot]);
+  const replaceCompleted = session.presentation().replaceCompleted;
+  useEffect(() => {
+    // Starting a new booking after a finished one opens the new booking, not the old status.
+    // The finished booking stays in the bookings list.
+    if (replaceCompleted) void session.clearCompleted();
+  }, [session, replaceCompleted, snapshot]);
   useEffect(() => {
     // A browser return/foreground event only reconciles existing state. It must
     // never manufacture payment success or automatically repeat a create POST.

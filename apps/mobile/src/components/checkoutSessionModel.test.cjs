@@ -235,6 +235,19 @@ test('pending/refund-review attempts cannot be cleared; explicit completed clear
   assert.equal(f.session.presentation().canQuote, false);
   f.setSelection({ ...f.selection(), selectionId: 'fresh-review' }); assert.equal(f.session.presentation().canQuote, true);
 });
+test('a finished attempt yields to a newly chosen room; an open attempt or the same room does not', async () => {
+  const f = fixture(); await f.init(); await f.session.submit(travelers(), true);
+  assert.equal(f.session.presentation().replaceCompleted, false);
+  f.setSelection({ ...f.selection(), selectionId: 'new-room' });
+  assert.equal(f.session.presentation().replaceCompleted, false, 'awaiting payment is never replaced');
+  f.api.status = async () => f.attempt('booking_confirmed'); await f.session.refreshStatus();
+  assert.equal(f.session.presentation().replaceCompleted, true);
+  f.setSelection({ ...f.selection(), selectionId: 'review-1' });
+  assert.equal(f.session.presentation().replaceCompleted, false, 'the booked room itself does not clear its own status');
+  f.setSelection({ ...f.selection(), selectionId: 'new-room' });
+  assert.equal(await f.session.clearCompleted(), true);
+  assert.equal(f.session.presentation().attempt, null); assert.equal(f.session.presentation().canQuote, true);
+});
 test('storage corruption or partial write failure cannot become a new financial dispatch', async () => {
   const mem = memory(), f = fixture({ memory: mem }); mem.values.set(recoveryStorageKey(f.owner()), '{broken');
   await f.init(); assert.equal(f.session.presentation().canSubmit, false); assert.equal(f.calls.filter(x => x.kind === 'quote').length, 0);

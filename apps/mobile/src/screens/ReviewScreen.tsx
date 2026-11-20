@@ -212,7 +212,6 @@ function ReviewContents({ session }: { session: ReviewSession }) {
             </Section>
             <Section testID="review-guests" title={ar ? 'الضيوف والغرف' : 'Guests and rooms'} icon="users">
               {roomLines(criteria.guests, language).map(line => <Txt key={line} kind="small" tone="primary">{line}</Txt>)}
-              <Txt kind="caption">{t('residency')}: {criteria.residency.toUpperCase()}</Txt>
             </Section>
             <Section title={ar ? 'ما يشمله الحجز' : 'What is included'} icon="checkCircle">
               <Txt kind="bodyStrong">{localizedRoomName(offer.name, language)}</Txt>

@@ -125,7 +125,11 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
     const enabled = ready && fresh && !busy && creationAllowed() && snapshot.availability?.enabled === true;
     return { ...visible, recoveryChecked: visible === snapshot && boundOwner !== '' && loaded,
       canQuote: ready && !busy, canCollectTravelers: Boolean(enabled), canSubmit: Boolean(enabled),
-      canClearCompleted: visible === snapshot && !busy && completed(snapshot.attempt) };
+      canClearCompleted: visible === snapshot && !busy && completed(snapshot.attempt),
+      // A finished attempt is in the way of a new room the guest has just chosen. Only finished
+      // attempts qualify; anything still open (payment, booking, refund) stays on screen.
+      replaceCompleted: visible === snapshot && !busy && completed(snapshot.attempt)
+        && Boolean(selected && !consumedSelections.has(selected.selectionId)) };
   }
   function run(phase: CheckoutPhase, action: (controller: AbortController, stamp: number, key: string, owner: CheckoutOwner) => Promise<void>) {
     sync();

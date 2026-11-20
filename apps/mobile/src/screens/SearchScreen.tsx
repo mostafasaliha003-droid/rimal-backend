@@ -16,7 +16,6 @@ import ApiState from '../components/ApiState';
 import { Button, Card, Chip, Icon, Notice, Row, StatePanel, Txt } from '../components/Primitives';
 import CalendarPicker from '../components/CalendarPicker';
 import GuestPicker from '../components/GuestPicker';
-import CountryPicker, { countryName } from '../components/CountryPicker';
 import { copyGuestRooms, destinationFromSearch, destinationLookupName, quickStayDates, recentSearchDraft, resolveFeaturedCity,
   shouldSuggestDestination, stayNights, type DestinationId, type QuickStay } from '../components/searchJourneyModel';
 import { searchCopy } from './searchCopy';
@@ -76,8 +75,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const formTop = useRef(0);
   const destinationInput = useRef<React.ComponentRef<typeof TextInput>>(null);
   const [destinationFocused, setDestinationFocused] = useState(false);
-  const [preferences, setPreferences] = useState(false);
-  const [countryOpen, showCountry] = useState(false); const [errors, setErrors] = useState<Record<string, boolean>>({}); const [submitted, setSubmitted] = useState(false);
+  const [errors, setErrors] = useState<Record<string, boolean>>({}); const [submitted, setSubmitted] = useState(false);
   useFocusEffect(useCallback(() => {
     if (!needsSuggestions || authStatus === 'loading') return;
     const controller = new AbortController();
@@ -284,20 +282,6 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     </Row>
   </Pressable>;
 
-  const settings = <View>
-    <Pressable accessibilityRole="button" accessibilityState={{ expanded: preferences }} aria-expanded={preferences}
-      onPress={() => setPreferences(value => !value)} style={{ minHeight: touch.comfortable, justifyContent: 'center' }}>
-      <Row style={{ gap: space.sm }}><Icon name="filter" size={18}/><View style={{ flex: 1 }}><Txt kind="label">{rtl ? 'إعدادات البحث' : 'Search settings'}</Txt>
-        <Txt kind="caption">{t('residency')}: {residency ? countryName(residency, language) : t('residencyChoose')}</Txt></View>
-        <Icon name="chevronDown" size={18} color={color.textSecondary}/></Row>
-    </Pressable>
-    {preferences && <Card style={{ padding: space.md }}>
-      <Pressable accessibilityRole="button" onPress={() => showCountry(true)} style={{ minHeight: touch.comfortable, justifyContent: 'center' }}>
-        <Txt kind="caption">{t('residency')}</Txt><Txt kind="label">{residency ? countryName(residency, language) : t('residencyChoose')}</Txt>
-        <Txt kind="caption">{t('residencyNote')}</Txt>
-      </Pressable>
-    </Card>}
-  </View>;
 
   return <SafeAreaView edges={savedOnly ? ['top','bottom'] : ['top']} style={ui.screen}><BrandHeader back={savedOnly} />
     <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'} contentContainerStyle={{ paddingBottom: space.xxl }}>
@@ -319,7 +303,6 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
           </Row>
           <DestinationPicks choose={chooseDestination}/>
           <DiscoveryShelves/>
-          {settings}
         </> : <>
           {!savedOnly && <View style={{ gap: space.xs }}>
             <Txt kind="title" accessibilityRole="header">{rtl ? 'إلى أين وجهتك القادمة؟' : 'Where to next?'}</Txt>
@@ -331,7 +314,6 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
           {!savedOnly && <DestinationPicks choose={chooseDestination}/>}
           {!savedOnly && <DiscoveryShelves/>}
           {membership}
-          {settings}
         </>}
         {submitted && Object.values(errors).some(Boolean) && Platform.OS === 'web' && <Notice tone="danger" live title={rtl ? 'راجع الحقول المظللة' : 'Check the highlighted fields'}/>}
       </View>
@@ -347,7 +329,6 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         updateTravel({ guests: rooms });
         setErrors(current => ({ ...current, guests: false }));
       }}/>}
-    <CountryPicker visible={countryOpen} value={residency} onClose={() => showCountry(false)} onChange={residency => updateTravel({ residency })} />
     <CurrencyPicker visible={currencyOpen} value={preference.currency} automatic={preference.source !== 'manual'}
       onClose={() => showCurrency(false)} onChange={preference.choose} onAutomatic={preference.useAutomatic}/>
   </SafeAreaView>;
