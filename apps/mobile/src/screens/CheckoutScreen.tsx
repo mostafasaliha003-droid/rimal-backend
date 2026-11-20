@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
-import { Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
+import { Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
+import { usePreventRemove, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { APP_ENV, authSession, bookingWebsiteUrl, websiteUrl } from '../api';
 import { NATIVE_CHECKOUT_ENABLED } from '../api/config';
@@ -24,14 +24,38 @@ import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 
 const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'web';
+// Traveler details typed but not yet submitted, kept in memory only (never stored on the device),
+// so an accidental back gesture does not erase them. Cleared after submission or a finished booking.
+const travelerDrafts = new Map<string, NonNullable<ReturnType<typeof createTravelerDraft>>>();
 export type CheckoutController = ReturnType<typeof useCheckoutSession>;
 
 export default function CheckoutScreen() {
   const state = useAppState(), router = useRouter(), { language } = useLanguage();
   const { status, sessionRevision } = useAuth();
   const payCurrency = useChargeCurrency().selected;
-  const session = useCheckoutSession({ getReview: state.getCheckoutReview, canCreate: nativeCreationPolicy });
+  // The locked price and the Ziina payment use the currency the guest chose, read at
+  // call time so the session keeps one stable getter.
+  const payCurrencyRef = useRef(payCurrency);
+  useEffect(() => { payCurrencyRef.current = payCurrency; }, [payCurrency]);
+  const getCheckoutReview = state.getCheckoutReview;
+  const getReview = useCallback(() => {
+    const selection = getCheckoutReview();
+    return selection && { ...selection, review: { ...selection.review, paymentCurrency: payCurrencyRef.current } };
+  }, [getCheckoutReview]);
+  const session = useCheckoutSession({ getReview, canCreate: nativeCreationPolicy });
+  // Ask before leaving while traveler details are typed but no booking was created yet
+  // (an Android back gesture used to drop the form without warning).
+  const [dirty, setDirty] = useState(false);
+  const started = session.attempt !== null || session.hasRecovery;
+  const allowLeave = usePreventRemove(dirty && !started, ({ repeat }) => {
+    const ar = language === 'ar';
+    Alert.alert(ar ? 'هل تريد ترك الحجز؟' : 'Leave this booking?',
+      ar ? 'سنحتفظ ببيانات الضيوف التي أدخلتها إن عدت إلى هذا الحجز، لكن السعر المثبّت قد تنتهي صلاحيته.' : 'The traveler details you entered stay here if you come back to this booking, but the locked price may expire.',
+      [{ text: ar ? 'متابعة الحجز' : 'Keep booking', style: 'cancel' },
+        { text: ar ? 'مغادرة' : 'Leave', style: 'destructive', onPress: () => { setDirty(false); repeat(); } }]);
+  });
   const freshOffer = () => {
+    setDirty(false); allowLeave();
     const draft = state.getReviewDraft();
     if (draft) router.replace({ pathname: '/hotel/[hid]', params: { hid: String(draft.hid) } });
     else router.replace('/');
@@ -54,6 +78,7 @@ export default function CheckoutScreen() {
   };
   const clearCompleted = async () => {
     if (!await session.clearCompleted()) return false;
+    setDirty(false); allowLeave(); travelerDrafts.clear();
     state.clearCheckoutReview(); state.clearReviewDraft(); router.replace('/'); return true;
   };
   const policy = async (path: '/privacy'|'/terms') => {
@@ -62,14 +87,15 @@ export default function CheckoutScreen() {
   return <CheckoutContents session={session} readSelection={state.getCheckoutReview} identityKey={`${status}:${sessionRevision}`}
     signedIn={status === 'signedIn'} creationEnabled={nativeCreationPolicy()} onFreshOffer={freshOffer}
     onSignIn={() => router.navigate({ pathname: '/account', params: { returnTo: '/checkout' } })} onSupport={() => router.push('/support')} onWebsite={openWebsite}
-    onPayment={openPayment} onClearCompleted={clearCompleted} onPrivacy={() => void policy('/privacy')} onTerms={() => void policy('/terms')}/>;
+    onPayment={openPayment} onClearCompleted={clearCompleted} onPrivacy={() => void policy('/privacy')} onTerms={() => void policy('/terms')}
+    onTravelerDirty={setDirty}/>;
 }
 
 export interface CheckoutContentsProps {
   session: CheckoutController; readSelection: () => CheckoutSelection | null; identityKey: string;
   signedIn: boolean; creationEnabled: boolean; onFreshOffer: () => void; onSignIn: () => void; onSupport: () => void;
   onWebsite: () => Promise<boolean>; onPayment: () => Promise<boolean>; onClearCompleted: () => Promise<boolean>;
-  onPrivacy: () => void; onTerms: () => void;
+  onPrivacy: () => void; onTerms: () => void; onTravelerDirty?: (dirty: boolean) => void;
 }
 
 // An ordinary presentation seam for an isolated fixture entry. The shipped
@@ -137,6 +163,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           </>}
           <View style={ui.card}><Cancellation offer={offer}/></View>
           {creationEnabled && session.canCollectTravelers && session.quote && <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
+            draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
             occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit}
             onSubmit={(data,consent)=>session.submit(data,consent)} onPrivacy={props.onPrivacy} onTerms={props.onTerms}/>}
           {/* In-app checkout keeps the whole booking in the app; the website is only the fallback when it is off. */}
@@ -151,12 +178,14 @@ export function CheckoutContents(props: CheckoutContentsProps) {
   </SafeAreaView>;
 }
 
-export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, onPrivacy, onTerms }: {
-  occupancy: GuestRoom[]; quote: CheckoutQuoteView; canSubmit: boolean;
+export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, onPrivacy, onTerms, draftKey, onDirty }: {
+  occupancy: GuestRoom[]; quote: CheckoutQuoteView; canSubmit: boolean; draftKey?: string; onDirty?: (dirty: boolean) => void;
   onSubmit: (data: CheckoutGuestData, consent: boolean) => Promise<void>; onPrivacy: () => void; onTerms: () => void;
 }) {
   const { language } = useLanguage(), copy = checkoutCopy(language);
-  const [draft,setDraft] = useState(() => createTravelerDraft(occupancy));
+  const [draft,storeDraft] = useState(() => (draftKey && travelerDrafts.get(draftKey)) || createTravelerDraft(occupancy));
+  useEffect(() => { if (draftKey && travelerDrafts.has(draftKey)) onDirty?.(true); }, [draftKey, onDirty]);
+  const setDraft = (next: NonNullable<typeof draft>) => { storeDraft(next); if (draftKey) travelerDrafts.set(draftKey, next); onDirty?.(true); };
   const [errors,setErrors] = useState<Record<string,TravelerError>>({});
   const [step,setStep] = useState<'details'|'review'>('details');
   const [consent,setConsent] = useState({ quote, accepted: false });
@@ -166,7 +195,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, onSubmit, on
   const contact = (key: keyof typeof draft.guest, value: string) => { setDraft({ ...draft,guest:{...draft.guest,[key]:value} }); setErrors(current=>{const next={...current};delete next[key];return next;}); };
   const traveler = (r: number,p: number,key: 'firstName'|'lastName',value: string) => { setDraft({ ...draft, rooms:draft.rooms.map((room,ri)=>ri===r?{guests:room.guests.map((person,pi)=>pi===p?{...person,[key]:value}:person)}:room) }); setErrors(current=>{const next={...current};delete next[`traveler-${r}-${p}-${key}`];return next;}); };
   const review = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);if(checked.data){Keyboard.dismiss();setConsent({quote,accepted:false});setStep('review');} };
-  const submit = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);if(checked.data&&accepted&&canSubmit)void onSubmit(checked.data,true); };
+  const submit = () => { const checked=validateTravelerDraft(draft,occupancy);setErrors(checked.errors);if(checked.data&&accepted&&canSubmit)void onSubmit(checked.data,true).then(()=>{if(draftKey)travelerDrafts.delete(draftKey);onDirty?.(false);}); };
   const prepared=step==='review'?validateTravelerDraft(draft,occupancy).data:null;
   return <View style={[ui.card, { gap: 18 }]}>
     <Txt kind="heading" accessibilityRole="header">{step==='details'?copy.details:copy.review}</Txt>

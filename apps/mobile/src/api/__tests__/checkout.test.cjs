@@ -98,6 +98,21 @@ test('quote refuses changed prices, foreign formatted currencies, expired/malfor
   assert.throws(() => normalizeCheckoutQuote(quotePayload({ currency: 'KWD', amount: '1.001', amount_formatted: '1.001' }), kwd, now), /invalid_response/);
 });
 
+test('the guest-chosen payment currency is requested, and only a quote in that currency is accepted', async () => {
+  const aed = review({ paymentCurrency: 'AED' });
+  // The server's signed conversion of the USD offer; its amount differs from the USD total.
+  const accepted = normalizeCheckoutQuote(quotePayload({ currency: 'AED', amount: '392.96', amount_formatted: '392.96' }), aed, now);
+  assert.deepEqual([accepted.currency, accepted.amount], ['AED', '392.96']);
+  for (const patch of [{}, { currency: 'AED', amount: '392.96', amount_formatted: '392.97' }, { currency: 'SAR', amount: '401.25', amount_formatted: '401.25' }]) {
+    assert.throws(() => normalizeCheckoutQuote(quotePayload(patch), aed, now), /invalid_response/);
+  }
+  assert.throws(() => normalizeCheckoutQuote(quotePayload(), review({ paymentCurrency: 'XYZ' }), now), /unsupported_payment_currency/);
+  const f = fixture();
+  await assert.rejects(f.api.quote(aed)); // The fixture answers in USD, which an AED checkout must refuse.
+  const post = f.calls.find(call => call.path.endsWith('/quote'));
+  assert.equal(JSON.parse(post.options.body).payment_currency, 'AED');
+});
+
 test('accepted recheck currency is authoritative even when original search currency differs', async () => {
   const selected = review(); selected.criteria.currency = 'AED';
   const f = fixture(); assert.equal((await f.api.quote(selected)).currency, 'USD');

@@ -1,6 +1,7 @@
 import type { AppEnvironment } from '../types';
 import type { CheckoutAttemptView, CheckoutCapability, CheckoutCreateResult, CheckoutGuestData,
   CheckoutQuote, CheckoutRecoveryResult, CheckoutReview } from '../api/checkout';
+import { chargeCurrency } from '../api/paymentCurrencies';
 import { ApiError, aborted, asApiError, invalidResponse } from '../api/errors';
 import { recoveryUuid, validRecoveryOwner, type CheckoutRecoveryOwner, type CheckoutRecoveryRecord,
   type CheckoutRecoveryStorage } from './checkoutRecoveryStorage.types';
@@ -50,8 +51,11 @@ function safeQuote(value: CheckoutQuote, now: number, review: CheckoutReview): C
     || /[\u0000-\u001f\u007f]/.test(value.amountFormatted) || !Number.isFinite(value.expiresAt) || value.expiresAt <= now
     || typeof value.token !== 'string' || !value.token || value.token.length > 131072 || /[\u0000-\u0020\u007f]/.test(value.token)) throw invalidResponse();
   const price = review.offer.price;
-  if (!price || price.currency !== value.currency || typeof price.amount !== 'string' || price.amount.length > 128
-    || !/^\d+(?:\.\d+)?$/.test(price.amount) || canonical(price.amount) !== canonical(value.amount)) throw invalidResponse();
+  // A quote in another currency is the server's signed conversion; the same currency must equal the offer total.
+  const currency = chargeCurrency(review);
+  if (!price || currency !== value.currency || typeof price.amount !== 'string' || price.amount.length > 128
+    || !/^\d+(?:\.\d+)?$/.test(price.amount)
+    || price.currency === currency && canonical(price.amount) !== canonical(value.amount)) throw invalidResponse();
   return Object.freeze({ currency: value.currency, amount: value.amount, amountFormatted: value.amountFormatted, expiresAt: value.expiresAt, token: value.token });
 }
 function withoutToken(value: CheckoutQuote): CheckoutQuoteView {

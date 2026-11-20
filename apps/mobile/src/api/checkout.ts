@@ -2,14 +2,17 @@ import type { AppEnvironment, RoomOffer, SearchCriteria } from '../types';
 import { APP_ENV, resolveEnvironment } from './config';
 import { ApiError, invalidResponse } from './errors';
 import { assertCriteria, hotelId } from './validation';
-import { paymentCurrencyUnits as units } from './paymentCurrencies';
+import { chargeCurrency, paymentCurrencyUnits as units } from './paymentCurrencies';
 import type { createTransport } from './transport';
 
 export type PaymentMode = 'sandbox' | 'production' | 'unconfigured';
 export interface PaymentAvailability { enabled: boolean; mode: PaymentMode; reason?: 'checkout_unavailable' }
 export interface CheckoutReview {
   hid: number; hotelName: string; criteria: SearchCriteria; offer: RoomOffer; prebookContext: string;
+  /** The currency the guest chose to pay in; the supplier price is converted to it by the signed quote. */
+  paymentCurrency?: string;
 }
+export { chargeCurrency } from './paymentCurrencies';
 export interface CheckoutTraveler { firstName: string; lastName: string; is_child: boolean; age?: number; gender?: 'male' | 'female' }
 export interface CheckoutGuestData {
   guest: { firstName: string; lastName: string; email: string; phone: string; specialRequests?: string };
@@ -158,13 +161,15 @@ function guestPayload(value: CheckoutGuestData, criteria: SearchCriteria): Check
   } catch { throw new ApiError('validation', 'invalid_checkout_guests'); }
 }
 export function normalizeCheckoutQuote(value: unknown, review: CheckoutReview, now = Date.now()): CheckoutQuote {
-  const data = row(value), input = source(review);
-  if (data.currency !== input.currency || typeof data.expires_at !== 'number' || !Number.isSafeInteger(data.expires_at)
+  const data = row(value), input = source(review), currency = chargeCurrency(review);
+  // The server converts at its signed rate; only a same-currency quote can be checked against the offer total.
+  const sameCurrency = currency === input.currency;
+  if (data.currency !== currency || typeof data.expires_at !== 'number' || !Number.isSafeInteger(data.expires_at)
     || data.expires_at <= now || data.expires_at > now + 20 * 60_000
     || typeof data.token !== 'string' || data.token.length > 8192 || !/^[A-Za-z0-9_-]+\.[a-f\d]{64}$/.test(data.token)
-    || typeof data.amount_formatted !== 'string' || minor(data.amount, input.currency) !== minor(data.amount_formatted, input.currency)
-    || minor(data.amount, input.currency) !== minor(input.total, input.currency)) throw invalidResponse();
-  return { currency: input.currency, amount: String(data.amount), amountFormatted: data.amount_formatted,
+    || typeof data.amount_formatted !== 'string' || minor(data.amount, currency) !== minor(data.amount_formatted, currency)
+    || sameCurrency && minor(data.amount, currency) !== minor(input.total, input.currency)) throw invalidResponse();
+  return { currency, amount: String(data.amount), amountFormatted: data.amount_formatted,
     expiresAt: data.expires_at, token: data.token };
 }
 export function createCheckoutApi(request: Request, {
@@ -185,7 +190,7 @@ export function createCheckoutApi(request: Request, {
     async quote(review: CheckoutReview, signal?: AbortSignal): Promise<CheckoutQuote> {
       const input = source(review), credential = await request.captureSessionToken(signal); await mode(signal, true);
       return normalizeCheckoutQuote(await request('POST', '/payment/quote', { signal, timeoutMs: 45000,
-        token: credential, body: { ...input, payment_currency: input.currency } }), review, now());
+        token: credential, body: { ...input, payment_currency: chargeCurrency(review) } }), review, now());
     },
     async create(input: { review: CheckoutReview; guests: CheckoutGuestData; quote: CheckoutQuote }, idempotencyKey: string, signal?: AbortSignal): Promise<CheckoutCreateResult> {
       // This is independent from server readiness. Shipping the preparation
