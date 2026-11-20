@@ -4,7 +4,7 @@ import './CompanyFooter.css';
 
 const copy = {
     ar: {
-        name: 'رمال للسياحة', tagline: 'إقامتك تبدأ من هنا',
+        name: 'Remal Group LLC FZ', tagline: 'إقامتك تبدأ من هنا',
         office: 'مكتبنا في دبي',
         address: 'دائرة السياحة والاقتصاد، نفس البناء الحكومي، بلوك ب، مكتب 610',
         city: 'ميناء سعيد، دبي، الإمارات العربية المتحدة', directions: 'عرض الموقع على الخريطة',
@@ -12,7 +12,7 @@ const copy = {
         contact: 'تواصل معنا', privacy: 'الخصوصية', deletion: 'طلب حذف الحساب', terms: 'الشروط والأحكام', rights: 'جميع الحقوق محفوظة',
     },
     en: {
-        name: 'Remal Tourism', tagline: 'Your stay starts here',
+        name: 'Remal Group LLC FZ', tagline: 'Your stay starts here',
         office: 'Our Dubai office',
         address: 'Department of Economy and Tourism, same government building, Block B, Office 610',
         city: 'Port Saeed, Dubai, United Arab Emirates', directions: 'View location on map',
@@ -20,7 +20,7 @@ const copy = {
         contact: 'Get in touch', privacy: 'Privacy', deletion: 'Request account deletion', terms: 'Terms & conditions', rights: 'All rights reserved',
     },
     es: {
-        name: 'Remal Tourism', tagline: 'Tu estancia empieza aquí',
+        name: 'Remal Group LLC FZ', tagline: 'Tu estancia empieza aquí',
         office: 'Nuestra oficina en Dubái',
         address: 'Departamento de Economía y Turismo, mismo edificio gubernamental, Bloque B, oficina 610',
         city: 'Port Saeed, Dubái, Emiratos Árabes Unidos', directions: 'Ver ubicación en el mapa',

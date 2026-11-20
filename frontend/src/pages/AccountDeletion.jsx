@@ -7,7 +7,7 @@ import CompanyFooter from '../components/CompanyFooter';
 
 const copy = {
     en: {
-        title: 'Request account deletion', operator: 'by Remal Tourism', home: 'Home', language: 'Language',
+        title: 'Request account deletion', operator: 'by Remal Group LLC FZ', home: 'Home', language: 'Language',
         intro: 'You can request a review of deletion of your account and associated personal data here, without downloading the app.',
         pending: 'Submitting this form records a request for review. It does not delete your account or data, cancel bookings, or change payments, refunds or support records. Your request remains pending until reviewed.',
         privacy: 'Read the privacy policy', signIn: 'Sign in to your account', signInBody: 'Sign in to request deletion for your own account. No booking or approved membership is required.',
@@ -22,7 +22,7 @@ const copy = {
         formHelp: 'Confirm with your current password. The request applies only to the account signed in on this page.'
     },
     ar: {
-        title: 'طلب حذف الحساب', operator: 'بإدارة رمال للسياحة', home: 'الرئيسية', language: 'اللغة',
+        title: 'طلب حذف الحساب', operator: 'بإدارة Remal Group LLC FZ', home: 'الرئيسية', language: 'اللغة',
         intro: 'يمكنك من هنا طلب مراجعة حذف حسابك والبيانات الشخصية المرتبطة به، دون تنزيل التطبيق.',
         pending: 'يسجّل إرسال النموذج طلبًا للمراجعة. لا يحذف حسابك أو بياناتك، ولا يلغي الحجوزات أو يغيّر المدفوعات أو المبالغ المستردة أو سجلات الدعم. يبقى طلبك معلّقًا حتى مراجعته.',
         privacy: 'قراءة سياسة الخصوصية', signIn: 'تسجيل الدخول إلى حسابك', signInBody: 'سجّل الدخول لطلب حذف حسابك أنت. لا يُشترط وجود حجز أو عضوية معتمدة.',
@@ -37,7 +37,7 @@ const copy = {
         formHelp: 'أكّد باستخدام كلمة مرورك الحالية. ينطبق الطلب فقط على الحساب المسجّل دخوله في هذه الصفحة.'
     },
     es: {
-        title: 'Solicitar la eliminación de la cuenta', operator: 'operado por Remal Tourism', home: 'Inicio', language: 'Idioma',
+        title: 'Solicitar la eliminación de la cuenta', operator: 'operado por Remal Group LLC FZ', home: 'Inicio', language: 'Idioma',
         intro: 'Puedes solicitar aquí la revisión de la eliminación de tu cuenta y los datos personales asociados, sin descargar la aplicación.',
         pending: 'Enviar el formulario registra una solicitud de revisión. No elimina tu cuenta ni tus datos, no cancela reservas ni cambia pagos, reembolsos o registros de asistencia. La solicitud queda pendiente de revisión.',
         privacy: 'Leer la política de privacidad', signIn: 'Inicia sesión en tu cuenta', signInBody: 'Inicia sesión para solicitar la eliminación de tu propia cuenta. No necesitas una reserva ni una membresía aprobada.',
@@ -109,7 +109,7 @@ export default function AccountDeletion() {
     };
     return <div dir={direction}>
         <header className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4 px-5 py-6">
-            <a href={`/?lang=${language}`} className="flex min-h-12 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700"><img src="/logo.jpg" width="56" height="56" alt="Remal Tourism" /><span><strong className="block text-xl"><bdi>مخدّة | Mkhadda</bdi></strong><span className="text-sm text-slate-600">{L.operator}</span></span></a>
+            <a href={`/?lang=${language}`} className="flex min-h-12 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700"><img src="/logo.jpg" width="56" height="56" alt="Remal Group LLC FZ" /><span><strong className="block text-xl"><bdi>مخدّة | Mkhadda</bdi></strong><span className="text-sm text-slate-600">{L.operator}</span></span></a>
             <label className="flex items-center gap-2 text-sm font-bold">{L.language}<select className={fieldClass} value={language} onChange={event => setLanguage(event.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label>
         </header>
         <main className="mx-auto max-w-3xl space-y-6 px-5 pb-12">
