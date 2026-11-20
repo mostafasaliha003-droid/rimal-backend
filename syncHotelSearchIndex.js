@@ -2,7 +2,7 @@ require('dotenv').config();
 
 const mongoose = require('mongoose');
 const Hotel = require('./models/Hotel');
-const { normalizeHotelSearchText, hotelSearchTokens } = require('./services/hotelSearchIndex');
+const { normalizeHotelSearchText, hotelSearchTokens, hotelSoundKeys } = require('./services/hotelSearchIndex');
 const logger = require('./services/loggerService');
 
 const BATCH_SIZE = 500;
@@ -36,6 +36,7 @@ async function syncHotelSearchIndex({ model = Hotel, batchSize = BATCH_SIZE } = 
             pending.push({ updateOne: { filter: { hid, provider: 'ratehawk' }, update: { $set: {
                 normalizedSupplierName: normalizedName,
                 searchTokens: hotelSearchTokens(normalizedName),
+                soundKeys: hotelSoundKeys(hotel.name || ''),
                 translationSearchTokens,
             } } } });
             if (pending.length >= batchSize) await flush();

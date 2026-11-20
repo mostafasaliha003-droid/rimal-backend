@@ -24,7 +24,9 @@ for (const [english, ...variants] of [
     ['Los Angeles','لوس أنجلوس'], ['Miami','ميامي'], ['Singapore','سنغافورة'], ['Bangkok','بانكوك'],
     ['Phuket','بوكيت'], ['Bali','بالي'], ['Kuala Lumpur','كوالالمبور','كوالا لمبور'], ['Tokyo','طوكيو'],
     ['Hong Kong','هونغ كونغ','هونج كونج'], ['Mumbai','مومباي'], ['Maldives','المالديف'],
-    ['Burj Al Arab','برج العرب'], ['Burj Khalifa','برج خليفة'], ['Jumeirah','جميرا','جميرة'], ['Palm','بالم'],
+    ['Burj Al Arab','برج العرب'], ['Ibn Battuta','ابن بطوطة'], ['Burj Khalifa','برج خليفة'], ['Jumeirah','جميرا','جميرة'], ['Palm','بالم','النخلة','نخلة'],
+    // Arabic words for the English words that appear in property names.
+    ['Creek','الخور'], ['Beach','شاطئ','الشاطئ'], ['Island','جزيرة'],
     ['Atlantis','أتلانتس','أتلانتيس','اتلانتس'], ['Hilton','هيلتون','هلتون'], ['Marriott','ماريوت','ماريوط'],
     ['Sheraton','شيراتون','شرتون'], ['Hyatt','حياة','حياه','هايات'], ['Grand','جراند','غراند'],
     ['Rotana','روتانا'], ['Radisson','راديسون','راديسن'], ['Blu','بلو'], ['Four Seasons','فور سيزونز','فورسيزونز','فور سيزون'],

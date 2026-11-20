@@ -9,7 +9,7 @@ const mongoose = require('mongoose');
 const { pipeline } = require('stream/promises');
 const { normalizeSupplierImage } = require('./services/supplierImages');
 const Hotel = require('./models/Hotel');
-const { normalizeHotelSearchText, hotelSearchTokens } = require('./services/hotelSearchIndex');
+const { normalizeHotelSearchText, hotelSearchTokens, hotelSoundKeys } = require('./services/hotelSearchIndex');
 
 const MONGO_URI = process.env.MONGO_URI;
 const BASE_URL = String(process.env.RATEHAWK_BASE_URL || 'https://api-sandbox.ratehawk.com')
@@ -164,6 +164,7 @@ function toHotelUpdate(hotel) {
                     provider: 'ratehawk',
                     normalizedSupplierName: normalizeHotelSearchText(hotel.name || ''),
                     searchTokens: hotelSearchTokens(hotel.name || ''),
+                    soundKeys: hotelSoundKeys(hotel.name || ''),
                     staticData: hotel
                 }
             },
