@@ -1306,7 +1306,10 @@ mongoose.connection.once('connected', () => {
         const names = require('./services/hotelArabicNames');
         try {
             await names.applyArabicNameCatalog({ model: Hotel, entries: require('./data/hotel-arabic-names.json'), logger });
-            if (process.env.HOTEL_ARABIC_NAME_REPORT !== 'off') await names.reportHotelsWithoutArabicNames({ model: Hotel });
+            if (process.env.HOTEL_ARABIC_NAME_REPORT !== 'off') {
+                await names.reportHotelsWithoutArabicNames({ model: Hotel });
+                await names.reportHotelsWithoutArabicAddresses({ model: Hotel });
+            }
         } catch (error) {
             logger.warn('Arabic hotel name catalog failed', { error: error.message });
         }

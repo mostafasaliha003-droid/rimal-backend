@@ -78,4 +78,16 @@ async function reportHotelsWithoutArabicNames({ model, limit = 1000, perLine = 4
     return hotels.length;
 }
 
-module.exports = { EDITOR, readCatalog, applyArabicNameCatalog, reportHotelsWithoutArabicNames };
+// Hotels with an Arabic name but no Arabic address, with the supplier address to translate.
+async function reportHotelsWithoutArabicAddresses({ model, limit = 1000, perLine = 30, print = console.log }) {
+    const hotels = await model.find({ provider: 'ratehawk', deleted: { $ne: true }, 'translations.ar.reviewStatus': 'approved',
+        'translations.ar.address': { $exists: false }, address: { $nin: [null, ''] } })
+        .select({ hid: 1, address: 1 }).sort({ hid: 1 }).limit(limit).lean();
+    for (let index = 0; index < hotels.length; index += perLine) {
+        const rows = hotels.slice(index, index + perLine).map(hotel => [hotel.hid, hotel.address].map(value => String(value ?? '').replace(/[|\n]/g, ' ')).join('|'));
+        print(`[arabic-address-report ${index + 1}-${index + rows.length}/${hotels.length}] ` + rows.join(' ;; '));
+    }
+    return hotels.length;
+}
+
+module.exports = { EDITOR, readCatalog, applyArabicNameCatalog, reportHotelsWithoutArabicNames, reportHotelsWithoutArabicAddresses };
