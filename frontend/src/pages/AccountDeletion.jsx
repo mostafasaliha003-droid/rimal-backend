@@ -109,7 +109,7 @@ export default function AccountDeletion() {
     };
     return <div dir={direction}>
         <header className="mx-auto flex max-w-4xl flex-wrap items-center justify-between gap-4 px-5 py-6">
-            <a href={`/?lang=${language}`} className="flex min-h-12 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700"><img src="/logo.jpg" width="56" height="56" alt="Remal Group LLC FZ" /><span><strong className="block text-xl"><bdi>مخدّة | Mkhadda</bdi></strong><span className="text-sm text-slate-600">{L.operator}</span></span></a>
+            <a href={`/?lang=${language}`} className="flex min-h-12 items-center gap-3 rounded-lg focus-visible:outline focus-visible:outline-2 focus-visible:outline-cyan-700"><img src="/pillow-symbol.png" width="56" height="44" alt="" /><span><strong className="block text-xl"><bdi>مخدة | pillow stays</bdi></strong><span className="text-sm text-slate-600">{L.operator}</span></span></a>
             <label className="flex items-center gap-2 text-sm font-bold">{L.language}<select className={fieldClass} value={language} onChange={event => setLanguage(event.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label>
         </header>
         <main className="mx-auto max-w-3xl space-y-6 px-5 pb-12">
