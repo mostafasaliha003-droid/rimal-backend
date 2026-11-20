@@ -8,6 +8,7 @@ import { Badge, Icon, Row, Txt } from './Primitives';
 import { formatDay, formatStayRange, guestLine, nightsBetween, stayWords } from './format';
 import { useAppState } from './AppState';
 import CalendarPicker from './CalendarPicker';
+import { countryName, countryNameSecondary } from './CountryPicker';
 import GuestPicker from './GuestPicker';
 import { useLayout } from './motion';
 
@@ -50,6 +51,28 @@ export function GuestsField({ guests, onOpen, error = false }: { guests: readonl
         {ages.length > 0 && <Txt kind="caption">{language === 'ar' ? `أعمار الأطفال: ${ages.join('، ')}` : `Children’s ages: ${ages.join(', ')}`}</Txt>}
       </View>
       <Icon name="chevron" size={18} color={color.textSecondary}/>
+    </Row>
+  </Pressable>;
+}
+
+/**
+ * The guest's nationality, required before searching: RateHawk prices and books each rate for
+ * the nationality of the guest who will stay, so it is chosen once here and carried to checkout.
+ */
+export function NationalityField({ value, onOpen, error = false }: { value: string; onOpen: () => void; error?: boolean }) {
+  const { t, language } = useLanguage();
+  const name = value ? countryName(value, language) : '';
+  return <Pressable testID="search-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${name || t('residencyChoose')}`}
+    accessibilityHint={t('residencyNote')} onPress={onOpen}
+    style={state => [styles.field, error && styles.fieldError, (state.pressed || hovered(state)) && styles.fieldActive]}>
+    <Row style={{ gap: space.md }}>
+      <Icon name="globe" size={20} color={error ? color.danger : color.textSecondary}/>
+      <View style={{ flex: 1, minWidth: 0 }}>
+        <Txt kind="caption">{t('residency')}</Txt>
+        {value ? <Txt kind="bodyStrong" numberOfLines={1}>{name}<Txt kind="caption"> · {countryNameSecondary(value, language)}</Txt></Txt>
+          : <Txt kind="bodyStrong" numberOfLines={1} style={{ color: error ? color.danger : color.textSecondary }}>{t('residencyChoose')}</Txt>}
+      </View>
+      <Icon name="chevronDown" size={18} color={color.textSecondary}/>
     </Row>
   </Pressable>;
 }

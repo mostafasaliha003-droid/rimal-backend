@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, AppState, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePreventRemove, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -23,7 +23,9 @@ import { rateCopy, roomRateFacts } from '../components/roomRateFacts';
 import { useCancellationClock } from '../components/useCancellationClock';
 import { formatPrice, formatStayRange, guestLine, nightsBetween, stayWords } from '../components/format';
 import { useLayout } from '../components/motion';
-import { checkoutCopy, checkoutStatusCopy } from './checkoutCopy';
+import LivePaymentStatus from '../components/LivePaymentStatus';
+import { LIVE_STATUSES, livePollDelay } from '../components/livePaymentModel';
+import { checkoutCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 import VoucherButton from '../components/VoucherButton';
 import { matchOfferForNationality, samePrice } from '../components/nationalityRepriceModel';
@@ -231,6 +233,19 @@ export function CheckoutContents(props: CheckoutContentsProps) {
     paymentOpened.current = waitingReference;
     void onPayment();
   }, [waitingReference, creationEnabled, onPayment]);
+  // After payment the page keeps asking the server for news (quickly at first, then less often) while the
+  // app is in front, so payment verification and the hotel's confirmation appear without a tap.
+  const attemptStatus = session.attempt?.status ?? null, attemptReference = session.attempt?.reference ?? '';
+  const recovering = session.phase === 'recovering', refreshStatus = session.refreshStatus;
+  const pollStart = useRef<{ reference: string; at: number } | null>(null);
+  useEffect(() => {
+    if (!attemptStatus || !attemptReference || recovering) return;
+    if (pollStart.current?.reference !== attemptReference) pollStart.current = { reference: attemptReference, at: Date.now() };
+    const delay = livePollDelay(attemptStatus, Date.now() - pollStart.current.at);
+    if (delay === null) return;
+    const timer = setTimeout(() => { if (AppState.currentState === 'active') void refreshStatus(); }, delay);
+    return () => clearTimeout(timer);
+  }, [attemptStatus, attemptReference, recovering, refreshStatus]);
   const perform = async (kind: 'website'|'payment'|'clear', action: () => Promise<boolean>) => {
     if (opening) return; setOpening(true); setActionError(null);
     try { if (!await action()) setActionError(kind); } catch { setActionError(kind); }
@@ -261,32 +276,25 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           {title}
           {existing ? <>
             {session.phase === 'unknown' && <StatePanel icon="hourglass" tone="warning" title={copy.unknown} body={copy.unknownBody}/>}
-            {session.attempt ? <Card style={styles.card} accessibilityLiveRegion="polite">
+            {session.attempt ? <LivePaymentStatus testID="checkout-live-status" key={session.attempt.reference} status={session.attempt.status}
+              reference={session.attempt.reference} live={LIVE_STATUSES.includes(session.attempt.status)}>
               {session.error && <Badge tone="warning" icon="history" label={copy.lastKnown}/>}
-              <CheckoutProgress status={session.attempt.status}/>
-              <View style={{ gap: space.xxs }}>
-                <Txt kind="subheading" accessibilityRole="header">{checkoutStatusCopy(language,session.attempt.status)[0]}</Txt>
-                <Txt kind="small" tone="primary">{checkoutStatusCopy(language,session.attempt.status)[1]}</Txt>
-              </View>
-              <Divider/>
-              <Row style={{ justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap' }}>
-                <Txt kind="caption">{copy.reference}</Txt><Txt kind="label" selectable style={{ writingDirection: 'ltr' }}>{session.attempt.reference}</Txt>
-              </Row>
               {session.attempt.confirmed && session.attempt.supplierReference && <Row style={{ justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap' }}>
                 <Txt kind="caption">{copy.supplierReference}</Txt><Txt kind="label" selectable style={{ writingDirection: 'ltr' }}>{session.attempt.supplierReference}</Txt></Row>}
-              {session.attempt.confirmed && session.attempt.voucherDelivery && <Txt kind="small" tone="primary">{session.attempt.voucherDelivery === 'sent' ? copy.voucherSent : session.attempt.voucherDelivery === 'review' ? copy.voucherReview : copy.voucherPending}</Txt>}
+              {session.attempt.confirmed && session.attempt.voucherDelivery && session.attempt.voucherDelivery !== 'sent' && <Txt kind="small" tone="primary">{session.attempt.voucherDelivery === 'review' ? copy.voucherReview : copy.voucherPending}</Txt>}
               {/* The confirmed booking is saved under the checkout reference; the server checks ownership and confirmation again. */}
               {session.attempt.confirmed && <VoucherButton booking={{ reference: session.attempt.reference, hotelName: null, roomName: null, checkin: null, checkout: null,
                 recordedStatus: 'active', supplierStatus: 'CONFIRMED', statusKind: 'confirmed', price: null }}/>}
-            </Card> : <StatePanel title={copy.checking} body={copy.unknownBody} busy={busy}/>}
+              {session.attempt.status === 'awaiting_payment' && creationEnabled && <Button icon="lock" title={copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}
+              {actionError === 'payment' && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.paymentLinkError}</Txt>}
+            </LivePaymentStatus> : <StatePanel title={copy.checking} body={copy.unknownBody} busy={busy}/>}
             {session.error && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.statusError}</Txt>}
-            {session.attempt?.status === 'awaiting_payment' && creationEnabled && <Button title={copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}
-            {actionError === 'payment' && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.paymentLinkError}</Txt>}
-            <Button title={copy.refresh} busy={busy} variant="secondary" disabled={opening} onPress={() => void (session.attempt ? session.refreshStatus() : session.recover())}/>
             {session.canClearCompleted && <Button title={copy.clear} variant="secondary" disabled={opening || busy} onPress={() => void perform('clear',props.onClearCompleted)}/>}
             {actionError === 'clear' && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.clearError}</Txt>}
-            <Button compact title={copy.support} variant="quiet" onPress={props.onSupport}/>
-            <Txt kind="caption">{copy.recoveryBody}</Txt>
+            <Row style={{ justifyContent: 'center', gap: space.lg, flexWrap: 'wrap' }}>
+              <TextLink icon="refresh" title={copy.refresh} onPress={() => void (session.attempt ? session.refreshStatus() : session.recover())}/>
+              <TextLink icon="support" title={copy.support} onPress={props.onSupport}/>
+            </Row>
           </> : !selected || !offer ? <><StatePanel title={copy.missing} body={copy.missingBody}/><Button title={copy.fresh} onPress={props.onFreshOffer}/></> : <>
             <CheckoutSummary selection={selected} offer={offer} amount={amount}/>
             {!creationEnabled && <Notice tone="info" title={copy.gateOff} body={copy.websiteBody}>
@@ -323,8 +331,8 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
   const { narrow, fontScale } = useLayout();
   const [draft,storeDraft] = useState(() => (draftKey && travelerDrafts.get(draftKey)) || takeCarriedTraveler(occupancy) || createTravelerDraft(occupancy));
   useEffect(() => { if (draftKey && travelerDrafts.has(draftKey)) onDirty?.(true); }, [draftKey, onDirty]);
-  // Required: the guest chooses it here. It starts empty so it is never assumed.
-  const [nationality,setNationality] = useState(() => residency && chosenNationality.get('latest') === residency ? residency : '');
+  // Chosen in the search (required there), so it is filled in; changing it here re-prices the room.
+  const [nationality,setNationality] = useState(() => residency || chosenNationality.get('latest') || '');
   const [nationalityMissing,setNationalityMissing] = useState(false);
   const [picker,showPicker] = useState(false);
   const [requestsOpen,setRequestsOpen] = useState(() => Boolean(draft?.guest.specialRequests));

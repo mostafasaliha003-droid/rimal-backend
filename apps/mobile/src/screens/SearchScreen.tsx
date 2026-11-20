@@ -22,7 +22,8 @@ import { searchCopy } from './searchCopy';
 import CurrencyPicker from '../components/CurrencyPicker';
 import { bookingCurrency, currencyName } from '../components/currencyCatalog';
 import { useCurrencyPreference } from '../components/useCurrencyPreference';
-import { DateFields, GuestsField } from '../components/StayFields';
+import { DateFields, GuestsField, NationalityField } from '../components/StayFields';
+import CountryPicker from '../components/CountryPicker';
 import { ContinueSearchCard, UpcomingTripCard } from '../components/HomeCards';
 import { resumeCriteria, resumeState } from '../components/lastSearchModel';
 import { todayDate } from '../components/calendarModel';
@@ -32,12 +33,12 @@ import { useLayout } from '../components/motion';
 type TravelDraft = Pick<SearchCriteria, 'checkin' | 'checkout' | 'guests' | 'residency'>;
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
 
-function initialTravel(criteria: SearchCriteria | null): TravelDraft {
+function initialTravel(criteria: SearchCriteria | null, fallbackResidency?: string): TravelDraft {
   return {
     checkin: criteria?.checkin || '', checkout: criteria?.checkout || '',
     guests: copyGuestRooms(criteria?.guests || [{ adults: 2, children: [] }]),
-    // A starting nationality for pricing. The guest confirms or changes it with the booking details.
-    residency: criteria?.residency || 'ae',
+    // Required and never assumed: the guest picks it (the last search's choice is offered again).
+    residency: criteria?.residency || fallbackResidency || '',
   };
 }
 
@@ -55,9 +56,12 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const needsSuggestions = !savedOnly && shouldSuggestDestination(query, selected);
   const suggesting = needsSuggestions && suggestionResult.key !== suggestionKey;
   const suggestError = suggestionResult.key === suggestionKey && suggestionResult.error;
-  const [draft, setDraft] = useState(() => ({ source: state.criteria, value: initialTravel(state.criteria) }));
+  // The nationality chosen in the last search on this device is offered again; the guest can change it.
+  const rememberedResidency = state.lastSearch?.criteria.residency;
+  const [draft, setDraft] = useState(() => ({ source: state.criteria, value: initialTravel(state.criteria, rememberedResidency) }));
+  const [nationalityOpen, showNationality] = useState(false);
   // Applying travel details elsewhere updates the dates on Explore and retains its destination input.
-  const travel = draft.source === state.criteria ? draft.value : initialTravel(state.criteria);
+  const travel = draft.source === state.criteria ? draft.value : initialTravel(state.criteria, rememberedResidency);
   const { checkin, checkout, guests, residency } = travel;
   const preference = useCurrencyPreference();
   const currency = bookingCurrency(preference.currency, APP_ENV);
@@ -67,7 +71,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     : preference.source === 'device' ? (rtl ? 'حسب إعداد الجهاز' : 'Device region')
     : preference.detecting ? (rtl ? 'جارٍ التحديد' : 'Detecting') : (rtl ? 'افتراضي' : 'Default');
   const updateTravel = (changes: Partial<TravelDraft>) => setDraft(previous => ({
-    source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria)), ...changes },
+    source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria, rememberedResidency)), ...changes },
   }));
   const [calendar, setCalendar] = useState<{ field: 'checkin' | 'checkout'; source: SearchCriteria | null } | null>(null);
   const [guestEditor, setGuestEditor] = useState<{ source: SearchCriteria | null } | null>(null);
@@ -107,7 +111,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     setAppliedHotel(requestedHotel);
     if (requestedHotel) {
       setPickedCity(null); setQuery(requestedHotel); select(null); setSubmitted(false);
-      setDraft(previous => ({ source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria)), checkin: '', checkout: '' } }));
+      setDraft(previous => ({ source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria, rememberedResidency)), checkin: '', checkout: '' } }));
     }
   }
   useEffect(() => {
@@ -119,17 +123,14 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const submit = () => {
     if (!preference.ready) return;
     const destination = selected?.name === query ? selected : !pickedCity && query === state.destinationName ? destinationFromSearch(state.criteria, query) : null;
-    // RateHawk prices each rate for the guest's nationality. Until the guest states it at checkout, the first
-    // search prices for the traveller's own country (network or device region) instead of a fixed one, so
-    // most guests confirm the same nationality at checkout and no second price check is needed. Once a
-    // nationality is chosen it stays on the search for the rest of the session.
-    const detected = preference.country?.toLowerCase();
-    const searchResidency = !state.criteria && residency === 'ae' && detected && COUNTRY_CODES.includes(detected) ? detected : residency;
+    // RateHawk prices each rate for the guest's nationality: the search does not run without it.
+    const searchResidency = residency;
     const criteria: SearchCriteria = { checkin, checkout, guests: copyGuestRooms(guests), residency: searchResidency, currency, language, ...(savedOnly ? { hids: savedIds } : destination?.regionId ? { regionId: destination.regionId } : destination?.hid ? { hids: [destination.hid] } : {}) };
     const validation = validateSearchCriteria(criteria); const next = { destination: savedOnly ? !savedIds.length : !destination || !query.trim(), dates: validation.errors.includes('invalid_checkin') || validation.errors.includes('invalid_checkout'), residency: !COUNTRY_CODES.includes(searchResidency), guests: validation.errors.includes('invalid_guests') };
     setErrors(next); setSubmitted(true);
     if (!validation.valid || Object.values(next).some(Boolean)) {
       if (next.destination) destinationInput.current?.focus();
+      else if (next.residency) showNationality(true);
       return;
     }
     Keyboard.dismiss();
@@ -249,8 +250,12 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
       })}
     </Row>
     <GuestsField guests={guests} error={submitted && errors.guests} onOpen={() => { Keyboard.dismiss(); setGuestEditor({ source: state.criteria }); }}/>
-    {submitted && (errors.residency || errors.guests) && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
-      <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t(errors.residency ? 'residencyError' : 'guestsError')}</Txt></Row>}
+    {submitted && errors.guests && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
+      <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t('guestsError')}</Txt></Row>}
+    <NationalityField value={residency} error={submitted && errors.residency} onOpen={() => { Keyboard.dismiss(); showNationality(true); }}/>
+    {submitted && errors.residency ? <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
+      <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t('residencyError')}</Txt></Row>
+      : !residency && <Txt kind="caption">{t('residencyNote')}</Txt>}
     <Pressable testID="search-currency" accessibilityRole="button"
       onPress={() => showCurrency(true)} style={state => [styles.currencyControl, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
       <Row style={{ gap: space.sm }}><Icon name="wallet" size={16} color={color.textSecondary}/>
@@ -336,6 +341,8 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         updateTravel({ guests: rooms });
         setErrors(current => ({ ...current, guests: false }));
       }}/>}
+    <CountryPicker visible={nationalityOpen} value={residency} title={t('residency')} onClose={() => showNationality(false)}
+      onChange={code => { updateTravel({ residency: code }); setErrors(current => ({ ...current, residency: false })); }}/>
     <CurrencyPicker visible={currencyOpen} value={preference.currency} automatic={preference.source !== 'manual'}
       onClose={() => showCurrency(false)} onChange={preference.choose} onAutomatic={preference.useAutomatic}/>
   </SafeAreaView>;
