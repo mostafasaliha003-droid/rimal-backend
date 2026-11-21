@@ -27,6 +27,19 @@ test('compact cards retain every property, order and lowest valid customer stay 
     assert.doesNotMatch(JSON.stringify(result), /book_hash|private-room-data|supplier-metadata|payment_options/);
 });
 
+test('compact cards state free cancellation for the shown price separately from other rates, never after the deadline', () => {
+    const { mobileHotelCard } = require('../services/rateSearchResponse');
+    const now = Date.parse('2099-01-01T00:00:00Z');
+    const terms = (amount, before) => { const value = rate(amount, 'USD'); value.payment_options.payment_types[0].cancellation_penalties = { free_cancellation_before: before, policies: [] }; return value; };
+    const card = rates => mobileHotelCard({ ...property, rates }, 'USD', now);
+    assert.deepEqual([card([terms('40', '2099-02-01T12:00:00'), terms('80', null)])].map(c => [c.free_cancellation, c.lowest_free_cancellation]), [[true, true]]);
+    assert.deepEqual([card([terms('40', null), terms('80', '2099-02-01T12:00:00')])].map(c => [c.free_cancellation, c.lowest_free_cancellation]), [[true, false]]);
+    assert.deepEqual([card([terms('40', '2098-12-01T12:00:00')])].map(c => [c.free_cancellation, c.lowest_free_cancellation]), [[false, false]]);
+    const unknown = card([rate('40', 'USD')]);
+    assert.equal('free_cancellation' in unknown, false);
+    assert.doesNotMatch(JSON.stringify(card([terms('40', '2099-02-01T12:00:00')])), /payment_options|cancellation_penalties|book_hash/);
+});
+
 test('existing search consumers still receive full decorated offers and original ID-search metadata', () => {
     const result = rateSearchResponse([property], { language: 'en' }, { next: 'cursor' });
     assert.equal(result.next, 'cursor');
