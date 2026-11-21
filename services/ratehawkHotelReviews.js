@@ -71,6 +71,56 @@ function createRatehawkHotelReviews({ HotelModel, CacheModel, client = require('
             } finally { clearTimeout(timer); }
         } catch { return { ...base, status: 'unavailable' }; }
     }
-    return { load };
+    // Result cards need only the average score and how many guests rated it. Cached hotels answer at
+    // once; the rest are fetched in one supplier request (at most 100 hotels) and cached exactly like
+    // load(). A slow supplier never delays the caller beyond the budget; late answers fill the cache.
+    const brief = payload => payload?.summary && payload.summary.ratedCount > 0 && payload.summary.score !== null
+        ? { score: payload.summary.score, count: payload.summary.ratedCount } : null;
+    let batches = 0;
+    async function summaries(hids, language = 'en') {
+        const resolvedLanguage = environment === 'sandbox' ? 'en' : language;
+        const keyOf = hid => `${environment}:${hid}:${resolvedLanguage}`;
+        const base = { source: 'ratehawk', scale: 10, environment, requestedLanguage: language, resolvedLanguage };
+        const result = {}, missing = [];
+        for (const hid of hids) {
+            const cached = memory.get(keyOf(hid));
+            if (cached && cached.until > Date.now()) result[hid] = brief(cached.payload); else missing.push(hid);
+        }
+        try {
+            if (missing.length && typeof CacheModel.find === 'function') {
+                const stored = await CacheModel.find({ _id: { $in: missing.map(keyOf) } }).lean();
+                for (const row of stored || []) {
+                    if (!row?.expiresAt || new Date(row.expiresAt).getTime() <= Date.now()) continue;
+                    const hid = missing.find(id => keyOf(id) === row._id);
+                    if (hid === undefined) continue;
+                    result[hid] = brief(row.payload);
+                    missing.splice(missing.indexOf(hid), 1);
+                }
+            }
+            if (missing.length && batches < 2) {
+                batches++;
+                const wanted = missing.slice(0, 100);
+                const task = Promise.resolve().then(() => client.fetchHotelReviews(wanted.map(Number), resolvedLanguage)).then(async rows => {
+                    const until = Date.now() + 12 * 3600000;
+                    for (const hid of wanted) {
+                        // A hotel absent from the answer has no reviews: an explicit empty summary, never a guess.
+                        const record = rows.find(row => String(row.hid) === String(hid));
+                        const normalized = normalizeReviews(record?.reviews || []);
+                        const payload = { status: normalized.total ? 'ready' : 'empty', ...normalized, updatedAt: new Date().toISOString() };
+                        memory.set(keyOf(hid), { payload, until });
+                        try { await CacheModel.updateOne({ _id: keyOf(hid) }, { $set: { payload, expiresAt: new Date(until) } }, { upsert: true }); } catch {}
+                    }
+                    while (memory.size > 300) memory.delete(memory.keys().next().value);
+                    return true;
+                }).catch(() => false).finally(() => { batches--; });
+                let timer;
+                const done = await Promise.race([task, new Promise(resolve => { timer = setTimeout(() => resolve(null), budgetMs); })]).finally(() => clearTimeout(timer));
+                if (done) for (const hid of wanted) result[hid] = brief(memory.get(keyOf(hid))?.payload);
+            }
+        } catch { /* a partial answer is still a correct answer */ }
+        const pending = hids.filter(hid => !Object.hasOwn(result, hid));
+        return { ...base, status: pending.length ? 'partial' : 'ready', summaries: result, pending };
+    }
+    return { load, summaries };
 }
 module.exports = { createRatehawkHotelReviews, normalizeReviews, reviewDate };

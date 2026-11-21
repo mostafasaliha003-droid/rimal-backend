@@ -51,3 +51,29 @@ test('route validates hotel, language and page input and hides optional Google w
         assert.equal(calls,1);
     }finally{await new Promise(resolve=>server.close(resolve));}
 });
+test('rating summaries batch uncached hotels in one request, reuse the cache and never invent a score',async()=>{
+    const rows=[{hid:1,reviews:raw},{hid:2,reviews:[{review_plus:'Text only',rating:null}]}];
+    const f=fixture({rows});
+    const first=await f.service.summaries(['1','2','3'],'ar');
+    assert.deepEqual(f.calls,[{ids:[1,2,3],language:'en'}]);
+    assert.deepEqual(first.summaries,{1:{score:5,count:2},2:null,3:null});assert.equal(first.status,'ready');assert.equal(first.scale,10);
+    const again=await f.service.summaries(['1','3'],'ar');assert.equal(f.calls.length,1);assert.deepEqual(again.summaries,{1:{score:5,count:2},3:null});
+    const fromLoad=await f.service.load('1','ar');assert.equal(fromLoad.summary.score,5);assert.equal(f.calls.length,1);
+});
+test('rating summaries answer within the budget and leave slow hotels pending for a later visit',async()=>{
+    const f=fixture({delay:true,budgetMs:5,rows:[{hid:7,reviews:raw}]});
+    const slow=await f.service.summaries(['7']);assert.equal(slow.status,'partial');assert.deepEqual(slow.pending,['7']);
+    f.finish();await new Promise(resolve=>setImmediate(resolve));await new Promise(resolve=>setImmediate(resolve));
+    const later=await f.service.summaries(['7']);assert.deepEqual(later.summaries,{7:{score:5,count:2}});assert.equal(f.calls.length,1);
+});
+test('summary route validates the hotel list and language',async()=>{
+    const express=require('express'),app=express();const seen=[];
+    app.use('/hotels',require('./services/ratehawkHotelReviewRoutes')({reviews:{load:async()=>({status:'empty'}),summaries:async(ids,language)=>{seen.push([ids,language]);return{status:'ready',summaries:{}};}},limiter:(_q,_s,next)=>next(),env:{}}));
+    const server=app.listen(0);const base='http://127.0.0.1:'+server.address().port;
+    try{
+        assert.equal((await fetch(base+'/hotels/reviews/summary?hids=1,2,2&language=ar')).status,200);assert.deepEqual(seen,[[['1','2'],'ar']]);
+        assert.equal((await fetch(base+'/hotels/reviews/summary?hids=x&language=ar')).status,400);
+        assert.equal((await fetch(base+'/hotels/reviews/summary?hids=1&language=fr')).status,400);
+        assert.equal((await fetch(base+'/hotels/reviews/summary?hids='+Array.from({length:51},(_,i)=>i+1).join(','))).status,400);
+    }finally{server.close();}
+});

@@ -1,6 +1,16 @@
 const express = require('express');
 module.exports = function createRatehawkHotelReviewRoutes({ reviews, limiter, env = process.env }) {
     const router = express.Router();
+    router.get('/reviews/summary', limiter, async (req, res) => {
+        res.set('Cache-Control', 'no-store');
+        const language = req.query.language || 'en';
+        const hids = String(req.query.hids || '').split(',').map(value => value.trim()).filter(Boolean);
+        if (!hids.length || hids.length > 50 || !hids.every(value => /^\d{1,10}$/.test(value)) || !['ar', 'en', 'es'].includes(language)) {
+            return res.status(400).json({ status: 'invalid_request' });
+        }
+        if (typeof reviews.summaries !== 'function') return res.json({ status: 'unavailable', summaries: {}, pending: hids });
+        return res.json(await reviews.summaries([...new Set(hids)], language));
+    });
     router.get('/:hid/reviews/ratehawk', limiter, async (req, res) => {
         res.set('Cache-Control', 'no-store');
         const hid = String(req.params.hid), language = req.query.language || 'en', offset = Number(req.query.offset || 0);
