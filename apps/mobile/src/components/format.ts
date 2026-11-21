@@ -76,6 +76,16 @@ export function formatStayRange(checkin: string, checkout: string, language: str
   return `${start.getUTCDate()} ${month(start)}${startYear} – ${end.getUTCDate()} ${month(end)}${suffix}`;
 }
 
+/**
+ * A supplier address trimmed for a card or a header: the street and city, without the country
+ * (the same for a whole list). Two-part addresses are kept whole; the full text stays the
+ * accessible label wherever this is shown.
+ */
+export function shortAddress(address: string | null | undefined, language: string): string {
+  const parts = (address || '').split(/\s*[,،]\s*/u).map(part => part.trim()).filter(Boolean);
+  return (parts.length > 2 ? parts.slice(0, -1) : parts).join(language === 'ar' ? '، ' : ', ');
+}
+
 export function formatWeekday(value: string, language: string) {
   const date = utcDay(value);
   return date ? new Intl.DateTimeFormat(localeFor(language), { weekday: 'long', calendar: 'gregory', timeZone: 'UTC' }).format(date) : '';

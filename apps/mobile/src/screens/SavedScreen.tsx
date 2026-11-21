@@ -1,49 +1,64 @@
 import React, { useMemo, useState } from 'react';
-import { FlatList, View } from 'react-native';
+import { FlatList, Pressable, StyleSheet, View } from 'react-native';
+import type { PressableStateCallbackType } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
 import { validateSearchCriteria } from '../api';
 import { hotelId } from '../api/validation';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import { colors, ui } from '../theme';
+import { color, elevation, radius, space, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
-import { Button, Photo, Row, StatePanel, Txt } from '../components/Primitives';
-import { formatDay, guestLine, nightsBetween, stayWords } from '../components/format';
+import { Badge, Button, Icon, IconButton, Photo, Row, StatePanel, TextLink, Txt } from '../components/Primitives';
+import { StarRating } from '../components/HotelCard';
+import { StaySummaryBar } from '../components/StayFields';
+import { shortAddress } from '../components/format';
 import { useSavedHotelCards, type SavedHotelCard } from '../components/useSavedHotelCards';
 import { SAVED_HOTELS_LIMIT } from '../components/savedHotelsModel';
 import { savedCopy } from './savedCopy';
 
 type RemovedStay = { hid: number; index: number; name: string; scope: string };
+const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
 
+/**
+ * A saved hotel in the same shape as a search result: photo, stars, name and area. The whole card
+ * opens the rooms once stay details are set; removing is a separate button on the card's corner.
+ * Internal hotel identifiers are never shown.
+ */
 function SavedCard({ hid, card, canRemove, canViewRooms, remove, viewRooms }: {
   hid: number; card?: SavedHotelCard; canRemove: boolean; canViewRooms: boolean; remove: () => void; viewRooms: () => void;
 }) {
-  const { language } = useLanguage();
+  const { language, rtl } = useLanguage();
+  const ar = language === 'ar';
   const copy = savedCopy(language);
   const name = card?.name || copy.fallback(hid);
-  const stars = typeof card?.stars === 'number' && Number.isInteger(card.stars) && card.stars >= 1 && card.stars <= 5 ? card.stars : null;
-
+  const stars = typeof card?.stars === 'number' && Number.isInteger(card.stars) && card.stars >= 1 && card.stars <= 5 ? card.stars : undefined;
+  const place = shortAddress(card?.address, language);
+  const unsupported = hotelId(hid) === null;
   return (
-    <View style={[ui.card, { gap: 12 }]}>
-      <Row style={{ alignItems: 'flex-start' }}>
-        {card && <View style={{ width: 80, borderRadius: 14, overflow: 'hidden' }}>
-          <Photo uri={card.imageUrl} alternatives={card.images} label={name} height={80} thumbnail/>
-        </View>}
-        <View style={{ flex: 1, gap: 6 }}>
-          <Txt kind="heading" accessibilityRole="header">{name}</Txt>
-          {stars !== null && <Txt kind="small">{copy.starCount(stars)}</Txt>}
-          {card?.address && <Txt kind="small" numberOfLines={2}>{card.address}</Txt>}
+    <View testID={`saved-${hid}`} style={styles.card}>
+      <Pressable testID={`saved-open-${hid}`} accessibilityRole="button" disabled={!canViewRooms} onPress={viewRooms}
+        accessibilityLabel={canViewRooms ? `${copy.viewRooms}: ${name}` : name}
+        style={state => [{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'stretch' }, (state.pressed || hovered(state)) && canViewRooms && { backgroundColor: color.bgMuted }]}>
+        <View style={styles.thumb}>
+          {card ? <Photo uri={card.imageUrl} alternatives={card.images} label={name} height="100%" thumbnail/> : <Photo label={name} height="100%" thumbnail/>}
         </View>
-      </Row>
-      {hotelId(hid) === null && <Txt kind="small">{copy.unsupported}</Txt>}
-      <Row style={{ justifyContent: 'space-between', flexWrap: 'wrap' }}>
-        <View style={{ gap: 2 }}><Txt kind="small">{copy.hotelId}</Txt><Txt kind="small" selectable style={{ writingDirection: 'ltr' }}>{hid}</Txt></View>
-        {canViewRooms && <Button compact title={copy.viewRooms} label={`${copy.viewRooms}: ${name}`} variant="secondary" onPress={viewRooms} />}
-        <Button compact title={copy.remove} label={`${copy.remove}: ${name}`} variant="quiet"
-          disabled={!canRemove} onPress={remove} />
-      </Row>
+        <View style={styles.details}>
+          {stars !== undefined && <StarRating stars={stars} size={13}/>}
+          <Txt kind="subheading" accessibilityRole="header" numberOfLines={2} style={{ fontSize: 16, lineHeight: ar ? 26 : 22 }}>{name}</Txt>
+          {!!place && <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
+            <View style={{ paddingTop: 2 }}><Icon name="pin" size={14} color={color.textSecondary}/></View>
+            <Txt kind="caption" numberOfLines={1} accessibilityLabel={card?.address} style={{ flex: 1 }}>{place}</Txt></Row>}
+          {unsupported && <Txt kind="caption" tone="warning">{copy.unsupported}</Txt>}
+          <View style={{ flex: 1, minHeight: space.xs }}/>
+          {canViewRooms ? <Row style={{ gap: space.xxs }}><Txt kind="label" tone="link">{copy.viewRooms}</Txt><Icon name="chevron" size={14} color={color.textLink}/></Row>
+            : !unsupported && <Txt kind="caption">{copy.datesBody}</Txt>}
+        </View>
+      </Pressable>
+      <View pointerEvents="box-none" style={[styles.remove, rtl ? { left: space.xs } : { right: space.xs }]}>
+        <IconButton icon="trash" size={18} testID={`saved-remove-${hid}`} label={`${copy.remove}: ${name}`} disabled={!canRemove} onPress={remove}/>
+      </View>
     </View>
   );
 }
@@ -86,53 +101,52 @@ export default function SavedScreen() {
   };
 
   const header = (
-    <View style={{ gap: 16, paddingBottom: 18 }}>
-      <View style={{ gap: 6 }}>
-        <Txt kind="title" accessibilityRole="header">{copy.title}</Txt>
-        <Txt kind="small">{copy.device}</Txt>
-        {state.savedReady && <Txt kind="label" accessibilityLiveRegion="polite">{copy.count(state.saved.length)}</Txt>}
+    <View style={{ gap: space.md, paddingBottom: space.md }}>
+      <View style={{ gap: space.xxs }}>
+        <Row style={{ gap: space.sm }}>
+          <Txt kind="heading" accessibilityRole="header" style={{ flexShrink: 1 }}>{copy.title}</Txt>
+          {state.savedReady && state.saved.length > 0 && <View accessibilityLiveRegion="polite" accessibilityLabel={copy.count(state.saved.length)}><Badge tone="info" label={String(state.saved.length)}/></View>}
+        </Row>
+        <Txt kind="caption">{copy.device}</Txt>
       </View>
       {undo && (
-        <View style={[ui.card, { backgroundColor: colors.softBlue, padding: 16 }]} accessibilityLiveRegion="polite">
-          <Txt>{copy.removed(undo.name)}</Txt>
-          <Button compact title={copy.undo} variant="secondary" disabled={!state.savedReady || state.saved.length >= SAVED_HOTELS_LIMIT} onPress={undoRemoval} />
-          {state.saved.length >= SAVED_HOTELS_LIMIT && <Txt kind="small">{copy.undoFull}</Txt>}
-        </View>
+        <Row style={styles.banner} accessibilityLiveRegion="polite">
+          <Txt kind="small" tone="primary" style={{ flex: 1 }}>{copy.removed(undo.name)}</Txt>
+          <Button compact title={copy.undo} variant="tonal" disabled={!state.savedReady || state.saved.length >= SAVED_HOTELS_LIMIT} onPress={undoRemoval} />
+          {state.saved.length >= SAVED_HOTELS_LIMIT && <Txt kind="caption">{copy.undoFull}</Txt>}
+        </Row>
       )}
-      {state.saved.length > 0 && validExample !== undefined && (
-        <View style={[ui.card, { backgroundColor: colors.softBlue, padding: 16, gap: 10 }]}>
-          {validStay && criteria ? (
-            <>
-              <Txt kind="label">{formatDay(criteria.checkin, language, { weekday: true })} – {formatDay(criteria.checkout, language, { weekday: true })}{nightsBetween(criteria.checkin, criteria.checkout) ? ` · ${stayWords(language).nights(nightsBetween(criteria.checkin, criteria.checkout)!)}` : ''}</Txt>
-              <Txt kind="small">{guestLine(criteria.guests, language)} · {criteria.currency}</Txt>
-              <Button title={copy.checkPrices} disabled={!state.savedReady} onPress={() => router.push('/saved-offers')} />
-              <Button compact title={copy.editDates} variant="quiet" onPress={chooseDates} />
-            </>
-          ) : (
-            <><Txt kind="small">{copy.datesBody}</Txt><Button title={copy.chooseDates} disabled={!state.savedReady} onPress={chooseDates} /></>
-          )}
+      {state.saved.length > 0 && validExample !== undefined && (validStay && criteria ? (
+        <View style={{ gap: space.sm }}>
+          <StaySummaryBar compact testID="saved-stay" criteria={criteria} onEditDates={chooseDates} onEditGuests={chooseDates}/>
+          <Button testID="saved-check-prices" icon="search" title={copy.checkPrices} disabled={!state.savedReady} onPress={() => router.push('/saved-offers')} />
         </View>
-      )}
+      ) : (
+        <Row style={styles.banner}>
+          <Txt kind="small" tone="primary" style={{ flex: 1 }}>{copy.datesBody}</Txt>
+          <Button compact title={copy.chooseDates} icon="calendar" disabled={!state.savedReady} onPress={chooseDates} />
+        </Row>
+      ))}
       {state.savedPending && !saveError && <Txt kind="small" accessibilityLiveRegion="polite">{copy.saving}</Txt>}
       {state.saved.length > 0 && state.savedLoading && <Txt kind="small">{copy.loading}</Txt>}
       {state.saved.length > 0 && loadError && (
-        <View style={[ui.card, { backgroundColor: colors.softGold, padding: 16 }]}>
-          <Txt accessibilityRole="alert">{copy.loadError}</Txt>
+        <Row style={[styles.banner, { backgroundColor: color.warningBg }]}>
+          <Txt accessibilityRole="alert" kind="small" tone="primary" style={{ flex: 1 }}>{copy.loadError}</Txt>
           <Button compact title={copy.retryLoad} variant="secondary" onPress={retryStorage} />
-        </View>
+        </Row>
       )}
       {saveError && (
-        <View style={[ui.card, { backgroundColor: colors.softGold, padding: 16 }]}>
-          <Txt accessibilityRole="alert">{copy.saveError}</Txt>
+        <Row style={[styles.banner, { backgroundColor: color.warningBg }]}>
+          <Txt accessibilityRole="alert" kind="small" tone="primary" style={{ flex: 1 }}>{copy.saveError}</Txt>
           <Button compact title={copy.retrySave} variant="secondary" onPress={retryStorage} />
-        </View>
+        </Row>
       )}
-      {state.saved.length > 0 && metadata.loading && <Txt kind="small">{copy.loadingDetails}</Txt>}
+      {state.saved.length > 0 && metadata.loading && <Txt kind="caption">{copy.loadingDetails}</Txt>}
       {state.saved.length > 0 && failedDetails && (
-        <View style={{ gap: 8 }}>
-          <Txt kind="small">{copy.detailsError}</Txt>
-          <Button compact title={copy.retryDetails} variant="quiet" onPress={metadata.retry} />
-        </View>
+        <Row style={{ gap: space.sm, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+          <Txt kind="small" style={{ flexShrink: 1 }}>{copy.detailsError}</Txt>
+          <TextLink icon="refresh" title={copy.retryDetails} onPress={metadata.retry} />
+        </Row>
       )}
     </View>
   );
@@ -147,7 +161,7 @@ export default function SavedScreen() {
         renderItem={({ item }) => <SavedCard hid={item} card={metadata.cards.get(item)} canRemove={state.savedReady}
           canViewRooms={state.savedReady && validStay && hotelId(item) !== null} remove={() => remove(item)}
           viewRooms={() => router.push({ pathname: '/hotel/[hid]', params: { hid: String(item) } })} />}
-        ItemSeparatorComponent={() => <View style={{ height: 14 }} />}
+        ItemSeparatorComponent={() => <View style={{ height: space.md }} />}
         ListHeaderComponent={header} ListEmptyComponent={empty}
         initialNumToRender={10} maxToRenderPerBatch={10} windowSize={5}
         ListFooterComponent={limit < state.saved.length ? (
@@ -156,3 +170,11 @@ export default function SavedScreen() {
     </SafeAreaView>
   );
 }
+
+const styles = StyleSheet.create({
+  card: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.borderCard, ...elevation.card },
+  thumb: { width: 112, minHeight: 128, backgroundColor: color.photoPlaceholder },
+  details: { flex: 1, minWidth: 0, paddingHorizontal: space.md, paddingVertical: space.sm, gap: space.xxs },
+  remove: { position: 'absolute', bottom: space.xxs },
+  banner: { flexWrap: 'wrap', alignItems: 'center', gap: space.sm, padding: space.md, borderRadius: radius.lg, backgroundColor: color.bgSelected },
+});

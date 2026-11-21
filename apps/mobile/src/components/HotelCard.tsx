@@ -10,7 +10,7 @@ import { Icon, Photo, Row, Txt } from './Primitives';
 import { priceInCurrency, stayNights } from './resultsDecisionModel';
 import { useChargeMoney } from './ChargeCurrency';
 import { resultsCopy } from './resultsCopy';
-import { formatPrice, stayLine, stayWords } from './format';
+import { formatPrice, shortAddress, stayLine, stayWords } from './format';
 import { useLayout, useReducedMotion } from './motion';
 import { useToast } from './Toast';
 import { haptic } from './haptics';
@@ -116,8 +116,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
   const cancelFact = cancel === 'lowest' ? fact('checkCircle', ar ? 'إلغاء مجاني' : 'Free cancellation', color.success, `hotel-free-cancel-${hotel.hid}`, ar ? 'إلغاء مجاني لهذا السعر' : 'Free cancellation at this price')
     : cancel === 'available' ? fact('checkCircle', ar ? 'خيار إلغاء مجاني' : 'Free-cancel option', color.success, `hotel-free-cancel-${hotel.hid}`, ar ? 'يتوفر خيار بإلغاء مجاني بسعر آخر' : 'Free cancellation available at another rate') : null;
   // The street and city are enough on a card; the country is the same for the whole list.
-  const parts = (hotel.address || '').split(/\s*[,،]\s*/).filter(Boolean);
-  const place = (parts.length > 2 ? parts.slice(0, -1) : parts).join(ar ? '، ' : ', ');
+  const place = shortAddress(hotel.address, language);
 
   const summary = <>
     <Row style={{ gap: space.sm, minHeight: 20 }}>

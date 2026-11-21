@@ -121,9 +121,13 @@ export default function LivePaymentStatus({ status, reference, live, children, t
         <Txt kind="micro" tone="secondary">· {ar ? 'يتحدّث تلقائياً' : 'updates automatically'} · {clock(elapsed)}</Txt>
       </Row>}
     </View>
-    <View style={styles.stages}>
+    {/* Once confirmed, every step is done: one line says so, and the receipt and next steps move up. */}
+    {model.tone === 'success' ? <Row testID="live-stages-done" style={styles.done}>
+      <Icon name="checkCircle" size={16} color={color.success}/>
+      <Txt kind="small" tone="success" style={{ flex: 1, fontFamily: fonts.medium }}>{ar ? 'اكتملت كل الخطوات: الدفع وتأكيد الفندق وإصدار القسيمة' : 'All steps complete: payment, hotel confirmation and voucher'}</Txt>
+    </Row> : <View style={styles.stages}>
       {model.stages.map((stage, index) => <StageRow key={stage.key} stage={stage} last={index === model.stages.length - 1} reduced={reduced}/>)}
-    </View>
+    </View>}
     {!!model.expectation && <Row style={styles.note}>
       <Icon name={model.slow ? 'hourglass' : 'clock'} size={16} color={model.slow ? color.warning : color.textSecondary}/>
       <Txt kind="small" tone={model.slow ? 'warning' : 'primary'} style={{ flex: 1 }}>{model.expectation}</Txt>
@@ -149,6 +153,7 @@ const styles = StyleSheet.create({
   liveChip: { gap: space.xs, paddingHorizontal: space.sm + 2, paddingVertical: space.xxs + 1, borderRadius: radius.pill, backgroundColor: color.bgMuted },
   liveDot: { width: 8, height: 8, borderRadius: 4, backgroundColor: color.interactive },
   stages: { paddingHorizontal: space.xs },
+  done: { gap: space.sm, alignItems: 'flex-start', backgroundColor: color.successBg, borderRadius: radius.md, paddingHorizontal: space.md, paddingVertical: space.sm },
   stageDot: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, alignItems: 'center', justifyContent: 'center' },
   stageLine: { width: 2, flex: 1, marginVertical: 2, borderRadius: 1 },
   note: { gap: space.sm, alignItems: 'flex-start', backgroundColor: color.bgMuted, borderRadius: radius.md, padding: space.md },

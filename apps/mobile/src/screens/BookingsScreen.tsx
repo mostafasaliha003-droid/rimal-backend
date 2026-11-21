@@ -19,6 +19,7 @@ import VoucherButton from '../components/VoucherButton';
 import * as WebBrowser from 'expo-web-browser';
 import { tripsCopy } from './tripsCopy';
 import { localizedRoomName } from '../components/roomNameModel';
+import { useLayout } from '../components/motion';
 
 const buckets: TripBucket[] = ['current', 'upcoming', 'past', 'unknown'];
 const filters: TripFilter[] = ['all', ...buckets];
@@ -70,7 +71,7 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
   // Received is not confirmed: the warning stays visible on the card, not behind the toggle.
   const urgent = row.statusKind === 'pending' || row.statusKind === 'failed' || row.statusKind === 'unknown';
   return (
-    <Card testID={`trip-${booking.reference}`} style={styles.card}>
+    <Card testID={`trip-${booking.reference}`} style={[styles.card, { flexGrow: 1 }]}>
       <Row style={{ justifyContent: 'space-between', gap: space.sm, flexWrap: 'wrap' }}>
         <Badge tone={meta.tone} icon={meta.icon} label={statusText.title}/>
         {row.bucket === 'current' && <Badge tone="info" label={copy.groups.current}/>}
@@ -172,9 +173,14 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
   const bookings = current?.bookings || noBookings;
   const model = useMemo(() => buildTripsModel(bookings, today), [bookings, today]);
   const visible = useMemo(() => filterTrips(model, activeFilter, query), [model, activeFilter, query]);
-  const sections = useMemo(() => buckets.map(bucket => ({
-    key: bucket, bucket, data: visible.filter(row => row.bucket === bucket),
-  })).filter(section => section.data.length > 0), [visible]);
+  const { desktop } = useLayout();
+  const sections = useMemo(() => buckets.map(bucket => {
+    const rows = visible.filter(row => row.bucket === bucket);
+    // Each list item is one row of cards: two side by side on wide screens, one on phones.
+    const data = desktop ? rows.reduce<TripRow[][]>((pairs, row, index) => { if (index % 2 === 0) pairs.push([row]); else pairs[pairs.length - 1].push(row); return pairs; }, [])
+      : rows.map(row => [row]);
+    return { key: bucket, bucket, count: rows.length, data };
+  }).filter(section => section.count > 0), [visible, desktop]);
   const refresh = () => setRetry(value => value + 1);
   const reset = () => { setFilter('all'); setQuery(''); };
   const findStay = () => router.navigate('/');
@@ -220,11 +226,13 @@ function OwnerTrips({ status, ownerKey }: { status: AuthStatus; ownerKey: string
     <SafeAreaView edges={['top']} style={ui.screen}>
       <BrandHeader />
       {status === 'signedIn' && current && !current.error && current.bookings.length > 0 ? (
-        <SectionList sections={sections} keyExtractor={row => row.booking.reference}
-          renderItem={({ item }) => <BookingCard row={item} today={today} />}
+        <SectionList sections={sections} keyExtractor={rows => rows.map(row => row.booking.reference).join('|')}
+          renderItem={({ item }) => item.length === 1 && !desktop ? <BookingCard row={item[0]} today={today} />
+            : <Row style={{ gap: space.md, alignItems: 'stretch' }}>{item.map(row => <View key={row.booking.reference} style={{ flex: 1, minWidth: 0 }}><BookingCard row={row} today={today} /></View>)}
+              {item.length === 1 && <View style={{ flex: 1 }}/>}</Row>}
           renderSectionHeader={({ section }) => (
             <View style={{ paddingTop: space.xs, paddingBottom: space.sm }}>
-              <Txt kind="subheading" accessibilityRole="header">{copy.groups[section.bucket]} ({section.data.length})</Txt>
+              <Txt kind="subheading" accessibilityRole="header">{copy.groups[section.bucket]} ({section.count})</Txt>
             </View>
           )}
           contentContainerStyle={[ui.page, styles.page]} stickySectionHeadersEnabled={false}

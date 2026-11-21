@@ -25,7 +25,7 @@ import { presentTaxes } from '../components/taxPresentationModel';
 import { presentCancellation } from '../components/cancellationPresentationModel';
 import { cancellationDecision } from '../components/cancellationDecision';
 import { useCancellationClock } from '../components/useCancellationClock';
-import { formatPrice, formatStayRange, formatWeekday, guestLine, nightsBetween, occupancy, roomLines, stayWords } from '../components/format';
+import { formatPrice, formatStayRange, formatWeekday, guestLine, nightsBetween, occupancy, roomLines, shortAddress, stayWords } from '../components/format';
 import { useLayout } from '../components/motion';
 import { localizedRoomName } from '../components/roomNameModel';
 
@@ -131,6 +131,8 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const atHotel = money?.atProperty.length ? (ar ? `+ ${money.atProperty.join(' + ')} تُدفع في الفندق` : `+ ${money.atProperty.join(' + ')} paid at the hotel`) : undefined;
   const cancelTone = decision?.kind === 'free' ? color.success : decision?.nonRefundable ? color.danger : color.textPrimary;
   const roomName = offer ? localizedRoomName(offer.name, language) : '';
+  // Beds are stated once: not again when the room name already says them; a removed bedding term is still shown.
+  const showBedding = Boolean(offer && (offer.bedding ? !roomName.includes(offer.bedding) && !offer.name.includes(offer.bedding) : draft?.offer.bedding));
 
   const footerAction = !draft || !offer ? null : expired ? <Button fill variant="secondary" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>
     : showChanges && !changesAccepted ? <Button fill testID="review-see-changes" icon="alert" title={t('reviewSeeChanges')} disabled={opening} onPress={reviewChanges}/>
@@ -177,8 +179,8 @@ function ReviewContents({ session }: { session: ReviewSession }) {
                 <Photo uri={offer.images[0] || draft.hotelImage} alternatives={offer.images} room label={roomName} height={64} thumbnail/>
               </View>}
               <View style={{ flex: 1, gap: 1, minWidth: 0 }}>
-                <Txt accessibilityRole="header" kind="subheading" numberOfLines={2}>{draft.hotelName}</Txt>
-                {draft.hotelAddress && <Txt kind="caption" numberOfLines={1}>{draft.hotelAddress}</Txt>}
+                <Txt accessibilityRole="header" kind="subheading" numberOfLines={2} style={{ fontSize: 16, lineHeight: ar ? 26 : 22 }}>{draft.hotelName}</Txt>
+                {draft.hotelAddress && <Txt kind="caption" numberOfLines={1} accessibilityLabel={draft.hotelAddress}>{shortAddress(draft.hotelAddress, language)}</Txt>}
               </View>
             </Row>
             <Divider/>
@@ -192,10 +194,10 @@ function ReviewContents({ session }: { session: ReviewSession }) {
                 {(criteria.guests.length > 1 || (count?.children ?? 0) > 0) && roomLines(criteria.guests, language).map(line => <Txt key={line} kind="caption">{line}</Txt>)}
               </InfoRow>
               <InfoRow icon="bed">
-                <Txt kind="bodyStrong">{roomName}</Txt>
-                {roomName !== offer.name && <Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt>}
-                <Txt kind="small" tone="primary">{mealDescription(offer, language)}</Txt>
-                {(offer.bedding || draft.offer.bedding) && <Txt testID="review-bedding" kind="caption">{rateLabels.bedding}: {offer.bedding || rateLabels.unknown}</Txt>}
+                <Txt kind="bodyStrong">{roomName}<Txt kind="small" tone="secondary"> · {mealDescription(offer, language)}</Txt></Txt>
+                {/* The supplier's own name is the booking identity the hotel sees; it is labelled, not repeated. */}
+                {roomName !== offer.name && <Txt kind="caption" numberOfLines={2}>{ar ? 'الاسم لدى الفندق: ' : 'Hotel’s name: '}<Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt></Txt>}
+                {showBedding && <Txt testID="review-bedding" kind="caption">{rateLabels.bedding}: {offer.bedding || rateLabels.unknown}</Txt>}
               </InfoRow>
               <InfoRow icon={decision.kind === 'free' ? 'checkCircle' : decision.nonRefundable ? 'alertCircle' : 'clock'} tone={cancelTone} testID="review-cancellation">
                 <Txt kind="label" style={{ color: cancelTone }}>{decision.headline}</Txt>
@@ -208,8 +210,8 @@ function ReviewContents({ session }: { session: ReviewSession }) {
 
         <View style={{ gap: space.md, flex: desktop ? 1 : undefined, minWidth: 0 }}>
           <Card testID="review-price-breakdown" style={styles.card}>
-            <Txt kind="label" accessibilityRole="header">{ar ? 'المبلغ' : 'Price'}</Txt>
-            <Line testID="review-total" strong label={priceLabel} caption={stayScope} value={money.payNow || t('priceUnknown')}/>
+            <Txt kind="label" accessibilityRole="header">{ar ? 'تفاصيل السعر' : 'Price details'}</Txt>
+            <Line testID="review-total" strong label={stayScope || priceLabel} value={money.payNow || t('priceUnknown')}/>
             {money.atProperty.map(value => <Line key={value} label={ar ? 'يُدفع في الفندق (غير مشمول)' : 'Due at the hotel (not included)'} value={value}/>)}
             {money.atPropertyIncomplete && <Txt kind="caption" tone="warning">{ar ? 'بعض الرسوم في الفندق غير محددة المبلغ.' : 'Some hotel charges have no stated amount.'}</Txt>}
             {money.included > 0 && <Row style={{ gap: space.xs }}><Icon name="check" size={16} color={color.success}/>

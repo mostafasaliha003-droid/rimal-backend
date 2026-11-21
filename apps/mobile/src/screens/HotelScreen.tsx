@@ -23,7 +23,7 @@ import { rateCopy } from '../components/roomRateFacts';
 import { roomChoiceCopy } from '../components/roomChoiceCopy';
 import { StarRating } from '../components/HotelCard';
 import { StaySummaryBar, useStayEditor } from '../components/StayFields';
-import { formatPrice, nightsBetween, occupancy, stayWords } from '../components/format';
+import { formatPrice, nightsBetween, occupancy, shortAddress, stayWords } from '../components/format';
 import { useLayout, useReducedMotion } from '../components/motion';
 import { useToast } from '../components/Toast';
 import { useChargeMoney } from '../components/ChargeCurrency';
@@ -181,11 +181,11 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
         <Row style={{ alignItems: 'flex-start', gap: space.md }}>
           <View style={{ flex: 1, minWidth: 0, gap: space.xxs }}>
             <StarRating stars={hotel.stars}/>
-            <Txt accessibilityRole="header" accessibilityLabel={hotel.name} kind="heading" testID="hotel-name" numberOfLines={2}>{hotel.name}</Txt>
+            <Txt accessibilityRole="header" accessibilityLabel={hotel.name} kind="heading" testID="hotel-name" numberOfLines={2} style={{ fontSize: 19, lineHeight: ar ? 30 : 26 }}>{hotel.name}</Txt>
             {hotel.address && <Pressable testID="hotel-location-link" accessibilityRole="button" accessibilityHint={ar ? 'يعرض موقع الفندق على الخريطة' : 'Shows the hotel location on the map'}
               onPress={showLocation} style={{ minHeight: 40, justifyContent: 'center' }}>
               <Row style={{ gap: space.xs, alignItems: 'center' }}><Icon name="pin" size={16} color={color.interactiveStrong}/>
-                <Txt kind="small" tone="link" numberOfLines={1} style={{ flex: 1 }}>{hotel.address}</Txt>
+                <Txt kind="small" tone="link" numberOfLines={1} accessibilityLabel={hotel.address} style={{ flex: 1 }}>{shortAddress(hotel.address, language)}</Txt>
                 <Txt kind="label" tone="link">{ar ? 'الخريطة' : 'Map'}</Txt></Row>
             </Pressable>}
           </View>

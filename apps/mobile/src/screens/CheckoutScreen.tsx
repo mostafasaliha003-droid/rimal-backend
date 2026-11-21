@@ -19,7 +19,7 @@ import { ActionBar, Badge, Button, Card, DisclosureMark, Divider, Field, Icon, I
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
 import { useChargeCurrency, useChargeMoney } from '../components/ChargeCurrency';
-import { rateCopy, roomRateFacts } from '../components/roomRateFacts';
+import { mealDescription, rateCopy, roomRateFacts } from '../components/roomRateFacts';
 import { useCancellationClock } from '../components/useCancellationClock';
 import { formatPrice, formatStayRange, guestLine, nightsBetween, stayWords } from '../components/format';
 import { useLayout } from '../components/motion';
@@ -28,6 +28,8 @@ import { LIVE_STATUSES, livePollDelay } from '../components/livePaymentModel';
 import { checkoutCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 import VoucherButton from '../components/VoucherButton';
+import StayReceipt, { type StayReceiptData } from '../components/StayReceipt';
+import type { BookingHistoryItem } from '../api/bookings';
 import { matchOfferForNationality, samePrice } from '../components/nationalityRepriceModel';
 import { contextExpiry, REVIEW_CHECK_LIFETIME_MS } from '../components/offerReviewModel';
 import CountryPicker, { countryName, countryNameSecondary } from '../components/CountryPicker';
@@ -139,7 +141,7 @@ export default function CheckoutScreen() {
   };
   return <CheckoutContents session={session} readSelection={state.getCheckoutReview} identityKey={`${status}:${sessionRevision}`}
     signedIn={status === 'signedIn'} creationEnabled={nativeCreationPolicy()} onFreshOffer={freshOffer}
-    onSignIn={() => router.navigate({ pathname: '/account', params: { returnTo: '/checkout' } })} onSupport={() => router.push('/support')} onWebsite={openWebsite}
+    onSignIn={() => router.navigate({ pathname: '/account', params: { returnTo: '/checkout' } })} onSupport={() => router.push('/support')} onTrips={() => router.navigate('/bookings')} onWebsite={openWebsite}
     onPayment={openPayment} onClearCompleted={clearCompleted} onPrivacy={() => void policy('/privacy')} onTerms={() => void policy('/terms')}
     onTravelerDirty={setDirty} onNationalityChange={repriceNationality} onChooseRoomForNationality={changeNationality}
     nationalityCheck={nationalityCheck}/>;
@@ -147,7 +149,7 @@ export default function CheckoutScreen() {
 
 export interface CheckoutContentsProps {
   session: CheckoutController; readSelection: () => CheckoutSelection | null; identityKey: string;
-  signedIn: boolean; creationEnabled: boolean; onFreshOffer: () => void; onSignIn: () => void; onSupport: () => void;
+  signedIn: boolean; creationEnabled: boolean; onFreshOffer: () => void; onSignIn: () => void; onSupport: () => void; onTrips?: () => void;
   onWebsite: () => Promise<boolean>; onPayment: () => Promise<boolean>; onClearCompleted: () => Promise<boolean>;
   onPrivacy: () => void; onTerms: () => void; onTravelerDirty?: (dirty: boolean) => void;
   onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
@@ -258,6 +260,30 @@ export function CheckoutContents(props: CheckoutContentsProps) {
     name: selected.review.offer.name, meal: selected.review.offer.meal, noChildMeal: selected.review.offer.noChildMeal, bedding: selected.review.offer.bedding,
     price: selected.review.offer.price, taxes: selected.review.offer.taxes, cancellation: selected.review.offer.cancellation } : null;
   const existing = session.hasRecovery || session.attempt !== null;
+  // Once confirmed, the receipt is read from the account's booking record for this exact reference,
+  // never from whatever stay is selected on this device. Guests are added only when that selection
+  // is visibly the same stay (hotel and dates).
+  const confirmedReference = session.attempt?.confirmed ? session.attempt.reference : '';
+  const [record, setRecord] = useState<{ reference: string; item: BookingHistoryItem | null } | null>(null);
+  useEffect(() => {
+    if (!confirmedReference) return;
+    const controller = new AbortController();
+    api.getBookings(controller.signal).then(rows => {
+      if (!controller.signal.aborted) setRecord({ reference: confirmedReference, item: rows.find(row => row.reference === confirmedReference) ?? null });
+    }).catch(() => undefined);
+    return () => controller.abort();
+  }, [confirmedReference]);
+  const booked = record?.reference === confirmedReference ? record.item : null;
+  const sameStay = Boolean(booked && selected && booked.hotelName === selected.review.hotelName
+    && booked.checkin === selected.review.criteria.checkin && booked.checkout === selected.review.criteria.checkout);
+  const bookedNights = booked?.checkin && booked.checkout ? nightsBetween(booked.checkin, booked.checkout) : null;
+  const receipt: StayReceiptData | null = booked ? {
+    hotelName: booked.hotelName,
+    stay: booked.checkin && booked.checkout ? [formatStayRange(booked.checkin, booked.checkout, language), bookedNights ? stayWords(language).nights(bookedNights) : ''].filter(Boolean).join(' · ') : null,
+    guests: sameStay && selected ? guestLine(selected.review.criteria.guests, language) : null,
+    room: booked.roomName ? [localizedRoomName(booked.roomName, language), sameStay && selected ? mealDescription(selected.review.offer, language) : ''].filter(Boolean).join(' · ') : null,
+    paid: booked.price ? formatPrice(booked.price) : null,
+  } : null;
   const amount: Money | null = session.quote ? { amount: session.quote.amount, currency: session.quote.currency } : offer ? charge(offer.price) : null;
   const title = <Txt kind="heading" accessibilityRole="header">{copy.title}</Txt>;
   const sandbox = session.availability?.enabled && session.availability.mode === 'sandbox' ? copy.sandbox : undefined;
@@ -285,6 +311,8 @@ export function CheckoutContents(props: CheckoutContentsProps) {
                 <Txt kind="caption">{copy.supplierReference}</Txt><Txt kind="label" selectable style={{ writingDirection: 'ltr' }}>{session.attempt.supplierReference}</Txt></Row>}
               {session.attempt.confirmed && session.attempt.voucherDelivery && session.attempt.voucherDelivery !== 'sent' && <Txt kind="small" tone="primary">{session.attempt.voucherDelivery === 'review' ? copy.voucherReview : copy.voucherPending}</Txt>}
               {/* The confirmed booking is saved under the checkout reference; the server checks ownership and confirmation again. */}
+              {session.attempt.confirmed && receipt && <StayReceipt testID="checkout-receipt" data={receipt}/>}
+              {session.attempt.confirmed && props.onTrips && <Button testID="checkout-view-trip" icon="trips" title={ar ? 'عرض الحجز في رحلاتي' : 'View in My trips'} onPress={props.onTrips}/>}
               {session.attempt.confirmed && <VoucherButton booking={{ reference: session.attempt.reference, hotelName: null, roomName: null, checkin: null, checkout: null,
                 recordedStatus: 'active', supplierStatus: 'CONFIRMED', statusKind: 'confirmed', price: null }}/>}
               {session.attempt.status === 'awaiting_payment' && creationEnabled && <Button icon="lock" title={copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}

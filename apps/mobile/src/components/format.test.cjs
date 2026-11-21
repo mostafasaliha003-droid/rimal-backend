@@ -22,6 +22,15 @@ test('money reads left-to-right inside Arabic text and states its currency code'
   assert.equal(f.formatMoney({ amount: 'x', currency: 'USD' }), null);
 });
 
+test('a short address keeps the street and city and drops the country', () => {
+  assert.equal(f.shortAddress('Jumeirah Beach Road, Dubai, United Arab Emirates', 'en'), 'Jumeirah Beach Road, Dubai');
+  assert.equal(f.shortAddress('شارع شاطئ جميرا، دبي، الإمارات', 'ar'), 'شارع شاطئ جميرا، دبي');
+  assert.equal(f.shortAddress('Marina Walk, Dubai', 'en'), 'Marina Walk, Dubai');
+  assert.equal(f.shortAddress(' Dubai ', 'en'), 'Dubai');
+  assert.equal(f.shortAddress('', 'en'), '');
+  assert.equal(f.shortAddress(undefined, 'ar'), '');
+});
+
 test('dates are day-first in both languages and Arabic uses the same Western digits as prices', () => {
   assert.equal(f.formatDay('2026-12-14', 'en', { year: 'always' }), '14 Dec 2026');
   assert.match(f.formatDay('2026-12-14', 'en', { weekday: true, year: 'never' }), /^Mon,? 14 Dec$/);
