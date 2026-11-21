@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { ActivityIndicator, Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DimensionValue, PressableStateCallbackType, StyleProp, TextInputProps, TextProps, TextStyle, ViewProps, ViewStyle } from 'react-native';
 import { border, color, elevation, fonts, layout, localizedFont, radius, space, touch, typeStyle, ui, type TypeVariant } from '../theme';
@@ -8,6 +9,7 @@ import type { Money } from '../types';
 import { Icon, type IconName } from './Icon';
 import { formatMoney } from './format';
 import { useReducedMotion } from './motion';
+import { haptic } from './haptics';
 
 export { Icon } from './Icon';
 export type { IconName } from './Icon';
@@ -40,8 +42,9 @@ export function Txt({ children, style, kind = 'text', tone, align, ...props }: T
   // Arabic diacritics clip below ~1.45x; raise tight legacy line heights automatically.
   if (language === 'ar' && lineHeight < fontSize * 1.45) lineHeight = Math.ceil(fontSize * 1.5);
   const right = rtl ? align !== 'end' : align === 'end';
+  const figures = variant === 'price' || variant === 'priceLarge' ? { fontVariant: ['tabular-nums' as const] } : null;
   return <Text {...props} style={[base, { color: toneColor[tone ?? defaultTone[variant]], textAlign: align === 'center' ? 'center' : right ? 'right' : 'left',
-    writingDirection: rtl ? 'rtl' : 'ltr' }, style, { fontFamily, lineHeight }]}>{children}</Text>;
+    writingDirection: rtl ? 'rtl' : 'ltr' }, figures, style, { fontFamily, lineHeight }]}>{children}</Text>;
 }
 
 /** A horizontal row that mirrors in right-to-left layouts. */
@@ -53,7 +56,7 @@ export function Row({ children, style, ...props }: ViewProps & { style?: StylePr
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger' | 'tonal';
 const buttonColors: Record<ButtonVariant, { bg: string; pressed: string; hover: string; fg: string; border?: string }> = {
   primary: { bg: color.actionPrimary, pressed: color.actionPrimaryPressed, hover: color.actionPrimaryHover, fg: color.onActionPrimary },
-  secondary: { bg: color.actionSecondary, pressed: color.actionSecondaryPressed, hover: color.bgMuted, fg: color.onActionSecondary, border: color.borderControl },
+  secondary: { bg: color.bgField, pressed: color.bgFieldPressed, hover: '#EEE9E2', fg: color.onActionSecondary },
   quiet: { bg: 'transparent', pressed: color.bgSelected, hover: color.bgMuted, fg: color.interactiveStrong },
   danger: { bg: color.danger, pressed: '#8A2230', hover: '#952634', fg: color.textOnDark },
   tonal: { bg: color.bgSelected, pressed: '#E7DBFA', hover: '#EEE4FC', fg: color.textBrand },
@@ -109,9 +112,9 @@ export function Chip({ label, selected = false, onPress, onRemove, icon, accessi
   return <Pressable testID={testID} accessibilityRole={role} accessibilityLabel={nameWithVisibleText(label, accessibilityLabel)}
     accessibilityState={checked ? { checked: selected } : role === 'button' && !removable ? { selected } : undefined}
     aria-checked={checked ? selected : undefined} aria-pressed={role === 'button' && !removable ? selected : undefined}
-    onPress={onRemove || onPress} hitSlop={small ? { top: (touch.min - 36) / 2, bottom: (touch.min - 36) / 2 } : undefined}
+    onPress={() => { haptic('select'); (onRemove || onPress)?.(); }} hitSlop={small ? { top: (touch.min - 36) / 2, bottom: (touch.min - 36) / 2 } : undefined}
     style={state => [styles.chip, small && styles.chipSmall, { flexDirection: rtl ? 'row-reverse' : 'row' },
-      active && styles.chipActive, (state.pressed || hovered(state)) && { backgroundColor: active ? '#EADFFB' : color.bgMuted }]}>
+      active && styles.chipActive, (state.pressed || hovered(state)) && { backgroundColor: active ? '#EADFFB' : color.bgFieldPressed }]}>
     {icon && !removable && <Icon name={icon} size={16} color={active ? color.interactiveStrong : color.textBrand}/>}
     {selected && !removable && !icon && <Icon name="check" size={16} color={color.interactiveStrong}/>}
     <Txt kind="label" numberOfLines={1} style={{ color: active ? color.interactiveStrong : color.textBrand, flexShrink: 1 }}>{label}</Txt>
@@ -186,21 +189,36 @@ export function SectionHeader({ title, action, subtitle, testID }: { title: stri
   </Row>;
 }
 
-/** Placeholder with a fixed footprint, so content never jumps when data arrives. */
+/**
+ * Placeholder with a fixed footprint, so content never jumps when data arrives. A soft light
+ * sweeps across it in the reading direction; with reduced motion it stays still.
+ */
 export function Skeleton({ width = '100%', height = 16, rounded = radius.sm, style }: { width?: DimensionValue; height?: DimensionValue; rounded?: number; style?: StyleProp<ViewStyle> }) {
   const reduced = useReducedMotion();
-  const [pulse] = useState(() => new Animated.Value(0.55));
+  const { rtl } = useLanguage();
+  const [size, setSize] = useState(0);
+  const [sweep] = useState(() => new Animated.Value(0));
+  const gradient = 'shimmer' + React.useId().replace(/[^A-Za-z0-9]/g, '');
   useEffect(() => {
-    if (reduced) { pulse.setValue(0.7); return; }
-    const loop = Animated.loop(Animated.sequence([
-      Animated.timing(pulse, { toValue: 1, duration: 700, useNativeDriver: Platform.OS !== 'web' }),
-      Animated.timing(pulse, { toValue: 0.55, duration: 700, useNativeDriver: Platform.OS !== 'web' }),
-    ]));
+    if (reduced || !size) return;
+    sweep.setValue(0);
+    const loop = Animated.loop(Animated.timing(sweep, { toValue: 1, duration: 1400, easing: Easing.inOut(Easing.quad), useNativeDriver: Platform.OS !== 'web' }));
     loop.start();
     return () => loop.stop();
-  }, [pulse, reduced]);
-  return <Animated.View accessible={false} importantForAccessibility="no-hide-descendants" aria-hidden
-    style={[{ width, height, borderRadius: rounded, backgroundColor: color.bgSelected, opacity: pulse }, style]}/>;
+  }, [sweep, reduced, size]);
+  const band = Math.max(72, size * 0.55);
+  const translateX = sweep.interpolate({ inputRange: [0, 1], outputRange: rtl ? [size, -band] : [-band, size] });
+  return <View accessible={false} importantForAccessibility="no-hide-descendants" aria-hidden onLayout={event => setSize(Math.round(event.nativeEvent.layout.width))}
+    style={[{ width, height, borderRadius: rounded, backgroundColor: color.bgSelected, overflow: 'hidden' }, style]}>
+    {!reduced && size > 0 && <Animated.View pointerEvents="none" style={{ position: 'absolute', top: 0, bottom: 0, left: 0, width: band, transform: [{ translateX }] }}>
+      <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 10">
+        <Defs><LinearGradient id={gradient} x1="0" y1="0" x2="1" y2="0">
+          <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0"/><Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.6"/><Stop offset="1" stopColor="#FFFFFF" stopOpacity="0"/>
+        </LinearGradient></Defs>
+        <Rect x="0" y="0" width="100" height="10" fill={`url(#${gradient})`}/>
+      </Svg>
+    </Animated.View>}
+  </View>;
 }
 
 export function Field({ label, error, errorId, inputRef, style, ltr = false, hint, a11yLabel, invalid = false, ...props }: TextInputProps & {
@@ -220,7 +238,7 @@ export function Field({ label, error, errorId, inputRef, style, ltr = false, hin
         placeholderTextColor={color.textSecondary}
         onFocus={event => { focus(true); props.onFocus?.(event); }} onBlur={event => { focus(false); props.onBlur?.(event); }}
         style={[ui.input, { fontFamily: localizedFont(language, fonts.medium), textAlign: ltr ? 'left' : rtl ? 'right' : 'left',
-          writingDirection: ltr ? 'ltr' : rtl ? 'rtl' : 'ltr', borderColor: error || invalid ? color.danger : focused ? color.interactive : color.borderControl }, (error || invalid) && !focused && { borderWidth: 1.5 },
+          writingDirection: ltr ? 'ltr' : rtl ? 'rtl' : 'ltr', borderColor: error || invalid ? color.danger : focused ? color.interactive : 'transparent' }, focused && { backgroundColor: color.bgFieldFocus },
           Platform.OS === 'web' && ({ outlineStyle: 'none' } as object), style]}/>
     </View>
     {hint && !error && <Txt kind="caption">{hint}</Txt>}
@@ -381,8 +399,8 @@ const styles = StyleSheet.create({
   iconButton: { minWidth: touch.min, minHeight: touch.min, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   iconOutline: { borderWidth: 1, borderColor: color.border, backgroundColor: color.bgSurface },
   iconOnPhoto: { backgroundColor: 'rgba(255,255,255,0.94)', minWidth: 40, minHeight: 40, margin: 2 },
-  chip: { minHeight: touch.min, maxWidth: '100%', alignItems: 'center', gap: space.xs, paddingHorizontal: space.md, borderRadius: radius.pill,
-    borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface },
+  chip: { minHeight: touch.min, maxWidth: '100%', alignItems: 'center', justifyContent: 'center', gap: space.xs, paddingHorizontal: space.md, borderRadius: radius.pill,
+    borderWidth: 1, borderColor: 'transparent', backgroundColor: color.bgField },
   chipActive: { borderColor: color.borderSelected, backgroundColor: color.bgSelected },
   chipSmall: { minHeight: 36, paddingHorizontal: space.md - 2 },
   link: { minHeight: 32, justifyContent: 'center', alignSelf: 'flex-start' },

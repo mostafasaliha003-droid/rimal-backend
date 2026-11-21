@@ -12,6 +12,7 @@ import OfferTermsSheet from './OfferTermsSheet';
 import { formatPrice } from './format';
 import { useLayout } from './motion';
 import { localizedRoomName } from './roomNameModel';
+import { haptic } from './haptics';
 
 interface OptionsProps {
   entries: readonly RoomChoiceEntry[]; selected: RoomChoiceEntry; preferredKey?: string; groupName: string; groupBedding?: string;
@@ -68,7 +69,7 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
         <Pressable testID={`pick-rate-${number}`} accessibilityRole={multiple ? 'radio' : undefined} aria-checked={multiple ? active : undefined}
           accessibilityState={multiple ? { checked: active } : undefined} accessibilityLabel={[facts.meal, facts.price, facts.decision.headline, shownName].join(' · ')}
           accessibilityHint={multiple ? (ar ? 'يعرض صور هذا العرض' : 'Shows this rate’s photos') : undefined}
-          disabled={!multiple} onPress={() => onSelect(entry)} style={state => [styles.summary, (state.pressed || hovered(state)) && multiple && !active && { backgroundColor: color.bgMuted }]}>
+          disabled={!multiple} onPress={() => { if (!active) haptic('select'); onSelect(entry); }} style={state => [styles.summary, (state.pressed || hovered(state)) && multiple && !active && { backgroundColor: color.bgMuted }]}>
           <Row style={{ gap: space.sm, alignItems: 'flex-start', justifyContent: 'space-between', ...(narrow && { flexDirection: 'column', alignItems: 'stretch' }) }}>
             <View style={{ flex: 1, minWidth: 0, gap: space.xxs }}>
               <Row style={{ gap: space.xs, alignItems: 'center' }}>
@@ -90,13 +91,14 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
           {facts.meal !== title && <Txt kind="caption" tone="warning">{ar ? 'وجبات الأطفال غير مشمولة' : 'Children’s meals excluded'}</Txt>}
           {offer.bedding && offer.bedding !== groupBedding && <Txt kind="caption" tone="primary">{offer.bedding}</Txt>}
           {offer.name !== groupName && <Txt kind="caption">{shownName}</Txt>}
-          {difference && <Txt testID={`rate-difference-${number}`} kind="caption">{difference}</Txt>}
+          {/* The difference to the lowest price matters while comparing; otherwise both prices are already on screen. */}
+          {difference && compared && <Txt testID={`rate-difference-${number}`} kind="caption">{difference}</Txt>}
         </Pressable>
         <Row style={styles.actions}>
           <Row style={{ gap: space.md, flexShrink: 1 }}>
             {showCompare && <Pressable testID={`compare-rate-${number}`} accessibilityRole="checkbox" aria-checked={compared}
               accessibilityState={{ checked: compared, disabled: disableCompare }} accessibilityLabel={`${rate.compare} · ${title} · ${shownName} · ${facts.price}`}
-              disabled={disableCompare} onPress={() => onToggle(entry)} hitSlop={{ top: 6, bottom: 6 }}
+              disabled={disableCompare} onPress={() => { haptic(compared ? 'toggleOff' : 'toggleOn'); onToggle(entry); }} hitSlop={{ top: 6, bottom: 6 }}
               style={state => [styles.compare, (state.pressed || hovered(state)) && { opacity: 0.7 }, disableCompare && { opacity: 0.45 }]}>
               <Row style={{ gap: space.xs }}>
                 <View style={[styles.box, compared && styles.boxOn]}>{compared && <Icon name="check" size={12} strokeWidth={3} color={color.textOnDark}/>}</View>

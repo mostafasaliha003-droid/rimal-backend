@@ -160,7 +160,7 @@ test('malformed/redirected responses and private network failures never become c
 
 test('regional and hotel searches accept compact cards and historical large payloads with identical member prices', async () => {
   const base = { hid: 123, name: 'Dubai hotel', stars: 4, address: 'Dubai', images: [] };
-  const projected = { ...base, rates: [{ customer_display_amount: '107.00', customer_display_currency: 'USD' }] };
+  const projected = { ...base, free_cancellation: true, lowest_free_cancellation: true, rates: [{ customer_display_amount: '107.00', customer_display_currency: 'USD' }] };
   const legacy = { ...base, description: 'x'.repeat(2_300_000), rates: [
     { payment_options: { payment_types: [{ amount: '5', currency_code: 'USD' }] } },
     rate('h-eur', '1.00', 'EUR'), rate('h-base', '109.00'), rate('h-lower', '107.00')] };
@@ -230,6 +230,24 @@ test('customer totals and cancellation amounts keep authoritative currency and z
   assert.equal(adapters.normalizeOffers([malformed])[0].cancellation.policies[0].amount, null);
   const hotel = adapters.normalizeHotel({ hid: 123, name: 'Supplier hotel', rates: [rate('h-eur', '1', 'EUR'), rate('h-usd', '107', 'USD')] }, 'USD');
   assert.deepEqual(hotel.price, { amount: '107', currency: 'USD' });
+});
+
+test('free cancellation on the result card follows the shown price and never a passed deadline', () => {
+  const now = Date.parse('2099-01-01T00:00:00Z');
+  const nonRefundable = (hash, amount) => { const value = rate(hash, amount); value.payment_options.payment_types[0].cancellation_penalties = { free_cancellation_before: null, policies: [] }; return value; };
+  // The lowest price is cancellable free.
+  assert.equal(adapters.hotelFreeCancellation({ rates: [rate('a', '100'), nonRefundable('b', '120')] }, 'USD', now), 'lowest');
+  // Only a dearer rate is: the card must not claim it for the shown price.
+  assert.equal(adapters.hotelFreeCancellation({ rates: [nonRefundable('a', '90'), rate('b', '120')] }, 'USD', now), 'available');
+  assert.equal(adapters.hotelFreeCancellation({ rates: [nonRefundable('a', '90')] }, 'USD', now), 'none');
+  // A deadline already passed is not free cancellation.
+  assert.equal(adapters.hotelFreeCancellation({ rates: [rate('a', '100')] }, 'USD', Date.parse('2099-03-01T00:00:00Z')), 'none');
+  // Compact search cards send flags; prices without terms say nothing.
+  assert.equal(adapters.hotelFreeCancellation({ free_cancellation: true, lowest_free_cancellation: false, rates: [] }, 'USD', now), 'available');
+  assert.equal(adapters.hotelFreeCancellation({ free_cancellation: true, lowest_free_cancellation: true, rates: [] }, 'USD', now), 'lowest');
+  assert.equal(adapters.hotelFreeCancellation({ free_cancellation: false, rates: [] }, 'USD', now), 'none');
+  assert.equal(adapters.hotelFreeCancellation({ rates: [{ customer_display_amount: '10', customer_display_currency: 'USD' }] }, 'USD', now), undefined);
+  assert.equal(adapters.normalizeHotel({ hid: 5, name: 'Card', rates: [{ customer_display_amount: '10', customer_display_currency: 'USD' }] }, 'USD').freeCancellation, undefined);
 });
 
 test('malformed source bounds, deadlines and collections retain their uncertainty', () => {

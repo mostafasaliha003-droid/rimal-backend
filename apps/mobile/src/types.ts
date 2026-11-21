@@ -27,6 +27,8 @@ export interface HotelSummary {
   hid: number; id: string; name: string; address?: string; stars?: number;
   location?: { latitude: number; longitude: number };
   imageUrl?: string; images?: string[]; price: Money | null;
+  /** 'lowest': the shown (lowest) price can be cancelled free; 'available': another rate can. Absent when unknown. */
+  freeCancellation?: 'lowest' | 'available' | 'none';
 }
 export interface HotelAmenity { name: string; fee: 'free' | 'paid' | 'unknown' }
 export interface HotelDetails extends HotelSummary {

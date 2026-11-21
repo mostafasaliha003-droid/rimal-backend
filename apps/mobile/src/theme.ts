@@ -32,6 +32,9 @@ export const color = {
   bgCanvas: palette.cream, bgSurface: palette.white, bgSubtle: palette.sand100, bgSelected: palette.lavender100,
   bgBrand: palette.plum800, bgAccent: palette.apricot100, bgMuted: palette.lavender50,
   scrim: 'rgba(32,22,38,0.48)', photoPlaceholder: palette.lavender100,
+  // Filled controls: inputs, chips and secondary buttons sit on a warm fill instead of a grey outline.
+  // The fill (with its label) marks the control; the outline appears only for focus and errors.
+  bgField: '#F2EEE8', bgFieldPressed: '#E9E3DA', bgFieldFocus: palette.white,
   // Borders: decorative separators are quiet; control boundaries keep 3:1 contrast.
   border: palette.neutral200, borderControl: palette.neutral400, borderSelected: palette.plum500,
   // Cards sit on the cream canvas with a hairline edge and a soft shadow instead of a grey outline.
@@ -145,7 +148,7 @@ export const ui = StyleSheet.create({
   text: { fontFamily: fonts.regular, fontSize: typeScale.body.fontSize, lineHeight: typeScale.body.lineHeightAr, color: color.textPrimary },
   small: { fontFamily: fonts.regular, fontSize: typeScale.small.fontSize, lineHeight: typeScale.small.lineHeightAr, color: color.textSecondary },
   label: { fontFamily: fonts.bold, fontSize: typeScale.label.fontSize, lineHeight: typeScale.label.lineHeightAr, color: color.textBrand },
-  input: { minHeight: 52, borderRadius: radius.md, borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface,
+  input: { minHeight: 52, borderRadius: radius.md, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: color.bgField,
     paddingHorizontal: space.md, paddingVertical: space.md, fontFamily: fonts.medium, fontSize: 16, color: color.textPrimary },
   rule: { height: 1, backgroundColor: color.border },
   shadow: elevation.raised,

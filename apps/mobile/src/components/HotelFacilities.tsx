@@ -3,7 +3,7 @@ import { Pressable, StyleSheet, View } from 'react-native';
 import type { HotelAmenity, HotelDetails } from '../types';
 import { normalizeHotelAmenities } from '../api/hotelAmenities';
 import { useLanguage } from '../i18n';
-import { colors, ui } from '../theme';
+import { color, colors, ui } from '../theme';
 import { InternetConditions } from './Policies';
 import { canShowFacilityAvailability, facilityLabel } from './hotelFacilityLabels';
 import { Row, Txt } from './Primitives';
@@ -87,13 +87,13 @@ const styles = StyleSheet.create({
   section: { ...ui.card, gap: 14 }, filterBlock: { gap: 5 },
   filters: { flexWrap: 'wrap', gap: 6 },
   chip: { paddingHorizontal: 12, minHeight: 44, justifyContent: 'center', borderRadius: 12, borderWidth: 1,
-    borderColor: colors.border, backgroundColor: colors.surface },
+    borderColor: 'transparent', backgroundColor: color.bgField },
   activeChip: { borderColor: colors.grape, backgroundColor: colors.grape }, chipText: { color: colors.violetInk, textAlign: 'center' },
   groupTitle: { paddingHorizontal: 10, paddingVertical: 5, borderRadius: 8, color: colors.violetInk, backgroundColor: colors.lavenderMist },
   serviceRow: { paddingVertical: 8, paddingHorizontal: 3, minHeight: 44, gap: 8, flexWrap: 'wrap' },
   serviceName: { flexBasis: 90, flexGrow: 1, fontSize: 15 },
   priceTag: { maxWidth: '100%', borderRadius: 7, paddingHorizontal: 8, paddingVertical: 2, fontSize: 13, lineHeight: 20 },
   divider: { borderTopWidth: StyleSheet.hairlineWidth, borderColor: colors.border },
-  more: { alignItems: 'center', justifyContent: 'center', minHeight: 44, borderWidth: 1, borderRadius: 12, borderColor: colors.border },
+  more: { alignItems: 'center', justifyContent: 'center', minHeight: 44, borderRadius: 12, backgroundColor: color.bgField },
   moreText: { color: colors.violetInk },
 });

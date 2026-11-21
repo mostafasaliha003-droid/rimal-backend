@@ -28,13 +28,18 @@ import { useLayout } from '../components/motion';
 const FRESH_RESULTS_MS = 5 * 60_000;
 const viewedHotels = new Set<number>(); // session memory only, never stored
 
+/** The same footprint as a result card (photo, stars, name, address, badge and price). */
 function ResultsSkeleton({ columns }: { columns: number }) {
+  const { rtl } = useLanguage();
   return <View style={{ gap: space.md }}>
-    {Array.from({ length: columns > 1 ? 4 : 3 }, (_, index) => <Card key={index} padded={false} style={{ flexDirection: 'row', overflow: 'hidden', minHeight: 168 }}>
-      <Skeleton width={120} height={168} rounded={0}/>
-      <View style={{ flex: 1, padding: space.md, gap: space.sm }}>
-        <Skeleton width="30%" height={12}/><Skeleton width="85%" height={18}/><Skeleton width="60%" height={12}/>
-        <View style={{ flex: 1 }}/><Skeleton width="45%" height={22} style={{ alignSelf: 'flex-end' }}/>
+    {Array.from({ length: columns > 1 ? 6 : 4 }, (_, index) => <Card key={index} padded={false} style={{ flexDirection: rtl ? 'row-reverse' : 'row', overflow: 'hidden', minHeight: 150 }}>
+      <Skeleton width={116} height={150} rounded={0}/>
+      <View style={{ flex: 1, paddingHorizontal: space.md, paddingVertical: space.sm + 2, gap: space.sm, alignItems: rtl ? 'flex-end' : 'flex-start' }}>
+        <Skeleton width="34%" height={12}/><Skeleton width="86%" height={18}/><Skeleton width="62%" height={12}/>
+        <View style={{ flex: 1 }}/>
+        <View style={{ flexDirection: rtl ? 'row-reverse' : 'row', justifyContent: 'space-between', alignItems: 'flex-end', alignSelf: 'stretch' }}>
+          <Skeleton width="36%" height={20} rounded={radius.sm}/><Skeleton width="38%" height={24}/>
+        </View>
       </View>
     </Card>)}
   </View>;
@@ -308,7 +313,7 @@ const styles = StyleSheet.create({
   handle: { alignSelf: 'center', marginTop: space.sm, width: 40, height: 4, borderRadius: 2, backgroundColor: color.border },
   sheetHeader: { paddingHorizontal: space.lg, paddingVertical: space.xs, justifyContent: 'space-between', borderBottomWidth: 1, borderColor: color.border },
   sheetFooter: { paddingHorizontal: space.lg, paddingVertical: space.sm, justifyContent: 'space-between', flexWrap: 'wrap', gap: space.sm, borderTopWidth: 1, borderColor: color.border },
-  sortOption: { minHeight: 56, justifyContent: 'center', paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1, borderColor: color.border },
+  sortOption: { minHeight: 56, justifyContent: 'center', paddingHorizontal: space.lg, borderRadius: radius.md, borderWidth: 1.5, borderColor: 'transparent', backgroundColor: color.bgField },
   sortSelected: { borderColor: color.borderSelected, backgroundColor: color.bgSelected },
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center' },
   radioOn: { borderColor: color.interactive },

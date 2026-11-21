@@ -14,44 +14,75 @@ import { useLayout } from './motion';
 
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
 
-/** Check-in and check-out side by side; the night count sits on the check-out field. */
+/**
+ * The search form is one filled block of segments (destination, dates, guests, nationality)
+ * divided by thin light rules, instead of a stack of outlined boxes. Each segment is a full
+ * touch target; an error tints only its own segment.
+ */
+export function SegmentGroup({ children, testID }: { children: React.ReactNode; testID?: string }) {
+  return <View testID={testID} style={styles.group}>{children}</View>;
+}
+/** Two segments side by side; they stack on narrow windows and large text so values stay readable. */
+export function SegmentSplit({ children }: { children: React.ReactNode }) {
+  const { rtl } = useLanguage();
+  const { narrow, fontScale } = useLayout();
+  const stacked = narrow || fontScale > 1.3;
+  const items = React.Children.toArray(children).filter(Boolean);
+  return <View style={{ flexDirection: stacked ? 'column' : rtl ? 'row-reverse' : 'row', alignItems: 'stretch' }}>
+    {items.map((child, index) => <React.Fragment key={index}>
+      {index > 0 && <View style={stacked ? styles.ruleH : styles.ruleV}/>}
+      <View style={{ flex: stacked ? undefined : 1, minWidth: 0 }}>{child}</View>
+    </React.Fragment>)}
+  </View>;
+}
+export function SegmentRule() { return <View style={styles.ruleH}/>; }
+
+/** Caption with its icon, then the value: the shared anatomy of every search segment. */
+function SegmentBody({ icon, caption, value, placeholder, error, extra, aside, lines = 1 }: {
+  icon: 'calendar' | 'users' | 'globe'; caption: string; value?: string; placeholder: string; error?: boolean; extra?: string; aside?: React.ReactNode; lines?: number;
+}) {
+  return <View style={{ gap: 1 }}>
+    <Row style={{ gap: space.xs, justifyContent: 'space-between' }}>
+      <Row style={{ gap: space.xs, flexShrink: 1 }}>
+        <Icon name={icon} size={15} color={error ? color.danger : color.textSecondary}/>
+        <Txt kind="caption" numberOfLines={1} style={{ flexShrink: 1, color: error ? color.danger : color.textSecondary }}>{caption}</Txt>
+      </Row>
+      {aside}
+    </Row>
+    <Txt kind="bodyStrong" numberOfLines={lines} style={{ color: value ? color.textPrimary : error ? color.danger : color.textSecondary }}>{value || placeholder}</Txt>
+    {!!extra && <Txt kind="caption" numberOfLines={1}>{extra}</Txt>}
+  </View>;
+}
+
+/** Check-in and check-out side by side; the night count sits on the check-out segment. */
 export function DateFields({ checkin, checkout, error = false, onOpen }: {
   checkin: string; checkout: string; error?: boolean; onOpen: (field: 'checkin' | 'checkout') => void;
 }) {
   const { t, language } = useLanguage();
-  const { narrow, fontScale } = useLayout();
   const nights = nightsBetween(checkin, checkout);
   const words = stayWords(language);
-  return <Row style={{ gap: space.sm, alignItems: 'stretch', ...(narrow || fontScale > 1.4 ? { flexDirection: 'column' } : {}) }}>
+  return <SegmentSplit>
     {(['checkin', 'checkout'] as const).map(field => {
       const value = field === 'checkin' ? checkin : checkout;
+      const invalid = error && !value;
       return <Pressable key={field} testID={`search-date-${field}`} accessibilityRole="button"
-        onPress={() => onOpen(field)} style={state => [styles.field, { flex: 1 }, error && !value && styles.fieldError, (state.pressed || hovered(state)) && styles.fieldActive]}>
-        <Row style={{ gap: space.xs, justifyContent: 'space-between', flexWrap: 'wrap' }}>
-          <Row style={{ gap: space.xs, flexShrink: 1 }}><Icon name="calendar" size={16} color={color.textSecondary}/><Txt kind="caption">{t(field)}</Txt></Row>
-          {field === 'checkout' && nights !== null && <Badge tone="info" icon="moon" label={words.nights(nights)}/>}
-        </Row>
-        <Txt kind="bodyStrong" numberOfLines={1} style={{ color: value ? color.textPrimary : color.textSecondary }}>
-          {value ? formatDay(value, language, { weekday: true }) : t('selectDate')}</Txt>
+        onPress={() => onOpen(field)} style={state => [styles.segment, invalid && styles.segmentError, (state.pressed || hovered(state)) && styles.segmentActive]}>
+        <SegmentBody icon="calendar" caption={t(field)} error={invalid} placeholder={t('selectDate')}
+          value={value ? formatDay(value, language, { weekday: true }) : ''}
+          aside={field === 'checkout' && nights !== null ? <Badge tone="info" icon="moon" label={words.nights(nights)}/> : undefined}/>
       </Pressable>;
     })}
-  </Row>;
+  </SegmentSplit>;
 }
 
 export function GuestsField({ guests, onOpen, error = false }: { guests: readonly GuestRoom[]; onOpen: () => void; error?: boolean }) {
   const { t, language } = useLanguage();
   const ages = guests.flatMap(room => room.children);
-  return <Pressable testID="search-guests" accessibilityRole="button"
-    onPress={onOpen} style={state => [styles.field, error && styles.fieldError, (state.pressed || hovered(state)) && styles.fieldActive]}>
-    <Row style={{ gap: space.md }}>
-      <Icon name="users" size={20} color={color.textSecondary}/>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Txt kind="caption">{t('guests')}</Txt>
-        <Txt kind="bodyStrong" numberOfLines={2}>{guestLine(guests, language)}</Txt>
-        {ages.length > 0 && <Txt kind="caption">{language === 'ar' ? `أعمار الأطفال: ${ages.join('، ')}` : `Children’s ages: ${ages.join(', ')}`}</Txt>}
-      </View>
-      <Icon name="chevron" size={18} color={color.textSecondary}/>
-    </Row>
+  const agesText = ages.length ? (language === 'ar' ? `أعمار الأطفال: ${ages.join('، ')}` : `Children’s ages: ${ages.join(', ')}`) : '';
+  const line = guestLine(guests, language);
+  return <Pressable testID="search-guests" accessibilityRole="button" accessibilityLabel={[t('guests'), line, agesText].filter(Boolean).join(' · ')}
+    onPress={onOpen} style={state => [styles.segment, error && styles.segmentError, (state.pressed || hovered(state)) && styles.segmentActive]}>
+    <SegmentBody icon="users" caption={t('guests')} error={error} value={line} placeholder={line} extra={agesText} lines={2}/>
   </Pressable>;
 }
 
@@ -62,18 +93,11 @@ export function GuestsField({ guests, onOpen, error = false }: { guests: readonl
 export function NationalityField({ value, onOpen, error = false }: { value: string; onOpen: () => void; error?: boolean }) {
   const { t, language } = useLanguage();
   const name = value ? countryName(value, language) : '';
-  return <Pressable testID="search-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${name || t('residencyChoose')}`}
+  return <Pressable testID="search-nationality" accessibilityRole="button"
+    accessibilityLabel={`${t('residency')}: ${name ? `${name} · ${countryNameSecondary(value, language)}` : t('residencyChoose')}`}
     accessibilityHint={t('residencyNote')} onPress={onOpen}
-    style={state => [styles.field, error && styles.fieldError, (state.pressed || hovered(state)) && styles.fieldActive]}>
-    <Row style={{ gap: space.md }}>
-      <Icon name="globe" size={20} color={error ? color.danger : color.textSecondary}/>
-      <View style={{ flex: 1, minWidth: 0 }}>
-        <Txt kind="caption">{t('residency')}</Txt>
-        {value ? <Txt kind="bodyStrong" numberOfLines={1}>{name}<Txt kind="caption"> · {countryNameSecondary(value, language)}</Txt></Txt>
-          : <Txt kind="bodyStrong" numberOfLines={1} style={{ color: error ? color.danger : color.textSecondary }}>{t('residencyChoose')}</Txt>}
-      </View>
-      <Icon name="chevronDown" size={18} color={color.textSecondary}/>
-    </Row>
+    style={state => [styles.segment, error && styles.segmentError, (state.pressed || hovered(state)) && styles.segmentActive]}>
+    <SegmentBody icon="globe" caption={t('residency')} error={error} value={name} placeholder={t('residencyChoose')}/>
   </Pressable>;
 }
 
@@ -157,12 +181,15 @@ export function useStayEditor({ savedOnly = false }: { savedOnly?: boolean } = {
 }
 
 const styles = StyleSheet.create({
-  field: { minHeight: 56, justifyContent: 'center', gap: 0, paddingHorizontal: space.md, paddingVertical: space.xs + 2,
-    borderRadius: radius.md, borderWidth: 1, borderColor: color.borderControl, backgroundColor: color.bgSurface },
-  fieldActive: { backgroundColor: color.bgMuted, borderColor: color.interactive },
-  fieldError: { borderColor: color.danger, borderWidth: 1.5 },
+  group: { backgroundColor: color.bgField, borderRadius: radius.lg, overflow: 'hidden' },
+  segment: { minHeight: 60, justifyContent: 'center', paddingHorizontal: space.md, paddingVertical: space.sm, borderWidth: 2, borderColor: 'transparent' },
+  segmentActive: { backgroundColor: color.bgFieldPressed },
+  segmentError: { backgroundColor: color.dangerBg, borderColor: color.danger, borderRadius: radius.lg - 2 },
+  ruleH: { height: 2, backgroundColor: color.bgSurface },
+  ruleV: { width: 2, backgroundColor: color.bgSurface },
   summary: { alignItems: 'stretch', backgroundColor: color.bgSurface, borderRadius: radius.lg, borderWidth: 1, borderColor: color.border, overflow: 'hidden' },
   summaryPart: { flexGrow: 1, flexBasis: 0, minHeight: touch.comfortable, justifyContent: 'center', paddingHorizontal: space.md, paddingVertical: space.sm },
+  fieldActive: { backgroundColor: color.bgMuted },
   summaryDivider: { width: 1, backgroundColor: color.border, marginVertical: space.sm },
   summaryRule: { height: 1, backgroundColor: color.border, marginHorizontal: space.md },
   compact: { gap: 0, alignItems: 'stretch', backgroundColor: color.bgSurface, borderRadius: radius.md, borderWidth: 1, borderColor: color.borderCard, overflow: 'hidden' },

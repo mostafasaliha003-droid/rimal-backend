@@ -9,7 +9,7 @@ import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { color, colors, ui } from '../theme';
 import BrandHeader, { AccountAvatar } from '../components/BrandHeader';
-import { Button, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
+import { Button, Chip, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
 import { afterSignInRoute, normalizeVerificationCode, registrationFormReady } from '../components/foundationContracts';
 import { statusText } from '../components/membershipCopy';
 
@@ -24,6 +24,23 @@ function AccountLink({ title, icon, onPress, hint, disabled }: {
       <Icon name="chevron" size={14} color={colors.muted}/>
     </Row>
   </Pressable>;
+}
+
+/** Language choice as two clear options; the header no longer carries it on every screen. */
+function LanguageChoice() {
+  const { language, setLanguage } = useLanguage();
+  const ar = language === 'ar';
+  return <View testID="account-language" style={accountStyles.menu}>
+    <View style={{ paddingHorizontal: 14, paddingTop: 12, gap: 2 }}>
+      <Txt kind="label" accessibilityRole="header">{ar ? 'اللغة · Language' : 'Language · اللغة'}</Txt>
+    </View>
+    <Row style={{ padding: 10, gap: 8 }} accessibilityRole="radiogroup">
+      {(['ar', 'en'] as const).map(code => <View key={code} style={{ flex: 1 }}>
+        <Chip role="radio" testID={'account-language-' + code} selected={language === code} label={code === 'ar' ? 'العربية' : 'English'}
+          onPress={() => setLanguage(code)}/>
+      </View>)}
+    </Row>
+  </View>;
 }
 
 function AccountMembership() {
@@ -119,6 +136,7 @@ export default function AccountScreen() {
         <View style={ui.rule}/><AccountLink icon="info" title={language === 'ar' ? 'الإشعارات' : 'Notifications'} onPress={()=>router.push('/notifications')}/>
         <View style={ui.rule}/><AccountLink icon="account" title={t('accountDeletion')} onPress={()=>router.push('/account-deletion')}/>
       </View>
+      <LanguageChoice/>
       <Txt kind="small">{t('accountSecurity')}</Txt>
       <Button variant="quiet" title={t('signOut')} busy={busy} onPress={()=>{setBusy(true);void signOut().catch(()=>setError(t('authError'))).finally(()=>setBusy(false));}}/>
     </>:<View style={ui.card}>
@@ -135,6 +153,7 @@ export default function AccountScreen() {
       <View style={ui.rule}/><AccountLink icon="info" title={language === 'ar' ? 'الإشعارات' : 'Notifications'} onPress={()=>router.push('/notifications')}/>
       <View style={ui.rule}/><AccountLink icon="account" title={t('accountDeletion')} onPress={()=>router.push('/account-deletion')}/>
     </View>}
+    {status==='signedOut'&&<LanguageChoice/>}
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
 

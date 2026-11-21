@@ -1,12 +1,12 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
-import { Animated, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Animated, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { api, authSession } from '../api';
 import { useAuth } from '../auth';
 import type { HotelDetails, SearchCriteria } from '../types';
 import { useLanguage } from '../i18n';
-import { color, elevation, layout, radius, space, ui } from '../theme';
+import { color, elevation, layout, motion, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import ApiState from '../components/ApiState';
@@ -28,13 +28,35 @@ import { useLayout, useReducedMotion } from '../components/motion';
 import { useToast } from '../components/Toast';
 import { useChargeMoney } from '../components/ChargeCurrency';
 import { localizedRoomName } from '../components/roomNameModel';
+import { hotelPreview, type HotelPreview } from '../components/hotelPreview';
 
 type Section = 'rooms' | 'about';
 
-function HotelSkeleton() {
+/** The photo carried over from the result card, settling into place (a soft zoom and fade). */
+function PreviewHero({ uri, name }: { uri: string; name: string }) {
+  const reduced = useReducedMotion();
+  const { width } = useWindowDimensions();
+  const [settle] = useState(() => new Animated.Value(reduced ? 1 : 0));
+  useEffect(() => {
+    if (reduced) return;
+    Animated.timing(settle, { toValue: 1, duration: 360, easing: motion.emphasized, useNativeDriver: Platform.OS !== 'web' }).start();
+  }, [settle, reduced]);
+  const height = Math.min(300, Math.max(168, width * .46));
+  return <View style={{ height, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.photoPlaceholder }}>
+    <Animated.Image accessibilityLabel={name} source={{ uri }} resizeMode="cover" style={{ width: '100%', height: '100%',
+      opacity: settle.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }),
+      transform: [{ scale: settle.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] }) }] }}/>
+  </View>;
+}
+
+function HotelSkeleton({ preview }: { preview?: HotelPreview | null }) {
   return <View style={{ gap: space.lg }} accessibilityLabel="loading">
-    <Skeleton height={220} rounded={radius.lg}/>
-    <View style={{ gap: space.sm }}><Skeleton width="25%" height={12}/><Skeleton width="80%" height={24}/><Skeleton width="55%" height={14}/></View>
+    {preview?.photo ? <PreviewHero uri={preview.photo} name={preview.name}/> : <Skeleton height={220} rounded={radius.lg}/>}
+    {preview ? <View style={{ gap: space.xxs }}>
+      {!!preview.stars && <StarRating stars={preview.stars} size={13}/>}
+      <Txt kind="heading" numberOfLines={2}>{preview.name}</Txt>
+      {!!preview.address && <Txt kind="caption" numberOfLines={1}>{preview.address}</Txt>}
+    </View> : <View style={{ gap: space.sm }}><Skeleton width="25%" height={12}/><Skeleton width="80%" height={24}/><Skeleton width="55%" height={14}/></View>}
     <Skeleton height={64} rounded={radius.lg}/>
     {[0, 1].map(index => <Card key={index} style={{ gap: space.sm }}><Skeleton width="50%" height={18}/><Skeleton height={90} rounded={radius.md}/><Skeleton width="35%" height={22} style={{ alignSelf: 'flex-end' }}/></Card>)}
   </View>;
@@ -262,7 +284,7 @@ export default function HotelScreen() {
     {hid === null ? <ScrollView contentContainerStyle={page}><StatePanel icon="alertCircle" title={copy.invalidHotel} body={copy.invalidHotelBody}/><Button title={t('search')} onPress={() => router.replace('/')}/></ScrollView>
       : !criteria ? <ScrollView contentContainerStyle={page}><StatePanel icon="calendar" title={t('datesRequired')} body={t('datesRequiredBody')}/><Button title={t('search')} onPress={() => router.push('/')}/></ScrollView>
         : loading ? <ScrollView contentContainerStyle={page}><Txt testID="brand-wait-hotel" kind="subheading" accessibilityRole="progressbar" accessibilityLiveRegion="polite" aria-live="polite">
-          {language === 'ar' ? 'نحضّر الغرف وشروط الإقامة…' : 'Loading rooms and stay terms…'}</Txt><HotelSkeleton/></ScrollView>
+          {language === 'ar' ? 'نحضّر الغرف وشروط الإقامة…' : 'Loading rooms and stay terms…'}</Txt><HotelSkeleton preview={hotelPreview(hid)}/></ScrollView>
           : error ? <ScrollView contentContainerStyle={page}><ApiState error={error} retry={refreshHotel}/></ScrollView>
             : hotel ? <HotelContents key={requestKey} hotel={hotel} hid={hid} criteria={criteria} onRefresh={refreshHotel}/>
               : <ScrollView contentContainerStyle={page}><StatePanel icon="bed" title={t('noOffers')} retry={refreshHotel}/></ScrollView>}
@@ -273,7 +295,7 @@ const styles = StyleSheet.create({
   page: { width: '100%', alignSelf: 'center', paddingTop: space.md, paddingBottom: space.xxxl, gap: space.lg },
   save: { width: 44, height: 44, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
   tabBar: { backgroundColor: color.bgCanvas, paddingVertical: space.xs },
-  tabs: { backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.border, padding: space.xxs, borderRadius: radius.md, gap: space.xxs },
+  tabs: { backgroundColor: color.bgField, padding: space.xxs, borderRadius: radius.md, gap: space.xxs },
   tab: { flex: 1, minWidth: 0, minHeight: 44, justifyContent: 'center', paddingHorizontal: space.sm, borderRadius: radius.sm },
   activeTab: { backgroundColor: color.actionPrimary },
   roomHeader: { gap: space.sm, padding: space.md, backgroundColor: color.bgSurface },

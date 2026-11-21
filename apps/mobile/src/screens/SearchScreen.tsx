@@ -22,7 +22,7 @@ import { searchCopy } from './searchCopy';
 import CurrencyPicker from '../components/CurrencyPicker';
 import { bookingCurrency, currencyName } from '../components/currencyCatalog';
 import { useCurrencyPreference } from '../components/useCurrencyPreference';
-import { DateFields, GuestsField, NationalityField } from '../components/StayFields';
+import { DateFields, GuestsField, NationalityField, SegmentGroup, SegmentRule, SegmentSplit } from '../components/StayFields';
 import CountryPicker from '../components/CountryPicker';
 import { ContinueSearchCard, UpcomingTripCard } from '../components/HomeCards';
 import { resumeCriteria, resumeState } from '../components/lastSearchModel';
@@ -209,38 +209,52 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const form = <Card testID="search-form" elevated onLayout={event => { formTop.current = event.nativeEvent.layout.y; }} style={[styles.form, desktop && elevation.raised]}>
     {savedOnly ? <Txt kind="heading" accessibilityRole="header">{t('savedDatesTitle')}</Txt>
       : continueSource && !continueSource.current && <Txt kind="label" accessibilityRole="header">{rtl ? 'أو ابدأ بحثاً جديداً' : 'Or start a new search'}</Txt>}
-    {!savedOnly && <View style={{ gap: space.xs }}>
-      <Pressable accessible={false} focusable={false} tabIndex={-1} onPress={() => destinationInput.current?.focus()}
-        style={[styles.destinationRow, { flexDirection: rtl ? 'row-reverse' : 'row', borderColor: destinationError ? color.danger : destinationFocused ? color.interactive : color.borderControl },
-          destinationFocused && { borderWidth: 2 }]}>
-        <Icon name="pin" size={20} color={color.interactiveStrong}/>
-        <View style={{ flex: 1 }}>
-          <Txt kind="caption" style={{ lineHeight: 18 }}>{rtl ? 'الوجهة' : 'Destination'}</Txt>
-          <TextInput ref={destinationInput} testID="search-destination" accessibilityLabel={t('destination')} accessibilityHint={destinationError ? t('pickDestination') : undefined}
-            onFocus={() => setDestinationFocused(true)} onBlur={() => setDestinationFocused(false)}
-            value={query} onChangeText={value => { setPickedCity(null); setQuery(value); select(null); setSubmitted(false); setErrors(current => ({ ...current, destination: false })); }}
-            placeholder={t('destinationHint')} placeholderTextColor={color.textSecondary} autoCorrect={false} returnKeyType="search"
-            style={[styles.destination, { fontFamily: localizedFont(language, fonts.bold), textAlign: rtl ? 'right' : 'left', writingDirection: rtl ? 'rtl' : 'ltr' },
-              Platform.OS === 'web' && ({ outlineStyle: 'none' } as object)]}/>
-        </View>
-        {selected?.name === query && !!query && <Icon name="checkCircle" size={20} color={color.success}/>}
-      </Pressable>
-      {destinationError && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
-        <Txt kind="small" accessibilityRole="alert" style={{ color: color.danger, flex: 1 }}>{t('pickDestination')}</Txt></Row>}
-      {suggesting && <Txt kind="small" accessibilityLiveRegion="polite">{t('loading')}</Txt>}
-      {!suggesting && needsSuggestions && (suggestError ? <ApiState error={suggestError} retry={() => retrySuggestion(value => value + 1)} />
-        : suggestions.length === 0 ? <Txt kind="small">{t('noSuggestions')}</Txt>
-          : <View style={styles.suggestions} accessibilityRole="list">{suggestions.map(item => <Pressable key={item.id} accessibilityRole="button"
-            accessibilityLabel={`${item.name}${item.subtitle ? `, ${item.subtitle}` : ''}`}
-            onPress={() => { select(item); setQuery(item.name); setErrors(current => ({ ...current, destination: false })); Keyboard.dismiss(); }}
-            style={state => [styles.suggestion, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
-            <Row><View style={styles.suggestionIcon}><Icon name={item.type === 'region' ? 'pin' : 'hotel'} color={color.interactiveStrong} size={18}/></View>
-              <View style={{ flex: 1 }}><Txt kind="label">{item.name}</Txt>{item.subtitle && <Txt kind="caption">{item.subtitle}</Txt>}</View>
-              <Icon name="chevron" size={16} color={color.textSecondary}/></Row></Pressable>)}</View>)}
-    </View>}
-    <DateFields checkin={checkin} checkout={checkout} error={errors.dates} onOpen={field => { Keyboard.dismiss(); setCalendar({ field, source: state.criteria }); }}/>
+    <SegmentGroup testID="search-fields">
+      {!savedOnly && <>
+        <Pressable accessible={false} focusable={false} tabIndex={-1} onPress={() => destinationInput.current?.focus()}
+          style={[styles.destinationRow, { flexDirection: rtl ? 'row-reverse' : 'row' }, destinationError && styles.destinationError, destinationFocused && styles.destinationFocused]}>
+          <Icon name="pin" size={20} color={destinationError ? color.danger : color.interactiveStrong}/>
+          <View style={{ flex: 1 }}>
+            <Txt kind="caption" style={{ lineHeight: 18, color: destinationError ? color.danger : color.textSecondary }}>{rtl ? 'الوجهة' : 'Destination'}</Txt>
+            <TextInput ref={destinationInput} testID="search-destination" accessibilityLabel={t('destination')} accessibilityHint={destinationError ? t('pickDestination') : undefined}
+              onFocus={() => setDestinationFocused(true)} onBlur={() => setDestinationFocused(false)}
+              value={query} onChangeText={value => { setPickedCity(null); setQuery(value); select(null); setSubmitted(false); setErrors(current => ({ ...current, destination: false })); }}
+              placeholder={t('destinationHint')} placeholderTextColor={color.textSecondary} autoCorrect={false} returnKeyType="search"
+              style={[styles.destination, { fontFamily: localizedFont(language, fonts.bold), textAlign: rtl ? 'right' : 'left', writingDirection: rtl ? 'rtl' : 'ltr' },
+                Platform.OS === 'web' && ({ outlineStyle: 'none' } as object)]}/>
+          </View>
+          {selected?.name === query && !!query && <Icon name="checkCircle" size={20} color={color.success}/>}
+        </Pressable>
+        {(suggesting || needsSuggestions) && <View style={styles.suggestArea}>
+          {suggesting && <Txt kind="small" accessibilityLiveRegion="polite">{t('loading')}</Txt>}
+          {!suggesting && needsSuggestions && (suggestError ? <ApiState error={suggestError} retry={() => retrySuggestion(value => value + 1)} />
+            : suggestions.length === 0 ? <Txt kind="small">{t('noSuggestions')}</Txt>
+              : <View style={styles.suggestions} accessibilityRole="list">{suggestions.map(item => <Pressable key={item.id} accessibilityRole="button"
+                accessibilityLabel={`${item.name}${item.subtitle ? `, ${item.subtitle}` : ''}`}
+                onPress={() => { select(item); setQuery(item.name); setErrors(current => ({ ...current, destination: false })); Keyboard.dismiss(); }}
+                style={state => [styles.suggestion, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
+                <Row><View style={styles.suggestionIcon}><Icon name={item.type === 'region' ? 'pin' : 'hotel'} color={color.interactiveStrong} size={18}/></View>
+                  <View style={{ flex: 1 }}><Txt kind="label">{item.name}</Txt>{item.subtitle && <Txt kind="caption">{item.subtitle}</Txt>}</View>
+                  <Icon name="chevron" size={16} color={color.textSecondary}/></Row></Pressable>)}</View>)}
+        </View>}
+        <SegmentRule/>
+      </>}
+      <DateFields checkin={checkin} checkout={checkout} error={errors.dates} onOpen={field => { Keyboard.dismiss(); setCalendar({ field, source: state.criteria }); }}/>
+      <SegmentRule/>
+      <SegmentSplit>
+        <GuestsField guests={guests} error={submitted && errors.guests} onOpen={() => { Keyboard.dismiss(); setGuestEditor({ source: state.criteria }); }}/>
+        <NationalityField value={residency} error={submitted && errors.residency} onOpen={() => { Keyboard.dismiss(); showNationality(true); }}/>
+      </SegmentSplit>
+    </SegmentGroup>
+    {destinationError && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
+      <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t('pickDestination')}</Txt></Row>}
     {errors.dates && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
       <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t('datesError')}</Txt></Row>}
+    {submitted && errors.guests && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
+      <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t('guestsError')}</Txt></Row>}
+    {submitted && errors.residency && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
+      <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t('residencyError')}</Txt></Row>}
+    {!residency && !(submitted && errors.residency) && <Txt kind="caption">{t('residencyNote')}</Txt>}
     <Row style={styles.quickRow} accessibilityLabel={rtl ? 'تواريخ سريعة' : 'Quick dates'}>
       {(['tonight', 'tomorrow', 'nextWeek'] as const).map(kind => {
         const dates = quickStayDates(kind); const chosen = dates.checkin === checkin && dates.checkout === checkout;
@@ -249,13 +263,6 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
           onPress={() => chooseQuickStay(kind)}/>;
       })}
     </Row>
-    <GuestsField guests={guests} error={submitted && errors.guests} onOpen={() => { Keyboard.dismiss(); setGuestEditor({ source: state.criteria }); }}/>
-    {submitted && errors.guests && <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
-      <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t('guestsError')}</Txt></Row>}
-    <NationalityField value={residency} error={submitted && errors.residency} onOpen={() => { Keyboard.dismiss(); showNationality(true); }}/>
-    {submitted && errors.residency ? <Row style={{ gap: space.xs }}><Icon name="alertCircle" size={16} color={color.danger}/>
-      <Txt accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{t('residencyError')}</Txt></Row>
-      : !residency && <Txt kind="caption">{t('residencyNote')}</Txt>}
     <Pressable testID="search-currency" accessibilityRole="button"
       onPress={() => showCurrency(true)} style={state => [styles.currencyControl, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
       <Row style={{ gap: space.sm }}><Icon name="wallet" size={16} color={color.textSecondary}/>
@@ -350,10 +357,13 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
 
 const styles = StyleSheet.create({
   page: { width: '100%', alignSelf: 'center', paddingTop: space.md, gap: space.md },
-  form: { gap: space.sm + 2, padding: space.md, borderRadius: radius.lg },
-  destinationRow: { alignItems: 'center', gap: space.sm + 2, minHeight: 56, paddingHorizontal: space.md, paddingVertical: space.xs, borderRadius: radius.md, borderWidth: 1, backgroundColor: color.bgSurface },
+  form: { gap: space.sm + 2, padding: space.sm + 2, borderRadius: radius.xl },
+  destinationRow: { alignItems: 'center', gap: space.sm + 2, minHeight: 62, paddingHorizontal: space.md, paddingVertical: space.xs, borderWidth: 2, borderColor: 'transparent' },
+  destinationFocused: { backgroundColor: color.bgFieldFocus, borderColor: color.interactive, borderRadius: radius.lg },
+  destinationError: { backgroundColor: color.dangerBg, borderColor: color.danger, borderRadius: radius.lg },
+  suggestArea: { paddingHorizontal: space.sm, paddingBottom: space.sm, gap: space.xs },
   destination: { color: color.textPrimary, minHeight: 28, fontSize: 17, lineHeight: 24, paddingHorizontal: 0, paddingVertical: 0 },
-  suggestions: { borderWidth: 1, borderColor: color.border, borderRadius: radius.md, overflow: 'hidden', backgroundColor: color.bgSurface },
+  suggestions: { borderRadius: radius.md, overflow: 'hidden', backgroundColor: color.bgSurface, ...elevation.raised },
   suggestion: { minHeight: 56, paddingHorizontal: space.md, paddingVertical: space.sm, justifyContent: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
   suggestionIcon: { width: 36, height: 36, borderRadius: radius.pill, backgroundColor: color.bgSelected, alignItems: 'center', justifyContent: 'center' },
   quickRow: { gap: space.xs, flexWrap: 'wrap' },

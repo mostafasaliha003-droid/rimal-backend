@@ -6,7 +6,7 @@ import type { BookingHistoryItem } from '../api/bookings';
 import { canDownloadVoucher, fetchVoucher } from '../api/voucher';
 import { Button, Txt } from './Primitives';
 
-export default function VoucherButton({ booking, onDark = false }: { booking: BookingHistoryItem; onDark?: boolean }) {
+export default function VoucherButton({ booking, onDark = false, compact = false }: { booking: BookingHistoryItem; onDark?: boolean; compact?: boolean }) {
   const { language } = useLanguage();
   const pending = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<'idle' | 'busy' | 'saved' | 'error'>('idle');
@@ -47,10 +47,10 @@ export default function VoucherButton({ booking, onDark = false }: { booking: Bo
     finally { clearTimeout(timeout); pending.current = null; }
   };
   const tone = onDark ? 'onDark' : undefined;
-  return <View style={{ gap: 4 }}><Button variant="secondary" icon="download" title={ar ? 'تنزيل الفاوجر' : 'Download voucher'}
-    label={(ar ? 'تنزيل الفاوجر · ' : 'Download voucher · ') + booking.reference}
+  return <View style={{ gap: 4, alignSelf: compact ? 'flex-start' : undefined }}><Button variant={compact ? 'tonal' : 'secondary'} compact={compact} icon="download" title={ar ? (compact ? 'القسيمة' : 'تنزيل القسيمة') : (compact ? 'Voucher' : 'Download voucher')}
+    label={(ar ? 'تنزيل قسيمة الحجز · ' : 'Download voucher · ') + booking.reference}
     busy={status === 'busy'} onPress={() => void download()}/>
-    {status === 'error' && <Txt kind="small" tone={tone ?? 'danger'} accessibilityRole="alert">{ar ? 'لم يُحفظ الفاوجر. تحقق من الاتصال وحاول مجدداً.' : 'The voucher was not saved. Check your connection and try again.'}</Txt>}
-    {status === 'saved' && <Txt kind="small" tone={tone ?? 'success'} accessibilityLiveRegion="polite">{ar ? 'تم تنزيل الفاوجر.' : 'Voucher downloaded.'}</Txt>}
+    {status === 'error' && <Txt kind="small" tone={tone ?? 'danger'} accessibilityRole="alert">{ar ? 'لم تُحفظ قسيمة الحجز. تحقق من الاتصال وحاول مجدداً.' : 'The voucher was not saved. Check your connection and try again.'}</Txt>}
+    {status === 'saved' && <Txt kind="small" tone={tone ?? 'success'} accessibilityLiveRegion="polite">{ar ? 'تم تنزيل قسيمة الحجز.' : 'Voucher downloaded.'}</Txt>}
   </View>;
 }

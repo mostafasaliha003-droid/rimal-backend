@@ -1,6 +1,6 @@
 {
   "name": "@remal/mkhadda",
-  "version": "0.42.0",
+  "version": "0.43.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",
@@ -11,6 +11,7 @@
     "expo-dev-client": "~58.0.21",
     "expo-file-system": "~58.0.14",
     "expo-font": "~58.0.12",
+    "expo-haptics": "~58.0.8",
     "expo-linking": "~58.0.17",
     "expo-localization": "~58.0.5",
     "expo-router": "~58.0.32",

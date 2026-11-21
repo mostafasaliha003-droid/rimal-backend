@@ -4,15 +4,17 @@ import type { PressableStateCallbackType } from 'react-native';
 import { useRouter } from 'expo-router';
 import type { HotelSummary } from '../types';
 import { useLanguage } from '../i18n';
-import { color, elevation, radius, space, touch } from '../theme';
+import { color, elevation, fonts, radius, space } from '../theme';
 import { useAppState } from './AppState';
-import { Badge, Icon, Photo, Row, Txt } from './Primitives';
+import { Icon, Photo, Row, Txt } from './Primitives';
 import { priceInCurrency, stayNights } from './resultsDecisionModel';
 import { useChargeMoney } from './ChargeCurrency';
 import { resultsCopy } from './resultsCopy';
 import { formatPrice, stayLine, stayWords } from './format';
 import { useLayout, useReducedMotion } from './motion';
 import { useToast } from './Toast';
+import { haptic } from './haptics';
+import { rememberHotelPreview } from './hotelPreview';
 
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
 
@@ -41,15 +43,23 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
   const [failedPhotos, setFailedPhotos] = useState<ReadonlySet<string>>(() => new Set());
   const [pop] = useState(() => new Animated.Value(1));
   const hasPhoto = [hotel.imageUrl, ...(hotel.images || [])].some(uri => uri && !failedPhotos.has(uri));
-  const open = () => { onOpen?.(hotel.hid); router.push({ pathname: '/hotel/[hid]', params: { hid: String(hotel.hid) } }); };
+  const shownPhoto = [hotel.imageUrl, ...(hotel.images || [])].find(uri => uri && !failedPhotos.has(uri));
+  const open = () => {
+    onOpen?.(hotel.hid);
+    // The hotel page opens on the photo the traveler just tapped while its rooms load.
+    rememberHotelPreview(hotel.hid, { name: hotel.name, photo: shownPhoto, stars: hotel.stars, address: hotel.address });
+    router.push({ pathname: '/hotel/[hid]', params: { hid: String(hotel.hid) } });
+  };
   const price = priceInCurrency(hotel.price, criteria?.currency || ''), nights = stayNights(criteria);
   const stay = criteria ? stayLine(nights, criteria.guests, language) : '';
   const compare = () => {
     const result = toggleComparison(hotel, comparisonContextKey);
+    if (result === 'added' || result === 'removed') haptic(result === 'added' ? 'toggleOn' : 'toggleOff');
     setFeedback(result === 'added' || result === 'removed' ? null : { context: comparisonContextKey, code: result });
   };
   const save = () => {
     const adding = !selected;
+    haptic(adding ? 'toggleOn' : 'toggleOff');
     toggleSaved(hotel.hid);
     if (!reduced) Animated.sequence([
       Animated.spring(pop, { toValue: 1.25, useNativeDriver: Platform.OS !== 'web', speed: 40, bounciness: 12 }),
@@ -72,37 +82,54 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
       <Icon name="saved" size={20} filled={selected} color={selected ? color.danger : color.textBrand}/>
     </Pressable>
   </Animated.View>;
+  // Compare is a quiet text toggle beside the stars: the photo keeps only the heart.
   const compareToggle = <Pressable testID={`hotel-compare-${hotel.hid}`} accessibilityRole="checkbox" aria-checked={compared}
     accessibilityState={{ checked: compared, disabled: comparisonDisabled || !comparisonContextKey }}
     accessibilityLabel={`${compared ? L.compareAdded : L.compare}: ${hotel.name}`} disabled={comparisonDisabled || !comparisonContextKey} onPress={compare}
-    style={state => [styles.compare, compared && styles.compared, (state.pressed || hovered(state)) && !compared && { backgroundColor: color.bgMuted },
+    hitSlop={{ top: 10, bottom: 10, left: 6, right: 6 }}
+    style={state => [styles.compare, compared && styles.compared, (state.pressed || hovered(state)) && !compared && { backgroundColor: color.bgField },
       (comparisonDisabled || !comparisonContextKey) && { opacity: 0.45 }]}>
     <Row style={{ gap: space.xs }}>
-      <View style={[styles.box, compared && styles.boxChecked]}>{compared && <Icon name="check" size={12} strokeWidth={3} color={color.textOnDark}/>}</View>
-      <Txt kind="micro" style={{ color: compared ? color.interactiveStrong : color.textBrand }}>{L.compare}</Txt>
+      <View style={[styles.box, compared && styles.boxChecked]}>{compared && <Icon name="check" size={11} strokeWidth={3} color={color.textOnDark}/>}</View>
+      <Txt kind="micro" style={{ color: compared ? color.interactiveStrong : color.textSecondary }}>{L.compare}</Txt>
     </Row>
   </Pressable>;
 
+  // The average night helps compare stays of different lengths; the total stays the headline.
+  const charged = charge(price);
+  const perNight = charged && nights && nights > 1 ? formatPrice({ amount: String(Math.round(Number(charged.amount) / nights)), currency: charged.currency }) : '';
   const priceBlock = <View testID={`hotel-price-${hotel.hid}`} style={[styles.price, { alignItems: rtl ? 'flex-start' : 'flex-end' }]}>
     {priceText ? <>
       <Txt kind="price" align="end" accessibilityLabel={`${priceText} · ${ar ? 'الإجمالي' : 'Total'} · ${stay}`} style={styles.amount}>{priceText}</Txt>
-      <Txt kind="caption" align="end">{covers}</Txt>
+      <Txt kind="caption" align="end" numberOfLines={2} testID={`hotel-covers-${hotel.hid}`}>{covers}{perNight ? (ar ? ` · ${perNight} لليلة` : ` · ${perNight}/night`) : ''}</Txt>
     </> : <>
       <Txt kind="caption" align="end">{stay}</Txt>
       <Txt kind="small" align="end">{ar ? 'لا يتوفر سعر لهذه التواريخ' : 'No price for these dates'}</Txt>
     </>}
   </View>;
 
+  // Decision facts beside the price: free cancellation (stated exactly) and a recent visit.
+  const cancel = priceText ? hotel.freeCancellation : undefined;
+  const fact = (icon: 'checkCircle' | 'history', text: string, tint: string, testID?: string) => <Row testID={testID} style={{ gap: space.xs }}>
+    <Icon name={icon} size={14} color={tint}/><Txt kind="caption" numberOfLines={1} style={{ color: tint, flexShrink: 1, fontFamily: fonts.medium }}>{text}</Txt></Row>;
+  const facts = <>
+    {cancel === 'lowest' && fact('checkCircle', ar ? 'إلغاء مجاني لهذا السعر' : 'Free cancellation at this price', color.success, `hotel-free-cancel-${hotel.hid}`)}
+    {cancel === 'available' && fact('checkCircle', ar ? 'يتوفر خيار بإلغاء مجاني' : 'Free cancellation option', color.success, `hotel-free-cancel-${hotel.hid}`)}
+    {recentlyViewed && fact('history', ar ? 'شاهدته مؤخراً' : 'Recently viewed', color.info)}
+  </>;
+
   const summary = <>
-    <Row style={{ gap: space.sm, justifyContent: 'space-between', flexWrap: 'wrap' }}>
+    <Row style={{ gap: space.sm, justifyContent: 'space-between' }}>
       <StarRating stars={hotel.stars} size={13}/>
-      {recentlyViewed && <Badge tone="info" icon="history" label={ar ? 'شاهدته مؤخراً' : 'Recently viewed'}/>}
+      {compareToggle}
     </Row>
     <Txt kind="subheading" numberOfLines={2} accessibilityRole="header" style={{ fontSize: 16 }}>{hotel.name}</Txt>
     {!!hotel.address && <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
       <View style={{ paddingTop: 2 }}><Icon name="pin" size={14} color={color.textSecondary}/></View>
       <Txt kind="caption" numberOfLines={1} style={{ flex: 1 }}>{hotel.address}</Txt></Row>}
+    {facts}
   </>;
+  const bottom = priceBlock;
 
   if (variant === 'photo') return <View testID={`hotel-card-${hotel.hid}`} style={[styles.card, recentlyViewed && styles.viewed]}>
     <Pressable testID={`hotel-open-${hotel.hid}`} accessibilityRole="button" accessibilityHint={t('viewStay')}
@@ -111,9 +138,9 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
         {hasPhoto ? <Photo uri={hotel.imageUrl} alternatives={hotel.images} label={hotel.name} height="100%" onFailed={onPhotoError}/>
           : <Photo label={hotel.name} height="100%"/>}
       </View>
-      <View style={styles.details}>{summary}{priceBlock}</View>
+      <View style={styles.details}>{summary}{bottom}</View>
     </Pressable>
-    <View pointerEvents="box-none" style={[styles.overlay, { flexDirection: rtl ? 'row-reverse' : 'row' }]}>{compareToggle}{heart}</View>
+    <View pointerEvents="box-none" style={[styles.overlay, rtl ? { left: space.sm } : { right: space.sm }]}>{heart}</View>
     {notice}
   </View>;
 
@@ -126,13 +153,11 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
       </View>
       <View style={[styles.details, { flex: 1, minWidth: 0 }]}>
         {summary}
-        <View style={{ flex: 1 }}/>
-        {priceBlock}
+        <View style={{ flex: 1, minHeight: space.xxs }}/>
+        {bottom}
       </View>
     </Pressable>
-    <View pointerEvents="box-none" style={[styles.thumbOverlay, { width: thumbWidth - space.lg }, rtl ? { right: space.sm, alignItems: 'flex-end' } : { left: space.sm, alignItems: 'flex-start' }]}>
-      {heart}{compareToggle}
-    </View>
+    <View pointerEvents="box-none" style={[styles.thumbOverlay, rtl ? { right: space.sm } : { left: space.sm }]}>{heart}</View>
     {notice}
   </View>;
 }
@@ -142,14 +167,13 @@ const styles = StyleSheet.create({
   viewed: { borderColor: color.infoBorder, borderWidth: 1.5 },
   pressed: { backgroundColor: color.bgMuted },
   details: { paddingHorizontal: space.md, paddingVertical: space.sm + 2, gap: space.xxs + 1 },
-  thumb: { minHeight: 148, backgroundColor: color.photoPlaceholder },
-  thumbOverlay: { position: 'absolute', top: space.sm, bottom: space.sm, justifyContent: 'space-between' },
-  overlay: { position: 'absolute', top: space.sm, left: space.sm, right: space.sm, justifyContent: 'space-between' },
+  thumb: { minHeight: 150, backgroundColor: color.photoPlaceholder },
+  thumbOverlay: { position: 'absolute', top: space.sm },
+  overlay: { position: 'absolute', top: space.sm },
   heart: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.95)', margin: 2 },
-  compare: { minHeight: 32, minWidth: touch.min, paddingHorizontal: space.sm, borderRadius: radius.pill, justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.95)', borderWidth: 1, borderColor: color.borderControl },
-  compared: { backgroundColor: color.bgSelected, borderColor: color.borderSelected },
-  box: { width: 16, height: 16, borderRadius: 4, borderWidth: 1.5, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
+  compare: { minHeight: 28, paddingHorizontal: space.xs + 2, borderRadius: radius.pill, justifyContent: 'center' },
+  compared: { backgroundColor: color.bgSelected },
+  box: { width: 15, height: 15, borderRadius: 4, borderWidth: 1.5, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
   boxChecked: { backgroundColor: color.interactive, borderColor: color.interactive },
   price: { gap: 0, marginTop: space.xxs },
   amount: { writingDirection: 'ltr', fontSize: 20, lineHeight: 28 },

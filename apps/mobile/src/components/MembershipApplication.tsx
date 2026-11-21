@@ -156,12 +156,12 @@ export default function MembershipApplication({ initial, finished }: { initial: 
 
 const styles = StyleSheet.create({
   bar: { height: 4, borderRadius: 2, backgroundColor: color.border },
-  option: { borderWidth: 1, borderColor: color.borderControl, borderRadius: radius.md, padding: space.md, minHeight: 56, justifyContent: 'center', backgroundColor: color.bgSurface },
+  option: { borderWidth: 2, borderColor: 'transparent', borderRadius: radius.md, padding: space.md, minHeight: 56, justifyContent: 'center', backgroundColor: color.bgField },
   optionOn: { borderColor: color.borderSelected, borderWidth: 2, backgroundColor: color.bgSelected },
   radio: { marginTop: 2, width: 20, height: 20, borderRadius: 10, borderWidth: 2, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center' },
   dot: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.interactive },
   box: { marginTop: 2, width: 20, height: 20, borderRadius: 5, borderWidth: 2, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center' },
-  select: { minHeight: 56, borderWidth: 1, borderColor: color.borderControl, borderRadius: radius.md, paddingHorizontal: space.md, paddingVertical: space.sm, justifyContent: 'center', backgroundColor: color.bgSurface },
-  docRow: { gap: space.md, borderWidth: 1, borderColor: color.border, borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSurface },
+  select: { minHeight: 56, borderWidth: 1.5, borderColor: 'transparent', borderRadius: radius.md, paddingHorizontal: space.md, paddingVertical: space.sm, justifyContent: 'center', backgroundColor: color.bgField },
+  docRow: { gap: space.md, borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSubtle },
   summary: { gap: space.xs, padding: space.md, borderRadius: radius.md, backgroundColor: color.bgMuted },
 });

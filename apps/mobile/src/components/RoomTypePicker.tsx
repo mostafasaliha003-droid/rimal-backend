@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { FlatList, Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
-import { colors } from '../theme';
+import { color, colors } from '../theme';
 import { Chip, Field, Icon, Photo, Row, Txt } from './Primitives';
 import type { RoomChoiceGroup } from './roomChoiceModel';
 import { rateCopy } from './roomRateFacts';
@@ -62,12 +62,12 @@ export default function RoomTypePicker({ groups, value, onChange }: {
 }
 
 const styles = StyleSheet.create({
-  trigger: { minHeight: 44, maxWidth: '100%', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 12, backgroundColor: colors.surface, borderColor: colors.border, borderWidth: 1 },
+  trigger: { minHeight: 44, maxWidth: '100%', justifyContent: 'center', paddingHorizontal: 10, borderRadius: 12, backgroundColor: color.bgField },
   picked: { backgroundColor: colors.lavenderMist, borderColor: colors.grape },
   scrim: { flex: 1, justifyContent: 'flex-end', alignItems: 'center', backgroundColor: 'rgba(32,22,38,.48)' },
   sheet: { width: '100%', maxWidth: 600, backgroundColor: colors.canvas, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 14, gap: 8 },
   heading: { gap: 7 }, close: { width: 48, minHeight: 48, alignItems: 'center', justifyContent: 'center' },
   all: { minHeight: 48, paddingHorizontal: 12, justifyContent: 'center' },
-  item: { padding: 10, marginVertical: 3, borderRadius: 14, borderColor: colors.border, borderWidth: 1, backgroundColor: colors.surface },
+  item: { padding: 10, marginVertical: 3, borderRadius: 14, borderColor: 'transparent', borderWidth: 1.5, backgroundColor: color.bgField },
   thumb: { width: 54, height: 54, borderRadius: 10, backgroundColor: colors.softBlue, overflow: 'hidden', alignItems: 'center', justifyContent: 'center' },
 });

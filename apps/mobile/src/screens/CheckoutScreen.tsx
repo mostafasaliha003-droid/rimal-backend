@@ -184,7 +184,8 @@ function CheckoutSummary({ selection, offer, amount, showAmount = true }: { sele
     </View>
     <InfoRow icon="bed">
       <Txt kind="label" tone="primary">{roomName}</Txt>
-      {roomName !== offer.name && <Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt>}
+      {/* The supplier's own name is the booking identity the hotel sees; it is labelled, not repeated. */}
+      {roomName !== offer.name && <Txt kind="caption" numberOfLines={2}>{ar ? 'الاسم لدى الفندق: ' : 'Hotel’s name: '}<Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt></Txt>}
       <Txt kind="caption" tone="primary">{facts.meal}</Txt>
     </InfoRow>
     <InfoRow icon={free ? 'checkCircle' : facts.decision.nonRefundable ? 'alertCircle' : 'clock'} tone={cancelTone} testID="checkout-cancellation">
@@ -495,7 +496,7 @@ const styles = StyleSheet.create({
   select: { minHeight: 52, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: space.md, justifyContent: 'center', backgroundColor: color.bgSurface },
   group: { gap: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.border },
   groupHeader: { minHeight: 44, justifyContent: 'center' },
-  consent: { borderWidth: 1, borderColor: color.border, borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSurface },
+  consent: { borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSubtle },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: color.interactiveStrong, backgroundColor: color.bgSurface, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxOn: { backgroundColor: color.interactiveStrong },
 });

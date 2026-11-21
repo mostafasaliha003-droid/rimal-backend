@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import type { HotelDetails, SearchCriteria } from '../types';
 import { useLanguage } from '../i18n';
-import { colors, fonts, ui } from '../theme';
+import { color, colors, fonts, ui } from '../theme';
 import { Button, Icon, Row, Txt, DisclosureMark } from './Primitives';
 import HotelMapLink from './HotelMapLink';
 import HotelFacilities from './HotelFacilities';
@@ -107,7 +107,7 @@ const styles = StyleSheet.create({
   milestone: { gap: 2, minWidth: 0, paddingHorizontal: 10, paddingVertical: 8, borderRadius: 13, backgroundColor: colors.blue },
   date: { fontFamily: fonts.bold, color: colors.surface, fontSize: 20, lineHeight: 29 }, time: { color: colors.surface },
   latest: { color: colors.pistachio, fontSize: 12, lineHeight: 19 }, lightLabel: { color: colors.pistachio },
-  navigation: { gap: 4, flexWrap: 'wrap', borderRadius: 15, backgroundColor: colors.surface, borderWidth: 1, borderColor: colors.border, padding: 4 },
+  navigation: { gap: 4, flexWrap: 'wrap', borderRadius: 15, backgroundColor: color.bgField, padding: 4 },
   navButton: { flexGrow: 1, flexBasis: 82, minHeight: 44, paddingHorizontal: 4, justifyContent: 'center', borderRadius: 11 },
   navActive: { backgroundColor: colors.softBlue },
   more: { minHeight: 44, justifyContent: 'center' }, toggleMark: { fontSize: 18, lineHeight: 22, color: colors.violetInk },

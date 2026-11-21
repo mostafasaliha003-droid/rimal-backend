@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Pressable, StyleSheet, View } from 'react-native';
 import type { RoomOffer } from '../types';
 import { useLanguage } from '../i18n';
-import { colors, fonts } from '../theme';
+import { color, colors, fonts } from '../theme';
 import { Row, Txt, DisclosureMark } from './Primitives';
 import { cancellationMoneyText, parseCancellationTimestamp, presentCancellation } from './cancellationPresentationModel';
 import { cancellationCopy } from './cancellationCopy';
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
   heading: { fontSize: 18, lineHeight: 26 },
   disclosure: { minHeight: 48, paddingHorizontal: 10, paddingVertical: 6, borderRadius: 12, backgroundColor: colors.background, justifyContent: 'center' },
   zoneGroup: { flexWrap: 'wrap', gap: 6 },
-  zone: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, borderWidth: 1, borderColor: colors.border },
+  zone: { minHeight: 44, justifyContent: 'center', paddingHorizontal: 12, borderRadius: 22, backgroundColor: color.bgField },
   selectedZone: { backgroundColor: colors.violetInk, borderColor: colors.violetInk },
   zoneText: { fontSize: 13, textAlign: 'center' },
   track: { width: 11, alignItems: 'center', paddingTop: 10 },

@@ -46,6 +46,10 @@ export default function BrandHeader({ back = false }: { back?: boolean }) {
   const signedIn = status === 'signedIn' && user;
   const firstName = signedIn && !signedIn.name.includes('@') ? signedIn.name.trim().split(/\s+/u)[0] : '';
   const guestLabel = restorePending ? (ar ? 'استعادة الجلسة' : 'Restore session') : t('signIn');
+  // A quiet header: on phones the account lives in its tab and the language in Account; Explore
+  // keeps the language switch so a first-time visitor can change it before searching.
+  const showLanguage = desktop || (!back && pathname === '/');
+  const showAccount = desktop;
   return <View style={styles.bar}>
     <Row style={[styles.inner, desktop && { maxWidth: layout.maxContent, paddingHorizontal: space.xl }]}>
       <Row style={{ gap: space.xs, flexShrink: 1 }}>
@@ -54,7 +58,7 @@ export default function BrandHeader({ back = false }: { back?: boolean }) {
           onPress={() => router.canGoBack() ? router.back() : router.replace('/')}><Icon name="back" size={22}/></Pressable>}
         <Pressable accessibilityRole="link" accessibilityHint={ar ? 'الصفحة الرئيسية' : 'Home'} onPress={() => router.navigate('/')}
           style={styles.brand}><PillowWordmark/></Pressable>
-        {APP_ENV !== 'production' && <Badge tone="warning" label={ar ? 'اختبار' : 'Test'}/>}
+        {APP_ENV !== 'production' && <View style={{ alignSelf: 'center' }}><Badge tone="warning" label={ar ? 'اختبار' : 'Test'}/></View>}
         {desktop && <Row style={{ gap: space.xxs, marginHorizontal: space.lg }} role="navigation" aria-label={ar ? 'التنقل الرئيسي' : 'Main navigation'}>
           {navItems.map(item => {
             const active = item.path === '/' ? pathname === '/' : pathname.startsWith(item.path);
@@ -67,12 +71,12 @@ export default function BrandHeader({ back = false }: { back?: boolean }) {
         </Row>}
       </Row>
       <Row style={{ gap: space.xxs }}>
-        <Pressable accessibilityRole="button" accessibilityLabel={ar ? 'EN · Switch to English' : 'عربي · التبديل إلى العربية'}
+        {showLanguage && <Pressable testID="header-language" accessibilityRole="button" accessibilityLabel={ar ? 'EN · Switch to English' : 'عربي · التبديل إلى العربية'}
           style={state => [styles.action, (state.pressed || hovered(state)) && styles.actionActive]} onPress={() => setLanguage(ar ? 'en' : 'ar')}>
           <Row style={{ gap: space.xs }}><Icon name="globe" size={18} color={color.interactiveStrong}/>
             <Txt kind="label" style={styles.locale}>{ar ? 'EN' : 'عربي'}</Txt></Row>
-        </Pressable>
-        {status === 'loading' ? <View style={styles.action} accessibilityLabel={t('accountChecking')}><ActivityIndicator size="small" color={color.interactive}/></View> :
+        </Pressable>}
+        {!showAccount ? null : status === 'loading' ? <View style={styles.action} accessibilityLabel={t('accountChecking')}><ActivityIndicator size="small" color={color.interactive}/></View> :
           <Pressable testID={signedIn ? 'header-signed-in' : restorePending ? 'header-restore-session' : 'header-sign-in'} accessibilityRole="button"
             accessibilityLabel={signedIn ? [firstName || t('account'), t('account'), ar ? 'مسجّل الدخول' : 'Signed in'].filter(Boolean).join(' · ') : ar && !restorePending ? 'دخول إلى الحساب' : guestLabel}
             style={styles.action} onPress={() => signedIn ? router.navigate('/account') : router.navigate({ pathname: '/account', params: { returnTo: pathname } })}>
@@ -88,7 +92,7 @@ export default function BrandHeader({ back = false }: { back?: boolean }) {
 
 const styles = StyleSheet.create({
   bar: { backgroundColor: color.bgCanvas, alignItems: 'center', borderBottomWidth: StyleSheet.hairlineWidth, borderBottomColor: color.border },
-  inner: { width: '100%', maxWidth: layout.maxReading + 160, minHeight: 56, paddingHorizontal: space.sm, paddingVertical: space.xxs, justifyContent: 'space-between', gap: space.xs },
+  inner: { width: '100%', maxWidth: layout.maxReading + 160, minHeight: 52, paddingHorizontal: space.sm, paddingVertical: 0, justifyContent: 'space-between', gap: space.xs },
   brand: { minHeight: touch.min, justifyContent: 'center', paddingHorizontal: space.xxs },
   action: { minWidth: touch.min, minHeight: touch.min, paddingHorizontal: space.xs, alignItems: 'center', justifyContent: 'center', borderRadius: radius.pill },
   actionActive: { backgroundColor: color.bgMuted },

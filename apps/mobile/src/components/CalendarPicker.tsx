@@ -2,11 +2,12 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
-import { colors, fonts, tokens } from '../theme';
+import { color, colors, fonts, tokens } from '../theme';
 import { Button, IconButton, Row, Txt } from './Primitives';
 import { localeFor, nightsBetween, stayWords } from './format';
 import { beginCalendarRange, calendarRangeBounds, calendarRangeMonth, monthDays, pickCalendarDate,
   shiftMonth, todayDate, type CalendarField, type StayDates } from './calendarModel';
+import { haptic } from './haptics';
 
 interface CalendarProps {
   initialField: CalendarField;
@@ -141,7 +142,7 @@ export default function CalendarPicker({ initialField, checkin, checkout, onSele
                       <Pressable ref={date === focusDate ? focusDay : undefined} testID={'calendar-day-' + date}
                         disabled={disabled} accessibilityRole="button" accessibilityLabel={format.day.format(utcDay(date))}
                         accessibilityState={{ disabled, ...(Platform.OS === 'web' ? {} : { selected: endpoint }) }}
-                        aria-pressed={endpoint} onPress={() => chooseDay(date)}
+                        aria-pressed={endpoint} onPress={() => { haptic('select'); chooseDay(date); }}
                         style={({ pressed }) => [styles.day, !!inStay && styles.inStay,
                           endpoint && styles.endpoint, pressed && styles.pressed]}>
                         <Txt style={[styles.digit, disabled && styles.disabledDigit, endpoint && styles.endpointDigit]}>
@@ -172,7 +173,7 @@ const styles = StyleSheet.create({
   title: { flex: 1 },
   fields: { alignItems: 'stretch', gap: tokens.space.sm },
   field: { flex: 1, minHeight: tokens.control.minHeight, padding: tokens.space.md, borderRadius: tokens.radius.md,
-    borderWidth: 1, borderColor: colors.border, backgroundColor: colors.surface, gap: 2 },
+    borderWidth: 1.5, borderColor: 'transparent', backgroundColor: color.bgField, gap: 2 },
   activeField: { backgroundColor: colors.softBlue, borderColor: colors.blueStrong },
   accent: { color: colors.blueStrong },
   monthRow: { justifyContent: 'space-between', paddingHorizontal: tokens.space.xs },

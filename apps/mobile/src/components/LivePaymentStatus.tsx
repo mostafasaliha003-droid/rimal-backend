@@ -6,6 +6,7 @@ import { color, elevation, fonts, radius, space } from '../theme';
 import { Icon, Row, Txt, type IconName } from './Primitives';
 import { useReducedMotion } from './motion';
 import { livePaymentModel, type LiveStage } from './livePaymentModel';
+import { haptic } from './haptics';
 
 const native = Platform.OS !== 'web';
 
@@ -36,6 +37,7 @@ function Mark({ tone, icon, reduced }: { tone: 'working' | 'success' | 'attentio
     return () => { loop.stop(); spin.setValue(0); };
   }, [spin, tone, reduced]);
   useEffect(() => {
+    if (tone === 'success') haptic('confirm');
     if (tone !== 'success' || reduced) { pop.setValue(1); return; }
     pop.setValue(0.4);
     Animated.spring(pop, { toValue: 1, friction: 5, tension: 120, useNativeDriver: native }).start();

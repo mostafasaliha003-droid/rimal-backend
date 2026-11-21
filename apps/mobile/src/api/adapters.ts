@@ -130,6 +130,30 @@ function cheapest(value: unknown, code: string): Money | null {
   return array(value).map(customerPrice).filter((price): price is Money => price !== null && price.currency === code)
     .reduce<Money | null>((best, price) => !best || Number(price.amount) < Number(best.amount) ? price : best, null);
 }
+/**
+ * Whether free cancellation is on offer, for the result card. The compact search view sends it as
+ * flags; a full rate list is read directly. A deadline that has already passed never counts.
+ */
+export function hotelFreeCancellation(row: Row, code: string, now = Date.now()): HotelSummary['freeCancellation'] {
+  if (typeof row.free_cancellation === 'boolean')
+    return row.lowest_free_cancellation === true ? 'lowest' : row.free_cancellation ? 'available' : 'none';
+  const rates = array(row.rates).map(object);
+  if (!rates.length) return undefined;
+  let known = false, lowest: { amount: number; free: boolean } | null = null, any = false;
+  for (const rate of rates) {
+    const payment = array(object(rate.payment_options).payment_types).map(object).find(item => item.type === 'deposit');
+    const penalties = object(payment?.cancellation_penalties);
+    if (!('free_cancellation_before' in penalties)) continue;
+    known = true;
+    const until = utcTimestamp(penalties.free_cancellation_before);
+    const free = until !== null && Date.parse(until) > now;
+    any ||= free;
+    const price = customerPrice(rate);
+    if (price && price.currency === code && (!lowest || Number(price.amount) < lowest.amount)) lowest = { amount: Number(price.amount), free };
+  }
+  if (!known) return undefined;
+  return lowest?.free ? 'lowest' : any ? 'available' : 'none';
+}
 function hotelLocation(row: Record<string, unknown>) {
   const coordinate = (value: unknown) => typeof value === 'number' || typeof value === 'string' && /^-?\d+(?:\.\d+)?$/.test(value.trim()) ? Number(value) : NaN;
   const latitude = coordinate(row.latitude), longitude = coordinate(row.longitude);
@@ -146,7 +170,8 @@ export function normalizeHotel(value: unknown, code: string): HotelSummary {
     ...(Number.isFinite(star) && star > 0 && star <= 5 ? { stars: star } : {}),
     location: hotelLocation(row),
     imageUrl: photos[0], images: photos,
-    price: cheapest(row.rates, code) };
+    price: cheapest(row.rates, code),
+    ...((cancel => cancel ? { freeCancellation: cancel } : {})(hotelFreeCancellation(row, code))) };
 }
 function propertyClock(value: unknown): string | undefined {
   if (typeof value !== 'string' || !/^([01]\d|2[0-3]):[0-5]\d(:[0-5]\d)?$/.test(value.trim())) return undefined;
