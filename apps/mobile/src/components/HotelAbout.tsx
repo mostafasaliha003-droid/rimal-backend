@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n';
 import { color, colors, radius, space, ui } from '../theme';
 import { Icon, Row, Txt, DisclosureMark } from './Primitives';
 import HotelMapLink from './HotelMapLink';
+import StaysMap from './StaysMap';
 import HotelFacilities from './HotelFacilities';
 import Policies from './Policies';
 import { policyPlainText } from './hotelPoliciesData';
@@ -84,6 +85,8 @@ export default function HotelAbout({ hotel, criteria }: { hotel: HotelDetails; c
     <StayHours hotel={hotel} criteria={criteria}/>
     {(hotel.address || hotel.location) && <Section testID="hotel-guide-location" icon="pin" title={ar ? 'الموقع' : 'Location'}>
       {hotel.address && <Txt kind="small" tone="primary">{hotel.address}</Txt>}
+      {hotel.location && <StaysMap testID="hotel-map" interactive={false} height={180} label={ar ? 'موقع الفندق على الخريطة' : 'Hotel location on the map'}
+        markers={[{ id: hotel.hid, latitude: hotel.location.latitude, longitude: hotel.location.longitude, name: hotel.name, label: hotel.name.length > 28 ? hotel.name.slice(0, 27) + '…' : hotel.name }]}/>}
       {hotel.location && <HotelMapLink hotel={hotel}/>}
     </Section>}
     <Section testID="hotel-guide-about" icon="info" title={ar ? 'نبذة عن الفندق' : 'About the property'}>

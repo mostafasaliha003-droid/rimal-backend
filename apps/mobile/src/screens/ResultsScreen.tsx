@@ -1,5 +1,5 @@
 import React, { useCallback, useMemo, useRef, useState } from 'react';
-import { FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { FlatList, Modal, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api, ApiError, authSession } from '../api';
@@ -12,16 +12,18 @@ import { color, elevation, layout, radius, space, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
 import HotelMapLink from '../components/HotelMapLink';
+import StaysMap from '../components/StaysMap';
+import { useChargeMoney } from '../components/ChargeCurrency';
 import { useGuestRatings } from '../components/useGuestRatings';
 import HotelCard from '../components/HotelCard';
 import ApiState from '../components/ApiState';
 import { Button, Card, Chip, Field, Icon, Notice, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
 import { hotelSearchPlan } from '../components/foundationContracts';
 import { activeResultFilters, beginResultRefresh, copyResultFilters, decideResults, emptyResultFilters,
-  resultContextKey, stayNights, suggestedStayBudgets, type ResultFilters, type ResultSnapshot, type ResultSort } from '../components/resultsDecisionModel';
+  priceInCurrency, resultContextKey, stayNights, suggestedStayBudgets, type ResultFilters, type ResultSnapshot, type ResultSort } from '../components/resultsDecisionModel';
 import { resultsCopy } from '../components/resultsCopy';
 import { StaySummaryBar, useStayEditor } from '../components/StayFields';
-import { stayLine } from '../components/format';
+import { formatPrice, stayLine } from '../components/format';
 import { useLayout } from '../components/motion';
 
 // Returning from a hotel within this window keeps the same list, order and scroll
@@ -66,6 +68,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const listRef = useRef<FlatList>(null);
   const scrollPosition = useRef<{ context: string; offset: number }>({ context: '', offset: 0 });
   const [, markViewed] = useState(0);
+  const openedHotel = (hid: number) => { viewedHotels.add(hid); markViewed(value => value + 1); };
   const stayEditor = useStayEditor({ savedOnly });
   const [savedAtEntry, setSavedAtEntry] = useState(() => savedOnly ? saved.filter(id => hotelId(id) !== null) : null);
   const requestSavedIds = savedAtEntry, requestSavedReady = !savedOnly || savedReady;
@@ -131,7 +134,17 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   }, [plan, context, refresh, authStatus, sessionRevision, savedOnly, requestSavedIds, comparisonContextKey, getComparisonItems, clearComparison]));
   const edit = () => router.push(savedOnly ? '/saved-dates' : '/');
   const nights = stayNights(criteria);
-  const mapLabel = ar ? 'مواقع الفنادق، يفتح كل موقع في تطبيق الخرائط' : 'Hotel locations; each opens in your maps app';
+  const mapLabel = ar ? 'الفنادق على الخريطة مع أسعارها' : 'Hotels on the map with their prices';
+  // The map shows every listed hotel with coordinates, each pin carrying its stay total.
+  const { height: windowHeight } = useWindowDimensions();
+  const mapHeight = Math.max(260, Math.min(460, Math.round(windowHeight * 0.5)));
+  const [mapSelected, setMapSelected] = useState<number | null>(null);
+  const [mapFailed, setMapFailed] = useState(false);
+  const charge = useChargeMoney();
+  const mapHotels = decision.hotels.filter(hotel => hotel.location).slice(0, 80);
+  const mapPick = mapHotels.find(hotel => hotel.hid === mapSelected) ?? null;
+  const mapMarkers = mapHotels.map(hotel => ({ id: hotel.hid, latitude: hotel.location!.latitude, longitude: hotel.location!.longitude, name: hotel.name,
+    label: formatPrice(charge(priceInCurrency(hotel.price, currency))) || '•' }));
   const hasMap = decision.hotels.some(hotel => hotel.location);
   const title = savedOnly ? t('savedOfferTitle') : destinationName || t('results');
   // Guest ratings for the hotels shown (and the next few), fetched once per session.
@@ -145,7 +158,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const stay = criteria ? stayLine(nights, criteria.guests, language) : '';
 
   // One-tap ways out of an empty filtered list, each keeping the dates and guests.
-  const relaxations = useMemo(() => {
+  const relaxations = (() => {
     if (!hotels.length || decision.hotels.length || !activeCount) return [];
     const options: { key: string; label: string; next: ResultFilters }[] = [];
     if (applied.name.trim()) options.push({ key: 'name', label: `${L.removeName}: ${applied.name.trim()}`, next: { ...applied, name: '' } });
@@ -154,7 +167,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
     for (const star of applied.stars) options.push({ key: `star-${star}`, label: L.removeStar(star), next: { ...applied, stars: applied.stars.filter(value => value !== star) } });
     return options.map(option => ({ ...option, count: decideResults(hotels, option.next, currency).hotels.length }))
       .filter(option => option.count > 0).sort((a, b) => b.count - a.count);
-  }, [hotels, decision, activeCount, applied, currency, L, ar]);
+  })();
 
   const header = <View style={{ gap: space.sm, paddingBottom: space.sm }}>
     {savedOnly && <Button compact variant="quiet" icon="back" title={t('saved')} onPress={() => router.dismissTo('/saved')}/>}
@@ -175,7 +188,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
       <Row style={{ gap: space.xs, flexWrap: 'wrap' }}>
         <Chip size="sm" testID="results-filters" icon="filter" selected={activeCount > 0} label={`${t('filters')}${activeCount ? ` · ${activeCount}` : ''}`} onPress={openFilters}/>
         <Chip size="sm" testID="results-sort" icon="sort" selected={applied.sort !== 'recommended'} label={sortLabel} accessibilityLabel={`${t('sort')}: ${sortName(applied.sort)}`} onPress={() => openSheet('sort')}/>
-        {hasMap && <Chip size="sm" icon="map" selected={mapContext === context} label={ar ? 'المواقع' : 'Locations'} accessibilityLabel={mapLabel}
+        {hasMap && <Chip size="sm" icon="map" selected={mapContext === context} label={ar ? 'الخريطة' : 'Map'} accessibilityLabel={mapLabel}
           onPress={() => setMapContext(current => current === context ? null : context)}/>}
         <Chip size="sm" testID="results-density" icon={variant === 'list' ? 'image' : 'list'} label={variant === 'list' ? (ar ? 'الصور' : 'Photos') : (ar ? 'القائمة' : 'List')}
           accessibilityLabel={variant === 'list' ? (ar ? 'عرض النتائج بصور كبيرة' : 'Show results with large photos') : L.compactView}
@@ -188,8 +201,16 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
         {applied.stars.map(star => <Chip size="sm" key={star} label={star ? `${star} ${t('stars')}` : L.unknownStars} accessibilityLabel={L.removeStar(star)} onRemove={() => apply({ ...applied, stars: applied.stars.filter(value => value !== star) })}/>)}
         <Button compact variant="quiet" title={L.clearAll} onPress={clearFilters}/>
       </Row>}
-      {hasMap && mapContext === context && <Card padded={false} style={{ gap: 0, overflow: 'hidden' }}>{decision.hotels.filter(hotel => hotel.location).slice(0, limit).map((hotel, index) =>
-        <View key={hotel.hid}>{index > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: color.border }}/>}<HotelMapLink hotel={hotel} variant="row"/></View>)}</Card>}
+      {hasMap && mapContext === context && (mapFailed
+        ? <Card padded={false} style={{ gap: 0, overflow: 'hidden' }}>{decision.hotels.filter(hotel => hotel.location).slice(0, limit).map((hotel, index) =>
+          <View key={hotel.hid}>{index > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: color.border }}/>}<HotelMapLink hotel={hotel} variant="row"/></View>)}</Card>
+        : <View style={{ gap: space.sm }}>
+          <StaysMap testID="results-map" label={mapLabel} height={mapHeight} markers={mapMarkers} selected={mapPick?.hid ?? null}
+            onSelect={setMapSelected} onFailed={() => setMapFailed(true)}/>
+          {mapPick ? <HotelCard hotel={mapPick} recentlyViewed={viewedHotels.has(mapPick.hid)} onOpen={openedHotel} comparisonDisabled={refreshing || Boolean(error)} rating={ratings.get(mapPick.hid)}/>
+            : <Row style={{ gap: space.xs, justifyContent: 'center' }}><Icon name="pin" size={14} color={color.textSecondary}/>
+              <Txt kind="caption">{ar ? 'اضغط على سعر في الخريطة لعرض الفندق' : 'Tap a price on the map to see the hotel'}</Txt></Row>}
+        </View>)}
       {decision.unknownPriceCount > 0 && (decision.budget.amount !== null || applied.sort !== 'recommended') && <Txt kind="caption">{decision.budget.amount !== null ? L.budgetExcluded(decision.unknownPriceCount) : L.unknownPrice(decision.unknownPriceCount)}</Txt>}
       {refreshing && <Notice tone="info" live title={L.refreshing} body={L.oldPrices}/>}
       {!!error && <Notice tone="warning" live title={L.refreshFailed} action={{ label: L.refresh, onPress: refreshResults }}/>}
@@ -220,7 +241,6 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
     <Button variant="secondary" title={t('searchAgain')} onPress={edit}/>
   </View>;
 
-  const openedHotel = (hid: number) => { viewedHotels.add(hid); markViewed(value => value + 1); };
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
     <BrandHeader back/>
     {/* Ratings arrive after the list; extraData lets the visible cards pick them up. */}
