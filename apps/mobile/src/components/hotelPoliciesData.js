@@ -94,7 +94,9 @@ function policyValue(value, language, translateEnum = false) {
     if (value === null || value === undefined || value === '') return labels.missing;
     if (typeof value === 'boolean') return value ? labels.yes : labels.no;
     const text = policyPlainText(String(value));
-    if (translateEnum && Object.hasOwn(enumCopy, text)) return enumCopy[text][language === 'ar' ? 1 : language === 'es' ? 2 : 0];
+    // A supplier may send a simple plural of a known value ('rooms' for 'room'); it reads the same.
+    const known = Object.hasOwn(enumCopy, text) ? text : /s$/.test(text) && Object.hasOwn(enumCopy, text.slice(0, -1)) ? text.slice(0, -1) : null;
+    if (translateEnum && known) return enumCopy[known][language === 'ar' ? 1 : language === 'es' ? 2 : 0];
     return /^[a-z]+(?:_[a-z0-9]+)+$/.test(text) ? text.replace(/_/g, ' ') : text;
 }
 

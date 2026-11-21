@@ -130,10 +130,13 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   }, [plan, context, refresh, authStatus, sessionRevision, savedOnly, requestSavedIds, comparisonContextKey, getComparisonItems, clearComparison]));
   const edit = () => router.push(savedOnly ? '/saved-dates' : '/');
   const nights = stayNights(criteria);
-  const mapLabel = ar ? 'مواقع الفنادق على الخريطة' : 'Hotel locations on the map';
+  const mapLabel = ar ? 'مواقع الفنادق، يفتح كل موقع في تطبيق الخرائط' : 'Hotel locations; each opens in your maps app';
   const hasMap = decision.hotels.some(hotel => hotel.location);
   const title = savedOnly ? t('savedOfferTitle') : destinationName || t('results');
-  const sortLabel = applied.sort === 'recommended' ? t('sort') : t(applied.sort);
+  const sortName = (sort: ResultSort) => sort === 'stars' ? (ar ? 'الأعلى تصنيفاً' : 'Highest star rating') : t(sort);
+  const sortLabel = applied.sort === 'recommended' ? t('sort') : sortName(applied.sort);
+  const freeCancelLabel = ar ? 'إلغاء مجاني' : 'Free cancellation';
+  const knowsCancellation = hotels.some(hotel => hotel.freeCancellation !== undefined);
   const count = hotels.length ? L.results(decision.hotels.length, hotels.length) : '';
   const stay = criteria ? stayLine(nights, criteria.guests, language) : '';
 
@@ -143,10 +146,11 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
     const options: { key: string; label: string; next: ResultFilters }[] = [];
     if (applied.name.trim()) options.push({ key: 'name', label: `${L.removeName}: ${applied.name.trim()}`, next: { ...applied, name: '' } });
     if (decision.budget.amount !== null) options.push({ key: 'budget', label: L.removeBudget, next: { ...applied, maxBudget: '' } });
+    if (applied.freeCancel) options.push({ key: 'free-cancel', label: ar ? 'إزالة فلتر الإلغاء المجاني' : 'Remove free cancellation filter', next: { ...applied, freeCancel: false } });
     for (const star of applied.stars) options.push({ key: `star-${star}`, label: L.removeStar(star), next: { ...applied, stars: applied.stars.filter(value => value !== star) } });
     return options.map(option => ({ ...option, count: decideResults(hotels, option.next, currency).hotels.length }))
       .filter(option => option.count > 0).sort((a, b) => b.count - a.count);
-  }, [hotels, decision, activeCount, applied, currency, L]);
+  }, [hotels, decision, activeCount, applied, currency, L, ar]);
 
   const header = <View style={{ gap: space.sm, paddingBottom: space.sm }}>
     {savedOnly && <Button compact variant="quiet" icon="back" title={t('saved')} onPress={() => router.dismissTo('/saved')}/>}
@@ -166,21 +170,22 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
       {/* Compact chips fit one line on a phone; wrapping (not a sideways scroller) keeps every tool visible in right-to-left layouts. */}
       <Row style={{ gap: space.xs, flexWrap: 'wrap' }}>
         <Chip size="sm" testID="results-filters" icon="filter" selected={activeCount > 0} label={`${t('filters')}${activeCount ? ` · ${activeCount}` : ''}`} onPress={openFilters}/>
-        <Chip size="sm" testID="results-sort" icon="sort" selected={applied.sort !== 'recommended'} label={sortLabel} accessibilityLabel={`${t('sort')}: ${t(applied.sort)}`} onPress={() => openSheet('sort')}/>
-        {hasMap && <Chip size="sm" icon="map" selected={mapContext === context} label={ar ? 'الخريطة' : 'Map'} accessibilityLabel={mapLabel}
+        <Chip size="sm" testID="results-sort" icon="sort" selected={applied.sort !== 'recommended'} label={sortLabel} accessibilityLabel={`${t('sort')}: ${sortName(applied.sort)}`} onPress={() => openSheet('sort')}/>
+        {hasMap && <Chip size="sm" icon="map" selected={mapContext === context} label={ar ? 'المواقع' : 'Locations'} accessibilityLabel={mapLabel}
           onPress={() => setMapContext(current => current === context ? null : context)}/>}
         <Chip size="sm" testID="results-density" icon={variant === 'list' ? 'image' : 'list'} label={variant === 'list' ? (ar ? 'الصور' : 'Photos') : (ar ? 'القائمة' : 'List')}
           accessibilityLabel={variant === 'list' ? (ar ? 'عرض النتائج بصور كبيرة' : 'Show results with large photos') : L.compactView}
           onPress={() => setVariant(value => value === 'list' ? 'photo' : 'list')}/>
       </Row>
       {activeCount > 0 && <Row style={{ flexWrap: 'wrap', gap: space.sm }}>
+        {applied.freeCancel && <Chip size="sm" label={freeCancelLabel} accessibilityLabel={ar ? 'إزالة فلتر الإلغاء المجاني' : 'Remove free cancellation filter'} onRemove={() => apply({ ...applied, freeCancel: false })}/>}
         {!!applied.name.trim() && <Chip size="sm" label={applied.name.trim()} accessibilityLabel={`${L.removeName}: ${applied.name}`} onRemove={() => apply({ ...applied, name: '' })}/>}
         {decision.budget.amount !== null && <Chip size="sm" label={L.budgetChip(decision.budget.amount, currency)} accessibilityLabel={L.removeBudget} onRemove={() => apply({ ...applied, maxBudget: '' })}/>}
         {applied.stars.map(star => <Chip size="sm" key={star} label={star ? `${star} ${t('stars')}` : L.unknownStars} accessibilityLabel={L.removeStar(star)} onRemove={() => apply({ ...applied, stars: applied.stars.filter(value => value !== star) })}/>)}
         <Button compact variant="quiet" title={L.clearAll} onPress={clearFilters}/>
       </Row>}
-      {hasMap && mapContext === context && <Card style={{ gap: space.xs }}>{decision.hotels.filter(hotel => hotel.location).slice(0, limit).map(hotel =>
-        <HotelMapLink key={hotel.hid} hotel={hotel} showName/>)}</Card>}
+      {hasMap && mapContext === context && <Card padded={false} style={{ gap: 0, overflow: 'hidden' }}>{decision.hotels.filter(hotel => hotel.location).slice(0, limit).map((hotel, index) =>
+        <View key={hotel.hid}>{index > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: color.border }}/>}<HotelMapLink hotel={hotel} variant="row"/></View>)}</Card>}
       {decision.unknownPriceCount > 0 && (decision.budget.amount !== null || applied.sort !== 'recommended') && <Txt kind="caption">{decision.budget.amount !== null ? L.budgetExcluded(decision.unknownPriceCount) : L.unknownPrice(decision.unknownPriceCount)}</Txt>}
       {refreshing && <Notice tone="info" live title={L.refreshing} body={L.oldPrices}/>}
       {!!error && <Notice tone="warning" live title={L.refreshFailed} action={{ label: L.refresh, onPress: refreshResults }}/>}
@@ -249,16 +254,16 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
           </Row>
           {sheetPane === 'sort' ? <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: space.lg }}>
             <View accessibilityRole="radiogroup" accessibilityLabel={t('sort')} style={{ gap: space.sm }}>
-              {(['recommended', 'lowPrice', 'highPrice'] as ResultSort[]).map(sort => {
+              {(['recommended', 'lowPrice', 'highPrice', 'stars'] as ResultSort[]).map(sort => {
                 const selected = applied.sort === sort;
-                return <Pressable key={sort} accessibilityRole="radio" accessibilityLabel={t(sort)} aria-checked={selected} accessibilityState={{ checked: selected }}
+                return <Pressable key={sort} accessibilityRole="radio" accessibilityLabel={sortName(sort)} aria-checked={selected} accessibilityState={{ checked: selected }}
                   onPress={() => {
                     if (currentContext.current !== sheetContext) return;
                     apply({ ...applied, sort });
                     setSheetContext(null);
                   }} style={({ pressed }) => [styles.sortOption, selected && styles.sortSelected, pressed && { backgroundColor: color.bgMuted }]}>
                   <Row style={{ justifyContent: 'space-between', gap: space.sm }}>
-                    <Txt kind="label" style={{ flex: 1 }}>{t(sort)}</Txt>
+                    <Txt kind="label" style={{ flex: 1 }}>{sortName(sort)}</Txt>
                     <View style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot}/>}</View>
                   </Row>
                 </Pressable>;
@@ -266,6 +271,13 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
             </View>
           </ScrollView> : <>
           <ScrollView keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={{ padding: space.lg, gap: space.lg }}>
+            {knowsCancellation && <View style={{ gap: space.xs }}>
+              <Txt kind="label">{ar ? 'شروط الإلغاء' : 'Cancellation'}</Txt>
+              <Row style={{ flexWrap: 'wrap', gap: space.sm }}>
+                <Chip testID="results-free-cancel" role="checkbox" icon="checkCircle" selected={draft.freeCancel} label={`${freeCancelLabel} · ${preview.freeCancelCount}`}
+                  accessibilityLabel={ar ? 'إلغاء مجاني متاح' : 'Free cancellation available'} onPress={() => setDraft(value => ({ ...value, freeCancel: !value.freeCancel }))}/>
+              </Row>
+            </View>}
             <Field label={L.name} placeholder={L.nameHint} value={draft.name} maxLength={120} autoCorrect={false} onChangeText={name => setDraft(value => ({ ...value, name }))}/>
             <View style={{ gap: space.sm }}>
               <Field label={`${L.budget} · ${currency}`} placeholder={L.budgetHint} value={draft.maxBudget} maxLength={30} keyboardType="decimal-pad" ltr

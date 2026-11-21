@@ -86,13 +86,13 @@ export function Button({ title, onPress, variant = 'primary', disabled = false, 
 
 /** Icon-only control. `label` is required: it is the control's accessible name. */
 export function IconButton({ icon, label, onPress, selected, disabled = false, variant = 'plain', size = 20, testID, hint, filled, iconColor }: {
-  icon: IconName; label: string; onPress: () => void; selected?: boolean; disabled?: boolean; variant?: 'plain' | 'outline' | 'onPhoto' | 'tonal';
+  icon: IconName; label: string; onPress: () => void; selected?: boolean; disabled?: boolean; variant?: 'plain' | 'outline' | 'onPhoto' | 'tonal' | 'field';
   size?: number; testID?: string; hint?: string; filled?: boolean; iconColor?: string;
 }) {
   return <Pressable testID={testID} accessibilityRole="button" accessibilityLabel={label} accessibilityHint={hint}
     accessibilityState={selected === undefined ? { disabled } : { disabled, selected }} aria-pressed={selected} disabled={disabled} onPress={onPress}
     hitSlop={4} style={state => [styles.iconButton, variant === 'outline' && styles.iconOutline, variant === 'onPhoto' && [styles.iconOnPhoto, elevation.card],
-      variant === 'tonal' && { backgroundColor: color.bgSelected },
+      variant === 'tonal' && { backgroundColor: color.bgSelected }, variant === 'field' && { backgroundColor: color.bgField },
       (state.pressed || hovered(state)) && { backgroundColor: variant === 'onPhoto' ? color.bgSelected : color.bgMuted },
       disabled && styles.inactive, state.pressed && styles.pressed]}>
     <Icon name={icon} size={size} filled={filled} color={iconColor || (selected ? color.interactive : color.textBrand)}/>
@@ -333,8 +333,11 @@ export function TextLink({ title, onPress, testID, label, icon }: { title: strin
  * Bottom sheet for details that would otherwise lengthen the page: full cancellation
  * schedules, every tax line. A dialog on wide windows. Closing never loses the page.
  */
-export function Sheet({ visible, title, subtitle, onClose, children, testID, closeLabel }: {
+export function Sheet({ visible, title, subtitle, onClose, children, testID, closeLabel, footer, scrollRef }: {
   visible: boolean; title: string; subtitle?: string; onClose: () => void; children: React.ReactNode; testID?: string; closeLabel?: string;
+  /** A fixed action under the scrolling body, such as "Done". */
+  footer?: React.ReactNode;
+  scrollRef?: React.Ref<React.ComponentRef<typeof ScrollView>>;
 }) {
   const { language } = useLanguage();
   const { width, height } = useWindowDimensions();
@@ -353,7 +356,8 @@ export function Sheet({ visible, title, subtitle, onClose, children, testID, clo
           </View>
           <IconButton icon="close" label={closeLabel || (language === 'ar' ? 'إغلاق' : 'Close')} onPress={onClose} testID={testID ? testID + '-close' : undefined}/>
         </Row>
-        <ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.sheetBody}>{children}</ScrollView>
+        <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={styles.sheetBody}>{children}</ScrollView>
+        {footer && <View style={styles.sheetFooterBar}>{footer}</View>}
       </SafeAreaView>
     </View>
   </Modal>;
@@ -410,6 +414,7 @@ const styles = StyleSheet.create({
   sheetHandle: { alignSelf: 'center', marginTop: space.sm, width: 40, height: 4, borderRadius: 2, backgroundColor: color.border },
   sheetHeader: { paddingHorizontal: space.xs, paddingVertical: space.xs, gap: space.sm, borderBottomWidth: 1, borderColor: color.border },
   sheetBody: { padding: space.lg, gap: space.md, paddingBottom: space.xl },
+  sheetFooterBar: { paddingHorizontal: space.lg, paddingVertical: space.sm, borderTopWidth: 1, borderTopColor: color.border },
   bar: { backgroundColor: color.bgSurface, borderTopWidth: 1, borderTopColor: color.border },
   barInner: { width: '100%', alignSelf: 'center', paddingHorizontal: space.lg, paddingVertical: space.sm, gap: space.md, alignItems: 'center' },
   barPrice: { flex: 1, minWidth: 0 },

@@ -1,8 +1,10 @@
 import type { HotelSummary, Money, SearchCriteria } from '../types';
 
-export type ResultSort = 'recommended' | 'lowPrice' | 'highPrice';
-export interface ResultFilters { name: string; maxBudget: string; stars: number[]; sort: ResultSort }
-export const emptyResultFilters = (): ResultFilters => ({ name: '', maxBudget: '', stars: [], sort: 'recommended' });
+export type ResultSort = 'recommended' | 'lowPrice' | 'highPrice' | 'stars';
+/** freeCancel keeps hotels where free cancellation is offered (at the shown price or another rate). */
+export interface ResultFilters { name: string; maxBudget: string; stars: number[]; sort: ResultSort; freeCancel: boolean }
+export const emptyResultFilters = (): ResultFilters => ({ name: '', maxBudget: '', stars: [], sort: 'recommended', freeCancel: false });
+export const offersFreeCancellation = (hotel: HotelSummary) => hotel.freeCancellation === 'lowest' || hotel.freeCancellation === 'available';
 export const copyResultFilters = (value: ResultFilters): ResultFilters => ({ ...value, stars: [...value.stars] });
 
 function decimal(value: unknown): string | null {
@@ -50,7 +52,7 @@ export function suggestedStayBudgets(hotels: readonly HotelSummary[], name: stri
   return [...new Set(candidates)].filter(amount => amount !== ceiling);
 }
 export function activeResultFilters(filters: ResultFilters): number {
-  return Number(Boolean(filters.name.trim())) + Number(Boolean(filters.maxBudget.trim())) + Number(filters.stars.length > 0);
+  return Number(Boolean(filters.name.trim())) + Number(Boolean(filters.maxBudget.trim())) + Number(filters.stars.length > 0) + Number(Boolean(filters.freeCancel));
 }
 export function decideResults(hotels: readonly HotelSummary[], filters: ResultFilters, currency: string) {
   const budget = parseStayBudget(filters.maxBudget), query = searchable(filters.name);
@@ -63,14 +65,19 @@ export function decideResults(hotels: readonly HotelSummary[], filters: ResultFi
   });
   const facetCounts = [0, 0, 0, 0, 0, 0];
   nameAndBudget.forEach(hotel => { facetCounts[starFacet(hotel)]++; });
-  const ranked = nameAndBudget.map((hotel, index) => ({ hotel, index })).filter(({ hotel }) => !selected.size || selected.has(starFacet(hotel)));
-  if (filters.sort !== 'recommended') ranked.sort((left, right) => {
+  const starMatched = nameAndBudget.filter(hotel => !selected.size || selected.has(starFacet(hotel)));
+  const freeCancelCount = starMatched.filter(offersFreeCancellation).length;
+  const ranked = nameAndBudget.map((hotel, index) => ({ hotel, index }))
+    .filter(({ hotel }) => (!selected.size || selected.has(starFacet(hotel))) && (!filters.freeCancel || offersFreeCancellation(hotel)));
+  // Highest rating first; hotels without a supplied rating last; ties keep the supplier's order.
+  if (filters.sort === 'stars') ranked.sort((left, right) => (starFacet(right.hotel) - starFacet(left.hotel)) || left.index - right.index);
+  else if (filters.sort !== 'recommended') ranked.sort((left, right) => {
     const a = priceInCurrency(left.hotel.price, currency), b = priceInCurrency(right.hotel.price, currency);
     if (!a || !b) return a ? -1 : b ? 1 : left.index - right.index;
     const order = compareDecimalAmounts(a.amount, b.amount);
     return (filters.sort === 'highPrice' ? -order : order) || left.index - right.index;
   });
-  return { hotels: ranked.map(item => item.hotel), facetCounts, budget,
+  return { hotels: ranked.map(item => item.hotel), facetCounts, budget, freeCancelCount,
     unknownPriceCount: hotels.filter(hotel => matchesName(hotel) && (!selected.size || selected.has(starFacet(hotel))) && !priceInCurrency(hotel.price, currency)).length };
 }
 export function stayNights(criteria: Pick<SearchCriteria, 'checkin' | 'checkout'> | null): number | null {

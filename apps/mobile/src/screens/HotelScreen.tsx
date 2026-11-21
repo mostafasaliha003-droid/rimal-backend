@@ -240,7 +240,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
               onReview={review} reviewError={reviewError} onRefresh={onRefresh} onEditSearch={() => router.push('/')}/>)}
               {groupLimit < model.groups.length && <Button variant="secondary" title={copy.moreGroups(model.groups.length - groupLimit)} onPress={() => setGroupLimit(value => value + 6)}/>}</>}
         </>}
-      </View> : <HotelAbout key={guideEntry.visit} initialSection={guideEntry.section} hotel={hotel} criteria={criteria} onChooseRooms={() => showSection('rooms')}/>}
+      </View> : <HotelAbout key={guideEntry.visit} hotel={hotel} criteria={criteria}/>}
     </ScrollView>
     {selected.length > 0 && section === 'rooms' ? <View style={[styles.dock, elevation.raised]}><Row style={[styles.dockInner, { maxWidth: desktop ? 1040 : layout.maxReading + 160 }]}>
       <View style={{ flex: 1, minWidth: 0 }}><Txt kind="label" accessibilityLiveRegion="polite">{short.compareCount(selected.length)}</Txt>

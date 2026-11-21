@@ -65,3 +65,13 @@ test('budget shortcuts match returned prices, current name and stars, and the fu
   assert.deepEqual(suggestedStayBudgets([hotel(1, '0'), hotel(2, '1.0000001'), hotel(3, '1000000000000')], '', [], 'USD'), []);
   assert.deepEqual(suggestedStayBudgets([hotel(1, '10'), hotel(2, '10.0')], '', [], 'USD'), []);
 });
+
+test('the free cancellation filter keeps stays that offer it and the star sort puts the highest rating first', () => {
+  const stay = (hid, amount, stars, freeCancellation) => ({ hid, id: String(hid), name: 'Hotel ' + hid, price: { amount, currency: 'USD' }, ...(stars ? { stars } : {}), ...(freeCancellation ? { freeCancellation } : {}) });
+  const hotels = [stay(1, '100', 3, 'lowest'), stay(2, '90', 5, 'none'), stay(3, '80', 0, 'available'), stay(4, '70', 4)];
+  const all = decideResults(hotels, emptyResultFilters(), 'USD');
+  assert.equal(all.freeCancelCount, 2);
+  assert.deepEqual(decideResults(hotels, { ...emptyResultFilters(), freeCancel: true }, 'USD').hotels.map(h => h.hid), [1, 3]);
+  assert.deepEqual(decideResults(hotels, { ...emptyResultFilters(), sort: 'stars' }, 'USD').hotels.map(h => h.hid), [2, 4, 1, 3]);
+  assert.equal(activeResultFilters({ ...emptyResultFilters(), freeCancel: true }), 1);
+});

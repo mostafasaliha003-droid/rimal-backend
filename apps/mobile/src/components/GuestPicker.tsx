@@ -1,10 +1,9 @@
 import React, { useLayoutEffect, useRef, useState } from 'react';
-import { Modal, ScrollView, StyleSheet, TextInput, View } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import type { GuestRoom } from '../types';
 import { useLanguage } from '../i18n';
-import { colors, tokens, ui } from '../theme';
-import { Button, Field, IconButton, Row, Txt } from './Primitives';
+import { colors, tokens } from '../theme';
+import { Button, Field, IconButton, Row, Sheet, Txt } from './Primitives';
 import { guestLine } from './format';
 import { appendRoomWithSameCounts, childAgeInput, firstInvalidChildAge, isValidChildAge, type GuestRoomDraft } from './guestAgeModel';
 
@@ -44,10 +43,10 @@ function Counter({ room, kind, count, onStep }: {
         <Txt kind="caption">{kind === 'adults' ? (language === 'ar' ? '18 سنة فأكثر' : '18 and over') : (language === 'ar' ? 'من 0 إلى 17 سنة' : 'Ages 0–17')}</Txt>
       </View>
       <Row style={{ gap: tokens.space.sm }}>
-        <IconButton variant="outline" icon="minus" label={copy.step(false, kind, room)}
+        <IconButton variant="field" icon="minus" label={copy.step(false, kind, room)}
           disabled={count <= (kind === 'adults' ? 1 : 0)} onPress={() => onStep(-1)}/>
         <Txt accessibilityLiveRegion="polite" kind="subheading" style={styles.count}>{count}</Txt>
-        <IconButton variant="outline" icon="plus" label={copy.step(true, kind, room)}
+        <IconButton variant="field" icon="plus" label={copy.step(true, kind, room)}
           disabled={count >= (kind === 'adults' ? 6 : 4)} onPress={() => onStep(1)}/>
       </Row>
     </Row>
@@ -112,52 +111,44 @@ export default function GuestPicker({ visible, value, onClose, onChange }: {
     onClose();
   };
 
-  return <Modal accessibilityLabel={t('guests')} visible={visible} animationType="slide" onRequestClose={onClose}>
-    <SafeAreaView style={ui.screen}>
-      <View style={styles.header}><Row style={styles.counter}>
-        <Txt kind="heading" accessibilityRole="header" style={styles.flex}>{t('guests')}</Txt>
-        <Button compact variant="quiet" title={t('close')} onPress={onClose}/>
-      </Row></View>
-      <ScrollView ref={scroll} contentContainerStyle={ui.page} keyboardShouldPersistTaps="handled">
-        {draft.map((room, index) => {
-          const number = index + 1;
-          const roomLabel = t('room') + ' ' + number;
-          return <View key={index} testID={'guest-room-' + number} style={ui.card}>
-            <Row style={styles.counter}>
-              <Txt kind="label" accessibilityRole="header" style={styles.flex}>{roomLabel}</Txt>
-              {draft.length > 1 && <Button compact variant="quiet" icon="trash" title={t('removeRoom')} label={t('removeRoom') + ' · ' + roomLabel}
-                onPress={() => setDraft(rooms => rooms.filter((_, position) => position !== index))}/>}
-            </Row>
-            <Counter room={number} kind="adults" count={room.adults} onStep={delta => step(index, 'adults', delta)}/>
-            <Counter room={number} kind="children" count={room.children.length} onStep={delta => step(index, 'children', delta)}/>
-            {room.children.map((age, child) => {
-              const id = ageId(index, child);
-              return <Field key={child} testID={id} errorId={id + '-error'} ltr keyboardType="number-pad" maxLength={2}
-                inputRef={input => { if (input) inputs.current.set(id, input); else inputs.current.delete(id); }}
-                label={copy.ageLabel(number, child + 1)} error={submitted && !isValidChildAge(age) ? copy.ageError(number, child + 1) : undefined}
-                value={String(age)} placeholder="0–17" onChangeText={text => updateRoom(index, current => ({
-                  ...current, children: current.children.map((value, position) => position === child ? childAgeInput(text) : value),
-                }))}/>;
-            })}
-            {draft.length < 9 && (room.adults !== 2 || room.children.length > 0) && <View testID={'guest-repeat-' + number} style={styles.repeat}>
-              <Button compact variant="secondary" title={copy.repeat} label={copy.repeat + ' · ' + roomLabel} onPress={() => appendRoom(index)}/>
-              {room.children.length > 0 && <Txt kind="small">{copy.separateAges}</Txt>}
-            </View>}
-          </View>;
+  return <Sheet visible={visible} testID="guest-picker" title={t('guests')} onClose={onClose} closeLabel={t('close')} scrollRef={scroll}
+    footer={<Button label={t('done')} onPress={submit}
+      title={`${t('done')} · ${guestLine(draft.map(room => ({ adults: room.adults, children: room.children.map(() => 0) })), language)}`}/>}>
+    {draft.map((room, index) => {
+      const number = index + 1;
+      const roomLabel = t('room') + ' ' + number;
+      return <View key={index} testID={'guest-room-' + number} style={[styles.room, index > 0 && styles.roomRule]}>
+        {(draft.length > 1 || index > 0) && <Row style={styles.counter}>
+          <Txt kind="label" accessibilityRole="header" style={styles.flex}>{roomLabel}</Txt>
+          {draft.length > 1 && <Button compact variant="quiet" icon="trash" title={t('removeRoom')} label={t('removeRoom') + ' · ' + roomLabel}
+            onPress={() => setDraft(rooms => rooms.filter((_, position) => position !== index))}/>}
+        </Row>}
+        <Counter room={number} kind="adults" count={room.adults} onStep={delta => step(index, 'adults', delta)}/>
+        <Counter room={number} kind="children" count={room.children.length} onStep={delta => step(index, 'children', delta)}/>
+        {room.children.map((age, child) => {
+          const id = ageId(index, child);
+          return <Field key={child} testID={id} errorId={id + '-error'} ltr keyboardType="number-pad" maxLength={2}
+            inputRef={input => { if (input) inputs.current.set(id, input); else inputs.current.delete(id); }}
+            label={copy.ageLabel(number, child + 1)} error={submitted && !isValidChildAge(age) ? copy.ageError(number, child + 1) : undefined}
+            value={String(age)} placeholder="0–17" onChangeText={text => updateRoom(index, current => ({
+              ...current, children: current.children.map((value, position) => position === child ? childAgeInput(text) : value),
+            }))}/>;
         })}
-        {draft.length < 9 && <Button variant="secondary" icon="plus" title={t('addRoom')} onPress={() => appendRoom()}/>}
-      </ScrollView>
-      <View style={styles.footer}><Button label={t('done')} onPress={submit}
-        title={`${t('done')} · ${guestLine(draft.map(room => ({ adults: room.adults, children: room.children.map(() => 0) })), language)}`}/></View>
-    </SafeAreaView>
-  </Modal>;
+        {draft.length < 9 && (room.adults !== 2 || room.children.length > 0) && <View testID={'guest-repeat-' + number} style={styles.repeat}>
+          <Button compact variant="secondary" title={copy.repeat} label={copy.repeat + ' · ' + roomLabel} onPress={() => appendRoom(index)}/>
+          {room.children.length > 0 && <Txt kind="small">{copy.separateAges}</Txt>}
+        </View>}
+      </View>;
+    })}
+    {draft.length < 9 && <Button variant="secondary" icon="plus" title={t('addRoom')} onPress={() => appendRoom()}/>}
+  </Sheet>;
 }
 
 const styles = StyleSheet.create({
-  header: { paddingHorizontal: tokens.space.xl, paddingVertical: tokens.space.md },
   flex: { flex: 1 },
   counter: { justifyContent: 'space-between' },
   count: { minWidth: 24, textAlign: 'center' },
-  repeat: { borderTopColor: colors.border, borderTopWidth: 1, paddingTop: tokens.space.md, gap: tokens.space.sm },
-  footer: { padding: tokens.space.lg, borderTopWidth: 1, borderTopColor: colors.border },
+  room: { gap: tokens.space.md },
+  roomRule: { borderTopColor: colors.border, borderTopWidth: 1, paddingTop: tokens.space.md },
+  repeat: { gap: tokens.space.sm },
 });
