@@ -6,6 +6,7 @@ import { useLanguage } from '../i18n';
 import { colors, ui } from '../theme';
 import { Button, Field, Row, Txt } from './Primitives';
 import { countryNames } from './countryNames';
+import { flagEmoji } from './flags';
 
 /** Full country name in the interface language (Arabic or English); never a bare code for a known country. */
 export function countryName(code: string, language: string) {
@@ -53,8 +54,13 @@ export default function CountryPicker({ visible, value, onClose, onChange, title
         renderItem={({ item }) => <View>{!!item.header && <Txt kind="label" accessibilityRole="header" style={{ paddingTop: 12, paddingBottom: 6 }}>{item.header}</Txt>}<Pressable accessibilityRole="button" accessibilityLabel={`${item.name}، ${item.other}`} accessibilityState={{ selected: item.code === value }}
           onPress={() => { onChange(item.code); onClose(); setQuery(''); }}
           style={{ paddingVertical: 8, paddingHorizontal: 16, minHeight: 56, justifyContent: 'center', backgroundColor: item.code === value ? colors.softBlue : '#fff', borderBottomColor: colors.border, borderBottomWidth: 1 }}>
-          <Txt kind="label">{item.name}</Txt>
-          {item.other ? <Txt kind="caption">{item.other}</Txt> : null}
+          <Row style={{ gap: 12 }}>
+            <Txt accessible={false} style={{ fontSize: 24, lineHeight: 32 }}>{flagEmoji(item.code)}</Txt>
+            <View style={{ flex: 1, minWidth: 0 }}>
+              <Txt kind="label">{item.name}</Txt>
+              {item.other ? <Txt kind="caption">{item.other}</Txt> : null}
+            </View>
+          </Row>
         </Pressable></View>} />
     </SafeAreaView>
   </Modal>;

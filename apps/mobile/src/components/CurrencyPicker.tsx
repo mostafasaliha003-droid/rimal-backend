@@ -5,6 +5,7 @@ import { useLanguage } from '../i18n';
 import { colors, ui } from '../theme';
 import { Button, Field, Icon, Row, Txt } from './Primitives';
 import { currencyName, findCurrencies } from './currencyCatalog';
+import { currencyFlag } from './flags';
 
 interface CurrencyPickerProps {
   visible: boolean;
@@ -65,6 +66,7 @@ function CurrencyDialog({ value, automatic, onChange, onAutomatic, onClose }: Cu
             accessibilityState={{ selected }} onPress={() => { onChange(code); onClose(); }}
             style={({ pressed }) => [styles.row, selected && styles.selected, pressed && styles.pressed]}>
             <Row style={styles.inner}>
+              <Txt accessible={false} style={{ fontSize: 22, lineHeight: 30 }}>{currencyFlag(code)}</Txt>
               <View style={styles.name}><Txt kind="label">{name}</Txt></View>
               <Txt kind="label" style={styles.code}>{code}</Txt>
               {selected && <Icon name="check" size={17} color={colors.violetInk}/>}

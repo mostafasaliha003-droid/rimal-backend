@@ -31,10 +31,8 @@ function LanguageChoice() {
   const { language, setLanguage } = useLanguage();
   const ar = language === 'ar';
   return <View testID="account-language" style={accountStyles.menu}>
-    <View style={{ paddingHorizontal: 14, paddingTop: 12, gap: 2 }}>
-      <Txt kind="label" accessibilityRole="header">{ar ? 'اللغة · Language' : 'Language · اللغة'}</Txt>
-    </View>
-    <Row style={{ padding: 10, gap: 8 }} accessibilityRole="radiogroup">
+    <Row style={{ paddingHorizontal: 12, paddingVertical: 8, gap: 8 }} accessibilityRole="radiogroup" accessibilityLabel={ar ? 'اللغة · Language' : 'Language · اللغة'}>
+      <Icon name="globe" size={18} color={color.textSecondary}/>
       {(['ar', 'en'] as const).map(code => <View key={code} style={{ flex: 1 }}>
         <Chip role="radio" testID={'account-language-' + code} selected={language === code} label={code === 'ar' ? 'العربية' : 'English'}
           onPress={() => setLanguage(code)}/>
@@ -115,18 +113,19 @@ export default function AccountScreen() {
   const visibleError=error||(status==='signedOut'&&sessionError&&!restorePending?t('authError'):'');
   return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}>
     <Txt kind="heading" accessibilityRole="header">{t('account')}</Txt>
+    {status==='signedOut'&&<LanguageChoice/>}
     {status==='signedOut'&&restorePending&&<StatePanel title={language==='ar'?'تعذّر التحقق من جلستك':'We couldn’t verify your session'}
       body={language==='ar'?'أعد المحاولة لاستعادة حسابك على هذا الجهاز.':'Try again to restore your account on this device.'}
       retry={()=>void refresh()}/>}
     {status==='loading'?<StatePanel title={t('accountChecking')} busy/>:user?<>
       <View testID="signed-in-profile" style={accountStyles.profile}>
-        <Row><AccountAvatar name={user.name} large/><View style={{flex:1,minWidth:0,gap:2}}>
-          <Txt kind="label" accessibilityLiveRegion="polite" style={{color:colors.pistachio}}>{language==='ar'?'مسجّل الدخول':'Signed in'}</Txt>
-          <Txt kind="heading" style={{color:colors.surface}}>{user.name}</Txt>
-          <Txt kind="small" style={{color:colors.surface,writingDirection:'ltr'}}>{user.email}</Txt>
+        <Row><AccountAvatar name={user.name} large/><View style={{flex:1,minWidth:0,gap:0}}>
+          <Txt kind="subheading" numberOfLines={1}>{user.name}</Txt>
+          <Txt kind="small" numberOfLines={1} style={{writingDirection:'ltr',textAlign:language==='ar'?'right':'left'}}>{user.email}</Txt>
+          <Row style={{gap:4}}><Icon name="checkCircle" size={13} color={colors.success}/><Txt kind="caption" accessibilityLiveRegion="polite" tone="success">{language==='ar'?'مسجّل الدخول':'Signed in'}</Txt></Row>
         </View></Row>
-        <View testID="account-explore" style={accountStyles.explore}><Button variant="secondary" compact title={language==='ar'?'استكشف الفنادق':'Explore hotels'} onPress={()=>router.navigate('/')}/></View>
       </View>
+      <LanguageChoice/>
       <AccountMembership key={sessionRevision}/>
       <View style={accountStyles.menu}>
         <AccountLink icon="trips" title={t('bookingsTitle')} onPress={()=>router.navigate('/bookings')}/>
@@ -136,7 +135,6 @@ export default function AccountScreen() {
         <View style={ui.rule}/><AccountLink icon="info" title={language === 'ar' ? 'الإشعارات' : 'Notifications'} onPress={()=>router.push('/notifications')}/>
         <View style={ui.rule}/><AccountLink icon="account" title={t('accountDeletion')} onPress={()=>router.push('/account-deletion')}/>
       </View>
-      <LanguageChoice/>
       <Txt kind="small">{t('accountSecurity')}</Txt>
       <Button variant="quiet" title={t('signOut')} busy={busy} onPress={()=>{setBusy(true);void signOut().catch(()=>setError(t('authError'))).finally(()=>setBusy(false));}}/>
     </>:<View style={ui.card}>
@@ -153,12 +151,11 @@ export default function AccountScreen() {
       <View style={ui.rule}/><AccountLink icon="info" title={language === 'ar' ? 'الإشعارات' : 'Notifications'} onPress={()=>router.push('/notifications')}/>
       <View style={ui.rule}/><AccountLink icon="account" title={t('accountDeletion')} onPress={()=>router.push('/account-deletion')}/>
     </View>}
-    {status==='signedOut'&&<LanguageChoice/>}
   </ScrollView></KeyboardAvoidingView></SafeAreaView>;
 }
 
 const accountStyles = StyleSheet.create({
-  profile: { borderRadius: 16, padding: 16, gap: 14, backgroundColor: colors.primary },
+  profile: { borderRadius: 16, paddingHorizontal: 14, paddingVertical: 12, backgroundColor: color.bgSurface, borderColor: color.borderCard, borderWidth: 1 },
   explore: { alignSelf: 'stretch' },
   member: { borderRadius: 16, backgroundColor: colors.pistachioMist, paddingVertical: 4, paddingHorizontal: 14 },
   memberIcon: { width: 38, height: 38, borderRadius: 19, backgroundColor: colors.pistachio, alignItems: 'center', justifyContent: 'center' },

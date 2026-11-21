@@ -101,35 +101,41 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
   const priceBlock = <View testID={`hotel-price-${hotel.hid}`} style={[styles.price, { alignItems: rtl ? 'flex-start' : 'flex-end' }]}>
     {priceText ? <>
       <Txt kind="price" align="end" accessibilityLabel={`${priceText} · ${ar ? 'الإجمالي' : 'Total'} · ${stay}`} style={styles.amount}>{priceText}</Txt>
-      <Txt kind="caption" align="end" numberOfLines={2} testID={`hotel-covers-${hotel.hid}`}>{covers}{perNight ? (ar ? ` · ${perNight} لليلة` : ` · ${perNight}/night`) : ''}</Txt>
+      <Txt kind="caption" align="end" numberOfLines={1} testID={`hotel-covers-${hotel.hid}`}>{covers}</Txt>
+      {!!perNight && <Txt kind="micro" align="end" numberOfLines={1}>{ar ? `${perNight} لليلة` : `${perNight} / night`}</Txt>}
     </> : <>
       <Txt kind="caption" align="end">{stay}</Txt>
       <Txt kind="small" align="end">{ar ? 'لا يتوفر سعر لهذه التواريخ' : 'No price for these dates'}</Txt>
     </>}
   </View>;
 
-  // Decision facts beside the price: free cancellation (stated exactly) and a recent visit.
+  // Free cancellation sits beside the stars: 'lowest' is the shown price itself, 'available' another rate.
   const cancel = priceText ? hotel.freeCancellation : undefined;
-  const fact = (icon: 'checkCircle' | 'history', text: string, tint: string, testID?: string) => <Row testID={testID} style={{ gap: space.xs }}>
-    <Icon name={icon} size={14} color={tint}/><Txt kind="caption" numberOfLines={1} style={{ color: tint, flexShrink: 1, fontFamily: fonts.medium }}>{text}</Txt></Row>;
-  const facts = <>
-    {cancel === 'lowest' && fact('checkCircle', ar ? 'إلغاء مجاني لهذا السعر' : 'Free cancellation at this price', color.success, `hotel-free-cancel-${hotel.hid}`)}
-    {cancel === 'available' && fact('checkCircle', ar ? 'يتوفر خيار بإلغاء مجاني' : 'Free cancellation option', color.success, `hotel-free-cancel-${hotel.hid}`)}
-    {recentlyViewed && fact('history', ar ? 'شاهدته مؤخراً' : 'Recently viewed', color.info)}
-  </>;
+  const fact = (icon: 'checkCircle' | 'history', text: string, tint: string, testID?: string, label?: string) => <Row testID={testID} accessibilityLabel={label} style={{ gap: space.xxs + 1, flexShrink: 1 }}>
+    <Icon name={icon} size={13} color={tint}/><Txt kind="caption" numberOfLines={1} style={{ color: tint, flexShrink: 1, fontFamily: fonts.medium }}>{text}</Txt></Row>;
+  const cancelFact = cancel === 'lowest' ? fact('checkCircle', ar ? 'إلغاء مجاني' : 'Free cancellation', color.success, `hotel-free-cancel-${hotel.hid}`, ar ? 'إلغاء مجاني لهذا السعر' : 'Free cancellation at this price')
+    : cancel === 'available' ? fact('checkCircle', ar ? 'خيار إلغاء مجاني' : 'Free-cancel option', color.success, `hotel-free-cancel-${hotel.hid}`, ar ? 'يتوفر خيار بإلغاء مجاني بسعر آخر' : 'Free cancellation available at another rate') : null;
+  // The street and city are enough on a card; the country is the same for the whole list.
+  const parts = (hotel.address || '').split(/\s*[,،]\s*/).filter(Boolean);
+  const place = (parts.length > 2 ? parts.slice(0, -1) : parts).join(ar ? '، ' : ', ');
 
   const summary = <>
-    <Row style={{ gap: space.sm, justifyContent: 'space-between' }}>
+    <Row style={{ gap: space.sm, minHeight: 20 }}>
       <StarRating stars={hotel.stars} size={13}/>
-      {compareToggle}
+      {cancelFact}
     </Row>
-    <Txt kind="subheading" numberOfLines={2} accessibilityRole="header" style={{ fontSize: 16 }}>{hotel.name}</Txt>
-    {!!hotel.address && <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
+    <Txt kind="subheading" numberOfLines={2} accessibilityRole="header" style={{ fontSize: 16, lineHeight: ar ? 26 : 22 }}>{hotel.name}</Txt>
+    {!!place && <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
       <View style={{ paddingTop: 2 }}><Icon name="pin" size={14} color={color.textSecondary}/></View>
-      <Txt kind="caption" numberOfLines={1} style={{ flex: 1 }}>{hotel.address}</Txt></Row>}
-    {facts}
+      <Txt kind="caption" numberOfLines={1} accessibilityLabel={hotel.address} style={{ flex: 1 }}>{place}</Txt></Row>}
   </>;
-  const bottom = priceBlock;
+  const bottom = <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: space.sm }}>
+    <View style={{ gap: 2, alignItems: rtl ? 'flex-end' : 'flex-start', flexShrink: 1 }}>
+      {recentlyViewed && fact('history', ar ? 'شاهدته مؤخراً' : 'Recently viewed', color.info)}
+      {compareToggle}
+    </View>
+    {priceBlock}
+  </Row>;
 
   if (variant === 'photo') return <View testID={`hotel-card-${hotel.hid}`} style={[styles.card, recentlyViewed && styles.viewed]}>
     <Pressable testID={`hotel-open-${hotel.hid}`} accessibilityRole="button" accessibilityHint={t('viewStay')}
@@ -166,8 +172,8 @@ const styles = StyleSheet.create({
   card: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.borderCard, ...elevation.card },
   viewed: { borderColor: color.infoBorder, borderWidth: 1.5 },
   pressed: { backgroundColor: color.bgMuted },
-  details: { paddingHorizontal: space.md, paddingVertical: space.sm + 2, gap: space.xxs + 1 },
-  thumb: { minHeight: 150, backgroundColor: color.photoPlaceholder },
+  details: { paddingHorizontal: space.md, paddingVertical: space.sm, gap: space.xxs },
+  thumb: { minHeight: 148, backgroundColor: color.photoPlaceholder },
   thumbOverlay: { position: 'absolute', top: space.sm },
   overlay: { position: 'absolute', top: space.sm },
   heart: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.95)', margin: 2 },
@@ -175,7 +181,7 @@ const styles = StyleSheet.create({
   compared: { backgroundColor: color.bgSelected },
   box: { width: 15, height: 15, borderRadius: 4, borderWidth: 1.5, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
   boxChecked: { backgroundColor: color.interactive, borderColor: color.interactive },
-  price: { gap: 0, marginTop: space.xxs },
+  price: { gap: 0, flexShrink: 0 },
   amount: { writingDirection: 'ltr', fontSize: 20, lineHeight: 28 },
   notice: { color: color.danger, paddingHorizontal: space.md, paddingBottom: space.sm },
 });

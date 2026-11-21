@@ -179,27 +179,28 @@ function CheckoutSummary({ selection, offer, amount, showAmount = true }: { sele
   const fees = facts.fees === rateCopy(language).included ? null : facts.fees;
   return <Card testID="checkout-summary" style={styles.card}>
     <View style={{ gap: 1 }}>
-      <Txt kind="subheading" accessibilityRole="header" numberOfLines={2}>{selection.review.hotelName}</Txt>
+      <Txt kind="bodyStrong" accessibilityRole="header" numberOfLines={2} style={{ fontFamily: fonts.bold }}>{selection.review.hotelName}</Txt>
       <Txt kind="caption">{stay}</Txt>
     </View>
     <InfoRow icon="bed">
-      <Txt kind="label" tone="primary">{roomName}</Txt>
+      <Txt kind="label" tone="primary">{roomName}<Txt kind="small" tone="secondary"> · {facts.meal}</Txt></Txt>
       {/* The supplier's own name is the booking identity the hotel sees; it is labelled, not repeated. */}
       {roomName !== offer.name && <Txt kind="caption" numberOfLines={2}>{ar ? 'الاسم لدى الفندق: ' : 'Hotel’s name: '}<Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt></Txt>}
-      <Txt kind="caption" tone="primary">{facts.meal}</Txt>
     </InfoRow>
-    <InfoRow icon={free ? 'checkCircle' : facts.decision.nonRefundable ? 'alertCircle' : 'clock'} tone={cancelTone} testID="checkout-cancellation">
-      <Txt kind="small" style={{ color: cancelTone, fontFamily: fonts.medium }}>{facts.decision.headline}</Txt>
-    </InfoRow>
-    {fees && <InfoRow icon="hotel"><Txt kind="small" tone="primary">{ar ? `يُدفع في الفندق (غير مشمول): ${fees}` : `Due at the hotel (not included): ${fees}`}</Txt></InfoRow>}
+    <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: space.sm }}>
+      <View style={{ flex: 1, minWidth: 0 }}><InfoRow icon={free ? 'checkCircle' : facts.decision.nonRefundable ? 'alertCircle' : 'clock'} tone={cancelTone} testID="checkout-cancellation">
+        <Txt kind="small" style={{ color: cancelTone, fontFamily: fonts.medium }}>{facts.decision.headline}</Txt>
+      </InfoRow></View>
+      <TextLink testID="checkout-cancellation-details" title={ar ? 'الجدول' : 'Schedule'} label={ar ? 'جدول الإلغاء' : 'Cancellation schedule'} onPress={() => setSheet('cancellation')}/>
+    </Row>
+    <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: space.sm }}>
+      <View style={{ flex: 1, minWidth: 0 }}><InfoRow icon="hotel"><Txt kind="small" tone="primary">{fees ? (ar ? `يُدفع في الفندق (غير مشمول): ${fees}` : `Due at the hotel (not included): ${fees}`) : (ar ? 'الضرائب والرسوم مشمولة' : 'Taxes and fees included')}</Txt></InfoRow></View>
+      <TextLink testID="checkout-fees-details" title={ar ? 'التفاصيل' : 'Details'} label={ar ? 'الضرائب والرسوم' : 'Taxes and fees'} onPress={() => setSheet('fees')}/>
+    </Row>
     {showAmount && <><Divider/><Row style={{ justifyContent: 'space-between', alignItems: 'baseline', gap: space.md }}>
       <Txt kind="label" tone="primary" style={{ flexShrink: 1 }}>{copy.charge}</Txt>
       <Txt testID="checkout-amount" kind="subheading" style={{ writingDirection: 'ltr' }}>{formatPrice(amount) || copy.offer}</Txt>
     </Row></>}
-    <Row style={{ gap: space.lg, flexWrap: 'wrap' }}>
-      <TextLink testID="checkout-cancellation-details" title={ar ? 'جدول الإلغاء' : 'Cancellation schedule'} onPress={() => setSheet('cancellation')}/>
-      <TextLink testID="checkout-fees-details" title={ar ? 'الضرائب والرسوم' : 'Taxes and fees'} onPress={() => setSheet('fees')}/>
-    </Row>
     <Sheet visible={sheet === 'cancellation'} testID="checkout-cancellation-sheet" title={ar ? 'الإلغاء' : 'Cancellation'} subtitle={roomName} onClose={() => setSheet(null)}>
       <Cancellation offer={offer} defaultExpanded/>
     </Sheet>
@@ -388,7 +389,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
         {residency && <View style={{gap:space.xs}}>
           <Txt kind="label">{t('residency')}</Txt>
           <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${nationality ? countryName(nationality, language) : t('residencyChoose')}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
-            style={[styles.select, { borderColor: nationalityMissing ? color.danger : repricing && !checking ? color.warning : color.borderControl }]}>
+            style={[styles.select, { borderColor: nationalityMissing ? color.danger : repricing && !checking ? color.warning : 'transparent' }]}>
             <Row style={{justifyContent:'space-between'}}><View style={{flex:1,minWidth:0}}>{nationality ? <><Txt kind="bodyStrong" numberOfLines={1}>{countryName(nationality, language)}</Txt><Txt kind="caption" numberOfLines={1}>{countryNameSecondary(nationality, language)}</Txt></> : <Txt tone="secondary">{t('residencyChoose')}</Txt>}</View><Icon name="chevronDown" size={18}/></Row>
           </Pressable>
           {nationalityMissing ? <Txt kind="small" accessibilityRole="alert" tone="danger">{t('residencyError')}</Txt> : <Txt kind="caption">{t('residencyNote')}</Txt>}
@@ -493,7 +494,7 @@ export function CheckoutProgress({ status }: { status: CheckoutStatus }) {
 const styles = StyleSheet.create({
   page: { gap: space.md, paddingTop: space.md },
   card: { gap: space.md, padding: space.md, borderRadius: radius.lg },
-  select: { minHeight: 52, borderWidth: 1, borderRadius: radius.md, paddingHorizontal: space.md, justifyContent: 'center', backgroundColor: color.bgSurface },
+  select: { minHeight: 52, borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: space.md, justifyContent: 'center', backgroundColor: color.bgField },
   group: { gap: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.border },
   groupHeader: { minHeight: 44, justifyContent: 'center' },
   consent: { borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSubtle },

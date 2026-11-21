@@ -72,11 +72,11 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
           disabled={!multiple} onPress={() => { if (!active) haptic('select'); onSelect(entry); }} style={state => [styles.summary, (state.pressed || hovered(state)) && multiple && !active && { backgroundColor: color.bgMuted }]}>
           <Row style={{ gap: space.sm, alignItems: 'flex-start', justifyContent: 'space-between', ...(narrow && { flexDirection: 'column', alignItems: 'stretch' }) }}>
             <View style={{ flex: 1, minWidth: 0, gap: space.xxs }}>
-              <Row style={{ gap: space.xs, alignItems: 'center' }}>
+              <Row style={{ gap: space.xs, alignItems: 'center', flexWrap: 'wrap' }}>
                 <Icon name={offer.meal && offer.meal.toLowerCase() !== 'nomeal' ? 'coffee' : 'bed'} size={16} color={color.textBrand}/>
                 <Txt kind="bodyStrong" style={{ flexShrink: 1 }}>{title}</Txt>
+                {cheapest && <Badge tone="success" label={ar ? 'الأقل سعراً' : 'Lowest price'}/>}
               </Row>
-              {cheapest && <Badge tone="success" label={ar ? 'أقل سعر لهذه الغرفة' : 'Lowest price for this room'}/>}
             </View>
             <View style={{ alignItems: narrow ? 'flex-start' : 'flex-end' }}>
               <Txt kind="subheading" style={styles.amount}>{price}</Txt>
@@ -108,7 +108,7 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
             <TextLink testID={`terms-rate-${number}`} title={ar ? 'الشروط' : 'Terms'} label={`${rate.terms} · ${title} · ${shownName}`} onPress={() => setTermsKey(entry.key)}/>
           </Row>
           <View testID={`review-rate-${number}`}>
-            <Button compact title={ar ? 'اختر' : 'Select'} label={reviewLabel} disabled={!canReview} onPress={() => onReview(entry)}/>
+            <Button compact variant={active || !multiple ? 'primary' : 'tonal'} title={ar ? 'اختر' : 'Select'} label={reviewLabel} disabled={!canReview} onPress={() => onReview(entry)}/>
           </View>
         </Row>
         {!canReview && <View style={styles.recovery}>
@@ -130,9 +130,9 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
 const styles = StyleSheet.create({
   rate: { borderTopWidth: 1, borderTopColor: color.border },
   rateActive: { backgroundColor: color.bgMuted },
-  summary: { paddingHorizontal: space.md, paddingTop: space.sm + 2, paddingBottom: space.xs, gap: space.xs },
+  summary: { paddingHorizontal: space.md, paddingTop: space.sm, paddingBottom: space.xxs, gap: space.xxs + 1 },
   amount: { writingDirection: 'ltr' },
-  actions: { justifyContent: 'space-between', gap: space.sm, paddingHorizontal: space.md, paddingBottom: space.sm },
+  actions: { justifyContent: 'space-between', gap: space.sm, paddingHorizontal: space.md, paddingBottom: space.sm, paddingTop: space.xxs },
   compare: { minHeight: 32, justifyContent: 'center' },
   box: { width: 18, height: 18, borderWidth: 1.5, borderColor: color.borderControl, borderRadius: 4, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },
   boxOn: { backgroundColor: color.interactive, borderColor: color.interactive },
