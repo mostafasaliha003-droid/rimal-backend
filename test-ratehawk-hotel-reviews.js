@@ -71,7 +71,7 @@ test('summary route validates the hotel list and language',async()=>{
     app.use('/hotels',require('./services/ratehawkHotelReviewRoutes')({reviews:{load:async()=>({status:'empty'}),summaries:async(ids,language)=>{seen.push([ids,language]);return{status:'ready',summaries:{}};}},limiter:(_q,_s,next)=>next(),env:{}}));
     const server=app.listen(0);const base='http://127.0.0.1:'+server.address().port;
     try{
-        assert.equal((await fetch(base+'/hotels/reviews/summary?hids=1,2,2&language=ar')).status,200);assert.deepEqual(seen,[[['1','2'],'ar']]);
+        const ok=await fetch(base+'/hotels/reviews/summary?hids=1,2,2&language=ar');assert.equal(ok.status,200);assert.equal((await ok.json()).success,true);assert.deepEqual(seen,[[['1','2'],'ar']]);
         assert.equal((await fetch(base+'/hotels/reviews/summary?hids=x&language=ar')).status,400);
         assert.equal((await fetch(base+'/hotels/reviews/summary?hids=1&language=fr')).status,400);
         assert.equal((await fetch(base+'/hotels/reviews/summary?hids='+Array.from({length:51},(_,i)=>i+1).join(','))).status,400);
