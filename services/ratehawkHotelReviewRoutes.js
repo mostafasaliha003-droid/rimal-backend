@@ -8,8 +8,8 @@ module.exports = function createRatehawkHotelReviewRoutes({ reviews, limiter, en
         if (!hids.length || hids.length > 50 || !hids.every(value => /^\d{1,10}$/.test(value)) || !['ar', 'en', 'es'].includes(language)) {
             return res.status(400).json({ status: 'invalid_request' });
         }
-        if (typeof reviews.summaries !== 'function') return res.json({ status: 'unavailable', summaries: {}, pending: hids });
-        return res.json(await reviews.summaries([...new Set(hids)], language));
+        if (typeof reviews.summaries !== 'function') return res.json({ success: true, status: 'unavailable', summaries: {}, pending: hids });
+        return res.json({ success: true, ...(await reviews.summaries([...new Set(hids)], language)) });
     });
     router.get('/:hid/reviews/ratehawk', limiter, async (req, res) => {
         res.set('Cache-Control', 'no-store');
