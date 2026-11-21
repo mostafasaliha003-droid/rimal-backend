@@ -8,6 +8,7 @@ export const COMPARISON_LIMIT = 3;
 export interface ComparisonHotel {
   hid: number; name: string; address?: string; stars?: number; imageUrl?: string; images?: string[];
   price: Money | null; capturedAt: number; priceExpired?: boolean;
+  freeCancellation?: 'lowest' | 'available' | 'none';
 }
 export interface ComparisonSelection { contextKey: string; items: ComparisonHotel[] }
 export type ComparisonOutcome = 'added' | 'removed' | 'limit' | 'context_changed' | 'unavailable';
@@ -32,7 +33,8 @@ function snapshot(hotel: HotelSummary, currency: string, now: number): Compariso
   const address = cleanText(hotel.address, 1000), photos = images(hotel.imageUrl, hotel.images).slice(0, 8);
   return freeze({ hid, name, ...(address ? { address } : {}),
     ...(Number.isInteger(hotel.stars) && Number(hotel.stars) >= 1 && Number(hotel.stars) <= 5 ? { stars: hotel.stars } : {}),
-    ...(photos.length ? { imageUrl: photos[0], images: photos } : {}), price, capturedAt: now });
+    ...(photos.length ? { imageUrl: photos[0], images: photos } : {}), price, capturedAt: now,
+    ...(hotel.freeCancellation === 'lowest' || hotel.freeCancellation === 'available' || hotel.freeCancellation === 'none' ? { freeCancellation: hotel.freeCancellation } : {}) });
 }
 
 // Selection holds presentation fields only: no rates, signed offers, account

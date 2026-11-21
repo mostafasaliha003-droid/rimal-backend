@@ -29,6 +29,8 @@ import { useToast } from '../components/Toast';
 import { useChargeMoney } from '../components/ChargeCurrency';
 import { localizedRoomName } from '../components/roomNameModel';
 import { hotelPreview, type HotelPreview } from '../components/hotelPreview';
+import GuestRatingBadge from '../components/GuestRatingBadge';
+import { useGuestRatings } from '../components/useGuestRatings';
 
 type Section = 'rooms' | 'about';
 
@@ -110,6 +112,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
   const router = useRouter(); const { gutter, desktop } = useLayout();
   const toast = useToast(); const reduced = useReducedMotion();
   const stayEditor = useStayEditor();
+  const ratingIds = useMemo(() => [hotel.hid], [hotel.hid]);
   const short = rateCopy(language);
   const [section, setSection] = useState<Section>('rooms');
   const [guideEntry, setGuideEntry] = useState<{ section: 'arrival' | 'location'; visit: number }>({ section: 'arrival', visit: 0 });
@@ -171,6 +174,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
     Animated.timing(pulse, { toValue: 1, duration: 260, useNativeDriver: Platform.OS !== 'web' }).start();
   }, [model.matchingOffers, pulse, reduced]);
 
+  const hotelRating = useGuestRatings(ratingIds, language).get(hotel.hid);
   return <>
     <ScrollView ref={scroller} stickyHeaderIndices={[1]} scrollEventThrottle={32}
       onScroll={event => { position.current = event.nativeEvent.contentOffset.y; }}
@@ -180,7 +184,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
         <HotelGallery images={hotel.images} name={hotel.name}/>
         <Row style={{ alignItems: 'flex-start', gap: space.md }}>
           <View style={{ flex: 1, minWidth: 0, gap: space.xxs }}>
-            <StarRating stars={hotel.stars}/>
+            <Row style={{ gap: space.sm, flexWrap: 'wrap' }}><StarRating stars={hotel.stars}/><GuestRatingBadge rating={hotelRating} showCount testID="hotel-rating"/></Row>
             <Txt accessibilityRole="header" accessibilityLabel={hotel.name} kind="heading" testID="hotel-name" numberOfLines={2} style={{ fontSize: 19, lineHeight: ar ? 30 : 26 }}>{hotel.name}</Txt>
             {hotel.address && <Pressable testID="hotel-location-link" accessibilityRole="button" accessibilityHint={ar ? 'يعرض موقع الفندق على الخريطة' : 'Shows the hotel location on the map'}
               onPress={showLocation} style={{ minHeight: 40, justifyContent: 'center' }}>

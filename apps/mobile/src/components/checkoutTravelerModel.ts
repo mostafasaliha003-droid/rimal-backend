@@ -22,6 +22,15 @@ export function createTravelerDraft(occupancy: GuestRoom[]): CheckoutTravelerDra
       ...room.children.map(age => ({ firstName: '', lastName: '', is_child: true, age })),
     ] })) };
 }
+/**
+ * Families usually share a family name, so the lead guest's is offered to the other travelers.
+ * Only a field that is empty, or still holds the name carried before, follows the lead guest; a
+ * name the traveler typed is never overwritten. The lead guest's own slot is the contact name.
+ */
+export function carryFamilyName(draft: CheckoutTravelerDraft, previous: string, next: string): CheckoutTravelerDraft {
+  return { ...draft, rooms: draft.rooms.map((room, r) => ({ guests: room.guests.map((person, p) =>
+    (r === 0 && p === 0) || (person.lastName !== '' && person.lastName !== previous) ? person : { ...person, lastName: next }) })) };
+}
 export function normalizeCheckoutPhone(value: string): string {
   return value.trim().replace(/[\u0660-\u0669\u06f0-\u06f9]/g, char => {
     const code = char.charCodeAt(0); return String(code - (code >= 0x06f0 ? 0x06f0 : 0x0660));

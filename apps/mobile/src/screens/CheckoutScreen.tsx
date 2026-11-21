@@ -14,7 +14,7 @@ import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import { useCheckoutSession } from '../components/useCheckoutSession';
 import type { CheckoutQuoteView, CheckoutSelection } from '../components/checkoutSessionModel';
-import { createTravelerDraft, validateTravelerDraft, type TravelerError } from '../components/checkoutTravelerModel';
+import { carryFamilyName, createTravelerDraft, validateTravelerDraft, type TravelerError } from '../components/checkoutTravelerModel';
 import { ActionBar, Badge, Button, Card, DisclosureMark, Divider, Field, Icon, InfoRow, Notice, Row, Sheet, StatePanel, TextLink, Txt } from '../components/Primitives';
 import Taxes from '../components/Taxes';
 import Cancellation from '../components/Cancellation';
@@ -382,7 +382,18 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
   const side = !narrow && fontScale <= 1.3;
   const error = (key: string) => { const code=errors[key]; return !code || code === 'required' ? undefined : code === 'name' ? copy.errorName : code === 'email' ? copy.errorEmail : code === 'phone' ? copy.errorPhone : code === 'requests' ? copy.errorRequests : copy.invalidOccupancy; };
   const missing = (key: string) => errors[key] === 'required';
-  const contact = (key: keyof typeof draft.guest, value: string) => { setDraft({ ...draft,guest:{...draft.guest,[key]:value} }); setErrors(current=>{const next={...current};delete next[key];return next;}); };
+  // The lead guest's family name is carried to the other travelers (only empty or still-carried fields).
+  const contact = (key: keyof typeof draft.guest, value: string) => {
+    const updated = { ...draft, guest: { ...draft.guest, [key]: value } };
+    const carried = key === 'lastName' ? carryFamilyName(updated, draft.guest.lastName, value) : updated;
+    setDraft(carried);
+    // A traveler field the carried name just filled no longer needs its 'required' mark.
+    setErrors(current => { const next = { ...current }; delete next[key];
+      carried.rooms.forEach((room, r) => room.guests.forEach((person, p) => {
+        if (person.lastName && person.lastName !== draft.rooms[r].guests[p].lastName) delete next[`traveler-${r}-${p}-lastName`];
+      }));
+      return next; });
+  };
   const traveler = (r: number,p: number,key: 'firstName'|'lastName',value: string) => { setDraft({ ...draft, rooms:draft.rooms.map((room,ri)=>ri===r?{guests:room.guests.map((person,pi)=>pi===p?{...person,[key]:value}:person)}:room) }); setErrors(current=>{const next={...current};delete next[`traveler-${r}-${p}-${key}`];return next;}); };
   const submit = () => {
     const checked = validateTravelerDraft(draft, occupancy);

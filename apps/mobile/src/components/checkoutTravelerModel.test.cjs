@@ -18,3 +18,17 @@ test('guest names follow RateHawk: letters in any script, spaces and \' - , . �
   for(const bad of ['محمد2','Ali!','-Ali','A_B','Ali@x']){const d=filled();d.guest.firstName=bad;assert.equal(validateTravelerDraft(d,occupancy).errors.firstName,'name',bad);}
   const d=filled();d.rooms[0].guests[1].firstName='Guest 2';assert.equal(validateTravelerDraft(d,occupancy).errors['traveler-0-1-firstName'],'name');
 });
+
+test('the lead guest family name fills empty traveler fields and never overwrites a typed one', () => {
+  const { createTravelerDraft, carryFamilyName } = exportsHere;
+  const draft = createTravelerDraft([{ adults: 1, children: [8] }, { adults: 1, children: [] }]);
+  draft.rooms[1].guests[0].lastName = 'Haddad-Saleh';
+  const once = carryFamilyName(draft, '', 'Haddad');
+  assert.equal(once.rooms[0].guests[0].lastName, '');
+  assert.equal(once.rooms[0].guests[1].lastName, 'Haddad');
+  assert.equal(once.rooms[1].guests[0].lastName, 'Haddad-Saleh');
+  const twice = carryFamilyName(once, 'Haddad', 'Haddadin');
+  assert.equal(twice.rooms[0].guests[1].lastName, 'Haddadin');
+  assert.equal(twice.rooms[1].guests[0].lastName, 'Haddad-Saleh');
+  assert.equal(draft.rooms[0].guests[1].lastName, '');
+});

@@ -12,6 +12,7 @@ import { color, elevation, layout, radius, space, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
 import HotelMapLink from '../components/HotelMapLink';
+import { useGuestRatings } from '../components/useGuestRatings';
 import HotelCard from '../components/HotelCard';
 import ApiState from '../components/ApiState';
 import { Button, Card, Chip, Field, Icon, Notice, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
@@ -133,6 +134,9 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const mapLabel = ar ? 'مواقع الفنادق، يفتح كل موقع في تطبيق الخرائط' : 'Hotel locations; each opens in your maps app';
   const hasMap = decision.hotels.some(hotel => hotel.location);
   const title = savedOnly ? t('savedOfferTitle') : destinationName || t('results');
+  // Guest ratings for the hotels shown (and the next few), fetched once per session.
+  const ratingIds = useMemo(() => decision.hotels.slice(0, limit + 10).map(hotel => hotel.hid), [decision.hotels, limit]);
+  const ratings = useGuestRatings(ratingIds, language);
   const sortName = (sort: ResultSort) => sort === 'stars' ? (ar ? 'الأعلى تصنيفاً' : 'Highest star rating') : t(sort);
   const sortLabel = applied.sort === 'recommended' ? t('sort') : sortName(applied.sort);
   const freeCancelLabel = ar ? 'إلغاء مجاني' : 'Free cancellation';
@@ -219,13 +223,15 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const openedHotel = (hid: number) => { viewedHotels.add(hid); markViewed(value => value + 1); };
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
     <BrandHeader back/>
-    <FlatList ref={listRef} key={`results-${columns}-${variant}`} numColumns={columns}
+    {/* Ratings arrive after the list; extraData lets the visible cards pick them up. */}
+    <FlatList ref={listRef} key={`results-${columns}-${variant}`} numColumns={columns} extraData={ratings}
       columnWrapperStyle={columns > 1 ? { gap: space.md, flexDirection: rtl ? 'row-reverse' : 'row' } : undefined}
       data={content ? [] : decision.hotels.slice(0, limit)} keyExtractor={hotel => String(hotel.hid)}
       contentContainerStyle={[styles.list, { paddingHorizontal: gutter, maxWidth: desktop ? layout.maxContent : layout.maxReading + 160 }]}
       onScroll={event => { scrollPosition.current = { context, offset: event.nativeEvent.contentOffset.y }; }} scrollEventThrottle={64}
       renderItem={({ item }) => <View style={{ flex: 1 / columns, minWidth: 0 }}>
-        <HotelCard hotel={item} variant={variant} recentlyViewed={viewedHotels.has(item.hid)} onOpen={openedHotel} comparisonDisabled={refreshing || Boolean(error)}/></View>}
+        <HotelCard hotel={item} variant={variant} recentlyViewed={viewedHotels.has(item.hid)} onOpen={openedHotel} comparisonDisabled={refreshing || Boolean(error)}
+          rating={ratings.get(item.hid)}/></View>}
       ItemSeparatorComponent={() => <View style={{ height: space.sm + 2 }}/>} ListHeaderComponent={header} ListEmptyComponent={content || undefined}
       initialNumToRender={8} windowSize={9} removeClippedSubviews={Platform.OS === 'android'}
       ListFooterComponent={!content && decision.hotels.length > 0 ? <View style={{ paddingTop: space.lg, gap: space.md }}>

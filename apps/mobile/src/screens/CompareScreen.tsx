@@ -10,7 +10,12 @@ import { colors, ui } from '../theme';
 import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
 import ApiState from '../components/ApiState';
-import { Button, MoneyText, Photo, Row, StatePanel, Txt } from '../components/Primitives';
+import { Button, Photo, Row, StatePanel, Txt } from '../components/Primitives';
+import GuestRatingBadge from '../components/GuestRatingBadge';
+import { shownRating } from '../components/guestRatingModel';
+import { useGuestRatings } from '../components/useGuestRatings';
+import { formatPrice, nightsBetween, shortAddress } from '../components/format';
+import type { Money } from '../types';
 
 import { COMPARISON_PRICE_LIFETIME_MS, type ComparisonHotel } from '../components/discoverySessionModel';
 import { compareStayPrices } from '../components/offerChangeSummary';
@@ -20,11 +25,15 @@ import { displayTravelDate } from '../components/searchJourneyModel';
 
 const copy = {
   en: { title: 'Compare hotels', price: 'Stay total from', classification: 'Hotel stars', missing: 'Not provided',
+    rating: 'Guest rating', noRating: 'Not enough ratings yet', cancellation: 'Free cancellation',
+    freeLowest: 'At this price', freeOther: 'At another rate', noFree: 'Not offered',
     address: 'Location', remove: 'Remove', search: 'Back to results', clear: 'Clear shortlist',
     empty: 'Choose two hotels to compare', emptyBody: 'Select Compare on the hotels you like in search results.',
     view: 'View rooms', switch: 'Switch hotel', equal: 'Same starting price for this stay',
     expired: 'Price expired. Open rooms for a fresh price.', scope: 'Starting prices from your search. Check room terms and charges payable at the property before booking.' },
   ar: { title: 'مقارنة الفنادق', price: 'سعر الإقامة يبدأ من', classification: 'تصنيف الفندق', missing: 'غير مذكور',
+    rating: 'تقييم الضيوف', noRating: 'لا تقييمات كافية بعد', cancellation: 'الإلغاء المجاني',
+    freeLowest: 'متاح بهذا السعر', freeOther: 'متاح بسعر آخر', noFree: 'غير متاح',
     address: 'الموقع', remove: 'إزالة', search: 'العودة إلى النتائج', clear: 'مسح المقارنة',
     empty: 'اختر فندقين للمقارنة', emptyBody: 'اضغط «قارن» على الفنادق التي أعجبتك في نتائج البحث.',
     view: 'عرض الغرف', switch: 'تبديل الفندق', equal: 'سعر البداية متساوٍ لهذه الإقامة',
@@ -94,10 +103,15 @@ function CompareContents() {
   if (pair?.difference && (pair.status === 'increase' || pair.status === 'decrease')) {
     const lower = columns[pair.status === 'increase' ? 0 : 1].name;
     const money = padStayPriceDifference(pair.difference, language);
-    const amount = `\u2066${money.currency} ${money.amount}\u2069`;
+    const amount = `\u2066${formatPrice({ amount: money.amount.replace(/,/g, ''), currency: money.currency }) || `${money.currency} ${money.amount}`}\u2069`;
     difference = language === 'ar' ? `سعر البداية في ${lower} أقلّ بمقدار ${amount} لهذه الإقامة.`
       : `${lower} starts ${amount} lower for this stay.`;
   }
+  const ratingIds = items.map(item => item.hid);
+  const ratings = useGuestRatings(ratingIds, language);
+  const nights = criteria ? nightsBetween(criteria.checkin, criteria.checkout) : null;
+  const perNight = (money: Money) => { const value = formatPrice({ amount: String(Math.round(Number(money.amount) / (nights || 1))), currency: money.currency });
+    return language === 'ar' ? `${value} لليلة في المتوسط` : `${value} per night on average`; };
   const rooms = criteria?.guests.length || 0;
   const guests = criteria?.guests.reduce((count, room) => count + room.adults + room.children.length, 0) || 0;
   const occupancy = language === 'ar' ? `الغرف ${rooms} · الضيوف ${guests}`
@@ -130,15 +144,23 @@ function CompareContents() {
               onPress={() => setSlots(columns.map(column => column.hid === item.hid ? alternate.hid : column.hid))}/>}
           </View>)}
           <View style={styles.band}><Txt kind="label">{L.price}</Txt>
-            {row(item => item.priceExpired ? <Txt kind="small" style={{color: colors.goldInk}}>{L.expired}</Txt> : <MoneyText money={charge(item.price)}/>)}
+            {row(item => item.priceExpired ? <Txt kind="small" style={{color: colors.goldInk}}>{L.expired}</Txt> : <View>
+              <Txt kind="price" style={{ writingDirection: 'ltr' }}>{formatPrice(charge(item.price)) || L.missing}</Txt>
+              {!!nights && nights > 1 && !!charge(item.price) && <Txt kind="caption">{perNight(charge(item.price)!)}</Txt>}
+            </View>)}
           </View>
           {pair?.status === 'unchanged' && <Txt kind="label" style={styles.fact}>{L.equal}</Txt>}
           {!!difference && <Txt kind="small" style={styles.delta}>{difference}</Txt>}
+          <View style={styles.fact}><Txt kind="label">{L.rating}</Txt>
+            {row(item => shownRating(ratings.get(item.hid)) ? <GuestRatingBadge rating={ratings.get(item.hid)} showCount/> : <Txt kind="small">{L.noRating}</Txt>)}</View>
+          <View style={styles.fact}><Txt kind="label">{L.cancellation}</Txt>
+            {row(item => <Txt kind="small" style={item.freeCancellation === 'lowest' || item.freeCancellation === 'available' ? { color: colors.success } : undefined}>
+              {item.freeCancellation === 'lowest' ? L.freeLowest : item.freeCancellation === 'available' ? L.freeOther : item.freeCancellation === 'none' ? L.noFree : L.missing}</Txt>)}</View>
           <View style={styles.fact}><Txt kind="label">{L.classification}</Txt>
             {row(item => <Txt kind="small" accessibilityLabel={item.stars ? `${item.stars} / 5` : L.missing}
               style={item.stars ? styles.stars : undefined}>{item.stars ? '★'.repeat(item.stars) : L.missing}</Txt>)}</View>
           <View style={styles.fact}><Txt kind="label">{L.address}</Txt>
-            {row(item => <Txt kind="small">{item.address || L.missing}</Txt>)}</View>
+            {row(item => <Txt kind="small" accessibilityLabel={item.address}>{shortAddress(item.address, language) || L.missing}</Txt>)}</View>
           <View style={styles.fact}>{row(item => <View style={styles.actions}>
             <Button compact title={L.view} label={`${L.view} · ${item.name}`} onPress={() => open(item.hid)}/>
             <Button compact variant="quiet" title={L.remove} label={`${L.remove} · ${item.name}`} onPress={() => state.removeComparison(item.hid, contextKey)}/>

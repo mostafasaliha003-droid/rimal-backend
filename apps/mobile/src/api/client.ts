@@ -2,6 +2,7 @@ import type { Language, PrebookResult, RegistrationInput, RoomOffer, SearchCrite
 import { ApiError, invalidResponse } from './errors';
 import { normalizeDetails, normalizeHotel, normalizeOffers, normalizeSuggestions, normalizeUser, object } from './adapters';
 import { assertCriteria, hotelId, searchBody } from './validation';
+import { normalizeRatingSummaries, type GuestRating } from './reviews';
 import { createTransport, validToken } from './transport';
 import { getOwnedBookings } from './bookings';
 import { getAccountDeletionRequest, requestAccountDeletion } from './accountDeletion';
@@ -76,6 +77,13 @@ export function createApiClient(request: Request) {
     getMembershipStatus: (signal?: AbortSignal) => membershipStatus(request, signal),
     async verifyPrivateRateAccess(signal: AbortSignal) { await requireMemberRateAccess(request, { signal }); },
     getBookings: (signal?: AbortSignal) => getOwnedBookings(request, signal),
+    /** Average guest score and number of ratings per hotel (RateHawk, 0–10). */
+    async getGuestRatings(hids: readonly number[], language: Language, signal?: AbortSignal) {
+      const ids = hids.filter(hid => hotelId(hid) !== null).slice(0, 50);
+      if (!ids.length) return { ratings: new Map<number, GuestRating | null>(), pending: [] as number[] };
+      return normalizeRatingSummaries(await request('GET', '/v1/hotels/reviews/summary', { signal, timeoutMs: 12000,
+        query: { hids: ids.join(','), language } }), ids);
+    },
     getAccountDeletionRequest: (signal?: AbortSignal) => getAccountDeletionRequest(request, signal),
     requestAccountDeletion: (password: string, signal?: AbortSignal) => requestAccountDeletion(request, password, signal),
     async searchSuggestions(query: string, language: Language = 'en', signal?: AbortSignal) {

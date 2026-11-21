@@ -18,7 +18,7 @@ function bareCheckoutRoute(method: string, path: string) {
 export function allowedRoute(method: string, path: string) {
   if (method === 'GET' && (path === '/client-region' || path === '/payment/rates')) return true;
   if (method === 'PUT') return path === '/membership/application' || /^\/membership\/application\/documents\/(passport|eid_front|eid_back)$/.test(path);
-  if (method === 'GET') return ['/owned/notifications', '/membership/status', '/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile', '/payment/availability'].includes(path)
+  if (method === 'GET') return ['/owned/notifications', '/membership/status', '/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile', '/payment/availability', '/v1/hotels/reviews/summary'].includes(path)
     || checkoutStatusRoute(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path);
   return method === 'POST' && ['/membership/application/submit', '/search/rates', '/search/rates/region', '/search/hotelpage', '/booking/prebook',
     '/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover',

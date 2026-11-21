@@ -84,6 +84,8 @@ test('environment and routes are fixed allowlists; privileged and unrecognized e
     await assert.rejects(request('POST', target), error => error.kind === 'configuration');
   }
   assert.equal(allowedRoute('POST', '/booking/prebook'), true);
+  assert.equal(allowedRoute('GET', '/v1/hotels/reviews/summary'), true);
+  assert.equal(allowedRoute('POST', '/v1/hotels/reviews/summary'), false);
   assert.equal(requests, 0);
   assert.match(fs.readFileSync(path.resolve(__dirname, '../config.ts'), 'utf8'), /process\.env\.EXPO_PUBLIC_API_ENV/);
   assert.doesNotMatch(fs.readFileSync(path.resolve(__dirname, '../config.ts'), 'utf8'), /EXPO_PUBLIC_APP_ENV/);
@@ -711,4 +713,20 @@ test('vouchers require both active local status and a confirmed supplier, not pa
   for(const [recordedStatus,supplierStatus] of [['cancelled','CONFIRMED'],['active','PENDING'],['active',null],['confirmed','CONFIRMED']])
     assert.equal(canDownloadVoucher({recordedStatus,supplierStatus}), false);
   assert.equal(canDownloadVoucher({recordedStatus:'active',supplierStatus:'CONFIRMED'}), true);
+});
+
+test('guest ratings are requested for the shown hotels and read from the summary response', async () => {
+  const seen = [];
+  const request = createTransport({ environment: 'staging', fetcher: async url => {
+    seen.push(new URL(url));
+    return response({ success: true, status: 'ready', summaries: { 11: { score: 8.6, count: 120 }, 12: null }, pending: [] });
+  } });
+  const api = createApiClient(request);
+  const { ratings, pending } = await api.getGuestRatings([11, 12], 'ar');
+  assert.equal(seen[0].pathname, '/api/v1/hotels/reviews/summary');
+  assert.equal(seen[0].searchParams.get('hids'), '11,12');
+  assert.equal(seen[0].searchParams.get('language'), 'ar');
+  assert.deepEqual(ratings.get(11), { score: 8.6, count: 120 });
+  assert.equal(ratings.get(12), null);
+  assert.deepEqual(pending, []);
 });

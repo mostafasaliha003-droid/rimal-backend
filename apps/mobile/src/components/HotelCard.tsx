@@ -15,6 +15,9 @@ import { useLayout, useReducedMotion } from './motion';
 import { useToast } from './Toast';
 import { haptic } from './haptics';
 import { rememberHotelPreview } from './hotelPreview';
+import GuestRatingBadge from './GuestRatingBadge';
+import { shownRating } from './guestRatingModel';
+import type { GuestRating } from '../api/reviews';
 
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
 
@@ -27,8 +30,9 @@ export function StarRating({ stars, size = 14 }: { stars?: number; size?: number
   </Row>;
 }
 
-export default function HotelCard({ hotel, comparisonDisabled = false, variant = 'list', recentlyViewed = false, onOpen }: {
+export default function HotelCard({ hotel, comparisonDisabled = false, variant = 'list', recentlyViewed = false, onOpen, rating }: {
   hotel: HotelSummary; comparisonDisabled?: boolean; variant?: 'list' | 'photo'; recentlyViewed?: boolean; onOpen?: (hid: number) => void;
+  rating?: GuestRating | null;
 }) {
   const charge = useChargeMoney();
   const { t, language, rtl } = useLanguage(), L = resultsCopy(language), router = useRouter();
@@ -121,7 +125,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
   const summary = <>
     <Row style={{ gap: space.sm, minHeight: 20 }}>
       <StarRating stars={hotel.stars} size={13}/>
-      {cancelFact}
+      {shownRating(rating) ? <GuestRatingBadge rating={rating} testID={`hotel-rating-${hotel.hid}`}/> : cancelFact}
     </Row>
     <Txt kind="subheading" numberOfLines={2} accessibilityRole="header" style={{ fontSize: 16, lineHeight: ar ? 26 : 22 }}>{hotel.name}</Txt>
     {!!place && <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
@@ -131,6 +135,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
   const bottom = <Row style={{ justifyContent: 'space-between', alignItems: 'flex-end', gap: space.sm }}>
     <View style={{ gap: 2, alignItems: rtl ? 'flex-end' : 'flex-start', flexShrink: 1 }}>
       {recentlyViewed && fact('history', ar ? 'شاهدته مؤخراً' : 'Recently viewed', color.info)}
+      {shownRating(rating) && cancelFact}
       {compareToggle}
     </View>
     {priceBlock}
