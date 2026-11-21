@@ -22,3 +22,18 @@ export async function fetchVoucher(booking: BookingHistoryItem, language: Langua
   if (bytes.length > 12 * 1024 * 1024 || bytes.length < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') throw invalidResponse();
   return bytes;
 }
+
+/** The cancellation receipt for an owned booking (PDF). */
+export async function fetchCancellationReceipt(reference: string, token: string, signal: AbortSignal) {
+  if (!validToken(token)) throw new ApiError('auth', 'receipt_unavailable');
+  if (!/^[A-Za-z0-9_-]{1,120}$/.test(reference)) throw invalidResponse();
+  const url = new URL(endpoints(APP_ENV).api + '/owned/bookings/' + reference + '/cancellation/receipt');
+  const response = await fetch(url.href, { method: 'GET', signal, credentials: 'omit', redirect: 'error',
+    headers: { Accept: 'application/pdf', Authorization: 'Bearer ' + token } });
+  if (!response.ok || response.redirected || (response.url && response.url !== url.href) ||
+      response.headers.get('content-type')?.split(';')[0].toLowerCase() !== 'application/pdf' ||
+      Number(response.headers.get('content-length') || 0) > 12 * 1024 * 1024) throw invalidResponse();
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  if (bytes.length > 12 * 1024 * 1024 || bytes.length < 5 || String.fromCharCode(...bytes.subarray(0, 5)) !== '%PDF-') throw invalidResponse();
+  return bytes;
+}

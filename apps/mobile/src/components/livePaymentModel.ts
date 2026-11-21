@@ -9,7 +9,7 @@ import type { IconName } from './Icon';
  * confirmed", never "confirmed".
  */
 export type StageState = 'done' | 'active' | 'failed' | 'waiting';
-export interface LiveStage { key: 'request' | 'payment' | 'hotel' | 'voucher'; title: string; detail: string; state: StageState }
+export interface LiveStage { key: string; title: string; detail: string; state: StageState }
 export interface LivePaymentView {
   tone: 'working' | 'success' | 'attention'; icon: IconName; title: string; body: string; stages: LiveStage[];
   /** Whether the page should keep asking the server for news. */

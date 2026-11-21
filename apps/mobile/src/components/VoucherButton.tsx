@@ -3,15 +3,17 @@ import { Platform, View } from 'react-native';
 import { useLanguage } from '../i18n';
 import { authSession } from '../api';
 import type { BookingHistoryItem } from '../api/bookings';
-import { canDownloadVoucher, fetchVoucher } from '../api/voucher';
+import { canDownloadVoucher, fetchCancellationReceipt, fetchVoucher } from '../api/voucher';
 import { Button, Txt } from './Primitives';
 
-export default function VoucherButton({ booking, onDark = false, compact = false }: { booking: BookingHistoryItem; onDark?: boolean; compact?: boolean }) {
+export default function VoucherButton({ booking, onDark = false, compact = false, kind = 'voucher' }: { booking: BookingHistoryItem; onDark?: boolean; compact?: boolean;
+  /** 'cancellation' downloads the cancellation receipt instead of the stay voucher. */
+  kind?: 'voucher' | 'cancellation' }) {
   const { language } = useLanguage();
   const pending = useRef<AbortController | null>(null);
   const [status, setStatus] = useState<'idle' | 'busy' | 'saved' | 'error'>('idle');
   useEffect(() => () => { pending.current?.abort(); }, []);
-  if (!canDownloadVoucher(booking)) return null;
+  if (kind === 'voucher' && !canDownloadVoucher(booking)) return null;
   const ar = language === 'ar';
   const download = async () => {
     if (pending.current) return;
@@ -24,10 +26,10 @@ export default function VoucherButton({ booking, onDark = false, compact = false
     try {
       const token = await authSession.getToken();
       if (!token || !active()) throw Error();
-      const pdf = await fetchVoucher(booking, language, token, controller.signal);
+      const pdf = kind === 'cancellation' ? await fetchCancellationReceipt(booking.reference, token, controller.signal) : await fetchVoucher(booking, language, token, controller.signal);
       if (!active()) throw Error();
       clearTimeout(timeout);
-      const filename = 'pillow-stays-voucher-' + booking.reference.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) + '.pdf';
+      const filename = (kind === 'cancellation' ? 'pillow-stays-cancellation-' : 'pillow-stays-voucher-') + booking.reference.replace(/[^A-Za-z0-9_-]/g, '').slice(0, 64) + '.pdf';
       if (Platform.OS === 'web') {
         const objectUrl = URL.createObjectURL(new Blob([new Uint8Array(pdf)], { type: 'application/pdf' }));
         try {
@@ -47,10 +49,10 @@ export default function VoucherButton({ booking, onDark = false, compact = false
     finally { clearTimeout(timeout); pending.current = null; }
   };
   const tone = onDark ? 'onDark' : undefined;
-  return <View style={{ gap: 4, alignSelf: compact ? 'flex-start' : undefined }}><Button variant={compact ? 'tonal' : 'secondary'} compact={compact} icon="download" title={ar ? (compact ? 'القسيمة' : 'تنزيل القسيمة') : (compact ? 'Voucher' : 'Download voucher')}
-    label={(ar ? 'تنزيل قسيمة الحجز · ' : 'Download voucher · ') + booking.reference}
+  return <View style={{ gap: 4, alignSelf: compact ? 'flex-start' : undefined }}><Button variant={compact ? 'tonal' : 'secondary'} compact={compact} icon="download" title={kind === 'cancellation' ? (ar ? 'تنزيل إيصال الإلغاء' : 'Download cancellation receipt') : ar ? (compact ? 'القسيمة' : 'تنزيل القسيمة') : (compact ? 'Voucher' : 'Download voucher')}
+    label={(kind === 'cancellation' ? (ar ? 'تنزيل إيصال الإلغاء · ' : 'Download cancellation receipt · ') : ar ? 'تنزيل قسيمة الحجز · ' : 'Download voucher · ') + booking.reference}
     busy={status === 'busy'} onPress={() => void download()}/>
-    {status === 'error' && <Txt kind="small" tone={tone ?? 'danger'} accessibilityRole="alert">{ar ? 'لم تُحفظ قسيمة الحجز. تحقق من الاتصال وحاول مجدداً.' : 'The voucher was not saved. Check your connection and try again.'}</Txt>}
-    {status === 'saved' && <Txt kind="small" tone={tone ?? 'success'} accessibilityLiveRegion="polite">{ar ? 'تم تنزيل قسيمة الحجز.' : 'Voucher downloaded.'}</Txt>}
+    {status === 'error' && <Txt kind="small" tone={tone ?? 'danger'} accessibilityRole="alert">{kind === 'cancellation' ? (ar ? 'لم يُحفظ الإيصال. تحقق من الاتصال وحاول مجدداً.' : 'The receipt was not saved. Check your connection and try again.') : ar ? 'لم تُحفظ قسيمة الحجز. تحقق من الاتصال وحاول مجدداً.' : 'The voucher was not saved. Check your connection and try again.'}</Txt>}
+    {status === 'saved' && <Txt kind="small" tone={tone ?? 'success'} accessibilityLiveRegion="polite">{kind === 'cancellation' ? (ar ? 'تم تنزيل إيصال الإلغاء.' : 'Receipt downloaded.') : ar ? 'تم تنزيل قسيمة الحجز.' : 'Voucher downloaded.'}</Txt>}
   </View>;
 }

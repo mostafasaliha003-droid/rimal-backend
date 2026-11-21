@@ -11,12 +11,16 @@ const NORMAL_RESPONSE_CHARS = 2_000_000;
 // Older BFFs return full supplier rates for every search hit. Keep a separate
 // ceiling on successful SERPs while the compact card response rolls out.
 const LEGACY_SEARCH_RESPONSE_CHARS = 8 * 1024 * 1024;
+// Owned-booking cancellation: its status answers success:false while a cancellation is still pending,
+// which is a state to show, not an error.
+export const cancellationRoute = (path: string) => /^\/owned\/bookings\/[A-Za-z0-9_-]{1,120}\/cancellation(?:\/status)?$/.test(path);
 function bareCheckoutRoute(method: string, path: string) {
   return method === 'GET' && (path === '/payment/availability' || checkoutStatusRoute(path))
     || method === 'POST' && ['/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover'].includes(path);
 }
 export function allowedRoute(method: string, path: string) {
   if (method === 'GET' && (path === '/client-region' || path === '/payment/rates')) return true;
+  if ((method === 'GET' || method === 'POST') && cancellationRoute(path)) return method === 'GET' || !path.endsWith('/status');
   if (method === 'PUT') return path === '/membership/application' || /^\/membership\/application\/documents\/(passport|eid_front|eid_back)$/.test(path);
   if (method === 'GET') return ['/owned/notifications', '/membership/status', '/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile', '/payment/availability', '/v1/hotels/reviews/summary'].includes(path)
     || checkoutStatusRoute(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path);
@@ -84,7 +88,7 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
       try { payload = JSON.parse(text); } catch { if (response.ok) throw invalidResponse(); payload = {}; }
       const data = payload && typeof payload === 'object' && !Array.isArray(payload) ? payload as Record<string, unknown> : null;
       if (!data) throw invalidResponse();
-      if (!response.ok || data.success === false) {
+      if (!response.ok || (data.success === false && !cancellationRoute(path))) {
         const code = typeof data.error === 'string' && /^[a-zA-Z][a-zA-Z0-9_]{0,79}$/.test(data.error)
           ? data.error : response.status === 429 ? 'rate_limited' : 'request_failed';
         const rawRetry = response.headers.get('retry-after');
@@ -96,7 +100,7 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
         throw new ApiError(membership ? 'membership' : response.status === 401 ? 'auth'
           : response.status === 429 ? 'rate_limit' : [400, 409].includes(response.status) ? 'validation' : 'server', code, response.status, retry);
       }
-      if (data.success !== true && !bareCheckoutRoute(method, path) && path !== '/owned/notifications' && !path.startsWith('/membership/')) throw invalidResponse();
+      if (data.success !== true && !bareCheckoutRoute(method, path) && !cancellationRoute(path) && path !== '/owned/notifications' && !path.startsWith('/membership/')) throw invalidResponse();
       return data;
     } catch (error) {
       if (options.signal?.aborted) throw aborted();

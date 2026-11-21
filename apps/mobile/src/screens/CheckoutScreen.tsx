@@ -32,7 +32,7 @@ import StayReceipt, { type StayReceiptData } from '../components/StayReceipt';
 import type { BookingHistoryItem } from '../api/bookings';
 import { matchOfferForNationality, samePrice } from '../components/nationalityRepriceModel';
 import { contextExpiry, REVIEW_CHECK_LIFETIME_MS } from '../components/offerReviewModel';
-import CountryPicker, { countryName, countryNameSecondary } from '../components/CountryPicker';
+import CountryPicker, { countryName } from '../components/CountryPicker';
 
 const nativeCreationPolicy = () => NATIVE_CHECKOUT_ENABLED && Platform.OS !== 'web';
 // Traveler details typed but not yet submitted, kept in memory only (never stored on the device),
@@ -426,12 +426,19 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
         <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" error={error('email')} invalid={missing('email')} onChangeText={v=>contact('email',v)}/>
         <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" placeholder="+971" accessibilityHint={copy.phoneHint} error={error('phone')} invalid={missing('phone')} onChangeText={v=>contact('phone',v)}/>
         {residency && <View style={{gap:space.xs}}>
-          <Txt kind="label">{t('residency')}</Txt>
-          <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${nationality ? countryName(nationality, language) : t('residencyChoose')}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
-            style={[styles.select, { borderColor: nationalityMissing ? color.danger : repricing && !checking ? color.warning : 'transparent' }]}>
-            <Row style={{justifyContent:'space-between'}}><View style={{flex:1,minWidth:0}}>{nationality ? <><Txt kind="bodyStrong" numberOfLines={1}>{countryName(nationality, language)}</Txt><Txt kind="caption" numberOfLines={1}>{countryNameSecondary(nationality, language)}</Txt></> : <Txt tone="secondary">{t('residencyChoose')}</Txt>}</View><Icon name="chevronDown" size={18}/></Row>
-          </Pressable>
-          {nationalityMissing ? <Txt kind="small" accessibilityRole="alert" tone="danger">{t('residencyError')}</Txt> : <Txt kind="caption">{t('residencyNote')}</Txt>}
+          {nationality ? <Row testID="checkout-nationality-fact" style={[styles.nationalityFact, repricing && !checking && { borderColor: color.warning, borderWidth: 1.5 }]}>
+            <Icon name="globe" size={16} color={color.textSecondary}/>
+            <Txt kind="small" tone="primary" numberOfLines={1} style={{ flex: 1 }}>{t('residency')}: <Txt kind="label" tone="primary">{countryName(nationality, language)}</Txt></Txt>
+            <TextLink testID="checkout-nationality" title={ar ? 'تغيير' : 'Change'} label={`${t('residency')}: ${countryName(nationality, language)} · ${ar ? 'تغيير' : 'Change'}`}
+              onPress={()=>{Keyboard.dismiss();showPicker(true);}}/>
+          </Row> : <>
+            <Txt kind="label">{t('residency')}</Txt>
+            <Pressable testID="checkout-nationality" accessibilityRole="button" accessibilityLabel={`${t('residency')}: ${t('residencyChoose')}`} onPress={()=>{Keyboard.dismiss();showPicker(true);}}
+              style={[styles.select, { borderColor: nationalityMissing ? color.danger : 'transparent' }]}>
+              <Row style={{justifyContent:'space-between'}}><Txt tone="secondary">{t('residencyChoose')}</Txt><Icon name="chevronDown" size={18}/></Row>
+            </Pressable>
+            {nationalityMissing && <Txt kind="small" accessibilityRole="alert" tone="danger">{t('residencyError')}</Txt>}
+          </>}
           {checking && <Row style={{ gap: space.xs }}><ActivityIndicator size="small" color={color.interactive}/>
             <Txt kind="small" accessibilityLiveRegion="polite">{ar ? `نتحقق من السعر لجنسية ${countryName(nationalityCheck.residency, language)}…` : `Checking the price for ${countryName(nationalityCheck.residency, language)} nationals…`}</Txt></Row>}
           {!checking && nationalityCheck?.status === 'changed' && nationalityCheck.residency === residency && <Notice tone="warning"
@@ -533,6 +540,7 @@ export function CheckoutProgress({ status }: { status: CheckoutStatus }) {
 const styles = StyleSheet.create({
   page: { gap: space.md, paddingTop: space.md },
   card: { gap: space.md, padding: space.md, borderRadius: radius.lg },
+  nationalityFact: { gap: space.sm, alignItems: 'center', paddingHorizontal: space.md, paddingVertical: space.xs, minHeight: 48, borderRadius: radius.md, backgroundColor: color.bgSubtle, borderColor: 'transparent', borderWidth: 1.5 },
   select: { minHeight: 52, borderWidth: 1.5, borderRadius: radius.md, paddingHorizontal: space.md, justifyContent: 'center', backgroundColor: color.bgField },
   group: { gap: space.sm, paddingTop: space.sm, borderTopWidth: 1, borderTopColor: color.border },
   groupHeader: { minHeight: 44, justifyContent: 'center' },

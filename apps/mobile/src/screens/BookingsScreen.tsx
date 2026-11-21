@@ -66,6 +66,9 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
     ? `${copy.checkin} ${formatWeekday(row.dates.checkin, language)} · ${copy.checkout} ${formatWeekday(row.dates.checkout, language)}` : '';
   const canAmend = booking.recordedStatus?.toLowerCase() === 'active' && booking.supplierStatus?.toUpperCase() === 'CONFIRMED';
   const canBookAgain = (row.bucket === 'past' || row.statusKind === 'cancelled') && !!booking.hotelName;
+  // A confirmed, upcoming stay is cancelled inside the app, where the fee and refund are shown first.
+  const canCancel = row.statusKind === 'confirmed' && row.bucket !== 'past' && /^[A-Za-z0-9_-]{1,120}$/.test(booking.reference);
+  const openCancellation = () => router.push({ pathname: '/cancel/[reference]', params: { reference: booking.reference } });
   const nightsText = row.dates.nights !== null ? ` · ${stayWords(language).nights(row.dates.nights)}` : '';
   const amount = booking.price ? formatPrice(booking.price) || '' : '';
   // Received is not confirmed: the warning stays visible on the card, not behind the toggle.
@@ -111,7 +114,9 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
         <Row style={{ gap: space.lg, flexWrap: 'wrap', rowGap: space.xs }}>
           <TextLink icon="support" title={ar ? 'مساعدة' : 'Help'} label={ar ? 'مساعدة بهذا الحجز' : 'Help with this booking'} onPress={() => router.navigate('/support')}/>
           {canAmend && <TextLink icon="edit" title={ar ? 'طلب تعديل' : 'Request a change'} onPress={() => manage(true)}/>}
-          <TextLink icon="external" title={ar ? 'الإلغاء والاسترداد' : 'Cancel & refund'} label={ar ? 'الإلغاء والاسترداد على الموقع' : 'Cancellation & refunds online'} onPress={() => manage()}/>
+          {canCancel && <TextLink testID={`trip-cancel-${booking.reference}`} icon="close" title={ar ? 'إلغاء الحجز' : 'Cancel booking'}
+            label={ar ? 'إلغاء الحجز ومعرفة المبلغ المسترد' : 'Cancel the booking and see the refund'} onPress={openCancellation}/>}
+          {row.statusKind === 'cancelled' && <TextLink testID={`trip-cancel-status-${booking.reference}`} icon="wallet" title={ar ? 'حالة الإلغاء والاسترداد' : 'Cancellation & refund status'} onPress={openCancellation}/>}
         </Row>
         {(booking.recordedStatus || booking.supplierStatus) && <View style={{ gap: 1 }}>
           {booking.recordedStatus && <Txt kind="caption">{copy.recordedStatus}: {booking.recordedStatus}</Txt>}

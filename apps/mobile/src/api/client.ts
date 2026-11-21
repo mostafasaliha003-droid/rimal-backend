@@ -3,6 +3,7 @@ import { ApiError, invalidResponse } from './errors';
 import { normalizeDetails, normalizeHotel, normalizeOffers, normalizeSuggestions, normalizeUser, object } from './adapters';
 import { assertCriteria, hotelId, searchBody } from './validation';
 import { normalizeRatingSummaries, type GuestRating } from './reviews';
+import { createCancellationApi } from './cancellation';
 import { createTransport, validToken } from './transport';
 import { getOwnedBookings } from './bookings';
 import { getAccountDeletionRequest, requestAccountDeletion } from './accountDeletion';
@@ -61,6 +62,7 @@ export function createApiClient(request: Request) {
   };
   return {
     checkout: createCheckoutApi(request),
+    cancellation: createCancellationApi(request),
     paymentRates: (signal: AbortSignal) => request('GET', '/payment/rates', { anonymous: true, signal, timeoutMs: 12000 }),
     auth, getHotelStatic,
     async getClientRegion(signal?: AbortSignal): Promise<string | null> {

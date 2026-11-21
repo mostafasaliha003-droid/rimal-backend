@@ -5,7 +5,7 @@ import { useLanguage } from '../i18n';
 import { color, elevation, fonts, radius, space } from '../theme';
 import { Icon, Row, Txt, type IconName } from './Primitives';
 import { useReducedMotion } from './motion';
-import { livePaymentModel, type LiveStage } from './livePaymentModel';
+import { livePaymentModel, type LivePaymentView, type LiveStage } from './livePaymentModel';
 import { haptic } from './haptics';
 
 const native = Platform.OS !== 'web';
@@ -95,8 +95,10 @@ const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds
  * takes, and exactly what to do now. Payment and hotel confirmation stay separate stages:
  * a browser return is never shown as success; only the server's status is.
  */
-export default function LivePaymentStatus({ status, reference, live, children, testID }: {
-  status: CheckoutStatus; reference: string; live: boolean; children?: React.ReactNode; testID?: string;
+export default function LivePaymentStatus({ status, reference, live, children, testID, describe, referenceLabel, doneText }: {
+  status?: CheckoutStatus; reference: string; live: boolean; children?: React.ReactNode; testID?: string;
+  /** Another live process (a cancellation) supplies its own stages and wording. */
+  describe?: (elapsedSeconds: number) => LivePaymentView; referenceLabel?: string; doneText?: string;
 }) {
   const { language } = useLanguage();
   const reduced = useReducedMotion();
@@ -108,7 +110,7 @@ export default function LivePaymentStatus({ status, reference, live, children, t
     return () => clearInterval(timer);
   }, [live]);
   const elapsed = Math.max(0, Math.round((now - startedAt) / 1000));
-  const model = livePaymentModel(status, language, elapsed);
+  const model = describe ? describe(elapsed) : livePaymentModel(status ?? 'preparing', language, elapsed);
   const ar = language === 'ar';
   return <View testID={testID} style={[styles.panel, elevation.raised]} accessibilityLiveRegion="polite">
     <View style={{ alignItems: 'center', gap: space.sm }}>
@@ -124,7 +126,7 @@ export default function LivePaymentStatus({ status, reference, live, children, t
     {/* Once confirmed, every step is done: one line says so, and the receipt and next steps move up. */}
     {model.tone === 'success' ? <Row testID="live-stages-done" style={styles.done}>
       <Icon name="checkCircle" size={16} color={color.success}/>
-      <Txt kind="small" tone="success" style={{ flex: 1, fontFamily: fonts.medium }}>{ar ? 'اكتملت كل الخطوات: الدفع وتأكيد الفندق وإصدار القسيمة' : 'All steps complete: payment, hotel confirmation and voucher'}</Txt>
+      <Txt kind="small" tone="success" style={{ flex: 1, fontFamily: fonts.medium }}>{doneText ?? (ar ? 'اكتملت كل الخطوات: الدفع وتأكيد الفندق وإصدار القسيمة' : 'All steps complete: payment, hotel confirmation and voucher')}</Txt>
     </Row> : <View style={styles.stages}>
       {model.stages.map((stage, index) => <StageRow key={stage.key} stage={stage} last={index === model.stages.length - 1} reduced={reduced}/>)}
     </View>}
@@ -137,7 +139,7 @@ export default function LivePaymentStatus({ status, reference, live, children, t
       <Txt kind="small" tone="primary" style={{ flex: 1 }}>{model.guidance}</Txt>
     </Row>}
     <Row style={styles.reference}>
-      <Txt kind="caption">{ar ? 'مرجع الطلب' : 'Request reference'}</Txt>
+      <Txt kind="caption">{referenceLabel ?? (ar ? 'مرجع الطلب' : 'Request reference')}</Txt>
       <Txt kind="label" selectable style={{ writingDirection: 'ltr' }}>{reference}</Txt>
     </Row>
     {children}
