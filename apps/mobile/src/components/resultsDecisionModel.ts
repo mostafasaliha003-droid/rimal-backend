@@ -97,3 +97,25 @@ export interface ResultSnapshot { context: string; hotels: HotelSummary[]; pendi
 export function beginResultRefresh(previous: ResultSnapshot, context: string): ResultSnapshot {
   return { context, hotels: previous.context === context ? previous.hotels : [], pending: true, error: null };
 }
+
+export type TopPickKind = 'value' | 'rated' | 'lowest';
+export interface TopPick { kind: TopPickKind; hotel: HotelSummary }
+/**
+ * "Top picks" from the listed hotels only, never invented offers: best value (the lowest price
+ * among hotels guests rate 8+), the top rated, and the lowest price. Each hotel appears once;
+ * fewer than two distinct picks is not worth a section.
+ */
+export function topPicks(hotels: readonly HotelSummary[], currency: string,
+  ratings: ReadonlyMap<number, { score: number; count: number } | null | undefined>, minRatings = 3): TopPick[] {
+  const priced = hotels.map(hotel => ({ hotel, price: priceInCurrency(hotel.price, currency) }))
+    .filter((item): item is { hotel: HotelSummary; price: Money } => item.price !== null);
+  const byPrice = (a: { price: Money }, b: { price: Money }) => compareDecimalAmounts(a.price.amount, b.price.amount);
+  const rated = priced.map(item => ({ ...item, rating: ratings.get(item.hotel.hid) }))
+    .filter((item): item is typeof item & { rating: { score: number; count: number } } => Boolean(item.rating && item.rating.count >= minRatings));
+  const picks: TopPick[] = [], used = new Set<number>();
+  const add = (kind: TopPickKind, hotel: HotelSummary | undefined) => { if (hotel && !used.has(hotel.hid)) { used.add(hotel.hid); picks.push({ kind, hotel }); } };
+  add('value', [...rated].filter(item => item.rating.score >= 8).sort(byPrice)[0]?.hotel);
+  add('rated', [...rated].sort((a, b) => (b.rating.score - a.rating.score) || byPrice(a, b))[0]?.hotel);
+  add('lowest', [...priced].sort(byPrice)[0]?.hotel);
+  return picks.length >= 2 ? picks : [];
+}

@@ -14,6 +14,8 @@ const LEGACY_SEARCH_RESPONSE_CHARS = 8 * 1024 * 1024;
 // Owned-booking cancellation: its status answers success:false while a cancellation is still pending,
 // which is a state to show, not an error.
 export const cancellationRoute = (path: string) => /^\/owned\/bookings\/[A-Za-z0-9_-]{1,120}\/cancellation(?:\/status)?$/.test(path);
+// A hotel's guest reviews answer with a status of their own (ready, empty, checking), not success:true.
+export const hotelReviewsRoute = (path: string) => /^\/v1\/hotels\/[1-9]\d{0,9}\/reviews\/ratehawk$/.test(path);
 function bareCheckoutRoute(method: string, path: string) {
   return method === 'GET' && (path === '/payment/availability' || checkoutStatusRoute(path))
     || method === 'POST' && ['/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover'].includes(path);
@@ -23,7 +25,7 @@ export function allowedRoute(method: string, path: string) {
   if ((method === 'GET' || method === 'POST') && cancellationRoute(path)) return method === 'GET' || !path.endsWith('/status');
   if (method === 'PUT') return path === '/membership/application' || /^\/membership\/application\/documents\/(passport|eid_front|eid_back)$/.test(path);
   if (method === 'GET') return ['/owned/notifications', '/membership/status', '/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile', '/payment/availability', '/v1/hotels/reviews/summary'].includes(path)
-    || checkoutStatusRoute(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path);
+    || checkoutStatusRoute(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path) || hotelReviewsRoute(path);
   return method === 'POST' && ['/membership/application/submit', '/search/rates', '/search/rates/region', '/search/hotelpage', '/booking/prebook',
     '/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover',
     '/auth/login', '/auth/register-send-code', '/auth/verify-and-register', '/auth/logout', '/auth/account-deletion'].includes(path);
@@ -100,7 +102,7 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
         throw new ApiError(membership ? 'membership' : response.status === 401 ? 'auth'
           : response.status === 429 ? 'rate_limit' : [400, 409].includes(response.status) ? 'validation' : 'server', code, response.status, retry);
       }
-      if (data.success !== true && !bareCheckoutRoute(method, path) && !cancellationRoute(path) && path !== '/owned/notifications' && !path.startsWith('/membership/')) throw invalidResponse();
+      if (data.success !== true && !bareCheckoutRoute(method, path) && !cancellationRoute(path) && !hotelReviewsRoute(path) && path !== '/owned/notifications' && !path.startsWith('/membership/')) throw invalidResponse();
       return data;
     } catch (error) {
       if (options.signal?.aborted) throw aborted();

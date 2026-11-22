@@ -41,3 +41,18 @@ test('rating summaries: null means no ratings, missing or pending means ask agai
   assert.deepEqual(pending, [5, 6]);
   assert.deepEqual([...r.normalizeRatingSummaries('nonsense', [9]).pending], [9]);
 });
+
+test('hotel reviews keep only real reviews and known categories, and read the page state', () => {
+  const reviews = load(path.resolve(__dirname, '../api/hotelReviews.ts'));
+  const page = reviews.normalizeHotelReviews({ status: 'ready', hasMore: true, nextOffset: 10, summary: { score: 8.64, count: 3, ratedCount: 2,
+    categories: [{ key: 'cleanness', score: 9.1, count: 2 }, { key: 'invented', score: 5, count: 1 }, { key: 'room', score: 12, count: 1 }] },
+  reviews: [{ id: '1', author: 'Guest', positive: 'Great pool', negative: '', rating: 9, publishedAt: '2026-10-01T00:00:00.000Z', roomName: 'Family room', nights: 2 },
+    { id: '2', author: 'Empty', positive: '', negative: '', rating: null }, { id: '3', negative: 'Noisy\u202e', rating: 7.5 }] });
+  assert.equal(page.status, 'ready'); assert.equal(page.score, 8.6); assert.equal(page.ratedCount, 2);
+  assert.deepEqual(page.categories, [{ key: 'cleanness', score: 9.1, count: 2 }]);
+  assert.deepEqual(page.reviews.map(item => item.id), ['1', '3']);
+  assert.equal(page.reviews[1].negative, 'Noisy');
+  assert.equal(page.hasMore, true); assert.equal(page.nextOffset, 10);
+  assert.equal(reviews.normalizeHotelReviews({ status: 'weird' }).status, 'unavailable');
+  assert.equal(reviews.normalizeHotelReviews({ status: 'checking', retryAfterMs: 1 }).retryAfterMs, 1500);
+});

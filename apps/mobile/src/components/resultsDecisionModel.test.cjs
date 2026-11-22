@@ -75,3 +75,13 @@ test('the free cancellation filter keeps stays that offer it and the star sort p
   assert.deepEqual(decideResults(hotels, { ...emptyResultFilters(), sort: 'stars' }, 'USD').hotels.map(h => h.hid), [2, 4, 1, 3]);
   assert.equal(activeResultFilters({ ...emptyResultFilters(), freeCancel: true }), 1);
 });
+
+test('top picks come from listed hotels only: best value, top rated and lowest price, each once', () => {
+  const { topPicks } = require('./resultsDecisionModel.ts');
+  const stay = (hid, amount) => ({ hid, id: String(hid), name: 'Hotel ' + hid, price: { amount, currency: 'USD' } });
+  const hotels = [stay(1, '300'), stay(2, '120'), stay(3, '200'), stay(4, '90'), stay(5, '150')];
+  const ratings = new Map([[1, { score: 9.4, count: 50 }], [2, { score: 8.2, count: 40 }], [3, { score: 8.0, count: 2 }], [5, { score: 7.5, count: 30 }]]);
+  assert.deepEqual(topPicks(hotels, 'USD', ratings).map(pick => [pick.kind, pick.hotel.hid]), [['value', 2], ['rated', 1], ['lowest', 4]]);
+  assert.deepEqual(topPicks([stay(1, '100')], 'USD', ratings), []);
+  assert.deepEqual(topPicks(hotels, 'USD', new Map()), []);
+});

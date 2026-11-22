@@ -13,6 +13,7 @@ import { useAppState } from '../components/AppState';
 import BrandHeader from '../components/BrandHeader';
 import HotelMapLink from '../components/HotelMapLink';
 import StaysMap from '../components/StaysMap';
+import TopPicks from '../components/TopPicks';
 import { useChargeMoney } from '../components/ChargeCurrency';
 import { useGuestRatings } from '../components/useGuestRatings';
 import HotelCard from '../components/HotelCard';
@@ -20,7 +21,7 @@ import ApiState from '../components/ApiState';
 import { Button, Card, Chip, Field, Icon, Notice, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
 import { hotelSearchPlan } from '../components/foundationContracts';
 import { activeResultFilters, beginResultRefresh, copyResultFilters, decideResults, emptyResultFilters,
-  priceInCurrency, resultContextKey, stayNights, suggestedStayBudgets, type ResultFilters, type ResultSnapshot, type ResultSort } from '../components/resultsDecisionModel';
+  priceInCurrency, resultContextKey, topPicks, stayNights, suggestedStayBudgets, type ResultFilters, type ResultSnapshot, type ResultSort } from '../components/resultsDecisionModel';
 import { resultsCopy } from '../components/resultsCopy';
 import { StaySummaryBar, useStayEditor } from '../components/StayFields';
 import { formatPrice, stayLine } from '../components/format';
@@ -150,6 +151,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   // Guest ratings for the hotels shown (and the next few), fetched once per session.
   const ratingIds = useMemo(() => decision.hotels.slice(0, limit + 10).map(hotel => hotel.hid), [decision.hotels, limit]);
   const ratings = useGuestRatings(ratingIds, language);
+  const picks = topPicks(decision.hotels, currency, ratings);
   const sortName = (sort: ResultSort) => sort === 'stars' ? (ar ? 'الأعلى تصنيفاً' : 'Highest star rating') : t(sort);
   const sortLabel = applied.sort === 'recommended' ? t('sort') : sortName(applied.sort);
   const freeCancelLabel = ar ? 'إلغاء مجاني' : 'Free cancellation';
@@ -201,6 +203,9 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
         {applied.stars.map(star => <Chip size="sm" key={star} label={star ? `${star} ${t('stars')}` : L.unknownStars} accessibilityLabel={L.removeStar(star)} onRemove={() => apply({ ...applied, stars: applied.stars.filter(value => value !== star) })}/>)}
         <Button compact variant="quiet" title={L.clearAll} onPress={clearFilters}/>
       </Row>}
+      {hotels.length > 0 && <Row testID="results-member-rates" style={{ gap: space.xs }}><Icon name="sparkles" size={14} color={color.accent}/>
+        <Txt kind="caption" style={{ flex: 1 }}>{ar ? 'أسعار الأعضاء: الأسعار هنا خاصة بأعضاء مخدة، وتشمل الضرائب المذكورة.' : 'Member rates: these prices are for Mkhadda members and include the listed taxes.'}</Txt></Row>}
+      {!(hasMap && mapContext === context) && <TopPicks picks={picks} currency={currency} ratings={ratings} onOpen={openedHotel}/>}
       {hasMap && mapContext === context && (mapFailed
         ? <Card padded={false} style={{ gap: 0, overflow: 'hidden' }}>{decision.hotels.filter(hotel => hotel.location).slice(0, limit).map((hotel, index) =>
           <View key={hotel.hid}>{index > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: color.border }}/>}<HotelMapLink hotel={hotel} variant="row"/></View>)}</Card>

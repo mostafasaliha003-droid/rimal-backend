@@ -30,6 +30,7 @@ import { useChargeMoney } from '../components/ChargeCurrency';
 import { localizedRoomName } from '../components/roomNameModel';
 import { hotelPreview, type HotelPreview } from '../components/hotelPreview';
 import GuestRatingBadge from '../components/GuestRatingBadge';
+import { shownRating } from '../components/guestRatingModel';
 import { useGuestRatings } from '../components/useGuestRatings';
 
 type Section = 'rooms' | 'about';
@@ -184,7 +185,12 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
         <HotelGallery images={hotel.images} name={hotel.name}/>
         <Row style={{ alignItems: 'flex-start', gap: space.md }}>
           <View style={{ flex: 1, minWidth: 0, gap: space.xxs }}>
-            <Row style={{ gap: space.sm, flexWrap: 'wrap' }}><StarRating stars={hotel.stars}/><GuestRatingBadge rating={hotelRating} showCount testID="hotel-rating"/></Row>
+            <Row style={{ gap: space.sm, flexWrap: 'wrap' }}><StarRating stars={hotel.stars}/>
+              <Pressable testID="hotel-reviews-link" accessibilityRole="link" accessibilityHint={ar ? 'يفتح تقييمات الضيوف' : 'Opens guest reviews'}
+                onPress={() => router.push({ pathname: '/reviews/[hid]', params: { hid: String(hotel.hid) } })} hitSlop={{ top: 10, bottom: 10 }}>
+                <Row style={{ gap: space.xs }}>{shownRating(hotelRating) ? <GuestRatingBadge rating={hotelRating} showCount testID="hotel-rating"/> : null}
+                  <Txt kind="caption" tone="link">{shownRating(hotelRating) ? (ar ? 'التقييمات' : 'Reviews') : (ar ? 'تقييمات الضيوف' : 'Guest reviews')}</Txt></Row>
+              </Pressable></Row>
             <Txt accessibilityRole="header" accessibilityLabel={hotel.name} kind="heading" testID="hotel-name" numberOfLines={2} style={{ fontSize: 19, lineHeight: ar ? 30 : 26 }}>{hotel.name}</Txt>
             {hotel.address && <Pressable testID="hotel-location-link" accessibilityRole="button" accessibilityHint={ar ? 'يعرض موقع الفندق على الخريطة' : 'Shows the hotel location on the map'}
               onPress={showLocation} style={{ minHeight: 40, justifyContent: 'center' }}>
@@ -253,7 +259,7 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
       <Pressable accessibilityRole="button" accessibilityLabel={short.clear} onPress={() => setSelected([])} style={styles.clearCompare}><Icon name="close" size={18}/></Pressable>
       {selected.length === 2 && <View testID="compare-rates-open"><Button compact icon="compare" title={short.compareTitle} onPress={() => setComparisonOpen(true)}/></View>}
     </Row></View> : hotel.offers.length > 0 && (lowest
-      ? <ActionBar testID="hotel-price-bar" maxWidth={desktop ? 1040 : layout.maxReading + 160} caption={ar ? 'ابتداءً من · الإجمالي' : 'From · total'}
+      ? <ActionBar testID="hotel-price-bar" maxWidth={desktop ? 1040 : layout.maxReading + 160} caption={ar ? 'سعر الأعضاء · ابتداءً من' : 'Member rate · from'}
         amount={lowest} amountTestID="hotel-from-price" note={stayCaption}>
         <Button testID="hotel-choose-room" icon="bed" title={copy.chooseRooms} onPress={chooseRooms}/></ActionBar>
       : <ActionBar testID="hotel-price-bar" maxWidth={desktop ? 1040 : layout.maxReading + 160} note={copy.noComparablePrice(criteria.currency)}>
