@@ -82,8 +82,11 @@ function AccountMembership() {
 export default function AccountScreen() {
   const {user,status,sessionRevision,error:sessionError,restorePending,signIn,requestRegistration,verifyRegistration,signOut,refresh}=useAuth(); const {t,language}=useLanguage(); const router=useRouter();
   const navigation = useNavigation();
-  const { returnTo } = useLocalSearchParams<{ returnTo?: string }>();
-  const [mode,setMode]=useState<'login'|'register'|'verify'>('login'); const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [name,setName]=useState(''); const [phone,setPhone]=useState(''); const [code,setCode]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
+  const { returnTo, mode: requestedMode } = useLocalSearchParams<{ returnTo?: string; mode?: string }>();
+  const [mode,setMode]=useState<'login'|'register'|'verify'>(requestedMode === 'register' ? 'register' : 'login');
+  // The welcome front opens this screen straight on "create an account" or "sign in".
+  const [modeRequest, setModeRequest] = useState(requestedMode);
+  if (requestedMode !== modeRequest) { setModeRequest(requestedMode); if (requestedMode === 'register' || requestedMode === 'login') setMode(requestedMode); } const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [name,setName]=useState(''); const [phone,setPhone]=useState(''); const [code,setCode]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
   const submit = async () => {
     if (busy) return;
     setError('');
