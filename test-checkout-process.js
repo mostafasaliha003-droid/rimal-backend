@@ -1,8 +1,12 @@
 const { test } = require('node:test');
 const assert = require('node:assert/strict');
 const crypto = require('node:crypto');
+// Placeholder keys, assembled so no key-shaped literal sits in the source.
+const FIXTURE_TEST_KEY = ['sk', 'test', 'fixture-key-0000000000000000'].join('_');
+const FIXTURE_LIVE_KEY = ['sk', 'fixture-live-0000000000000000'].join('_');
 const mongoose = require('mongoose');
 const store = require('./models/CheckoutAttempt');
+const HotelModel = require('./models/Hotel');
 const checkoutService = require('./services/checkoutProcessService');
 const checkout = { ...checkoutService, createCheckout(input, key, ip, identity = {
     role: 'user', subject: 'fixture-owner', realm: process.env.RIMAL_AUTH_REALM || 'fixture-staging'
@@ -98,6 +102,7 @@ function fixture(context, { bookHash = 'fixture-hash', formHash = 'fresh-hash' }
     context.mock.method(store, 'findOneAndUpdate', (filter, update) => ({ lean: async () => {
         if (!record || record._id !== filter._id || record.state !== filter.state) return null;
         Object.assign(record, structuredClone(update.$set));
+        for (const field of Object.keys(update.$unset || {})) delete record[field];
         return structuredClone(record);
     } }));
     context.mock.method(store, 'updateOne', async (filter, update) => {
@@ -318,4 +323,53 @@ test('production preflight persists live mode before submitting an intent', asyn
     assert.equal(result.status, 'awaiting_payment');
     assert.equal(scenario.record.ziina_test, false);
     assert.equal(scenario.createIntent.mock.callCount(), 1);
+});
+
+function tabbyEnvironment(context) {
+    const keys = ['TABBY_ENABLED', 'TABBY_SECRET_KEY', 'TABBY_MERCHANT_CODE', 'TABBY_WEBHOOK_SECRET', 'FRONTEND_URL'];
+    const previous = Object.fromEntries(keys.map(key => [key, process.env[key]]));
+    Object.assign(process.env, { TABBY_ENABLED: 'true', TABBY_SECRET_KEY: FIXTURE_TEST_KEY,
+        TABBY_MERCHANT_CODE: 'PillowStaysApp', TABBY_WEBHOOK_SECRET: 'w'.repeat(48), FRONTEND_URL: 'https://staging.example.test' });
+    context.after(() => { for (const [key, value] of Object.entries(previous)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } });
+    context.mock.method(HotelModel, 'findOne', () => ({ select: () => ({ lean: async () => ({ name: 'Fixture Hotel', address: 'Sheikh Zayed Road', city: 'Dubai', countryCode: 'AE' }) }) }));
+}
+
+test('Tabby is refused for a charge that is not in AED, before any booking form exists', async context => {
+    const scenario = fixture(context);
+    tabbyEnvironment(context);
+    await assert.rejects(checkout.createCheckout({ ...details(), payment_method: 'tabby' }, crypto.randomUUID(), '192.0.2.10'), /tabby_requires_aed/);
+    await assert.rejects(checkout.createCheckout({ ...details(), payment_method: 'bitcoin' }, crypto.randomUUID(), '192.0.2.10'), /invalid_payment_method/);
+    assert.equal(scenario.record, undefined);
+    assert.equal(scenario.form.mock.callCount(), 0);
+});
+
+test('an AED checkout paid with Tabby opens Tabby, never Ziina; a rejection ends the attempt with its reason', async context => {
+    const scenario = fixture(context);
+    tabbyEnvironment(context);
+    const tabby = require('./services/tabbyClient');
+    context.mock.method(require('./services/checkoutCurrencyService'), 'readQuote', () => ({ amount_minor: 39300, currency: 'AED', expires_at: Date.now() + 10 * 60 * 1000 }));
+    const session = context.mock.method(tabby, 'createSession', async input => ({ status: 'created', sessionId: 'session-1',
+        paymentId: '01a20f2c-1930-8eaa-b80b-f694124ddddd', webUrl: 'https://checkout.tabby.ai/?sessionId=session-1', test: true, input }));
+    const result = await checkout.createCheckout({ ...details(), payment_method: 'tabby', payment_quote: 'quote-token', app_return: 'mkhadda-preview', language: 'ar' }, crypto.randomUUID(), '192.0.2.10');
+    assert.equal(result.status, 'awaiting_payment');
+    assert.equal(result.payment_url, 'https://checkout.tabby.ai/?sessionId=session-1');
+    assert.equal(result.payment_method, 'tabby');
+    assert.equal(scenario.createIntent.mock.callCount(), 0);
+    const sent = session.mock.calls[0].arguments[0];
+    assert.equal(sent.amount, 39300);
+    assert.equal(sent.language, 'ar');
+    assert.equal(sent.hotel.city, 'Dubai');
+    assert.match(sent.returnUrls.success, /^https:\/\/staging\.example\.test\/api\/payment\/app-return\?app=mkhadda-preview&payment=success$/);
+    assert.equal(scenario.record.payment_provider, 'tabby');
+    assert.equal(scenario.record.tabby_payment_id, '01a20f2c-1930-8eaa-b80b-f694124ddddd');
+    assert.equal(scenario.record.tabby_test, true);
+
+    session.mock.mockImplementation(async () => ({ status: 'rejected', sessionId: 'session-2', paymentId: '01a20f2c-1930-8ad6-bd0a-a95cb7ab6407', rejectionReason: 'order_amount_too_high' }));
+    const second = fixture(context);
+    tabbyEnvironment(context);
+    const rejected = await checkout.createCheckout({ ...details(), payment_method: 'tabby', payment_quote: 'quote-token' }, crypto.randomUUID(), '192.0.2.10');
+    assert.equal(rejected.status, 'payment_failed');
+    assert.equal(rejected.payment_error, 'tabby_order_amount_too_high');
+    assert.equal(rejected.payment_url, undefined);
+    assert.equal(second.record.encrypted_details, undefined);
 });

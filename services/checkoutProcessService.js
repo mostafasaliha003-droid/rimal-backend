@@ -5,6 +5,7 @@ const booking = require('./bookingProcessService');
 const ratehawk = require('./ratehawkService');
 const payment = require('./paymentService');
 const ziina = require('./ziinaClient');
+const tabby = require('./tabbyClient');
 
 function fail(code, httpStatus = 400) {
     return Object.assign(new Error(code), { code, httpStatus });
@@ -92,6 +93,70 @@ function normalizedCheckout(input = {}) {
         guests, user: { email, phone, ...(holder.specialRequests ? { comment: text(holder.specialRequests, 'comment', 1000) } : {}) }, rooms: bookingRooms };
 }
 
+// Card and wallets go through Ziina; "tabby" pays in four with Tabby (AED only).
+function paymentMethod(value) {
+    if (value === undefined || value === null || value === '' || value === 'ziina' || value === 'card') return 'ziina';
+    if (value === 'tabby') return 'tabby';
+    throw fail('invalid_payment_method');
+}
+
+// The hotel's own address stands in for Tabby's shipping address (nothing is shipped).
+async function hotelForTabby(details) {
+    try {
+        const Hotel = require('../models/Hotel');
+        const hotel = await Hotel.findOne({ provider: 'ratehawk', hid: String(details.hid) }).select('name address city countryCode').lean();
+        return { hid: details.hid, name: hotel?.name || details.hotelName, address: hotel?.address, city: hotel?.city, countryCode: hotel?.countryCode };
+    } catch {
+        return { hid: details.hid, name: details.hotelName };
+    }
+}
+
+async function registeredSince(identity) {
+    try {
+        const User = mongoose.models.User;
+        if (User && mongoose.isValidObjectId(identity.subject)) {
+            const user = await User.findById(identity.subject).select('createdAt').lean();
+            if (user?.createdAt && Number.isFinite(new Date(user.createdAt).getTime())) return new Date(user.createdAt).toISOString();
+        }
+    } catch { /* Fall back to now: the account is at least this old. */ }
+    return new Date().toISOString();
+}
+
+/*
+ * Tabby session for a prepared booking. No money can move until the guest completes Tabby's own
+ * checkout on the link returned here, so a failed or rejected session simply ends this attempt
+ * (payment_failed) and the guest may pay another way.
+ */
+async function createTabbyPayment(record, details, identity, language) {
+    let session;
+    try {
+        const [hotel, since] = await Promise.all([hotelForTabby(details), registeredSince(identity)]);
+        const returnUrls = Object.fromEntries([['success', 'success'], ['cancel', 'cancel'], ['failure', 'failed']]
+            .map(([key, result]) => [key, ziina.returnUrl(process.env.FRONTEND_URL, result, record.reference, record.app_return || null)]));
+        const guest = details.rooms[0].guests[0];
+        session = await tabby.createSession({ reference: record.reference, amount: record.amount_minor, language,
+            buyer: { name: `${guest.first_name} ${guest.last_name}`, email: details.user.email, phone: details.user.phone },
+            registeredSince: since, hotel, roomName: details.roomName,
+            stay: { checkin: details.checkin, checkout: details.checkout, rooms: details.rooms.length },
+            passengers: details.rooms.flatMap(room => room.guests).filter(person => !person.is_child), returnUrls });
+        if (session.status === 'created' && session.test !== record.tabby_test) throw new Error('tabby_environment_mismatch');
+    } catch {
+        await CheckoutAttempt.updateOne({ _id: record._id, state: 'intent_creating' }, {
+            $set: { state: 'payment_failed', error: 'tabby_unavailable', next_check_at: null }, $unset: { encrypted_details: '' } });
+        const current = await CheckoutAttempt.findById(record._id).lean();
+        if (!current) throw fail('checkout_unavailable', 503);
+        return checkoutResponse(current);
+    }
+    const fields = session.status === 'rejected'
+        ? { $set: { state: 'payment_failed', error: `tabby_${session.rejectionReason}`, tabby_session_id: session.sessionId,
+            tabby_payment_id: session.paymentId, next_check_at: null }, $unset: { encrypted_details: '' } }
+        : { $set: { state: 'awaiting_payment', tabby_session_id: session.sessionId, tabby_payment_id: session.paymentId,
+            redirect_url: session.webUrl, next_check_at: new Date(Date.now() + 5000) } };
+    const updated = await CheckoutAttempt.findOneAndUpdate({ _id: record._id, state: 'intent_creating' }, fields, { new: true }).lean();
+    if (!updated) throw fail('checkout_state_conflict', 409);
+    return checkoutResponse(updated);
+}
+
 function verifyRateIdentity(info, details) {
     const original = info?.original_request_params;
     const hotels = info?.hotels;
@@ -120,7 +185,9 @@ function publicView(record) {
                 : ['review', 'unknown'].includes(record.notification_status) ? 'review' : 'pending'
         } : {}),
         ...(record.state === 'booking_confirmed' ? { supplier_reference: record.partner_order_id } : {}),
-        ...(record.action_required ? { action_required: record.action_required } : {})
+        ...(record.action_required ? { action_required: record.action_required } : {}),
+        ...(record.payment_provider === 'tabby' ? { payment_method: 'tabby' } : {}),
+        ...(record.state === 'payment_failed' && /^tabby_[a-z_]{1,60}$/.test(record.error || '') ? { payment_error: record.error } : {})
     };
 }
 
@@ -180,11 +247,13 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
     requireIdentity(identity);
     if (typeof idempotencyKey !== 'string' || !/^[A-Za-z0-9_-]{16,128}$/.test(idempotencyKey)) throw fail('invalid_idempotency_key');
     const details = normalizedCheckout(input);
+    const method = paymentMethod(input.payment_method);
     const appReturn = require('./appPaymentReturn').appReturnScheme(input.app_return);
     const hash = value => crypto.createHmac('sha256', encryptionKey()).update(value).digest('hex');
     const processId = hash(idempotencyKey);
     const requestHash = hash(JSON.stringify({ details, ownerSubject: identity.subject, realm: identity.realm,
-        ...(input.payment_quote ? { payment_quote: input.payment_quote } : {}), ...(appReturn ? { app_return: appReturn } : {}) }));
+        ...(input.payment_quote ? { payment_quote: input.payment_quote } : {}), ...(appReturn ? { app_return: appReturn } : {}),
+        ...(method === 'tabby' ? { payment_method: 'tabby' } : {}) }));
     let record = await CheckoutAttempt.findById(processId).lean();
     if (record) {
         if (record.request_hash !== requestHash) throw fail('checkout_conflict', 409);
@@ -193,10 +262,15 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
     const charge = input.payment_quote
         ? require('./checkoutCurrencyService').readQuote(input.payment_quote, details, identity)
         : { amount_minor: details.amount_minor, currency: details.currency };
+    if (method === 'tabby') {
+        if (!tabby.isTabbyReady()) throw fail('tabby_unavailable', 503);
+        if (charge.currency !== 'AED') throw fail('tabby_requires_aed', 409);
+    }
     const reference = crypto.randomUUID();
     try {
         record = await CheckoutAttempt.create({ _id: processId, reference, request_hash: requestHash,
             ownerSubject: identity.subject, realm: identity.realm, ...(appReturn ? { app_return: appReturn } : {}),
+            payment_provider: method, ...(method === 'tabby' ? { tabby_test: tabby.settings().test } : {}),
             encrypted_details: encryptDetails(details), state: 'preparing', next_check_at: new Date(Date.now() + 30000) });
     } catch (error) {
         if (error.code !== 11000) throw error;
@@ -249,6 +323,7 @@ async function createCheckout(input, idempotencyKey, userIp, identity) {
         });
         throw fail(['RATE_CHANGED', 'rate_not_found'].includes(error.message) ? 'rate_changed' : error.code || 'supplier_preflight_failed', 409);
     }
+    if (record.payment_provider === 'tabby') return createTabbyPayment(record, details, identity, input.language === 'en' ? 'en' : 'ar');
     try {
         const intent = await ziina.createIntent({ amount: ziina.majorUnits(record.amount_minor, record.currency), currency: record.currency, reference,
             test: record.ziina_test, frontendUrl: process.env.FRONTEND_URL, accountId: process.env.ZIINA_ACCOUNT_ID, appReturn: record.app_return || null });

@@ -54,6 +54,7 @@ test('server gate blocks anonymous and pending inventory; revocation takes effec
     assert.equal((await request('/api/support/eligibility','valid')).status,200);
     assert.equal((await request('/api/v1/ready')).status,200);
     assert.equal((await request('/api/payment/ziina/webhook/',null,'POST')).status,200);
+    assert.equal((await request('/api/payment/tabby/webhook',null,'POST')).status,200);
     assert.equal((await request('/api/v1/admin/membership/applications','admin')).status,200);
     unavailable=true;assert.equal((await request('/api/display-rates','valid')).status,503);
 });

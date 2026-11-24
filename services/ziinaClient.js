@@ -129,4 +129,4 @@ function verifyWebhook(rawBody, signature, address, secret = process.env.ZIINA_W
     return crypto.timingSafeEqual(digest, Buffer.from(signature, 'hex'));
 }
 
-module.exports = { SUPPORTED_CURRENCIES, minorUnits, majorUnits, formatAmountMinor, validateIntent, validateRefund, createIntent, getIntent, createRefund, getRefund, verifyWebhook };
+module.exports = { SUPPORTED_CURRENCIES, minorUnits, majorUnits, formatAmountMinor, validateIntent, validateRefund, createIntent, getIntent, createRefund, getRefund, verifyWebhook, returnUrl };

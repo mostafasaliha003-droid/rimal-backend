@@ -5,6 +5,7 @@ const BookingCancellation = require('../models/BookingCancellation');
 const booking = require('./bookingProcessService');
 const payment = require('./paymentService');
 const ziina = require('./ziinaClient');
+const tabby = require('./tabbyClient');
 const checkout = require('./checkoutProcessService');
 const ratehawk = require('./ratehawkService');
 const notification = require('./notificationService');
@@ -60,7 +61,70 @@ function validProviderIdentity(record, intent) {
         || process.env.ZIINA_TEST_MODE !== String(record.ziina_test)) throw new Error('payment_environment_mismatch');
 }
 
+function tabbyEnvironmentMatches(record) {
+    return typeof record.tabby_test === 'boolean' && record.tabby_test === tabby.settings().test
+        && typeof record.ziina_test === 'boolean' && process.env.ZIINA_TEST_MODE === String(record.ziina_test)
+        && record.tabby_test === record.ziina_test;
+}
+
+async function readTabbyPayment(record) {
+    return tabby.validatePayment(await tabby.getPayment(record.tabby_payment_id), {
+        id: record.tabby_payment_id, amount: record.amount_minor, test: record.tabby_test, reference: record.reference });
+}
+
+/*
+ * Tabby: CREATED (guest still in checkout) -> AUTHORIZED (approved) -> captured in full -> CLOSED.
+ * The whole amount is captured as soon as Tabby authorizes it (Tabby's own guidance), with a
+ * fixed reference so a retry never captures twice. Only a fully captured, unrefunded payment
+ * counts as paid; then the hotel is booked exactly as after a card payment.
+ */
+async function verifyTabbyPayment(record) {
+    if (!tabbyEnvironmentMatches(record)) {
+        await releaseClaim(record, { state: 'manual_review', next_check_at: null,
+            action_required: 'payment_environment_mismatch', error: 'payment_environment_mismatch' });
+        return;
+    }
+    let payment;
+    try {
+        payment = await readTabbyPayment(record);
+    } catch (error) {
+        await releaseClaim(record, error.code === 'invalid_tabby_payment'
+            ? { state: 'manual_review', next_check_at: null, action_required: 'payment_identity_mismatch', error: 'payment_identity_mismatch' }
+            : { next_check_at: followUp(15000), error: 'payment_status_unavailable' });
+        return;
+    }
+    if (payment.status === 'AUTHORIZED' && tabby.capturedAmount(payment) === 0) {
+        try {
+            await tabby.capturePayment({ id: record.tabby_payment_id, amount: record.amount_minor, referenceId: `capture-${record.reference}` });
+            payment = await readTabbyPayment(record);
+        } catch {
+            await releaseClaim(record, { tabby_capture_requested_at: record.tabby_capture_requested_at || new Date(),
+                next_check_at: followUp(10000), error: 'payment_capture_pending' });
+            return;
+        }
+    }
+    const captured = tabby.capturedAmount(payment);
+    if (payment.status === 'CLOSED' && captured === record.amount_minor && tabby.refundedAmount(payment) === 0) {
+        await releaseClaim(record, { state: 'payment_verified', payment_verified_at: new Date(),
+            next_check_at: followUp(0) }, { error: '', redirect_url: '' });
+    } else if (payment.status === 'REJECTED' || payment.status === 'EXPIRED' || payment.status === 'CLOSED' && captured === 0) {
+        await releaseClaim(record, { state: 'payment_failed', next_check_at: null,
+            error: payment.status === 'REJECTED' ? 'tabby_rejected' : payment.status === 'EXPIRED' ? 'tabby_expired' : 'tabby_closed' },
+        { encrypted_details: '', redirect_url: '' });
+    } else if (payment.status === 'CREATED') {
+        // Tabby expires an unfinished checkout about 30 minutes after it starts.
+        const late = Date.now() >= new Date(record.payment_expires_at).getTime() + 25 * 60 * 1000;
+        await releaseClaim(record, { next_check_at: followUp(late ? 60000 : 10000),
+            ...(late ? { action_required: 'payment_pending_after_expiry' } : {}) }, { error: '' });
+    } else {
+        // Partly captured or refunded before booking: a person decides.
+        await releaseClaim(record, { state: 'manual_review', next_check_at: null,
+            action_required: 'review_tabby_payment', error: 'tabby_payment_unexpected' });
+    }
+}
+
 async function verifyPayment(record) {
+    if (record.payment_provider === 'tabby') return verifyTabbyPayment(record);
     let intent;
     try {
         intent = await ziina.getIntent(record.ziina_intent_id);
@@ -215,7 +279,88 @@ async function reconcileBooking(record) {
     await releaseClaim(record, { next_check_at: followUp(5000) });
 }
 
+/*
+ * Refund a captured Tabby payment: all of it when the hotel could not be booked, or the amount the
+ * cancellation allows. Tabby records the refund at once; the same reference_id never refunds twice,
+ * so an unknown outcome is settled by reading the payment and, if needed, asking again.
+ */
+async function reconcileTabbyRefund(record) {
+    if (!record.payment_verified_at || !record.tabby_payment_id || !tabbyEnvironmentMatches(record)) {
+        await releaseClaim(record, { state: 'refund_review', next_check_at: null, action_required: 'refund_configuration_unavailable' });
+        return;
+    }
+    if (record.state === 'booking_failed' || record.state === 'booking_cancelled') {
+        if (record.state === 'booking_cancelled') {
+            const cancellation = await BookingCancellation.findById(record.partner_order_id).lean();
+            if (!cancellation || cancellation.checkout_attempt_id !== record._id
+                || cancellation.request_hash !== record.cancellation_request_hash
+                || !Number.isSafeInteger(record.refund_amount_minor) || record.refund_amount_minor < 0
+                || record.refund_amount_minor > record.amount_minor
+                || cancellation.customer_refund_amount_minor !== record.refund_amount_minor) {
+                await releaseClaim(record, { state: 'refund_review', next_check_at: null, action_required: 'refund_authorization_mismatch' });
+                return;
+            }
+            if (cancellation.state !== 'cancelled') {
+                await releaseClaim(record, { next_check_at: followUp(60000), action_required: 'verify_supplier_cancellation' });
+                return;
+            }
+            if (record.refund_amount_minor === 0) {
+                await releaseClaim(record, { refund_status: 'not_due', next_check_at: null });
+                return;
+            }
+        }
+        if (!tabby.isTabbyReady()) {
+            await releaseClaim(record, { state: 'refund_review', next_check_at: null, action_required: 'refund_configuration_unavailable' });
+            return;
+        }
+        const claimed = await updateClaim(record, { state: 'refund_creating', refund_id: crypto.randomUUID(),
+            refund_amount_minor: record.state === 'booking_failed' ? record.amount_minor : record.refund_amount_minor,
+            refund_status: 'pending', refund_sent_at: new Date(), next_check_at: followUp(15000) });
+        await sendTabbyRefund(claimed);
+        return;
+    }
+    let payment;
+    try { payment = await readTabbyPayment(record); }
+    catch (error) {
+        await releaseClaim(record, error.code === 'invalid_tabby_payment'
+            ? { state: 'refund_review', next_check_at: null, action_required: 'refund_identity_mismatch', error: 'refund_identity_mismatch' }
+            : { state: 'refund_unknown', next_check_at: followUp(60000), action_required: 'reconcile_refund', error: 'refund_status_unavailable' });
+        return;
+    }
+    const refund = tabby.findRefund(payment, record.refund_id);
+    if (refund && tabby.amountMinor(refund.amount) === record.refund_amount_minor) await completeRefund(record);
+    else if (refund) await releaseClaim(record, { state: 'refund_review', next_check_at: null, action_required: 'refund_identity_mismatch', error: 'refund_identity_mismatch' });
+    else await sendTabbyRefund(record);
+}
+
+async function sendTabbyRefund(record) {
+    try {
+        const payment = tabby.validatePayment(await tabby.refundPayment({ id: record.tabby_payment_id, amount: record.refund_amount_minor,
+            referenceId: record.refund_id, reason: record.state === 'booking_cancelled' || record.cancellation_request_hash ? 'Booking cancelled' : 'Hotel booking could not be confirmed' }),
+        { id: record.tabby_payment_id, amount: record.amount_minor, test: record.tabby_test, reference: record.reference });
+        const refund = tabby.findRefund(payment, record.refund_id);
+        if (!refund || tabby.amountMinor(refund.amount) !== record.refund_amount_minor) throw new Error('refund_not_recorded');
+        await releaseClaim(record, { state: 'refund_pending', refund_status: 'pending', next_check_at: followUp(0) }, { encrypted_details: '', error: '' });
+    } catch (error) {
+        // Tabby refused the refund itself (for example a disputed payment): a person takes over.
+        const refused = [400, 409].includes(error?.httpStatus);
+        await releaseClaim(record, refused
+            ? { state: 'refund_review', refund_status: 'failed', next_check_at: null, action_required: 'refund_failed', error: 'refund_refused' }
+            : { state: 'refund_unknown', next_check_at: followUp(30000), action_required: 'reconcile_refund', error: 'refund_outcome_unknown' });
+    }
+}
+
+async function completeRefund(record) {
+    const canNotify = Boolean(record.encrypted_notification);
+    await releaseClaim(record, { state: 'refund_completed', refund_status: 'completed',
+        refund_verified_at: new Date(), refund_notification_status: canNotify ? 'pending' : 'review',
+        next_check_at: canNotify ? followUp(0) : null,
+        ...(canNotify ? {} : { action_required: 'review_refund_notification_details' }) },
+    { encrypted_details: '', error: '', ...(canNotify ? { action_required: '' } : {}) });
+}
+
 async function reconcileRefund(record) {
+    if (record.payment_provider === 'tabby') return reconcileTabbyRefund(record);
     if (!record.payment_verified_at || !record.ziina_intent_id || typeof record.ziina_test !== 'boolean') {
         await releaseClaim(record, { state: 'manual_review', next_check_at: null, action_required: 'refund_identity_review' });
         return;

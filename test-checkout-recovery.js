@@ -150,10 +150,10 @@ test('actual HTTP service rejects malformed key and exposes only safe availabili
         readiness.mode = mode;
         const response = await fetch(api.url + '/api/payment/availability');
         assert.equal(response.headers.get('cache-control'), 'no-store');
-        assert.deepEqual(await response.json(), { enabled: false, mode, reason: 'checkout_unavailable' });
+        assert.deepEqual(await response.json(), { enabled: false, mode, tabby: false, reason: 'checkout_unavailable' });
     }
     readiness.ready = true; readiness.mode = 'sandbox';
-    assert.deepEqual(await (await fetch(api.url + '/api/payment/availability')).json(), { enabled: true, mode: 'sandbox' });
+    assert.deepEqual(await (await fetch(api.url + '/api/payment/availability')).json(), { enabled: true, mode: 'sandbox', tabby: false });
     db.readyState = 0;
-    assert.deepEqual(await (await fetch(api.url + '/api/payment/availability')).json(), { enabled: false, mode: 'sandbox', reason: 'checkout_unavailable' });
+    assert.deepEqual(await (await fetch(api.url + '/api/payment/availability')).json(), { enabled: false, mode: 'sandbox', tabby: false, reason: 'checkout_unavailable' });
 });

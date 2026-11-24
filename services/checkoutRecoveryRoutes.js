@@ -6,7 +6,9 @@ function createPaymentAvailabilityHandler({ payment, database } = {}) {
         try { readiness = payment.getCheckoutReadiness(); } catch { readiness = { ready: false, mode: 'unconfigured' }; }
         const mode = ['sandbox', 'production', 'unconfigured'].includes(readiness.mode) ? readiness.mode : 'unconfigured';
         const enabled = readiness.ready === true && mode !== 'unconfigured' && database.readyState === 1;
-        return res.json({ enabled, mode, ...(!enabled ? { reason: 'checkout_unavailable' } : {}) });
+        let tabby = false;
+        try { tabby = enabled && require('./tabbyClient').isTabbyReady(); } catch { tabby = false; }
+        return res.json({ enabled, mode, tabby, ...(!enabled ? { reason: 'checkout_unavailable' } : {}) });
     };
 }
 

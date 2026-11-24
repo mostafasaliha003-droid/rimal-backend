@@ -16,6 +16,12 @@ const checkoutAttemptSchema = new mongoose.Schema({
     currency: String,
     payment_quote: mongoose.Schema.Types.Mixed,
     ziina_test: Boolean,
+    // Which provider takes the payment. Absent on older attempts, which are all Ziina.
+    payment_provider: { type: String, enum: ['ziina', 'tabby'] },
+    tabby_test: Boolean,
+    tabby_session_id: String,
+    tabby_payment_id: { type: String, unique: true, sparse: true },
+    tabby_capture_requested_at: Date,
     ziina_intent_id: { type: String, unique: true, sparse: true },
     ziina_account_id: String,
     ziina_operation_id: String,
