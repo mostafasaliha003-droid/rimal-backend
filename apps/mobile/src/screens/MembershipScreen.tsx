@@ -12,6 +12,7 @@ import BrandHeader from '../components/BrandHeader';
 import MembershipApplication from '../components/MembershipApplication';
 import { Badge, Button, Card, Icon, Notice, Row, StatePanel, Txt, type BadgeTone, type IconName } from '../components/Primitives';
 import { statusText } from '../components/membershipCopy';
+import { reportMembership } from '../components/MemberAccess';
 import { useLayout } from '../components/motion';
 
 const stateTone: Record<MemberState, { tone: BadgeTone; icon: IconName }> = {
@@ -44,7 +45,7 @@ function MembershipContent() {
     if (status === 'loading') return;
     const controller = new AbortController();
     setResult(null); setError(false);
-    api.getMembershipStatus(controller.signal).then(data => { if (!controller.signal.aborted) { setGeneration(attempt); setResult(data); } })
+    api.getMembershipStatus(controller.signal).then(data => { if (!controller.signal.aborted) { setGeneration(attempt); setResult(data); reportMembership(data); } })
       .catch(() => { if (!controller.signal.aborted) setError(true); });
     return () => controller.abort();
   }, [attempt, status]));

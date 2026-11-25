@@ -31,3 +31,20 @@ test('every outcome has Arabic and English wording, and a cancellation says noth
   assert.equal(tabbyName('ar'), 'ادفع لاحقًا مع تابي');
   assert.equal(tabbyName('en'), 'Pay later with Tabby');
 });
+
+test('the Tabby promise names the real plans, keeps "no fees" to pay in 4 and says Tabby approves', () => {
+  const { tabbyPromo, paymentChoiceCopy } = require('./tabbyModel.ts');
+  for (const language of ['ar', 'en']) {
+    const promo = tabbyPromo(language);
+    for (const plan of ['4', '6', '12']) assert.match(promo.body, new RegExp(plan));
+    assert.ok(promo.fine.length > 0);
+    const copy = paymentChoiceCopy(language);
+    assert.equal(copy.schedule.length, 4);
+    assert.match(copy.approval.body, language === 'ar' ? /حساب/ : /account/);
+    assert.match(copy.approval.body, language === 'ar' ? /حدّ شرائي/ : /spending limit/);
+    // Longer plans never claim to be free: their terms are on Tabby's page.
+    assert.doesNotMatch(copy.tabby.plans, language === 'ar' ? /بلا فوائد|بدون فوائد/ : /no interest|no fees/i);
+  }
+  assert.match(tabbyPromo('ar').body, /الأربع دفعات بلا فوائد ولا رسوم/);
+  assert.match(tabbyPromo('en').body, /Pay in 4 has no interest and no fees/);
+});

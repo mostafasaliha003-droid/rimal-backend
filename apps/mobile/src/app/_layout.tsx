@@ -10,7 +10,7 @@ import { ChargeCurrencyProvider } from '../components/ChargeCurrency';
 import { AppStateProvider } from '../components/AppState';
 import { ToastProvider } from '../components/Toast';
 import AppUpdatePrompt from '../components/AppUpdatePrompt';
-import WelcomeGate from '../components/WelcomeGate';
+import { AccessGate, MemberAccessProvider } from '../components/MemberAccess';
 import { useReducedMotion } from '../components/motion';
 import { color } from '../theme';
 
@@ -53,7 +53,7 @@ export default function RootLayout() {
     ManropeBold: require('../../assets/fonts/Manrope-Bold.ttf'),
   });
   if (!ready && !error) return <View style={{ flex: 1, backgroundColor: color.bgCanvas, justifyContent: 'center' }}><ActivityIndicator color={color.interactive}/></View>;
-  return <SafeAreaProvider><LanguageProvider><AuthProvider><AppStateProvider><ChargeCurrencyProvider><ToastProvider>
-    <StatusBar style="dark"/><Navigator/><WelcomeGate/><AppUpdatePrompt/>
-  </ToastProvider></ChargeCurrencyProvider></AppStateProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;
+  return <SafeAreaProvider><LanguageProvider><AuthProvider><MemberAccessProvider><AppStateProvider><ChargeCurrencyProvider><ToastProvider>
+    <StatusBar style="dark"/><Navigator/><AccessGate/><AppUpdatePrompt/>
+  </ToastProvider></ChargeCurrencyProvider></AppStateProvider></MemberAccessProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;
 }

@@ -33,12 +33,13 @@ import { useLayout } from '../components/motion';
 type TravelDraft = Pick<SearchCriteria, 'checkin' | 'checkout' | 'guests' | 'residency'>;
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
 
-function initialTravel(criteria: SearchCriteria | null, fallbackResidency?: string): TravelDraft {
+function initialTravel(criteria: SearchCriteria | null): TravelDraft {
   return {
     checkin: criteria?.checkin || '', checkout: criteria?.checkout || '',
     guests: copyGuestRooms(criteria?.guests || [{ adults: 2, children: [] }]),
-    // Required and never assumed: the guest picks it (the last search's choice is offered again).
-    residency: criteria?.residency || fallbackResidency || '',
+    // Required and never assumed: the guest picks it in this session. A search from an earlier
+    // launch (continue card, recent searches) brings back the place and dates, never the nationality.
+    residency: criteria?.residency || '',
   };
 }
 
@@ -56,12 +57,10 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const needsSuggestions = !savedOnly && shouldSuggestDestination(query, selected);
   const suggesting = needsSuggestions && suggestionResult.key !== suggestionKey;
   const suggestError = suggestionResult.key === suggestionKey && suggestionResult.error;
-  // The nationality chosen in the last search on this device is offered again; the guest can change it.
-  const rememberedResidency = state.lastSearch?.criteria.residency;
-  const [draft, setDraft] = useState(() => ({ source: state.criteria, value: initialTravel(state.criteria, rememberedResidency) }));
+  const [draft, setDraft] = useState(() => ({ source: state.criteria, value: initialTravel(state.criteria) }));
   const [nationalityOpen, showNationality] = useState(false);
   // Applying travel details elsewhere updates the dates on Explore and retains its destination input.
-  const travel = draft.source === state.criteria ? draft.value : initialTravel(state.criteria, rememberedResidency);
+  const travel = draft.source === state.criteria ? draft.value : initialTravel(state.criteria);
   const { checkin, checkout, guests, residency } = travel;
   const preference = useCurrencyPreference();
   const currency = bookingCurrency(preference.currency, APP_ENV);
@@ -71,7 +70,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     : preference.source === 'device' ? (rtl ? 'حسب إعداد الجهاز' : 'Device region')
     : preference.detecting ? (rtl ? 'جارٍ التحديد' : 'Detecting') : (rtl ? 'افتراضي' : 'Default');
   const updateTravel = (changes: Partial<TravelDraft>) => setDraft(previous => ({
-    source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria, rememberedResidency)), ...changes },
+    source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria)), ...changes },
   }));
   const [calendar, setCalendar] = useState<{ field: 'checkin' | 'checkout'; source: SearchCriteria | null } | null>(null);
   const [guestEditor, setGuestEditor] = useState<{ source: SearchCriteria | null } | null>(null);
@@ -111,7 +110,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     setAppliedHotel(requestedHotel);
     if (requestedHotel) {
       setPickedCity(null); setQuery(requestedHotel); select(null); setSubmitted(false);
-      setDraft(previous => ({ source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria, rememberedResidency)), checkin: '', checkout: '' } }));
+      setDraft(previous => ({ source: state.criteria, value: { ...(previous.source === state.criteria ? previous.value : initialTravel(state.criteria)), checkin: '', checkout: '' } }));
     }
   }
   useEffect(() => {
@@ -154,7 +153,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     const recent = state.getRecentSearches().find(value => value.id === id);
     if (!recent) return;
     const restored = recentSearchDraft(recent); if (!restored) return;
-    fillForm(restored); returnToForm();
+    fillForm({ ...restored, residency }); returnToForm();
   };
   const chooseQuickStay = (kind: QuickStay) => {
     const dates = quickStayDates(kind); updateTravel(dates);
@@ -178,20 +177,29 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
     onResume={() => {
       if (continueSource.current) { router.push('/results'); return; }
       if (!state.lastSearch || !preference.ready || resumeState(state.lastSearch, today) !== 'ready') return;
-      state.setSearch(resumeCriteria(state.lastSearch, currency, language), state.lastSearch.name);
+      // A search from an earlier launch runs only with a nationality the guest picked now.
+      if (!COUNTRY_CODES.includes(residency)) {
+        const restored = destinationFromSearch(continueSource.criteria, continueSource.name);
+        if (!restored) return;
+        fillForm({ query: continueSource.name, selected: restored, checkin: continueSource.criteria.checkin, checkout: continueSource.criteria.checkout,
+          guests: copyGuestRooms(continueSource.criteria.guests), residency: '' });
+        returnToForm(); setSubmitted(true); setErrors({ residency: true }); showNationality(true);
+        return;
+      }
+      state.setSearch({ ...resumeCriteria(state.lastSearch, currency, language), residency }, state.lastSearch.name);
       router.push('/results');
     }}
     onEdit={() => {
       const restored = destinationFromSearch(continueSource.criteria, continueSource.name);
       if (!restored) return;
       fillForm({ query: continueSource.name, selected: restored, checkin: continueSource.criteria.checkin, checkout: continueSource.criteria.checkout,
-        guests: copyGuestRooms(continueSource.criteria.guests), residency: continueSource.criteria.residency });
+        guests: copyGuestRooms(continueSource.criteria.guests), residency: continueSource.current ? continueSource.criteria.residency : residency });
       returnToForm();
     }}
     onNewDates={() => {
       const restored = destinationFromSearch(continueSource.criteria, continueSource.name);
       if (!restored) return;
-      fillForm({ query: continueSource.name, selected: restored, checkin: '', checkout: '', guests: copyGuestRooms(continueSource.criteria.guests), residency: continueSource.criteria.residency });
+      fillForm({ query: continueSource.name, selected: restored, checkin: '', checkout: '', guests: copyGuestRooms(continueSource.criteria.guests), residency: continueSource.current ? continueSource.criteria.residency : residency });
       setCalendar({ field: 'checkin', source: state.criteria });
     }}
     onClear={continueSource.current ? undefined : state.clearLastSearch}/>;

@@ -6,6 +6,7 @@ import { useLanguage } from '../../i18n';
 import { color, fonts, localizedFont, radius } from '../../theme';
 import { Icon, type IconName } from '../../components/Icon';
 import { useLayout } from '../../components/motion';
+import { useMemberAccess } from '../../components/MemberAccess';
 
 function tabIcon(name: IconName) {
   return function TabIcon({ color: tint, focused }: { color: ColorValue | null; focused: boolean }) {
@@ -21,6 +22,8 @@ export default function TabLayout() {
   const { t, rtl, language } = useLanguage();
   const insets = useSafeAreaInsets();
   const { fontScale, desktop } = useLayout();
+  // Visitors and applicants have no hotel tabs to move between: the bar arrives with membership.
+  const member = useMemberAccess().access === 'member';
   return <Tabs screenOptions={{
     headerShown: false,
     tabBarActiveTintColor: color.interactiveStrong,
@@ -28,7 +31,7 @@ export default function TabLayout() {
     tabBarLabelPosition: 'below-icon',
     tabBarLabelStyle: { fontFamily: localizedFont(language, fonts.bold), fontSize: 12, lineHeight: language === 'ar' ? 20 : 16, marginTop: 2 },
     // Desktop navigation lives in the header; the bottom bar is a phone/tablet pattern.
-    tabBarStyle: desktop ? { display: 'none' } : {
+    tabBarStyle: desktop || !member ? { display: 'none' } : {
       backgroundColor: color.bgSurface, borderTopColor: color.border,
       height: (language === 'ar' ? 70 : 64) + insets.bottom + Math.max(0, fontScale - 1) * 16, paddingTop: 6,
       paddingBottom: insets.bottom + 6, direction: rtl ? 'rtl' : 'ltr',

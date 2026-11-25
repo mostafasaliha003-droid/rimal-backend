@@ -8,6 +8,7 @@ import { APP_ENV } from '../api';
 import { useAuth } from '../auth';
 import { Badge, Icon, Row, Txt } from './Primitives';
 import { useLayout } from './motion';
+import { useMemberAccess } from './MemberAccess';
 
 /** The approved Mkhadda symbol and bilingual wordmark. */
 export function PillowWordmark({ stacked = false }: { stacked?: boolean }) {
@@ -50,16 +51,19 @@ export default function BrandHeader({ back = false }: { back?: boolean }) {
   // keeps the language switch so a first-time visitor can change it before searching.
   const showLanguage = desktop || (!back && pathname === '/');
   const showAccount = desktop;
+  // Home is where this visitor may be: Explore for members, the membership page for applicants.
+  const { access } = useMemberAccess();
+  const home = access === 'applicant' ? '/membership' : access === 'guest' ? '/welcome' : '/';
   return <View style={styles.bar}>
     <Row style={[styles.inner, desktop && { maxWidth: layout.maxContent, paddingHorizontal: space.xl }]}>
       <Row style={{ gap: space.xs, flexShrink: 1 }}>
         {back && <Pressable accessibilityRole="button" accessibilityLabel={t('back')} testID="header-back"
           style={state => [styles.action, (state.pressed || hovered(state)) && styles.actionActive]}
-          onPress={() => router.canGoBack() ? router.back() : router.replace('/')}><Icon name="back" size={22}/></Pressable>}
-        <Pressable accessibilityRole="link" accessibilityHint={ar ? 'الصفحة الرئيسية' : 'Home'} onPress={() => router.navigate('/')}
+          onPress={() => router.canGoBack() ? router.back() : router.replace(home === pathname ? '/account' : home)}><Icon name="back" size={22}/></Pressable>}
+        <Pressable accessibilityRole="link" accessibilityHint={ar ? 'الصفحة الرئيسية' : 'Home'} onPress={() => router.navigate(home)}
           style={styles.brand}><PillowWordmark/></Pressable>
         {APP_ENV !== 'production' && <View style={{ alignSelf: 'center' }}><Badge tone="warning" label={ar ? 'اختبار' : 'Test'}/></View>}
-        {desktop && <Row style={{ gap: space.xxs, marginHorizontal: space.lg }} role="navigation" aria-label={ar ? 'التنقل الرئيسي' : 'Main navigation'}>
+        {desktop && access === 'member' && <Row style={{ gap: space.xxs, marginHorizontal: space.lg }} role="navigation" aria-label={ar ? 'التنقل الرئيسي' : 'Main navigation'}>
           {navItems.map(item => {
             const active = item.path === '/' ? pathname === '/' : pathname.startsWith(item.path);
             return <Pressable key={item.key} accessibilityRole="link" aria-current={active ? 'page' : undefined} onPress={() => router.navigate(item.path)}

@@ -6,11 +6,12 @@ import * as WebBrowser from 'expo-web-browser';
 import { api, APP_ENV, authSession, bookingWebsiteUrl, websiteUrl } from '../api';
 import { NATIVE_CHECKOUT_ENABLED, paymentReturnUrl } from '../api/config';
 import type { CheckoutGuestData, CheckoutPaymentMethod, CheckoutStatus } from '../api/checkout';
-import { tabbyInstallment, tabbyMessage, tabbyName, tabbyOutcome, type TabbyRejection } from '../components/tabbyModel';
+import { paymentChoiceCopy, tabbyInstallment, tabbyMessage, tabbyName, tabbyOutcome, type TabbyRejection } from '../components/tabbyModel';
+import { TabbyMark, TabbySchedule } from '../components/TabbyPromo';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import type { GuestRoom, Money, RoomOffer } from '../types';
-import { color, colors, fonts, radius, space, ui } from '../theme';
+import { color, colors, fonts, localizedFont, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import { useCheckoutSession } from '../components/useCheckoutSession';
@@ -438,6 +439,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
   const tabbyChecking = Boolean(eligibilityKey && !tabbyCheck);
   const tabbyRefusal: TabbyRejection | null = eligibilityKey && tabbyCheck && !tabbyCheck.available ? tabbyCheck.reason ?? 'not_available' : null;
   const installment = tabbyInstallment(quote.amount, quote.currency);
+  const choice = paymentChoiceCopy(language);
   if (!draft) return <ScrollView contentContainerStyle={[ui.page, styles.page]}>{header}<StatePanel title={copy.invalidOccupancy}/>{footer}</ScrollView>;
   const side = !narrow && fontScale <= 1.3;
   const error = (key: string) => { const code=errors[key]; return !code || code === 'required' ? undefined : code === 'name' ? copy.errorName : code === 'email' ? copy.errorEmail : code === 'phone' ? copy.errorPhone : code === 'requests' ? copy.errorRequests : copy.invalidOccupancy; };
@@ -544,15 +546,21 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
         </View>
       </Card>
       {tabbyOffered && onPaymentMethod && <Card testID="checkout-payment-methods" style={styles.card}>
-        <Txt kind="subheading" accessibilityRole="header">{ar ? 'طريقة الدفع' : 'Payment method'}</Txt>
+        <Txt kind="subheading" accessibilityRole="header">{choice.heading}</Txt>
         <View accessibilityRole="radiogroup" style={{ gap: space.sm }}>
           <PaymentOption testID="checkout-method-card" selected={!tabby} onPress={() => onPaymentMethod('card')} icon="card"
-            title={ar ? 'بطاقة أو محفظة رقمية' : 'Card or digital wallet'}
-            body={ar ? 'ادفع المبلغ كاملاً عبر صفحة دفع آمنة.' : 'Pay the full amount on a secure payment page.'}/>
+            tag={choice.card.tag} title={choice.card.title} body={choice.card.body}/>
           <PaymentOption testID="checkout-method-tabby" selected={tabby} onPress={() => onPaymentMethod('tabby')} mark={<TabbyMark/>}
-            title={tabbyName(language)}
-            body={tabby && installment ? (ar ? `4 دفعات بدون فوائد أو رسوم · ${formatPrice({ amount: installment, currency: 'AED' })} للدفعة` : `4 payments of ${formatPrice({ amount: installment, currency: 'AED' })} · no interest, no fees`)
-              : (ar ? 'قسّم المبلغ على 4 دفعات بدون فوائد أو رسوم، بالدرهم الإماراتي.' : 'Split it into 4 payments with no interest or fees, in UAE dirhams.')}/>
+            tag={choice.tabby.tag} tagTone="mint" title={tabbyName(language)}
+            body={tabby && installment ? (ar ? `4 دفعات متساوية بالدرهم، بلا فوائد ولا رسوم` : `4 equal payments in AED, no interest, no fees`)
+              : (ar ? 'قسّمها على 4 دفعات بلا فوائد ولا رسوم، بالدرهم الإماراتي.' : 'Split it into 4 payments, no interest and no fees, in UAE dirhams.')}>
+            {tabby && installment ? <TabbySchedule amount={Number(installment).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/> : null}
+            {tabby && <Txt kind="caption">{choice.tabby.plans}</Txt>}
+            <Row testID="checkout-tabby-approval" style={styles.approval}>
+              <Icon name="info" size={16} color={color.textSecondary}/>
+              <Txt kind="caption" style={{ flex: 1 }}><Txt kind="caption" style={{ fontFamily: localizedFont(language, fonts.bold), color: color.textPrimary }}>{choice.approval.title}: </Txt>{choice.approval.body}</Txt>
+            </Row>
+          </PaymentOption>
         </View>
         {tabby && <InfoRow icon="info"><Txt kind="caption">{ar ? 'تُكمل الدفع في صفحة تابي ثم تعود إلى التطبيق تلقائياً. السعر بالدرهم الإماراتي هو نفسه لكل طرق الدفع.' : 'You finish on Tabby’s page and come straight back to the app. The AED price is the same for every payment method.'}</Txt></InfoRow>}
         {tabby && tabbyChecking && <Row style={{ gap: space.xs }}><ActivityIndicator size="small" color={color.interactive}/>
@@ -582,25 +590,26 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
 }
 
 /** One payment choice: a radio row with its mark, name and one line of detail. */
-function PaymentOption({ selected, onPress, icon, mark, title, body, testID }: {
-  selected: boolean; onPress: () => void; icon?: 'card'; mark?: React.ReactNode; title: string; body: string; testID?: string;
+/** One payment choice: a radio row with a playful tag, its mark, name and one line of detail; details below. */
+function PaymentOption({ selected, onPress, icon, mark, tag, tagTone = 'plum', title, body, testID, children }: {
+  selected: boolean; onPress: () => void; icon?: 'card'; mark?: React.ReactNode; tag?: string; tagTone?: 'plum' | 'mint';
+  title: string; body: string; testID?: string; children?: React.ReactNode;
 }) {
-  return <Pressable testID={testID} accessibilityRole="radio" aria-checked={selected} accessibilityState={{ checked: selected }} accessibilityLabel={`${title}. ${body}`}
-    onPress={onPress} style={[styles.option, selected && styles.optionOn]}>
-    <Row style={{ gap: space.sm, alignItems: 'center' }}>
-      <View accessible={false} style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot}/>}</View>
-      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
-        <Txt kind="label" tone="primary">{title}</Txt>
-        <Txt kind="caption">{body}</Txt>
-      </View>
-      {mark ?? (icon ? <Icon name={icon} size={22} color={color.textSecondary}/> : null)}
-    </Row>
-  </Pressable>;
-}
-
-/** A plain "tabby" word mark in Tabby's mint. The official logo file can replace it once Tabby supplies it. */
-function TabbyMark() {
-  return <View accessible={false} style={styles.tabbyMark}><Txt kind="label" style={styles.tabbyMarkText}>tabby</Txt></View>;
+  return <View style={[styles.option, selected && styles.optionOn]}>
+    <Pressable testID={testID} accessibilityRole="radio" aria-checked={selected} accessibilityState={{ checked: selected }}
+      accessibilityLabel={`${title}. ${body}`} onPress={onPress} style={{ gap: space.xs }}>
+      {tag && <View style={[styles.tag, tagTone === 'mint' && styles.tagMint]}><Txt kind="micro" style={{ color: tagTone === 'mint' ? '#04503C' : color.interactiveStrong }}>{tag}</Txt></View>}
+      <Row style={{ gap: space.sm, alignItems: 'center' }}>
+        <View accessible={false} style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot}/>}</View>
+        <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+          <Txt kind="label" tone="primary">{title}</Txt>
+          <Txt kind="caption">{body}</Txt>
+        </View>
+        {mark ?? (icon ? <Icon name={icon} size={22} color={color.textSecondary}/> : null)}
+      </Row>
+    </Pressable>
+    {children && <View style={{ gap: space.sm, marginTop: space.sm }}>{children}</View>}
+  </View>;
 }
 
 type StageState = 'done' | 'active' | 'failed' | 'waiting';
@@ -652,6 +661,7 @@ const styles = StyleSheet.create({
   radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center' },
   radioOn: { borderColor: color.interactiveStrong },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.interactiveStrong },
-  tabbyMark: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.xs, backgroundColor: '#3EEDBF' },
-  tabbyMarkText: { color: '#000000', fontFamily: 'ManropeBold', writingDirection: 'ltr' },
+  tag: { alignSelf: 'flex-start', paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: color.bgSelected },
+  tagMint: { backgroundColor: 'rgba(62,237,191,0.22)' },
+  approval: { gap: space.xs, alignItems: 'flex-start', padding: space.sm, borderRadius: radius.sm, backgroundColor: color.bgSubtle },
 });

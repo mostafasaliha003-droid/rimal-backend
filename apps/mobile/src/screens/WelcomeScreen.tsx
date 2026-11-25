@@ -1,18 +1,17 @@
 import React, { useEffect, useState } from 'react';
-import { Animated, BackHandler, Easing, Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
+import { Animated, Easing, Image, Platform, Pressable, StyleSheet, Text, View, useWindowDimensions } from 'react-native';
 import type { PressableStateCallbackType } from 'react-native';
 import Svg, { Circle, Defs, LinearGradient, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { StatusBar } from 'expo-status-bar';
-import AsyncStorage from '@react-native-async-storage/async-storage';
-import { useRouter } from 'expo-router';
+import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useLanguage } from '../i18n';
 import { color, fonts, latinFonts, palette, radius, space } from '../theme';
-import { Button, Icon, Row, TextLink, Txt } from '../components/Primitives';
+import { Button, Icon, Row, Txt } from '../components/Primitives';
 import type { IconName } from '../components/Primitives';
 import { useReducedMotion } from '../components/motion';
 import { haptic } from '../components/haptics';
-import { WELCOME_KEY } from '../components/welcomeModel';
+import TabbyPromo from '../components/TabbyPromo';
 
 const native = Platform.OS !== 'web';
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
@@ -123,10 +122,11 @@ export default function WelcomeScreen() {
   const reduced = useReducedMotion();
   const insets = useSafeAreaInsets();
   const { width, height } = useWindowDimensions();
-  const compact = height < 740;
+  const compact = height < 900;
   const tiny = height < 700;
   const wide = width >= 720;
-  const intro = useValues(['reveal', 'emblem', 'word', 'letters', 'tagline', 'chips', 'pill', 'sheet'] as const);
+  const intro = useValues(['reveal', 'emblem', 'word', 'letters', 'tagline', 'chips', 'pill', 'promo', 'sheet'] as const);
+  const { next } = useLocalSearchParams<{ next?: string }>();
   const [ring] = useState(() => new Animated.Value(0));
   const loops = useValues(['drift', 'twinkle', 'float', 'glow', 'orbit', 'shine'] as const);
 
@@ -145,6 +145,7 @@ export default function WelcomeScreen() {
       at(1180, ease(intro.tagline, 650)),
       at(1380, ease(intro.chips, 800)),
       at(1560, spring(intro.pill, 5)),
+      at(1800, ease(intro.promo, 700)),
       at(1450, spring(intro.sheet, 9)),
     ]);
     const breathe = (value: Animated.Value, duration: number) => Animated.loop(Animated.sequence([
@@ -159,21 +160,13 @@ export default function WelcomeScreen() {
     return () => running.forEach(animation => animation.stop());
   }, [reduced, intro, loops, ring]);
 
-  // "Explore first" (or the system back gesture) quiets the welcome front for a week.
-  const explore = () => {
-    void AsyncStorage.setItem(WELCOME_KEY, String(Date.now())).catch(() => {});
-    if (router.canGoBack()) router.back(); else router.replace('/');
-  };
-  useEffect(() => {
-    const subscription = BackHandler.addEventListener('hardwareBackPress', () => { void AsyncStorage.setItem(WELCOME_KEY, String(Date.now())).catch(() => {}); return false; });
-    return () => subscription.remove();
-  }, []);
   const account = (mode: 'register' | 'login') => {
     haptic('select');
-    router.replace({ pathname: '/account', params: { mode, returnTo: '/' } });
+    // A shared link opened before signing in is where sign-in returns.
+    router.replace({ pathname: '/account', params: { mode, returnTo: typeof next === 'string' && next.startsWith('/') ? next : '/' } });
   };
 
-  const emblemSize = tiny ? 84 : compact ? 104 : 128;
+  const emblemSize = tiny ? 76 : compact ? 96 : 128;
   const categories: { icon: IconName; label: string; soon: boolean }[] = [
     { icon: 'hotel', label: ar ? 'فنادق' : 'Hotels', soon: false },
     { icon: 'calendar', label: ar ? 'فعاليات' : 'Events', soon: true },
@@ -199,8 +192,8 @@ export default function WelcomeScreen() {
       <View style={[styles.hero, { gap: tiny ? 6 : compact ? space.sm : space.md }]} accessible accessibilityRole="header"
         accessibilityLabel={ar ? 'مخدة، pillow stays. أفضل عروض الفنادق والفعاليات والتذاكر في مكان واحد. سعر مدلّل لأعضائنا فقط.'
           : 'Mkhadda, pillow stays. The best hotel, event and ticket deals in one place. Pampered prices, for members only.'}>
-        <Emblem size={emblemSize} spread={tiny ? 1.6 : 1.9} emblem={intro.emblem} ring={ring} float={loops.float} glow={loops.glow} orbit={loops.orbit}/>
-        <View style={{ alignItems: 'center', marginTop: -emblemSize * (tiny ? 0.18 : 0.28) }}>
+        <Emblem size={emblemSize} spread={compact ? 1.6 : 1.9} emblem={intro.emblem} ring={ring} float={loops.float} glow={loops.glow} orbit={loops.orbit}/>
+        <View style={{ alignItems: 'center', marginTop: -emblemSize * (compact ? 0.18 : 0.28) }}>
           <Animated.Text allowFontScaling={false} style={[styles.word, { fontSize: tiny ? 32 : compact ? 38 : 46, lineHeight: tiny ? 42 : compact ? 50 : 60 }, rise(intro.word)]}>مخدة</Animated.Text>
           <View style={styles.letters}>
             {letters.map((letter, index) => {
@@ -212,10 +205,10 @@ export default function WelcomeScreen() {
           </View>
         </View>
         <Animated.View style={[{ paddingHorizontal: space.xl, maxWidth: wide ? 560 : 420 }, rise(intro.tagline)]}>
-          <Text style={[styles.tagline, { fontFamily: ar ? fonts.medium : latinFonts.medium, fontSize: tiny ? 15 : compact ? 17 : 19, lineHeight: tiny ? 23 : compact ? 27 : 30 }]}>
+          <Text style={[styles.tagline, { fontFamily: ar ? fonts.medium : latinFonts.medium, fontSize: tiny ? 15 : compact ? 16 : 19, lineHeight: tiny ? 23 : compact ? 25 : 30 }]}>
             {ar ? 'أفضل عروض الفنادق والفعاليات والتذاكر في مكان واحد' : 'The best deals on hotels, events and tickets, all in one place'}</Text>
         </Animated.View>
-        <Row style={{ gap: space.xs + 2, justifyContent: 'center', flexWrap: 'wrap', paddingHorizontal: space.md }}>
+        {!tiny && <Row style={{ gap: space.xs + 2, justifyContent: 'center', flexWrap: 'wrap', paddingHorizontal: space.md }}>
           {categories.map((category, index) => {
             const value = intro.chips.interpolate({ inputRange: [index * 0.2, index * 0.2 + 0.6, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' });
             return <Animated.View key={category.icon} style={[styles.category, category.soon ? null : styles.categoryActive, { opacity: value,
@@ -227,7 +220,7 @@ export default function WelcomeScreen() {
               </Row>
             </Animated.View>;
           })}
-        </Row>
+        </Row>}
         <Animated.View style={{ opacity: intro.pill, transform: [{ scale: intro.pill.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }] }}>
           <View style={styles.pill} testID="welcome-member-pill">
             <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 10" style={StyleSheet.absoluteFill}>
@@ -247,6 +240,9 @@ export default function WelcomeScreen() {
             </Row>
           </View>
         </Animated.View>
+        <Animated.View style={[{ width: '100%', maxWidth: 420, paddingHorizontal: space.lg, marginTop: tiny ? 0 : space.xs }, rise(intro.promo, 18)]}>
+          <TabbyPromo compact={compact}/>
+        </Animated.View>
       </View>
 
       <Animated.View style={[styles.sheet, wide && styles.sheetWide, tiny && { gap: space.md }, { paddingBottom: Math.max(insets.bottom, space.lg) + (wide ? 0 : space.xs) },
@@ -254,14 +250,11 @@ export default function WelcomeScreen() {
         {!wide && <View style={styles.handle}/>}
         <View style={{ gap: 2 }}>
           <Txt kind="heading" align="center" accessibilityRole="header">{ar ? 'أهلاً بك في مخدة' : 'Welcome to Mkhadda'}</Txt>
-          {!tiny && <Txt kind="small" align="center">{ar ? 'حسابك بوابتك إلى أسعار الأعضاء وحجوزاتك في مكان واحد.' : 'Your account opens member prices and keeps every booking in one place.'}</Txt>}
+          {!compact && <Txt kind="small" align="center">{ar ? 'حسابك بوابتك إلى أسعار الأعضاء وحجوزاتك في مكان واحد.' : 'Your account opens member prices and keeps every booking in one place.'}</Txt>}
         </View>
         <View style={{ gap: space.sm }}>
           <Button testID="welcome-register" fill icon="sparkles" title={ar ? 'إنشاء حساب جديد' : 'Create an account'} onPress={() => account('register')}/>
           <Button testID="welcome-login" fill variant="secondary" title={ar ? 'لدي حساب · تسجيل الدخول' : 'I have an account · Sign in'} onPress={() => account('login')}/>
-        </View>
-        <View style={{ alignItems: 'center' }}>
-          <TextLink testID="welcome-explore" title={ar ? 'استكشف الفنادق أولاً' : 'Explore hotels first'} icon="forward" onPress={explore}/>
         </View>
       </Animated.View>
     </SafeAreaView>

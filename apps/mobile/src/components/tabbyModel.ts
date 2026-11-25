@@ -11,6 +11,34 @@ export function tabbyName(language: string) {
   return language === 'ar' ? 'ادفع لاحقًا مع تابي' : 'Pay later with Tabby';
 }
 
+/*
+ * The playful lines around Tabby. Every fact in them is one Tabby states for this merchant:
+ * pay in 4 is free of interest and fees; Tabby's own page offers 4, 6 or 12 payments (longer
+ * plans show their terms there); Tabby alone approves each purchase.
+ */
+export function tabbyPromo(language: string) {
+  return language === 'ar'
+    ? { title: 'الفندق ما يستنّى… الفاتورة تستنّى', body: 'قسّط حجزك مع تابي على 4 أو 6 أو 12 دفعة. الأربع دفعات بلا فوائد ولا رسوم.', fine: 'الخطط حسب موافقة تابي' }
+    : { title: 'The hotel won’t wait. Your bill can.', body: 'Split your stay with Tabby into 4, 6 or 12 payments. Pay in 4 has no interest and no fees.', fine: 'Plans subject to Tabby approval' };
+}
+
+export function paymentChoiceCopy(language: string) {
+  const ar = language === 'ar';
+  return {
+    heading: ar ? 'كيف تحب تدفع؟' : 'How would you like to pay?',
+    card: ar
+      ? { tag: 'خلّصها وارتاح', title: 'ادفعها مرة وحدة', body: 'بطاقة أو محفظة رقمية. المبلغ كاملاً في صفحة دفع آمنة، وبعدها نوم بلا أرقام في راسك.' }
+      : { tag: 'One tap, all done', title: 'Pay it all at once', body: 'Card or digital wallet. The full amount on a secure page, then sleep with no numbers in your head.' },
+    tabby: ar
+      ? { tag: 'المخدة اليوم… والدفع على راحتك', plans: 'أو 6 أو 12 دفعة تختارها وتشوف شروطها في صفحة تابي.' }
+      : { tag: 'The pillow today, the payments at your pace', plans: 'Or 6 or 12 payments, chosen with their terms on Tabby’s page.' },
+    schedule: ar ? ['اليوم', 'الدفعة 2', 'الدفعة 3', 'الدفعة 4'] : ['Today', '2nd', '3rd', '4th'],
+    approval: ar
+      ? { title: 'القرار عند تابي', body: 'قد لا تقبل تابي الدفع إذا لم يكن لديك حساب معها أو حدّ شرائي متاح يغطي قيمة الحجز. ولا يهمك، الدفع بالبطاقة متاح دائماً.' }
+      : { title: 'Tabby has the final say', body: 'Tabby may decline if you don’t have a Tabby account or enough spending limit with them to cover this booking. No worries, card payment is always here.' },
+  };
+}
+
 /** "AED 450.75" -> "112.69": a quarter, rounded up to the fils. Null when it is not an AED amount. */
 export function tabbyInstallment(amount: string, currency: string): string | null {
   if (currency !== 'AED' || typeof amount !== 'string' || !/^\d{1,12}(?:\.\d{1,2})?$/.test(amount)) return null;

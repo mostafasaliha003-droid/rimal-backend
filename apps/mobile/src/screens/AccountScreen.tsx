@@ -12,6 +12,7 @@ import BrandHeader, { AccountAvatar } from '../components/BrandHeader';
 import { Button, Chip, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
 import { afterSignInRoute, normalizeVerificationCode, registrationFormReady } from '../components/foundationContracts';
 import { statusText } from '../components/membershipCopy';
+import { reportMembership } from '../components/MemberAccess';
 
 function AccountLink({ title, icon, onPress, hint, disabled }: {
   title: string; icon: React.ComponentProps<typeof Icon>['name']; onPress: () => void; hint?: string; disabled?: boolean;
@@ -55,7 +56,7 @@ function AccountMembership() {
     setMembership(null);
     setFailed(false);
     api.getMembershipStatus(controller.signal).then(value => {
-      if (!controller.signal.aborted) setMembership(value);
+      if (!controller.signal.aborted) { setMembership(value); reportMembership(value); }
     }).catch(() => { if (!controller.signal.aborted) setFailed(true); });
   }, []);
   useFocusEffect(useCallback(() => {
