@@ -53,6 +53,9 @@ async function startSite(context, withBuild) {
         await fs.writeFile(target, content);
     }
     if (withBuild) {
+        // The Mkhadda brand folder ships with the build.
+        await fs.mkdir(path.join(root, 'frontend', 'dist', 'pillow'), { recursive: true });
+        await fs.writeFile(path.join(root, 'frontend', 'dist', 'pillow', 'symbol.svg'), '<svg>pillow</svg>');
         for (const [file, content] of Object.entries(files).filter(([file]) => ['index.html', 'assets/app.js', 'sw.js'].includes(file))) {
             const target = path.join(root, 'frontend', 'dist', file);
             await fs.mkdir(path.dirname(target), { recursive: true });
@@ -107,6 +110,11 @@ test('prefers the local frontend build when it exists', async context => {
     assert.equal(await distAsset.text(), 'built asset');
     assert.equal(distAsset.headers.get('cache-control'), 'public, max-age=31536000, immutable');
     assert.equal(await (await fetch(`${base}/sw.js`)).text(), 'built service worker');
+    const symbol = await fetch(`${base}/pillow/symbol.svg`);
+    assert.equal(symbol.status, 200);
+    assert.equal(await symbol.text(), '<svg>pillow</svg>');
+    assert.doesNotMatch(await (await fetch(`${base}/pillow/../server.js`)).text(), /PRIVATE/);
+    assert.doesNotMatch(await (await fetch(`${base}/pillow/%2e%2e/server.js`)).text(), /PRIVATE/);
     const index = await fetch(`${base}/index.html`);
     assert.equal(index.headers.get('cache-control'), 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const missingAsset = await fetch(`${base}/assets/old-build.js`);
