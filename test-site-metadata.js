@@ -14,7 +14,7 @@ test('home pages receive language-specific crawlable metadata', () => {
     const metadata = buildHomeMetadata('es');
     const output = renderMetadata(html, metadata);
     assert.match(output, /<html lang="es" dir="ltr">/);
-    assert.match(output, /<title>Remal \| Reservas de hoteles<\/title>/);
+    assert.match(output, /<title>Mkhadda \| pillow stays — Reservas de hoteles<\/title>/);
     assert.match(output, /rel="canonical" href="https:\/\/remalbookings\.com\/\?lang=es"/);
     assert.match(output, /hreflang="x-default"/);
     assert.match(output, /application\/ld\+json/);

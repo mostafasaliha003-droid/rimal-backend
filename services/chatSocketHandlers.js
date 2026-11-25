@@ -78,7 +78,7 @@ function registerChatSocketHandlers(io, { BookingModel, sendEmail = async () => 
             if (!referenceCode || !message || !joined || !socket.rooms.has(referenceCode)
                 || joined.role === 'admin' && !isAdmin) return;
 
-            const sender = isAdmin ? 'الإدارة (Remal)' : joined.booking.customerName || 'العميل';
+            const sender = isAdmin ? 'فريق مخدة' : joined.booking.customerName || 'العميل';
             const payload = { sender, message, time: new Date() };
             io.to(referenceCode).emit('receive_message', payload);
             io.to('admin_chat_room').emit('receive_message', { referenceCode, ...payload });

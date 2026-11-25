@@ -186,7 +186,7 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
             if (!booking || booking.provider !== 'ratehawk' || booking.status !== 'cancelled' || !booking.supplierReference) throw error('support_document_unavailable', 404);
             const { details, buffer } = await require('./cancellationReceiptService').generateReceipt(booking.supplierReference);
             if (details.reference !== row.reference || details.owner !== row.ownerSubject || details.realm !== row.realm) throw error('support_document_unavailable', 404);
-            res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="Remal-Cancellation-${row.reference}.pdf"` });
+            res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename="Mkhadda-Cancellation-${row.reference}.pdf"` });
             res.send(buffer);
         } catch (failure) { res.status([401, 404].includes(failure.httpStatus) ? failure.httpStatus : 503).json({ error: 'support_document_unavailable' }); }
     });

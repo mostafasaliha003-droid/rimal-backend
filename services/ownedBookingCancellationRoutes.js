@@ -113,7 +113,7 @@ function createOwnedBookingCancellationRouter({ BookingModel, requireUser, Check
             const booking = await owned(req);
             const { details, buffer } = await require('./cancellationReceiptService').generateReceipt(booking.supplierReference);
             if (details.reference !== booking.bookingReference || details.owner !== req.auth.subject || details.realm !== req.auth.realm) throw fail('booking_not_found', 404);
-            res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="Remal-Cancellation-${booking.bookingReference}.pdf"` });
+            res.set({ 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename="Mkhadda-Cancellation-${booking.bookingReference}.pdf"` });
             res.send(buffer);
         } catch (error) { res.status(error.httpStatus === 404 ? 404 : 503).json({ error: 'cancellation_receipt_unavailable' }); }
     });

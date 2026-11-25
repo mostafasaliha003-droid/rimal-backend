@@ -73,7 +73,8 @@ async function sendRefundConfirmation({ email, guestName, reference, amountMinor
         + '<p dir="rtl">يُقدَّر ظهور المبلغ في بطاقتك خلال 5 إلى 14 يوم عمل بعد تأكيد بوابة الدفع معالجة الاسترداد، حسب البنك ودون احتساب عطلاته. إذا لم يظهر بعد هذه المدة، تواصل معنا بمرجع الطلب.</p>'
         + '<p>Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.</p>';
     const result = await transporter.sendMail({
-        from: process.env.SMTP_USER, to: email, subject: 'Reservation refund confirmation', text, html
+        from: { name: documentBrand.BRAND.sender, address: process.env.SMTP_USER }, to: email, replyTo: 'management@remaltourismllc.com',
+        subject: `${documentBrand.BRAND.sender} | تأكيد الاسترداد · Refund confirmed | ${reference}`, text, html
     });
     if (!result.messageId || !result.accepted?.includes(email)) throw new Error('refund_email_outcome_unknown');
     return { messageId: result.messageId };

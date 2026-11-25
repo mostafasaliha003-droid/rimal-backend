@@ -150,7 +150,7 @@ test('serves localized hotel SEO, sitemap, robots, and hides unavailable languag
     const hotel = await fetch(`${base}/hotel/123?lang=es`);
     const hotelHtml = await hotel.text();
     assert.equal(hotel.status, 200);
-    assert.match(hotelHtml, /<title>Hotel Aprobado — Dubai \| Remal<\/title>/);
+    assert.match(hotelHtml, /<title>Hotel Aprobado — Dubai \| مخدة · pillow stays<\/title>/);
     assert.match(hotelHtml, /hreflang="es"/);
     assert.doesNotMatch(hotelHtml, /hreflang="ar"/);
     assert.match(hotelHtml, /application\/ld\+json/);
