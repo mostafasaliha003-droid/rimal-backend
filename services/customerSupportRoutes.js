@@ -3,6 +3,8 @@ const express = require('express');
 const rateLimit = require('express-rate-limit');
 const topics = ['booking', 'payment', 'voucher', 'cancellation', 'refund', 'other'];
 const statuses = ['open', 'waiting', 'resolved'];
+// A payment the server verified with its gateway: a Ziina card payment or a Tabby instalment plan.
+const PAID_THROUGH = [{ ziina_intent_id: { $type: 'string' } }, { tabby_payment_id: { $type: 'string' } }];
 const hash = (...parts) => crypto.createHash('sha256').update(JSON.stringify(parts)).digest('hex');
 const error = (code, httpStatus = 400) => Object.assign(new Error(code), { code, httpStatus });
 const ref = value => typeof value === 'string' && /^[A-Za-z0-9_-]{1,120}$/.test(value);
@@ -40,14 +42,14 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
         if (!ref(reference)) throw error('support_reference_not_found', 404);
         const booking = await BookingModel.findOne({ ...owner(req), bookingReference: reference }).lean();
         const payment = await CheckoutModel.findOne({ ...owner(req), reference,
-            ziina_intent_id: { $type: 'string' }, payment_verified_at: { $type: 'date' } }).lean();
+            $or: PAID_THROUGH, payment_verified_at: { $type: 'date' } }).lean();
         if (!booking && !payment) throw error('support_reference_not_found', 404);
         const profile = isStaff && UserModel ? await UserModel.findOne({ _id: req.auth.subject }).select('name email phone').lean() : null;
         const provider = booking?.provider || (payment ? 'ratehawk' : null);
         const voucherAvailable = booking?.status === 'active' && ['CONFIRMED', 'COMPLETED'].includes(String(booking.supplierStatus).toUpperCase());
         return { reference, hotelName: booking?.hotelName || '', customerName: booking?.customerName || '',
             bookingStatus: booking?.status || null, paymentStatus: payment?.state || null,
-            paid: !!payment?.payment_verified_at, amount: payment?.amount_minor != null
+            paid: !!payment?.payment_verified_at, paymentMethod: payment ? (payment.payment_provider === 'tabby' ? 'tabby' : 'card') : null, amount: payment?.amount_minor != null
                 ? require('./ziinaClient').formatAmountMinor(payment.amount_minor, payment.currency) : booking?.price,
             currency: payment?.currency || booking?.priceCurrency,
             checkIn: booking?.checkInDate || null, checkOut: booking?.checkOutDate || null,
@@ -69,7 +71,7 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
     customer.get('/eligibility', readLimiter, wrap(async req => {
         const [bookings, payments] = await Promise.all([
             BookingModel.find(owner(req)).sort({ createdAt: -1 }).limit(100).select('bookingReference hotelName status').lean(),
-            CheckoutModel.find({ ...owner(req), ziina_intent_id: { $type: 'string' }, payment_verified_at: { $type: 'date' } })
+            CheckoutModel.find({ ...owner(req), $or: PAID_THROUGH, payment_verified_at: { $type: 'date' } })
                 .sort({ createdAt: -1 }).limit(100).select('reference state').lean()
         ]);
         const references = new Map(bookings.map(b => [b.bookingReference, { reference: b.bookingReference,
