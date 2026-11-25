@@ -8,7 +8,7 @@ import { recoveryUuid, validRecoveryOwner, type CheckoutRecoveryOwner, type Chec
 
 export interface CheckoutOwner extends CheckoutRecoveryOwner { revision: number }
 export interface CheckoutSelection { review: CheckoutReview; selectionId: string; expiresAt: number; termsAccepted: boolean }
-export interface CheckoutAvailability { enabled: boolean; mode: 'sandbox' | 'production' | 'unconfigured'; reason?: string }
+export interface CheckoutAvailability { enabled: boolean; mode: 'sandbox' | 'production' | 'unconfigured'; reason?: string; tabby?: boolean }
 export interface CheckoutSessionApi {
   readonly creationEnabled?: boolean;
   availability(signal?: AbortSignal): Promise<CheckoutAvailability>;
@@ -38,8 +38,13 @@ function safeAttempt(value: CheckoutAttemptView): CheckoutAttemptView {
   return Object.freeze({ reference: value.reference, status: value.status, confirmed: value.confirmed, paymentVerified: value.paymentVerified,
     ...(['sent', 'pending', 'review'].includes(value.voucherDelivery || '') ? { voucherDelivery: value.voucherDelivery } : {}),
     ...(bounded(value.supplierReference, 256) ? { supplierReference: value.supplierReference } : {}),
-    ...(bounded(value.actionRequired, 120) ? { actionRequired: value.actionRequired } : {}) });
+    ...(bounded(value.actionRequired, 120) ? { actionRequired: value.actionRequired } : {}),
+    ...(value.paymentMethod === 'tabby' ? { paymentMethod: 'tabby' as const } : {}),
+    ...(typeof value.paymentError === 'string' && /^tabby_[a-z_]{1,60}$/.test(value.paymentError) && value.status === 'payment_failed' ? { paymentError: value.paymentError } : {}) });
 }
+// A locked price belongs to one room, one charge currency and one payment method: choosing Tabby
+// (always AED) or changing the currency asks for a new lock.
+const quoteKey = (value: CheckoutSelection) => JSON.stringify([value.selectionId, chargeCurrency(value.review), value.review.paymentMethod === 'tabby' ? 'tabby' : 'card']);
 function safeQuote(value: CheckoutQuote, now: number, review: CheckoutReview): CheckoutQuote {
   const canonical = (amount: string) => {
     const [whole, fraction = ''] = amount.split('.'); const tail = fraction.replace(/0+$/, '');
@@ -85,6 +90,8 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
   let observedSelection = '';
   let record: CheckoutRecoveryRecord | null = null, capability: CheckoutCapability | null = null, paymentUrl: string | null = null;
   let quote: CheckoutQuote | null = null, quoteSelection = '';
+  // The selection behind the latest submit, released again if its payment failed and the guest pays another way.
+  let submittedSelection = '';
   let request: AbortController | null = null, availabilityRequest: AbortController | null = null;
   let operation: Promise<void> | null = null, availabilityOperation: Promise<void> | null = null;
   const consumedSelections = new Set<string>();
@@ -114,7 +121,7 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
     const value = getReview();
     return value && value.selectionId && Number.isFinite(value.expiresAt) && value.expiresAt > now() && value.termsAccepted ? value : null;
   }
-  function freshSelection() { const value = selection(); return value && value.selectionId === quoteSelection ? value : null; }
+  function freshSelection() { const value = selection(); return value && quoteKey(value) === quoteSelection ? value : null; }
   const current = (stamp: number, key: string) => revision === stamp && boundOwner === key && key !== '' && ownerKey(owner()) === key;
   function presentation() {
     const visible = ownerKey(owner()) === boundOwner && boundOwner ? snapshot : masked;
@@ -166,7 +173,7 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
       if (!value || typeof value.enabled !== 'boolean' || !['sandbox', 'production', 'unconfigured'].includes(value.mode)) throw invalidResponse();
       const expected = owner()?.environment === 'production' ? 'production' : 'sandbox';
       if (value.enabled && value.mode !== expected) throw new ApiError('configuration', 'checkout_environment_mismatch');
-      publish({ availability: { enabled: value.enabled, mode: value.mode,
+      publish({ availability: { enabled: value.enabled, mode: value.mode, tabby: value.enabled && value.tabby === true,
         ...(typeof value.reason === 'string' && /^[a-z_]{1,80}$/.test(value.reason) ? { reason: value.reason } : {}) } });
     }).catch(error => {
       if (current(stamp, key)) publish({ availability: { enabled: false, mode: 'unconfigured', reason: 'checkout_unavailable' }, error: asApiError(error) });
@@ -180,8 +187,11 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
       quote = null; quoteSelection = ''; publish({ quote: null });
       const value = safeQuote(await abortable(api.quote(copy(selected.review), controller.signal), controller.signal), now(), selected.review);
       if (!current(stamp, key)) return;
-      if (selection()?.selectionId !== selected.selectionId) throw new ApiError('validation', 'checkout_context_changed');
-      quote = value; quoteSelection = selected.selectionId; publish({ phase: 'ready', quote: withoutToken(value) });
+      const now_ = selection();
+      // The same room with another method or currency: drop this lock quietly; the screen asks again.
+      if (now_ && now_.selectionId === selected.selectionId && quoteKey(now_) !== quoteKey(selected)) { publish({ phase: 'idle', quote: null }); return; }
+      if (!now_ || quoteKey(now_) !== quoteKey(selected)) throw new ApiError('validation', 'checkout_context_changed');
+      quote = value; quoteSelection = quoteKey(selected); publish({ phase: 'ready', quote: withoutToken(value) });
     });
   }
   function recover() {
@@ -221,7 +231,7 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
         // is no reliable client proof that an earlier request cannot arrive.
         publish({ phase: 'unknown', error: new ApiError('validation', 'checkout_context_changed') }); return;
       }
-      consumedSelections.add(selected.selectionId);
+      consumedSelections.add(selected.selectionId); submittedSelection = selected.selectionId;
       const result = await abortable(api.create({ review: copy(selected.review), guests: travelers, quote: lockedQuote }, idempotencyKey, controller.signal), controller.signal);
       if (current(stamp, key)) applyResult(result);
     });
@@ -247,15 +257,19 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
     sync();
     return Boolean(boundOwner && ownerKey(owner()) === boundOwner && loaded && !record && !operation && selection());
   }
-  function clearCompleted() {
+  // keepSelection: a payment that did not go through (nothing was charged) leaves the same room
+  // available, so the guest can pay another way without choosing it again.
+  function clearCompleted({ keepSelection = false }: { keepSelection?: boolean } = {}) {
     sync(); if (!presentation().canClearCompleted || !record) return Promise.resolve(false);
     const expectedOwner = boundOwner;
+    const release = keepSelection && snapshot.attempt?.status === 'payment_failed' && !snapshot.attempt.paymentVerified ? submittedSelection : '';
     return run('recovering', async (_controller, stamp, key) => {
       const selected = record; if (!selected) return;
       if (!await storage.remove(selected)) throw new ApiError('storage', 'checkout_recovery_changed');
       if (!current(stamp, key)) return;
       record = null; capability = null; paymentUrl = null;
       quote = null; quoteSelection = '';
+      if (release) { consumedSelections.delete(release); submittedSelection = ''; }
       publish({ phase: 'idle', quote: null, attempt: null, hasRecovery: false });
     }).then(() => ownerKey(owner()) === expectedOwner && record === null);
   }

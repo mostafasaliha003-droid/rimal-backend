@@ -4,13 +4,20 @@ import { ApiError, invalidResponse } from './errors';
 import { assertCriteria, hotelId } from './validation';
 import { chargeCurrency, paymentCurrencyUnits as units } from './paymentCurrencies';
 import type { createTransport } from './transport';
+import { TABBY_REJECTIONS, type TabbyRejection } from '../components/tabbyModel';
 
 export type PaymentMode = 'sandbox' | 'production' | 'unconfigured';
-export interface PaymentAvailability { enabled: boolean; mode: PaymentMode; reason?: 'checkout_unavailable' }
+export interface PaymentAvailability { enabled: boolean; mode: PaymentMode; reason?: 'checkout_unavailable'; /** Tabby pay-in-4 is offered (AED only). */ tabby: boolean }
+export type CheckoutPaymentMethod = 'card' | 'tabby';
+export interface TabbyEligibility { available: boolean; checked: boolean; reason?: TabbyRejection }
 export interface CheckoutReview {
   hid: number; hotelName: string; criteria: SearchCriteria; offer: RoomOffer; prebookContext: string;
   /** The currency the guest chose to pay in; the supplier price is converted to it by the signed quote. */
   paymentCurrency?: string;
+  /** Card and wallets (Ziina) or Tabby pay-in-4; Tabby always charges AED. */
+  paymentMethod?: CheckoutPaymentMethod;
+  /** The language Tabby's checkout opens in. */
+  paymentLanguage?: 'ar' | 'en';
 }
 export { chargeCurrency } from './paymentCurrencies';
 export interface CheckoutTraveler { firstName: string; lastName: string; is_child: boolean; age?: number; gender?: 'male' | 'female' }
@@ -25,6 +32,10 @@ export type CheckoutStatus = 'preparing' | 'preflight_failed' | 'intent_creating
 export interface CheckoutAttemptView {
   reference: string; status: CheckoutStatus; confirmed: boolean; paymentVerified: boolean;
   voucherDelivery?: 'sent' | 'pending' | 'review'; supplierReference?: string; actionRequired?: string;
+  /** Set when the attempt is paid with Tabby. */
+  paymentMethod?: 'tabby';
+  /** Why a Tabby payment did not go through (tabby_expired, tabby_not_available ...). */
+  paymentError?: string;
 }
 export interface CheckoutCapability { reference: string; accessToken: string }
 export interface CheckoutCreateResult { attempt: CheckoutAttemptView; capability: CheckoutCapability; paymentUrl?: string }
@@ -61,7 +72,7 @@ export function normalizePaymentAvailability(value: unknown): PaymentAvailabilit
   if (typeof data.enabled !== 'boolean' || !['sandbox', 'production', 'unconfigured'].includes(String(data.mode))
     || data.enabled && data.mode === 'unconfigured'
     || data.reason !== undefined && data.reason !== 'checkout_unavailable') throw invalidResponse();
-  return { enabled: data.enabled, mode: data.mode as PaymentMode,
+  return { enabled: data.enabled, mode: data.mode as PaymentMode, tabby: data.enabled === true && data.tabby === true,
     ...(data.enabled ? {} : { reason: 'checkout_unavailable' as const }) };
 }
 export function normalizeCheckoutAttempt(value: unknown, expectedReference?: string): CheckoutAttemptView {
@@ -86,6 +97,11 @@ export function normalizeCheckoutAttempt(value: unknown, expectedReference?: str
     if (typeof data.action_required !== 'string' || !/^[a-z][a-z0-9_]{0,79}$/.test(data.action_required)) throw invalidResponse();
     view.actionRequired = data.action_required;
   }
+  if (data.payment_method === 'tabby') view.paymentMethod = 'tabby';
+  if (data.payment_error !== undefined) {
+    if (typeof data.payment_error !== 'string' || !/^tabby_[a-z_]{1,60}$/.test(data.payment_error) || data.status !== 'payment_failed') throw invalidResponse();
+    view.paymentError = data.payment_error;
+  }
   return view;
 }
 export function checkoutPaymentUrl(value: unknown): string {
@@ -93,7 +109,7 @@ export function checkoutPaymentUrl(value: unknown): string {
   let url: URL;
   try { url = new URL(value); } catch { throw invalidResponse(); }
   if (url.protocol !== 'https:' || url.username || url.password || url.port
-    || !/^(?:[a-z0-9-]+\.)*ziina\.com$/i.test(url.hostname)) throw invalidResponse();
+    || !/^(?:[a-z0-9-]+\.)*(?:ziina\.com|tabby\.ai)$/i.test(url.hostname)) throw invalidResponse();
   return url.href;
 }
 export function normalizeCheckoutCreate(value: unknown): CheckoutCreateResult {
@@ -202,7 +218,19 @@ export function createCheckoutApi(request: Request, {
         amount_formatted: input.quote.amountFormatted, expires_at: input.quote.expiresAt, token: input.quote.token }, input.review, now());
       const credential = await request.captureSessionToken(signal); await mode(signal, true);
       return normalizeCheckoutCreate(await request('POST', '/payment/ziina/intent', { signal, timeoutMs: 90000, idempotencyKey,
-        token: credential, body: { ...selected, ...guests, payment_quote: lockedQuote.token, app_return: appScheme(environment) } }));
+        token: credential, body: { ...selected, ...guests, payment_quote: lockedQuote.token, app_return: appScheme(environment),
+          ...(input.review.paymentMethod === 'tabby' ? { payment_method: 'tabby', language: input.review.paymentLanguage === 'en' ? 'en' : 'ar' } : {}) } }));
+    },
+    /** Tabby pre-scoring for this buyer and AED amount. A failed check never hides Tabby. */
+    async tabbyEligibility(input: { amount: string; email: string; phone: string; language: string }, signal?: AbortSignal): Promise<TabbyEligibility> {
+      if (!/^\d{1,12}(?:\.\d{1,2})?$/.test(input.amount) || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(input.email.trim()) || !/^\+[1-9]\d{6,19}$/.test(input.phone)) {
+        throw new ApiError('validation', 'invalid_tabby_eligibility');
+      }
+      const data = row(await request('POST', '/payment/tabby/eligibility', { signal, timeoutMs: 20000,
+        body: { amount: input.amount, currency: 'AED', email: input.email.trim(), phone: input.phone, language: input.language === 'en' ? 'en' : 'ar' } }));
+      if (typeof data.available !== 'boolean') throw invalidResponse();
+      const reason = TABBY_REJECTIONS.find(item => item === data.reason);
+      return { available: data.available, checked: data.checked === true, ...(!data.available && reason ? { reason } : {}) };
     },
     async status(capability: CheckoutCapability, signal?: AbortSignal): Promise<CheckoutAttemptView> {
       if (!capability || !uuid.test(capability.reference) || !token.test(capability.accessToken)) throw new ApiError('validation', 'invalid_checkout_capability');

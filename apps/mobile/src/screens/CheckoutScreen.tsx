@@ -5,7 +5,8 @@ import { usePreventRemove, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { api, APP_ENV, authSession, bookingWebsiteUrl, websiteUrl } from '../api';
 import { NATIVE_CHECKOUT_ENABLED, paymentReturnUrl } from '../api/config';
-import type { CheckoutGuestData, CheckoutStatus } from '../api/checkout';
+import type { CheckoutGuestData, CheckoutPaymentMethod, CheckoutStatus } from '../api/checkout';
+import { tabbyInstallment, tabbyMessage, tabbyName, tabbyOutcome, type TabbyRejection } from '../components/tabbyModel';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import type { GuestRoom, Money, RoomOffer } from '../types';
@@ -58,12 +59,23 @@ export default function CheckoutScreen() {
   // call time so the session keeps one stable getter.
   const payCurrencyRef = useRef(payCurrency);
   useEffect(() => { payCurrencyRef.current = payCurrency; }, [payCurrency]);
+  // Card and wallets (Ziina) or Tabby pay-in-4. Tabby always charges AED, so choosing it locks the price in AED.
+  const [method, setMethod] = useState<CheckoutPaymentMethod>('card');
+  const methodRef = useRef<CheckoutPaymentMethod>('card');
+  const languageRef = useRef(language);
+  useEffect(() => { languageRef.current = language; }, [language]);
   const getCheckoutReview = state.getCheckoutReview;
   const getReview = useCallback(() => {
     const selection = getCheckoutReview();
-    return selection && { ...selection, review: { ...selection.review, paymentCurrency: payCurrencyRef.current } };
+    return selection && { ...selection, review: { ...selection.review, paymentCurrency: methodRef.current === 'tabby' ? 'AED' : payCurrencyRef.current,
+      paymentMethod: methodRef.current, paymentLanguage: languageRef.current === 'en' ? 'en' as const : 'ar' as const } };
   }, [getCheckoutReview]);
   const session = useCheckoutSession({ getReview, canCreate: nativeCreationPolicy });
+  const tabbyOffered = session.availability?.tabby === true;
+  const effectiveMethod: CheckoutPaymentMethod = tabbyOffered ? method : 'card';
+  const sessionSync = session.sync;
+  // A different method or currency drops the old price lock; a new one is requested at once.
+  useEffect(() => { methodRef.current = effectiveMethod; sessionSync(); }, [effectiveMethod, payCurrency, sessionSync]);
   // Ask before leaving while traveler details are typed but no booking was created yet
   // (an Android back gesture used to drop the form without warning).
   const [dirty, setDirty] = useState(false);
@@ -136,6 +148,14 @@ export default function CheckoutScreen() {
     setDirty(false); allowLeave(); travelerDrafts.clear();
     state.clearCheckoutReview(); state.clearReviewDraft(); router.replace('/'); return true;
   };
+  // Nothing was charged: the same room stays chosen and the guest pays another way.
+  const retryPayment = async (next: CheckoutPaymentMethod) => {
+    // The new method is in place before the attempt is cleared, so the next price lock is for it.
+    const previous = methodRef.current;
+    methodRef.current = tabbyOffered ? next : 'card'; setMethod(next);
+    if (await session.clearCompleted({ keepSelection: true })) return true;
+    methodRef.current = previous; setMethod(previous); return false;
+  };
   const policy = async (path: '/privacy'|'/terms') => {
     try { await WebBrowser.openBrowserAsync(websiteUrl(path), { toolbarColor: colors.navy }); } catch { /* The screen remains usable. */ }
   };
@@ -144,7 +164,7 @@ export default function CheckoutScreen() {
     onSignIn={() => router.navigate({ pathname: '/account', params: { returnTo: '/checkout' } })} onSupport={() => router.push('/support')} onTrips={() => router.navigate('/bookings')} onWebsite={openWebsite}
     onPayment={openPayment} onClearCompleted={clearCompleted} onPrivacy={() => void policy('/privacy')} onTerms={() => void policy('/terms')}
     onTravelerDirty={setDirty} onNationalityChange={repriceNationality} onChooseRoomForNationality={changeNationality}
-    nationalityCheck={nationalityCheck}/>;
+    nationalityCheck={nationalityCheck} paymentMethod={effectiveMethod} onPaymentMethod={setMethod} onRetryPayment={retryPayment}/>;
 }
 
 export interface CheckoutContentsProps {
@@ -155,6 +175,8 @@ export interface CheckoutContentsProps {
   onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
   onChooseRoomForNationality?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
   nationalityCheck?: NationalityCheck | null;
+  paymentMethod?: CheckoutPaymentMethod; onPaymentMethod?: (method: CheckoutPaymentMethod) => void;
+  onRetryPayment?: (method: CheckoutPaymentMethod) => Promise<boolean>;
 }
 
 const scrollBehaviour = { keyboardShouldPersistTaps: 'handled' as const, keyboardDismissMode: Platform.OS === 'web' ? 'none' as const : 'on-drag' as const };
@@ -287,15 +309,23 @@ export function CheckoutContents(props: CheckoutContentsProps) {
   const amount: Money | null = session.quote ? { amount: session.quote.amount, currency: session.quote.currency } : offer ? charge(offer.price) : null;
   const title = <Txt kind="heading" accessibilityRole="header">{copy.title}</Txt>;
   const sandbox = session.availability?.enabled && session.availability.mode === 'sandbox' ? copy.sandbox : undefined;
-  const showForm = Boolean(!existing && selected && offer && creationEnabled && signedIn && session.canCollectTravelers && session.quote);
+  const [heldQuote, setHeldQuote] = useState<CheckoutQuoteView | null>(null);
+  if (session.quote && session.quote !== heldQuote) setHeldQuote(session.quote);
+  const requoting = !session.quote && session.phase === 'quoting' && heldQuote !== null && !existing;
+  const formQuote = session.quote ?? (requoting ? heldQuote : null);
+  const showForm = Boolean(!existing && selected && offer && creationEnabled && signedIn && (session.canCollectTravelers || requoting) && formQuote);
+  const tabbyOffered = session.availability?.tabby === true;
+  const failedOutcome = session.attempt?.status === 'payment_failed' ? tabbyOutcome(session.attempt.paymentError) : null;
+  const canRetry = Boolean(session.attempt?.status === 'payment_failed' && !session.attempt.paymentVerified && selected && props.onRetryPayment && creationEnabled);
   const fresh = <Button compact title={copy.fresh} variant="quiet" disabled={busy || opening} onPress={props.onFreshOffer}/>;
 
   return <SafeAreaView edges={['top','bottom']} style={ui.screen}>
     <BrandHeader back/>
     <KeyboardAvoidingView style={{ flex: 1 }} enabled={Platform.OS !== 'web'} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
-      {showForm && selected && offer && session.quote ? <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
+      {showForm && selected && offer && formQuote ? <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
         draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
-        occupancy={selected.review.criteria.guests} quote={session.quote} canSubmit={session.canSubmit} submitting={session.phase === 'submitting'}
+        occupancy={selected.review.criteria.guests} quote={formQuote} canSubmit={session.canSubmit} submitting={session.phase === 'submitting'}
+        requoting={requoting} paymentMethod={props.paymentMethod ?? 'card'} onPaymentMethod={props.onPaymentMethod} tabbyOffered={tabbyOffered}
         residency={selected.review.criteria.residency} onNationalityChange={props.onNationalityChange}
         onChooseRoomForNationality={props.onChooseRoomForNationality} nationalityCheck={props.nationalityCheck} note={sandbox}
         header={<>{title}<CheckoutSummary selection={selected} offer={offer} amount={amount} showAmount={false}/></>} footer={fresh}
@@ -317,6 +347,13 @@ export function CheckoutContents(props: CheckoutContentsProps) {
                 recordedStatus: 'active', supplierStatus: 'CONFIRMED', statusKind: 'confirmed', price: null }}/>}
               {session.attempt.status === 'awaiting_payment' && creationEnabled && <Button icon="lock" title={copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}
               {actionError === 'payment' && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.paymentLinkError}</Txt>}
+              {failedOutcome && <Notice testID="checkout-tabby-outcome" tone="warning" live title={tabbyMessage(failedOutcome, language).title} body={tabbyMessage(failedOutcome, language).body}/>}
+              {canRetry && <View style={{ gap: space.sm }}>
+                <Button testID="checkout-retry-card" icon="card" title={ar ? 'الدفع ببطاقة أو محفظة' : 'Pay by card or wallet'} busy={opening} disabled={busy}
+                  onPress={() => void perform('clear', () => props.onRetryPayment!('card'))}/>
+                {tabbyOffered && (!failedOutcome || ['expired', 'closed', 'unavailable'].includes(failedOutcome)) && <Button testID="checkout-retry-tabby" variant="secondary"
+                  title={ar ? 'المحاولة مع تابي مجدداً' : 'Try Tabby again'} disabled={busy || opening} onPress={() => void perform('clear', () => props.onRetryPayment!('tabby'))}/>}
+              </View>}
             </LivePaymentStatus> : <StatePanel title={copy.checking} body={copy.unknownBody} busy={busy}/>}
             {session.error && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.statusError}</Txt>}
             {session.canClearCompleted && <Button title={copy.clear} variant="secondary" disabled={opening || busy} onPress={() => void perform('clear',props.onClearCompleted)}/>}
@@ -350,12 +387,14 @@ export function CheckoutContents(props: CheckoutContentsProps) {
  * acknowledgement, with the amount and "Confirm and pay" fixed at the bottom. Pressing it
  * checks every field; the first problem is scrolled into view. No separate review step.
  */
-export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting = false, onSubmit, onPrivacy, onTerms, draftKey, onDirty, residency, onNationalityChange, onChooseRoomForNationality, nationalityCheck, header, footer, note }: {
+export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting = false, onSubmit, onPrivacy, onTerms, draftKey, onDirty, residency, onNationalityChange, onChooseRoomForNationality, nationalityCheck, header, footer, note,
+  requoting = false, paymentMethod = 'card', onPaymentMethod, tabbyOffered = false }: {
   occupancy: GuestRoom[]; quote: CheckoutQuoteView; canSubmit: boolean; submitting?: boolean; draftKey?: string; onDirty?: (dirty: boolean) => void;
   residency?: string; onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
   onChooseRoomForNationality?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void; nationalityCheck?: NationalityCheck | null;
   onSubmit: (data: CheckoutGuestData, consent: boolean) => Promise<void>; onPrivacy: () => void; onTerms: () => void;
   header?: React.ReactNode; footer?: React.ReactNode; note?: string;
+  requoting?: boolean; paymentMethod?: CheckoutPaymentMethod; onPaymentMethod?: (method: CheckoutPaymentMethod) => void; tabbyOffered?: boolean;
 }) {
   const { language, t } = useLanguage(), copy = checkoutCopy(language), ar = language === 'ar';
   const { narrow, fontScale } = useLayout();
@@ -378,6 +417,27 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
   const [consent,setConsent] = useState({ quote, accepted: false });
   const [consentMissing,setConsentMissing] = useState(false);
   const accepted = consent.quote === quote && consent.accepted;
+  const tabby = paymentMethod === 'tabby' && tabbyOffered;
+  const contactEmail = draft?.guest.email.trim() ?? '', contactPhone = draft?.guest.phone.trim() ?? '';
+  const contactReady = /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(contactEmail) && /^\+[1-9]\d{6,19}$/.test(contactPhone);
+  const eligibilityKey = tabby && !requoting && quote.currency === 'AED' && contactReady ? JSON.stringify([quote.amount, contactEmail.toLowerCase(), contactPhone]) : '';
+  const [eligibility, setEligibility] = useState<{ key: string; available: boolean; reason?: TabbyRejection } | null>(null);
+  useEffect(() => {
+    if (!eligibilityKey) return;
+    const [amount, email, phone] = JSON.parse(eligibilityKey) as [string, string, string];
+    const controller = new AbortController();
+    // Tabby's pre-scoring: a refusal is shown before the guest pays; a failed check never blocks.
+    const timer = setTimeout(() => {
+      api.checkout.tabbyEligibility({ amount, email, phone, language }, controller.signal)
+        .then(result => { if (!controller.signal.aborted) setEligibility({ key: eligibilityKey, available: result.available, reason: result.reason }); })
+        .catch(() => { if (!controller.signal.aborted) setEligibility({ key: eligibilityKey, available: true }); });
+    }, 600);
+    return () => { clearTimeout(timer); controller.abort(); };
+  }, [eligibilityKey, language]);
+  const tabbyCheck = eligibility && eligibility.key === eligibilityKey ? eligibility : null;
+  const tabbyChecking = Boolean(eligibilityKey && !tabbyCheck);
+  const tabbyRefusal: TabbyRejection | null = eligibilityKey && tabbyCheck && !tabbyCheck.available ? tabbyCheck.reason ?? 'not_available' : null;
+  const installment = tabbyInstallment(quote.amount, quote.currency);
   if (!draft) return <ScrollView contentContainerStyle={[ui.page, styles.page]}>{header}<StatePanel title={copy.invalidOccupancy}/>{footer}</ScrollView>;
   const side = !narrow && fontScale <= 1.3;
   const error = (key: string) => { const code=errors[key]; return !code || code === 'required' ? undefined : code === 'name' ? copy.errorName : code === 'email' ? copy.errorEmail : code === 'phone' ? copy.errorPhone : code === 'requests' ? copy.errorRequests : copy.invalidOccupancy; };
@@ -403,7 +463,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
     setConsentMissing(!accepted);
     if (!checked.data || missing) { Keyboard.dismiss(); scroller.current?.scrollTo({ y: Math.max(0, formTop.current - space.sm), animated: true }); return; }
     if (!accepted) { Keyboard.dismiss(); scroller.current?.scrollTo({ y: Math.max(0, consentTop.current - space.xxl), animated: true }); return; }
-    if (!canSubmit || repricing || checking) return;
+    if (!canSubmit || repricing || checking || tabby && (tabbyChecking || tabbyRefusal)) return;
     Keyboard.dismiss();
     void onSubmit(checked.data, true).then(()=>{ if (draftKey) travelerDrafts.delete(draftKey); carriedTraveler.delete('latest'); onDirty?.(false); });
   };
@@ -483,6 +543,23 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
           </> : <TextLink testID="checkout-add-requests" icon="plus" title={copy.addRequests} onPress={() => setRequestsOpen(true)}/>}
         </View>
       </Card>
+      {tabbyOffered && onPaymentMethod && <Card testID="checkout-payment-methods" style={styles.card}>
+        <Txt kind="subheading" accessibilityRole="header">{ar ? 'طريقة الدفع' : 'Payment method'}</Txt>
+        <View accessibilityRole="radiogroup" style={{ gap: space.sm }}>
+          <PaymentOption testID="checkout-method-card" selected={!tabby} onPress={() => onPaymentMethod('card')} icon="card"
+            title={ar ? 'بطاقة أو محفظة رقمية' : 'Card or digital wallet'}
+            body={ar ? 'ادفع المبلغ كاملاً عبر صفحة دفع آمنة.' : 'Pay the full amount on a secure payment page.'}/>
+          <PaymentOption testID="checkout-method-tabby" selected={tabby} onPress={() => onPaymentMethod('tabby')} mark={<TabbyMark/>}
+            title={tabbyName(language)}
+            body={tabby && installment ? (ar ? `4 دفعات بدون فوائد أو رسوم · ${formatPrice({ amount: installment, currency: 'AED' })} للدفعة` : `4 payments of ${formatPrice({ amount: installment, currency: 'AED' })} · no interest, no fees`)
+              : (ar ? 'قسّم المبلغ على 4 دفعات بدون فوائد أو رسوم، بالدرهم الإماراتي.' : 'Split it into 4 payments with no interest or fees, in UAE dirhams.')}/>
+        </View>
+        {tabby && <InfoRow icon="info"><Txt kind="caption">{ar ? 'تُكمل الدفع في صفحة تابي ثم تعود إلى التطبيق تلقائياً. السعر بالدرهم الإماراتي هو نفسه لكل طرق الدفع.' : 'You finish on Tabby’s page and come straight back to the app. The AED price is the same for every payment method.'}</Txt></InfoRow>}
+        {tabby && tabbyChecking && <Row style={{ gap: space.xs }}><ActivityIndicator size="small" color={color.interactive}/>
+          <Txt kind="small" accessibilityLiveRegion="polite">{ar ? 'نتحقق من إمكانية الدفع مع تابي…' : 'Checking Tabby for you…'}</Txt></Row>}
+        {tabby && tabbyRefusal && <Notice testID="checkout-tabby-refused" tone="warning" live title={tabbyMessage(tabbyRefusal, language).title} body={tabbyMessage(tabbyRefusal, language).body}
+          action={{ label: ar ? 'الدفع ببطاقة أو محفظة' : 'Pay by card or wallet', onPress: () => onPaymentMethod('card') }}/>}
+      </Card>}
       <View onLayout={event => { consentTop.current = event.nativeEvent.layout.y; }} style={{ gap: space.xs }}>
         <Pressable testID="checkout-consent" accessibilityRole="checkbox" aria-checked={accepted} accessibilityState={{checked:accepted}}
           onPress={()=>{ setConsent({quote,accepted:!accepted}); setConsentMissing(false); }}
@@ -497,10 +574,33 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
       </View>
       {footer}
     </ScrollView>
-    <ActionBar testID="checkout-pay-bar" caption={copy.charge} amount={formatPrice({ amount: quote.amount, currency: quote.currency })} amountTestID="checkout-pay-amount" note={note}>
-      <Button testID="checkout-pay" icon="lock" title={copy.create} busy={submitting} disabled={!canSubmit || repricing || checking} onPress={submit}/>
+    <ActionBar testID="checkout-pay-bar" caption={copy.charge} amount={requoting ? '…' : formatPrice({ amount: quote.amount, currency: quote.currency })} amountTestID="checkout-pay-amount" note={note}>
+      <Button testID="checkout-pay" icon="lock" title={tabby ? (ar ? 'المتابعة مع تابي' : 'Continue with Tabby') : copy.create} busy={submitting || requoting}
+        disabled={!canSubmit || repricing || checking || requoting || tabby && Boolean(tabbyChecking || tabbyRefusal)} onPress={submit}/>
     </ActionBar>
   </>;
+}
+
+/** One payment choice: a radio row with its mark, name and one line of detail. */
+function PaymentOption({ selected, onPress, icon, mark, title, body, testID }: {
+  selected: boolean; onPress: () => void; icon?: 'card'; mark?: React.ReactNode; title: string; body: string; testID?: string;
+}) {
+  return <Pressable testID={testID} accessibilityRole="radio" aria-checked={selected} accessibilityState={{ checked: selected }} accessibilityLabel={`${title}. ${body}`}
+    onPress={onPress} style={[styles.option, selected && styles.optionOn]}>
+    <Row style={{ gap: space.sm, alignItems: 'center' }}>
+      <View accessible={false} style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot}/>}</View>
+      <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
+        <Txt kind="label" tone="primary">{title}</Txt>
+        <Txt kind="caption">{body}</Txt>
+      </View>
+      {mark ?? (icon ? <Icon name={icon} size={22} color={color.textSecondary}/> : null)}
+    </Row>
+  </Pressable>;
+}
+
+/** A plain "tabby" word mark in Tabby's mint. The official logo file can replace it once Tabby supplies it. */
+function TabbyMark() {
+  return <View accessible={false} style={styles.tabbyMark}><Txt kind="label" style={styles.tabbyMarkText}>tabby</Txt></View>;
 }
 
 type StageState = 'done' | 'active' | 'failed' | 'waiting';
@@ -547,4 +647,11 @@ const styles = StyleSheet.create({
   consent: { borderRadius: radius.md, padding: space.md, backgroundColor: color.bgSubtle },
   checkbox: { width: 22, height: 22, borderRadius: 6, borderWidth: 2, borderColor: color.interactiveStrong, backgroundColor: color.bgSurface, alignItems: 'center', justifyContent: 'center', marginTop: 1 },
   checkboxOn: { backgroundColor: color.interactiveStrong },
+  option: { minHeight: 64, borderRadius: radius.md, padding: space.md, backgroundColor: color.bgField, borderWidth: 1.5, borderColor: 'transparent' },
+  optionOn: { backgroundColor: color.bgSurface, borderColor: color.interactiveStrong },
+  radio: { width: 22, height: 22, borderRadius: 11, borderWidth: 2, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center' },
+  radioOn: { borderColor: color.interactiveStrong },
+  radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.interactiveStrong },
+  tabbyMark: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: radius.xs, backgroundColor: '#3EEDBF' },
+  tabbyMarkText: { color: '#000000', fontFamily: 'ManropeBold', writingDirection: 'ltr' },
 });

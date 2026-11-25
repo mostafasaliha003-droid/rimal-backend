@@ -207,3 +207,17 @@ test('aborting a pinned operation during mode lookup prevents its authenticated 
   const pending = api.recover(key, controller.signal); await started; controller.abort(); release();
   await assert.rejects(pending, error => error.kind === 'aborted'); assert.equal(posts, 0);
 });
+
+test('Tabby: availability flag, its own checkout host, payment errors only on failed attempts, and an allowed eligibility route', () => {
+  assert.equal(normalizePaymentAvailability({ enabled: true, mode: 'sandbox', tabby: true }).tabby, true);
+  assert.equal(normalizePaymentAvailability({ enabled: true, mode: 'sandbox' }).tabby, false);
+  assert.equal(normalizePaymentAvailability({ enabled: false, mode: 'sandbox', tabby: true, reason: 'checkout_unavailable' }).tabby, false, 'never offered while checkout is closed');
+  assert.equal(checkoutPaymentUrl('https://checkout.tabby.ai/?sessionId=abc'), 'https://checkout.tabby.ai/?sessionId=abc');
+  for (const bad of ['https://checkout.tabby.ai.evil.example/', 'https://eviltabby.ai/', 'http://checkout.tabby.ai/']) assert.throws(() => checkoutPaymentUrl(bad));
+  const failed = normalizeCheckoutAttempt({ reference, status: 'payment_failed', confirmed: false, payment_method: 'tabby', payment_error: 'tabby_order_amount_too_high' });
+  assert.deepEqual([failed.paymentMethod, failed.paymentError], ['tabby', 'tabby_order_amount_too_high']);
+  assert.throws(() => normalizeCheckoutAttempt({ reference, status: 'awaiting_payment', confirmed: false, payment_error: 'tabby_expired' }));
+  assert.throws(() => normalizeCheckoutAttempt({ reference, status: 'payment_failed', confirmed: false, payment_error: 'Card <b>' }));
+  assert.equal(allowedRoute('POST', '/payment/tabby/eligibility'), true);
+  assert.equal(allowedRoute('GET', '/payment/tabby/eligibility'), false);
+});

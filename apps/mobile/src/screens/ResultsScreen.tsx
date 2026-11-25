@@ -18,7 +18,7 @@ import { useChargeMoney } from '../components/ChargeCurrency';
 import { useGuestRatings } from '../components/useGuestRatings';
 import HotelCard from '../components/HotelCard';
 import ApiState from '../components/ApiState';
-import { Button, Card, Chip, Field, Icon, Notice, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
+import { Badge, Button, Card, Chip, Field, Icon, Notice, Row, Skeleton, StatePanel, Txt } from '../components/Primitives';
 import { hotelSearchPlan } from '../components/foundationContracts';
 import { activeResultFilters, beginResultRefresh, copyResultFilters, decideResults, emptyResultFilters,
   priceInCurrency, resultContextKey, topPicks, stayNights, suggestedStayBudgets, type ResultFilters, type ResultSnapshot, type ResultSort } from '../components/resultsDecisionModel';
@@ -152,6 +152,8 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   const ratingIds = useMemo(() => decision.hotels.slice(0, limit + 10).map(hotel => hotel.hid), [decision.hotels, limit]);
   const ratings = useGuestRatings(ratingIds, language);
   const picks = topPicks(decision.hotels, currency, ratings);
+  const picksInList = columns === 1 && !(hasMap && mapContext === context) && picks.length > 0;
+  const picksAfter = Math.min(2, Math.max(0, Math.min(limit, decision.hotels.length) - 1));
   const sortName = (sort: ResultSort) => sort === 'stars' ? (ar ? 'الأعلى تصنيفاً' : 'Highest star rating') : t(sort);
   const sortLabel = applied.sort === 'recommended' ? t('sort') : sortName(applied.sort);
   const freeCancelLabel = ar ? 'إلغاء مجاني' : 'Free cancellation';
@@ -195,6 +197,8 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
         <Chip size="sm" testID="results-density" icon={variant === 'list' ? 'image' : 'list'} label={variant === 'list' ? (ar ? 'الصور' : 'Photos') : (ar ? 'القائمة' : 'List')}
           accessibilityLabel={variant === 'list' ? (ar ? 'عرض النتائج بصور كبيرة' : 'Show results with large photos') : L.compactView}
           onPress={() => setVariant(value => value === 'list' ? 'photo' : 'list')}/>
+        <View testID="results-member-rates" accessible accessibilityLabel={ar ? 'أسعار الأعضاء: الأسعار هنا خاصة بأعضاء مخدة.' : 'Member rates: these prices are for Mkhadda members.'}
+          style={{ justifyContent: 'center' }}><Badge tone="accent" icon="sparkles" label={ar ? 'أسعار الأعضاء' : 'Member rates'}/></View>
       </Row>
       {activeCount > 0 && <Row style={{ flexWrap: 'wrap', gap: space.sm }}>
         {applied.freeCancel && <Chip size="sm" label={freeCancelLabel} accessibilityLabel={ar ? 'إزالة فلتر الإلغاء المجاني' : 'Remove free cancellation filter'} onRemove={() => apply({ ...applied, freeCancel: false })}/>}
@@ -203,9 +207,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
         {applied.stars.map(star => <Chip size="sm" key={star} label={star ? `${star} ${t('stars')}` : L.unknownStars} accessibilityLabel={L.removeStar(star)} onRemove={() => apply({ ...applied, stars: applied.stars.filter(value => value !== star) })}/>)}
         <Button compact variant="quiet" title={L.clearAll} onPress={clearFilters}/>
       </Row>}
-      {hotels.length > 0 && <Row testID="results-member-rates" style={{ gap: space.xs }}><Icon name="sparkles" size={14} color={color.accent}/>
-        <Txt kind="caption" style={{ flex: 1 }}>{ar ? 'أسعار الأعضاء: الأسعار هنا خاصة بأعضاء مخدة، وتشمل الضرائب المذكورة.' : 'Member rates: these prices are for Mkhadda members and include the listed taxes.'}</Txt></Row>}
-      {!(hasMap && mapContext === context) && <TopPicks picks={picks} currency={currency} ratings={ratings} onOpen={openedHotel}/>}
+      {!(hasMap && mapContext === context) && !picksInList && <TopPicks picks={picks} currency={currency} ratings={ratings} onOpen={openedHotel}/>}
       {hasMap && mapContext === context && (mapFailed
         ? <Card padded={false} style={{ gap: 0, overflow: 'hidden' }}>{decision.hotels.filter(hotel => hotel.location).slice(0, limit).map((hotel, index) =>
           <View key={hotel.hid}>{index > 0 && <View style={{ height: StyleSheet.hairlineWidth, backgroundColor: color.border }}/>}<HotelMapLink hotel={hotel} variant="row"/></View>)}</Card>
@@ -249,22 +251,24 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}>
     <BrandHeader back/>
     {/* Ratings arrive after the list; extraData lets the visible cards pick them up. */}
-    <FlatList ref={listRef} key={`results-${columns}-${variant}`} numColumns={columns} extraData={ratings}
+    <FlatList ref={listRef} key={`results-${columns}-${variant}`} numColumns={columns} extraData={{ ratings, picksInList, picksAfter }}
       columnWrapperStyle={columns > 1 ? { gap: space.md, flexDirection: rtl ? 'row-reverse' : 'row' } : undefined}
       data={content ? [] : decision.hotels.slice(0, limit)} keyExtractor={hotel => String(hotel.hid)}
       contentContainerStyle={[styles.list, { paddingHorizontal: gutter, maxWidth: desktop ? layout.maxContent : layout.maxReading + 160 }]}
       onScroll={event => { scrollPosition.current = { context, offset: event.nativeEvent.contentOffset.y }; }} scrollEventThrottle={64}
-      renderItem={({ item }) => <View style={{ flex: 1 / columns, minWidth: 0 }}>
+      renderItem={({ item, index }) => <View style={{ flex: 1 / columns, minWidth: 0 }}>
         <HotelCard hotel={item} variant={variant} recentlyViewed={viewedHotels.has(item.hid)} onOpen={openedHotel} comparisonDisabled={refreshing || Boolean(error)}
-          rating={ratings.get(item.hid)}/></View>}
+          rating={ratings.get(item.hid)}/>
+        {/* On a phone the shortcuts follow the first three hotels, so the list starts at the top of the screen. */}
+        {picksInList && index === picksAfter && <View style={{ marginTop: space.sm + 2 }}><TopPicks picks={picks} currency={currency} ratings={ratings} onOpen={openedHotel}/></View>}</View>}
       ItemSeparatorComponent={() => <View style={{ height: space.sm + 2 }}/>} ListHeaderComponent={header} ListEmptyComponent={content || undefined}
       initialNumToRender={8} windowSize={9} removeClippedSubviews={Platform.OS === 'android'}
       ListFooterComponent={!content && decision.hotels.length > 0 ? <View style={{ paddingTop: space.lg, gap: space.md }}>
         {limit < decision.hotels.length && <Button variant="secondary" title={`${t('loadMore')} (${Math.min(20, decision.hotels.length - limit)})`} onPress={() => setLimit(limit + 20)}/>}
         <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
           <View style={{ paddingTop: 2 }}><Icon name="info" size={14} color={color.textSecondary}/></View>
-          <Txt kind="caption" style={{ flex: 1 }}>{ar ? `الأسعار إجمالية لكامل الإقامة (${stay}) بعملة البحث. تظهر أي رسوم تُدفع في الفندق في تفاصيل كل عرض.`
-            : `Prices are totals for the whole stay (${stay}). Any fees payable at the hotel are shown on each room offer.`}</Txt>
+          <Txt kind="caption" style={{ flex: 1 }}>{ar ? `أسعار خاصة بأعضاء مخدة. الأسعار إجمالية لكامل الإقامة (${stay}) بعملة البحث. تظهر أي رسوم تُدفع في الفندق في تفاصيل كل عرض.`
+            : `Member rates for Mkhadda members. Prices are totals for the whole stay (${stay}). Any fees payable at the hotel are shown on each room offer.`}</Txt>
         </Row></View> : undefined}
       refreshing={refreshing} onRefresh={enabled ? refreshResults : undefined}/>
     {sameContext && !pending && !error && comparisonItems.length > 0 && <View style={[styles.dock, elevation.raised]}>

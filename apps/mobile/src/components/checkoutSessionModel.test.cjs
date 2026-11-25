@@ -281,3 +281,51 @@ test('native recovery uses SecureStore while web remains memory-only and native 
   const failed = loader({ 'expo-secure-store': { getItemAsync: async () => { throw Error('native failure'); } } })('./checkoutRecoveryStorage.native.ts').createCheckoutRecoveryStorage();
   await assert.rejects(failed.read(owner), error => error.kind === 'storage');
 });
+test('choosing Tabby (AED) drops the card price lock; the next lock is for the new method and currency', async () => {
+  const f = fixture({ api: { quote: async review => ({ currency: review.paymentCurrency || 'USD', amount: review.paymentCurrency === 'AED' ? '367.25' : '100.00',
+    amountFormatted: 'fixture', expiresAt: f.now() + 60_000, token: 'private-quote-token' }) } });
+  await f.init();
+  assert.equal(f.session.presentation().quote.currency, 'USD');
+  f.setSelection({ ...f.selection(), review: { ...f.selection().review, paymentMethod: 'tabby', paymentCurrency: 'AED' } });
+  f.session.sync();
+  assert.equal(f.session.presentation().quote, null, 'the USD lock no longer applies');
+  assert.equal(f.session.presentation().canSubmit, false);
+  await f.session.quote();
+  assert.deepEqual([f.session.presentation().quote.currency, f.session.presentation().quote.amount], ['AED', '367.25']);
+  assert.equal(f.session.presentation().canSubmit, true);
+});
+test('a payment that did not go through can be retried another way for the same room; a paid one cannot', async () => {
+  const f = fixture(); await f.init(); await f.session.submit(travelers(), true);
+  f.api.status = async () => ({ ...f.attempt('payment_failed'), paymentMethod: 'tabby', paymentError: 'tabby_expired' });
+  await f.session.refreshStatus();
+  assert.equal(f.session.presentation().attempt.paymentError, 'tabby_expired');
+  assert.equal(await f.session.clearCompleted({ keepSelection: true }), true);
+  assert.equal(f.session.presentation().attempt, null);
+  assert.equal(f.session.presentation().canQuote, true, 'same room, new price lock');
+  // Without keepSelection the room stays consumed, as before.
+  const g = fixture(); await g.init(); await g.session.submit(travelers(), true);
+  g.api.status = async () => g.attempt('payment_failed'); await g.session.refreshStatus();
+  assert.equal(await g.session.clearCompleted(), true);
+  assert.equal(g.session.presentation().canQuote, false);
+  // A confirmed booking never frees its room for a second payment.
+  const h = fixture(); await h.init(); await h.session.submit(travelers(), true);
+  h.api.status = async () => h.attempt('booking_confirmed'); await h.session.refreshStatus();
+  assert.equal(await h.session.clearCompleted({ keepSelection: true }), true);
+  assert.equal(h.session.presentation().canQuote, false);
+});
+test('a price lock that returns after the guest switched method is dropped quietly and asked again, not shown as an error', async () => {
+  const gate = deferred();
+  const f = fixture({ api: { quote: async review => { await gate.promise; return { currency: review.paymentCurrency || 'USD', amount: review.paymentCurrency === 'AED' ? '367.25' : '100.00',
+    amountFormatted: 'fixture', expiresAt: f.now() + 60_000, token: 'private-quote-token' }; } } });
+  await f.session.recover(); await f.session.loadAvailability();
+  f.setSelection({ ...f.selection(), review: { ...f.selection().review, paymentMethod: 'tabby', paymentCurrency: 'AED' } });
+  const pending = f.session.quote();
+  await tick(); await tick();
+  f.setSelection({ ...f.selection(), review: { ...f.selection().review, paymentMethod: 'card', paymentCurrency: undefined } });
+  gate.resolve(); await pending;
+  assert.equal(f.session.presentation().error, null);
+  assert.equal(f.session.presentation().quote, null);
+  assert.equal(f.session.presentation().canQuote, true);
+  await f.session.quote();
+  assert.equal(f.session.presentation().quote.currency, 'USD');
+});

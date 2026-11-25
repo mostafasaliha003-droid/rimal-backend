@@ -27,7 +27,7 @@ export function allowedRoute(method: string, path: string) {
   if (method === 'GET') return ['/owned/notifications', '/membership/status', '/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile', '/payment/availability', '/v1/hotels/reviews/summary'].includes(path)
     || checkoutStatusRoute(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path) || hotelReviewsRoute(path);
   return method === 'POST' && ['/membership/application/submit', '/search/rates', '/search/rates/region', '/search/hotelpage', '/booking/prebook',
-    '/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover',
+    '/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover', '/payment/tabby/eligibility',
     '/auth/login', '/auth/register-send-code', '/auth/verify-and-register', '/auth/logout', '/auth/account-deletion'].includes(path);
 }
 function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {

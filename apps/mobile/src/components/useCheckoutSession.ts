@@ -78,5 +78,5 @@ export function useCheckoutSession({ getReview, canCreate = buildPolicy }: UseCh
   return { ...session.presentation(), error: snapshot.error || identityError,
     loadAvailability: session.loadAvailability, requestQuote: session.quote, submit: session.submit, recover: session.recover,
     refreshStatus: session.refreshStatus, getPaymentHandoff: session.getPaymentHandoff, canOpenWebsite: session.canOpenWebsite,
-    clearCompleted: session.clearCompleted };
+    clearCompleted: session.clearCompleted, sync: session.sync };
 }
