@@ -74,7 +74,7 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true },
   // Verified HTTPS App Links require the real Play signing fingerprint. Do not
   // advertise an unverified association or treat a deep link as payment proof.
-  extra: { environment, releaseStage: 'tabby-pay-in-4',
+  extra: { environment, releaseStage: 'members-only-tabby-welcome',
     nativePaymentsEnabled: process.env.EXPO_PUBLIC_NATIVE_CHECKOUT_ENABLED === 'true' },
 };
 
