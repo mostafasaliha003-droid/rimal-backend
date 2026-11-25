@@ -137,6 +137,22 @@ function cancellationAmounts(result) {
     return { amount_refunded: result.amountRefunded, amount_payable: result.amountPayable, amount_sell: result.amountSell };
 }
 
+/*
+ * The refund goes back the way the guest paid: a Ziina card payment through the same Ziina account,
+ * a Tabby payment through Tabby (the reconciler refunds it with the attempt's refund reference).
+ * Either way the payment's test/live mode must match the running environment.
+ */
+function refundRouteReady(checkout, environment = process.env) {
+    if (typeof checkout.ziina_test !== 'boolean' || environment.ZIINA_TEST_MODE !== String(checkout.ziina_test)) return false;
+    if (checkout.payment_provider === 'tabby') {
+        const tabby = require('./tabbyClient');
+        return Boolean(checkout.tabby_payment_id) && tabby.isTabbyReady(environment)
+            && checkout.tabby_test === tabby.settings(environment).test && checkout.tabby_test === checkout.ziina_test;
+    }
+    return Boolean(checkout.ziina_intent_id) && payment.isRefundReady(environment)
+        && checkout.ziina_account_id === environment.ZIINA_ACCOUNT_ID;
+}
+
 async function cancelBooking(partnerOrderId, options = {}) {
     const partnerId = orderId(partnerOrderId);
     if (options.confirm_cancellation !== true) throw fail('cancellation_confirmation_required');
@@ -157,10 +173,9 @@ async function cancelBooking(partnerOrderId, options = {}) {
     const checkout = attempts[0];
     let refundAmountMinor;
     if (checkout) {
-        if (checkout.state !== 'booking_confirmed' || !checkout.payment_verified_at || !checkout.ziina_intent_id
+        if (checkout.state !== 'booking_confirmed' || !checkout.payment_verified_at
             || !Number.isSafeInteger(checkout.amount_minor) || checkout.amount_minor <= 0
-            || !payment.isRefundReady() || checkout.ziina_account_id !== process.env.ZIINA_ACCOUNT_ID
-            || process.env.ZIINA_TEST_MODE !== String(checkout.ziina_test)) throw fail('customer_refund_unavailable', 503);
+            || !refundRouteReady(checkout)) throw fail('customer_refund_unavailable', 503);
         if (!checkout.supplier_identity || checkout.supplier_identity !== payment.supplierIdentity()) {
             throw fail('supplier_environment_mismatch', 503);
         }
@@ -290,4 +305,4 @@ async function reconcilePendingCancellations() {
     return { checked: records.length, failed: results.filter(result => result.status === 'rejected').length };
 }
 
-module.exports = { getBookingInfo, cancelBooking, checkCancellation, reconcilePendingCancellations };
+module.exports = { refundRouteReady, getBookingInfo, cancelBooking, checkCancellation, reconcilePendingCancellations };

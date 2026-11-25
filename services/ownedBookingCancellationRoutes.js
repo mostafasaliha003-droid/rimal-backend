@@ -11,7 +11,8 @@ const cancellationReadLimiter = rateLimit({ windowMs: 60000, max: 30,
     standardHeaders: true, legacyHeaders: false, message: { error: 'cancellation_rate_limited' } });
 
 function createOwnedBookingCancellationRouter({ BookingModel, requireUser, CheckoutModel = CheckoutAttempt,
-    operations = postBooking, refundReady = payment.isRefundReady, env = process.env, now = Date.now,
+    operations = postBooking, refundReady = payment.isRefundReady, tabbyReady = require('./tabbyClient').isTabbyReady,
+    env = process.env, now = Date.now,
     limiter = bookingLimiter, readLimiter = cancellationReadLimiter } = {}) {
     const router = express.Router();
     const readPolicy = require('./cancellationPolicyReader').createCancellationPolicyReader(id => operations.getBookingInfo(id));
@@ -48,15 +49,19 @@ function createOwnedBookingCancellationRouter({ BookingModel, requireUser, Check
         const base = { reference: booking.bookingReference, policy: typeof booking.cancellationPolicy === 'string' ? booking.cancellationPolicy : '', mode: 'support' };
         if (booking.provider !== 'ratehawk' || !booking.supplierReference) return base;
         const checkout = await checkoutFor(booking, req);
-        if (checkout?.cancellation_request_hash) return { ...base, mode: 'tracking', cancellation: await operations.checkCancellation(booking.supplierReference) };
+        // Where the money goes back: the way the guest paid.
+        const refundMethod = checkout?.payment_provider === 'tabby' ? 'tabby' : 'card';
+        if (checkout?.cancellation_request_hash) return { ...base, mode: 'tracking', refund_method: refundMethod,
+            cancellation: await operations.checkCancellation(booking.supplierReference) };
         if (booking.status !== 'active') return base;
         const info = await readPolicy(booking.supplierReference);
         if (info.checking || info.pending) return { ...base, mode: 'checking', retry_after_ms: info.retry_after_ms || 3000 };
         const penalty = info.current_penalty;
         if (info.pending || info.status !== 'completed' || info.isCancellable !== true || !penalty) return base;
-        const result = { ...base, penalty, upsells: info.upsells_require_manual_cancellation === true };
+        const result = { ...base, penalty, refund_method: refundMethod, upsells: info.upsells_require_manual_cancellation === true };
+        const providerReady = refundMethod === 'tabby' ? tabbyReady() : refundReady();
         if (!/^\d+(?:\.\d+)?$/.test(penalty.amount)
-            || info.upsells_require_manual_cancellation || env.RATEHAWK_CANCELLATION_ENABLED !== 'true' || !refundReady()) return result;
+            || info.upsells_require_manual_cancellation || env.RATEHAWK_CANCELLATION_ENABLED !== 'true' || !providerReady) return result;
         if (!checkout || checkout.state !== 'booking_confirmed' || !checkout.payment_verified_at
             || checkout.ziina_test !== (env.ZIINA_TEST_MODE === 'true') || !Number.isSafeInteger(checkout.amount_minor)
             || checkout.amount_minor <= 0 || checkout.cancellation_request_hash) return result;
