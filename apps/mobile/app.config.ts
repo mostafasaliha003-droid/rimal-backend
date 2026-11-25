@@ -44,6 +44,13 @@ const config: ExpoConfig = {
   ios: {
     supportsTablet: true,
     bundleIdentifier: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
+    // Kept equal to android.versionCode so both stores count releases the same way.
+    buildNumber: '53',
+    infoPlist: {
+      // HTTPS only, no custom cryptography: exempt from export-compliance documentation.
+      ITSAppUsesNonExemptEncryption: false,
+      CFBundleDevelopmentRegion: 'ar',
+    },
   },
   web: {
     favicon: './assets/pillow-icon.png',

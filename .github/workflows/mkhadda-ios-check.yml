@@ -1,0 +1,89 @@
+name: Mkhadda iOS build check
+
+# Compiles the Expo app for iOS on a macOS runner without signing, runs it on an
+# iPhone simulator and keeps screenshots. Nothing is uploaded to Apple: signed
+# device builds and TestFlight need the owner's Apple Developer account.
+on:
+  push:
+    branches:
+      - claude/pillow-ux-026
+    paths:
+      - apps/mobile/**
+      - .github/workflows/mkhadda-ios-check.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mkhadda-ios-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  simulator-build:
+    runs-on: macos-latest
+    timeout-minutes: 90
+    defaults:
+      run:
+        working-directory: apps/mobile
+    env:
+      EXPO_PUBLIC_API_ENV: staging
+      EXPO_PUBLIC_NATIVE_CHECKOUT_ENABLED: 'true'
+      CI: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - name: Use the newest installed Xcode
+        run: |
+          XCODE=$(ls -d /Applications/Xcode_*.app | sort -V | tail -1)
+          sudo xcode-select -s "$XCODE"
+          xcodebuild -version
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: apps/mobile/package-lock.json
+      - run: npm ci
+      - run: npx tsc --noEmit
+      - name: Generate the native iOS project (CNG)
+        run: npx expo prebuild --platform ios --no-install
+      - name: Install pods
+        run: cd ios && pod install
+      - name: Build for the iOS simulator (Release, unsigned)
+        run: |
+          WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
+          SCHEME=$(basename "$WORKSPACE" .xcworkspace)
+          echo "SCHEME=$SCHEME" >> "$GITHUB_ENV"
+          set -o pipefail
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release \
+            -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
+            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 60
+      - name: Build for iPhone hardware (Release, unsigned compile check)
+        run: |
+          WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
+          set -o pipefail
+          xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release \
+            -sdk iphoneos -destination 'generic/platform=iOS' \
+            -derivedDataPath build-device CODE_SIGNING_ALLOWED=NO build | tail -n 30
+      - name: Run on an iPhone simulator and take screenshots
+        run: |
+          APP=$(ls -d build/Build/Products/Release-iphonesimulator/*.app | head -1)
+          DEVICE=$(xcrun simctl list devices available -j | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")).devices;const all=Object.entries(d).filter(([r])=>/iOS/.test(r)).sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true})).flatMap(([,v])=>v);const p=all.filter(x=>/^iPhone \d+ Pro$/.test(x.name)).pop()||all.filter(x=>/^iPhone/.test(x.name)).pop();console.log(p.udid)')
+          xcrun simctl boot "$DEVICE"
+          xcrun simctl bootstatus "$DEVICE" -b
+          xcrun simctl install "$DEVICE" "$APP"
+          BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")
+          mkdir -p ios-shots
+          xcrun simctl spawn "$DEVICE" defaults write -g AppleLanguages -array ar en
+          xcrun simctl launch "$DEVICE" "$BUNDLE"
+          sleep 25
+          xcrun simctl io "$DEVICE" screenshot ios-shots/01-launch.png
+          sleep 10
+          xcrun simctl io "$DEVICE" screenshot ios-shots/02-settled.png
+          xcrun simctl spawn "$DEVICE" launchctl list | grep -q "$BUNDLE" && echo "app still running" || (echo "app is not running"; exit 1)
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: mkhadda-ios-simulator
+          path: |
+            apps/mobile/ios-shots
+          retention-days: 14
