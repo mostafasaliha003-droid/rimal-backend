@@ -1,18 +1,26 @@
 import { lazy, useEffect, useState } from 'react';
-import { ChevronLeft, ChevronDown, ChevronUp, LoaderCircle, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, Sparkles, X } from 'lucide-react';
+import { ChevronLeft, ChevronDown, ChevronUp, RotateCcw, ShieldCheck, SlidersHorizontal, MapPin, Check, AlertCircle, Search, Sparkles, X } from 'lucide-react';
+import PillowWait from './components/PillowWait';
 import TopNavigationBar from './components/TopNavigationBar';
+import { validateSearch } from './components/search/searchModel';
+import SearchComparison from './components/SearchComparison';
+const HotelLocationMap = lazy(() => import('./components/HotelLocationMap'));
+import SavedStays from './components/SavedStays';
+import StayShortcuts from './components/StayShortcuts';
 import CompanyFooter from './components/CompanyFooter';
+import FeaturedStays from './components/FeaturedStays';
 import HeroSearchSection from './components/HeroSearchSection';
 import HotelCard from './components/HotelCard';
 import RoomOfferGroups from './components/RoomOfferGroups';
 import PriceDisplay from './components/PriceDisplay';
 const HotelDetails = lazy(() => import('./HotelDetails'));
 const Checkout = lazy(() => import('./Checkout'));
+const MemberNotifications = lazy(() => import('./pages/MemberNotifications'));
+const AccountDeletion = lazy(() => import('./pages/AccountDeletion'));
+const AccountDeletionRequests = lazy(() => import('./components/AccountDeletionRequests'));
 const AccountCenter = lazy(() => import('./components/AccountCenter'));
 const CustomerSupport = lazy(() => import('./pages/CustomerSupport'));
 const LegalPage = lazy(() => import('./pages/LegalPage'));
-const AccountDeletion = lazy(() => import('./pages/AccountDeletion'));
-const AccountDeletionRequests = lazy(() => import('./components/AccountDeletionRequests'));
 const LoyaltyDashboard = lazy(() => import('./components/LoyaltyDashboard'));
 const NextGenHotels = lazy(() => import('./pages/NextGenHotels'));
 const NextGenCheckout = lazy(() => import('./pages/NextGenCheckout'));
@@ -29,7 +37,10 @@ import { useLanguage } from './i18n';
 import { setPageSeo } from './services/seo.js';
 
 function storedSearch() {
-    try { return JSON.parse(sessionStorage.getItem('remal_search') || 'null'); } catch { return null; }
+    try {
+        const search=JSON.parse(sessionStorage.getItem('remal_search') || 'null');
+        return search?.destination && typeof search.query==='string' && Array.isArray(search.guests) && search.guests.every(room=>room && Number.isInteger(room.adults) && Array.isArray(room.children)) ? search : null;
+    } catch { return null; }
 }
 
 function storedDisplayCurrency() {
@@ -89,13 +100,18 @@ export default function App() {
     const [pathname, setPathname] = useState(() => window.location.pathname);
     const [displayCurrency, setDisplayCurrency] = useState(storedDisplayCurrency);
     const [displayRates, setDisplayRates] = useState(null);
-    const [searched, setSearched] = useState(() => !!storedSearch());
-    const [searchParams, setSearchParams] = useState(storedSearch);
+    const [previousSearch, setPreviousSearch] = useState(storedSearch);
+    const [searched, setSearched] = useState(false);
+    const [savedSearch, setSavedSearch] = useState(null);
+    const [searchDraftId,setSearchDraftId] = useState(0);
+    const [searchParams, setSearchParams] = useState(null);
     const [hotels, setHotels] = useState([]);
     const [selectedHotel, setSelectedHotel] = useState(null);
     const [hotelPage, setHotelPage] = useState(null);
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [mapOpen,setMapOpen] = useState(false), [compared,setCompared] = useState([]);
+    const [areaFilter,setAreaFilter]=useState(''),[kindFilter,setKindFilter]=useState(''),[breakfast,setBreakfast]=useState(false);
     const [starFilter, setStarFilter] = useState(0);
     const [amenityFilter, setAmenityFilter] = useState(false);
     const [filtersOpen, setFiltersOpen] = useState(false);
@@ -106,10 +122,10 @@ export default function App() {
 
     useEffect(() => {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
-        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/support', '/customer-service', '/loyalty', '/account-deletion', '/account-deletion-requests'].includes(pathname);
+        const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/favorites', '/support', '/customer-service', '/loyalty', '/account-deletion', '/account-deletion-requests'].includes(pathname);
         const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
-        const title = t('meta.title', 'رمال وفِلّها | حجوزات الفنادق');
-        const description = t('meta.description', 'ابحث عن إقامة مناسبة مع رمال وقارن عروض الفنادق.');
+        const title = t('meta.title', 'مخدة | pillow stays');
+        const description = t('meta.description', 'ابحث عن إقامة تناسبك مع مخدة وقارن عروض الفنادق.');
         setPageSeo({
             title,
             description,
@@ -119,7 +135,7 @@ export default function App() {
             type: 'website',
             languages: noindex ? [] : ['ar', 'en', 'es'],
             noindex,
-            structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Remal', url: canonical }
+            structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'مخدة | pillow stays', url: canonical }
         });
     }, [pathname, language, t]);
 
@@ -129,7 +145,7 @@ export default function App() {
     const [amenitiesFilterOpen, setAmenitiesFilterOpen] = useState(true);
 
     const activeFilterCount = [
-        Boolean(maxPrice),
+        Boolean(areaFilter), Boolean(kindFilter), breakfast, Boolean(maxPrice),
         freeCancellation,
         Boolean(starFilter),
         amenityFilter
@@ -161,9 +177,13 @@ export default function App() {
     }, []);
 
     const handleSearch = (params) => {
+        setPreviousSearch(params);
         setLoading(true);
         setError('');
         try { sessionStorage.setItem('remal_search', JSON.stringify(params)); } catch {}
+        setCompared([]);
+        clearFilters();
+        setMapOpen(Boolean(params.area));
         setLimit(20);
         setSearchParams(params);
         setHotels([]);
@@ -171,7 +191,9 @@ export default function App() {
         setHotelPage(null);
         setSearched(true);
         window.history.pushState({}, '', '#search');
-        window.requestAnimationFrame(() => document.getElementById('results-heading')?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+        window.requestAnimationFrame(() => document.getElementById('results-heading')?.scrollIntoView({
+            behavior: window.matchMedia('(prefers-reduced-motion: reduce)').matches ? 'instant' : 'smooth', block: 'start'
+        }));
     };
 
     useEffect(() => {
@@ -190,7 +212,7 @@ export default function App() {
                 if (isHotelSearch && (!Number.isSafeInteger(hotelId) || hotelId < 0 || hotelId > 9999999999)) {
                     throw new Error('The selected hotel does not have a valid RateHawk hotel ID.');
                 }
-                const response = isHotelSearch
+                const response = searchParams.area ? await BookingAPI.searchByGeo({...request,...searchParams.area}) : isHotelSearch
                     ? await BookingAPI.searchByIds({ ...request, hids: [hotelId] })
                     : await BookingAPI.searchByRegion({ ...request, region_id: destination.region_id });
                 const nextHotels = [...new Map(getHotels(response).map(hotel => [String(hotel.hid || hotel.id), hotel])).values()];
@@ -200,9 +222,10 @@ export default function App() {
                     setError('');
                 }
             } catch (error) {
-                if (active) trackBookingEvent('search_failed');
+                if (!active) return;
+                trackBookingEvent('search_failed');
                 console.error('Search Error Details:', error);
-            setError(t('results.loadFailed', 'تعذر تحميل الفنادق، يرجى المحاولة مرة أخرى'));
+                setError(t('results.loadFailed', 'تعذر تحميل الفنادق، يرجى المحاولة مرة أخرى'));
             } finally {
                 if (active) setLoading(false);
             }
@@ -252,18 +275,30 @@ export default function App() {
     const rooms = (hotelPage?.rates || hotelPage?.hotel?.rates || [])
         .map(rate => normalizeRoom(rate, selectedHotel, searchParams?.guests || [{ adults: 2, children: [] }]));
 
-    const visibleHotels = hotels.filter((hotel) => {
+    const textField=(...values)=>values.find(v=>typeof v==='string' && v.trim()) || '';
+    const areaOf=h=>textField(h.district,h.neighbourhood,h.neighborhood,h.staticData?.district,h.staticData?.neighborhood);
+    const kindOf=h=>textField(h.kind,h.property_type,h.staticData?.kind,h.staticData?.property_type);
+    const areas=[...new Set(hotels.map(areaOf).filter(Boolean))].sort(), kinds=[...new Set(hotels.map(kindOf).filter(Boolean))].sort();
+    const hasBreakfast=rate=>rate?.meal_data?.has_breakfast===true || /^(?:breakfast|english-breakfast|continental-breakfast)(?:$|[-_])/i.test(String(rate?.meal || ''));
+    const breakfastOffered=hotels.some(h=>h.rates?.some(hasBreakfast));
+    const rateFilters=Boolean(maxPrice||freeCancellation||breakfast);
+    const filteredRates=rateFilters ? hotels.map(h=>({...h,rates:(h.rates||[]).filter(rate=>{
+        const deadline=Date.parse(paymentFor(rate)?.cancellation_penalties?.free_cancellation_before);
+        return (!maxPrice || rateAmount(rate)<=Number(maxPrice)) && (!freeCancellation || deadline>Date.now()) && (!breakfast || hasBreakfast(rate));
+    })})).filter(h=>h.rates.length) : hotels;
+    const visibleHotels = filteredRates.filter((hotel) => {
         const stars = Number(hotel.stars || hotel.star_rating || 0);
-        const amenities = getAmenities(hotel.rates?.[0] || hotel);
+        const amenities = [...getAmenities(hotel),...getAmenities(hotel.staticData),...getAmenities(hotel.rates?.[0])];
         const best = cheapestRate(hotel.rates);
         const matchesPrice = !maxPrice || Boolean(best && rateAmount(best) <= Number(maxPrice));
         const matchesCancellation = !freeCancellation || Boolean(best && paymentFor(best)?.cancellation_penalties?.free_cancellation_before);
         return (!starFilter || stars >= starFilter) && (!amenityFilter || amenities.length > 0)
-            && matchesPrice && matchesCancellation;
+            && (!areaFilter || areaOf(hotel)===areaFilter) && (!kindFilter || kindOf(hotel)===kindFilter) && matchesPrice && matchesCancellation;
     }).sort((first, second) => sort === 'price' ? rateAmount(cheapestRate(first.rates)) - rateAmount(cheapestRate(second.rates)) : sort === 'stars' ? Number(second.stars || 0) - Number(first.stars || 0) : 0);
     const lowestHotel = visibleHotels.filter(hotel => cheapestRate(hotel.rates)).reduce((best, hotel) => !best || rateAmount(cheapestRate(hotel.rates)) < rateAmount(cheapestRate(best.rates)) ? hotel : best, null);
     
     const clearFilters = () => {
+        setAreaFilter('');setKindFilter('');setBreakfast(false);
         setStarFilter(0);
         setAmenityFilter(false);
         setMaxPrice('');
@@ -283,13 +318,15 @@ export default function App() {
         const pathnameOnly = new URL(path, window.location.origin).pathname;
         window.history.pushState({}, '', path);
         setPathname(pathnameOnly);
+        window.dispatchEvent(new PopStateEvent('popstate'));
+        window.scrollTo({top:0,behavior:'instant'});
     };
 
-    if (pathname === '/account-deletion') return <AccountDeletion />;
-    if (pathname === '/account-deletion-requests') return <AccountDeletionRequests />;
     if (pathname === '/privacy' || pathname === '/terms') {
         return <><TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} /><LegalPage kind={pathname.slice(1)} /></>;
     }
+    if (pathname === '/account-deletion') return <AccountDeletion />;
+    if (pathname === '/account-deletion-requests') return <AccountDeletionRequests />;
     if (pathname === '/support' || pathname === '/customer-service') {
         return <CustomerSupport staff={pathname === '/customer-service'} />;
     }
@@ -316,6 +353,17 @@ export default function App() {
         </>;
     }
 
+    if (pathname === '/notifications') return <><TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} /><MemberNotifications /></>;
+    if (pathname === '/favorites') {
+        return <><TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
+            <SavedStays onExplore={item => {
+                setPreviousSearch(null);
+                setSavedSearch(item ? { query: item.name, destination: { type: 'hotel', hotel_id: item.id, label: item.name }, residency: searchParams?.residency } : null);
+                setSearchParams(null); setSearched(false); setHotels([]); setError(''); setLoading(false);
+                try { sessionStorage.removeItem('remal_search'); } catch {}
+                navigateTo('/');
+            }} /></>;
+    }
     if (accountRoute) {
         return <>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
@@ -342,9 +390,12 @@ export default function App() {
         </>;
     }
     if (hotelRoute) {
+        const stayQuery = new URLSearchParams(window.location.search);
+        const hotelStayKey = JSON.stringify([hotelRoute[1], ...['checkin', 'checkout', 'guests', 'residency'].map(key => stayQuery.get(key))]);
         return <>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <HotelDetails
+                key={hotelStayKey}
                 hid={decodeURIComponent(hotelRoute[1])}
                 displayCurrency={displayCurrency}
                 displayRates={displayRates}
@@ -356,8 +407,9 @@ export default function App() {
         </>;
     }
 
+    const waitingForSearch = loading && !hotels.length && !error;
     return (
-        <div className="min-h-screen bg-[#F8FAFC] text-slate-900" dir={direction}>
+        <div className="pillow-home min-h-screen" dir={direction}>
             <TopNavigationBar currency={displayCurrency} onCurrencyChange={setDisplayCurrency} onNavigate={navigateTo} />
             <main>
                 {nextGenEnabled && <div className="mx-auto max-w-7xl px-5 pt-5 lg:px-10">
@@ -365,13 +417,28 @@ export default function App() {
                         <Sparkles size={17} className="text-remal-blue" />{t('nextgen.launch', 'جرّب تجربة الفنادق التجريبية الجديدة')}
                     </a>
                 </div>}
-                <HeroSearchSection onSearch={handleSearch} initialSearch={searchParams} isSearching={loading} searchError={error} />
-                <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-24 pt-10 lg:px-10 lg:pt-12">
+                <HeroSearchSection key={searchDraftId} onSearch={handleSearch} initialSearch={savedSearch || searchParams || previousSearch} isSearching={loading} searchError={error} />
+                {!searched && previousSearch?.destination && <section className="pillow-resume">
+                    <div><h2>{previousSearch.query}</h2><p><bdi>{previousSearch.checkin} — {previousSearch.checkout}</bdi> · {t('search.guestSummary', '{{rooms}} غرف، {{guests}} ضيوف', {rooms:previousSearch.guests?.length || 0,guests:previousSearch.guests?.reduce((n,room)=>n+room.adults+(room.children?.length || 0),0) || 0})}</p>
+                    <small>{language==='ar'?'سنعيد التحقق من الأسعار والتوفر لهذه الإقامة.':language==='es'?'Volveremos a comprobar las tarifas y la disponibilidad.':'Rates and availability will be checked again.'}</small></div>
+                    <button type="button" className="pillow-primary" onClick={()=>{
+                        const valid=Object.keys(validateSearch(previousSearch)).length===0;
+                        if(valid) handleSearch(previousSearch);else document.getElementById('search-checkin')?.focus();
+                    }}>{language==='ar'?'متابعة البحث':language==='es'?'Continuar la búsqueda':'Resume search'}</button>
+                    <button type="button" onClick={()=>document.getElementById('destination-search')?.focus()}>{t('search.edit','تعديل البحث')}</button>
+                </section>}
+                {!searched && <><FeaturedStays previous={previousSearch} onChoose={hotel=>{
+                    setSavedSearch({ query:hotel.name, destination:{type:'hotel',hotel_id:Number(hotel.hid),label:hotel.name}, residency:previousSearch?.residency });
+                    setSearchDraftId(value=>value+1);
+                    requestAnimationFrame(()=>document.getElementById('search-checkin')?.focus());
+                }} /><StayShortcuts /></>}
+                {searched && <section id="results-heading" className="mx-auto max-w-7xl scroll-mt-8 px-5 pb-24 pt-10 lg:px-10 lg:pt-12">
+                    {waitingForSearch ? <PillowWait stage="search" /> : <>
                     
                     {/* Header Section */}
                     <div className="mb-10 flex flex-col gap-5 border-b border-slate-200 pb-8 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-blue-600">{searched ? t('results.searchResults', 'نتائج البحث') : t('results.remalPicks', 'اختيارات رمال')}</p>
+                            <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-blue-600">{searched ? t('results.searchResults', 'نتائج البحث') : t('results.remalPicks', 'اختيارات مخدة')}</p>
                             <h2 className="text-3xl font-black tracking-tight sm:text-4xl">{t('results.heading', 'فنادق تحسّها على كيفك')}</h2>
                             <p className="mt-2 text-sm font-semibold text-slate-500">{searched ? t('results.searchedCount', `${visibleHotels.length} فندق متاح حسب بحثك`, { count: visibleHotels.length }) : t('results.initialSubheading', 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية')}</p>
                         </div>
@@ -387,6 +454,12 @@ export default function App() {
                         </div>
                     </div>
 
+                    {visibleHotels.length > 0 && <div className="pillow-view-tools">
+                        <button type="button" aria-expanded={mapOpen} onClick={()=>setMapOpen(!mapOpen)}><MapPin size={18}/>{language==='ar'?(mapOpen?'إخفاء الخريطة':'عرض الخريطة'):language==='es'?(mapOpen?'Ocultar mapa':'Mostrar mapa'):(mapOpen?'Hide map':'Show map')}</button>
+                        {compared.length>0 && <button type="button" onClick={()=>setCompared([])}>{language==='ar'?'مسح المقارنة':language==='es'?'Borrar comparación':'Clear comparison'}</button>}
+                    </div>}
+                    {mapOpen && <HotelLocationMap hotels={visibleHotels} onSelect={openHotelDetails} onArea={area=>handleSearch({...searchParams,area})} />}
+                    <SearchComparison hotels={visibleHotels.filter(h=>compared.includes(String(h.hid||h.id)))} displayCurrency={displayCurrency} displayRates={displayRates}/>
                     <div className="grid min-w-0 items-start gap-8 lg:grid-cols-[18rem_minmax(0,1fr)]">
                         
                         {/* Filters Sidebar (Clean UI & Progressive Disclosure) */}
@@ -471,6 +544,10 @@ export default function App() {
                                     </div>
 
                                 </div>
+                                {(breakfastOffered||areas.length>0||kinds.length>0) && <div className="pillow-extra-filters">
+                                    {breakfastOffered && <label><input type="checkbox" checked={breakfast} onChange={e=>setBreakfast(e.target.checked)}/>{language==='ar'?'إفطار مشمول':language==='es'?'Desayuno incluido':'Breakfast included'}</label>}
+                                    {[[areas,areaFilter,setAreaFilter,language==='ar'?'المنطقة':'Area'],[kinds,kindFilter,setKindFilter,language==='ar'?'نوع الإقامة':'Property type']].filter(([options])=>options.length).map(([options,value,setValue,label])=><label key={label}>{label}<select value={value} onChange={e=>setValue(e.target.value)}><option value="">{language==='ar'?'الكل':'All'}</option>{options.map(option=><option key={option}>{option}</option>)}</select></label>)}
+                                </div>}
                                 <div className="flex items-center justify-between border-t border-slate-100 bg-slate-50/70 px-5 py-4 lg:hidden">
                                     <span className="text-sm font-bold text-slate-500">{activeFilterCount ? t('results.activeFilters', '{{count}} فلاتر مفعّلة', { count: activeFilterCount }) : t('results.noActiveFilters', 'لا توجد فلاتر مفعّلة')}</span>
                                     <button type="button" onClick={() => setFiltersOpen(false)} className="min-h-11 rounded-xl bg-[var(--remal-orange)] px-6 text-sm font-black text-white shadow-sm hover:bg-[#d86522]">{t('results.showResults', 'عرض النتائج')}</button>
@@ -498,30 +575,23 @@ export default function App() {
                                         <ChevronLeft size={18} /> العودة للنتائج
                                     </button>
                                     <h2 className="text-3xl font-black text-slate-900">{selectedHotel.name}</h2>
-                                    {!hotelPage && !error && (
-                                        <div className="flex flex-col items-center justify-center rounded-3xl bg-white p-20 shadow-sm border border-slate-100 gap-4">
-                                            <LoaderCircle size={40} className="animate-spin text-blue-600" />
-                                            <span className="font-bold text-slate-500">جارٍ تحميل الغرف المتاحة...</span>
-                                        </div>
-                                    )}
+                                    {!hotelPage && !error && <PillowWait stage="rooms" />}
                                     {error && <p role="alert" className="rounded-2xl bg-red-50 p-6 text-sm font-bold text-red-600 border border-red-100">{error}</p>}
-                                    <RoomOfferGroups rooms={rooms} displayCurrency={displayCurrency} displayRates={displayRates} />
+                                    {hotelPage && <RoomOfferGroups rooms={rooms} displayCurrency={displayCurrency} displayRates={displayRates} />}
                                 </>
-                            ) : loading ? (
-                                <div role="status" className="flex flex-col items-center justify-center gap-4 rounded-3xl bg-white p-24 shadow-sm border border-slate-100">
-                                    <LoaderCircle size={48} className="animate-spin text-blue-600" />
-                                    <span className="font-black text-slate-600 text-lg">جارٍ البحث عن أفضل العروض...</span>
-                                </div>
                             ) : error ? (
                                 <div role="alert" className="rounded-3xl bg-red-50 p-10 text-center border border-red-100">
                                     <AlertCircle size={40} className="mx-auto text-red-500 mb-4" />
                                     <p className="font-bold text-red-900 text-lg">{error}</p>
-                                    <button onClick={() => setSearchParams({ ...searchParams })} className="mt-6 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 transition-colors">إعادة المحاولة</button>
+                                    <button onClick={() => setSearchParams({ ...searchParams })} className="mt-6 rounded-xl bg-red-600 px-6 py-3 text-sm font-bold text-white hover:bg-red-700 transition-colors">{t('results.tryAgain','إعادة المحاولة')}</button>
                                 </div>
                             ) : visibleHotels.length ? (
                                 <ul aria-label={t('results.hotelList', 'قائمة الفنادق')} className="grid auto-cols-[88%] grid-flow-col gap-4 overflow-x-auto overscroll-x-contain snap-x snap-proximity scroll-px-4 px-4 py-4 touch-auto md:auto-cols-auto md:grid-flow-row md:grid-cols-1 md:overflow-visible md:snap-none md:space-y-6">
                                     {visibleHotels.slice(0, limit).map((hotel, index) => (
                                         <li key={hotel.id || hotel.hid} className="min-w-0 snap-start snap-normal">
+                                            <label className="pillow-compare-toggle"><input type="checkbox" checked={compared.includes(String(hotel.hid||hotel.id))}
+                                                disabled={compared.length>=3 && !compared.includes(String(hotel.hid||hotel.id))} onChange={event=>{const id=String(hotel.hid||hotel.id),checked=event.target.checked;setCompared(current=>checked?[...current,id]:current.filter(item=>item!==id));}} />
+                                                {language==='ar'?'مقارنة':language==='es'?'Comparar':'Compare'}</label>
                                             <HotelCard hotel={hotel} href={hotelDetailsHref(hotel)} onSelect={openHotelDetails} priority={index === 0} displayCurrency={displayCurrency} displayRates={displayRates} />
                                         </li>
                                     ))}
@@ -559,8 +629,9 @@ export default function App() {
                         </div>
 
                     </div>
-                </section>
-                {searched && <div className="mobile-results-toolbar lg:hidden">
+                    </>}
+                </section>}
+                {searched && !waitingForSearch && <div className="mobile-results-toolbar lg:hidden">
                     <button type="button" aria-controls="search-filters" aria-expanded={filtersOpen} onClick={() => setFiltersOpen(!filtersOpen)} className="relative flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border border-slate-200 bg-white px-4 text-sm font-black text-slate-800 shadow-sm active:scale-[0.98]">
                         <SlidersHorizontal size={18} /> {t('results.filters', 'الفلاتر')}
                         {activeFilterCount > 0 && <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-[var(--remal-blue)] px-1 text-[11px] font-black text-white">{activeFilterCount}</span>}

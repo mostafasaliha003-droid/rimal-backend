@@ -26,6 +26,7 @@ const enumCopy = {
     pet: ['For pets', 'للحيوانات الأليفة', 'Para mascotas'], breakage: ['For damage', 'ضد الأضرار', 'Por daños'], keys: ['For keys', 'للمفاتيح', 'Para llaves'],
     wireless: ['Wi-Fi', 'واي فاي', 'Wifi'], wired: ['Wired internet', 'إنترنت سلكي', 'Internet por cable'],
     hotel: ['Throughout the hotel', 'في جميع أنحاء الفندق', 'En todo el hotel'], room: ['In the room', 'داخل الغرفة', 'En la habitación'],
+    whole_hotel: ['Throughout the hotel', 'في جميع أنحاء الفندق', 'En todo el hotel'],
     lt_5kg: ['Less than 5 kg', 'أقل من 5 كغ', 'Menos de 5 kg'], gt_5kg: ['More than 5 kg', 'أكثر من 5 كغ', 'Más de 5 kg'],
     on_side: ['On site', 'داخل الموقع', 'En el establecimiento'], off_side: ['Off site', 'خارج الموقع', 'Fuera del establecimiento'],
     airport: ['Airport', 'المطار', 'Aeropuerto'], train: ['Train station', 'محطة القطار', 'Estación de tren'], ship: ['Port', 'الميناء', 'Puerto'], airport_train: ['Airport / train station', 'المطار / محطة القطار', 'Aeropuerto / estación de tren'],

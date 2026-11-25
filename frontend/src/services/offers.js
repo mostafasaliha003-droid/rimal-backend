@@ -30,9 +30,9 @@ export function cheapestRate(rates = [], currency = SEARCH_CURRENCY) {
         .reduce((best, rate) => !best || rateAmount(rate) < rateAmount(best) ? rate : best, null);
 }
 
-export function formatMoney(amount, currency = 'AED') {
+export function formatMoney(amount, currency = 'AED', locale = 'ar-AE') {
     if (!Number.isFinite(Number(amount))) return 'السعر غير متاح';
-    return new Intl.NumberFormat('ar-AE', { style: 'currency', currency, maximumFractionDigits: paymentCurrencies[currency]?.decimals || 2 }).format(Number(amount));
+    return new Intl.NumberFormat(locale, { style: 'currency', currency, maximumFractionDigits: paymentCurrencies[currency]?.decimals ?? 2 }).format(Number(amount));
 }
 
 export function normalizeRoom(rate, hotel, guests) {
@@ -67,6 +67,7 @@ export function normalizeRoom(rate, hotel, guests) {
         originalRate: rate,
         cancellation: payment?.cancellation_penalties,
         taxes: payment?.tax_data?.taxes || [],
+        taxesDisclosed: Array.isArray(payment?.tax_data?.taxes),
         meal: rate.meal,
         paymentType: payment?.type,
         contract_source: contractSource,

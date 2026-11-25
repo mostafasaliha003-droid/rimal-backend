@@ -21,14 +21,14 @@ export default function CancellationOutcome({ booking, result, quote, connection
             const response = await BookingAPI.getOwnedCancellationReceipt(booking.bookingReference);
             const url = URL.createObjectURL(response.data);
             const anchor = document.createElement('a'); anchor.href = url;
-            anchor.download = `Remal-Cancellation-${booking.bookingReference}.pdf`; anchor.click();
+            anchor.download = `Mkhadda-Cancellation-${booking.bookingReference}.pdf`; anchor.click();
             setTimeout(() => URL.revokeObjectURL(url), 1000);
         } catch { setDownloadError(true); }
         finally { setDownloading(false); }
     };
     return (
         <section data-cancellation-outcome data-refund-state={result.customer_refund_status} className="mt-5 rounded-3xl border border-white bg-gradient-to-br from-cyan-50/70 via-white to-slate-50 p-5 shadow-sm sm:p-6">
-            <div className="flex items-center justify-between gap-2"><span className="text-xs font-black tracking-widest text-slate-700">REMAL</span><span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800"><Check size={12} />{t('cancel.cancelled')}</span></div>
+            <div className="flex items-center justify-between gap-2"><span className="text-xs font-black tracking-widest text-slate-700">مخدة · pillow stays</span><span className="inline-flex items-center gap-1.5 rounded-full border border-emerald-200 bg-emerald-50 px-2.5 py-1 text-[10px] font-bold text-emerald-800"><Check size={12} />{t('cancel.cancelled')}</span></div>
             <div className="mx-auto mt-6 grid h-16 w-16 place-items-center rounded-2xl border border-white bg-emerald-50 text-emerald-700 shadow-sm"><CheckCheck size={30} strokeWidth={1.6} /></div>
             <h3 className="mt-5 text-center text-xl font-extrabold leading-relaxed text-slate-900">{t(completed ? 'cancel.finishTitle' : noRefund ? 'cancel.noRefundTitle' : review ? 'cancel.reviewTitle' : 'cancel.processingTitle')}</h3>
             <p className="mt-3 text-center text-sm leading-7 text-slate-600">{t(completed ? 'cancel.finishBody' : noRefund ? 'cancel.noRefund' : review ? 'cancel.reviewBody' : 'cancel.processingBody')}</p>

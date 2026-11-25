@@ -8,6 +8,9 @@ import {membershipCopy} from '../services/membershipCopy';
 import countryCodes from '../../../shared/ratehawkResidencies.json';
 import professions from '../../../shared/membershipProfessions.json';
 import './MembershipPortal.css';
+import MembershipDocumentField from '../components/MembershipDocumentField';
+import PillowBrand from '../components/PillowBrand';
+import PillowHero from '../components/PillowHero';
 import CompanyFooter from '../components/CompanyFooter';
 import MembershipDiscover from '../components/MembershipDiscover';
 const gcc=['ae','sa','kw','qa','bh','om'];
@@ -15,16 +18,21 @@ export function MembershipChrome({children,compact=false}){
     const {language,setLanguage,direction,t}=useLanguage(),L=membershipCopy(language);
     return <main className={`membership-site ${compact?'membership-compact':''}`} dir={direction}>
         <div className="membership-grain" aria-hidden="true" />
-        <header className="membership-header"><div className="membership-top"><a href="/" className="membership-brand"><img src="/logo.jpg" alt={t('nav.logoAlt','شعار رمال الدولية')} width="64" height="64" decoding="async" fetchPriority="high" data-membership-logo/><span><b>رمال <em>وفِلّها</em></b><small>{t('nav.brandTagline','إقامتك تبدأ من هنا')}</small></span></a><div className="membership-header-tools"><span className="membership-header-access"><ShieldCheck size={16}/>{L.brand}</span><label className="membership-language"><Globe2 size={16}/><select aria-label={t('nav.language','اللغة')} value={language} onChange={e=>setLanguage(e.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label></div></div></header>
+        <header className="membership-header"><div className="membership-top"><a href="/" data-membership-logo><PillowBrand /></a><div className="membership-header-tools"><span className="membership-header-access"><ShieldCheck size={16}/>{L.brand}</span><label className="membership-language"><Globe2 size={16}/><select aria-label={t('nav.language','اللغة')} value={language} onChange={e=>setLanguage(e.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label></div></div></header>
         {children}
         <CompanyFooter />
     </main>;
 }
 function Field({label,...props}){return <label className="membership-field"><span>{label}</span><input {...props}/></label>;}
-export default function MembershipPortal({snapshot,refresh,go}){
+export default function MembershipPortal({snapshot,refresh,go,onEnter}){
     const {language}=useLanguage(),L=membershipCopy(language),app=snapshot?.application;
     const [mode,setMode]=useState('login'),[verify,setVerify]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
+    const [resendAt,setResendAt]=useState(0),[clock,setClock]=useState(Date.now);
+    useEffect(()=>{if(!verify)return;const timer=setInterval(()=>setClock(Date.now()),1000);return()=>clearInterval(timer);},[verify]);
+    const waitSeconds=Math.max(0,Math.ceil((resendAt-clock)/1000));
+    const sendCode=async()=>{await BookingAPI.registerSendCode(form);const now=Date.now();setResendAt(now+30000);setClock(now);setVerify(true);};
     const [form,setForm]=useState({name:'',email:'',password:'',phone:''}),[code,setCode]=useState('');
+    const [unsubmitted,setUnsubmitted]=useState({});
     const [phase,setPhase]=useState('eligibility'),[uploading,setUploading]=useState(''),[consent,setConsent]=useState(false);
     const [details,setDetails]=useState({category:'gcc_citizen',nationality:'',profession:'doctor',professionTitle:''});
     useEffect(()=>{if(app)setDetails({category:app.category||'gcc_citizen',nationality:app.nationality||'',profession:app.profession||'doctor',professionTitle:app.professionTitle||''});},[app?.reference]);
@@ -33,19 +41,20 @@ export default function MembershipPortal({snapshot,refresh,go}){
     const auth=event=>{event.preventDefault();void run(async()=>{
         if(mode==='login'){const data=await BookingAPI.login({email:form.email,password:form.password});saveUserSession(data.user,data.access_token);await refresh();}
         else if(verify){const data=await BookingAPI.verifyRegistration(form.email,code);saveUserSession(data.user,data.access_token);go('/membership');await refresh();}
-        else {await BookingAPI.registerSendCode(form);setVerify(true);}
+        else {await sendCode();}
     });};
     const save=event=>{event.preventDefault();void run(async()=>{await membershipRequest('/application',{method:'PUT',body:{...details,language}});await refresh();setPhase('documents');});};
     const upload=async(kind,file)=>{
-        if(!file)return;if(!['image/jpeg','image/png'].includes(file.type)||file.size>5*1024*1024){setError(L.invalidFile);return;}
-        setUploading(kind);setError('');try{await membershipRequest(`/application/documents/${kind}`,{method:'PUT',body:file});await refresh();}catch(e){setError(message(e));}finally{setUploading('');}
+
+        setUploading(kind);try{await membershipRequest(`/application/documents/${kind}`,file?{method:'PUT',body:file}:{method:'DELETE',body:{revision:app?.revision}});await refresh();}catch(e){throw new Error(message(e));}finally{setUploading('');}
     };
     const submit=event=>{event.preventDefault();if(!consent){setError(L.consentRequired);return;}void run(async()=>{await membershipRequest('/application/submit',{method:'POST',body:{consent:true}});go('/membership');await refresh();});};
     const pending=app&&!['draft','needs_information'].includes(app.status),required=details.category==='gcc_citizen'?['passport']:['eid_front','eid_back'];
     let countries=[];try{const names=new Intl.DisplayNames([language],{type:'region'});countries=countryCodes.map(code=>({code,name:names.of(code.toUpperCase())})).sort((a,b)=>a.name.localeCompare(b.name,language));}catch{}
     return <MembershipChrome>
+        {!snapshot?.authenticated && <PillowHero><div className="pillow-hero-actions">{[[L.apply,'apply'],[L.login,'login']].map(([label,next]) => <a href="#membership-application" key={next} onClick={() => {setMode(next);setVerify(false);setError('');}}>{label}</a>)}</div></PillowHero>}
         <div className={`membership-layout ${snapshot?.authenticated?'membership-authenticated':''}`}>
-            <section className="membership-story"><div className="membership-travel-art" aria-hidden="true"><Globe2 strokeWidth={.55}/><Plane strokeWidth={1}/></div><span className="membership-eyebrow"><Sparkles size={15}/>{L.eyebrow}</span><h1>{L.title.split('\n').map((line,index)=><span key={index}>{line}</span>)}</h1><p>{L.intro}</p><div className="membership-benefits">{[[Hotel,L.benefit1],[Globe2,L.benefit2],[Tickets,L.benefit3]].map(([Icon,text])=><div key={text}><span className="membership-benefit-icon"><Icon size={19}/></span><span>{text}</span></div>)}</div><div className="membership-free"><ShieldCheck size={24}/><div><strong>{L.free}</strong><span>{L.approval}</span></div><Check size={18}/></div><small className="membership-conditions">{L.conditions}</small></section>
+            <section className="membership-story"><span className="membership-eyebrow"><Sparkles size={15}/>{L.eyebrow}</span><h2>{L.brand}</h2><p>{L.intro}</p><div className="membership-benefits">{[[Hotel,L.benefit1],[Globe2,L.benefit2],[Tickets,L.benefit3]].map(([Icon,text])=><div key={text}><span className="membership-benefit-icon"><Icon size={19}/></span><span>{text}</span></div>)}</div><div className="membership-free"><ShieldCheck size={24}/><div><strong>{L.free}</strong><span>{L.approval}</span></div><Check size={18}/></div><small className="membership-conditions">{L.conditions}</small></section>
             <section id="membership-application" className="membership-panel" aria-label={L.brand}>
                 {snapshot?.authenticated&&<div className="membership-accountline"><span>{snapshot.user?.name}</span><button type="button" disabled={busy} onClick={()=>void run(async()=>{await BookingAPI.logoutUser();clearUserSession();await refresh();})}><LogOut size={15}/>{L.logout}</button></div>}
                 {error&&<p role="alert" className="membership-error">{error}</p>}
@@ -61,6 +70,7 @@ export default function MembershipPortal({snapshot,refresh,go}){
                             {mode==='apply'&&<small>{L.passwordHint}</small>}
                         </>}
                         <button className="membership-primary" disabled={busy} type="submit">{busy?L.working:mode==='login'?L.signIn:verify?L.verify:L.continue}<ArrowUpRight size={18}/></button>
+                        {verify&&<button type="button" className="membership-textbutton" disabled={busy||waitSeconds>0} onClick={()=>void run(sendCode)}>{language==='ar'?'إعادة إرسال الرمز':language==='es'?'Reenviar código':'Resend code'}{waitSeconds>0 && <bdi>{waitSeconds}s</bdi>}</button>}
                         {verify&&<button type="button" className="membership-textbutton" onClick={()=>setVerify(false)}>{L.back}</button>}
                     </form>
                     <p className="membership-trust"><LockKeyhole size={15}/>{L.submitHint}</p>
@@ -73,7 +83,7 @@ export default function MembershipPortal({snapshot,refresh,go}){
                     <div className="membership-reference"><small>{L.reference}</small><b dir="ltr">{app.reference}</b><button type="button" aria-label={L.copy} onClick={()=>navigator.clipboard?.writeText(app.reference)}><Copy size={15}/>{L.copy}</button></div>
                     {app.publicNote&&<div className="membership-notebox"><strong>{L.note}</strong><p>{app.publicNote}</p></div>}
                     {!app.grandfathered&&<p className="membership-notification"><Mail size={17}/>{snapshot.notification?.status==='sent'?L.emailSent:snapshot.notification?.status==='unknown'?(language==='ar'?'أحدث حالة لطلبك متاحة هنا. لم نتأكد من تسليم إشعار البريد بعد.':'Your latest status is available here. Email delivery has not been confirmed yet.'):L.emailPending}</p>}
-                    {app.status==='approved'&&<button type="button" className="membership-primary" onClick={()=>go('/')}>{L.enter}<ArrowUpRight size={18}/></button>}
+                    {app.status==='approved'&&<button type="button" className="membership-primary" onClick={onEnter||(()=>go('/'))}>{L.enter}<ArrowUpRight size={18}/></button>}
                     {app.status==='suspended'&&<div className="membership-servicing"><button type="button" onClick={()=>go('/bookings')}>{L.bookings}</button><button type="button" onClick={()=>go('/support')}>{L.support}</button></div>}
                     <small className="membership-lastchecked">{L.checked}: {snapshot.checkedAt?new Intl.DateTimeFormat(language,{hour:'2-digit',minute:'2-digit',second:'2-digit'}).format(snapshot.checkedAt):'—'}</small>
                 </div>:<>
@@ -87,10 +97,10 @@ export default function MembershipPortal({snapshot,refresh,go}){
                         <button className="membership-primary" disabled={busy} type="submit">{busy?L.working:L.continue}<ArrowUpRight size={18}/></button>
                     </form>:<form className="membership-form" onSubmit={submit}>
                         <p className="membership-documenthint">{L.documentHint}</p>
-                        {required.map(kind=>{const uploaded=app?.documents?.some(doc=>doc.kind===kind);return <label key={kind} className={`membership-upload ${uploaded?'uploaded':''}`}><span className="membership-uploadicon">{uploaded?<Check size={22}/>:<FileImage size={22}/>}</span><span><strong>{L[kind]}</strong><small>{uploading===kind?L.uploading:uploaded?L.uploaded:L.fileHint}</small><b>{uploaded?L.replace:L.selectFile}</b></span><input type="file" accept="image/jpeg,image/png" disabled={Boolean(uploading)||busy} aria-label={L[kind]} onChange={e=>{void upload(kind,e.target.files?.[0]);e.target.value='';}}/></label>;})}
+                        {required.map(kind=><MembershipDocumentField key={kind} kind={kind} reference={app?.reference} uploaded={app?.documents?.some(doc=>doc.kind===kind)} busy={Boolean(uploading)||busy} L={L} save={upload} onDirty={(key,value)=>setUnsubmitted(current=>({...current,[key]:value}))} />)}
                         <p className="membership-private-note"><LockKeyhole size={17}/>{L.privacyHint}</p>
                         <label className="membership-consent"><input type="checkbox" checked={consent} onChange={e=>setConsent(e.target.checked)}/><span>{L.consent} <a href={`/privacy?lang=${language}`}>{L.privacy}</a></span></label>
-                        <button className="membership-primary" disabled={busy||Boolean(uploading)||!required.every(kind=>app?.documents?.some(doc=>doc.kind===kind))} type="submit">{busy?L.working:L.submit}<ArrowUpRight size={18}/></button><button className="membership-textbutton" type="button" onClick={()=>setPhase('eligibility')}><ChevronLeft size={15}/>{L.back}</button>
+                        <button className="membership-primary" disabled={busy||Boolean(uploading)||required.some(kind=>unsubmitted[kind])||!required.every(kind=>app?.documents?.some(doc=>doc.kind===kind))} type="submit">{busy?L.working:L.submit}<ArrowUpRight size={18}/></button><button className="membership-textbutton" type="button" onClick={()=>{setUnsubmitted({});setPhase('eligibility');}}><ChevronLeft size={15}/>{L.back}</button>
                     </form>}
                 </>}
             </section>

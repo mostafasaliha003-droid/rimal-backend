@@ -3,11 +3,14 @@ import { addDays, format } from 'date-fns';
 import BookingAPI from '../../services/bookingApi';
 import { trackBookingEvent } from '../../services/analytics';
 import { useLanguage } from '../../i18n';
-import { initialGuests, initialResidency, normalizeSuggestions, parseSearchDate, validateSearch } from './searchModel';
+import { initialGuests, initialResidency, normalizeSuggestions, parseSearchDate, validDestination, validateSearch } from './searchModel';
 import SearchShell from './SearchShell';
 
 export default function SearchController({ initialSearch, onSearch, isSearching = false, searchError = '' }) {
     const { t, apiLanguage, language, direction } = useLanguage();
+    const [recent, setRecent] = useState(() => {
+        try { const items=JSON.parse(sessionStorage.getItem('pillow.recentDestinations') || '[]'); return Array.isArray(items) ? items.filter(validDestination).slice(0,5) : []; } catch { return []; }
+    });
     const [query, setQuery] = useState(initialSearch?.query || '');
     const [destination, setDestination] = useState(initialSearch?.destination || null);
     const [dates, setDates] = useState({ checkin: initialSearch?.checkin || '', checkout: initialSearch?.checkout || '' });
@@ -140,6 +143,10 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
         try {
             trackBookingEvent('search_cta_clicked', { room_count: guests.length });
             await onSearch?.({ query: destination.label, destination, ...dates, guests, residency });
+            const recentKey = item => item.type + ':' + (item.hotel_id ?? item.region_id);
+            const next = [destination,...recent.filter(item => recentKey(item) !== recentKey(destination))].slice(0,5);
+            setRecent(next);
+            try { sessionStorage.setItem('pillow.recentDestinations',JSON.stringify(next)); } catch {}
             return true;
         } catch {
             setSubmitError(t('search.submitFailed', 'تعذر تنفيذ البحث. بياناتك محفوظة؛ أعد المحاولة.'));
@@ -151,7 +158,7 @@ export default function SearchController({ initialSearch, onSearch, isSearching 
     };
 
     return <SearchShell controller={{
-        t, language, direction, query, destination, dates, guests, residency, errors, suggestions, suggestionStatus,
+        t, language, direction, query, destination, dates, guests, residency, errors, recent, suggestions, suggestionStatus,
         suggestionMessage, busy, online, searchError: submitError || searchError,
         changeQuery, selectDestination, changeDate, changeGuests, changeResidency, submit,
         retrySuggestions: () => setRetry(value => value + 1)

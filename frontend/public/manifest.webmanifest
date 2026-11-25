@@ -1,12 +1,12 @@
 {
   "id": "/",
-  "name": "رمال وفِلّها | حجوزات الفنادق",
-  "short_name": "رمال",
+  "name": "مخدة | pillow stays",
+  "short_name": "مخدة",
   "start_url": "/",
   "scope": "/",
   "display": "standalone",
-  "background_color": "#f4f6f9",
-  "theme_color": "#112331",
+  "background_color": "#faf8f4",
+  "theme_color": "#faf8f4",
   "lang": "ar",
   "dir": "rtl",
   "icons": [

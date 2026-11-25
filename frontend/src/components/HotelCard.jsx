@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { AlertCircle, ArrowLeft, Check, ChevronLeft, ChevronRight, ImageOff, MapPin } from 'lucide-react';
+import { SaveHotel } from './SavedStays';
 import PriceDisplay from './PriceDisplay';
 import { StarIcon } from './Icons';
 import { cheapestRate, paymentFor, rateAmount, rateCurrency } from '../services/offers';
@@ -13,7 +14,7 @@ function getAmenities(rate) {
 }
 
 export default function HotelCard({ hotel, href, onSelect, displayCurrency, displayRates, priority = false }) {
-    const { t } = useLanguage();
+    const { t, language } = useLanguage();
     const rate = cheapestRate(hotel.rates);
     const suppliedImages = hotelImages(hotel);
     const photoKey = JSON.stringify([hotel.hid || hotel.id, suppliedImages]);
@@ -71,10 +72,10 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                             </picture>
                             {images.length > 1 && (
                                 <div className="absolute inset-0 flex items-center justify-between px-2 opacity-100 transition-opacity duration-300 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:md:opacity-0 motion-safe:[@media(hover:hover)_and_(pointer:fine)]:md:group-hover/carousel:opacity-100">
-                                    <button type="button" onClick={previousImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-black/60" aria-label="الصورة السابقة">
+                                    <button type="button" onClick={previousImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-black/60" aria-label={language === 'ar' ? 'الصورة السابقة' : language === 'es' ? 'Foto anterior' : 'Previous photo'}>
                                         <ChevronRight size={20} />
                                     </button>
-                                    <button type="button" onClick={nextImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-black/60" aria-label="الصورة التالية">
+                                    <button type="button" onClick={nextImage} className="flex min-h-10 min-w-10 items-center justify-center rounded-full bg-black/45 text-white backdrop-blur-sm transition-colors motion-safe:[@media(hover:hover)_and_(pointer:fine)]:hover:bg-black/60" aria-label={language === 'ar' ? 'الصورة التالية' : language === 'es' ? 'Foto siguiente' : 'Next photo'}>
                                         <ChevronLeft size={20} />
                                     </button>
                                 </div>
@@ -96,6 +97,7 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                         </div>
                     )}
 
+                    <SaveHotel hotel={hotel} />
                     {Number(hotel.stars) > 0 && (
                             <div className="glass-dark absolute right-4 top-4 z-10 flex items-center gap-1 px-2.5 py-1.5 text-sm font-bold shadow-sm">
                             <span>{hotel.stars}</span>
@@ -130,11 +132,11 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                             {rate && <div className="flex flex-wrap gap-2">
                                 {hasFreeCancellation ? (
                                     <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg border border-emerald-100 bg-emerald-50 px-2.5 py-1.5 text-xs font-bold text-emerald-700">
-                                        <Check size={14} className="shrink-0 text-emerald-500" /> يتوفر إلغاء مجاني
+                                        <Check size={14} className="shrink-0 text-emerald-500" /> {language === 'ar' ? 'يتوفر إلغاء مجاني' : language === 'es' ? 'Cancelación gratuita disponible' : 'Free cancellation available'}
                                     </div>
                                 ) : (
                                     <div className="inline-flex max-w-fit items-center gap-1.5 rounded-lg border border-slate-200 bg-slate-50 px-2.5 py-1.5 text-xs font-bold text-slate-600">
-                                        <AlertCircle size={14} className="shrink-0 text-slate-400" /> راجع شروط الإلغاء
+                                        <AlertCircle size={14} className="shrink-0 text-slate-400" /> {language === 'ar' ? 'راجع شروط الإلغاء' : language === 'es' ? 'Ver condiciones de cancelación' : 'See cancellation terms'}
                                     </div>
                                 )}
                             </div>}
@@ -142,11 +144,11 @@ export default function HotelCard({ hotel, href, onSelect, displayCurrency, disp
                             {getAmenities(rate).length > 0 && (
                                 <div className="mt-1 flex flex-wrap gap-1.5">
                                     {getAmenities(rate).slice(0, 4).map(amenity => <span key={String(amenity)} className="cursor-default rounded-lg border border-blue-100 bg-blue-50/50 px-2 py-1 text-[11px] font-bold text-blue-800">{amenity}</span>)}
-                                    {getAmenities(rate).length > 4 && <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-400">+{getAmenities(rate).length - 4} مزايا أخرى</span>}
+                                    {getAmenities(rate).length > 4 && <span className="rounded-lg border border-slate-100 bg-slate-50 px-2 py-1 text-[11px] font-bold text-slate-400">+{getAmenities(rate).length - 4} {language === 'ar' ? 'مزايا أخرى' : language === 'es' ? 'servicios más' : 'more amenities'}</span>}
                                 </div>
                             )}
 
-                            {hasVerifiedReview && <p className="mt-1 text-xs font-bold text-slate-600">{t('results.reviewSummary', '{{score}} من 5 · {{count}} مراجعة', { score: reviewScore.toFixed(1), count: reviewCount.toLocaleString('en-US') })}</p>}
+                            {hasVerifiedReview && <p className="mt-1 text-xs font-bold text-slate-600">{t('results.reviewSummary', '{{score}} · {{count}} مراجعة', { score: reviewScore.toFixed(1), count: reviewCount.toLocaleString('en-US') })}</p>}
                         </div>
                     </div>
 

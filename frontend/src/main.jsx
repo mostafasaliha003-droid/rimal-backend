@@ -4,6 +4,8 @@ import App from './App';
 import './styles.css';
 import { LanguageProvider } from './i18n';
 import MembershipBoundary from './components/MembershipBoundary';
+import PillowWait from './components/PillowWait';
+import './pillow-stays.css';
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
@@ -14,7 +16,7 @@ if (import.meta.env.PROD && 'serviceWorker' in navigator) {
 createRoot(document.getElementById('root')).render(
     <StrictMode>
         <LanguageProvider>
-            <Suspense fallback={<main role="status" className="p-10 text-center">جار تحميل الصفحة...</main>}><MembershipBoundary><App /></MembershipBoundary></Suspense>
+            <Suspense fallback={<main className="pillow-wait-page"><PillowWait /></main>}><MembershipBoundary><App /></MembershipBoundary></Suspense>
         </LanguageProvider>
     </StrictMode>
 );

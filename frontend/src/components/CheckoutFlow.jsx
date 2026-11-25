@@ -101,7 +101,6 @@ export default function CheckoutFlow({ offer, bookingContext = {}, onBack }) {
                 acceptedTermsVersion: offer.termsVersion
             }, idempotencyKey);
             const session = validateCheckoutSessionResponse(response);
-            try { sessionStorage.removeItem(idempotencyStorageKey); } catch {}
             const storageKey = sessionStorageKey(session.sessionId);
             if (!storageKey) throw new Error('checkout_session_id_invalid');
             try {

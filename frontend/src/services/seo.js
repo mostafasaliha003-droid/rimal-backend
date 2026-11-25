@@ -31,7 +31,7 @@ export function setPageSeo({ title, description, canonical, locale = 'ar_AE', la
         : locale.startsWith('ar') ? 'ar' : locale.startsWith('es') ? 'es' : 'en';
     document.documentElement.lang = languageCode;
     document.documentElement.dir = languageCode === 'ar' ? 'rtl' : 'ltr';
-    document.title = String(title || 'رمال وفِلّها | حجوزات الفنادق');
+    document.title = String(title || 'مخدة | pillow stays');
     setMeta('name', 'description', description);
     if (noindex) setMeta('name', 'robots', 'noindex,follow');
     else document.head.querySelector('meta[name="robots"]')?.remove();

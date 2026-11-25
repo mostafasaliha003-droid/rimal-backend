@@ -1,3 +1,4 @@
+import PillowBrand from '../components/PillowBrand';
 import { useEffect, useRef, useState } from 'react';
 import { ArrowUpRight, Bell, Check, CheckCheck, ChevronDown, Copy, FileText, Headphones, LockKeyhole, Mail, MessageCircle, Phone, Search, Send, ShieldCheck, StickyNote, X } from 'lucide-react';
 import SupportDocumentViewer from '../components/SupportDocumentViewer';
@@ -155,6 +156,7 @@ function Thread({ id, staff, L, language, direction, onUnauthorized, onChange })
 export default function CustomerSupport({ staff = false }) {
     const { language, direction } = useLanguage(), L = supportCopy(language);
     const [authenticated, setAuthenticated] = useState(false), [ready, setReady] = useState(false), [denied, setDenied] = useState(false);
+    const amendmentRequested = !staff && new URLSearchParams(location.search).get('request') === 'amendment';
     const [references, setReferences] = useState([]), [cases, setCases] = useState([]), [selected, setSelected] = useState(null);
     const [counts, setCounts] = useState({}), [filter, setFilter] = useState('all'), [search, setSearch] = useState('');
     const [inbox, setInbox] = useState('all'), [searchQuery, setSearchQuery] = useState(''), [hasMore, setHasMore] = useState(false);
@@ -165,7 +167,7 @@ export default function CustomerSupport({ staff = false }) {
     const opening = useRef(false), initialOpened = useRef(false), requested = new URLSearchParams(location.search).get('reference');
     const unread = staff ? counts.unread || 0 : cases.filter(row => row.unread).length;
     useEffect(() => { if (!authenticated) return; const prior = document.title;
-        document.title = `${unread ? `(${unread}) ` : ''}${staff ? L.dashboard : L.myRequests} | REMAL`;
+        document.title = `${unread ? `(${unread}) ` : ''}${staff ? L.dashboard : L.myRequests} | مخدة`;
         return () => { document.title = prior; };
     }, [unread, authenticated, staff, language]);
     const unauthorized = () => { setAuthenticated(false); setDenied(true); if (staff) sessionStorage.removeItem(STAFF_TOKEN_KEY); };
@@ -210,12 +212,13 @@ export default function CustomerSupport({ staff = false }) {
         unauthorized(); setSelected(null);
     };
     return <main dir={direction} className={`support-page ${staff ? 'support-page-staff' : ''}`} data-support-workspace={staff ? 'staff' : 'customer'}>
-        <header className="support-page-header"><a href="/" className="support-brand">REMAL<span>{L.eyebrow}</span></a><div className="support-header-actions">{staff && <a href="/membership-admin">{language === 'ar' ? 'طلبات العضوية' : 'Membership applications'}</a>}{authenticated && <button data-support-notifications className="support-notifications" aria-label={`${L.notifications}: ${unread}`} onClick={() => { if (staff) { setInbox('unread'); setFilter('all'); setSearch(''); } setShowInbox(true); }}><Bell size={18} /><span aria-live="polite">{unread}</span></button>}<a href={staff ? '/admin.html' : '/bookings'}>{staff ? 'REMAL ADMIN' : L.bookings}<ArrowUpRight size={16} /></a>{staff && authenticated && <button onClick={logout}>{L.logout}</button>}</div></header>
+        <header className="support-page-header"><a href="/"><PillowBrand /></a><div className="support-header-actions">{staff && <a href="/membership-admin">{language === 'ar' ? 'طلبات العضوية' : 'Membership applications'}</a>}{authenticated && <button data-support-notifications className="support-notifications" aria-label={`${L.notifications}: ${unread}`} onClick={() => { if (staff) { setInbox('unread'); setFilter('all'); setSearch(''); } setShowInbox(true); }}><Bell size={18} /><span aria-live="polite">{unread}</span></button>}<a href={staff ? '/admin.html' : '/bookings'}>{staff ? 'MKHADDA ADMIN' : L.bookings}<ArrowUpRight size={16} /></a>{staff && authenticated && <button onClick={logout}>{L.logout}</button>}</div></header>
+        {amendmentRequested && <p className="pillow-amend-info">{language === 'ar' ? 'اذكر التغيير المطلوب في المحادثة. سنراجع التوفر وأي فرق في السعر معك قبل تأكيد التعديل.' : language === 'es' ? 'Describe el cambio en el chat. Revisaremos la disponibilidad y el precio contigo.' : 'Describe your change in the conversation. Support will review availability and any price difference with you before confirming a change.'}</p>}
         <section className={`support-intro ${staff ? '' : 'support-concierge-hero'}`}><div><p className="support-kicker"><Headphones size={16} />{L.eyebrow}</p><h1>{staff ? L.dashboard : L.title}</h1><p>{staff ? L.staffSubtitle : L.subtitle}</p>{!staff && <div className="support-trust-row"><span><ShieldCheck size={15} />{L.journey}</span><span><LockKeyhole size={15} />{L.secure}</span><span><MessageCircle size={15} />{L.live}</span></div>}</div>{!staff && <div className="support-concierge-mark" aria-hidden="true"><Headphones size={48} strokeWidth={1.2} /></div>}</section>
         {error && <p role="alert" className="support-alert support-page-error">{error}<button onClick={() => setRefresh(value => value + 1)}>{L.retry}</button></p>}
         {!ready ? <p role="status" className="support-gate">{L.pending}</p> : !authenticated ? <section className="support-gate"><LockKeyhole size={32} /><h2>{staff ? L.staffLogin : L.login}</h2><p>{staff ? L.staffLoginHint : L.loginHint}</p>
             {staff ? <form onSubmit={login}><label>{L.email}<input data-support-email type="email" required autoComplete="username" value={email} onChange={event => setEmail(event.target.value)} /></label><label>{L.password}<input data-support-password type="password" required autoComplete="current-password" value={password} onChange={event => setPassword(event.target.value)} /></label><button data-support-login disabled={busy}>{L.login}</button></form>
-                : <a href={`/account?returnTo=${encodeURIComponent(`/support${requested ? `?reference=${encodeURIComponent(requested)}` : ''}`)}&lang=${language}`}>{L.login}</a>}
+                : <a href={`/account?returnTo=${encodeURIComponent(`/support${requested ? `?reference=${encodeURIComponent(requested)}${amendmentRequested ? '&request=amendment' : ''}` : ''}`)}&lang=${language}`}>{L.login}</a>}
             {!denied && error && <p>{L.error}</p>}</section> : <>
             {staff && <section className="support-metrics" aria-label={L.dashboard}>{['open', 'waiting', 'resolved'].map(status => <button key={status} onClick={() => setFilter(status)} aria-pressed={filter === status}><span>{L[status]}</span><strong>{counts[status] || 0}</strong></button>)}</section>}
             {!staff && !references.length ? <section className="support-gate"><ShieldCheck size={32} /><p>{L.noAccess}</p><a href="/">{L.home}</a></section> : <>{selected && <button className="support-mobile-switch" onClick={() => setShowInbox(value => !value)}><MessageCircle size={16} />{showInbox ? L.backToChat : L.myRequests}<ChevronDown size={15} /></button>}<div className={`support-layout ${selected ? 'has-selection' : ''} ${showInbox ? 'show-inbox' : ''}`}>

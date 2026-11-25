@@ -7,7 +7,7 @@ import './MembershipDiscover.css';
 const copy = {
     ar: {
         eyebrow: 'مساحة خاصة. احتمالات أكبر.', title: 'إقامتك القادمة تستحق الدخول.',
-        intro: 'شواطئ جميرا، نبض دبي، أو وجهة جديدة حول العالم. افتح الباب لأسعار الإقامة المخصصة لأعضاء رمال المقبولين.',
+        intro: 'شواطئ جميرا، نبض دبي، أو وجهة جديدة حول العالم. افتح الباب لأسعار الإقامة المخصصة لأعضاء مخدة المعتمدين.',
         destinations: ['جميرا والشاطئ', 'وسط دبي', 'وجهات حول العالم'],
         descriptions: ['لإجازة قريبة تشبه السفر بعيدًا.', 'كن قريبًا من كل ما تحب اكتشافه.', 'مدينة جديدة. ذكريات تستحق الرحلة.'],
         styles: ['إجازات البحر', 'إقامات المدينة', 'رحلتك المقبلة'],
@@ -20,7 +20,7 @@ const copy = {
     },
     en: {
         eyebrow: 'Private access. More possibilities.', title: 'Your next stay is worth getting in for.',
-        intro: 'Jumeirah shores, the energy of Dubai, or somewhere new worldwide. Open the door to stay rates for approved Remal members.',
+        intro: 'Jumeirah shores, the energy of Dubai, or somewhere new worldwide. Open the door to stay rates for approved pillow stays members.',
         destinations: ['Jumeirah & the beach', 'Downtown Dubai', 'Destinations worldwide'],
         descriptions: ['A nearby escape that feels a world away.', 'Stay close to everything you want to explore.', 'A new city. Memories worth the journey.'],
         styles: ['Coastal escapes', 'City stays', 'Your next journey'],
