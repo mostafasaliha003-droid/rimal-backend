@@ -351,7 +351,7 @@ export default function Checkout({ booking, onBack, displayCurrency, displayRate
                     <section aria-labelledby="payment-status-title" className="w-full max-w-lg overflow-hidden rounded-3xl border border-slate-100 bg-white shadow-sm">
                         <div className="h-1.5 bg-[var(--remal-blue)]" />
                         <div className="px-6 py-9 text-center sm:px-10 sm:py-10">
-                            <p className="mb-7 text-sm font-bold tracking-wide text-[var(--remal-blue)]">REMAL</p>
+                            <p className="mb-7 text-sm font-bold tracking-wide text-[var(--remal-blue)]">مخدة · pillow stays</p>
                             <div className="mx-auto mb-5 grid h-16 w-16 place-items-center rounded-2xl bg-cyan-50 text-[var(--remal-blue)]"><Info size={30} aria-hidden="true" /></div>
                             <h1 id="payment-status-title" className="text-2xl font-extrabold leading-normal text-slate-900 sm:text-3xl">{title}</h1>
                             <p className="mx-auto mt-4 max-w-sm text-sm leading-7 text-slate-600">{details}</p>

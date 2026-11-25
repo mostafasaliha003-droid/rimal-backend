@@ -13,14 +13,14 @@ test('access follows the session first, then the membership answer', () => {
 });
 
 test('hotels, prices and saved stays are members only', () => {
-  for (const path of ['/', '/saved', '/results', '/hotel/10004834', '/review', '/compare', '/saved-offers', '/saved-dates', '/reviews/10004834', '/unknown'])
+  for (const path of ['/', '/saved', '/results', '/hotel/10004834', '/review', '/compare', '/saved-offers', '/saved-dates', '/reviews/10004834', '/unknown', '/change/abc'])
     assert.equal(memberOnly(path), true, path);
-  for (const path of ['/welcome', '/account', '/support', '/membership', '/notifications', '/account-deletion', '/bookings', '/checkout', '/cancel/abc'])
+  for (const path of ['/welcome', '/account', '/support', '/membership', '/notifications', '/account-deletion', '/bookings', '/checkout', '/cancel/abc', '/care/abc'])
     assert.equal(memberOnly(path), false, path);
 });
 
 test('a guest sees only the welcome front, the sign-in form and support', () => {
-  for (const path of ['/', '/saved', '/results', '/hotel/1', '/bookings', '/membership', '/checkout', '/cancel/x', '/notifications'])
+  for (const path of ['/', '/saved', '/results', '/hotel/1', '/bookings', '/membership', '/checkout', '/cancel/x', '/care/x', '/notifications'])
     assert.equal(accessRedirect('guest', path), '/welcome', path);
   for (const path of ['/welcome', '/account', '/account/', '/support', '/account?mode=register'])
     assert.equal(accessRedirect('guest', path), null, path);
@@ -28,7 +28,7 @@ test('a guest sees only the welcome front, the sign-in form and support', () => 
 
 test('an applicant is sent to their membership page from any hotel route and from the welcome front', () => {
   for (const path of ['/', '/saved', '/results', '/hotel/1', '/review', '/welcome']) assert.equal(accessRedirect('applicant', path), '/membership', path);
-  for (const path of ['/membership', '/account', '/notifications', '/support', '/account-deletion', '/bookings', '/checkout', '/cancel/x'])
+  for (const path of ['/membership', '/account', '/notifications', '/support', '/account-deletion', '/bookings', '/checkout', '/cancel/x', '/care/x'])
     assert.equal(accessRedirect('applicant', path), null, path);
 });
 

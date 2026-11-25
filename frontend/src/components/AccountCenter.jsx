@@ -195,7 +195,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                 <div className="mx-auto max-w-5xl">
                     <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
                         <div>
-                            <p className="eyebrow">{t(bookingsOnly ? 'bookings.eyebrow' : 'account.title', 'حسابك في رمال')}</p>
+                            <p className="eyebrow">{t(bookingsOnly ? 'bookings.eyebrow' : 'account.title', 'حسابك في مخدة')}</p>
                             <h1 className="mt-2 text-4xl font-black text-[var(--remal-navy)]">{bookingsOnly ? t('nav.bookings') : t('account.welcome', `أهلاً، ${user.name?.split(' ')[0] || 'بك'}`, { name: user.name?.split(' ')[0] || 'بك' })}</h1>
                             <p className="mt-2 text-sm font-medium text-slate-500">{t(bookingsOnly ? 'bookings.subtitle' : 'account.subtitle', 'أدر حسابك، تابع حجوزاتك، واستفد من برنامج الولاء.')}</p>
                         </div>
@@ -229,7 +229,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                         </section>
 
                         <section className="rounded-3xl bg-gradient-to-br from-[#102a43] to-[#0f8fa3] p-6 text-white shadow-xl sm:p-8">
-                            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">{t('account.loyaltyProgram', 'برنامج رمال للولاء')}</p>
+                            <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">{t('account.loyaltyProgram', 'برنامج مخدة للولاء')}</p>
                             <h2 className="mt-3 text-3xl font-black">{t('account.loyaltyTitle', 'كل رحلة تقرّبك من مزايا أكثر')}</h2>
                             <p className="mt-4 text-sm font-medium leading-7 text-white/80">{t('account.loyaltyDescription', 'اجمع النقاط مع حجوزاتك المؤهلة، وتعرّف على المستوى المناسب لك.')}</p>
                             <button type="button" onClick={() => onNavigate?.('/loyalty')} className="mt-7 inline-flex items-center gap-2 rounded-full bg-white px-5 py-3 text-sm font-black text-[var(--remal-navy)] transition hover:bg-cyan-50">{t('account.viewTiers', 'عرض الـ Tiers')} <ArrowLeft size={17} /></button>
@@ -366,7 +366,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
                     <div className="mt-7">
                         {bookingsOnly && <p className="mb-4 rounded-xl bg-cyan-50 p-4 text-sm leading-7 text-cyan-900">{t('bookings.signIn')}</p>}
                         <p className="eyebrow">{mode === 'login' ? t('account.loginWelcome', 'مرحباً بعودتك') : registerStep === 'details' ? t('account.startAccount', 'ابدأ حسابك') : t('account.verifyEmail', 'تحقق من بريدك')}</p>
-                        <h2 className="mt-2 text-3xl font-black text-slate-900">{mode === 'login' ? t('account.loggedInTitle', 'سجّل الدخول إلى رمال') : registerStep === 'details' ? t('account.createTitle', 'أنشئ حساباً جديداً') : t('account.verificationCode', 'أدخل رمز التحقق')}</h2>
+                        <h2 className="mt-2 text-3xl font-black text-slate-900">{mode === 'login' ? t('account.loggedInTitle', 'سجّل الدخول إلى مخدة') : registerStep === 'details' ? t('account.createTitle', 'أنشئ حساباً جديداً') : t('account.verificationCode', 'أدخل رمز التحقق')}</h2>
                     </div>
 
                     {(message || error) && <div role={error ? 'alert' : 'status'} className={`mt-5 rounded-2xl border p-4 text-sm font-bold ${error ? 'border-red-100 bg-red-50 text-red-700' : 'border-emerald-100 bg-emerald-50 text-emerald-700'}`}>{error || message}</div>}

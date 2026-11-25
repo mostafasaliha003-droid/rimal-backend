@@ -2,7 +2,7 @@
  * Who may see what. Mkhadda is members-only: hotels, prices and saved stays open only to a
  * signed-in member whose membership is approved. A visitor sees the welcome front and the
  * sign-in / sign-up form; a signed-in applicant sees their membership application, account,
- * notifications, support and any trip they already have.
+ * notifications, support (with the conversation about any booking) and any trip they already have.
  */
 export type Access = 'checking' | 'guest' | 'applicant' | 'member' | 'offline';
 
@@ -31,7 +31,7 @@ function clean(pathname: string) {
 /** True when the route shows hotels, prices or saved stays: members only. */
 export function memberOnly(pathname: string) {
   const path = clean(pathname);
-  return !GUEST_ROUTES.has(path) && !APPLICANT_ROUTES.has(path) && !path.startsWith('/cancel/');
+  return !GUEST_ROUTES.has(path) && !APPLICANT_ROUTES.has(path) && !/^\/(cancel|care)\//.test(path);
 }
 
 /**

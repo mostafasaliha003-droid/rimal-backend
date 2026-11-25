@@ -26,9 +26,10 @@ const icons = {
   globe: 'globe', logout: 'log-out', bell: 'bell', trash: 'trash-2', image: 'image', door: 'door-open',
   wallet: 'wallet', lock: 'lock', badgeCheck: 'badge-check', fileUp: 'file-up', hourglass: 'hourglass',
   hotel: 'hotel', navigation: 'navigation', share: 'share-2', history: 'history', compass: 'compass',
+  chat: 'message-circle-more', send: 'send-horizontal', userPen: 'user-pen',
 };
 // Icons whose meaning depends on reading direction. Only these mirror in RTL.
-const directional = ['chevron', 'back', 'forward', 'logout'];
+const directional = ['chevron', 'back', 'forward', 'logout', 'send'];
 
 function readNode(name) {
   const file = path.join(iconsDir, name + '.mjs');

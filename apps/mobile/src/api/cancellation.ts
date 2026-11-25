@@ -5,21 +5,23 @@ import { ApiError, invalidResponse } from './errors';
 /*
  * Cancelling an owned booking inside the app. The server quotes the current cancellation fee and
  * the refund (signed, valid for a few minutes), cancels with the hotel only for that exact quote,
- * then reports the cancellation and the refund to the card as they progress.
+ * then reports the cancellation and the refund (to the card, or through Tabby) as they progress.
  */
 type Request = ReturnType<typeof createTransport>;
 
 export type CancellationState = 'cancelling' | 'cancel_pending' | 'cancelled' | 'cancel_failed';
 export type RefundStatus = 'not_processed' | 'pending' | 'completed' | 'review' | 'not_due';
+/** Where the refund goes: back the way the guest paid. */
+export type RefundTo = 'card' | 'tabby';
 export interface CancellationTracking {
   state: CancellationState; pending: boolean; refundStatus: RefundStatus;
   refund: Money | null; fee: Money | null; cancellationReference: string; receiptReady: boolean; upsells: boolean;
 }
 export type CancellationOffer =
-  | { mode: 'support'; reference: string; policy: string; penalty: Money | null; upsells: boolean }
+  | { mode: 'support'; reference: string; policy: string; penalty: Money | null; upsells: boolean; refundTo: RefundTo }
   | { mode: 'checking'; reference: string; retryAfterMs: number }
-  | { mode: 'automatic'; reference: string; policy: string; penalty: Money; fee: Money; refund: Money; expiresAt: number; quoteToken: string }
-  | { mode: 'tracking'; reference: string; tracking: CancellationTracking };
+  | { mode: 'automatic'; reference: string; policy: string; penalty: Money; fee: Money; refund: Money; expiresAt: number; quoteToken: string; refundTo: RefundTo }
+  | { mode: 'tracking'; reference: string; tracking: CancellationTracking; refundTo: RefundTo };
 
 const object = (value: unknown): Record<string, unknown> => value !== null && typeof value === 'object' && !Array.isArray(value) ? value as Record<string, unknown> : {};
 const STATES: readonly CancellationState[] = ['cancelling', 'cancel_pending', 'cancelled', 'cancel_failed'];
@@ -49,7 +51,8 @@ export function normalizeCancellationOffer(value: unknown, reference: string): C
   const row = object(value);
   if (row.reference !== reference) throw invalidResponse();
   const policy = typeof row.policy === 'string' ? row.policy.slice(0, 4000) : '';
-  if (row.mode === 'tracking') return { mode: 'tracking', reference, tracking: normalizeTracking(row.cancellation) };
+  const refundTo: RefundTo = row.refund_method === 'tabby' ? 'tabby' : 'card';
+  if (row.mode === 'tracking') return { mode: 'tracking', reference, tracking: normalizeTracking(row.cancellation), refundTo };
   if (row.mode === 'checking') {
     const retry = Number(row.retry_after_ms);
     return { mode: 'checking', reference, retryAfterMs: Number.isFinite(retry) ? Math.min(30000, Math.max(1500, retry)) : 3000 };
@@ -58,9 +61,9 @@ export function normalizeCancellationOffer(value: unknown, reference: string): C
   const expiresAt = Number(row.expires_at), token = row.quote_token;
   if (row.mode === 'automatic' && penalty && fee && refund && fee.currency === refund.currency && Number.isFinite(expiresAt)
     && typeof token === 'string' && token.length > 0 && token.length <= 4000) {
-    return { mode: 'automatic', reference, policy, penalty, fee, refund, expiresAt, quoteToken: token };
+    return { mode: 'automatic', reference, policy, penalty, fee, refund, expiresAt, quoteToken: token, refundTo };
   }
-  return { mode: 'support', reference, policy, penalty, upsells: row.upsells === true };
+  return { mode: 'support', reference, policy, penalty, upsells: row.upsells === true, refundTo };
 }
 
 export function createCancellationApi(request: Request) {

@@ -4,6 +4,7 @@ import { normalizeDetails, normalizeHotel, normalizeOffers, normalizeSuggestions
 import { assertCriteria, hotelId, searchBody } from './validation';
 import { normalizeRatingSummaries, type GuestRating } from './reviews';
 import { createCancellationApi } from './cancellation';
+import { createSupportApi } from './support';
 import { getHotelReviews } from './hotelReviews';
 import { createTransport, validToken } from './transport';
 import { getOwnedBookings } from './bookings';
@@ -64,6 +65,7 @@ export function createApiClient(request: Request) {
   return {
     checkout: createCheckoutApi(request),
     cancellation: createCancellationApi(request),
+    support: createSupportApi(request),
     paymentRates: (signal: AbortSignal) => request('GET', '/payment/rates', { anonymous: true, signal, timeoutMs: 12000 }),
     auth, getHotelStatic,
     async getClientRegion(signal?: AbortSignal): Promise<string | null> {

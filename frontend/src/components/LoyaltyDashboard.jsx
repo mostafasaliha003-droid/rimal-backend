@@ -52,7 +52,7 @@ export default function LoyaltyDashboard({ onNavigate }) {
             <main dir={direction} className="min-h-[calc(100vh-72px)] bg-[#f7f9fc] px-5 py-12 lg:px-10 lg:py-20">
                 <div className="mx-auto max-w-3xl rounded-3xl bg-gradient-to-br from-[#102a43] to-[#0f8fa3] p-8 text-center text-white shadow-xl sm:p-12">
                     <Trophy size={48} className="mx-auto text-cyan-100" />
-                    <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-cyan-100">{t('loyalty.program', 'برنامج رمال للولاء')}</p>
+                    <p className="mt-6 text-xs font-black uppercase tracking-[0.18em] text-cyan-100">{t('loyalty.program', 'برنامج مخدة للولاء')}</p>
                     <h1 className="mt-3 text-4xl font-black">{t('loyalty.title', 'سافر أكثر، واستفد أكثر')}</h1>
                     <p className="mx-auto mt-4 max-w-xl text-sm font-medium leading-7 text-white/80">{t('loyalty.subtitle', 'سجّل دخولك لتشاهد نقاطك ومستواك ومزايا كل Tier.')}</p>
                     <button type="button" onClick={() => onNavigate?.('/account')} className="mt-8 inline-flex items-center gap-2 rounded-full bg-white px-6 py-3 text-sm font-black text-[var(--remal-navy)] hover:bg-cyan-50">{t('loyalty.signIn', 'تسجيل الدخول أو إنشاء حساب')} <ArrowLeft size={17} /></button>
@@ -65,7 +65,7 @@ export default function LoyaltyDashboard({ onNavigate }) {
         <main dir={direction} className="min-h-[calc(100vh-72px)] bg-[#f7f9fc] px-5 py-10 lg:px-10 lg:py-16">
             <div className="mx-auto max-w-6xl">
                 <div className="mb-8 flex flex-wrap items-end justify-between gap-4">
-                    <div><p className="eyebrow">{t('loyalty.program', 'برنامج رمال للولاء')}</p><h1 className="mt-2 text-4xl font-black text-[var(--remal-navy)]">{t('loyalty.level', 'مستواك يفتح لك مزايا أكثر')}</h1><p className="mt-2 text-sm font-medium text-slate-500">{t('loyalty.welcome', `مرحباً ${user.name?.split(' ')[0] || 'بك'}، هذه نظرة سريعة على تقدمك.`, { name: user.name?.split(' ')[0] || 'بك' })}</p></div>
+                    <div><p className="eyebrow">{t('loyalty.program', 'برنامج مخدة للولاء')}</p><h1 className="mt-2 text-4xl font-black text-[var(--remal-navy)]">{t('loyalty.level', 'مستواك يفتح لك مزايا أكثر')}</h1><p className="mt-2 text-sm font-medium text-slate-500">{t('loyalty.welcome', `مرحباً ${user.name?.split(' ')[0] || 'بك'}، هذه نظرة سريعة على تقدمك.`, { name: user.name?.split(' ')[0] || 'بك' })}</p></div>
                     <button type="button" onClick={() => onNavigate?.('/account')} className="inline-flex items-center gap-2 rounded-full border border-slate-200 bg-white px-5 py-2.5 text-sm font-bold text-slate-600 hover:border-cyan-200 hover:text-[var(--remal-blue)]">{t('loyalty.backAccount', 'العودة للحساب')} <ArrowLeft size={17} /></button>
                 </div>
 

@@ -1,5 +1,5 @@
 const en = {
-    title: 'A little care. Every step.', dashboard: 'Customer service', eyebrow: 'REMAL CONCIERGE',
+    title: 'A little care. Every step.', dashboard: 'Customer service', eyebrow: 'MKHADDA CARE',
     subtitle: 'A private conversation, connected to your reservation.', staffSubtitle: 'One workspace. Every guest, thoughtfully looked after.',
     login: 'Sign in to continue', loginHint: 'Use the account linked to your booking or payment to access your private conversation.',
     noAccess: 'Live chat is available with a booking or a verified payment linked to your account. If you have just paid, this page will check your eligibility automatically.', choose: 'Choose the booking or payment you need help with',
@@ -19,7 +19,7 @@ const en = {
     assign: 'Assign to me', resolve: 'Mark resolved', reopen: 'Reopen', priority: 'Priority', topic: 'How can we help?',
     staffLogin: 'Team sign-in', staffLoginHint: 'Use your existing administration account.', email: 'Email', password: 'Password',
     logout: 'Sign out', guest: 'Guest', team: 'Reservations team', private: 'Team only', event: 'Conversation updated',
-    quick: 'Quick replies', quick1: 'Thank you for contacting Remal. I am reviewing your booking and will update you here.',
+    quick: 'Quick replies', quick1: 'Thank you for contacting Mkhadda. I am reviewing your booking and will update you here.',
     quick2: 'We are checking the payment status with the gateway. Please do not submit another payment while we verify it.',
     quick3: 'We are reviewing the refund status. We will share an update here once it is verified.',
     updated: 'Updated', retry: 'Try again', verified: 'Verified request', newReply: 'Unread', pending: 'Under review',
@@ -43,7 +43,7 @@ const en = {
         sent: 'Sent', sending: 'Sending', completed: 'Completed', not_due: 'No refund due', unknown: 'Verifying', review: 'Under review' }
 };
 const ar = {
-    title: 'عناية ترافق رحلتك', dashboard: 'خدمة العملاء', eyebrow: 'عناية رمال',
+    title: 'عناية ترافق رحلتك', dashboard: 'خدمة العملاء', eyebrow: 'عناية مخدة',
     subtitle: 'محادثة خاصة مرتبطة بحجزك، لنعتني بكل التفاصيل.', staffSubtitle: 'مساحة واحدة للعناية بكل ضيف ومتابعة كل طلب.',
     login: 'سجّل الدخول للمتابعة', loginHint: 'استخدم الحساب المرتبط بالحجز أو الدفع للوصول إلى محادثتك الخاصة.',
     noAccess: 'المحادثة المباشرة متاحة عند وجود حجز أو عملية دفع مؤكدة مرتبطة بحسابك. إذا دفعت للتو، نتحقق من إتاحة المحادثة تلقائيًا.', choose: 'اختر الحجز أو عملية الدفع التي تحتاج مساعدة بشأنها',
@@ -63,7 +63,7 @@ const ar = {
     assign: 'إسناد إليّ', resolve: 'تحديد كمحلولة', reopen: 'إعادة فتح', priority: 'الأولوية', topic: 'كيف نساعدك؟',
     staffLogin: 'دخول فريق الخدمة', staffLoginHint: 'استخدم حساب الإدارة الحالي.', email: 'البريد الإلكتروني', password: 'كلمة المرور',
     logout: 'تسجيل الخروج', guest: 'الضيف', team: 'فريق الحجوزات', private: 'للفريق فقط', event: 'تم تحديث المحادثة',
-    quick: 'ردود سريعة', quick1: 'شكرًا لتواصلك مع رمال. أراجع تفاصيل حجزك الآن وسأوافيك بالمستجدات هنا.',
+    quick: 'ردود سريعة', quick1: 'شكرًا لتواصلك مع مخدة. أراجع تفاصيل حجزك الآن وسأوافيك بالمستجدات هنا.',
     quick2: 'نتحقق من حالة الدفع مع البوابة. يرجى عدم إنشاء عملية دفع أخرى أثناء التحقق.',
     quick3: 'نراجع حالة الاسترداد، وسنشاركك المستجدات هنا فور التحقق منها.',
     updated: 'آخر تحديث', retry: 'إعادة المحاولة', verified: 'طلب موثّق', newReply: 'غير مقروءة', pending: 'قيد المراجعة',

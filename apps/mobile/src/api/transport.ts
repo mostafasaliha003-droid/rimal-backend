@@ -1,6 +1,7 @@
 import type { AppEnvironment } from '../types';
 import { endpoints } from './config';
 import { ApiError, aborted, invalidResponse } from './errors';
+import { supportRoute } from './support';
 
 export type FetchLike = (input: string, init?: RequestInit) => Promise<Response>;
 export interface DocumentUpload { mime: 'image/jpeg' | 'image/png'; bytes: ArrayBuffer }
@@ -23,6 +24,8 @@ function bareCheckoutRoute(method: string, path: string) {
 export function allowedRoute(method: string, path: string) {
   if (method === 'GET' && (path === '/client-region' || path === '/payment/rates')) return true;
   if ((method === 'GET' || method === 'POST') && cancellationRoute(path)) return method === 'GET' || !path.endsWith('/status');
+  // Mkhadda care: list and open conversations, read one, post a message.
+  if (supportRoute(path)) return method === 'GET' ? !path.endsWith('/messages') : method === 'POST' && (path === '/support/conversations' || path.endsWith('/messages'));
   if (method === 'PUT') return path === '/membership/application' || /^\/membership\/application\/documents\/(passport|eid_front|eid_back)$/.test(path);
   if (method === 'GET') return ['/owned/notifications', '/membership/status', '/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile', '/payment/availability', '/v1/hotels/reviews/summary'].includes(path)
     || checkoutStatusRoute(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path) || hotelReviewsRoute(path);
@@ -102,7 +105,7 @@ export function createTransport({ environment, fetcher = globalThis.fetch, getTo
         throw new ApiError(membership ? 'membership' : response.status === 401 ? 'auth'
           : response.status === 429 ? 'rate_limit' : [400, 409].includes(response.status) ? 'validation' : 'server', code, response.status, retry);
       }
-      if (data.success !== true && !bareCheckoutRoute(method, path) && !cancellationRoute(path) && !hotelReviewsRoute(path) && path !== '/owned/notifications' && !path.startsWith('/membership/')) throw invalidResponse();
+      if (data.success !== true && !bareCheckoutRoute(method, path) && !cancellationRoute(path) && !hotelReviewsRoute(path) && !supportRoute(path) && path !== '/owned/notifications' && !path.startsWith('/membership/')) throw invalidResponse();
       return data;
     } catch (error) {
       if (options.signal?.aborted) throw aborted();

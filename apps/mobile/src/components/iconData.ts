@@ -63,7 +63,10 @@ export const iconData = {"search":[["path",{"d":"m21 21-4.34-4.34"}],["circle",{
   "navigation":[["polygon",{"points":"3 11 22 2 13 21 11 13 3 11"}]],
   "share":[["circle",{"cx":"18","cy":"5","r":"3"}],["circle",{"cx":"6","cy":"12","r":"3"}],["circle",{"cx":"18","cy":"19","r":"3"}],["line",{"x1":"8.59","x2":"15.42","y1":"13.51","y2":"17.49"}],["line",{"x1":"15.41","x2":"8.59","y1":"6.51","y2":"10.49"}]],
   "history":[["path",{"d":"M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"}],["path",{"d":"M3 3v5h5"}],["path",{"d":"M12 7v5l4 2"}]],
-  "compass":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"}]]} as const satisfies Record<string, readonly IconElement[]>;
+  "compass":[["circle",{"cx":"12","cy":"12","r":"10"}],["path",{"d":"m16.24 7.76-1.804 5.411a2 2 0 0 1-1.265 1.265L7.76 16.24l1.804-5.411a2 2 0 0 1 1.265-1.265z"}]],
+  "chat":[["path",{"d":"M2.992 16.342a2 2 0 0 1 .094 1.167l-1.065 3.29a1 1 0 0 0 1.236 1.168l3.413-.998a2 2 0 0 1 1.099.092 10 10 0 1 0-4.777-4.719"}],["path",{"d":"M8 12h.01"}],["path",{"d":"M12 12h.01"}],["path",{"d":"M16 12h.01"}]],
+  "send":[["path",{"d":"M3.714 3.048a.498.498 0 0 0-.683.627l2.843 7.627a2 2 0 0 1 0 1.396l-2.842 7.627a.498.498 0 0 0 .682.627l18-8.5a.5.5 0 0 0 0-.904z"}],["path",{"d":"M6 12h16"}]],
+  "userPen":[["path",{"d":"M11.5 15H7a4 4 0 0 0-4 4v2"}],["path",{"d":"M21.378 16.626a1 1 0 0 0-3.004-3.004l-4.01 4.012a2 2 0 0 0-.506.854l-.837 2.87a.5.5 0 0 0 .62.62l2.87-.837a2 2 0 0 0 .854-.506z"}],["circle",{"cx":"10","cy":"7","r":"4"}]]} as const satisfies Record<string, readonly IconElement[]>;
 export type IconName = keyof typeof iconData;
 /** Icons that describe reading direction. Only these are mirrored in right-to-left layouts. */
-export const directionalIcons: ReadonlySet<IconName> = new Set<IconName>(["chevron","back","forward","logout"]);
+export const directionalIcons: ReadonlySet<IconName> = new Set<IconName>(["chevron","back","forward","logout","send"]);

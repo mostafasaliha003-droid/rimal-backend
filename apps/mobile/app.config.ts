@@ -10,7 +10,7 @@ const production = environment === 'production';
 const config: ExpoConfig = {
   name: production ? 'مخدة | pillow stays' : 'pillow stays Preview',
   slug: 'mkhadda',
-  version: '0.53.0',
+  version: '0.54.0',
   orientation: 'default',
   icon: './assets/pillow-icon.png',
   scheme: production ? 'mkhadda' : 'mkhadda-preview',
@@ -20,7 +20,7 @@ const config: ExpoConfig = {
     // Production identity entered in the owner-created Play draft, 16 Nov 2026.
     // Keep internal previews separate from the store application.
     package: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
-    versionCode: 53,
+    versionCode: 54,
     adaptiveIcon: {
       foregroundImage: './assets/pillow-adaptive.png',
       backgroundColor: '#ffffff',
@@ -45,7 +45,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
     // Kept equal to android.versionCode so both stores count releases the same way.
-    buildNumber: '53',
+    buildNumber: '54',
     infoPlist: {
       // HTTPS only, no custom cryptography: exempt from export-compliance documentation.
       ITSAppUsesNonExemptEncryption: false,
@@ -81,7 +81,7 @@ const config: ExpoConfig = {
   experiments: { typedRoutes: true },
   // Verified HTTPS App Links require the real Play signing fingerprint. Do not
   // advertise an unverified association or treat a deep link as payment proof.
-  extra: { environment, releaseStage: 'members-only-tabby-welcome',
+  extra: { environment, releaseStage: 'in-app-care-and-change',
     nativePaymentsEnabled: process.env.EXPO_PUBLIC_NATIVE_CHECKOUT_ENABLED === 'true' },
 };
 

@@ -147,7 +147,7 @@ export default function GuestForm({
                 </div>
                 <div className="mt-7 grid gap-3 sm:grid-cols-3">
                     <div className="rounded-2xl border border-emerald-100 bg-emerald-50 p-4 text-sm font-bold text-emerald-800"><CheckCircle2 size={18} className="mb-2 text-emerald-600" />{paymentMode === 'affiliate' ? t('checkout.hotelPayment', 'تدفع في الفندق وفق شروط العرض') : t('checkout.encrypted', 'دفع مشفر عبر Ziina')}</div>
-                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700"><CheckCircle2 size={18} className="mb-2 text-[var(--remal-blue)]" />{t('checkout.noHiddenFees', 'لا رسوم مخفية من رمال')}</div>
+                    <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700"><CheckCircle2 size={18} className="mb-2 text-[var(--remal-blue)]" />{t('checkout.noHiddenFees', 'لا رسوم مخفية من مخدة')}</div>
                     <div className="rounded-2xl border border-slate-200 bg-slate-50 p-4 text-sm font-bold text-slate-700"><CheckCircle2 size={18} className="mb-2 text-[var(--remal-blue)]" />{t('checkout.statusNotice', 'إشعار واضح بحالة العملية')}</div>
                 </div>
                 <p className="mt-5 flex items-start gap-3 rounded-2xl border border-cyan-100 bg-cyan-50 p-4 text-xs font-bold leading-6 text-cyan-900"><LockKeyhole size={18} className="mt-0.5 shrink-0" />{paymentMode === 'affiliate'

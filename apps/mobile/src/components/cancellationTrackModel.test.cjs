@@ -46,3 +46,16 @@ test('cancellation responses: a signed quote, support when it cannot be automati
   assert.throws(() => api.normalizeTracking({ status: 'refunded_somehow' }));
   assert.equal(api.validReference('../x'), false);
 });
+
+test('a Tabby payment is refunded through Tabby, not "to your card"', () => {
+  const refunding = m.cancellationTrackModel(view('cancelled', 'pending'), 'ar', 10, 'tabby');
+  assert.match(refunding.stages[2].title, /عبر تابي/);
+  assert.match(refunding.body, /عبر تابي/);
+  assert.match(refunding.expectation, /تابي/);
+  const done = m.cancellationTrackModel(view('cancelled', 'completed'), 'en', 10, 'tabby');
+  assert.match(done.body, /through Tabby/);
+  assert.equal(m.refundCopy('tabby', 'ar').label, 'يُرد عبر تابي');
+  assert.match(m.refundCopy('card', 'ar').label, /بطاقتك/);
+  // Card wording is unchanged for card payments.
+  assert.match(m.cancellationTrackModel(view('cancelled', 'pending'), 'ar', 10).expectation, /5 إلى 10 أيام عمل/);
+});

@@ -2,7 +2,7 @@ import React, { useCallback, useMemo, useState } from 'react';
 import { AppState, Platform, Pressable, ScrollView, SectionList, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
-import { api, websiteUrl } from '../api';
+import { api } from '../api';
 import type { BookingHistoryItem } from '../api/bookings';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
@@ -16,7 +16,6 @@ import {
   type TripBucket, type TripFilter, type TripRow,
 } from '../components/tripsModel';
 import VoucherButton from '../components/VoucherButton';
-import * as WebBrowser from 'expo-web-browser';
 import { tripsCopy } from './tripsCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 import { useLayout } from '../components/motion';
@@ -41,16 +40,10 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
   const booking = row.booking;
   const meta = statusMeta[row.statusKind];
   const [expanded, setExpanded] = useState(false);
-  const [accountError, setAccountError] = useState(false);
-  const manage = (amend = false) => {
-    setAccountError(false);
-    const url = new URL(websiteUrl(amend ? '/support' : '/account'));
-    if (amend) {
-      if (!/^[A-Za-z0-9_-]{1,120}$/.test(booking.reference)) { setAccountError(true); return; }
-      url.searchParams.set('reference', booking.reference); url.searchParams.set('request', 'amendment');
-    }
-    void WebBrowser.openBrowserAsync(url.href, { toolbarColor: color.bgBrand }).catch(() => setAccountError(true));
-  };
+  // Help and changes stay in the app: the booking's conversation with the team, and the change guide.
+  const validRef = /^[A-Za-z0-9_-]{1,120}$/.test(booking.reference);
+  const openCare = () => router.push({ pathname: '/care/[reference]', params: { reference: booking.reference } });
+  const openChange = () => router.push({ pathname: '/change/[reference]', params: { reference: booking.reference } });
   // Received is not confirmed: say so plainly, and discourage a second booking for the same stay.
   const statusText = {
     confirmed: { title: ar ? 'مؤكد من الفندق' : 'Confirmed by the hotel', body: ar ? 'حجزك مؤكد. أبرز رقم الحجز أو قسيمة الحجز عند الوصول.' : 'Your booking is confirmed. Show the booking reference or voucher at check-in.' },
@@ -112,8 +105,9 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
         {!!weekdays && <InfoRow icon="calendar"><Txt kind="small">{weekdays}</Txt></InfoRow>}
         {!urgent && <Txt kind="small">{statusText.body}</Txt>}
         <Row style={{ gap: space.lg, flexWrap: 'wrap', rowGap: space.xs }}>
-          <TextLink icon="support" title={ar ? 'مساعدة' : 'Help'} label={ar ? 'مساعدة بهذا الحجز' : 'Help with this booking'} onPress={() => router.navigate('/support')}/>
-          {canAmend && <TextLink icon="edit" title={ar ? 'طلب تعديل' : 'Request a change'} onPress={() => manage(true)}/>}
+          {validRef ? <TextLink testID={`trip-care-${booking.reference}`} icon="chat" title={ar ? 'راسل فريق مخدة' : 'Message our team'} label={ar ? 'محادثة مع فريق مخدة عن هذا الحجز' : 'Conversation with the Mkhadda team about this booking'} onPress={openCare}/>
+            : <TextLink icon="support" title={ar ? 'مساعدة' : 'Help'} label={ar ? 'مساعدة بهذا الحجز' : 'Help with this booking'} onPress={() => router.navigate('/support')}/>}
+          {canAmend && validRef && <TextLink testID={`trip-change-${booking.reference}`} icon="edit" title={ar ? 'تعديل الحجز' : 'Change booking'} onPress={openChange}/>}
           {canCancel && <TextLink testID={`trip-cancel-${booking.reference}`} icon="close" title={ar ? 'إلغاء الحجز' : 'Cancel booking'}
             label={ar ? 'إلغاء الحجز ومعرفة المبلغ المسترد' : 'Cancel the booking and see the refund'} onPress={openCancellation}/>}
           {row.statusKind === 'cancelled' && <TextLink testID={`trip-cancel-status-${booking.reference}`} icon="wallet" title={ar ? 'حالة الإلغاء والاسترداد' : 'Cancellation & refund status'} onPress={openCancellation}/>}
@@ -123,7 +117,6 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
           {booking.supplierStatus && <Txt kind="caption">{copy.supplierStatus}: {booking.supplierStatus}</Txt>}
         </View>}
       </View>}
-      {accountError && <Txt accessibilityRole="alert" kind="small" tone="danger">{ar ? 'تعذّر فتح حسابك على الموقع. حاول مجدداً.' : 'Could not open your online account. Try again.'}</Txt>}
     </Card>
   );
 }

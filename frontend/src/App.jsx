@@ -125,7 +125,7 @@ export default function App() {
         const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/favorites', '/support', '/customer-service', '/loyalty', '/account-deletion', '/account-deletion-requests'].includes(pathname);
         const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
         const title = t('meta.title', 'مخدة | pillow stays');
-        const description = t('meta.description', 'ابحث عن إقامة مناسبة مع رمال وقارن عروض الفنادق.');
+        const description = t('meta.description', 'ابحث عن إقامة تناسبك مع مخدة وقارن عروض الفنادق.');
         setPageSeo({
             title,
             description,
@@ -438,7 +438,7 @@ export default function App() {
                     {/* Header Section */}
                     <div className="mb-10 flex flex-col gap-5 border-b border-slate-200 pb-8 sm:flex-row sm:items-end sm:justify-between">
                         <div>
-                            <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-blue-600">{searched ? t('results.searchResults', 'نتائج البحث') : t('results.remalPicks', 'اختيارات رمال')}</p>
+                            <p className="mb-2 text-[11px] font-black uppercase tracking-widest text-blue-600">{searched ? t('results.searchResults', 'نتائج البحث') : t('results.remalPicks', 'اختيارات مخدة')}</p>
                             <h2 className="text-3xl font-black tracking-tight sm:text-4xl">{t('results.heading', 'فنادق تحسّها على كيفك')}</h2>
                             <p className="mt-2 text-sm font-semibold text-slate-500">{searched ? t('results.searchedCount', `${visibleHotels.length} فندق متاح حسب بحثك`, { count: visibleHotels.length }) : t('results.initialSubheading', 'ابدأ بوجهة وتاريخ واضحين لتحصل على أسعار حية')}</p>
                         </div>

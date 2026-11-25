@@ -7,7 +7,7 @@ import { api } from '../api';
 import type { OwnedNotice } from '../api/notifications';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import { color, radius, space, ui } from '../theme';
+import { color, fonts, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { Button, Icon, IconButton, Row, Skeleton, Txt, type IconName } from '../components/Primitives';
 import { statusText } from '../components/membershipCopy';
@@ -45,22 +45,24 @@ function NoticeList({ signedIn, loading }: { signedIn: boolean; loading: boolean
   const rows = !pending && signedIn ? result?.rows : undefined;
   // Each notice is one row: what happened, when, and where it leads.
   const notice = (row: OwnedNotice) => {
-    const booking = row.kind === 'booking';
-    const headline = row.event === 'confirmed' ? (rtl ? 'تم تأكيد حجزك' : 'Booking confirmed')
-      : row.event === 'refunded' ? (rtl ? 'تم التحقق من الاسترداد' : 'Refund verified') : statusText[row.event][rtl ? 0 : 1];
-    const icon: IconName = row.event === 'confirmed' ? 'checkCircle' : row.event === 'refunded' ? 'wallet' : 'users';
+    const booking = row.kind === 'booking', reply = row.kind === 'support' && !!row.reference;
+    const headline = reply ? (rtl ? 'ردّ فريق مخدة على رسالتك' : 'The Mkhadda team replied')
+      : row.event === 'confirmed' ? (rtl ? 'تم تأكيد حجزك' : 'Booking confirmed')
+      : row.event === 'refunded' ? (rtl ? 'تم التحقق من الاسترداد' : 'Refund verified') : statusText[row.event as keyof typeof statusText][rtl ? 0 : 1];
+    const icon: IconName = reply ? 'chat' : row.event === 'confirmed' ? 'checkCircle' : row.event === 'refunded' ? 'wallet' : 'users';
     const tint = row.event === 'confirmed' ? color.success : color.interactiveStrong;
     const when = row.at ? new Intl.DateTimeFormat(language === 'ar' ? 'ar-AE-u-nu-latn' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(row.at)) : '';
-    const where = booking ? t('trips') : (rtl ? 'العضوية' : 'Membership');
+    const where = reply ? (rtl ? 'عناية مخدة' : 'Mkhadda care') : booking ? t('trips') : (rtl ? 'العضوية' : 'Membership');
     return <Pressable key={row.id} testID={'notice-' + row.id} accessibilityRole="button" accessibilityLabel={[headline, when, where].filter(Boolean).join(' · ')}
-      onPress={() => router.navigate(booking ? '/bookings' : '/membership')}
+      onPress={() => reply ? router.push({ pathname: '/care/[reference]', params: { reference: row.reference! } }) : router.navigate(booking ? '/bookings' : '/membership')}
       style={state => [styles.row, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>
       <Row style={{ gap: space.md }}>
         <View style={[styles.rowIcon, row.event === 'confirmed' && { backgroundColor: color.successBg }]}><Icon name={icon} size={18} color={tint}/></View>
         <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
-          <Txt kind="label" tone="primary" numberOfLines={2}>{headline}</Txt>
+          <Txt kind="label" tone="primary" numberOfLines={2} style={row.unread ? { fontFamily: fonts.bold } : undefined}>{headline}</Txt>
           <Txt kind="caption" numberOfLines={1}>{[when, where].filter(Boolean).join(' · ')}</Txt>
         </View>
+        {row.unread && <View accessibilityLabel={rtl ? 'جديد' : 'New'} style={styles.unread}/>}
         <Icon name="chevron" size={16} color={color.textSecondary}/>
       </Row>
     </Pressable>;
@@ -76,7 +78,7 @@ function NoticeList({ signedIn, loading }: { signedIn: boolean; loading: boolean
         <Skeleton width={36} height={36} rounded={18}/><View style={{ flex: 1, gap: space.xs }}><Skeleton width="60%" height={14}/><Skeleton width="38%" height={11}/></View>
       </Row></View>)}
     </View> : !signedIn ? <EmptyState icon="bell" title={rtl ? 'سجّل الدخول لترى إشعاراتك' : 'Sign in to see your notifications'}
-      body={rtl ? 'تأكيدات حجوزاتك وتحديثات الاسترداد وحالة طلب العضوية تظهر هنا.' : 'Booking confirmations, refund updates and your membership status appear here.'}
+      body={rtl ? 'تأكيدات حجوزاتك وتحديثات الاسترداد وردود فريقنا وحالة طلب العضوية تظهر هنا.' : 'Booking confirmations, refund updates, replies from our team and your membership status appear here.'}
       action={<Button title={t('signIn')} onPress={() => router.navigate({ pathname: '/account', params: { returnTo: '/notifications' } })}/>}/>
       : !rows ? <EmptyState icon="alertCircle" tone="danger" title={rtl ? 'تعذّر تحميل الإشعارات' : 'Notifications unavailable'}
         body={rtl ? 'تحقق من الاتصال ثم حاول مجدداً.' : 'Check your connection and try again.'}
@@ -97,6 +99,7 @@ const styles = StyleSheet.create({
   emptyIcon: { width: 64, height: 64, borderRadius: 32, backgroundColor: color.bgSelected, alignItems: 'center', justifyContent: 'center', marginBottom: space.xs },
   menu: { borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.bgSurface, borderWidth: 1, borderColor: color.borderCard },
   row: { minHeight: 64, justifyContent: 'center', paddingHorizontal: space.md, paddingVertical: space.sm },
+  unread: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.accent },
   rowIcon: { width: 36, height: 36, borderRadius: 18, backgroundColor: color.bgSelected, alignItems: 'center', justifyContent: 'center' },
   rule: { height: StyleSheet.hairlineWidth, backgroundColor: color.border },
 });
