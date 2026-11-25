@@ -1205,6 +1205,10 @@ app.post('/api/v1/hotels/recheck-and-pay', (_req, res) => {
 app.post('/api/v1/hotels/book', requireUser, securityService.bookingLimiter, hotelbedsBookingController);
 
 app.use('/api/owned', createOwnedBookingCancellationRouter({ BookingModel: Booking, requireUser }));
+app.get('/api/owned/notifications', requireUser, require('./services/ownedNotifications').createOwnedNotificationsHandler({
+    Booking, Notice: require('./models/MembershipNotice'), Checkout: require('./models/CheckoutAttempt'),
+    Conversation: require('./models/SupportConversation')
+}));
 app.use('/api/owned', createOwnedBookingPdfRouter({
     BookingModel: Booking,
     HotelbedsContentModel: HotelbedsVerifiedHotelContent,
