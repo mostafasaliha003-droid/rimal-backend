@@ -7,42 +7,44 @@ import { useLanguage } from '../i18n';
 import { color, fonts, latinFonts, radius, space } from '../theme';
 import { Icon, Txt } from './Primitives';
 import { tabbyBannerCopy, tabbyLearnMoreUrl, tabbyMonthly, tabbyPromoText, tabbyName, type TabbyPromoSettings } from './tabbyModel';
-import { TabbyWordmark } from './TabbyLogo';
+import TabbyLogo from './TabbyLogo';
 
 /* Tabby's brand colours, from its Merchant guidelines (slide 25). */
-const TABBY_GREEN = '#6CFF93', TABBY_BLACK = '#1A1919';
+const TABBY_BLACK = '#1A1919';
 
 /*
- * Tabby's home screen banner, built to Tabby's own website-banner layout (Merchant guidelines,
- * slide 37): Tabby green card, the approved UAE message, the UAE disclaimer and the official
- * wordmark. Copy comes only from tabbyBannerCopy; nothing here is ours to reword.
+ * Tabby's home screen banner in Tabby's official light theme (Merchant guidelines, slide 20: white
+ * card, black text, the green Tabby badge), with the approved UAE message (slides 7–8) and the UAE
+ * disclaimer (slide 11). The light theme sits calmly on our brand instead of shouting over it.
+ * Copy comes only from tabbyBannerCopy; nothing here is ours to reword.
  */
 export function TabbyBanner({ compact = false }: { compact?: boolean }) {
   const { language } = useLanguage();
   const ar = language === 'ar';
   const copy = tabbyBannerCopy(language);
   const bold = ar ? fonts.bold : latinFonts.bold, regular = ar ? fonts.regular : latinFonts.regular;
+  const align = { textAlign: ar ? 'right' as const : 'left' as const, writingDirection: ar ? 'rtl' as const : 'ltr' as const };
   return <View testID="welcome-tabby" accessible accessibilityLabel={`Tabby. ${copy.lead}. ${copy.support} ${copy.disclaimer}`}
     style={[banner.card, compact && banner.compact]}>
-    <Text allowFontScaling={false} style={[banner.lead, { fontFamily: bold, fontSize: compact ? 22 : 27, lineHeight: compact ? (ar ? 34 : 28) : (ar ? 40 : 33),
-      textAlign: ar ? 'right' : 'left', writingDirection: ar ? 'rtl' : 'ltr' }]}>{copy.lead}</Text>
-    <Text allowFontScaling={false} style={[banner.support, { fontFamily: regular, fontSize: compact ? 13 : 14, lineHeight: ar ? 22 : 19,
-      textAlign: ar ? 'right' : 'left', writingDirection: ar ? 'rtl' : 'ltr' }]}>{copy.support}</Text>
-    <View style={[banner.foot, { flexDirection: ar ? 'row-reverse' : 'row' }]}>
-      <Text allowFontScaling={false} style={[banner.disclaimer, { fontFamily: latinFonts.regular }]}>{copy.disclaimer}</Text>
-      <TabbyWordmark height={compact ? 17 : 20}/>
+    <View style={[banner.row, { flexDirection: ar ? 'row-reverse' : 'row' }]}>
+      <View style={{ flex: 1, minWidth: 0, gap: 1 }}>
+        <Text allowFontScaling={false} style={[banner.ink, align, { fontFamily: bold, fontSize: compact ? 16 : 18, lineHeight: ar ? (compact ? 25 : 28) : (compact ? 21 : 24) }]}>{copy.lead}</Text>
+        <Text allowFontScaling={false} style={[banner.ink, align, { fontFamily: regular, fontSize: compact ? 12.5 : 13.5, lineHeight: ar ? 21 : 18 }]}>{copy.support}</Text>
+      </View>
+      <TabbyLogo height={compact ? 24 : 28}/>
     </View>
+    <Text allowFontScaling={false} style={[banner.disclaimer, { fontFamily: latinFonts.regular }]}>{copy.disclaimer}</Text>
   </View>;
 }
 
 const banner = StyleSheet.create({
-  card: { width: '100%', gap: 4, paddingHorizontal: space.lg, paddingTop: space.md, paddingBottom: space.md, borderRadius: radius.xl, backgroundColor: TABBY_GREEN,
-    shadowColor: '#0B3D1A', shadowOpacity: 0.25, shadowRadius: 18, shadowOffset: { width: 0, height: 8 }, elevation: 6 },
-  compact: { paddingTop: space.sm, paddingBottom: space.sm, borderRadius: radius.lg },
-  lead: { color: TABBY_BLACK },
-  support: { color: TABBY_BLACK },
-  foot: { alignItems: 'flex-end', justifyContent: 'space-between', gap: space.md, marginTop: space.xs },
-  disclaimer: { flex: 1, color: TABBY_BLACK, opacity: 0.78, fontSize: 8, lineHeight: 10.5, textAlign: 'left', writingDirection: 'ltr' },
+  card: { width: '100%', gap: 6, paddingHorizontal: space.md, paddingVertical: space.sm + 2, borderRadius: radius.lg, backgroundColor: '#FFFFFF',
+    borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(26,25,25,0.14)',
+    shadowColor: '#1A0F22', shadowOpacity: 0.16, shadowRadius: 14, shadowOffset: { width: 0, height: 6 }, elevation: 4 },
+  compact: { paddingVertical: space.sm, gap: 4 },
+  row: { alignItems: 'center', gap: space.md },
+  ink: { color: TABBY_BLACK },
+  disclaimer: { color: TABBY_BLACK, opacity: 0.72, fontSize: 10, lineHeight: 13, textAlign: 'left', writingDirection: 'ltr' },
 });
 
 // The package types WebView's props as WebViewProps & P with P = undefined, which collapses to never.

@@ -110,13 +110,51 @@ function Emblem({ size, spread = 1.9, emblem, ring, float, glow, orbit }: {
 
 const rise = (value: Animated.Value, distance = 14) => ({ opacity: value, transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [distance, 0] }) }] });
 
+/* Destination photography (CC0 / public domain, see assets/DESTINATIONS.md). Places, not hotels. */
+const PHOTOS = [
+  { source: require('../../assets/dubai-marina-dusk.jpg'), place: 'Dubai Marina', placeAr: 'مرسى دبي' },
+  { source: require('../../assets/istanbul-destination.jpg'), place: 'Ortaköy, Istanbul', placeAr: 'أورتاكوي، إسطنبول' },
+  { source: require('../../assets/paris-destination.jpg'), place: 'Paris', placeAr: 'باريس' },
+] as const;
+const CYCLE_MS = 7000 * PHOTOS.length;
+const clamp3 = (values: number[]) => values.map(v => Math.min(PHOTOS.length, Math.max(0, v)));
+// Opacity and slow zoom of each photo across one cycle (value 0..3): hold, then a soft cross-fade.
+const photoOpacity = (index: number) => index === 0
+  ? { inputRange: [0, 0.82, 1, 2.82, 3], outputRange: [1, 1, 0, 0, 1] }
+  : { inputRange: clamp3([0, index - 0.18, index, index + 0.82, index + 1, 3]), outputRange: [0, 0, 1, 1, 0, 0] };
+const photoScale = (index: number) => index === 0
+  ? { inputRange: [0, 1, 2.82, 3], outputRange: [1, 1.09, 1.09, 1] }
+  : { inputRange: clamp3([0, index - 0.18, index + 1, 3]), outputRange: [1, 1, 1.09, 1.09] };
+
+/** Real places, slowly breathing: a cinematic cross-fade under a plum veil that keeps our colours in charge. */
+function PhotoStage({ slide, reveal }: { slide: Animated.Value; reveal: Animated.Value }) {
+  return <Animated.View pointerEvents="none" accessible={false} importantForAccessibility="no-hide-descendants" aria-hidden style={[StyleSheet.absoluteFill, { opacity: reveal }]}>
+    {PHOTOS.map((photo, index) => <Animated.Image key={photo.place} source={photo.source} resizeMode="cover"
+      style={[StyleSheet.absoluteFill, { width: '100%', height: '100%', opacity: slide.interpolate(photoOpacity(index)), transform: [{ scale: slide.interpolate(photoScale(index)) }] }]}/>)}
+    <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
+      <Defs>
+        <LinearGradient id="welcome-veil" x1="0" y1="0" x2="0" y2="1">
+          <Stop offset="0" stopColor={palette.plum900} stopOpacity="0.55"/><Stop offset="0.4" stopColor={palette.plum800} stopOpacity="0.34"/>
+          <Stop offset="0.74" stopColor={palette.plum900} stopOpacity="0.8"/><Stop offset="1" stopColor={palette.plum900} stopOpacity="0.97"/>
+        </LinearGradient>
+        <RadialGradient id="welcome-halo" cx="50%" cy="38%" r="55%">
+          <Stop offset="0" stopColor={palette.plum500} stopOpacity="0.38"/><Stop offset="1" stopColor={palette.plum900} stopOpacity="0"/>
+        </RadialGradient>
+      </Defs>
+      <Rect x="0" y="0" width="100" height="100" fill="url(#welcome-veil)"/>
+      <Rect x="0" y="0" width="100" height="100" fill="url(#welcome-halo)"/>
+    </Svg>
+  </Animated.View>;
+}
+
 /*
- * The front door: a living night sky over the Mkhadda emblem, the promise in one line, and the two
- * ways in (create an account, sign in). Everything moves once on arrival, then breathes quietly;
+ * The front door: real places breathing behind the Mkhadda emblem, the promise in one line, Tabby's
+ * approved banner in its light theme, and the way in (apply for membership, or sign in). Everything
+ * arrives once in sequence, then the decoration settles so the photos and the choice stay in focus;
  * with "reduce motion" on, it is all simply there.
  */
 export default function WelcomeScreen() {
-  const { language, setLanguage, rtl } = useLanguage();
+  const { language, setLanguage } = useLanguage();
   const ar = language === 'ar';
   const router = useRouter();
   const reduced = useReducedMotion();
@@ -125,39 +163,43 @@ export default function WelcomeScreen() {
   const compact = height < 900;
   const tiny = height < 700;
   const wide = width >= 720;
-  const intro = useValues(['reveal', 'emblem', 'word', 'letters', 'tagline', 'chips', 'pill', 'promo', 'sheet'] as const);
+  const intro = useValues(['reveal', 'emblem', 'word', 'letters', 'tagline', 'caption', 'promo', 'sheet', 'benefits'] as const);
   const { next } = useLocalSearchParams<{ next?: string }>();
   const [ring] = useState(() => new Animated.Value(0));
-  const loops = useValues(['drift', 'twinkle', 'float', 'glow', 'orbit', 'shine'] as const);
+  const loops = useValues(['float', 'glow', 'orbit', 'drift', 'twinkle', 'slide'] as const);
+  const [photo, setPhoto] = useState(0);
 
   useEffect(() => {
     const all = Object.values(intro) as Animated.Value[];
-    if (reduced) { all.forEach(value => value.setValue(1)); ring.setValue(1); return; }
+    // The caption follows whichever photo is in front, switching at the middle of each cross-fade.
+    const listener = loops.slide.addListener(({ value }) => setPhoto(current => { const front = Math.floor(value + 0.09) % PHOTOS.length; return front === current ? current : front; }));
+    if (reduced) { all.forEach(value => value.setValue(1)); ring.setValue(1); return () => loops.slide.removeListener(listener); }
     const at = (delay: number, animation: Animated.CompositeAnimation) => Animated.sequence([Animated.delay(delay), animation]);
     const ease = (value: Animated.Value, duration: number) => Animated.timing(value, { toValue: 1, duration, easing: Easing.out(Easing.cubic), useNativeDriver: native });
     const spring = (value: Animated.Value, friction = 6) => Animated.spring(value, { toValue: 1, friction, tension: 60, useNativeDriver: native });
     const show = Animated.parallel([
-      ease(intro.reveal, 1100),
+      ease(intro.reveal, 1200),
       at(180, Animated.timing(ring, { toValue: 1, duration: 1300, easing: Easing.inOut(Easing.cubic), useNativeDriver: false })),
       at(260, spring(intro.emblem, 5)),
-      at(640, ease(intro.word, 650)),
-      at(820, Animated.timing(intro.letters, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: native })),
-      at(1180, ease(intro.tagline, 650)),
-      at(1380, ease(intro.chips, 800)),
-      at(1560, spring(intro.pill, 5)),
-      at(1780, spring(intro.promo, 7)),
-      at(1450, spring(intro.sheet, 9)),
+      at(620, ease(intro.word, 650)),
+      at(800, Animated.timing(intro.letters, { toValue: 1, duration: 900, easing: Easing.linear, useNativeDriver: native })),
+      at(1150, ease(intro.tagline, 650)),
+      at(1350, ease(intro.caption, 600)),
+      at(1300, spring(intro.sheet, 9)),
+      at(1600, spring(intro.promo, 7)),
+      at(1750, ease(intro.benefits, 700)),
     ]);
     const breathe = (value: Animated.Value, duration: number) => Animated.loop(Animated.sequence([
       Animated.timing(value, { toValue: 1, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: native }),
       Animated.timing(value, { toValue: 0, duration, easing: Easing.inOut(Easing.sin), useNativeDriver: native })]));
-    const running = [show, breathe(loops.drift, 9000), breathe(loops.float, 1900), breathe(loops.glow, 2400),
-      Animated.loop(Animated.timing(loops.twinkle, { toValue: 1, duration: 3200, easing: Easing.linear, useNativeDriver: native })),
-      Animated.loop(Animated.timing(loops.orbit, { toValue: 1, duration: 22000, easing: Easing.linear, useNativeDriver: native })),
-      Animated.loop(Animated.sequence([Animated.delay(2200), Animated.timing(loops.shine, { toValue: 1, duration: 1100, easing: Easing.inOut(Easing.quad), useNativeDriver: native }),
-        Animated.timing(loops.shine, { toValue: 0, duration: 0, useNativeDriver: native })]))];
-    running.forEach(animation => animation.start());
-    return () => running.forEach(animation => animation.stop());
+    const photos = Animated.loop(Animated.timing(loops.slide, { toValue: PHOTOS.length, duration: CYCLE_MS, easing: Easing.linear, useNativeDriver: native }));
+    // Decoration that settles after the arrival: the emblem's float, glow and orbit.
+    const settling = [breathe(loops.float, 1900), breathe(loops.glow, 2400),
+      Animated.loop(Animated.timing(loops.orbit, { toValue: 1, duration: 22000, easing: Easing.linear, useNativeDriver: native }))];
+    const all3 = [show, photos, ...settling];
+    all3.forEach(animation => animation.start());
+    const settle = setTimeout(() => settling.forEach(animation => animation.stop()), 9000);
+    return () => { clearTimeout(settle); loops.slide.removeListener(listener); all3.forEach(animation => animation.stop()); };
   }, [reduced, intro, loops, ring]);
 
   const account = (mode: 'register' | 'login') => {
@@ -166,97 +208,80 @@ export default function WelcomeScreen() {
     router.replace({ pathname: '/account', params: { mode, returnTo: typeof next === 'string' && next.startsWith('/') ? next : '/' } });
   };
 
-  const emblemSize = tiny ? 76 : compact ? 96 : 128;
-  const categories: { icon: IconName; label: string; soon: boolean }[] = [
-    { icon: 'hotel', label: ar ? 'فنادق' : 'Hotels', soon: false },
-    { icon: 'calendar', label: ar ? 'فعاليات' : 'Events', soon: true },
-    { icon: 'voucher', label: ar ? 'تذاكر' : 'Tickets', soon: true },
-  ];
+  const emblemSize = tiny ? 64 : compact ? 84 : 112;
   const letters = Array.from(BRAND);
   const step = 0.65 / letters.length;
-  const pillWidth = 300;
+  const tagline = ar ? 'مخدتك جاهزة في مدن العالم، بسعر الأعضاء' : 'Your pillow, ready in cities worldwide, at member prices';
+  // What membership gives, in words the app can stand behind.
+  const benefits: { icon: IconName; label: string }[] = [
+    { icon: 'sparkles', label: ar ? 'أسعار للأعضاء فقط' : 'Member-only prices' },
+    { icon: 'chat', label: ar ? 'عناية خاصة بكل حجز' : 'Care for every booking' },
+    { icon: 'shield', label: ar ? 'دفع آمن بالكامل' : 'Fully secure payment' },
+  ];
+  const place = ar ? PHOTOS[photo].placeAr : PHOTOS[photo].place;
 
   return <View style={styles.screen} testID="welcome-screen">
     <StatusBar style="light"/>
     <Sky drift={loops.drift} twinkle={loops.twinkle} reveal={intro.reveal} width={width} height={height}/>
+    <PhotoStage slide={loops.slide} reveal={intro.reveal}/>
     <SafeAreaView edges={['top']} style={{ flex: 1 }}>
       <Row style={[styles.top, { paddingHorizontal: space.lg }]}>
         <Pressable testID="welcome-language" accessibilityRole="button" accessibilityLabel={ar ? 'English' : 'العربية'}
           onPress={() => setLanguage(ar ? 'en' : 'ar')} hitSlop={8}
-          style={state => [styles.language, (state.pressed || hovered(state)) && { backgroundColor: 'rgba(255,255,255,0.18)' }]}>
+          style={state => [styles.language, (state.pressed || hovered(state)) && { backgroundColor: 'rgba(255,255,255,0.22)' }]}>
           <Icon name="globe" size={16} color={palette.cream}/>
           <Text style={[styles.languageText, { fontFamily: ar ? latinFonts.medium : fonts.medium }]}>{ar ? 'English' : 'العربية'}</Text>
         </Pressable>
       </Row>
 
-      <View style={[styles.hero, { gap: tiny ? 6 : compact ? space.sm : space.md }]} accessible accessibilityRole="header"
-        accessibilityLabel={ar ? 'مخدة، pillow stays. أفضل عروض الفنادق والفعاليات والتذاكر في مكان واحد. سعر مدلّل لأعضائنا فقط.'
-          : 'Mkhadda, pillow stays. The best hotel, event and ticket deals in one place. Pampered prices, for members only.'}>
-        <Emblem size={emblemSize} spread={compact ? 1.6 : 1.9} emblem={intro.emblem} ring={ring} float={loops.float} glow={loops.glow} orbit={loops.orbit}/>
-        <View style={{ alignItems: 'center', marginTop: -emblemSize * (compact ? 0.18 : 0.28) }}>
-          <Animated.Text allowFontScaling={false} style={[styles.word, { fontSize: tiny ? 32 : compact ? 38 : 46, lineHeight: tiny ? 42 : compact ? 50 : 60 }, rise(intro.word)]}>مخدة</Animated.Text>
+      <View style={[styles.hero, { gap: tiny ? 4 : compact ? space.xs : space.sm }]} accessible accessibilityRole="header"
+        accessibilityLabel={`${ar ? 'مخدة' : 'Mkhadda'}, pillow stays. ${tagline}`}>
+        <Emblem size={emblemSize} spread={compact ? 1.6 : 1.85} emblem={intro.emblem} ring={ring} float={loops.float} glow={loops.glow} orbit={loops.orbit}/>
+        <View style={{ alignItems: 'center', marginTop: -emblemSize * (compact ? 0.16 : 0.24) }}>
+          <Animated.Text allowFontScaling={false} style={[styles.word, { fontSize: tiny ? 30 : compact ? 38 : 46, lineHeight: tiny ? 40 : compact ? 50 : 60 }, rise(intro.word)]}>مخدة</Animated.Text>
           <View style={styles.letters}>
             {letters.map((letter, index) => {
               const from = index * step;
               const value = intro.letters.interpolate({ inputRange: [from, from + 0.35, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' });
               return <Animated.Text key={index} allowFontScaling={false} style={[styles.letter, { opacity: value,
-                transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{letter === ' ' ? '  ' : letter}</Animated.Text>;
+                transform: [{ translateY: value.interpolate({ inputRange: [0, 1], outputRange: [10, 0] }) }] }]}>{letter === ' ' ? '  ' : letter}</Animated.Text>;
             })}
           </View>
         </View>
-        <Animated.View style={[{ paddingHorizontal: space.xl, maxWidth: wide ? 560 : 420 }, rise(intro.tagline)]}>
-          <Text style={[styles.tagline, { fontFamily: ar ? fonts.medium : latinFonts.medium, fontSize: tiny ? 15 : compact ? 16 : 19, lineHeight: tiny ? 23 : compact ? 25 : 30 }]}>
-            {ar ? 'أفضل عروض الفنادق والفعاليات والتذاكر في مكان واحد' : 'The best deals on hotels, events and tickets, all in one place'}</Text>
-        </Animated.View>
-        {!tiny && <Row style={{ gap: space.xs + 2, justifyContent: 'center', flexWrap: 'wrap', paddingHorizontal: space.md }}>
-          {categories.map((category, index) => {
-            const value = intro.chips.interpolate({ inputRange: [index * 0.2, index * 0.2 + 0.6, 1], outputRange: [0, 1, 1], extrapolate: 'clamp' });
-            return <Animated.View key={category.icon} style={[styles.category, category.soon ? null : styles.categoryActive, { opacity: value,
-              transform: [{ scale: value.interpolate({ inputRange: [0, 1], outputRange: [0.8, 1] }) }] }]}>
-              <Row style={{ gap: 6 }}>
-                <Icon name={category.icon} size={16} color={category.soon ? palette.lavender300 : palette.plum800}/>
-                <Text style={[styles.categoryText, { color: category.soon ? palette.lavender100 : palette.plum800, fontFamily: ar ? fonts.medium : latinFonts.medium }]}>{category.label}</Text>
-                {category.soon && <View style={styles.soon}><Text style={[styles.soonText, { fontFamily: ar ? fonts.medium : latinFonts.medium }]}>{ar ? 'قريباً' : 'Soon'}</Text></View>}
-              </Row>
-            </Animated.View>;
-          })}
-        </Row>}
-        {!tiny && <Animated.View style={{ opacity: intro.pill, transform: [{ scale: intro.pill.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }] }}>
-          <View style={styles.pill} testID="welcome-member-pill">
-            <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 10" style={StyleSheet.absoluteFill}>
-              <Defs><LinearGradient id="welcome-pill" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor={palette.apricot200}/><Stop offset="0.5" stopColor={palette.apricot100}/><Stop offset="1" stopColor={palette.gold200}/>
-              </LinearGradient></Defs>
-              <Rect x="0" y="0" width="100" height="10" fill="url(#welcome-pill)"/>
-            </Svg>
-            {!reduced && <Animated.View pointerEvents="none" style={[styles.shine, { transform: [{ translateX: loops.shine.interpolate({ inputRange: [0, 1], outputRange: rtl ? [pillWidth, -90] : [-90, pillWidth] }) }, { skewX: '-18deg' }] }]}>
-              <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 10 10"><Defs><LinearGradient id="welcome-shine" x1="0" y1="0" x2="1" y2="0">
-                <Stop offset="0" stopColor="#FFFFFF" stopOpacity="0"/><Stop offset="0.5" stopColor="#FFFFFF" stopOpacity="0.85"/><Stop offset="1" stopColor="#FFFFFF" stopOpacity="0"/>
-              </LinearGradient></Defs><Rect x="0" y="0" width="10" height="10" fill="url(#welcome-shine)"/></Svg>
-            </Animated.View>}
-            <Row style={{ gap: 6 }}>
-              <Icon name="sparkles" size={16} color={palette.apricot800}/>
-              <Text style={[styles.pillText, { fontFamily: ar ? fonts.bold : latinFonts.bold }]}>{ar ? 'سعر مدلّل لأعضائنا فقط' : 'Pampered prices, for members only'}</Text>
-            </Row>
-          </View>
-        </Animated.View>}
-        {/* Tabby's approved home screen banner (Tabby's design and words), springing in after our pill.
-            On very small screens it takes the pill's place. */}
-        <Animated.View style={[{ width: '100%', maxWidth: 420, paddingHorizontal: space.lg, marginTop: tiny ? 0 : space.xs },
-          { opacity: intro.promo, transform: [{ translateY: intro.promo.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }, { scale: intro.promo.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }]}>
-          <TabbyBanner compact={compact}/>
+        <Animated.View style={[{ paddingHorizontal: space.xl, maxWidth: wide ? 560 : 400 }, rise(intro.tagline)]}>
+          <Text style={[styles.tagline, { fontFamily: ar ? fonts.medium : latinFonts.medium, fontSize: tiny ? 15 : compact ? 16.5 : 19, lineHeight: tiny ? 24 : compact ? 27 : 31 }]}>{tagline}</Text>
         </Animated.View>
       </View>
 
-      <Animated.View style={[styles.sheet, wide && styles.sheetWide, tiny && { gap: space.md }, { paddingBottom: Math.max(insets.bottom, space.lg) + (wide ? 0 : space.xs) },
+      {/* Where the photo was taken: a quiet caption that follows the slideshow. */}
+      <Animated.View pointerEvents="none" style={[styles.caption, { alignSelf: ar ? 'flex-end' : 'flex-start', opacity: intro.caption }]}>
+        <Row style={{ gap: 5 }}>
+          <Icon name="pin" size={12} color={palette.cream}/>
+          <Text testID="welcome-photo-place" style={[styles.captionText, { fontFamily: ar ? fonts.medium : latinFonts.medium }]}>{place}</Text>
+        </Row>
+      </Animated.View>
+
+      {/* Tabby's approved banner, in Tabby's light theme. */}
+      <Animated.View style={[styles.promo, wide && styles.promoWide, { opacity: intro.promo,
+        transform: [{ translateY: intro.promo.interpolate({ inputRange: [0, 1], outputRange: [18, 0] }) }, { scale: intro.promo.interpolate({ inputRange: [0, 1], outputRange: [0.96, 1] }) }] }]}>
+        <TabbyBanner compact={compact}/>
+      </Animated.View>
+
+      <Animated.View style={[styles.sheet, wide && styles.sheetWide, tiny && { gap: space.sm }, { paddingBottom: Math.max(insets.bottom, space.lg) + (wide ? 0 : space.xs) },
         { opacity: intro.sheet, transform: [{ translateY: intro.sheet.interpolate({ inputRange: [0, 1], outputRange: [80, 0] }) }] }]}>
         {!wide && <View style={styles.handle}/>}
         <View style={{ gap: 2 }}>
-          <Txt kind="heading" align="center" accessibilityRole="header">{ar ? 'أهلاً بك في مخدة' : 'Welcome to Mkhadda'}</Txt>
-          {!compact && <Txt kind="small" align="center">{ar ? 'حسابك بوابتك إلى أسعار الأعضاء وحجوزاتك في مكان واحد.' : 'Your account opens member prices and keeps every booking in one place.'}</Txt>}
+          <Txt kind="heading" align="center" accessibilityRole="header">{ar ? 'عضوية مخدة مجانية' : 'Mkhadda membership is free'}</Txt>
+          {!tiny && <Txt kind="small" align="center">{ar ? 'قدّم طلبك، ونراجعه، وبعد الموافقة تنفتح لك أسعار الأعضاء.' : 'Apply, we review it, and once approved member prices open up.'}</Txt>}
         </View>
+        {!tiny && <Animated.View testID="welcome-benefits" style={[styles.benefits, { flexDirection: ar ? 'row-reverse' : 'row' }, rise(intro.benefits, 10)]}>
+          {benefits.map(item => <View key={item.label} style={styles.benefit}>
+            <View style={styles.benefitIcon}><Icon name={item.icon} size={17} color={palette.plum600}/></View>
+            <Text style={[styles.benefitText, { fontFamily: ar ? fonts.medium : latinFonts.medium }]} numberOfLines={2}>{item.label}</Text>
+          </View>)}
+        </Animated.View>}
         <View style={{ gap: space.sm }}>
-          <Button testID="welcome-register" fill icon="sparkles" title={ar ? 'إنشاء حساب جديد' : 'Create an account'} onPress={() => account('register')}/>
+          <Button testID="welcome-register" fill icon="sparkles" title={ar ? 'اطلب عضويتك المجانية' : 'Apply for free membership'} onPress={() => account('register')}/>
           <Button testID="welcome-login" fill variant="secondary" title={ar ? 'لدي حساب · تسجيل الدخول' : 'I have an account · Sign in'} onPress={() => account('login')}/>
         </View>
       </Animated.View>
@@ -269,26 +294,26 @@ const styles = StyleSheet.create({
   blob: { position: 'absolute' },
   top: { justifyContent: 'flex-start', paddingTop: space.sm, minHeight: 44 },
   language: { flexDirection: 'row', alignItems: 'center', gap: 6, minHeight: 36, paddingHorizontal: space.md, borderRadius: radius.pill,
-    backgroundColor: 'rgba(255,255,255,0.1)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
+    backgroundColor: 'rgba(32,22,38,0.45)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.22)' },
   languageText: { color: palette.cream, fontSize: 13, lineHeight: 18 },
-  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: space.lg },
+  hero: { flex: 1, alignItems: 'center', justifyContent: 'center', paddingBottom: space.sm },
   disc: { backgroundColor: palette.cream, alignItems: 'center', justifyContent: 'center',
-    shadowColor: '#000', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.35, shadowRadius: 28, elevation: 14 },
-  word: { color: palette.cream, fontFamily: fonts.bold, writingDirection: 'rtl', textAlign: 'center' },
+    shadowColor: '#000', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.4, shadowRadius: 28, elevation: 14 },
+  word: { color: palette.cream, fontFamily: fonts.bold, writingDirection: 'rtl', textAlign: 'center', textShadowColor: 'rgba(20,10,28,0.55)', textShadowRadius: 18 },
   letters: { flexDirection: 'row', direction: 'ltr', marginTop: -4 },
-  letter: { color: palette.lavender300, fontFamily: latinFonts.bold, fontSize: 13, lineHeight: 18, marginHorizontal: 2.2 },
-  tagline: { color: palette.white, textAlign: 'center' },
-  category: { minHeight: 34, paddingHorizontal: 10, borderRadius: radius.pill, justifyContent: 'center',
-    backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.16)' },
-  categoryActive: { backgroundColor: palette.cream, borderColor: palette.cream },
-  categoryText: { fontSize: 13, lineHeight: 18 },
-  soon: { paddingHorizontal: 6, paddingVertical: 1, borderRadius: radius.pill, backgroundColor: 'rgba(249,221,201,0.18)' },
-  soonText: { color: palette.apricot200, fontSize: 10, lineHeight: 14 },
-  pill: { minHeight: 40, paddingHorizontal: space.lg, borderRadius: radius.pill, overflow: 'hidden', justifyContent: 'center', maxWidth: 360 },
-  shine: { position: 'absolute', top: -10, bottom: -10, left: 0, width: 70 },
-  pillText: { color: palette.plum800, fontSize: 14, lineHeight: 20 },
-  sheet: { gap: space.lg, backgroundColor: color.bgCanvas, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: space.xl, paddingTop: space.md,
+  letter: { color: '#E4D9FB', fontFamily: latinFonts.bold, fontSize: 13, lineHeight: 18, marginHorizontal: 2.2 },
+  tagline: { color: palette.white, textAlign: 'center', textShadowColor: 'rgba(20,10,28,0.6)', textShadowRadius: 12 },
+  caption: { marginHorizontal: space.lg, marginBottom: space.xs, paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: radius.pill,
+    backgroundColor: 'rgba(32,22,38,0.5)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.2)' },
+  captionText: { color: palette.cream, fontSize: 11.5, lineHeight: 16 },
+  promo: { paddingHorizontal: space.lg, marginBottom: space.sm, width: '100%', maxWidth: 480, alignSelf: 'center' },
+  promoWide: { maxWidth: 440 },
+  sheet: { gap: space.md, backgroundColor: color.bgCanvas, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: space.xl, paddingTop: space.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 16 },
   sheetWide: { alignSelf: 'center', width: 440, borderRadius: 28, marginBottom: space.xxl, paddingTop: space.xl },
   handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: palette.neutral200 },
+  benefits: { justifyContent: 'space-between', gap: space.sm },
+  benefit: { flex: 1, alignItems: 'center', gap: 6 },
+  benefitIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.lavender100 },
+  benefitText: { color: palette.plum800, fontSize: 12.5, lineHeight: 17, textAlign: 'center' },
 });
