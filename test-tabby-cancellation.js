@@ -86,3 +86,16 @@ test('a Tabby-paid booking cancels and hands the refund to the reconciler', asyn
     assert.equal(checkout.refund_amount_minor, 18862);
     assert.equal(cancellation.customer_refund_amount_minor, 18862);
 });
+
+test('payment availability carries the public Tabby promo settings, never the secret key', () => {
+    const { createPaymentAvailabilityHandler } = require('./services/checkoutRecoveryRoutes');
+    const saved = Object.fromEntries(['TABBY_ENABLED', 'TABBY_SECRET_KEY', 'TABBY_MERCHANT_CODE', 'TABBY_WEBHOOK_SECRET', 'TABBY_PUBLIC_KEY', 'ZIINA_TEST_MODE'].map(key => [key, process.env[key]]));
+    Object.assign(process.env, tabbyEnv, { TABBY_PUBLIC_KEY: ['pk', 'test', 'publicfixture0000'].join('_') });
+    try {
+        const handler = createPaymentAvailabilityHandler({ payment: { getCheckoutReadiness: () => ({ ready: true, mode: 'sandbox' }) }, database: { readyState: 1 } });
+        let body; handler({}, { set() {}, json(value) { body = value; } });
+        assert.equal(body.tabby, true);
+        assert.deepEqual(body.tabby_promo, { merchant_code: 'FixtureMerchant', public_key: ['pk', 'test', 'publicfixture0000'].join('_') });
+        assert.doesNotMatch(JSON.stringify(body), /sk_/);
+    } finally { for (const [key, value] of Object.entries(saved)) { if (value === undefined) delete process.env[key]; else process.env[key] = value; } }
+});

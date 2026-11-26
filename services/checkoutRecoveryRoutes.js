@@ -8,7 +8,12 @@ function createPaymentAvailabilityHandler({ payment, database } = {}) {
         const enabled = readiness.ready === true && mode !== 'unconfigured' && database.readyState === 1;
         let tabby = false;
         try { tabby = enabled && require('./tabbyClient').isTabbyReady(); } catch { tabby = false; }
-        return res.json({ enabled, mode, tabby, ...(!enabled ? { reason: 'checkout_unavailable' } : {}) });
+        // Tabby's standard promo and its "Learn more" pop-up need the merchant code and the public key
+        // (both public by design; the secret key never leaves the server).
+        const merchant = String(process.env.TABBY_MERCHANT_CODE || '').trim(), publicKey = String(process.env.TABBY_PUBLIC_KEY || '').trim();
+        const promo = tabby && /^[A-Za-z0-9_-]{1,64}$/.test(merchant) && /^pk_(?:test_)?[A-Za-z0-9-]{10,100}$/.test(publicKey)
+            ? { tabby_promo: { merchant_code: merchant, public_key: publicKey } } : {};
+        return res.json({ enabled, mode, tabby, ...promo, ...(!enabled ? { reason: 'checkout_unavailable' } : {}) });
     };
 }
 
