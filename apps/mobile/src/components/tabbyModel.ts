@@ -94,3 +94,20 @@ export function tabbyMessage(outcome: TabbyOutcome, language: string): { title: 
       : { title: 'Tabby could not approve this purchase', body: 'Sorry, Tabby is unable to approve this purchase. Please use an alternative payment method for your order.' };
   }
 }
+
+/*
+ * Tabby's home screen banner, from Tabby's Merchant guidelines (Marketing Toolkit, 27 Nov 2026):
+ * - UAE core message for purchases of AED 100 and over (and for travel): lead "Pay over time",
+ *   supporting line "4 interest-free payments or up to 12 months." (slides 7–8);
+ * - any communication referencing Tabby's financial terms carries the UAE disclaimer (slide 11).
+ * Arabic uses Tabby's own Arabic wording from its widget ("ادفع على راحتك", "4 دفعات بدون فوائد",
+ * "أو حتى 12 شهرًا"). The disclaimer stays in Tabby's exact English legal wording in both languages.
+ * Never "instalments", "free", "no credit checks" or "affordable" (slide 10).
+ */
+export const TABBY_UAE_DISCLAIMER = 'Pay Later (Short Term Credit) is provided by Tabby LLC. Terms and conditions apply. For more information or to contact us, visit tabby.ai.';
+
+export function tabbyBannerCopy(language: string) {
+  return language === 'ar'
+    ? { lead: 'ادفع على راحتك', support: '4 دفعات بدون فوائد أو حتى 12 شهرًا.', disclaimer: TABBY_UAE_DISCLAIMER }
+    : { lead: 'Pay over time', support: '4 interest-free payments or up to 12 months.', disclaimer: TABBY_UAE_DISCLAIMER };
+}

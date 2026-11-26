@@ -50,8 +50,21 @@ test('Tabby promo is Tabby’s standard text word for word, with total × 1.015 
   assert.equal(tabbyLearnMoreUrl('1000', 'en', { merchantCode: 'PillowStaysApp', publicKey: 'sk_test_secret000000' }), null, 'never a secret key');
   // No custom Tabby promo copy remains anywhere in the model.
   const source = fs.readFileSync(path.join(__dirname, 'tabbyModel.ts'), 'utf8');
-  assert.doesNotMatch(source, /The hotel won|الفاتورة تستنّى|على راحتك|4, 6 or 12/);
+  assert.doesNotMatch(source, /The hotel won|الفاتورة تستنّى|المخدة اليوم|4, 6 or 12/);
   // Tabby asked for nothing under its option but the name, the logo and the standard text.
   assert.equal(paymentChoiceCopy('ar').approval, undefined);
   assert.doesNotMatch(source, /Tabby account|حساب معها|Tabby’s page and come/);
+});
+
+test('the home screen banner is Tabby’s approved UAE message with its disclaimer, nothing invented', () => {
+  const { tabbyBannerCopy, TABBY_UAE_DISCLAIMER } = require('./tabbyModel.ts');
+  assert.deepEqual(tabbyBannerCopy('en'), { lead: 'Pay over time', support: '4 interest-free payments or up to 12 months.', disclaimer: TABBY_UAE_DISCLAIMER });
+  assert.equal(tabbyBannerCopy('ar').lead, 'ادفع على راحتك');
+  assert.equal(tabbyBannerCopy('ar').support, '4 دفعات بدون فوائد أو حتى 12 شهرًا.');
+  assert.equal(TABBY_UAE_DISCLAIMER, 'Pay Later (Short Term Credit) is provided by Tabby LLC. Terms and conditions apply. For more information or to contact us, visit tabby.ai.');
+  // Phrases Tabby does not permit (Merchant guidelines, "What to avoid").
+  for (const language of ['en', 'ar']) {
+    const all = JSON.stringify(tabbyBannerCopy(language));
+    assert.doesNotMatch(all, /\bfree\b(?! payments)|no cost|instal+ments?|affordable|cheap|no credit check|instant approval|guaranteed|أقساط|تقسيط|مجان/i);
+  }
 });

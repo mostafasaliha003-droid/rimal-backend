@@ -11,6 +11,7 @@ import { Button, Icon, Row, Txt } from '../components/Primitives';
 import type { IconName } from '../components/Primitives';
 import { useReducedMotion } from '../components/motion';
 import { haptic } from '../components/haptics';
+import { TabbyBanner } from '../components/TabbyPromo';
 
 const native = Platform.OS !== 'web';
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
@@ -124,7 +125,7 @@ export default function WelcomeScreen() {
   const compact = height < 900;
   const tiny = height < 700;
   const wide = width >= 720;
-  const intro = useValues(['reveal', 'emblem', 'word', 'letters', 'tagline', 'chips', 'pill', 'sheet'] as const);
+  const intro = useValues(['reveal', 'emblem', 'word', 'letters', 'tagline', 'chips', 'pill', 'promo', 'sheet'] as const);
   const { next } = useLocalSearchParams<{ next?: string }>();
   const [ring] = useState(() => new Animated.Value(0));
   const loops = useValues(['drift', 'twinkle', 'float', 'glow', 'orbit', 'shine'] as const);
@@ -144,6 +145,7 @@ export default function WelcomeScreen() {
       at(1180, ease(intro.tagline, 650)),
       at(1380, ease(intro.chips, 800)),
       at(1560, spring(intro.pill, 5)),
+      at(1780, spring(intro.promo, 7)),
       at(1450, spring(intro.sheet, 9)),
     ]);
     const breathe = (value: Animated.Value, duration: number) => Animated.loop(Animated.sequence([
@@ -219,7 +221,7 @@ export default function WelcomeScreen() {
             </Animated.View>;
           })}
         </Row>}
-        <Animated.View style={{ opacity: intro.pill, transform: [{ scale: intro.pill.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }] }}>
+        {!tiny && <Animated.View style={{ opacity: intro.pill, transform: [{ scale: intro.pill.interpolate({ inputRange: [0, 1], outputRange: [0.7, 1] }) }] }}>
           <View style={styles.pill} testID="welcome-member-pill">
             <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 10" style={StyleSheet.absoluteFill}>
               <Defs><LinearGradient id="welcome-pill" x1="0" y1="0" x2="1" y2="0">
@@ -237,6 +239,12 @@ export default function WelcomeScreen() {
               <Text style={[styles.pillText, { fontFamily: ar ? fonts.bold : latinFonts.bold }]}>{ar ? 'سعر مدلّل لأعضائنا فقط' : 'Pampered prices, for members only'}</Text>
             </Row>
           </View>
+        </Animated.View>}
+        {/* Tabby's approved home screen banner (Tabby's design and words), springing in after our pill.
+            On very small screens it takes the pill's place. */}
+        <Animated.View style={[{ width: '100%', maxWidth: 420, paddingHorizontal: space.lg, marginTop: tiny ? 0 : space.xs },
+          { opacity: intro.promo, transform: [{ translateY: intro.promo.interpolate({ inputRange: [0, 1], outputRange: [22, 0] }) }, { scale: intro.promo.interpolate({ inputRange: [0, 1], outputRange: [0.94, 1] }) }] }]}>
+          <TabbyBanner compact={compact}/>
         </Animated.View>
       </View>
 
