@@ -191,3 +191,14 @@ test('fee arithmetic and conversion are exact for the documented inputs', () => 
     assert.equal(finance.convert(100, 'EUR', 'AED', { USD: '1', AED: '3.6725' }), null);
     assert.equal(finance.feeFor(finance.normalizeSchedule({}), 100, 'AED', {}), null);
 });
+
+test('money owed back to the guest is never counted as profit, even before the refund completes', () => {
+    const base = { reference: 'R', amount_minor: 100000, currency: 'AED', supplier_payment: { type: 'deposit', amount: '200.00', currency_code: 'USD' }, partner_order_id: 'P' };
+    const failed = finance.economics({ checkout: { ...base, state: 'booking_failed' }, liveRates: { USD: '1', AED: '3.6725' } });
+    assert.deepEqual([failed.reporting.refunded, failed.reporting.cost, failed.reporting.net, failed.refundPending], [1000, 0, 0, true]);
+    const cancelling = finance.economics({ checkout: { ...base, state: 'refund_pending', cancellation_request_hash: 'h', refund_amount_minor: 80000 },
+        cancellation: { amount_payable: { amount: '20.00', currency_code: 'USD' } }, liveRates: { USD: '1', AED: '3.6725' } });
+    assert.equal(cancelling.reporting.refunded, 800);
+    assert.equal(cancelling.reporting.net, Math.round((1000 - 800 - 20 * 3.6725) * 100) / 100);
+    assert.equal(cancelling.refundPending, true);
+});

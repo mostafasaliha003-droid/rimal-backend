@@ -2,6 +2,7 @@ import { defineConfig, loadEnv } from 'vite';
 import react from '@vitejs/plugin-react';
 import { copyFileSync, readFileSync, writeFileSync } from 'node:fs';
 import { resolve } from 'node:path';
+import { fileURLToPath } from 'node:url';
 
 const githubPagesFallbackPlugin = () => ({
     name: 'github-pages-fallback',
@@ -36,7 +37,8 @@ export default defineConfig(({ mode }) => {
                     : [];
             }
         }, githubPagesFallbackPlugin()],
-        build: { outDir: configuredBuildOutput(env) },
+        // Two pages: the guest website and Mkhadda Desk (the staff console at /desk).
+        build: { outDir: configuredBuildOutput(env), rollupOptions: { input: { main: fileURLToPath(new URL('./index.html', import.meta.url)), desk: fileURLToPath(new URL('./desk.html', import.meta.url)) } } },
         server: {
             port: 5173,
             proxy: {

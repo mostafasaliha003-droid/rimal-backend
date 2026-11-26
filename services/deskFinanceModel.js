@@ -102,8 +102,11 @@ function economics({ checkout, booking = null, cancellation = null, schedules = 
         else issues.push('supplier_penalty_unknown');
     }
     if (cost === null) issues.push('supplier_cost_unknown');
-    const refunded = state === 'refund_completed' && Number.isSafeInteger(checkout.refund_amount_minor)
-        ? checkout.refund_amount_minor / 10 ** decimals(currency) : 0;
+    // Money owed back to the guest is never profit: a failed booking owes everything back, a cancellation
+    // owes the refund it recorded. Counted as soon as it is due, not only once the gateway completes it.
+    const refundMinor = failed ? checkout.amount_minor : Number.isSafeInteger(checkout.refund_amount_minor) ? checkout.refund_amount_minor : 0;
+    const refunded = Number.isSafeInteger(refundMinor) ? refundMinor / 10 ** decimals(currency) : 0;
+    const refundPending = refunded > 0 && state !== 'refund_completed';
     const fee = sell === null ? null : feeFor(schedules[provider], sell, currency, rates);
     if (fee === null) issues.push(`fees_not_configured:${provider}`);
     const report = value => value === null ? null : convert(value, currency, REPORTING, rates);
@@ -124,7 +127,7 @@ function economics({ checkout, booking = null, cancellation = null, schedules = 
         reporting: { currency: REPORTING, sell: sellR === null ? null : round2(sellR), cost: costR === null ? null : round2(costR),
             fee: round2(feeR || 0), refunded: round2(refundR || 0), kept: kept === null ? null : round2(kept), net: net === null ? null : round2(net),
             margin: net === null || !kept ? null : round2(net / kept * 100) },
-        rateSource: Object.keys(quoteRates).length ? 'booking' : 'live',
+        refundPending, rateSource: Object.keys(quoteRates).length ? 'booking' : 'live',
         issues: [...new Set(issues)]
     };
 }
