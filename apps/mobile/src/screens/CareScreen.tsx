@@ -120,7 +120,9 @@ function CareContents({ reference, intent, draft, signedIn, loading }: { referen
     <Txt kind="small" accessibilityLiveRegion="polite">{copy.loading}</Txt>
     <Skeleton width="62%" height={44} rounded={radius.lg}/><Skeleton width="48%" height={44} rounded={radius.lg} style={{ alignSelf: endSide }}/>
   </View>;
-  else if (error) content = error instanceof ApiError && (error.code === 'support_reference_not_found' || error.status === 404)
+  else if (error) content = error instanceof ApiError && error.code === 'support_requires_confirmed_booking'
+    ? <StatePanel testID="care-not-confirmed" icon="hourglass" title={copy.notConfirmed} body={copy.notConfirmedBody}/>
+    : error instanceof ApiError && (error.code === 'support_reference_not_found' || error.status === 404)
     ? <StatePanel icon="alertCircle" title={copy.notYours} body={copy.notYoursBody}/>
     : <ApiState error={error} retry={() => { setError(null); setAttempt(value => value + 1); }}/>;
   else if (thread) content = <View style={{ gap: space.xs }}>

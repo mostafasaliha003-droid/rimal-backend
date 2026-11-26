@@ -59,7 +59,7 @@ export default function SupportScreen() {
   }, [status]));
   const openCare = (reference: string) => router.push({ pathname: '/care/[reference]', params: { reference } });
   const talked = new Set(inbox?.conversations.map(row => row.reference));
-  const fresh = (inbox?.bookings ?? []).filter(row => !talked.has(row.reference) && /^[A-Za-z0-9_-]{1,120}$/.test(row.reference)).slice(0, 4);
+  const fresh = (inbox?.bookings ?? []).filter(row => row.statusKind === 'confirmed' && !talked.has(row.reference) && /^[A-Za-z0-9_-]{1,120}$/.test(row.reference)).slice(0, 4);
   const open = async (path: '/privacy' | '/terms' | '/account-deletion') => {
     setError(false);
     try { await WebBrowser.openBrowserAsync(websiteUrl(path), { toolbarColor: color.bgBrand }); } catch { setError(true); }

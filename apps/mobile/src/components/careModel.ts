@@ -30,6 +30,9 @@ export function careCopy(language: string) {
     loading: ar ? 'نفتح محادثتك…' : 'Opening your conversation…',
     notYours: ar ? 'لم نجد هذا الحجز في حسابك' : 'We could not find this booking in your account',
     notYoursBody: ar ? 'افتح المحادثة من «رحلاتي» بالحساب الذي حجزت به.' : 'Open the conversation from My trips while signed in to the account you booked with.',
+    notConfirmed: ar ? 'المحادثة تفتح بعد تأكيد الفندق' : 'Chat opens once the hotel confirms',
+    notConfirmedBody: ar ? 'المحادثة المباشرة متاحة للحجوزات المؤكدة. لأي سؤال قبل التأكيد راسلنا على management@remaltourismllc.com.'
+      : 'Live chat is for confirmed bookings. For anything before confirmation, email management@remaltourismllc.com.',
     tooLong: (limit: number) => ar ? `الرسالة أطول من ${limit} حرف` : `The message is longer than ${limit} characters`,
     status: {
       open: ar ? 'وصلت رسالتك للفريق' : 'Your message is with the team',

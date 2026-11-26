@@ -41,7 +41,8 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
   const meta = statusMeta[row.statusKind];
   const [expanded, setExpanded] = useState(false);
   // Help and changes stay in the app: the booking's conversation with the team, and the change guide.
-  const validRef = /^[A-Za-z0-9_-]{1,120}$/.test(booking.reference);
+  // Live chat is for bookings the hotel confirmed (still open after a later cancellation, for the refund).
+  const validRef = /^[A-Za-z0-9_-]{1,120}$/.test(booking.reference) && (row.statusKind === 'confirmed' || row.statusKind === 'cancelled');
   const openCare = () => router.push({ pathname: '/care/[reference]', params: { reference: booking.reference } });
   const openChange = () => router.push({ pathname: '/change/[reference]', params: { reference: booking.reference } });
   // Received is not confirmed: say so plainly, and discourage a second booking for the same stay.
