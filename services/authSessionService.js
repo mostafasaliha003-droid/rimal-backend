@@ -126,7 +126,22 @@ function createAuthSessionService({
         }
     }
 
-    return { create, resolve, revoke };
+    /** Signs an account out everywhere (after a password reset). */
+    async function revokeAll({ subject, role = 'user', realm: requestedRealm = realm } = {}) {
+        if (typeof subject !== 'string' || !subject) return 0;
+        const activeRealm = configuredRealm();
+        if (!activeRealm || requestedRealm !== activeRealm) return 0;
+        await ensureReady();
+        const revokedAt = new Date(now());
+        try {
+            const result = await Model.updateMany({ subject, role, realm: activeRealm, revokedAt: null }, { $set: { revokedAt } }, { writeConcern: WRITE_CONCERN });
+            return result?.modifiedCount || 0;
+        } catch {
+            throw fail('auth_session_database_unavailable');
+        }
+    }
+
+    return { create, resolve, revoke, revokeAll };
 }
 
 module.exports = {

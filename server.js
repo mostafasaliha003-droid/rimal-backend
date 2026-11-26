@@ -241,6 +241,7 @@ const bookingRecordPersistence = createBookingRecordPersistence({
 });
 
 const verificationCodes = new Map();
+const passwordResetCodes = new Map();
 const ADMIN_EMAIL = String(process.env.ADMIN_EMAIL || 'management@remaltourismllc.com').trim().toLowerCase();
 const ADMIN_PASSWORD_HASH = process.env.ADMIN_PASSWORD_HASH || '';
 
@@ -264,17 +265,30 @@ app.get('/api/v1/admin/readiness', requireAdmin, (_req, res) => {
     res.status(report.configurationReady ? 200 : 503).json(report);
 });
 app.use('/api/v1/admin/data', createAdminBookingRouter({ BookingModel: Booking, requireAdmin }));
+// E-mail a guest when the team replies in Mkhadda care (the app has no phone notifications yet).
+async function notifySupportCustomer({ conversation, body }) {
+    if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) return;
+    const user = await User.findById(conversation.ownerSubject).select('email name').lean();
+    if (!user?.email) return;
+    const mail = require('./services/supportReplyMail').renderSupportReply({ name: user.name || conversation.customerName,
+        hotelName: conversation.hotelName, reference: conversation.reference, body });
+    await require('./services/notificationService').sendSupportReply({ email: user.email, ...mail });
+}
 const supportRouters = require('./services/customerSupportRoutes').createCustomerSupportRouters({
-    BookingModel: Booking, UserModel: User, requireUser: sessionAuth.requireRole('user'), requireAdmin
+    BookingModel: Booking, UserModel: User, requireUser: sessionAuth.requireRole('user'), requireAdmin, notifyCustomer: notifySupportCustomer
 });
 app.use('/api/support', supportRouters.customer);
 app.use('/api/v1/admin/support', supportRouters.staff);
 // Mkhadda Desk (staff console at /desk): finance for the administrator, care for agents too.
 const requireStaff = sessionAuth.requireRole(['admin', 'agent']);
 const deskSupport = require('./services/customerSupportRoutes').createCustomerSupportRouters({
-    BookingModel: Booking, UserModel: User, requireUser: sessionAuth.requireRole('user'), requireAdmin: requireStaff
+    BookingModel: Booking, UserModel: User, requireUser: sessionAuth.requireRole('user'), requireAdmin: requireStaff, notifyCustomer: notifySupportCustomer
 });
 app.use('/api/v1/desk/care/support', deskSupport.staff);
+// App crash reports (scrubbed, our own server) and their list in Desk for the administrator.
+const appErrors = require('./services/appErrorRoutes').createAppErrorRouters({ requireAdmin });
+app.use('/api/app', appErrors.app);
+app.use('/api/v1/desk', appErrors.desk);
 app.use('/api/v1/desk', require('./services/deskRoutes').createDeskRouter({
     sessions: authSessionService, auth: sessionAuth, adminEmail: ADMIN_EMAIL, adminPasswordHash: ADMIN_PASSWORD_HASH,
     comparePassword: (password, hash) => bcrypt.compare(password, hash), hashPassword: password => bcrypt.hash(password, 12),
@@ -320,10 +334,16 @@ app.use('/api/auth', createUserAuthRouter({
     sessions: authSessionService,
     auth: sessionAuth,
     verificationCodes,
+    resetCodes: passwordResetCodes,
     sendVerificationEmail: (email, code) => membershipService.enabled() ? membershipMailer.verification(email,code) : sendProfessionalEmail(
         email,
-        'رمز التحقق لتفعيل حسابك - رمال!',
+        'رمز التحقق لتفعيل حسابك | مخدة',
         `<h2 dir="rtl">الكود: ${code}</h2>`
+    ),
+    sendPasswordResetEmail: (email, code) => membershipService.enabled() ? membershipMailer.passwordReset(email, code) : sendProfessionalEmail(
+        email,
+        'رمز إعادة تعيين كلمة المرور | مخدة',
+        `<h2 dir="rtl">رمز إعادة تعيين كلمة المرور: ${code}</h2><p dir="rtl">ينتهي خلال 10 دقائق. إن لم تطلبه فتجاهل هذه الرسالة.</p>`
     ),
     hashPassword: password => bcrypt.hash(password, 12),
     comparePassword: (password, hash) => bcrypt.compare(password, hash),

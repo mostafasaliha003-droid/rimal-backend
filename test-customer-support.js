@@ -43,7 +43,7 @@ function model(seed = []) {
         }
     };
 }
-async function fixture(t) {
+async function fixture(t, extra = {}) {
     const BookingModel = model([{ bookingReference: 'owned-booking', ownerSubject: 'customer', realm: 'sandbox', hotelName: 'Actual Hotel', customerName: 'Guest', email: 'booking@example.test', phone: '+971500000002', provider: 'ratehawk', supplierReference: 'supplier-1', supplierStatus: 'CONFIRMED', status: 'active', price: 100, priceCurrency: 'AED' },
         { bookingReference: 'foreign-booking', ownerSubject: 'other', realm: 'sandbox', status: 'active' }]);
     const CheckoutModel = model([{ reference: 'owned-payment', ownerSubject: 'customer', realm: 'sandbox', ziina_intent_id: 'recorded-intent', payment_verified_at: new Date(), state: 'booking_pending', amount_minor: 10000, currency: 'AED' },
@@ -60,7 +60,7 @@ async function fixture(t) {
     };
     const routers = createCustomerSupportRouters({ BookingModel, CheckoutModel, UserModel, Conversation, Message,
         requireUser: auth('user'), requireAdmin: auth('admin'), env: { RIMAL_AUTH_REALM: 'sandbox' },
-        readLimiter: (_req, _res, next) => next(), writeLimiter: (_req, _res, next) => next() });
+        readLimiter: (_req, _res, next) => next(), writeLimiter: (_req, _res, next) => next(), ...extra });
     const app = express(); app.use(express.json()); app.use('/customer', routers.customer); app.use('/staff', routers.staff);
     const server = app.listen(0, '127.0.0.1'); await new Promise(resolve => server.once('listening', resolve));
     t.after(() => new Promise(resolve => { server.closeAllConnections(); server.close(resolve); }));
@@ -187,4 +187,27 @@ test('history pagination is bounded, scoped to the conversation and does not mar
     assert.equal(s.Conversation.rows[0].customerReadAt, undefined);
     assert.equal((await s.request(`/customer/conversations/${conversation.id}?before=${'f'.repeat(64)}`)).status, 400);
     assert.equal((await s.request(`/customer/conversations/${conversation.id}?before[$ne]=x`)).status, 400);
+});
+
+test('a team reply e-mails the guest once per 10 minutes; messages from the guest never do', async t => {
+    const sent = []; let clock = Date.parse('2026-11-27T10:00:00Z');
+    const s = await fixture(t, { notifyCustomer: async ({ conversation, body }) => { sent.push({ reference: conversation.reference, body }); }, now: () => clock });
+    const conversation = await s.open('owned-booking');
+    const say = (token, body) => s.request(`/${token === 'admin' ? 'staff' : 'customer'}/conversations/${conversation.id}/messages`, { token, method: 'POST', body: { body, clientId: crypto.randomUUID() } });
+    await say('customer', 'Can I add a late check-in?');
+    await new Promise(r => setImmediate(r));
+    assert.equal(sent.length, 0);
+    await say('admin', 'Done, the hotel confirmed.');
+    await new Promise(r => setImmediate(r));
+    assert.deepEqual(sent, [{ reference: 'owned-booking', body: 'Done, the hotel confirmed.' }]);
+    await say('admin', 'Anything else?');
+    await new Promise(r => setImmediate(r));
+    assert.equal(sent.length, 1, 'no second e-mail within 10 minutes');
+    const note = await s.request(`/staff/conversations/${conversation.id}/messages`, { token: 'admin', method: 'POST', body: { body: 'internal', clientId: crypto.randomUUID(), kind: 'note' } });
+    assert.equal(note.status, 200);
+    clock += 11 * 60 * 1000;
+    await say('admin', 'Following up.');
+    await new Promise(r => setImmediate(r));
+    assert.equal(sent.length, 2);
+    assert.equal(sent.some(m => m.body === 'internal'), false, 'internal notes never reach the guest');
 });

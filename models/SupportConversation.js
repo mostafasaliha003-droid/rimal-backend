@@ -6,7 +6,9 @@ const schema = new mongoose.Schema({
     status: { type: String, enum: ['open', 'waiting', 'resolved'], default: 'open' },
     priority: { type: String, enum: ['normal', 'high'], default: 'normal' }, assignedTo: String,
     lastMessage: String, lastMessageId: { type: String, default: '' }, lastMessageAt: { type: Date, default: () => new Date(0) },
-    lastCustomerAt: Date, lastStaffAt: Date, staffReadAt: Date, customerReadAt: Date
+    lastCustomerAt: Date, lastStaffAt: Date, staffReadAt: Date, customerReadAt: Date,
+    // When the guest was last e-mailed about a team reply (at most one e-mail per 10 minutes).
+    customerNotifiedAt: Date
 }, { timestamps: true, bufferCommands: false });
 schema.index({ realm: 1, ownerSubject: 1, reference: 1 }, { unique: true });
 schema.index({ realm: 1, status: 1, updatedAt: -1 });

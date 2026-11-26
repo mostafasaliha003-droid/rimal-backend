@@ -21,7 +21,7 @@ const conversationView = (row, staff) => ({ id: row._id, reference: row.referenc
 function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('../models/CheckoutAttempt'),
     UserModel = require('mongoose').models.User,
     Conversation = require('../models/SupportConversation'), Message = require('../models/SupportMessage'),
-    requireUser, requireAdmin, env = process.env, readLimiter, writeLimiter } = {}) {
+    requireUser, requireAdmin, env = process.env, readLimiter, writeLimiter, notifyCustomer = null, now = () => Date.now() } = {}) {
     const customer = express.Router(), staff = express.Router();
     const scopedLimit = max => rateLimit({ windowMs: 60000, max, standardHeaders: true, legacyHeaders: false,
         keyGenerator: req => `${req.auth.realm}:${req.auth.role}:${req.auth.subject}`, message: { error: 'support_rate_limited' } });
@@ -162,6 +162,14 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
                 if (failure.code !== 11000) throw failure;
                 message = await Message.findOne({ _id: id, conversation: row._id, realm: req.auth.realm }).lean();
                 if (!message || message.body !== body || message.kind !== kind) throw error('support_message_conflict', 409);
+            }
+            if (kind === 'message' && isStaff && typeof notifyCustomer === 'function') {
+                // E-mail the guest about the reply, at most once per conversation every 10 minutes.
+                const since = new Date(now() - 10 * 60 * 1000);
+                const claimed = await Conversation.updateOne({ _id: row._id, realm: req.auth.realm,
+                    $or: [{ customerNotifiedAt: { $in: [null] } }, { customerNotifiedAt: { $lt: since } }] },
+                { $set: { customerNotifiedAt: new Date(now()) } }, { timestamps: false }).catch(() => ({ modifiedCount: 0 }));
+                if ((claimed?.modifiedCount ?? claimed?.matchedCount) === 1) Promise.resolve().then(() => notifyCustomer({ conversation: row, body })).catch(() => undefined);
             }
             if (kind === 'message') {
                 await Conversation.updateOne({ _id: row._id, realm: req.auth.realm },

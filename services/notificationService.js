@@ -198,6 +198,12 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
 }
 
 module.exports = {
+    async sendSupportReply({ email, subject, text, html }) {
+        const result = await transporter.sendMail({ from: { name: documentBrand.BRAND.sender, address: process.env.SMTP_USER },
+            to: email, replyTo: documentBrand.BRAND.support, subject, text, html, attachments: [documentBrand.emailSymbolAttachment()] });
+        if (!result.messageId || !result.accepted?.includes(email)) throw new Error('support_reply_email_outcome_unknown');
+        return { messageId: result.messageId };
+    },
     async sendCancellationReceipt({ details, buffer }) {
         const result = await transporter.sendMail({ from: { name: documentBrand.BRAND.sender, address: process.env.SMTP_USER },
             to: details.email, replyTo: 'management@remaltourismllc.com',

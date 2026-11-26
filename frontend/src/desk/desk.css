@@ -315,3 +315,14 @@ html[dir="rtl"] .send svg { transform: scaleX(-1); }
 }
 @media (prefers-reduced-motion: reduce) { *, *::before, *::after { animation-duration: 1ms !important; animation-iteration-count: 1 !important; transition-duration: 1ms !important; } }
 html[dir="rtl"] .gauge svg { transform: scaleX(-1); }
+
+/* ---------- App errors ---------- */
+.error-list { list-style: none; margin: 0; padding: 0; display: grid; gap: 8px; }
+.error-list li { background: #fff; border-radius: var(--r-md); box-shadow: var(--shadow); overflow: hidden; border-inline-start: 4px solid var(--lav-3); }
+.error-list li.fatal { border-inline-start-color: var(--rose); }
+.error-head { width: 100%; display: flex; align-items: center; gap: 12px; padding: 14px 16px; border: 0; background: transparent; text-align: start; }
+.error-count { min-width: 44px; font-weight: 700; font-size: 18px; color: var(--plum-8); }
+.error-main { flex: 1; min-width: 0; display: grid; gap: 3px; } .error-main b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.error-main small { display: flex; align-items: center; gap: 4px; }
+.error-head .rot { transform: rotate(180deg); }
+.error-stack { margin: 0; padding: 14px 16px; background: var(--plum-9); color: #e6dff0; font-size: 12px; line-height: 1.6; overflow-x: auto; white-space: pre-wrap; }

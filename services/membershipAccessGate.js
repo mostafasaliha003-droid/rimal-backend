@@ -8,6 +8,8 @@ function publicApi(req){
     if(method==='GET'&&['/api/v1/ready','/api/v1/health','/api/v1/health-check','/api/payment/availability','/api/payment/rates','/api/payment/app-return','/api/app/version'].includes(path))return true;
     if(path.startsWith('/api/auth/')||path.startsWith('/api/membership/'))return true;
     if(method==='POST'&&(path==='/api/v1/admin/login'||path==='/api/v1/desk/login'))return true;
+    // Crash reports may come before sign-in; they are scrubbed and rate-limited.
+    if(method==='POST'&&path==='/api/app/errors')return true;
     if(method==='POST'&&['/api/payment/ziina/webhook','/api/payment/tabby/webhook','/api/v1/webhooks/ziina-mock','/api/v1/webhooks/ratehawk','/api/v1/webhooks/midoffice'].includes(path))return true;
     // These existing endpoints independently enforce owner identity or a scoped
     // booking capability. Membership changes must not strand an existing payment.

@@ -38,7 +38,9 @@ function createUserAuthRouter({
     sessions,
     auth,
     verificationCodes = new Map(),
+    resetCodes = new Map(),
     sendVerificationEmail,
+    sendPasswordResetEmail = null,
     hashPassword,
     comparePassword,
     now = () => Date.now(),
@@ -143,6 +145,73 @@ function createUserAuthRouter({
                 return res.status(409).json({ success: false, error: 'EMAIL_ALREADY_REGISTERED' });
             }
             return res.status(503).json({ success: false, error: 'registration_unavailable' });
+        }
+    });
+
+    /*
+     * Password reset by e-mailed code. The answer never says whether an account exists; a code is
+     * re-sent at most once a minute; it expires after 10 minutes and 5 wrong tries. A new password
+     * signs the account out of every other device.
+     */
+    const RESET_TTL_MS = 10 * 60 * 1000, RESEND_MS = 60 * 1000;
+    router.post('/password/forgot', authLimiter, async (req, res) => {
+        res.set('Cache-Control', 'no-store');
+        const email = emailAddress(req.body?.email);
+        if (!email) return res.status(400).json({ success: false, error: 'INVALID_EMAIL' });
+        if (typeof sendPasswordResetEmail !== 'function') return res.status(503).json({ success: false, error: 'PASSWORD_RESET_UNAVAILABLE' });
+        const accepted = () => res.status(200).json({ success: true, message: 'reset_code_sent_if_registered' });
+        try {
+            const current = resetCodes.get(email);
+            if (current && current.sentAt > Number(now()) - RESEND_MS) return accepted();
+            const user = await UserModel.findOne({ email }).select('_id').lean();
+            if (!user) return accepted();
+            const code = randomCode();
+            if (typeof code !== 'string' || !/^\d{6}$/.test(code)) throw new Error('reset_code_invalid');
+            const pending = { subject: String(user._id), codeHash: crypto.createHash('sha256').update(code).digest('hex'),
+                attempts: 0, sentAt: Number(now()), expires: Number(now()) + RESET_TTL_MS };
+            resetCodes.set(email, pending);
+            let sent = false;
+            try { sent = await sendPasswordResetEmail(email, code); } catch { sent = false; }
+            if (!sent) {
+                if (resetCodes.get(email) === pending) resetCodes.delete(email);
+                return res.status(503).json({ success: false, error: 'PASSWORD_RESET_EMAIL_UNAVAILABLE' });
+            }
+            return accepted();
+        } catch {
+            return res.status(503).json({ success: false, error: 'PASSWORD_RESET_UNAVAILABLE' });
+        }
+    });
+
+    router.post('/password/reset', authLimiter, async (req, res) => {
+        res.set('Cache-Control', 'no-store');
+        const email = emailAddress(req.body?.email);
+        const code = typeof req.body?.code === 'string' ? req.body.code : '';
+        const password = typeof req.body?.password === 'string' ? req.body.password : '';
+        if (!email || !/^\d{6}$/.test(code)) return res.status(400).json({ success: false, error: 'INVALID_RESET_CODE' });
+        if (password.length < 10 || password.length > 256) return res.status(400).json({ success: false, error: 'INVALID_PASSWORD' });
+        const pending = resetCodes.get(email);
+        if (!pending || pending.expires <= Number(now()) || pending.attempts >= 5) {
+            if (pending) resetCodes.delete(email);
+            return res.status(400).json({ success: false, error: 'INVALID_RESET_CODE' });
+        }
+        pending.attempts += 1;
+        const supplied = crypto.createHash('sha256').update(code).digest();
+        const expected = Buffer.from(pending.codeHash, 'hex');
+        if (supplied.length !== expected.length || !crypto.timingSafeEqual(supplied, expected)) {
+            if (pending.attempts >= 5) resetCodes.delete(email);
+            return res.status(400).json({ success: false, error: 'INVALID_RESET_CODE' });
+        }
+        resetCodes.delete(email);
+        try {
+            const user = await UserModel.findOne({ _id: pending.subject, email }).exec();
+            if (!user) return res.status(400).json({ success: false, error: 'INVALID_RESET_CODE' });
+            user.password = await hashPassword(password);
+            await user.save();
+            if (typeof sessions.revokeAll === 'function') await sessions.revokeAll({ subject: String(user._id), role: 'user' });
+            const session = await sessions.create({ subject: String(user._id), email: user.email, role: 'user' });
+            return res.status(200).json({ success: true, user: publicUser(user), access_token: session.token });
+        } catch {
+            return res.status(503).json({ success: false, error: 'PASSWORD_RESET_UNAVAILABLE' });
         }
     });
 

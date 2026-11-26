@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
-import { BadgePercent, Building2, Calculator, Globe, Headset, LayoutDashboard, LogOut, Search, Users } from 'lucide-react';
+import { BadgePercent, Bug, Building2, Calculator, Globe, Headset, LayoutDashboard, LogOut, Search, Users } from 'lucide-react';
 import { desk, DeskError, session } from './api';
 import { DeskLanguage, dictionaries } from './i18n';
 import Finance from './Finance';
@@ -7,6 +7,7 @@ import { Fees, Suppliers } from './Suppliers';
 import Rates from './Rates';
 import Care, { Bookings } from './Care';
 import Team from './Team';
+import Errors from './Errors';
 
 const NAV = [
     { key: 'finance', icon: LayoutDashboard, roles: ['admin'] },
@@ -15,7 +16,8 @@ const NAV = [
     { key: 'fees', icon: BadgePercent, roles: ['admin'] },
     { key: 'care', icon: Headset, roles: ['admin', 'agent'] },
     { key: 'bookings', icon: Search, roles: ['admin', 'agent'] },
-    { key: 'team', icon: Users, roles: ['admin'] }
+    { key: 'team', icon: Users, roles: ['admin'] },
+    { key: 'errors', icon: Bug, roles: ['admin'] }
 ];
 
 /** The brand mark with a slow orbit: the console's signature on the sign-in screen. */
@@ -115,6 +117,7 @@ export default function DeskApp() {
                 {view === 'care' && <Care initialChat={route.view === 'care' && route.arg ? { id: route.arg.split('|')[0], reference: route.arg.split('|')[1] } : null} />}
                 {view === 'bookings' && <Bookings initial={route.view === 'bookings' ? route.arg : null} openChat={(id, reference) => go('care', `${id}|${reference}`)} />}
                 {view === 'team' && <Team />}
+                {view === 'errors' && <Errors />}
             </main>
         </div>
     </DeskLanguage.Provider>;

@@ -202,3 +202,29 @@ test('money owed back to the guest is never counted as profit, even before the r
     assert.equal(cancelling.reporting.net, Math.round((1000 - 800 - 20 * 3.6725) * 100) / 100);
     assert.equal(cancelling.refundPending, true);
 });
+
+test('crash reports are scrubbed, counted by fingerprint and listed for the administrator only', async t => {
+    const { createAppErrorRouters } = require('./services/appErrorRoutes');
+    const rows = new Map();
+    const AppError = {
+        updateOne: async (filter, update) => { const row = rows.get(filter._id) || { _id: filter._id, ...update.$setOnInsert, count: 0 }; Object.assign(row, update.$set); row.count += update.$inc.count; rows.set(filter._id, row); },
+        find: () => ({ sort() { return this; }, limit() { return this; }, lean: async () => [...rows.values()] })
+    };
+    const routers = createAppErrorRouters({ AppError, requireAdmin: (req, res, next) => req.headers.authorization === 'Bearer admin' ? next() : res.sendStatus(401), limiter: (_q, _r, n) => n() });
+    const app = express(); app.use('/api/app', routers.app); app.use('/desk', routers.desk);
+    const server = app.listen(0); t.after(() => server.close());
+    const base = `http://127.0.0.1:${server.address().port}`;
+    const report = body => fetch(base + '/api/app/errors', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) });
+    const body = { message: 'Cannot read booking for layla@example.test (+971 50 000 0001)', stack: 'at Checkout (a.js:1)\nat b', version: '0.60.0', platform: 'android', route: '/hotel/10004834', fatal: true };
+    assert.equal((await report(body)).status, 202);
+    assert.equal((await report(body)).status, 202);
+    assert.equal((await report({ message: '' })).status, 400);
+    assert.equal(rows.size, 1);
+    const [row] = rows.values();
+    assert.equal(row.count, 2);
+    assert.doesNotMatch(JSON.stringify(row), /layla|971/);
+    assert.equal((await fetch(base + '/desk/errors')).status, 401);
+    const list = await (await fetch(base + '/desk/errors', { headers: { Authorization: 'Bearer admin' } })).json();
+    assert.equal(list.errors[0].count, 2); assert.equal(list.errors[0].platform, 'android');
+    assert.equal(publicApi({ path: '/api/app/errors', method: 'POST', query: {} }), true);
+});

@@ -40,7 +40,8 @@ const ar = {
     economics: 'اقتصاديات الحجز', teamTitle: 'فريق خدمة العملاء', teamBody: 'أضف موظفي خدمة العملاء. يرون المحادثات والحجوزات فقط، ولا يرون أي تكلفة أو هامش.',
     name: 'الاسم', add: 'إضافة', active: 'نشط', disabled: 'موقوف', disable: 'إيقاف', enable: 'تفعيل', resetPassword: 'كلمة مرور جديدة', lastLogin: 'آخر دخول', never: 'لم يدخل بعد',
     weakPassword: 'كلمة المرور 12 حرفاً على الأقل.', exists: 'هذا البريد مسجّل.', invalidEmail: 'بريد غير صالح.', added: 'تمت الإضافة',
-    language: 'English', error: 'حدث خطأ. حاول مجدداً.', expires: 'تنتهي الجلسة', now: 'الآن'
+    language: 'English', error: 'حدث خطأ. حاول مجدداً.', expires: 'تنتهي الجلسة', now: 'الآن',
+    errors: 'أعطال التطبيق', errorsBody: 'أعطال تصلنا من هواتف العملاء، بلا أي بيانات شخصية. مجمّعة حسب النوع والنسخة وتُحذف بعد 30 يوماً.', noErrors: 'لا أعطال مسجّلة. ممتاز!', fatal: 'إغلاق مفاجئ'
 };
 
 const en = {
@@ -80,7 +81,8 @@ const en = {
     economics: 'Booking economics', teamTitle: 'Customer care team', teamBody: 'Add customer-care staff. They see conversations and bookings only, never costs or margins.',
     name: 'Name', add: 'Add', active: 'Active', disabled: 'Disabled', disable: 'Disable', enable: 'Enable', resetPassword: 'New password', lastLogin: 'Last sign-in', never: 'Never',
     weakPassword: 'At least 12 characters.', exists: 'This email is already on the team.', invalidEmail: 'Invalid email.', added: 'Added',
-    language: 'العربية', error: 'Something went wrong. Try again.', expires: 'Session ends', now: 'now'
+    language: 'العربية', error: 'Something went wrong. Try again.', expires: 'Session ends', now: 'now',
+    errors: 'App errors', errorsBody: 'Errors reported by guests’ phones, with no personal data. Grouped by type and version, deleted after 30 days.', noErrors: 'No errors reported. Great!', fatal: 'Crash'
 };
 
 export const dictionaries = { ar, en };
