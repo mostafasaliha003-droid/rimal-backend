@@ -48,3 +48,14 @@ test('polling is quick at first, backs off, and stops for final states or after 
   assert.equal(livePollDelay('booking_pending', 31 * 60_000), null);
   assert.ok(LIVE_STATUSES.includes('payment_verified') && !LIVE_STATUSES.includes('booking_failed'));
 });
+
+test('a Tabby payment names Tabby on the status screen, never the card provider', () => {
+  const { livePaymentModel } = load(path.resolve(__dirname, './livePaymentModel.ts'));
+  for (const language of ['ar', 'en']) {
+    const tabby = livePaymentModel('awaiting_payment', language, 5, 'tabby');
+    const all = JSON.stringify(tabby);
+    assert.doesNotMatch(all, /Ziina|زينا/);
+    assert.match(all, language === 'ar' ? /صفحة تابي/ : /Tabby’s page/);
+    assert.match(JSON.stringify(livePaymentModel('awaiting_payment', language, 5)), language === 'ar' ? /زينا/ : /Ziina/, 'card payments keep naming the card page');
+  }
+});

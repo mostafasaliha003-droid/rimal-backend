@@ -53,10 +53,6 @@ export function paymentChoiceCopy(language: string) {
     card: ar
       ? { tag: 'خلّصها وارتاح', title: 'ادفعها مرة وحدة', body: 'بطاقة أو محفظة رقمية. المبلغ كاملاً في صفحة دفع آمنة، وبعدها نوم بلا أرقام في راسك.' }
       : { tag: 'One tap, all done', title: 'Pay it all at once', body: 'Card or digital wallet. The full amount on a secure page, then sleep with no numbers in your head.' },
-    // A plain disclosure (not promo copy): Tabby approves each purchase.
-    approval: ar
-      ? { title: 'الموافقة من تابي', body: 'قد لا تقبل تابي الدفع إذا لم يكن لديك حساب معها أو حدّ شرائي متاح يغطي قيمة الحجز. الدفع بالبطاقة متاح دائماً.' }
-      : { title: 'Approval by Tabby', body: 'Tabby may decline if you don’t have a Tabby account or enough spending limit to cover this booking. Card payment is always available.' },
   };
 }
 

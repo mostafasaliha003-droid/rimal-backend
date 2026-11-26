@@ -88,8 +88,19 @@ const copy = {
   },
 } as const;
 
-export function livePaymentModel(status: CheckoutStatus, language: string, elapsedSeconds: number): LivePaymentView {
-  const c = language === 'ar' ? copy.ar : copy.en;
+/** The payment page the guest is sent to: the card page (Ziina) or Tabby's. */
+const tabbyPage = {
+  ar: { awaiting: 'بانتظار إتمامك للدفع في صفحة تابي', working: ['بانتظار إتمام الدفع', 'أكمل الدفع في صفحة تابي. بمجرد إتمامه يظهر التأكيد هنا تلقائياً.'] as const,
+    reopen: 'إن أغلقت صفحة تابي قبل إتمام الدفع، اضغط «العودة إلى تابي». لا تبدأ حجزاً جديداً لنفس الإقامة.' },
+  en: { awaiting: 'Waiting for you to complete payment on Tabby’s page', working: ['Waiting for your payment', 'Complete the payment on Tabby’s page. Once it is done, the confirmation appears here automatically.'] as const,
+    reopen: 'If you closed Tabby’s page before finishing, tap “Return to Tabby”. Do not start a new booking for the same stay.' },
+};
+
+export function livePaymentModel(status: CheckoutStatus, language: string, elapsedSeconds: number, method: 'card' | 'tabby' = 'card'): LivePaymentView {
+  const base = language === 'ar' ? copy.ar : copy.en;
+  const t = language === 'ar' ? tabbyPage.ar : tabbyPage.en;
+  // A Tabby payment names Tabby's page, never the card provider's.
+  const c = method === 'tabby' ? { ...base, detail: { ...base.detail, awaiting: t.awaiting }, working: { ...base.working, awaiting_payment: t.working }, reopen: t.reopen } : base;
   const states = stageStates(status);
   const live = LIVE_STATUSES.includes(status);
   const payDetail = status === 'preparing' || status === 'intent_creating' ? c.detail.preparingPay : status === 'awaiting_payment' ? c.detail.awaiting
@@ -107,7 +118,7 @@ export function livePaymentModel(status: CheckoutStatus, language: string, elaps
   const verifying = status === 'intent_unknown' || status === 'payment_verified' || status === 'booking_pending';
   const slow = verifying && elapsedSeconds >= SLOW_AFTER_SECONDS;
   if (status === 'booking_confirmed') return { tone: 'success', icon: 'check', title: c.confirmed[0], body: c.confirmed[1], stages, live, expectation: '', guidance: '', slow: false };
-  if (working) return { tone: 'working', icon: status === 'awaiting_payment' || workingKey === 'preparing' ? 'card' : status === 'intent_unknown' ? 'shield' : 'hotel',
+  if (working) return { tone: 'working', icon: status === 'awaiting_payment' || workingKey === 'preparing' ? (method === 'tabby' ? 'wallet' : 'card') : status === 'intent_unknown' ? 'shield' : 'hotel',
     title: working[0], body: working[1], stages, live, slow,
     expectation: verifying ? (slow ? c.slow : c.usual) : '', guidance: status === 'awaiting_payment' ? c.reopen : verifying ? c.stay : '' };
   const [title, body] = checkoutStatusCopy(language, status);

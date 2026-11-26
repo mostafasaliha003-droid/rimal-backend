@@ -95,10 +95,10 @@ const clock = (seconds: number) => `${Math.floor(seconds / 60)}:${String(seconds
  * takes, and exactly what to do now. Payment and hotel confirmation stay separate stages:
  * a browser return is never shown as success; only the server's status is.
  */
-export default function LivePaymentStatus({ status, reference, live, children, testID, describe, referenceLabel, doneText }: {
+export default function LivePaymentStatus({ status, reference, live, children, testID, describe, referenceLabel, doneText, paymentMethod = 'card' }: {
   status?: CheckoutStatus; reference: string; live: boolean; children?: React.ReactNode; testID?: string;
   /** Another live process (a cancellation) supplies its own stages and wording. */
-  describe?: (elapsedSeconds: number) => LivePaymentView; referenceLabel?: string; doneText?: string;
+  describe?: (elapsedSeconds: number) => LivePaymentView; referenceLabel?: string; doneText?: string; paymentMethod?: 'card' | 'tabby';
 }) {
   const { language } = useLanguage();
   const reduced = useReducedMotion();
@@ -110,7 +110,7 @@ export default function LivePaymentStatus({ status, reference, live, children, t
     return () => clearInterval(timer);
   }, [live]);
   const elapsed = Math.max(0, Math.round((now - startedAt) / 1000));
-  const model = describe ? describe(elapsed) : livePaymentModel(status ?? 'preparing', language, elapsed);
+  const model = describe ? describe(elapsed) : livePaymentModel(status ?? 'preparing', language, elapsed, paymentMethod);
   const ar = language === 'ar';
   return <View testID={testID} style={[styles.panel, elevation.raised]} accessibilityLiveRegion="polite">
     <View style={{ alignItems: 'center', gap: space.sm }}>

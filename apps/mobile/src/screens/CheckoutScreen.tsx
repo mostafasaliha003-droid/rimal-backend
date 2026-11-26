@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, AppState, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePreventRemove, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -8,10 +8,11 @@ import { NATIVE_CHECKOUT_ENABLED, paymentReturnUrl } from '../api/config';
 import type { CheckoutGuestData, CheckoutPaymentMethod, CheckoutStatus } from '../api/checkout';
 import { paymentChoiceCopy, tabbyMessage, tabbyMonthly, tabbyName, tabbyOutcome, type TabbyPromoSettings, type TabbyRejection } from '../components/tabbyModel';
 import { TabbyPromoLine } from '../components/TabbyPromo';
+import TabbyLogo from '../components/TabbyLogo';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import type { GuestRoom, Money, RoomOffer } from '../types';
-import { color, colors, fonts, localizedFont, radius, space, ui } from '../theme';
+import { color, colors, fonts, radius, space, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { useAppState } from '../components/AppState';
 import { useCheckoutSession } from '../components/useCheckoutSession';
@@ -24,7 +25,7 @@ import { useChargeCurrency, useChargeMoney } from '../components/ChargeCurrency'
 import { mealDescription, rateCopy, roomRateFacts } from '../components/roomRateFacts';
 import { useCancellationClock } from '../components/useCancellationClock';
 import { formatPrice, formatStayRange, guestLine, nightsBetween, stayWords } from '../components/format';
-import { useLayout } from '../components/motion';
+import { useLayout, useReducedMotion } from '../components/motion';
 import LivePaymentStatus from '../components/LivePaymentStatus';
 import { LIVE_STATUSES, livePollDelay } from '../components/livePaymentModel';
 import { checkoutCopy } from './checkoutCopy';
@@ -337,6 +338,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           {existing ? <>
             {session.phase === 'unknown' && <StatePanel icon="hourglass" tone="warning" title={copy.unknown} body={copy.unknownBody}/>}
             {session.attempt ? <LivePaymentStatus testID="checkout-live-status" key={session.attempt.reference} status={session.attempt.status}
+              paymentMethod={session.attempt.paymentMethod === 'tabby' ? 'tabby' : 'card'}
               reference={session.attempt.reference} live={LIVE_STATUSES.includes(session.attempt.status)}>
               {session.error && <Badge tone="warning" icon="history" label={copy.lastKnown}/>}
               {session.attempt.confirmed && session.attempt.supplierReference && <Row style={{ justifyContent: 'space-between', gap: space.md, flexWrap: 'wrap' }}>
@@ -347,7 +349,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
               {session.attempt.confirmed && props.onTrips && <Button testID="checkout-view-trip" icon="trips" title={ar ? 'عرض الحجز في رحلاتي' : 'View in My trips'} onPress={props.onTrips}/>}
               {session.attempt.confirmed && <VoucherButton booking={{ reference: session.attempt.reference, hotelName: null, roomName: null, checkin: null, checkout: null,
                 recordedStatus: 'active', supplierStatus: 'CONFIRMED', statusKind: 'confirmed', price: null }}/>}
-              {session.attempt.status === 'awaiting_payment' && creationEnabled && <Button icon="lock" title={copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}
+              {session.attempt.status === 'awaiting_payment' && creationEnabled && <Button icon="lock" title={session.attempt.paymentMethod === 'tabby' ? (ar ? 'العودة إلى تابي' : 'Return to Tabby') : copy.openPayment} busy={opening} disabled={busy} onPress={() => void perform('payment',props.onPayment)}/>}
               {actionError === 'payment' && <Txt kind="small" accessibilityRole="alert" tone="danger">{copy.paymentLinkError}</Txt>}
               {failedOutcome && <Notice testID="checkout-tabby-outcome" tone="warning" live title={tabbyMessage(failedOutcome, language).title} body={tabbyMessage(failedOutcome, language).body}/>}
               {canRetry && <View style={{ gap: space.sm }}>
@@ -551,16 +553,11 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
         <View accessibilityRole="radiogroup" style={{ gap: space.sm }}>
           <PaymentOption testID="checkout-method-card" selected={!tabby} onPress={() => onPaymentMethod('card')} icon="card"
             tag={choice.card.tag} title={choice.card.title} body={choice.card.body}/>
-          {/* Tabby's standard naming and promo text only (no custom copy, no drawn logo). */}
-          <PaymentOption testID="checkout-method-tabby" selected={tabby} onPress={() => onPaymentMethod('tabby')} title={tabbyName(language)}>
+          {/* Exactly what Tabby specifies: its payment method name, its official logo and its standard promo text. Nothing else. */}
+          <PaymentOption testID="checkout-method-tabby" selected={tabby} onPress={() => onPaymentMethod('tabby')} title={tabbyName(language)} mark={<TabbyLogo height={26}/>}>
             {tabbyAmount && <TabbyPromoLine amount={tabbyAmount} currency="AED" settings={tabbyPromo} testID="checkout-tabby-promo"/>}
-            <Row testID="checkout-tabby-approval" style={styles.approval}>
-              <Icon name="info" size={16} color={color.textSecondary}/>
-              <Txt kind="caption" style={{ flex: 1 }}><Txt kind="caption" style={{ fontFamily: localizedFont(language, fonts.bold), color: color.textPrimary }}>{choice.approval.title}: </Txt>{choice.approval.body}</Txt>
-            </Row>
           </PaymentOption>
         </View>
-        {tabby && <InfoRow icon="info"><Txt kind="caption">{ar ? 'تُكمل الدفع في صفحة تابي ثم تعود إلى التطبيق تلقائياً. السعر بالدرهم الإماراتي هو نفسه لكل طرق الدفع.' : 'You finish on Tabby’s page and come straight back to the app. The AED price is the same for every payment method.'}</Txt></InfoRow>}
         {tabby && tabbyChecking && <Row style={{ gap: space.xs }}><ActivityIndicator size="small" color={color.interactive}/>
           <Txt kind="small" accessibilityLiveRegion="polite">{ar ? 'نتحقق من إمكانية الدفع مع تابي…' : 'Checking Tabby for you…'}</Txt></Row>}
         {tabby && tabbyRefusal && <Notice testID="checkout-tabby-refused" tone="warning" live title={tabbyMessage(tabbyRefusal, language).title} body={tabbyMessage(tabbyRefusal, language).body}
@@ -593,12 +590,21 @@ function PaymentOption({ selected, onPress, icon, mark, tag, tagTone = 'plum', t
   selected: boolean; onPress: () => void; icon?: 'card'; mark?: React.ReactNode; tag?: string; tagTone?: 'plum' | 'mint';
   title: string; body?: string; testID?: string; children?: React.ReactNode;
 }) {
-  return <View style={[styles.option, selected && styles.optionOn]}>
+  // A small spring when an option is chosen: the dot grows in and the card lifts a touch.
+  const reduced = useReducedMotion();
+  const [pick] = useState(() => new Animated.Value(selected ? 1 : 0));
+  useEffect(() => {
+    if (reduced) { pick.setValue(selected ? 1 : 0); return; }
+    Animated.spring(pick, { toValue: selected ? 1 : 0, friction: 6, tension: 140, useNativeDriver: true }).start();
+  }, [selected, reduced, pick]);
+  const lift = { transform: [{ scale: pick.interpolate({ inputRange: [0, 1], outputRange: [1, 1.012] }) }] };
+  const dot = { transform: [{ scale: pick }], opacity: pick };
+  return <Animated.View style={[styles.option, selected && styles.optionOn, lift]}>
     <Pressable testID={testID} accessibilityRole="radio" aria-checked={selected} accessibilityState={{ checked: selected }}
       accessibilityLabel={body ? `${title}. ${body}` : title} onPress={onPress} style={{ gap: space.xs }}>
       {tag && <View style={[styles.tag, tagTone === 'mint' && styles.tagMint]}><Txt kind="micro" style={{ color: tagTone === 'mint' ? '#04503C' : color.interactiveStrong }}>{tag}</Txt></View>}
       <Row style={{ gap: space.sm, alignItems: 'center' }}>
-        <View accessible={false} style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot}/>}</View>
+        <View accessible={false} style={[styles.radio, selected && styles.radioOn]}><Animated.View style={[styles.radioDot, dot]}/></View>
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Txt kind="label" tone="primary">{title}</Txt>
           {!!body && <Txt kind="caption">{body}</Txt>}
@@ -607,7 +613,7 @@ function PaymentOption({ selected, onPress, icon, mark, tag, tagTone = 'plum', t
       </Row>
     </Pressable>
     {children && <View style={{ gap: space.sm, marginTop: space.sm }}>{children}</View>}
-  </View>;
+  </Animated.View>;
 }
 
 type StageState = 'done' | 'active' | 'failed' | 'waiting';
@@ -661,5 +667,4 @@ const styles = StyleSheet.create({
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.interactiveStrong },
   tag: { alignSelf: 'flex-start', paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: color.bgSelected },
   tagMint: { backgroundColor: 'rgba(62,237,191,0.22)' },
-  approval: { gap: space.xs, alignItems: 'flex-start', padding: space.sm, borderRadius: radius.sm, backgroundColor: color.bgSubtle },
 });

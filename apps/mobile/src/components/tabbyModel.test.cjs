@@ -51,5 +51,7 @@ test('Tabby promo is Tabby’s standard text word for word, with total × 1.015 
   // No custom Tabby promo copy remains anywhere in the model.
   const source = fs.readFileSync(path.join(__dirname, 'tabbyModel.ts'), 'utf8');
   assert.doesNotMatch(source, /The hotel won|الفاتورة تستنّى|على راحتك|4, 6 or 12/);
-  assert.match(paymentChoiceCopy('ar').approval.body, /قد لا تقبل تابي/);
+  // Tabby asked for nothing under its option but the name, the logo and the standard text.
+  assert.equal(paymentChoiceCopy('ar').approval, undefined);
+  assert.doesNotMatch(source, /Tabby account|حساب معها|Tabby’s page and come/);
 });
