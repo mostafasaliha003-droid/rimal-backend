@@ -8,7 +8,7 @@ import { recoveryUuid, validRecoveryOwner, type CheckoutRecoveryOwner, type Chec
 
 export interface CheckoutOwner extends CheckoutRecoveryOwner { revision: number }
 export interface CheckoutSelection { review: CheckoutReview; selectionId: string; expiresAt: number; termsAccepted: boolean }
-export interface CheckoutAvailability { enabled: boolean; mode: 'sandbox' | 'production' | 'unconfigured'; reason?: string; tabby?: boolean }
+export interface CheckoutAvailability { enabled: boolean; mode: 'sandbox' | 'production' | 'unconfigured'; reason?: string; tabby?: boolean; tabbyPromo?: { merchantCode: string; publicKey: string } }
 export interface CheckoutSessionApi {
   readonly creationEnabled?: boolean;
   availability(signal?: AbortSignal): Promise<CheckoutAvailability>;
@@ -174,6 +174,7 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
       const expected = owner()?.environment === 'production' ? 'production' : 'sandbox';
       if (value.enabled && value.mode !== expected) throw new ApiError('configuration', 'checkout_environment_mismatch');
       publish({ availability: { enabled: value.enabled, mode: value.mode, tabby: value.enabled && value.tabby === true,
+        ...(value.enabled && value.tabby === true && value.tabbyPromo ? { tabbyPromo: value.tabbyPromo } : {}),
         ...(typeof value.reason === 'string' && /^[a-z_]{1,80}$/.test(value.reason) ? { reason: value.reason } : {}) } });
     }).catch(error => {
       if (current(stamp, key)) publish({ availability: { enabled: false, mode: 'unconfigured', reason: 'checkout_unavailable' }, error: asApiError(error) });

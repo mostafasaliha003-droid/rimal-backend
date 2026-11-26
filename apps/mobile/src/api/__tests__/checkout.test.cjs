@@ -221,3 +221,13 @@ test('Tabby: availability flag, its own checkout host, payment errors only on fa
   assert.equal(allowedRoute('POST', '/payment/tabby/eligibility'), true);
   assert.equal(allowedRoute('GET', '/payment/tabby/eligibility'), false);
 });
+
+test('Tabby promo settings are read only when Tabby is offered and never accept a secret key', () => {
+  const { normalizePaymentAvailability } = load('../checkout.ts');
+  const key = ['pk', 'test', 'fixture00000000'].join('_');
+  assert.deepEqual(normalizePaymentAvailability({ enabled: true, mode: 'sandbox', tabby: true, tabby_promo: { merchant_code: 'PillowStaysApp', public_key: key } }).tabbyPromo,
+    { merchantCode: 'PillowStaysApp', publicKey: key });
+  assert.equal(normalizePaymentAvailability({ enabled: true, mode: 'sandbox', tabby: false, tabby_promo: { merchant_code: 'PillowStaysApp', public_key: key } }).tabbyPromo, undefined);
+  assert.equal(normalizePaymentAvailability({ enabled: true, mode: 'sandbox', tabby: true, tabby_promo: { merchant_code: 'PillowStaysApp', public_key: 'sk_test_secret00000000' } }).tabbyPromo, undefined);
+  assert.equal(normalizePaymentAvailability({ enabled: true, mode: 'sandbox', tabby: true }).tabbyPromo, undefined);
+});

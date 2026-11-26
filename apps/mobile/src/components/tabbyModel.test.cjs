@@ -1,3 +1,5 @@
+/* global __dirname */
+const fs = require('node:fs'), path = require('node:path');
 const test = require('node:test');
 const assert = require('node:assert/strict');
 const { tabbyInstallment, tabbyOutcome, tabbyMessage, tabbyName } = require('./tabbyModel.ts');
@@ -32,19 +34,22 @@ test('every outcome has Arabic and English wording, and a cancellation says noth
   assert.equal(tabbyName('en'), 'Pay later with Tabby');
 });
 
-test('the Tabby promise names the real plans, keeps "no fees" to pay in 4 and says Tabby approves', () => {
-  const { tabbyPromo, paymentChoiceCopy } = require('./tabbyModel.ts');
-  for (const language of ['ar', 'en']) {
-    const promo = tabbyPromo(language);
-    for (const plan of ['4', '6', '12']) assert.match(promo.body, new RegExp(plan));
-    assert.ok(promo.fine.length > 0);
-    const copy = paymentChoiceCopy(language);
-    assert.equal(copy.schedule.length, 4);
-    assert.match(copy.approval.body, language === 'ar' ? /حساب/ : /account/);
-    assert.match(copy.approval.body, language === 'ar' ? /حدّ شرائي/ : /spending limit/);
-    // Longer plans never claim to be free: their terms are on Tabby's page.
-    assert.doesNotMatch(copy.tabby.plans, language === 'ar' ? /بلا فوائد|بدون فوائد/ : /no interest|no fees/i);
-  }
-  assert.match(tabbyPromo('ar').body, /الأربع دفعات بلا فوائد ولا رسوم/);
-  assert.match(tabbyPromo('en').body, /Pay in 4 has no interest and no fees/);
+test('Tabby promo is Tabby’s standard text word for word, with total × 1.015 / 4', () => {
+  const { tabbyMonthly, tabbyPromoText, tabbyLearnMoreUrl, paymentChoiceCopy } = require('./tabbyModel.ts');
+  assert.equal(tabbyMonthly('1000', 'AED'), '253.75');
+  assert.equal(tabbyMonthly('188.62', 'AED'), '47.86');
+  assert.equal(tabbyMonthly('4000.00', 'AED'), '1,015.00');
+  assert.equal(tabbyMonthly('1000', 'USD'), null);
+  const strip = text => text.replace(/[⁦⁩]/g, '');
+  assert.equal(strip(tabbyPromoText('253.75', 'en').text) + ' ' + tabbyPromoText('253.75', 'en').learnMore, '4 payments of AED 253.75/mo or up to 12 months. Learn more');
+  assert.equal(strip(tabbyPromoText('253.75', 'ar').text) + ' ' + tabbyPromoText('253.75', 'ar').learnMore, '4 دفعات بقيمة AED 253.75 شهريًا أو حتى 12 شهرًا. اعرف المزيد');
+  const key = ['pk', 'test', 'fixture00000000'].join('_');
+  assert.equal(tabbyLearnMoreUrl('1000', 'ar', { merchantCode: 'PillowStaysApp', publicKey: key }),
+    `https://checkout.tabby.ai/promos/product-page/installments/ar/?price=1000.00&currency=AED&lang=ar&merchant_code=PillowStaysApp&public_key=${key}`);
+  assert.equal(tabbyLearnMoreUrl('1000', 'en', { merchantCode: 'bad code', publicKey: key }), null);
+  assert.equal(tabbyLearnMoreUrl('1000', 'en', { merchantCode: 'PillowStaysApp', publicKey: 'sk_test_secret000000' }), null, 'never a secret key');
+  // No custom Tabby promo copy remains anywhere in the model.
+  const source = fs.readFileSync(path.join(__dirname, 'tabbyModel.ts'), 'utf8');
+  assert.doesNotMatch(source, /The hotel won|الفاتورة تستنّى|على راحتك|4, 6 or 12/);
+  assert.match(paymentChoiceCopy('ar').approval.body, /قد لا تقبل تابي/);
 });

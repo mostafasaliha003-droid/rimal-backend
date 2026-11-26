@@ -12,14 +12,38 @@ export function tabbyName(language: string) {
 }
 
 /*
- * The playful lines around Tabby. Every fact in them is one Tabby states for this merchant:
- * pay in 4 is free of interest and fees; Tabby's own page offers 4, 6 or 12 payments (longer
- * plans show their terms there); Tabby alone approves each purchase.
+ * Tabby's standard in-app promo, word for word (Tabby does not approve custom promo copy):
+ *   "4 payments of XX.XX/mo or up to 12 months. Learn more"
+ * where XX.XX = order total × 1.015 / 4 in the store currency (AED), and "Learn more" opens
+ * Tabby's own pop-up. docs.tabby.ai/pay-in-4-custom-integration/mobile-apps/app-promo-messaging
  */
-export function tabbyPromo(language: string) {
+export function tabbyMonthly(amount: string, currency: string): string | null {
+  if (currency !== 'AED' || typeof amount !== 'string' || !/^\d{1,12}(?:\.\d{1,2})?$/.test(amount)) return null;
+  const [whole, fraction = ''] = amount.split('.');
+  const fils = Number(whole) * 100 + Number(fraction.padEnd(2, '0'));
+  if (!Number.isSafeInteger(fils) || fils <= 0) return null;
+  const monthly = Math.round(fils * 1.015 / 4);
+  return `${Math.floor(monthly / 100).toLocaleString('en-US')}.${String(monthly % 100).padStart(2, '0')}`;
+}
+
+export function tabbyPromoText(monthly: string, language: string) {
+  // The amount is kept left-to-right inside the Arabic sentence.
+  const money = `\u2066AED ${monthly}\u2069`;
   return language === 'ar'
-    ? { title: 'الفندق ما يستنّى… الفاتورة تستنّى', body: 'قسّط حجزك مع تابي على 4 أو 6 أو 12 دفعة. الأربع دفعات بلا فوائد ولا رسوم.', fine: 'الخطط حسب موافقة تابي' }
-    : { title: 'The hotel won’t wait. Your bill can.', body: 'Split your stay with Tabby into 4, 6 or 12 payments. Pay in 4 has no interest and no fees.', fine: 'Plans subject to Tabby approval' };
+    ? { text: `4 دفعات بقيمة ${money} شهريًا أو حتى 12 شهرًا.`, learnMore: 'اعرف المزيد' }
+    : { text: `4 payments of ${money}/mo or up to 12 months.`, learnMore: 'Learn more' };
+}
+
+export interface TabbyPromoSettings { merchantCode: string; publicKey: string }
+/** Tabby's own "Learn more" pop-up for an AED amount (UAE), in the guest's language. */
+export function tabbyLearnMoreUrl(price: string, language: string, settings: TabbyPromoSettings): string | null {
+  if (!/^\d{1,12}(?:\.\d{1,2})?$/.test(price) || !/^[A-Za-z0-9_-]{1,64}$/.test(settings.merchantCode)
+    || !/^pk_(?:test_)?[A-Za-z0-9-]{10,100}$/.test(settings.publicKey)) return null;
+  const lang = language === 'ar' ? 'ar' : 'en';
+  const [whole, fraction = ''] = price.split('.');
+  const query = new URLSearchParams({ price: `${whole}.${fraction.padEnd(2, '0')}`, currency: 'AED', lang,
+    merchant_code: settings.merchantCode, public_key: settings.publicKey });
+  return `https://checkout.tabby.ai/promos/product-page/installments/${lang}/?${query.toString()}`;
 }
 
 export function paymentChoiceCopy(language: string) {
@@ -29,13 +53,10 @@ export function paymentChoiceCopy(language: string) {
     card: ar
       ? { tag: 'خلّصها وارتاح', title: 'ادفعها مرة وحدة', body: 'بطاقة أو محفظة رقمية. المبلغ كاملاً في صفحة دفع آمنة، وبعدها نوم بلا أرقام في راسك.' }
       : { tag: 'One tap, all done', title: 'Pay it all at once', body: 'Card or digital wallet. The full amount on a secure page, then sleep with no numbers in your head.' },
-    tabby: ar
-      ? { tag: 'المخدة اليوم… والدفع على راحتك', plans: 'أو 6 أو 12 دفعة تختارها وتشوف شروطها في صفحة تابي.' }
-      : { tag: 'The pillow today, the payments at your pace', plans: 'Or 6 or 12 payments, chosen with their terms on Tabby’s page.' },
-    schedule: ar ? ['اليوم', 'الدفعة 2', 'الدفعة 3', 'الدفعة 4'] : ['Today', '2nd', '3rd', '4th'],
+    // A plain disclosure (not promo copy): Tabby approves each purchase.
     approval: ar
-      ? { title: 'القرار عند تابي', body: 'قد لا تقبل تابي الدفع إذا لم يكن لديك حساب معها أو حدّ شرائي متاح يغطي قيمة الحجز. ولا يهمك، الدفع بالبطاقة متاح دائماً.' }
-      : { title: 'Tabby has the final say', body: 'Tabby may decline if you don’t have a Tabby account or enough spending limit with them to cover this booking. No worries, card payment is always here.' },
+      ? { title: 'الموافقة من تابي', body: 'قد لا تقبل تابي الدفع إذا لم يكن لديك حساب معها أو حدّ شرائي متاح يغطي قيمة الحجز. الدفع بالبطاقة متاح دائماً.' }
+      : { title: 'Approval by Tabby', body: 'Tabby may decline if you don’t have a Tabby account or enough spending limit to cover this booking. Card payment is always available.' },
   };
 }
 

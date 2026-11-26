@@ -11,7 +11,6 @@ import { Button, Icon, Row, Txt } from '../components/Primitives';
 import type { IconName } from '../components/Primitives';
 import { useReducedMotion } from '../components/motion';
 import { haptic } from '../components/haptics';
-import TabbyPromo from '../components/TabbyPromo';
 
 const native = Platform.OS !== 'web';
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
@@ -125,7 +124,7 @@ export default function WelcomeScreen() {
   const compact = height < 900;
   const tiny = height < 700;
   const wide = width >= 720;
-  const intro = useValues(['reveal', 'emblem', 'word', 'letters', 'tagline', 'chips', 'pill', 'promo', 'sheet'] as const);
+  const intro = useValues(['reveal', 'emblem', 'word', 'letters', 'tagline', 'chips', 'pill', 'sheet'] as const);
   const { next } = useLocalSearchParams<{ next?: string }>();
   const [ring] = useState(() => new Animated.Value(0));
   const loops = useValues(['drift', 'twinkle', 'float', 'glow', 'orbit', 'shine'] as const);
@@ -145,7 +144,6 @@ export default function WelcomeScreen() {
       at(1180, ease(intro.tagline, 650)),
       at(1380, ease(intro.chips, 800)),
       at(1560, spring(intro.pill, 5)),
-      at(1800, ease(intro.promo, 700)),
       at(1450, spring(intro.sheet, 9)),
     ]);
     const breathe = (value: Animated.Value, duration: number) => Animated.loop(Animated.sequence([
@@ -239,9 +237,6 @@ export default function WelcomeScreen() {
               <Text style={[styles.pillText, { fontFamily: ar ? fonts.bold : latinFonts.bold }]}>{ar ? 'سعر مدلّل لأعضائنا فقط' : 'Pampered prices, for members only'}</Text>
             </Row>
           </View>
-        </Animated.View>
-        <Animated.View style={[{ width: '100%', maxWidth: 420, paddingHorizontal: space.lg, marginTop: tiny ? 0 : space.xs }, rise(intro.promo, 18)]}>
-          <TabbyPromo compact={compact}/>
         </Animated.View>
       </View>
 

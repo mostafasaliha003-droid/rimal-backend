@@ -6,8 +6,8 @@ import * as WebBrowser from 'expo-web-browser';
 import { api, APP_ENV, authSession, bookingWebsiteUrl, websiteUrl } from '../api';
 import { NATIVE_CHECKOUT_ENABLED, paymentReturnUrl } from '../api/config';
 import type { CheckoutGuestData, CheckoutPaymentMethod, CheckoutStatus } from '../api/checkout';
-import { paymentChoiceCopy, tabbyInstallment, tabbyMessage, tabbyName, tabbyOutcome, type TabbyRejection } from '../components/tabbyModel';
-import { TabbyMark, TabbySchedule } from '../components/TabbyPromo';
+import { paymentChoiceCopy, tabbyMessage, tabbyMonthly, tabbyName, tabbyOutcome, type TabbyPromoSettings, type TabbyRejection } from '../components/tabbyModel';
+import { TabbyPromoLine } from '../components/TabbyPromo';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import type { GuestRoom, Money, RoomOffer } from '../types';
@@ -327,6 +327,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
         draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
         occupancy={selected.review.criteria.guests} quote={formQuote} canSubmit={session.canSubmit} submitting={session.phase === 'submitting'}
         requoting={requoting} paymentMethod={props.paymentMethod ?? 'card'} onPaymentMethod={props.onPaymentMethod} tabbyOffered={tabbyOffered}
+        tabbyPromo={session.availability?.tabbyPromo ?? null}
         residency={selected.review.criteria.residency} onNationalityChange={props.onNationalityChange}
         onChooseRoomForNationality={props.onChooseRoomForNationality} nationalityCheck={props.nationalityCheck} note={sandbox}
         header={<>{title}<CheckoutSummary selection={selected} offer={offer} amount={amount} showAmount={false}/></>} footer={fresh}
@@ -389,13 +390,13 @@ export function CheckoutContents(props: CheckoutContentsProps) {
  * checks every field; the first problem is scrolled into view. No separate review step.
  */
 export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting = false, onSubmit, onPrivacy, onTerms, draftKey, onDirty, residency, onNationalityChange, onChooseRoomForNationality, nationalityCheck, header, footer, note,
-  requoting = false, paymentMethod = 'card', onPaymentMethod, tabbyOffered = false }: {
+  requoting = false, paymentMethod = 'card', onPaymentMethod, tabbyOffered = false, tabbyPromo = null }: {
   occupancy: GuestRoom[]; quote: CheckoutQuoteView; canSubmit: boolean; submitting?: boolean; draftKey?: string; onDirty?: (dirty: boolean) => void;
   residency?: string; onNationalityChange?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void;
   onChooseRoomForNationality?: (residency: string, draft: TravelerDraft, occupancy: GuestRoom[]) => void; nationalityCheck?: NationalityCheck | null;
   onSubmit: (data: CheckoutGuestData, consent: boolean) => Promise<void>; onPrivacy: () => void; onTerms: () => void;
   header?: React.ReactNode; footer?: React.ReactNode; note?: string;
-  requoting?: boolean; paymentMethod?: CheckoutPaymentMethod; onPaymentMethod?: (method: CheckoutPaymentMethod) => void; tabbyOffered?: boolean;
+  requoting?: boolean; paymentMethod?: CheckoutPaymentMethod; onPaymentMethod?: (method: CheckoutPaymentMethod) => void; tabbyOffered?: boolean; tabbyPromo?: TabbyPromoSettings | null;
 }) {
   const { language, t } = useLanguage(), copy = checkoutCopy(language), ar = language === 'ar';
   const { narrow, fontScale } = useLayout();
@@ -438,7 +439,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
   const tabbyCheck = eligibility && eligibility.key === eligibilityKey ? eligibility : null;
   const tabbyChecking = Boolean(eligibilityKey && !tabbyCheck);
   const tabbyRefusal: TabbyRejection | null = eligibilityKey && tabbyCheck && !tabbyCheck.available ? tabbyCheck.reason ?? 'not_available' : null;
-  const installment = tabbyInstallment(quote.amount, quote.currency);
+  const tabbyAmount = tabbyMonthly(quote.amount, quote.currency) ? quote.amount : null;
   const choice = paymentChoiceCopy(language);
   if (!draft) return <ScrollView contentContainerStyle={[ui.page, styles.page]}>{header}<StatePanel title={copy.invalidOccupancy}/>{footer}</ScrollView>;
   const side = !narrow && fontScale <= 1.3;
@@ -550,12 +551,9 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
         <View accessibilityRole="radiogroup" style={{ gap: space.sm }}>
           <PaymentOption testID="checkout-method-card" selected={!tabby} onPress={() => onPaymentMethod('card')} icon="card"
             tag={choice.card.tag} title={choice.card.title} body={choice.card.body}/>
-          <PaymentOption testID="checkout-method-tabby" selected={tabby} onPress={() => onPaymentMethod('tabby')} mark={<TabbyMark/>}
-            tag={choice.tabby.tag} tagTone="mint" title={tabbyName(language)}
-            body={tabby && installment ? (ar ? `4 دفعات متساوية بالدرهم، بلا فوائد ولا رسوم` : `4 equal payments in AED, no interest, no fees`)
-              : (ar ? 'قسّمها على 4 دفعات بلا فوائد ولا رسوم، بالدرهم الإماراتي.' : 'Split it into 4 payments, no interest and no fees, in UAE dirhams.')}>
-            {tabby && installment ? <TabbySchedule amount={Number(installment).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}/> : null}
-            {tabby && <Txt kind="caption">{choice.tabby.plans}</Txt>}
+          {/* Tabby's standard naming and promo text only (no custom copy, no drawn logo). */}
+          <PaymentOption testID="checkout-method-tabby" selected={tabby} onPress={() => onPaymentMethod('tabby')} title={tabbyName(language)}>
+            {tabbyAmount && <TabbyPromoLine amount={tabbyAmount} currency="AED" settings={tabbyPromo} testID="checkout-tabby-promo"/>}
             <Row testID="checkout-tabby-approval" style={styles.approval}>
               <Icon name="info" size={16} color={color.textSecondary}/>
               <Txt kind="caption" style={{ flex: 1 }}><Txt kind="caption" style={{ fontFamily: localizedFont(language, fonts.bold), color: color.textPrimary }}>{choice.approval.title}: </Txt>{choice.approval.body}</Txt>
@@ -593,17 +591,17 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
 /** One payment choice: a radio row with a playful tag, its mark, name and one line of detail; details below. */
 function PaymentOption({ selected, onPress, icon, mark, tag, tagTone = 'plum', title, body, testID, children }: {
   selected: boolean; onPress: () => void; icon?: 'card'; mark?: React.ReactNode; tag?: string; tagTone?: 'plum' | 'mint';
-  title: string; body: string; testID?: string; children?: React.ReactNode;
+  title: string; body?: string; testID?: string; children?: React.ReactNode;
 }) {
   return <View style={[styles.option, selected && styles.optionOn]}>
     <Pressable testID={testID} accessibilityRole="radio" aria-checked={selected} accessibilityState={{ checked: selected }}
-      accessibilityLabel={`${title}. ${body}`} onPress={onPress} style={{ gap: space.xs }}>
+      accessibilityLabel={body ? `${title}. ${body}` : title} onPress={onPress} style={{ gap: space.xs }}>
       {tag && <View style={[styles.tag, tagTone === 'mint' && styles.tagMint]}><Txt kind="micro" style={{ color: tagTone === 'mint' ? '#04503C' : color.interactiveStrong }}>{tag}</Txt></View>}
       <Row style={{ gap: space.sm, alignItems: 'center' }}>
         <View accessible={false} style={[styles.radio, selected && styles.radioOn]}>{selected && <View style={styles.radioDot}/>}</View>
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
           <Txt kind="label" tone="primary">{title}</Txt>
-          <Txt kind="caption">{body}</Txt>
+          {!!body && <Txt kind="caption">{body}</Txt>}
         </View>
         {mark ?? (icon ? <Icon name={icon} size={22} color={color.textSecondary}/> : null)}
       </Row>

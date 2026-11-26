@@ -7,7 +7,8 @@ import type { createTransport } from './transport';
 import { TABBY_REJECTIONS, type TabbyRejection } from '../components/tabbyModel';
 
 export type PaymentMode = 'sandbox' | 'production' | 'unconfigured';
-export interface PaymentAvailability { enabled: boolean; mode: PaymentMode; reason?: 'checkout_unavailable'; /** Tabby pay-in-4 is offered (AED only). */ tabby: boolean }
+export interface PaymentAvailability { enabled: boolean; mode: PaymentMode; reason?: 'checkout_unavailable'; /** Tabby pay-in-4 is offered (AED only). */ tabby: boolean;
+  /** Public settings for Tabby's standard promo and its "Learn more" pop-up. */ tabbyPromo?: { merchantCode: string; publicKey: string } }
 export type CheckoutPaymentMethod = 'card' | 'tabby';
 export interface TabbyEligibility { available: boolean; checked: boolean; reason?: TabbyRejection }
 export interface CheckoutReview {
@@ -72,7 +73,12 @@ export function normalizePaymentAvailability(value: unknown): PaymentAvailabilit
   if (typeof data.enabled !== 'boolean' || !['sandbox', 'production', 'unconfigured'].includes(String(data.mode))
     || data.enabled && data.mode === 'unconfigured'
     || data.reason !== undefined && data.reason !== 'checkout_unavailable') throw invalidResponse();
+  const promo: Record<string, unknown> = data.tabby_promo && typeof data.tabby_promo === 'object' && !Array.isArray(data.tabby_promo) ? data.tabby_promo as Record<string, unknown> : {};
+  const tabbyPromo = typeof promo.merchant_code === 'string' && /^[A-Za-z0-9_-]{1,64}$/.test(promo.merchant_code)
+    && typeof promo.public_key === 'string' && /^pk_(?:test_)?[A-Za-z0-9-]{10,100}$/.test(promo.public_key)
+    ? { merchantCode: promo.merchant_code, publicKey: promo.public_key } : undefined;
   return { enabled: data.enabled, mode: data.mode as PaymentMode, tabby: data.enabled === true && data.tabby === true,
+    ...(tabbyPromo && data.tabby === true ? { tabbyPromo } : {}),
     ...(data.enabled ? {} : { reason: 'checkout_unavailable' as const }) };
 }
 export function normalizeCheckoutAttempt(value: unknown, expectedReference?: string): CheckoutAttemptView {
