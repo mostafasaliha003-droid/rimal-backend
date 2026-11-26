@@ -4,6 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useNavigation, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
 import { api, websiteUrl } from '../api';
+import { ApiError } from '../api/errors';
 import type { MemberStatus } from '../api/membership';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
@@ -81,19 +82,59 @@ function AccountMembership() {
 }
 
 export default function AccountScreen() {
-  const {user,status,sessionRevision,error:sessionError,restorePending,signIn,requestRegistration,verifyRegistration,signOut,refresh}=useAuth(); const {t,language}=useLanguage(); const router=useRouter();
+  const {user,status,sessionRevision,error:sessionError,restorePending,signIn,requestRegistration,verifyRegistration,requestPasswordReset,resetPassword,signOut,refresh}=useAuth(); const {t,language}=useLanguage(); const router=useRouter();
   const navigation = useNavigation();
   const { returnTo, mode: requestedMode } = useLocalSearchParams<{ returnTo?: string; mode?: string }>();
-  const [mode,setMode]=useState<'login'|'register'|'verify'>(requestedMode === 'register' ? 'register' : 'login');
+  const [mode,setMode]=useState<'login'|'register'|'verify'|'forgot'|'reset'>(requestedMode === 'register' ? 'register' : 'login');
   // The welcome front opens this screen straight on "create an account" or "sign in".
   const [modeRequest, setModeRequest] = useState(requestedMode);
-  if (requestedMode !== modeRequest) { setModeRequest(requestedMode); if (requestedMode === 'register' || requestedMode === 'login') setMode(requestedMode); } const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [name,setName]=useState(''); const [phone,setPhone]=useState(''); const [code,setCode]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState('');
+  if (requestedMode !== modeRequest) { setModeRequest(requestedMode); if (requestedMode === 'register' || requestedMode === 'login') setMode(requestedMode); } const [email,setEmail]=useState(''); const [password,setPassword]=useState(''); const [name,setName]=useState(''); const [phone,setPhone]=useState(''); const [code,setCode]=useState(''); const [busy,setBusy]=useState(false); const [error,setError]=useState(''); const [notice,setNotice]=useState('');
+  const ar = language === 'ar';
+  const resetCopy = {
+    forgot: ar ? 'نسيت كلمة المرور؟' : 'Forgot your password?',
+    forgotTitle: ar ? 'لنرجعك إلى حسابك' : 'Let’s get you back in',
+    forgotBody: ar ? 'اكتب بريدك الإلكتروني ونرسل لك رمزاً من 6 أرقام لتعيين كلمة مرور جديدة.' : 'Enter your email and we’ll send a 6-digit code to set a new password.',
+    send: ar ? 'أرسل الرمز' : 'Send the code',
+    sent: ar ? 'إذا كان هذا البريد مسجّلاً لدينا، فقد أرسلنا إليه رمزاً صالحاً لمدة 10 دقائق.' : 'If this address has an account, we’ve sent it a code that works for 10 minutes.',
+    newPassword: ar ? 'كلمة المرور الجديدة' : 'New password',
+    save: ar ? 'احفظ وادخل' : 'Save and sign in',
+    resend: ar ? 'أرسل رمزاً جديداً' : 'Send a new code',
+    resent: ar ? 'طلبنا رمزاً جديداً. قد يستغرق وصوله دقيقة.' : 'We’ve asked for a new code. It may take a minute to arrive.',
+    back: ar ? 'العودة لتسجيل الدخول' : 'Back to sign in',
+    badCode: ar ? 'الرمز غير صحيح أو انتهت صلاحيته. اطلب رمزاً جديداً.' : 'That code is wrong or has expired. Ask for a new one.',
+    tooMany: ar ? 'محاولات كثيرة. انتظر بضع دقائق ثم أعد المحاولة.' : 'Too many tries. Wait a few minutes and try again.',
+    mailDown: ar ? 'تعذّر إرسال البريد الآن. حاول بعد قليل.' : 'We couldn’t send the email right now. Try again shortly.',
+    enterEmail: ar ? 'أدخل بريدك الإلكتروني.' : 'Enter your email address.',
+    everywhere: ar ? 'بعد الحفظ نُخرج حسابك من الأجهزة الأخرى حفاظاً على أمانه.' : 'Saving signs your account out on every other device, to keep it safe.',
+  };
+  const resetError = (failure: unknown) => {
+    if (!(failure instanceof ApiError)) return t('authError');
+    if (failure.kind === 'rate_limit') return resetCopy.tooMany;
+    if (failure.code === 'INVALID_RESET_CODE' || failure.code === 'invalid_reset_code') return resetCopy.badCode;
+    if (failure.code === 'INVALID_PASSWORD' || failure.code === 'invalid_password') return t('passwordRules');
+    if (failure.code === 'PASSWORD_RESET_EMAIL_UNAVAILABLE') return resetCopy.mailDown;
+    if (failure.code === 'invalid_email' || failure.code === 'INVALID_EMAIL') return resetCopy.enterEmail;
+    return t('authError');
+  };
+  const goTo = (next: typeof mode) => { setMode(next); setError(''); setNotice(''); setPassword(''); setCode(''); };
+  const sendResetCode = async (again = false) => {
+    if (busy) return;
+    setError(''); setNotice('');
+    if (!/^\S+@\S+\.\S+$/.test(email.trim())) { setError(resetCopy.enterEmail); return; }
+    setBusy(true);
+    try { await requestPasswordReset(email.trim()); setCode(''); setPassword(''); setMode('reset'); if (again) setNotice(resetCopy.resent); }
+    catch (failure) { setError(resetError(failure)); }
+    finally { setBusy(false); }
+  };
   const submit = async () => {
     if (busy) return;
     setError('');
     if (mode === 'login' && (!/^\S+@\S+\.\S+$/.test(email.trim()) || !password)) { setError(t('loginRequired')); return; }
     if (mode === 'register' && !registrationFormReady(name,email,password)) { setError(t('registrationRequired')); return; }
     if (mode === 'verify' && !/^\d{6}$/.test(code)) { setError(t('code')); return; }
+    if (mode === 'forgot') { await sendResetCode(); return; }
+    if (mode === 'reset' && !/^\d{6}$/.test(code)) { setError(t('code')); return; }
+    if (mode === 'reset' && password.length < 10) { setError(t('passwordRules')); return; }
     setBusy(true);
     try {
       if (mode === 'register') {
@@ -102,15 +143,16 @@ export default function AccountScreen() {
         return;
       }
       if (mode === 'verify') await verifyRegistration(email.trim(), code);
+      else if (mode === 'reset') await resetPassword(email.trim(), code, password);
       else await signIn(email.trim(), password);
-      setPassword(''); setCode(''); setEmail(''); setName(''); setPhone(''); setMode('login');
+      setNotice(''); setPassword(''); setCode(''); setEmail(''); setName(''); setPhone(''); setMode('login');
       if (navigation.isFocused()) {
         const destination = afterSignInRoute(returnTo);
         if (returnTo) router.setParams({ returnTo: undefined });
         if (destination === '/' || destination === '/saved' || destination === '/bookings') router.navigate(destination);
         else router.dismissTo(destination);
       }
-    } catch { setError(t('authError')); }
+    } catch (failure) { setError(mode === 'reset' ? resetError(failure) : t('authError')); }
     finally { setBusy(false); }
   };
   const openPolicy=async(path:'/privacy'|'/terms')=>{try{await WebBrowser.openBrowserAsync(websiteUrl(path),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
@@ -142,11 +184,19 @@ export default function AccountScreen() {
       <Txt kind="small">{t('accountSecurity')}</Txt>
       <Button variant="quiet" title={t('signOut')} busy={busy} onPress={()=>{setBusy(true);void signOut().catch(()=>setError(t('authError'))).finally(()=>setBusy(false));}}/>
     </>:<View style={ui.card}>
-      <Row>{(['login','register'] as const).map(value=><View key={value} style={{flex:1}}><Button title={t(value==='login'?'signIn':'createAccount')} variant={mode===value?'primary':'secondary'} disabled={busy} onPress={()=>{setMode(value);setError('');setPassword('');}}/></View>)}</Row>
+      <Row>{(['login','register'] as const).map(value=><View key={value} style={{flex:1}}><Button title={t(value==='login'?'signIn':'createAccount')} variant={mode===value?'primary':'secondary'} disabled={busy} onPress={()=>goTo(value)}/></View>)}</Row>
+      {mode==='forgot'&&<View testID="account-forgot" style={{gap:6}}><Txt kind="subheading" accessibilityRole="header">{resetCopy.forgotTitle}</Txt><Txt kind="small">{resetCopy.forgotBody}</Txt>
+        <Field label={t('email')} value={email} onChangeText={setEmail} ltr keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" maxLength={254}/></View>}
+      {mode==='reset'&&<View testID="account-reset" style={{gap:6}}><Txt accessibilityLiveRegion="polite">{resetCopy.sent}</Txt><Txt style={{writingDirection:'ltr',textAlign:ar?'right':'left'}}>{email}</Txt>
+        <Field label={t('code')} value={code} onChangeText={value=>setCode(normalizeVerificationCode(value))} ltr keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6}/>
+        <Field label={resetCopy.newPassword} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete="new-password" textContentType="newPassword" maxLength={128}/>
+        <Txt kind="small">{t('passwordRules')} {resetCopy.everywhere}</Txt></View>}
       {mode==='register'&&<Field label={t('name')} value={name} onChangeText={setName} autoComplete="name" textContentType="name" maxLength={120}/>}
-      {mode!=='verify'?<><Field label={t('email')} value={email} onChangeText={setEmail} ltr keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" maxLength={254}/><Field label={t('password')} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete={mode==='login'?'current-password':'new-password'} textContentType={mode==='login'?'password':'newPassword'} maxLength={128}/>{mode==='register'&&<><Txt kind="small">{t('passwordRules')}</Txt><Field label={t('phone')} value={phone} onChangeText={setPhone} ltr keyboardType="phone-pad" autoComplete="tel" maxLength={40}/></>}</>:<><Txt>{t('codeSent')}</Txt><Txt style={{writingDirection:'ltr'}}>{email}</Txt><Field label={t('code')} value={code} onChangeText={value=>setCode(normalizeVerificationCode(value))} ltr keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6}/></>}
+      {mode==='forgot'||mode==='reset'?null:mode!=='verify'?<><Field label={t('email')} value={email} onChangeText={setEmail} ltr keyboardType="email-address" autoCapitalize="none" autoCorrect={false} autoComplete="email" textContentType="emailAddress" maxLength={254}/><Field label={t('password')} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete={mode==='login'?'current-password':'new-password'} textContentType={mode==='login'?'password':'newPassword'} maxLength={128}/>{mode==='login'&&<View testID="account-forgot-link" style={{alignSelf:ar?'flex-end':'flex-start'}}><Button variant="quiet" title={resetCopy.forgot} disabled={busy} onPress={()=>{setMode('forgot');setError('');setNotice('');setPassword('');}}/></View>}{mode==='register'&&<><Txt kind="small">{t('passwordRules')}</Txt><Field label={t('phone')} value={phone} onChangeText={setPhone} ltr keyboardType="phone-pad" autoComplete="tel" maxLength={40}/></>}</>:<><Txt>{t('codeSent')}</Txt><Txt style={{writingDirection:'ltr'}}>{email}</Txt><Field label={t('code')} value={code} onChangeText={value=>setCode(normalizeVerificationCode(value))} ltr keyboardType="number-pad" autoComplete="one-time-code" textContentType="oneTimeCode" maxLength={6}/></>}
       {mode==='register'&&<View style={{gap:6}}><Txt kind="small">{t('registrationPrivacy')}</Txt><Button variant="quiet" title={t('privacy')} disabled={busy} onPress={()=>void openPolicy('/privacy')}/><Button variant="quiet" title={t('terms')} disabled={busy} onPress={()=>void openPolicy('/terms')}/></View>}
-      {visibleError&&<Txt accessibilityRole="alert" style={{color:colors.red}}>{visibleError}</Txt>}<View testID="account-auth-submit"><Button title={t(mode==='login'?'signIn':mode==='register'?'sendCode':'verify')} busy={busy} onPress={()=>void submit()}/></View>
+      {visibleError&&<Txt accessibilityRole="alert" style={{color:colors.red}}>{visibleError}</Txt>}{notice&&!visibleError?<Txt accessibilityLiveRegion="polite" tone="success">{notice}</Txt>:null}<View testID="account-auth-submit"><Button title={mode==='forgot'?resetCopy.send:mode==='reset'?resetCopy.save:t(mode==='login'?'signIn':mode==='register'?'sendCode':'verify')} busy={busy} onPress={()=>void submit()}/></View>
+      {mode==='reset'&&<Button variant="quiet" title={resetCopy.resend} disabled={busy} onPress={()=>void sendResetCode(true)}/>}
+      {(mode==='forgot'||mode==='reset')&&<Button variant="quiet" title={resetCopy.back} disabled={busy} onPress={()=>goTo('login')}/>}
     </View>}
     {user&&visibleError&&<Txt accessibilityRole="alert" style={{color:colors.red}}>{visibleError}</Txt>}
     {status==='signedOut'&&<View style={accountStyles.menu}>

@@ -37,14 +37,14 @@ test('automatic network country takes precedence over device region; only a manu
   assert.equal(storage.data.size, 0);
   assert.equal(restart.getSnapshot().currency, 'AED');
 });
-test('unavailable or unsupported network country uses device settings or the USD default', async () => {
+test('unavailable or unsupported network country uses device settings or the AED default', async () => {
   const fr = createCurrencyPreference(memory('INVALID'), async () => { throw Error('offline'); },
     () => ({ regionCode: 'FR' }));
   await fr.start();
   assert.equal(fr.getSnapshot().currency, 'EUR'); assert.equal(fr.getSnapshot().source, 'device');
   const fallback = createCurrencyPreference(memory(), async () => 'XX', () => ({}));
   await fallback.start(); fallback.choose('BAD-CODE');
-  assert.equal(fallback.getSnapshot().currency, 'USD'); assert.equal(fallback.getSnapshot().source, 'default');
+  assert.equal(fallback.getSnapshot().currency, 'AED'); assert.equal(fallback.getSnapshot().source, 'default');
 });
 test('manual choice wins an outstanding restore and an outstanding network result', async () => {
   const reading = pending(), storage = memory();

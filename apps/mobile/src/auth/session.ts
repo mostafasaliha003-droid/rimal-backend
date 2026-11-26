@@ -103,7 +103,9 @@ export function createSessionManager(network: ApiClient['auth'], storage: TokenS
     subscribe(listener: () => void) { listeners.add(listener); return () => { listeners.delete(listener); }; },
     signIn: (email: string, password: string, signal?: AbortSignal) => authenticate(() => network.login(email, password, signal)),
     requestRegistration: (input: RegistrationInput, signal?: AbortSignal) => network.requestRegistration(input, signal),
-    verifyRegistration: (email: string, code: string, signal?: AbortSignal) => authenticate(() => network.verifyRegistration(email, code, signal))
+    verifyRegistration: (email: string, code: string, signal?: AbortSignal) => authenticate(() => network.verifyRegistration(email, code, signal)),
+    requestPasswordReset: (email: string, signal?: AbortSignal) => network.requestPasswordReset(email, signal),
+    resetPassword: (email: string, code: string, password: string, signal?: AbortSignal) => authenticate(() => network.resetPassword(email, code, password, signal))
   };
 }
 export type SessionManager = ReturnType<typeof createSessionManager>;

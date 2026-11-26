@@ -112,7 +112,7 @@ const rise = (value: Animated.Value, distance = 14) => ({ opacity: value, transf
 
 /* Destination photography (CC0 / public domain, see assets/DESTINATIONS.md). Places, not hotels. */
 const PHOTOS = [
-  { source: require('../../assets/dubai-marina-dusk.jpg'), place: 'Dubai Marina', placeAr: 'مرسى دبي' },
+  { source: require('../../assets/welcome-dubai-marina.jpg'), place: 'Dubai Marina', placeAr: 'مرسى دبي' },
   { source: require('../../assets/istanbul-destination.jpg'), place: 'Ortaköy, Istanbul', placeAr: 'أورتاكوي، إسطنبول' },
   { source: require('../../assets/paris-destination.jpg'), place: 'Paris', placeAr: 'باريس' },
 ] as const;
@@ -134,11 +134,12 @@ function PhotoStage({ slide, reveal }: { slide: Animated.Value; reveal: Animated
     <Svg width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100" style={StyleSheet.absoluteFill}>
       <Defs>
         <LinearGradient id="welcome-veil" x1="0" y1="0" x2="0" y2="1">
-          <Stop offset="0" stopColor={palette.plum900} stopOpacity="0.55"/><Stop offset="0.4" stopColor={palette.plum800} stopOpacity="0.34"/>
-          <Stop offset="0.74" stopColor={palette.plum900} stopOpacity="0.8"/><Stop offset="1" stopColor={palette.plum900} stopOpacity="0.97"/>
+          <Stop offset="0" stopColor={palette.plum900} stopOpacity="0.42"/><Stop offset="0.4" stopColor={palette.plum800} stopOpacity="0.22"/>
+          <Stop offset="0.74" stopColor={palette.plum900} stopOpacity="0.7"/><Stop offset="1" stopColor={palette.plum900} stopOpacity="0.97"/>
         </LinearGradient>
-        <RadialGradient id="welcome-halo" cx="50%" cy="38%" r="55%">
-          <Stop offset="0" stopColor={palette.plum500} stopOpacity="0.38"/><Stop offset="1" stopColor={palette.plum900} stopOpacity="0"/>
+        {/* A soft dark ellipse behind the name and promise keeps them legible over bright skies. */}
+        <RadialGradient id="welcome-halo" cx="0.5" cy="0.36" r="0.5" gradientTransform="translate(0.5 0.36) scale(1.5 0.46) translate(-0.5 -0.36)">
+          <Stop offset="0" stopColor={palette.plum900} stopOpacity="0.46"/><Stop offset="0.6" stopColor={palette.plum900} stopOpacity="0.22"/><Stop offset="1" stopColor={palette.plum900} stopOpacity="0"/>
         </RadialGradient>
       </Defs>
       <Rect x="0" y="0" width="100" height="100" fill="url(#welcome-veil)"/>
@@ -208,7 +209,7 @@ export default function WelcomeScreen() {
     router.replace({ pathname: '/account', params: { mode, returnTo: typeof next === 'string' && next.startsWith('/') ? next : '/' } });
   };
 
-  const emblemSize = tiny ? 64 : compact ? 84 : 112;
+  const emblemSize = tiny ? 52 : compact ? 68 : 90;
   const letters = Array.from(BRAND);
   const step = 0.65 / letters.length;
   const tagline = ar ? 'مخدتك جاهزة في مدن العالم، بسعر الأعضاء' : 'Your pillow, ready in cities worldwide, at member prices';
@@ -301,7 +302,7 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 14 }, shadowOpacity: 0.4, shadowRadius: 28, elevation: 14 },
   word: { color: palette.cream, fontFamily: fonts.bold, writingDirection: 'rtl', textAlign: 'center', textShadowColor: 'rgba(20,10,28,0.55)', textShadowRadius: 18 },
   letters: { flexDirection: 'row', direction: 'ltr', marginTop: -4 },
-  letter: { color: '#E4D9FB', fontFamily: latinFonts.bold, fontSize: 13, lineHeight: 18, marginHorizontal: 2.2 },
+  letter: { color: '#F1EAFF', fontFamily: latinFonts.bold, fontSize: 13, lineHeight: 18, marginHorizontal: 2.2, textShadowColor: 'rgba(20,10,28,0.55)', textShadowRadius: 8 },
   tagline: { color: palette.white, textAlign: 'center', textShadowColor: 'rgba(20,10,28,0.6)', textShadowRadius: 12 },
   caption: { marginHorizontal: space.lg, marginBottom: space.xs, paddingHorizontal: space.sm, paddingVertical: 3, borderRadius: radius.pill,
     backgroundColor: 'rgba(32,22,38,0.5)', borderWidth: StyleSheet.hairlineWidth, borderColor: 'rgba(255,255,255,0.2)' },

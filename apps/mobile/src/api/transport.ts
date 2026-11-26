@@ -31,7 +31,8 @@ export function allowedRoute(method: string, path: string) {
     || checkoutStatusRoute(path) || /^\/v1\/hotels\/[1-9]\d{0,9}$/.test(path) || hotelReviewsRoute(path);
   return method === 'POST' && ['/membership/application/submit', '/search/rates', '/search/rates/region', '/search/hotelpage', '/booking/prebook',
     '/payment/quote', '/payment/ziina/intent', '/payment/ziina/recover', '/payment/tabby/eligibility',
-    '/auth/login', '/auth/register-send-code', '/auth/verify-and-register', '/auth/logout', '/auth/account-deletion'].includes(path);
+    '/auth/login', '/auth/register-send-code', '/auth/verify-and-register', '/auth/logout', '/auth/account-deletion',
+    '/auth/password/forgot', '/auth/password/reset'].includes(path);
 }
 function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
   return new Promise((resolve, reject) => {

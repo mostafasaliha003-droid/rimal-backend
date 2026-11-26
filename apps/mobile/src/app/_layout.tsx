@@ -1,6 +1,6 @@
-import React from 'react';
-import { ActivityIndicator, Platform, View } from 'react-native';
-import { Stack } from 'expo-router';
+import React, { useEffect } from 'react';
+import { ActivityIndicator, Image, Platform, Pressable, Text, View } from 'react-native';
+import { Stack, usePathname, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
@@ -13,6 +13,34 @@ import AppUpdatePrompt from '../components/AppUpdatePrompt';
 import { AccessGate, MemberAccessProvider } from '../components/MemberAccess';
 import { useReducedMotion } from '../components/motion';
 import { color } from '../theme';
+import { installCrashReporter, reportCrash, setCrashRoute } from '../components/crashReporter';
+
+installCrashReporter();
+
+/**
+ * The last line of defence: a screen that fails to draw shows this calm, bilingual card instead of a
+ * blank screen, and the failure is reported (anonymously) so it can be fixed. Providers may be gone
+ * here, so it uses nothing but React Native itself.
+ */
+export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
+  useEffect(() => { reportCrash(error, false); }, [error]);
+  return <View style={{ flex: 1, backgroundColor: color.bgCanvas, alignItems: 'center', justifyContent: 'center', padding: 28, gap: 14 }}>
+    <Image accessible={false} source={require('../../assets/pillow-symbol.png')} resizeMode="contain" style={{ width: 72, height: 56 }}/>
+    <Text accessibilityRole="header" style={{ fontSize: 21, fontWeight: '700', color: color.textPrimary, textAlign: 'center', writingDirection: 'rtl' }}>تعثّرت هذه الصفحة</Text>
+    <Text style={{ fontSize: 15, lineHeight: 24, color: color.textSecondary, textAlign: 'center', writingDirection: 'rtl' }}>أبلغنا فريقنا تلقائياً. حجوزاتك وحسابك بأمان.</Text>
+    <Text style={{ fontSize: 14, lineHeight: 21, color: color.textSecondary, textAlign: 'center' }}>This page stumbled. We’ve told our team; your bookings and account are safe.</Text>
+    <Pressable accessibilityRole="button" onPress={() => void retry()} style={({ pressed }) => ({ marginTop: 8, minHeight: 48, paddingHorizontal: 28, borderRadius: 24, justifyContent: 'center',
+      backgroundColor: color.interactive, opacity: pressed ? 0.85 : 1 })}>
+      <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>حاول مجدداً · Try again</Text>
+    </Pressable>
+  </View>;
+}
+
+function CrashRoute() {
+  const pathname = usePathname();
+  useEffect(() => { setCrashRoute(pathname); }, [pathname]);
+  return null;
+}
 
 // Browser-only: keyboard focus rings (:focus-visible keeps them off mouse clicks)
 // and a global reduce-motion fallback for CSS-driven transitions.
@@ -54,6 +82,6 @@ export default function RootLayout() {
   });
   if (!ready && !error) return <View style={{ flex: 1, backgroundColor: color.bgCanvas, justifyContent: 'center' }}><ActivityIndicator color={color.interactive}/></View>;
   return <SafeAreaProvider><LanguageProvider><AuthProvider><MemberAccessProvider><AppStateProvider><ChargeCurrencyProvider><ToastProvider>
-    <StatusBar style="dark"/><Navigator/><AccessGate/><AppUpdatePrompt/>
+    <StatusBar style="dark"/><CrashRoute/><Navigator/><AccessGate/><AppUpdatePrompt/>
   </ToastProvider></ChargeCurrencyProvider></AppStateProvider></MemberAccessProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;
 }

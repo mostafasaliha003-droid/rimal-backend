@@ -49,6 +49,18 @@ export function createApiClient(request: Request) {
       return credentials(await request('POST', '/auth/verify-and-register', { anonymous: true, signal, timeoutMs: 20000,
         body: { email: email.trim().toLowerCase(), code } }));
     },
+    /** E-mails a 6-digit reset code. The server answers the same whether or not the address has an account. */
+    async requestPasswordReset(email: string, signal?: AbortSignal) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || email.length > 254) throw new ApiError('validation', 'invalid_email');
+      await request('POST', '/auth/password/forgot', { anonymous: true, signal, timeoutMs: 20000, body: { email: email.trim().toLowerCase() } });
+    },
+    /** Sets a new password with the e-mailed code; every other device is signed out and this one is signed in. */
+    async resetPassword(email: string, code: string, password: string, signal?: AbortSignal) {
+      if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.trim()) || !/^\d{6}$/.test(code)) throw new ApiError('validation', 'invalid_reset_code');
+      if (typeof password !== 'string' || password.length < 10 || password.length > 256) throw new ApiError('validation', 'invalid_password');
+      return credentials(await request('POST', '/auth/password/reset', { anonymous: true, signal, timeoutMs: 20000,
+        body: { email: email.trim().toLowerCase(), code, password } }));
+    },
     async session(signal?: AbortSignal) {
       return normalizeUser(object(await request('GET', '/auth/session', { signal, timeoutMs: 20000 })).user);
     },
