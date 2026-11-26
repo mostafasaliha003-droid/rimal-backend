@@ -35,6 +35,7 @@ import { hotelImages } from './services/hotelImages.js';
 import { resolveHotelName } from './services/hotelPresentation';
 import { useLanguage } from './i18n';
 import { setPageSeo } from './services/seo.js';
+import { pageTitle } from './services/pageRoutes';
 
 function storedSearch() {
     try {
@@ -124,7 +125,7 @@ export default function App() {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
         const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/favorites', '/support', '/customer-service', '/loyalty', '/account-deletion', '/account-deletion-requests'].includes(pathname);
         const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
-        const title = t('meta.title', 'مخدة | pillow stays');
+        const title = pageTitle(pathname, language) || t('meta.title', 'مخدة | pillow stays');
         const description = t('meta.description', 'ابحث عن إقامة تناسبك مع مخدة وقارن عروض الفنادق.');
         setPageSeo({
             title,
@@ -133,6 +134,7 @@ export default function App() {
             locale: language === 'ar' ? 'ar_AE' : language === 'es' ? 'es_ES' : 'en_US',
             language,
             type: 'website',
+            image: new URL('/pillow/share.jpg', window.location.origin).href,
             languages: noindex ? [] : ['ar', 'en', 'es'],
             noindex,
             structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'مخدة | pillow stays', url: canonical }

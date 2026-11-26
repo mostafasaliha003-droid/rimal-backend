@@ -1,7 +1,7 @@
 const express = require('express');
 const fs = require('node:fs');
 const path = require('node:path');
-const { SITE_URL, buildHomeMetadata, buildHotelMetadata, renderMetadata, buildSitemap, buildRobots } = require('./siteMetadata');
+const { SITE_URL, buildHomeMetadata, buildPageMetadata, knownPage, buildHotelMetadata, renderMetadata, buildSitemap, buildRobots } = require('./siteMetadata');
 
 const INDEX_CACHE_CONTROL = 'no-store, no-cache, must-revalidate, proxy-revalidate';
 const ASSET_CACHE_CONTROL = 'public, max-age=31536000, immutable';
@@ -50,9 +50,17 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL, privateM
     };
 
     const languageFor = req => ['ar', 'en', 'es'].includes(req.query.lang) ? req.query.lang : 'ar';
-    const sendSeoIndex = (req, res, next, metadata, options) => {
+    // The share picture is served by whichever host answered (staging or production), so a shared link
+    // always shows it; the canonical address still names the public site.
+    const shareImage = req => {
+        const host = String(req.get('host') || '');
+        if (!/^[a-z0-9.-]{1,253}(:\d{1,5})?$/i.test(host)) return null;
+        return `${/^(localhost|127\.0\.0\.1)(:|$)/.test(host) ? 'http' : 'https'}://${host}/pillow/share.jpg`;
+    };
+    const sendSeoIndex = (req, res, next, source, options) => {
+        const metadata = source.image === new URL('/pillow/share.jpg', siteUrl).href ? { ...source, image: shareImage(req) || source.image } : source;
         fs.promises.readFile(indexPath, 'utf8').then(html => {
-            res.set({
+            res.status(options?.status || 200).set({
                 'Cache-Control': INDEX_CACHE_CONTROL,
                 'Pragma': 'no-cache',
                 'Expires': '0'
@@ -135,8 +143,14 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL, privateM
         }
     });
 
-    router.get(['/checkout', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/loyalty', '/account-deletion', '/account-deletion-requests'], (req, res, next) =>
-        sendSeoIndex(req, res, next, buildHomeMetadata(languageFor(req), siteUrl), { noindex: true })
+    // Signed-in and transactional pages: named in the browser tab, never indexed.
+    router.get(['/checkout', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/loyalty', '/account-deletion', '/account-deletion-requests',
+        '/bookings', '/favorites', '/notifications', '/support', '/customer-service', '/membership-admin'], (req, res, next) =>
+        sendSeoIndex(req, res, next, buildPageMetadata(req.path, languageFor(req), siteUrl), { noindex: true })
+    );
+    // Public pages with their own title and description.
+    router.get(['/membership', '/privacy', '/terms'], (req, res, next) =>
+        sendSeoIndex(req, res, next, buildPageMetadata(req.path, languageFor(req), siteUrl))
     );
 
     router.get('/next-gen', (req, res, next) =>
@@ -170,7 +184,9 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL, privateM
         if (path.extname(req.path) || req.path.split('/').some(segment => segment.startsWith('.'))) {
             return res.sendStatus(404);
         }
-        return sendIndex(req, res, next);
+        if (knownPage(req.path)) return sendIndex(req, res, next);
+        // An address the site does not have: the app shows its "not found" page, and the answer says 404.
+        return sendSeoIndex(req, res, next, buildPageMetadata(req.path, languageFor(req), siteUrl), { noindex: true, status: 404 });
     });
 
     return router;

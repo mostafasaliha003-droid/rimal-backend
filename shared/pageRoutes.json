@@ -1,0 +1,22 @@
+{
+  "routes": ["/", "/membership", "/support", "/privacy", "/terms", "/bookings", "/favorites", "/account", "/notifications", "/checkout", "/payment-status", "/account-deletion", "/account-deletion-requests", "/loyalty", "/customer-service", "/membership-admin", "/next-gen", "/next-gen/checkout", "/mock-payment"],
+  "patterns": ["^/hotel/[^/]+$"],
+  "titles": {
+    "/membership": { "ar": "عضوية مخدة | pillow stays", "en": "Membership | Mkhadda · pillow stays", "es": "Membresía | Mkhadda · pillow stays" },
+    "/support": { "ar": "عناية مخدة | pillow stays", "en": "Mkhadda care | pillow stays", "es": "Atención Mkhadda | pillow stays" },
+    "/privacy": { "ar": "سياسة الخصوصية | مخدة", "en": "Privacy policy | Mkhadda", "es": "Política de privacidad | Mkhadda" },
+    "/terms": { "ar": "شروط الاستخدام | مخدة", "en": "Terms of use | Mkhadda", "es": "Condiciones de uso | Mkhadda" },
+    "/bookings": { "ar": "حجوزاتي | مخدة", "en": "My bookings | Mkhadda", "es": "Mis reservas | Mkhadda" },
+    "/favorites": { "ar": "المحفوظات | مخدة", "en": "Saved stays | Mkhadda", "es": "Guardados | Mkhadda" },
+    "/account": { "ar": "حسابي | مخدة", "en": "My account | Mkhadda", "es": "Mi cuenta | Mkhadda" },
+    "/notifications": { "ar": "الإشعارات | مخدة", "en": "Notifications | Mkhadda", "es": "Notificaciones | Mkhadda" },
+    "/checkout": { "ar": "إتمام الحجز | مخدة", "en": "Checkout | Mkhadda", "es": "Finalizar reserva | Mkhadda" },
+    "/payment-status": { "ar": "حالة الدفع | مخدة", "en": "Payment status | Mkhadda", "es": "Estado del pago | Mkhadda" },
+    "/account-deletion": { "ar": "حذف الحساب | مخدة", "en": "Delete account | Mkhadda", "es": "Eliminar cuenta | Mkhadda" },
+    "404": { "ar": "الصفحة غير موجودة | مخدة", "en": "Page not found | Mkhadda", "es": "Página no encontrada | Mkhadda" }
+  },
+  "descriptions": {
+    "/membership": { "ar": "عضوية مخدة مجانية للمؤهلين: قدّم طلبك، ونراجع أهليتك، وبعد القبول تنفتح لك أسعار الفنادق المخصصة للأعضاء.", "en": "Mkhadda membership is free for eligible travellers: apply, we review your eligibility, and member hotel rates open once you are approved.", "es": "La membresía Mkhadda es gratuita para viajeros elegibles: solicita, revisamos tu elegibilidad y las tarifas para miembros se abren tras la aprobación." },
+    "/support": { "ar": "عناية مخدة: محادثة خاصة مرتبطة بحجزك مع فريق الحجوزات.", "en": "Mkhadda care: a private conversation about your booking with our reservations team.", "es": "Atención Mkhadda: una conversación privada sobre tu reserva con nuestro equipo." }
+  }
+}

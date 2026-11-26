@@ -5,6 +5,8 @@ import {membershipCopy} from '../services/membershipCopy';
 import { MemberIdentity } from './SavedStays';
 import PillowWait from './PillowWait';
 import MembershipPortal,{MembershipChrome} from '../pages/MembershipPortal';
+import {knownRoute,pageTitle} from '../services/pageRoutes';
+const NotFound=lazy(()=>import('../pages/NotFound'));
 const MembershipAdmin=lazy(()=>import('../pages/MembershipAdmin'));
 const CustomerSupport=lazy(()=>import('../pages/CustomerSupport'));
 const AccountDeletion=lazy(()=>import('../pages/AccountDeletion'));
@@ -23,7 +25,7 @@ const PaymentStatus=lazy(()=>import('../pages/PaymentStatus'));
 const pageWait=<main className="pillow-wait-page"><PillowWait /></main>;
 
 export default function MembershipBoundary({children}){
-    const {language}=useLanguage(),L=membershipCopy(language);
+    const {language,t}=useLanguage(),L=membershipCopy(language);
     const [snapshot,setSnapshot]=useState(null),[error,setError]=useState(false),[pathname,setPathname]=useState(location.pathname);
     const sequence=useRef(0),active=useRef(true);
     const refresh=useCallback(async()=>{
@@ -55,6 +57,9 @@ export default function MembershipBoundary({children}){
         }catch{}
         go(path);
     };
+    // Each page names itself in the browser tab; an address the site does not have gets a real "not found" page.
+    useEffect(()=>{if(!/^\/hotel\//.test(pathname))document.title=pageTitle(pathname,language)||t('meta.title','مخدة | pillow stays');},[pathname,language,t]);
+    if(!knownRoute(pathname))return <Suspense fallback={pageWait}><NotFound go={go}/></Suspense>;
     // Public service and legal pages do not mount inventory/search hooks.
     if(pathname==='/membership-admin')return <Suspense fallback={pageWait}><MembershipAdmin/></Suspense>;
     if(pathname==='/customer-service')return <Suspense fallback={pageWait}><CustomerSupport staff/></Suspense>;

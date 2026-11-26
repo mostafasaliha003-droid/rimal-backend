@@ -1,14 +1,17 @@
 import { useEffect, useState } from 'react';
-import { ArrowUpRight, ArrowRight, Waves, Building2, Globe2, LockKeyhole, Sparkles, Check, RefreshCw } from 'lucide-react';
+import { ArrowUpRight, ArrowRight, LockKeyhole, MapPin, Sparkles, Check, RefreshCw } from 'lucide-react';
 import { useLanguage } from '../i18n';
 import { membershipRequest } from '../services/membershipApi';
 import './MembershipDiscover.css';
+import './MkhaddaDiscover.css';
+import { useReveal } from './MkhaddaLanding';
 
 const copy = {
     ar: {
         eyebrow: 'مساحة خاصة. احتمالات أكبر.', title: 'إقامتك القادمة تستحق الدخول.',
         intro: 'شواطئ جميرا، نبض دبي، أو وجهة جديدة حول العالم. افتح الباب لأسعار الإقامة المخصصة لأعضاء مخدة المعتمدين.',
-        destinations: ['جميرا والشاطئ', 'وسط دبي', 'وجهات حول العالم'],
+        destinations: ['جميرا والشاطئ', 'مرسى دبي', 'وجهات حول العالم'],
+        places: ['برج العرب، جميرا', 'مرسى دبي', 'أورتاكوي، إسطنبول'],
         descriptions: ['لإجازة قريبة تشبه السفر بعيدًا.', 'كن قريبًا من كل ما تحب اكتشافه.', 'مدينة جديدة. ذكريات تستحق الرحلة.'],
         styles: ['إجازات البحر', 'إقامات المدينة', 'رحلتك المقبلة'],
         private: 'أسعار مخصصة للأعضاء', unlock: 'اكتشف الأسعار بعد قبول عضويتك',
@@ -21,7 +24,8 @@ const copy = {
     en: {
         eyebrow: 'Private access. More possibilities.', title: 'Your next stay is worth getting in for.',
         intro: 'Jumeirah shores, the energy of Dubai, or somewhere new worldwide. Open the door to stay rates for approved pillow stays members.',
-        destinations: ['Jumeirah & the beach', 'Downtown Dubai', 'Destinations worldwide'],
+        destinations: ['Jumeirah & the beach', 'Dubai Marina', 'Destinations worldwide'],
+        places: ['Burj Al Arab, Jumeirah', 'Dubai Marina', 'Ortaköy, Istanbul'],
         descriptions: ['A nearby escape that feels a world away.', 'Stay close to everything you want to explore.', 'A new city. Memories worth the journey.'],
         styles: ['Coastal escapes', 'City stays', 'Your next journey'],
         private: 'Member stay rates', unlock: 'Explore rates once your membership is approved',
@@ -33,8 +37,12 @@ const copy = {
     },
 };
 
+// Real photographs of the places named on each card (public-domain and CC0 sources, credited in public/pillow/PHOTOS.md).
+const PHOTOS = ['/pillow/card-jumeirah.jpg', '/pillow/card-marina.jpg', '/pillow/card-world.jpg'];
+
 export default function MembershipDiscover({ onApply }) {
     const { language } = useLanguage(), L = copy[language] || copy.en;
+    const reveal = useReveal();
     const [feed, setFeed] = useState(null), [error, setError] = useState(false), [tick, setTick] = useState(0), [now, setNow] = useState(Date.now());
     useEffect(() => {
         const controller = new AbortController();
@@ -59,11 +67,11 @@ export default function MembershipDiscover({ onApply }) {
         return () => clearTimeout(timer);
     }, [feed, now]);
     const formatDate = value => new Intl.DateTimeFormat(language, { month: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit', timeZone: 'Asia/Dubai', timeZoneName: 'short' }).format(new Date(value));
-    return <section className="membership-discover" aria-labelledby="membership-discover-title">
+    return <section className="membership-discover mk-reveal" ref={reveal} aria-labelledby="membership-discover-title">
         <div className="membership-discover-heading"><span><Sparkles size={16} aria-hidden="true" />{L.eyebrow}</span><h2 id="membership-discover-title">{L.title}</h2><p>{L.intro}</p></div>
         <div className="membership-discover-grid">
-            {[Waves, Building2, Globe2].map((Icon, index) => <article className={`membership-destination membership-destination-${index}`} key={index}>
-                <div className="membership-destination-art" aria-hidden="true"><Icon strokeWidth={.8} /><span>{String(index + 1).padStart(2, '0')}</span></div>
+            {PHOTOS.map((photo, index) => <article className={`membership-destination membership-destination-${index}`} key={photo} style={{ '--i': index }}>
+                <div className="membership-destination-photo"><img src={photo} alt="" width="880" height="560" loading="lazy" decoding="async" /><span><MapPin size={13} aria-hidden="true" />{L.places[index]}</span></div>
                 <span className="membership-destination-style">{L.styles[index]}</span><h3>{L.destinations[index]}</h3><p>{L.descriptions[index]}</p>
                 <div className="membership-destination-access"><LockKeyhole size={15} aria-hidden="true" /><span>{L.private}</span></div>
             </article>)}

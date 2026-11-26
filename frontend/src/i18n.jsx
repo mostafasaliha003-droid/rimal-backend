@@ -1,4 +1,5 @@
 import { createContext, useContext, useEffect, useMemo, useState } from 'react';
+import { pageTitle } from './services/pageRoutes';
 
 export const SUPPORTED_LANGUAGES = [
     { code: 'ar', label: 'العربية', short: 'AR', direction: 'rtl', api: 'ar' },
@@ -1652,7 +1653,7 @@ export function LanguageProvider({ children }) {
         }
         document.body.dataset.language = metadata.code;
         if (!hotelRoute) {
-            document.title = translations[metadata.code]?.['meta.title'] || 'مخدة | pillow stays';
+            document.title = pageTitle(window.location.pathname, metadata.code) || translations[metadata.code]?.['meta.title'] || 'مخدة | pillow stays';
             const description = document.querySelector('meta[name="description"]');
             if (description) description.setAttribute('content', translations[metadata.code]?.['meta.description'] || description.content);
         }

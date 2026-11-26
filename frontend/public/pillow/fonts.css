@@ -1,6 +1,7 @@
-@font-face { font-family: 'Manrope'; src: url('./Manrope-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
-@font-face { font-family: 'Manrope'; src: url('./Manrope-Medium.ttf') format('truetype'); font-style: normal; font-weight: 500; font-display: swap; }
-@font-face { font-family: 'Manrope'; src: url('./Manrope-Bold.ttf') format('truetype'); font-style: normal; font-weight: 700; font-display: swap; }
-@font-face { font-family: 'IBM Plex Sans Arabic'; src: url('./IBMPlexSansArabic-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
-@font-face { font-family: 'IBM Plex Sans Arabic'; src: url('./IBMPlexSansArabic-Medium.ttf') format('truetype'); font-style: normal; font-weight: 500; font-display: swap; }
-@font-face { font-family: 'IBM Plex Sans Arabic'; src: url('./IBMPlexSansArabic-Bold.ttf') format('truetype'); font-style: normal; font-weight: 700; font-display: swap; }
+/* WOFF2 first (about a third of the TTF size); TTF stays as the fallback. */
+@font-face { font-family: 'Manrope'; src: url('./Manrope-Regular.woff2') format('woff2'), url('./Manrope-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('./Manrope-Medium.woff2') format('woff2'), url('./Manrope-Medium.ttf') format('truetype'); font-style: normal; font-weight: 500; font-display: swap; }
+@font-face { font-family: 'Manrope'; src: url('./Manrope-Bold.woff2') format('woff2'), url('./Manrope-Bold.ttf') format('truetype'); font-style: normal; font-weight: 700; font-display: swap; }
+@font-face { font-family: 'IBM Plex Sans Arabic'; src: url('./IBMPlexSansArabic-Regular.woff2') format('woff2'), url('./IBMPlexSansArabic-Regular.ttf') format('truetype'); font-style: normal; font-weight: 400; font-display: swap; }
+@font-face { font-family: 'IBM Plex Sans Arabic'; src: url('./IBMPlexSansArabic-Medium.woff2') format('woff2'), url('./IBMPlexSansArabic-Medium.ttf') format('truetype'); font-style: normal; font-weight: 500; font-display: swap; }
+@font-face { font-family: 'IBM Plex Sans Arabic'; src: url('./IBMPlexSansArabic-Bold.woff2') format('woff2'), url('./IBMPlexSansArabic-Bold.ttf') format('truetype'); font-style: normal; font-weight: 700; font-display: swap; }

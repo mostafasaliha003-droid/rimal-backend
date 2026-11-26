@@ -10,10 +10,16 @@ import professions from '../../../shared/membershipProfessions.json';
 import './MembershipPortal.css';
 import MembershipDocumentField from '../components/MembershipDocumentField';
 import PillowBrand from '../components/PillowBrand';
-import PillowHero from '../components/PillowHero';
+import {LandingHero,HowItWorks,AppShowcase,LandingFaq} from '../components/MkhaddaLanding';
 import CompanyFooter from '../components/CompanyFooter';
 import MembershipDiscover from '../components/MembershipDiscover';
 const gcc=['ae','sa','kw','qa','bh','om'];
+// Password recovery: an e-mailed 6-digit code, then a new password. The server answers the same whether or not the address has an account.
+const recoveryCopy={
+    ar:{forgot:'نسيت كلمة المرور؟',eyebrow:'استرجاع الحساب',askTitle:'لنرجعك إلى حسابك',askHint:'اكتب بريدك الإلكتروني ونرسل لك رمزًا من 6 أرقام لتعيين كلمة مرور جديدة.',send:'أرسل الرمز',resetTitle:'عيّن كلمة مرور جديدة',resetHint:'إذا كان هذا البريد مسجّلًا لدينا، فقد أرسلنا إليه رمزًا صالحًا لمدة 10 دقائق.',newPassword:'كلمة المرور الجديدة',save:'احفظ وادخل',resend:'أرسل رمزًا جديدًا',resent:'طلبنا رمزًا جديدًا. قد يستغرق وصوله دقيقة.',back:'العودة لتسجيل الدخول',badCode:'الرمز غير صحيح أو انتهت صلاحيته. اطلب رمزًا جديدًا.',tooMany:'محاولات كثيرة. انتظر بضع دقائق ثم أعد المحاولة.',mailDown:'تعذّر إرسال البريد الآن. حاول بعد قليل.',everywhere:'بعد الحفظ نُخرج حسابك من الأجهزة الأخرى حفاظًا على أمانه.'},
+    en:{forgot:'Forgot your password?',eyebrow:'Account recovery',askTitle:'Let’s get you back in',askHint:'Enter your email and we’ll send a 6-digit code to set a new password.',send:'Send the code',resetTitle:'Set a new password',resetHint:'If this address has an account, we’ve sent it a code that works for 10 minutes.',newPassword:'New password',save:'Save and sign in',resend:'Send a new code',resent:'We’ve asked for a new code. It may take a minute to arrive.',back:'Back to sign in',badCode:'That code is wrong or has expired. Ask for a new one.',tooMany:'Too many tries. Wait a few minutes and try again.',mailDown:'We couldn’t send the email right now. Try again shortly.',everywhere:'Saving signs your account out on every other device, to keep it safe.'},
+    es:{forgot:'¿Olvidaste tu contraseña?',eyebrow:'Recuperar cuenta',askTitle:'Volvamos a tu cuenta',askHint:'Escribe tu correo y te enviaremos un código de 6 dígitos para crear una contraseña nueva.',send:'Enviar el código',resetTitle:'Crea una contraseña nueva',resetHint:'Si este correo tiene una cuenta, le hemos enviado un código válido durante 10 minutos.',newPassword:'Contraseña nueva',save:'Guardar y entrar',resend:'Enviar un código nuevo',resent:'Hemos pedido un código nuevo. Puede tardar un minuto en llegar.',back:'Volver a iniciar sesión',badCode:'El código es incorrecto o ha caducado. Pide uno nuevo.',tooMany:'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',mailDown:'No pudimos enviar el correo ahora. Inténtalo en un momento.',everywhere:'Al guardar cerramos tu sesión en los demás dispositivos, por seguridad.'}
+};
 export function MembershipChrome({children,compact=false}){
     const {language,setLanguage,direction,t}=useLanguage(),L=membershipCopy(language);
     return <main className={`membership-site ${compact?'membership-compact':''}`} dir={direction}>
@@ -27,6 +33,8 @@ function Field({label,...props}){return <label className="membership-field"><spa
 export default function MembershipPortal({snapshot,refresh,go,onEnter}){
     const {language}=useLanguage(),L=membershipCopy(language),app=snapshot?.application;
     const [mode,setMode]=useState('login'),[verify,setVerify]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
+    const R=recoveryCopy[language]||recoveryCopy.en,[recover,setRecover]=useState(null),[notice,setNotice]=useState('');
+    const show=next=>{setMode(next);setVerify(false);setRecover(null);setError('');setNotice('');};
     const [resendAt,setResendAt]=useState(0),[clock,setClock]=useState(Date.now);
     useEffect(()=>{if(!verify)return;const timer=setInterval(()=>setClock(Date.now()),1000);return()=>clearInterval(timer);},[verify]);
     const waitSeconds=Math.max(0,Math.ceil((resendAt-clock)/1000));
@@ -36,10 +44,12 @@ export default function MembershipPortal({snapshot,refresh,go,onEnter}){
     const [phase,setPhase]=useState('eligibility'),[uploading,setUploading]=useState(''),[consent,setConsent]=useState(false);
     const [details,setDetails]=useState({category:'gcc_citizen',nationality:'',profession:'doctor',professionTitle:''});
     useEffect(()=>{if(app)setDetails({category:app.category||'gcc_citizen',nationality:app.nationality||'',profession:app.profession||'doctor',professionTitle:app.professionTitle||''});},[app?.reference]);
-    const message=e=>({EMAIL_ALREADY_REGISTERED:L.emailRegistered,invalid_credentials:L.invalidCredentials,INVALID_VERIFICATION_CODE:L.codeInvalid,VERIFICATION_EMAIL_UNAVAILABLE:L.codeUnavailable,documents_required:L.documentsRequired,consent_required:L.consentRequired,application_changed:L.changed,invalid_document_image:L.invalidFile,document_too_large:L.invalidFile,invalid_document_size:L.invalidFile}[e?.response?.data?.error||e.code]||L.error);
-    const run=async action=>{setBusy(true);setError('');try{await action();}catch(e){setError(message(e));}finally{setBusy(false);}};
+    const message=e=>e?.response?.status===429?R.tooMany:({INVALID_RESET_CODE:R.badCode,INVALID_PASSWORD:L.passwordHint,PASSWORD_RESET_EMAIL_UNAVAILABLE:R.mailDown,EMAIL_ALREADY_REGISTERED:L.emailRegistered,invalid_credentials:L.invalidCredentials,INVALID_VERIFICATION_CODE:L.codeInvalid,VERIFICATION_EMAIL_UNAVAILABLE:L.codeUnavailable,documents_required:L.documentsRequired,consent_required:L.consentRequired,application_changed:L.changed,invalid_document_image:L.invalidFile,document_too_large:L.invalidFile,invalid_document_size:L.invalidFile}[e?.response?.data?.error||e.code]||L.error);
+    const run=async action=>{setBusy(true);setError('');setNotice('');try{await action();}catch(e){setError(message(e));}finally{setBusy(false);}};
     const auth=event=>{event.preventDefault();void run(async()=>{
-        if(mode==='login'){const data=await BookingAPI.login({email:form.email,password:form.password});saveUserSession(data.user,data.access_token);await refresh();}
+        if(mode==='login'&&recover==='ask'){await BookingAPI.requestPasswordReset(form.email.trim());setCode('');setForm(current=>({...current,password:''}));setRecover('reset');}
+        else if(mode==='login'&&recover==='reset'){const data=await BookingAPI.resetPassword(form.email.trim(),code,form.password);saveUserSession(data.user,data.access_token);setRecover(null);setCode('');await refresh();}
+        else if(mode==='login'){const data=await BookingAPI.login({email:form.email,password:form.password});saveUserSession(data.user,data.access_token);await refresh();}
         else if(verify){const data=await BookingAPI.verifyRegistration(form.email,code);saveUserSession(data.user,data.access_token);go('/membership');await refresh();}
         else {await sendCode();}
     });};
@@ -52,24 +62,30 @@ export default function MembershipPortal({snapshot,refresh,go,onEnter}){
     const pending=app&&!['draft','needs_information'].includes(app.status),required=details.category==='gcc_citizen'?['passport']:['eid_front','eid_back'];
     let countries=[];try{const names=new Intl.DisplayNames([language],{type:'region'});countries=countryCodes.map(code=>({code,name:names.of(code.toUpperCase())})).sort((a,b)=>a.name.localeCompare(b.name,language));}catch{}
     return <MembershipChrome>
-        {!snapshot?.authenticated && <PillowHero><div className="pillow-hero-actions">{[[L.apply,'apply'],[L.login,'login']].map(([label,next]) => <a href="#membership-application" key={next} onClick={() => {setMode(next);setVerify(false);setError('');}}>{label}</a>)}</div></PillowHero>}
+        {!snapshot?.authenticated && <LandingHero applyLabel={L.apply} loginLabel={L.login} onApply={()=>show('apply')} onLogin={()=>show('login')} />}
         <div className={`membership-layout ${snapshot?.authenticated?'membership-authenticated':''}`}>
             <section className="membership-story"><span className="membership-eyebrow"><Sparkles size={15}/>{L.eyebrow}</span><h2>{L.brand}</h2><p>{L.intro}</p><div className="membership-benefits">{[[Hotel,L.benefit1],[Globe2,L.benefit2],[Tickets,L.benefit3]].map(([Icon,text])=><div key={text}><span className="membership-benefit-icon"><Icon size={19}/></span><span>{text}</span></div>)}</div><div className="membership-free"><ShieldCheck size={24}/><div><strong>{L.free}</strong><span>{L.approval}</span></div><Check size={18}/></div><small className="membership-conditions">{L.conditions}</small></section>
             <section id="membership-application" className="membership-panel" aria-label={L.brand}>
                 {snapshot?.authenticated&&<div className="membership-accountline"><span>{snapshot.user?.name}</span><button type="button" disabled={busy} onClick={()=>void run(async()=>{await BookingAPI.logoutUser();clearUserSession();await refresh();})}><LogOut size={15}/>{L.logout}</button></div>}
                 {error&&<p role="alert" className="membership-error">{error}</p>}
                 {!snapshot?.authenticated?<>
-                    <div className="membership-tabs"><button type="button" className={mode==='login'?'active':''} onClick={()=>{setMode('login');setVerify(false);setError('');}}>{L.login}</button><button type="button" className={mode==='apply'?'active':''} onClick={()=>{setMode('apply');setVerify(false);setError('');}}>{L.apply}</button></div>
-                    <div className="membership-panelheading"><span>{mode==='login'?L.welcome:L.free}</span><h2>{mode==='login'?L.loginTitle:verify?L.verifyTitle:L.accountTitle}</h2><p>{mode==='login'?L.loginHint:verify?L.verifyHint:L.accountHint}</p></div>
+                    <div className="membership-tabs"><button type="button" className={mode==='login'?'active':''} onClick={()=>show('login')}>{L.login}</button><button type="button" className={mode==='apply'?'active':''} onClick={()=>show('apply')}>{L.apply}</button></div>
+                    <div className="membership-panelheading" data-membership-recover={recover||undefined}><span>{recover?R.eyebrow:mode==='login'?L.welcome:L.free}</span><h2>{recover==='ask'?R.askTitle:recover==='reset'?R.resetTitle:mode==='login'?L.loginTitle:verify?L.verifyTitle:L.accountTitle}</h2><p>{recover==='ask'?R.askHint:recover==='reset'?R.resetHint:mode==='login'?L.loginHint:verify?L.verifyHint:L.accountHint}</p></div>
                     <form onSubmit={auth} className="membership-form">
-                        {verify?<><p className="membership-email" dir="ltr">{form.email}</p><Field label={L.code} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={e=>setCode(e.target.value)}/></>:<>
+                        {recover==='ask'?<Field label={L.email} type="email" autoComplete="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
+                        :recover==='reset'?<><p className="membership-email" dir="ltr">{form.email}</p><Field label={L.code} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={e=>setCode(e.target.value.replace(/[^0-9]/g,''))}/><Field label={R.newPassword} type="password" autoComplete="new-password" minLength={10} maxLength={256} required value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/><small>{L.passwordHint}. {R.everywhere}</small></>
+                        :verify?<><p className="membership-email" dir="ltr">{form.email}</p><Field label={L.code} inputMode="numeric" autoComplete="one-time-code" pattern="[0-9]{6}" maxLength={6} required value={code} onChange={e=>setCode(e.target.value)}/></>:<>
                             {mode==='apply'&&<Field label={L.name} autoComplete="name" required maxLength={160} value={form.name} onChange={e=>setForm({...form,name:e.target.value})}/>}
                             <Field label={L.email} type="email" autoComplete="email" required value={form.email} onChange={e=>setForm({...form,email:e.target.value})}/>
                             {mode==='apply'&&<Field label={L.phone} type="tel" autoComplete="tel" required maxLength={40} value={form.phone} onChange={e=>setForm({...form,phone:e.target.value})}/>}
                             <Field label={L.password} type="password" autoComplete={mode==='login'?'current-password':'new-password'} minLength={mode==='apply'?10:undefined} required value={form.password} onChange={e=>setForm({...form,password:e.target.value})}/>
                             {mode==='apply'&&<small>{L.passwordHint}</small>}
+                            {mode==='login'&&<button type="button" className="membership-forgot" data-membership-forgot onClick={()=>{setRecover('ask');setError('');setNotice('');setForm(current=>({...current,password:''}));}}>{R.forgot}</button>}
                         </>}
-                        <button className="membership-primary" disabled={busy} type="submit">{busy?L.working:mode==='login'?L.signIn:verify?L.verify:L.continue}<ArrowUpRight size={18}/></button>
+                        {notice&&<p role="status" className="membership-notice">{notice}</p>}
+                        <button className="membership-primary" disabled={busy} type="submit">{busy?L.working:recover==='ask'?R.send:recover==='reset'?R.save:mode==='login'?L.signIn:verify?L.verify:L.continue}<ArrowUpRight size={18}/></button>
+                        {recover==='reset'&&<button type="button" className="membership-textbutton" disabled={busy} onClick={()=>void run(async()=>{await BookingAPI.requestPasswordReset(form.email.trim());setNotice(R.resent);})}>{R.resend}</button>}
+                        {recover&&<button type="button" className="membership-textbutton" disabled={busy} onClick={()=>show('login')}>{R.back}</button>}
                         {verify&&<button type="button" className="membership-textbutton" disabled={busy||waitSeconds>0} onClick={()=>void run(sendCode)}>{language==='ar'?'إعادة إرسال الرمز':language==='es'?'Reenviar código':'Resend code'}{waitSeconds>0 && <bdi>{waitSeconds}s</bdi>}</button>}
                         {verify&&<button type="button" className="membership-textbutton" onClick={()=>setVerify(false)}>{L.back}</button>}
                     </form>
@@ -105,13 +121,15 @@ export default function MembershipPortal({snapshot,refresh,go,onEnter}){
                 </>}
             </section>
         </div>
+        {!snapshot?.authenticated && <HowItWorks />}
         {!snapshot?.authenticated && <MembershipDiscover onApply={() => {
-            setMode('apply');setVerify(false);setError('');
+            show('apply');
             requestAnimationFrame(() => {
                 const panel=document.getElementById('membership-application');
                 panel?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
                 panel?.querySelector('input')?.focus({preventScroll:true});
             });
         }} />}
+        {!snapshot?.authenticated && <><AppShowcase /><LandingFaq /></>}
     </MembershipChrome>;
 }

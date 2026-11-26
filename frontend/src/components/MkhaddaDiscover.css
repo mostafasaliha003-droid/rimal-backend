@@ -1,0 +1,61 @@
+/* Destinations, the offers board and the sign-in panel's recovery step, in the Mkhadda look. */
+.membership-site .membership-discover { max-width: 1280px; padding-inline: clamp(20px, 4vw, 50px); margin-block: clamp(44px, 6vw, 84px); }
+.membership-site .membership-discover-heading { margin-bottom: 28px; }
+.membership-site .membership-discover-heading > span { padding: 6px 12px; border-radius: 100px; background: #f1ebfa; color: var(--pillow-plum); font-size: 13px; font-weight: 700; }
+.membership-site .membership-discover-heading h2 { margin: 12px 0 6px; font-size: clamp(27px, 3.1vw, 40px); line-height: 1.35; font-weight: 700; color: var(--pillow-plum); }
+.membership-site .membership-discover-heading p { font-size: 16px; line-height: 1.85; color: var(--pillow-muted); }
+.membership-site .membership-destination { padding: 0 0 22px; border-radius: 24px; border-color: var(--pillow-line); box-shadow: 0 5px 20px #2d173a08; transition: opacity .7s ease, transform .7s cubic-bezier(.2, .8, .2, 1), box-shadow .25s ease; }
+.membership-site .membership-destination::before { display: none; }
+.membership-site .membership-destination:hover { box-shadow: 0 16px 38px #2d173a1a; }
+.membership-destination-photo { position: relative; overflow: hidden; aspect-ratio: 1.6; margin-bottom: 18px; background: var(--pillow-pistachio); }
+.membership-destination-photo img { width: 100%; height: 100%; object-fit: cover; transition: transform 1.2s cubic-bezier(.2, .8, .2, 1); }
+.membership-destination:hover .membership-destination-photo img { transform: scale(1.06); }
+.membership-destination-photo::after { content: ''; position: absolute; inset: 0; background: linear-gradient(180deg, transparent 55%, #2d173a8c 100%); }
+.membership-destination-photo > span { position: absolute; z-index: 1; inset-inline-start: 14px; bottom: 12px; display: inline-flex; align-items: center; gap: 6px; padding: 5px 11px; border-radius: 100px; font-size: 12.5px; font-weight: 600; color: #fff; background: #20162680; border: 1px solid #ffffff38; backdrop-filter: blur(8px); -webkit-backdrop-filter: blur(8px); }
+.membership-site .membership-destination-style, .membership-site .membership-destination h3, .membership-site .membership-destination > p, .membership-site .membership-destination-access { margin-inline: 24px; }
+.membership-site .membership-destination-style { display: block; color: #694a88; font-size: 13px; }
+.membership-site .membership-destination h3 { color: var(--pillow-plum); font-weight: 700; font-size: 22px; }
+.membership-site .membership-destination > p { color: var(--pillow-muted); font-size: 15px; margin-bottom: 18px; }
+.membership-site .membership-destination-access { color: var(--pillow-plum); border-top-color: var(--pillow-line); font-size: 13px; }
+.membership-site .membership-discover-note { color: var(--pillow-muted); font-size: 12.5px; }
+
+/* The board is dark plum: its text was always meant for a dark surface. */
+.membership-site .membership-offers-board { position: relative; overflow: hidden; isolation: isolate; padding: clamp(24px, 3.4vw, 40px); border: 0; border-radius: 28px; color: #fff; background: radial-gradient(120% 120% at 100% 0%, #694a88 0%, #47295a 45%, #2d173a 100%); box-shadow: 0 20px 50px #2d173a26; transition: opacity .7s ease, transform .7s cubic-bezier(.2, .8, .2, 1); }
+[dir=rtl] .membership-site .membership-offers-board { background: radial-gradient(120% 120% at 0% 0%, #694a88 0%, #47295a 45%, #2d173a 100%); }
+.membership-site .membership-offers-caption { font-size: 18px; font-weight: 700; color: #fff; }
+.membership-site .membership-offers-caption i { background: #c9b7f5; }
+.membership-site .membership-offers-caption .membership-offers-active i { background: #dfe8c7; box-shadow: 0 0 0 4px #dfe8c733; }
+.membership-site .membership-offers-caption small, .membership-site .membership-offers-invitation, .membership-site .membership-campaigns p, .membership-site .membership-campaigns small { color: #e2d6f1; }
+.membership-site .membership-offers-invitation { font-size: 15.5px; }
+.membership-site .membership-campaign-badge, .membership-site .membership-campaign-saving { color: #dfe8c7; }
+.membership-site .membership-discover-action { background: none; border-top-color: #ffffff2e; }
+.membership-site .membership-discover-action > div { color: #f6f0ff; font-size: 15px; }
+.membership-site .membership-discover-action > div svg { color: #c9b7f5; }
+.membership-site .membership-discover-action button { min-height: 54px; padding: 12px 26px; border-radius: 16px; background: #fff; color: var(--pillow-plum); font-size: 16px; font-weight: 700; box-shadow: 0 12px 28px #140a1c4d; transition: transform .2s ease, box-shadow .2s ease; }
+.membership-site .membership-discover-action button:hover { background: #fff; transform: translateY(-2px); box-shadow: 0 16px 34px #140a1c66; }
+.membership-site .membership-discover-action button:focus-visible { outline: 2px solid #fff; outline-offset: 3px; }
+.membership-site .membership-discover-reassurance { color: #cdbfe0; font-size: 12.5px; }
+
+.mk-reveal .membership-discover-heading, .mk-reveal .membership-destination, .mk-reveal .membership-offers-board { opacity: 0; transform: translateY(22px); transition-delay: calc(var(--i, 0) * 110ms); }
+.mk-reveal .membership-discover-heading { transition: opacity .7s ease, transform .7s cubic-bezier(.2, .8, .2, 1); }
+.mk-reveal.is-in .membership-discover-heading, .mk-reveal.is-in .membership-destination, .mk-reveal.is-in .membership-offers-board { opacity: 1; transform: none; }
+
+/* Sign-in panel: recovery */
+.membership-site .membership-forgot { justify-self: start; min-height: 44px; margin-top: -8px; padding-inline: 2px; color: #694a88; font-size: 14px; font-weight: 700; text-decoration: underline; text-underline-offset: 4px; }
+.membership-site .membership-forgot:hover { color: var(--pillow-plum); }
+.membership-site .membership-notice { padding: 12px 14px; border-radius: 12px; background: #f0f5e4; color: #344627; font-size: 14px; line-height: 1.8; }
+.membership-site .membership-textbutton { color: #694a88; }
+
+@media (max-width: 800px) {
+    .membership-site .membership-destination { padding: 0 0 18px; }
+    .membership-site .membership-destination-style, .membership-site .membership-destination h3, .membership-site .membership-destination > p, .membership-site .membership-destination-access { margin-inline: 20px; }
+    .membership-destination-photo { aspect-ratio: 1.9; margin-bottom: 14px; }
+}
+@media (max-width: 480px) {
+    .membership-site .membership-discover { padding-inline: 16px; margin-block: 40px; }
+    .membership-site .membership-discover-action button { width: 100%; }
+}
+@media (prefers-reduced-motion: reduce) {
+    .mk-reveal .membership-discover-heading, .mk-reveal .membership-destination, .mk-reveal .membership-offers-board { opacity: 1; transform: none; transition: none; }
+    .membership-destination:hover .membership-destination-photo img, .membership-site .membership-discover-action button:hover { transform: none; }
+}

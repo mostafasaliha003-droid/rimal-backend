@@ -204,3 +204,26 @@ test('CORS rejects untrusted domains, misleading hostnames and unapproved ports'
         assert.equal(response.headers.get('access-control-allow-origin'), null);
     }
 });
+test('each page names itself, the home page carries a share picture, and unknown addresses answer 404', async context => {
+    const base = await startSite(context, false);
+    const page = async route => { const response = await fetch(`${base}${route}`); return { status: response.status, html: await response.text() }; };
+    const home = await page('/');
+    assert.ok(home.html.includes(`property="og:image" content="${base}/pillow/share.jpg"`), 'the share picture comes from the host that answered');
+    assert.match(home.html, /rel="canonical" href="https:\/\/remalbookings\.com\/\?lang=ar"/);
+    const membership = await page('/membership?lang=ar');
+    assert.equal(membership.status, 200);
+    assert.match(membership.html, /<title>عضوية مخدة \| pillow stays<\/title>/);
+    assert.doesNotMatch(membership.html, /name="robots"/);
+    assert.match((await page('/privacy?lang=en')).html, /<title>Privacy policy \| Mkhadda<\/title>/);
+    const support = await page('/support/');
+    assert.equal(support.status, 200);
+    assert.match(support.html, /<title>عناية مخدة \| pillow stays<\/title>/);
+    assert.match(support.html, /name="robots" content="noindex,follow"/);
+    for (const route of ['/bookings', '/favorites', '/notifications', '/hotel/123']) assert.equal((await page(route)).status, 200, route);
+    const missing = await page('/not-a-real-page?lang=en');
+    assert.equal(missing.status, 404);
+    assert.match(missing.html, /<title>Page not found \| Mkhadda<\/title>/);
+    assert.match(missing.html, /name="robots" content="noindex,follow"/);
+    assert.match(missing.html, /<div id="root">root site<\/div>/, 'the app still loads and shows its own not-found page');
+    assert.equal((await page('/membership/extra')).status, 404);
+});

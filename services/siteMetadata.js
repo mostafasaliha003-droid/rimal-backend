@@ -1,4 +1,8 @@
 const SITE_URL = 'https://remalbookings.com';
+const PAGES = require('../shared/pageRoutes.json');
+const PAGE_PATTERNS = PAGES.patterns.map(source => new RegExp(source));
+// The picture shown when a link to the site is shared (1200x630).
+const SHARE_IMAGE = '/pillow/share.jpg';
 const LANGUAGES = {
     ar: { html: 'ar', locale: 'ar_AE', title: 'مخدة | pillow stays — حجوزات الفنادق', description: 'ابحث عن إقامة تناسبك مع مخدة. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة.' },
     en: { html: 'en', locale: 'en_US', title: 'Mkhadda | pillow stays — Hotel bookings', description: 'Compare hotel prices, availability, and cancellation terms with Mkhadda (pillow stays).' },
@@ -48,6 +52,27 @@ function alternateLinks(path, siteUrl = SITE_URL) {
     return links.join('');
 }
 
+const cleanPath = pathname => (pathname.length > 1 ? pathname.replace(/\/+$/, '') : pathname) || '/';
+/** Whether the website has a page at this address (the same list the browser app uses). */
+function knownPage(pathname) {
+    const path = cleanPath(String(pathname || '/'));
+    return PAGES.routes.includes(path) || PAGE_PATTERNS.some(pattern => pattern.test(path));
+}
+
+/** Title, description and canonical address for a named page; unknown addresses get the "not found" title. */
+function buildPageMetadata(pathname, language = 'ar', siteUrl = SITE_URL) {
+    const locale = LANGUAGES[language] ? language : 'ar';
+    const home = buildHomeMetadata(locale, siteUrl);
+    const found = knownPage(pathname), path = found ? cleanPath(pathname) : '/';
+    const title = PAGES.titles[found ? path : '404']?.[locale];
+    const description = PAGES.descriptions[path]?.[locale];
+    if (path === '/' && found) return home;
+    const canonical = new URL(`${path}?lang=${locale}`, siteUrl).href;
+    return { ...home, title: title || home.title, description: description || home.description, canonical,
+        alternates: found ? alternateLinks(path, siteUrl) : '',
+        structuredData: { '@context': 'https://schema.org', '@type': 'WebPage', name: title || home.title, url: canonical } };
+}
+
 function buildHomeMetadata(language = 'ar', siteUrl = SITE_URL) {
     const locale = LANGUAGES[language] ? language : 'ar';
     const localized = LANGUAGES[locale];
@@ -62,6 +87,7 @@ function buildHomeMetadata(language = 'ar', siteUrl = SITE_URL) {
         canonical,
         alternates: alternateLinks(path, siteUrl),
         type: 'website',
+        image: new URL(SHARE_IMAGE, siteUrl).href,
         structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'مخدة | pillow stays', alternateName: 'Mkhadda', url: canonical }
     };
 }
@@ -193,4 +219,4 @@ function buildRobots(siteUrl = SITE_URL) {
     return `User-agent: *\nAllow: /\nDisallow: /checkout\nDisallow: /account\nDisallow: /loyalty\nSitemap: ${new URL('/sitemap.xml', siteUrl).href}\n`;
 }
 
-module.exports = { SITE_URL, buildHomeMetadata, buildHotelMetadata, renderMetadata, buildSitemap, buildRobots };
+module.exports = { SITE_URL, buildHomeMetadata, buildPageMetadata, knownPage, buildHotelMetadata, renderMetadata, buildSitemap, buildRobots };

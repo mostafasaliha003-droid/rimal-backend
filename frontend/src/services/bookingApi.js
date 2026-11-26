@@ -245,6 +245,14 @@ export const registerSendCode = async registration =>
 export const verifyRegistration = async (email, code) =>
     responseData(await api.post('/auth/verify-and-register', { email, code }));
 
+/** E-mails a 6-digit reset code; the answer is the same whether or not the address has an account. */
+export const requestPasswordReset = async email =>
+    responseData(await api.post('/auth/password/forgot', { email }));
+
+/** Sets a new password with the e-mailed code and signs this browser in. */
+export const resetPassword = async (email, code, password) =>
+    responseData(await api.post('/auth/password/reset', { email, code, password }));
+
 export const getUserProfile = async () =>
     responseData(await api.get('/user/profile', { authScope: 'user' }));
 
@@ -314,6 +322,8 @@ export default {
     login,
     registerSendCode,
     verifyRegistration,
+    requestPasswordReset,
+    resetPassword,
     getUserProfile,
     getUserSession,
     logoutUser,
