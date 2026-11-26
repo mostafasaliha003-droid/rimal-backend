@@ -143,6 +143,19 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL, privateM
         sendSeoIndex(req, res, next, buildHomeMetadata(languageFor(req), siteUrl), { noindex: true })
     );
 
+    // Mkhadda Desk: the staff console, with its own page and install manifest. Never indexed or cached.
+    const deskHeaders = { 'Cache-Control': INDEX_CACHE_CONTROL, 'X-Robots-Tag': 'noindex, nofollow', 'Referrer-Policy': 'no-referrer' };
+    router.get(['/desk', '/desk/*'], (req, res, next) => {
+        const desk = path.join(publicRoot, 'desk.html');
+        if (!fs.existsSync(desk)) return next();
+        return sendFile(desk, res, next, deskHeaders);
+    });
+    router.get('/desk.webmanifest', (req, res, next) => {
+        const manifest = path.join(publicRoot, 'desk.webmanifest');
+        if (!fs.existsSync(manifest)) return next();
+        return sendFile(manifest, res, next, { 'Cache-Control': 'no-cache', 'Content-Type': 'application/manifest+json' });
+    });
+
     router.get('/', (req, res, next) =>
         sendSeoIndex(req, res, next, buildHomeMetadata(languageFor(req), siteUrl))
     );

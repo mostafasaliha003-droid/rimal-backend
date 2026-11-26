@@ -4,7 +4,7 @@ const authSessionSchema = new mongoose.Schema({
     tokenHash: { type: String, required: true, unique: true, select: false, match: /^[a-f\d]{64}$/i },
     subject: { type: String, required: true, immutable: true, maxlength: 254 },
     email: { type: String, required: true, immutable: true, lowercase: true, maxlength: 254 },
-    role: { type: String, required: true, immutable: true, enum: ['user', 'admin'] },
+    role: { type: String, required: true, immutable: true, enum: ['user', 'admin', 'agent'] },
     realm: { type: String, required: true, immutable: true, match: /^[a-z0-9:_-]{1,100}$/i },
     expiresAt: { type: Date, required: true },
     revokedAt: { type: Date, default: null }

@@ -83,8 +83,9 @@ test('staff see registered contact details, supplier identity and real document 
     assert.equal(customer.customer, undefined); assert.equal(customer.provider, undefined); assert.equal(customer.supplierReference, undefined);
     delete s.UserModel.rows[0].phone;
     assert.equal((await s.request(`/staff/conversations/${conversation.id}`, { token: 'admin' })).body.context.customer.phone, null, 'Never label the booking phone as the registered account phone');
-    const payment = await s.open('owned-payment');
-    assert.equal((await s.request(`/staff/conversations/${payment.id}`, { token: 'admin' })).body.context.documents.voucher, false, 'A verified payment alone is not a confirmed hotel voucher');
+    const payment = await s.request('/customer/conversations', { method: 'POST', body: { reference: 'owned-payment' } });
+    assert.equal(payment.status, 409, 'A verified payment alone is not a confirmed booking: no live chat');
+    assert.equal(payment.body.error, 'support_requires_confirmed_booking');
 });
 test('staff search registered and booking contact details, filter assignments and unread cases, and never cross realm boundaries', async t => {
     const s = await fixture(t), conversation = await s.open('owned-booking');
@@ -120,15 +121,22 @@ test('staff cancellation PDFs verify conversation realm, booking ownership and g
     assert.equal((await s.request(`/staff/conversations/${conversation.id}/cancellation-receipt`, { token: 'customer' })).status, 401);
 });
 
-test('chat eligibility requires a real owned booking or recorded payment; knowing a reference grants no access', async t => {
+test('chat eligibility requires a booking the hotel confirmed; knowing a reference grants no access', async t => {
     const s = await fixture(t);
     const allowed = await s.request('/customer/eligibility');
-    assert.deepEqual(allowed.body.references.map(row => row.reference).sort(), ['owned-booking', 'owned-payment']);
+    assert.deepEqual(allowed.body.references.map(row => row.reference).sort(), ['owned-booking']);
     assert.match(allowed.headers.get('cache-control'), /no-store/);
     for (const reference of ['foreign-booking', 'unstarted', 'unpaid-intent', 'fabricated']) assert.equal((await s.request('/customer/conversations',
         { method: 'POST', body: { reference, ownerSubject: 'other', realm: 'production' } })).status, 404);
-    const booking = await s.open('owned-booking'), payment = await s.open('owned-payment');
-    assert(booking.id); assert(payment.id); assert.equal((await s.open('owned-booking')).id, booking.id);
+    const booking = await s.open('owned-booking');
+    assert(booking.id); assert.equal((await s.open('owned-booking')).id, booking.id);
+    assert.equal((await s.request('/customer/conversations', { method: 'POST', body: { reference: 'owned-payment' } })).status, 409);
+    // A booking the hotel has not confirmed cannot open a conversation either.
+    s.BookingModel.rows[0].supplierStatus = 'PENDING';
+    assert.equal((await s.request('/customer/conversations', { method: 'POST', body: { reference: 'owned-booking' } })).body.error, 'support_requires_confirmed_booking');
+    s.BookingModel.rows[0].confirmedAt = new Date();
+    assert.equal((await s.request('/customer/conversations', { method: 'POST', body: { reference: 'owned-booking' } })).status, 200, 'Still open after a later status change once confirmed');
+    s.BookingModel.rows[0].supplierStatus = 'CONFIRMED'; delete s.BookingModel.rows[0].confirmedAt;
     assert.equal((await s.request(`/customer/conversations/${booking.id}`, { token: 'other' })).status, 404);
     assert.equal((await s.request('/staff/conversations', { token: 'customer' })).status, 401);
     assert.equal((await s.request('/customer/eligibility', { token: 'anonymous' })).status, 401);

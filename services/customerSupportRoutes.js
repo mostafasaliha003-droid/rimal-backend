@@ -36,6 +36,8 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
     };
     customer.use(requireUser); staff.use(requireAdmin);
     const owner = req => ({ ownerSubject: req.auth.subject, realm: req.auth.realm });
+    const confirmed = booking => Boolean(booking && (booking.confirmedAt
+        || ['CONFIRMED', 'COMPLETED'].includes(String(booking.supplierStatus || '').toUpperCase())));
     // A typed reference or unpaid intent is never an entitlement. Match a real
     // owned booking or a payment verified by the server against the gateway.
     async function eligible(req, reference, isStaff = false) {
@@ -44,6 +46,9 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
         const payment = await CheckoutModel.findOne({ ...owner(req), reference,
             $or: PAID_THROUGH, payment_verified_at: { $type: 'date' } }).lean();
         if (!booking && !payment) throw error('support_reference_not_found', 404);
+        // Live chat is for guests whose booking the hotel confirmed (it stays open after a later
+        // cancellation, for the refund). Anything else goes to e-mail.
+        if (!isStaff && !confirmed(booking)) throw error('support_requires_confirmed_booking', 409);
         const profile = isStaff && UserModel ? await UserModel.findOne({ _id: req.auth.subject }).select('name email phone').lean() : null;
         const provider = booking?.provider || (payment ? 'ratehawk' : null);
         const voucherAvailable = booking?.status === 'active' && ['CONFIRMED', 'COMPLETED'].includes(String(booking.supplierStatus).toUpperCase());
@@ -69,16 +74,10 @@ function createCustomerSupportRouters({ BookingModel, CheckoutModel = require('.
         return row;
     }
     customer.get('/eligibility', readLimiter, wrap(async req => {
-        const [bookings, payments] = await Promise.all([
-            BookingModel.find(owner(req)).sort({ createdAt: -1 }).limit(100).select('bookingReference hotelName status').lean(),
-            CheckoutModel.find({ ...owner(req), $or: PAID_THROUGH, payment_verified_at: { $type: 'date' } })
-                .sort({ createdAt: -1 }).limit(100).select('reference state').lean()
-        ]);
-        const references = new Map(bookings.map(b => [b.bookingReference, { reference: b.bookingReference,
-            hotelName: b.hotelName, status: b.status, type: 'booking' }]));
-        for (const p of payments) if (!references.has(p.reference)) references.set(p.reference,
-            { reference: p.reference, status: p.state, type: 'payment' });
-        return { references: [...references.values()] };
+        // Only bookings the hotel confirmed can open a conversation.
+        const bookings = await BookingModel.find(owner(req)).sort({ createdAt: -1 }).limit(100)
+            .select('bookingReference hotelName status supplierStatus confirmedAt').lean();
+        return { references: bookings.filter(confirmed).map(b => ({ reference: b.bookingReference, hotelName: b.hotelName, status: b.status, type: 'booking' })) };
     }));
     customer.get('/conversations', readLimiter, wrap(async req => ({ conversations:
         (await Conversation.find(owner(req)).sort({ updatedAt: -1 }).limit(100).lean()).map(row => conversationView(row, false)) })));

@@ -4,6 +4,8 @@ const AuthSession = require('../models/AuthSession');
 
 const USER_SESSION_TTL_MS = 12 * 60 * 60 * 1000;
 const ADMIN_SESSION_TTL_MS = 30 * 60 * 1000;
+// Customer-service agents work a shift in Mkhadda Desk; their role never reaches finance.
+const AGENT_SESSION_TTL_MS = 10 * 60 * 60 * 1000;
 const WRITE_CONCERN = Object.freeze({ w: 'majority', j: true, wtimeout: 10000 });
 
 function fail(code, httpStatus = 503) {
@@ -51,7 +53,7 @@ function createAuthSessionService({
     async function create({ subject, email, role } = {}) {
         if (typeof subject !== 'string' || !subject.trim() || subject.length > 254
             || typeof email !== 'string' || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
-            || !['user', 'admin'].includes(role)) {
+            || !['user', 'admin', 'agent'].includes(role)) {
             throw fail('auth_session_identity_invalid', 400);
         }
         await ensureReady();
@@ -61,7 +63,7 @@ function createAuthSessionService({
             throw fail('auth_session_token_invalid');
         }
         const issuedAt = new Date(now());
-        const ttl = role === 'admin' ? ADMIN_SESSION_TTL_MS : USER_SESSION_TTL_MS;
+        const ttl = role === 'admin' ? ADMIN_SESSION_TTL_MS : role === 'agent' ? AGENT_SESSION_TTL_MS : USER_SESSION_TTL_MS;
         const expiresAt = new Date(issuedAt.getTime() + ttl);
         if (!Number.isFinite(issuedAt.getTime()) || !Number.isFinite(expiresAt.getTime())) {
             throw fail('auth_session_clock_invalid');
@@ -102,7 +104,7 @@ function createAuthSessionService({
         } catch {
             throw fail('auth_session_database_unavailable');
         }
-        if (!record || record.realm !== activeRealm || !['user', 'admin'].includes(record.role)
+        if (!record || record.realm !== activeRealm || !['user', 'admin', 'agent'].includes(record.role)
             || typeof record.subject !== 'string' || typeof record.email !== 'string') return null;
         return { subject: record.subject, email: record.email, role: record.role, realm: activeRealm, expiresAt: record.expiresAt };
     }

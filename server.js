@@ -269,6 +269,23 @@ const supportRouters = require('./services/customerSupportRoutes').createCustome
 });
 app.use('/api/support', supportRouters.customer);
 app.use('/api/v1/admin/support', supportRouters.staff);
+// Mkhadda Desk (staff console at /desk): finance for the administrator, care for agents too.
+const requireStaff = sessionAuth.requireRole(['admin', 'agent']);
+const deskSupport = require('./services/customerSupportRoutes').createCustomerSupportRouters({
+    BookingModel: Booking, UserModel: User, requireUser: sessionAuth.requireRole('user'), requireAdmin: requireStaff
+});
+app.use('/api/v1/desk/care/support', deskSupport.staff);
+app.use('/api/v1/desk', require('./services/deskRoutes').createDeskRouter({
+    sessions: authSessionService, auth: sessionAuth, adminEmail: ADMIN_EMAIL, adminPasswordHash: ADMIN_PASSWORD_HASH,
+    comparePassword: (password, hash) => bcrypt.compare(password, hash), hashPassword: password => bcrypt.hash(password, 12),
+    Staff: require('./models/StaffAccount'), Booking, Checkout: require('./models/CheckoutAttempt'),
+    Cancellation: require('./models/BookingCancellation'), Conversation: require('./models/SupportConversation'),
+    FinanceSetting: require('./models/FinanceSetting'), ratehawk: ratehawkService,
+    enrichHotels: hotels => enrichRateHotels(hotels), customerPrice: paymentService.customerPrice,
+    liveRates: () => require('./services/checkoutCurrencyService').paymentRates(),
+    bookingInfo: id => require('./services/postBookingService').getBookingInfo(id),
+    loginLimiter: securityService.authLimiter
+}));
 app.use('/api/v1/admin/hotelbeds', createAdminHotelbedsSupplierTestRouter({
     controller: createAdminHotelbedsSupplierTestController({
         service: createAdminHotelbedsSupplierTestService({

@@ -7,7 +7,7 @@ function publicApi(req){
     if(method==='GET'&&path==='/api/display-rates'&&req.query?.scope==='world')return true;
     if(method==='GET'&&['/api/v1/ready','/api/v1/health','/api/v1/health-check','/api/payment/availability','/api/payment/rates','/api/payment/app-return','/api/app/version'].includes(path))return true;
     if(path.startsWith('/api/auth/')||path.startsWith('/api/membership/'))return true;
-    if(method==='POST'&&path==='/api/v1/admin/login')return true;
+    if(method==='POST'&&(path==='/api/v1/admin/login'||path==='/api/v1/desk/login'))return true;
     if(method==='POST'&&['/api/payment/ziina/webhook','/api/payment/tabby/webhook','/api/v1/webhooks/ziina-mock','/api/v1/webhooks/ratehawk','/api/v1/webhooks/midoffice'].includes(path))return true;
     // These existing endpoints independently enforce owner identity or a scoped
     // booking capability. Membership changes must not strand an existing payment.
@@ -29,6 +29,8 @@ function createMembershipAccessGate({service,sessions}){
             const identity=await sessions.resolve(token);
             if(!identity)return res.status(401).json({error:'membership_authentication_required'});
             if(identity.role==='admin')return next();
+            // Customer-service agents reach Mkhadda Desk only.
+            if(identity.role==='agent')return req.path.startsWith('/api/v1/desk/')?next():res.status(403).json({error:'membership_approval_required'});
             if(identity.role!=='user')return res.status(403).json({error:'membership_approval_required'});
             const {row}=await service.application(identity);
             if(row?.status!=='approved')return res.status(403).json({error:'membership_approval_required'});
