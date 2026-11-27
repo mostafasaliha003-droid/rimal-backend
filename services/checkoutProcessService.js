@@ -120,7 +120,12 @@ function publicView(record) {
                 : ['review', 'unknown'].includes(record.notification_status) ? 'review' : 'pending'
         } : {}),
         ...(record.state === 'booking_confirmed' ? { supplier_reference: record.partner_order_id } : {}),
-        ...(record.action_required ? { action_required: record.action_required } : {})
+        ...(record.action_required ? { action_required: record.action_required } : {}),
+        // Only a confirmed booking can be cancelled by its guest (postBookingService); the refund that
+        // follows is that cancellation's, not a failed booking's.
+        ...(record.cancellation_request_hash && record.payment_verified_at
+            && ['booking_cancelled', 'refund_creating', 'refund_unknown', 'refund_pending', 'refund_completed', 'refund_review'].includes(record.state)
+            ? { guest_cancelled: true } : {})
     };
 }
 

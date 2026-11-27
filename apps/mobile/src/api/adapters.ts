@@ -62,9 +62,30 @@ export function images(...values: unknown[]): string[] {
   values.forEach(value => visit(value));
   return [...result];
 }
+// The first photo is the hotel's cover on every card. RateHawk tags many photos with a category;
+// a room, the building or the view sells the stay, a kitchen or a bathroom does not. Only the
+// order changes (stable within a tier, nothing dropped); untagged photos keep the supplier's order.
+const COVER_TIER: Readonly<Record<string, number>> = {
+  guest_rooms: 0, hotel_rooms: 0, exterior: 0, outside: 0, pool: 0, beach: 0, balcony: 0, view: 0,
+  lobby: 1, restaurant: 1, spa: 1, sports: 1, bar: 1,
+  kitchen: 2, bathroom: 2, people: 2, interior: 1, unspecified: 1,
+};
+function coverTier(category: unknown): number {
+  return typeof category === 'string' && Object.hasOwn(COVER_TIER, category) ? COVER_TIER[category] : 1;
+}
+export function rankByCategory(photos: string[], ...tagged: unknown[]): string[] {
+  const tier = new Map<string, number>();
+  for (const entry of tagged.flatMap(value => Array.isArray(value) ? value : [])) {
+    const row = object(entry), url = typeof row.url === 'string' ? imageUrl(row.url) : null;
+    if (url && !tier.has(url)) tier.set(url, coverTier(row.category_slug));
+  }
+  if (!tier.size) return photos;
+  return photos.map((url, index) => ({ url, index, tier: tier.get(url) ?? 1 }))
+    .sort((a, b) => a.tier - b.tier || a.index - b.index).map(item => item.url);
+}
 export function hotelPhotos(hotel: unknown): string[] {
   const row = object(hotel), cached = object(row.staticData);
-  return images(row.images_ext, row.images, row.image, cached.images_ext, cached.images, cached.image);
+  return rankByCategory(images(row.images_ext, row.images, row.image, cached.images_ext, cached.images, cached.image), row.images_ext, cached.images_ext);
 }
 const RG_FIELDS = ['class', 'quality', 'sex', 'bathroom', 'bedding', 'family', 'capacity', 'club', 'bedrooms', 'balcony', 'view', 'floor'];
 function classification(value: unknown): string | null {

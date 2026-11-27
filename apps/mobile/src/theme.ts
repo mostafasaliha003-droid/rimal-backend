@@ -1,4 +1,4 @@
-import { Easing, Platform, StyleSheet } from 'react-native';
+import { Appearance, Easing, Platform, StyleSheet } from 'react-native';
 
 /*
  * Mkhadda design tokens.
@@ -19,7 +19,7 @@ export const palette = {
   red700: '#A12B39', red200: '#F0C9D0', red100: '#FBECEF',
 } as const;
 
-export const color = {
+const lightColor = {
   // Actions: one filled primary action per view; everything else is secondary or quiet.
   actionPrimary: palette.plum800, actionPrimaryPressed: palette.plum700, actionPrimaryHover: '#3A2149',
   onActionPrimary: palette.white,
@@ -47,7 +47,55 @@ export const color = {
   accent: palette.apricot800, accentBg: palette.apricot100, accentBorder: palette.apricot200,
   // Commerce
   price: palette.plum900, rating: palette.gold700,
-} as const;
+  // Foreground on an interactive fill (checkboxes, the selected tab, send): white by day, ink by night.
+  onInteractive: palette.white,
+  // Pressed and hover fills of the quieter controls.
+  secondaryHover: '#EEE9E2', tonalPressed: '#E7DBFA', tonalHover: '#EEE4FC', chipActivePressed: '#EADFFB',
+  dangerPressed: '#8A2230', dangerHover: '#952634',
+  // A round control sitting on a photograph (save, gallery), and the backdrop behind a full-screen photo.
+  onPhotoChip: 'rgba(255,255,255,0.95)', photoBackdrop: '#120C16',
+  // The "Tabby" style mint tag at checkout.
+  mint: '#04503C', mintBg: 'rgba(62,237,191,0.22)',
+};
+
+/*
+ * Night: the same roles on a deep plum ground. Lavender replaces plum for actions and links so they
+ * keep 4.5:1 text contrast; the brand panels (bgBrand) stay plum with white text, as by day.
+ */
+const darkColor: Record<keyof typeof lightColor, string> = {
+  actionPrimary: '#D9C8FA', actionPrimaryPressed: '#C9B7F5', actionPrimaryHover: '#E3D6FB',
+  onActionPrimary: '#1A1220',
+  actionSecondary: '#2A2230', actionSecondaryPressed: '#352A3F', onActionSecondary: '#EDE4FA',
+  interactive: '#C9B7F5', interactiveStrong: '#DCCDFB', focusRing: '#C9B7F5',
+  textPrimary: '#F4EFF6', textBrand: '#EDE4FA', textSecondary: '#B7ACBD',
+  textLink: '#D2C0FA', textOnDark: palette.white, textOnDarkMuted: palette.lavender300,
+  bgCanvas: '#0E0A11', bgSurface: '#1F1824', bgSubtle: '#262029', bgSelected: '#33284A',
+  bgBrand: '#3A2149', bgAccent: '#33241B', bgMuted: '#1B161F',
+  scrim: 'rgba(0,0,0,0.62)', photoPlaceholder: '#2A2230',
+  bgField: '#2A2230', bgFieldPressed: '#352C3D', bgFieldFocus: '#1F1824',
+  border: '#3A3140', borderControl: '#857A8B', borderSelected: '#C9B7F5',
+  borderCard: 'rgba(255,255,255,0.11)',
+  success: '#8FD1AD', successBg: '#16291F', successBorder: '#2B4A39',
+  warning: '#E8C27A', warningBg: '#2E2412', warningBorder: '#4D3C1C',
+  danger: '#F2A3AE', dangerBg: '#3A1A20', dangerBorder: '#5C2A33',
+  info: '#D2C0FA', infoBg: '#2A2140', infoBorder: '#4A3A6B',
+  accent: '#F2B98F', accentBg: '#35241A', accentBorder: '#5A3B28',
+  price: '#F4EFF6', rating: '#E8C27A',
+  onInteractive: '#1A1220',
+  secondaryHover: '#30273A', tonalPressed: '#3D3058', tonalHover: '#382C50', chipActivePressed: '#3D3058',
+  dangerPressed: '#E68D9A', dangerHover: '#F5B3BC',
+  onPhotoChip: 'rgba(31,24,36,0.92)', photoBackdrop: '#120C16',
+  mint: '#7FE8C8', mintBg: 'rgba(62,237,191,0.16)',
+};
+
+/**
+ * Light or dark, read once at launch from the phone's appearance. Styles are built when their
+ * modules load, so the app keeps this scheme until it is next opened; _layout pins the native
+ * views (keyboard, map, alerts) to the same scheme so nothing mixes the two.
+ */
+export type ColorScheme = 'light' | 'dark';
+export const colorScheme: ColorScheme = Appearance.getColorScheme() === 'dark' ? 'dark' : 'light';
+export const color: Readonly<Record<keyof typeof lightColor, string>> = colorScheme === 'dark' ? darkColor : lightColor;
 
 /** 4-point spacing scale. */
 export const space = { none: 0, xxs: 2, xs: 4, sm: 8, md: 12, lg: 16, xl: 24, xxl: 32, xxxl: 48, huge: 64 } as const;
@@ -93,10 +141,13 @@ export function typeStyle(variant: TypeVariant, language: string) {
     lineHeight: language === 'ar' ? step.lineHeightAr : step.lineHeight };
 }
 
+// By night a plum shadow disappears into the ground: raised layers cast a deeper black one instead.
+const night = colorScheme === 'dark';
+const shadowInk = night ? '#000000' : palette.plum900;
 export const elevation = StyleSheet.create({
-  card: { shadowColor: palette.plum900, shadowOffset: { width: 0, height: 1 }, shadowOpacity: 0.06, shadowRadius: 3, elevation: 1 },
-  raised: { shadowColor: palette.plum900, shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.08, shadowRadius: 16, elevation: 4 },
-  overlay: { shadowColor: palette.plum900, shadowOffset: { width: 0, height: 16 }, shadowOpacity: 0.16, shadowRadius: 32, elevation: 12 },
+  card: { shadowColor: shadowInk, shadowOffset: { width: 0, height: 1 }, shadowOpacity: night ? 0.3 : 0.06, shadowRadius: 3, elevation: 1 },
+  raised: { shadowColor: shadowInk, shadowOffset: { width: 0, height: 6 }, shadowOpacity: night ? 0.4 : 0.08, shadowRadius: 16, elevation: 4 },
+  overlay: { shadowColor: shadowInk, shadowOffset: { width: 0, height: 16 }, shadowOpacity: night ? 0.55 : 0.16, shadowRadius: 32, elevation: 12 },
 });
 
 /** Material 3 window classes: compact < 600 <= medium < 840 <= expanded < 1200 <= large. */

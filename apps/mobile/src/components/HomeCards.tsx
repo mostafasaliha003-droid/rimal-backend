@@ -4,7 +4,7 @@ import type { PressableStateCallbackType } from 'react-native';
 import { useFocusEffect, useRouter } from 'expo-router';
 import type { SearchCriteria } from '../types';
 import { api } from '../api';
-import type { BookingHistoryItem } from '../api/bookings';
+import { bookingHotelName, type BookingHistoryItem } from '../api/bookings';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { color, palette, radius, space } from '../theme';
@@ -75,7 +75,7 @@ export function UpcomingTripCard() {
   const when = until === null ? '' : untilLabel(until, language);
   const dates = row.dates.checkin && row.dates.checkout ? [formatStayRange(row.dates.checkin, row.dates.checkout, language), row.dates.nights ? stayWords(language).nights(row.dates.nights) : ''].filter(Boolean).join(' · ') : '';
   const statusText = confirmed ? (ar ? 'مؤكد' : 'Confirmed') : (ar ? 'بانتظار التأكيد' : 'Awaiting confirmation');
-  const hotel = booking.hotelName || (ar ? 'اسم الفندق غير متاح' : 'Hotel name unavailable');
+  const hotel = bookingHotelName(booking, language) || (ar ? 'اسم الفندق غير متاح' : 'Hotel name unavailable');
   return <Pressable testID="upcoming-trip" accessibilityRole="button" onPress={() => router.navigate('/bookings')}
     accessibilityLabel={[ar ? 'رحلتك القادمة' : 'Your upcoming trip', when, hotel, dates, statusText, `${ar ? 'مرجع الحجز' : 'Booking reference'} ${booking.reference}`].filter(Boolean).join(' · ')}
     accessibilityHint={ar ? 'يفتح رحلاتي' : 'Opens My trips'}

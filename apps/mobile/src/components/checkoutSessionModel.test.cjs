@@ -329,3 +329,42 @@ test('a price lock that returns after the guest switched method is dropped quiet
   await f.session.quote();
   assert.equal(f.session.presentation().quote.currency, 'USD');
 });
+
+test('a booking the guest cancelled after confirmation is finished here and yields to the next stay', async () => {
+  const f = fixture(); await f.init(); await f.session.submit(travelers(), true);
+  // The server says so directly.
+  f.api.status = async () => ({ ...f.attempt('refund_pending'), paymentVerified: true, guestCancelled: true }); await f.session.refreshStatus();
+  assert.equal(f.session.presentation().attempt.guestCancelled, true);
+  assert.equal(f.session.presentation().canClearCompleted, true);
+  f.setSelection({ ...f.selection(), selectionId: 'next-stay' });
+  assert.equal(f.session.presentation().replaceCompleted, true);
+  assert.equal(await f.session.clearCompleted(), true);
+  assert.equal(await f.storage.read(f.owner()), null);
+});
+
+test('an older server: the account’s cancelled booking record identifies a guest cancellation', async () => {
+  const asked = [];
+  const f = fixture({ api: { bookingCancelled: async reference => { asked.push(reference); return true; } } });
+  await f.init(); await f.session.submit(travelers(), true);
+  f.api.status = async () => ({ ...f.attempt('refund_pending'), paymentVerified: true }); await f.session.refreshStatus();
+  assert.equal(f.session.presentation().attempt.guestCancelled, true);
+  assert.equal(f.session.presentation().canClearCompleted, true);
+  await f.session.refreshStatus();
+  assert.equal(f.session.presentation().attempt.guestCancelled, true, 'later statuses keep saying so');
+  assert.equal(asked.length, 1, 'the records are read once per booking');
+});
+
+test('a refund for a booking that failed is never mistaken for a guest cancellation', async () => {
+  const f = fixture({ api: { bookingCancelled: async () => false } }); await f.init(); await f.session.submit(travelers(), true);
+  f.api.status = async () => ({ ...f.attempt('refund_pending'), paymentVerified: true }); await f.session.refreshStatus();
+  assert.equal(f.session.presentation().attempt.guestCancelled, undefined);
+  assert.equal(f.session.presentation().canClearCompleted, false);
+  // A flag the server could not have sent (unpaid, or still confirmed) is dropped.
+  f.api.status = async () => ({ ...f.attempt('payment_failed'), guestCancelled: true }); await f.session.refreshStatus();
+  assert.equal(f.session.presentation().attempt.guestCancelled, undefined);
+  // A failed records check changes nothing.
+  const g = fixture({ api: { bookingCancelled: async () => { throw new Error('offline'); } } }); await g.init(); await g.session.submit(travelers(), true);
+  g.api.status = async () => ({ ...g.attempt('refund_pending'), paymentVerified: true }); await g.session.refreshStatus();
+  assert.equal(g.session.presentation().canClearCompleted, false);
+  assert.equal(g.session.presentation().phase, 'active');
+});

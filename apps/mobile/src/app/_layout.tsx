@@ -1,8 +1,9 @@
 import React, { useEffect } from 'react';
-import { ActivityIndicator, Image, Platform, Pressable, Text, View } from 'react-native';
+import { ActivityIndicator, Appearance, Image, Platform, Pressable, Text, View } from 'react-native';
 import { Stack, usePathname, type ErrorBoundaryProps } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { useFonts } from 'expo-font';
+import * as SystemUI from 'expo-system-ui';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import { LanguageProvider, useLanguage } from '../i18n';
 import { AuthProvider } from '../auth';
@@ -12,10 +13,19 @@ import { ToastProvider } from '../components/Toast';
 import AppUpdatePrompt from '../components/AppUpdatePrompt';
 import { AccessGate, MemberAccessProvider } from '../components/MemberAccess';
 import { useReducedMotion } from '../components/motion';
-import { color } from '../theme';
+import { color, colorScheme } from '../theme';
 import { installCrashReporter, reportCrash, setCrashRoute } from '../components/crashReporter';
 
 installCrashReporter();
+
+// The palette is chosen once at launch (see theme.ts). Pin the native views to the same scheme, so the
+// keyboard, Apple Maps and system sheets never turn dark over a light screen (or the reverse) when the
+// phone switches appearance while the app is open; the new scheme applies the next time it opens.
+if (Platform.OS === 'ios') Appearance.setColorScheme(colorScheme);
+// The window behind every screen (seen during transitions and keyboard animation) matches the canvas.
+if (Platform.OS !== 'web') void SystemUI.setBackgroundColorAsync(color.bgCanvas).catch(() => undefined);
+// Dark glyphs on a light canvas, light glyphs on a dark one.
+const barStyle = colorScheme === 'dark' ? 'light' : 'dark';
 
 /**
  * The last line of defence: a screen that fails to draw shows this calm, bilingual card instead of a
@@ -30,8 +40,8 @@ export function ErrorBoundary({ error, retry }: ErrorBoundaryProps) {
     <Text style={{ fontSize: 15, lineHeight: 24, color: color.textSecondary, textAlign: 'center', writingDirection: 'rtl' }}>أبلغنا فريقنا تلقائياً. حجوزاتك وحسابك بأمان.</Text>
     <Text style={{ fontSize: 14, lineHeight: 21, color: color.textSecondary, textAlign: 'center' }}>This page stumbled. We’ve told our team; your bookings and account are safe.</Text>
     <Pressable accessibilityRole="button" onPress={() => void retry()} style={({ pressed }) => ({ marginTop: 8, minHeight: 48, paddingHorizontal: 28, borderRadius: 24, justifyContent: 'center',
-      backgroundColor: color.interactive, opacity: pressed ? 0.85 : 1 })}>
-      <Text style={{ color: '#FFFFFF', fontSize: 16, fontWeight: '700' }}>حاول مجدداً · Try again</Text>
+      backgroundColor: color.actionPrimary, opacity: pressed ? 0.85 : 1 })}>
+      <Text style={{ color: color.onActionPrimary, fontSize: 16, fontWeight: '700' }}>حاول مجدداً · Try again</Text>
     </Pressable>
   </View>;
 }
@@ -63,11 +73,13 @@ function Navigator() {
   // The app mirrors its own layout instead of flipping the whole native view tree,
   // so the push transition must follow the reading direction explicitly.
   const animation = reduced ? 'fade' : rtl ? 'slide_from_left' : 'slide_from_right';
-  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.bgCanvas }, animation, animationDuration: reduced ? 150 : 280 }}>
+  // iOS 27 SDK apps set the status bar per screen (view-controller based); Android keeps expo-status-bar.
+  const statusBar = (style: 'light' | 'dark') => (Platform.OS === 'ios' ? { statusBarStyle: style } : {});
+  return <Stack screenOptions={{ headerShown: false, contentStyle: { backgroundColor: color.bgCanvas }, animation, animationDuration: reduced ? 150 : 280, ...statusBar(barStyle) }}>
     <Stack.Screen name="(tabs)"/><Stack.Screen name="results"/><Stack.Screen name="saved-dates"/><Stack.Screen name="saved-offers"/>
     <Stack.Screen name="hotel/[hid]"/><Stack.Screen name="review"/><Stack.Screen name="compare"/><Stack.Screen name="checkout"/>
     <Stack.Screen name="account-deletion"/><Stack.Screen name="support"/><Stack.Screen name="membership"/><Stack.Screen name="notifications"/>
-    <Stack.Screen name="welcome" options={{ animation: 'fade', animationDuration: reduced ? 150 : 420, gestureEnabled: false }}/>
+    <Stack.Screen name="welcome" options={{ animation: 'fade', animationDuration: reduced ? 150 : 420, gestureEnabled: false, ...statusBar('light') }}/>
   </Stack>;
 }
 
@@ -82,6 +94,6 @@ export default function RootLayout() {
   });
   if (!ready && !error) return <View style={{ flex: 1, backgroundColor: color.bgCanvas, justifyContent: 'center' }}><ActivityIndicator color={color.interactive}/></View>;
   return <SafeAreaProvider><LanguageProvider><AuthProvider><MemberAccessProvider><AppStateProvider><ChargeCurrencyProvider><ToastProvider>
-    <StatusBar style="dark"/><CrashRoute/><Navigator/><AccessGate/><AppUpdatePrompt/>
+    <StatusBar style={barStyle}/><CrashRoute/><Navigator/><AccessGate/><AppUpdatePrompt/>
   </ToastProvider></ChargeCurrencyProvider></AppStateProvider></MemberAccessProvider></AuthProvider></LanguageProvider></SafeAreaProvider>;
 }

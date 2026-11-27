@@ -36,7 +36,7 @@ test('Today includes arrival and departure dates while Past begins the following
   const buckets = Object.fromEntries(model.rows.map(row => [row.booking.reference, row.bucket]));
   assert.deepEqual(buckets, { 'checkin-today': 'current', 'inside-stay': 'current',
     'checkout-today': 'current', upcoming: 'upcoming', past: 'past' });
-  assert.deepEqual(model.counts, { all: 5, current: 3, upcoming: 1, past: 1, unknown: 0 });
+  assert.deepEqual(model.counts, { all: 5, current: 3, upcoming: 1, past: 1, cancelled: 0, unknown: 0 });
   assert.equal(buildTripsModel([booking('checkout-today', '2027-02-15', today)], '2027-02-18').rows[0].bucket, 'past');
   assert.equal(model.rows.find(row => row.booking.reference === 'checkout-today').dates.nights, 2);
 });
@@ -75,7 +75,7 @@ test('night counts are whole calendar days across leap days, year boundaries and
   for (const row of model.rows) assert.equal(row.dates.nights, 2, row.booking.reference);
 });
 
-test('booking status remains independent from dates and unrecognized status never becomes confirmed', () => {
+test('only a cancellation changes a trip\'s group; every other status follows the dates, and unrecognized status never becomes confirmed', () => {
   const values = ['confirmed', 'cancelled', 'pending', 'failed', 'unknown', 'active', 'booking_confirmed'];
   const input = values.flatMap(status => [
     booking(`current-${status}`, '2027-02-16', '2027-02-18', status),
@@ -83,7 +83,8 @@ test('booking status remains independent from dates and unrecognized status neve
     booking(`past-${status}`, '2027-02-14', '2027-02-16', status),
   ]);
   const model = buildTripsModel(input, today);
-  assert.deepEqual(model.counts, { all: 21, current: 7, upcoming: 7, past: 7, unknown: 0 });
+  assert.deepEqual(model.counts, { all: 21, current: 6, upcoming: 6, past: 6, cancelled: 3, unknown: 0 });
+  for (const row of model.rows) assert.equal(row.bucket === 'cancelled', row.statusKind === 'cancelled');
   for (const row of model.rows) {
     const expected = ['confirmed', 'cancelled', 'pending', 'failed'].includes(row.booking.statusKind)
       ? row.booking.statusKind : 'unknown';
@@ -124,11 +125,11 @@ test('counts and filters use exactly the same rows, including adverse-status tri
     booking('failed-future', '2027-02-18', '2027-02-19', 'failed'),
     booking('pending-past', '2027-02-14', '2027-02-16', 'pending'), booking('unknown', null, null),
   ], today);
-  for (const filter of ['all', 'current', 'upcoming', 'past', 'unknown']) {
+  for (const filter of ['all', 'current', 'upcoming', 'past', 'cancelled', 'unknown']) {
     assert.equal(filterTrips(model, filter).length, model.counts[filter]);
   }
   assert.equal(filterTrips(model, 'all'), model.rows);
-  assert.deepEqual(buildTripsModel([], today).counts, { all: 0, current: 0, upcoming: 0, past: 0, unknown: 0 });
+  assert.deepEqual(buildTripsModel([], today).counts, { all: 0, current: 0, upcoming: 0, past: 0, cancelled: 0, unknown: 0 });
   assert.deepEqual(filterTrips(buildTripsModel([], today), 'unknown'), []);
   for (const invalid of ['', '2027-2-17', '2027-02-29', '2027-02-17T00:00:00Z']) {
     assert.throws(() => buildTripsModel([], invalid), /invalid_trip_today/);
@@ -196,7 +197,18 @@ test('lookup combines with the date filter, treats user input literally and leav
   assert.equal(filterTrips(model, 'past', 'same').length, 0);
   for (const query of ['no match', '.*', '(same', '[', 'hotel$']) assert.deepEqual(filterTrips(model, 'all', query), []);
   assert.equal(filterTrips(model, 'all', ' \n\t '), model.rows);
-  assert.deepEqual(model.counts, { all: 2, current: 1, upcoming: 1, past: 0, unknown: 0 });
+  assert.deepEqual(model.counts, { all: 2, current: 1, upcoming: 1, past: 0, cancelled: 0, unknown: 0 });
   const literal = buildTripsModel([{ ...booking('REF.*[123]'), hotelName: null }], today);
   assert.equal(filterTrips(literal, 'all', '.*[').length, 1);
+});
+
+test('a cancelled booking leaves Today and Upcoming for its own Cancelled group, newest stay first', () => {
+  const model = buildTripsModel([
+    booking('cancelled-upcoming', '2027-03-01', '2027-03-03', 'cancelled'),
+    booking('cancelled-today', today, '2027-02-19', 'cancelled'),
+    booking('upcoming', '2027-02-20', '2027-02-21'),
+  ], today);
+  assert.deepEqual(model.rows.map(row => [row.booking.reference, row.bucket]), [
+    ['upcoming', 'upcoming'], ['cancelled-upcoming', 'cancelled'], ['cancelled-today', 'cancelled']]);
+  assert.equal(model.counts.upcoming, 1); assert.equal(model.counts.current, 0); assert.equal(model.counts.cancelled, 2);
 });

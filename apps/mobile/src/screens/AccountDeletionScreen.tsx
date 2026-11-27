@@ -6,7 +6,7 @@ import * as WebBrowser from 'expo-web-browser';
 import { api, ApiError, authSession, websiteUrl } from '../api';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
-import { colors, fonts, ui } from '../theme';
+import { color, colors, fonts, ui } from '../theme';
 import BrandHeader from '../components/BrandHeader';
 import { Button, Field, Row, StatePanel, Txt } from '../components/Primitives';
 import { utcTimestamp } from '../components/Cancellation';
@@ -104,7 +104,7 @@ function AccountDeletionContents({ status, sessionRevision, email }: Owner) {
             <Txt kind="heading" accessibilityRole="header">{t('deletionNoRequest')}</Txt><Txt kind="small">{t('deletionNoRequestBody')}</Txt>
             <Field label={t('deletionPassword')} value={password} onChangeText={setPassword} secureTextEntry autoCapitalize="none" autoCorrect={false} autoComplete="current-password" textContentType="password" maxLength={256} editable={!submitting}/>
             <Pressable accessible accessibilityRole="checkbox" aria-checked={consent} accessibilityLabel={t('deletionConsent')} accessibilityState={{ checked: consent, disabled: submitting }} disabled={submitting} onPress={() => setConsent(value => !value)} style={{ minHeight: 56, padding: 14, borderWidth: 1, borderRadius: 14, borderColor: consent ? colors.blueStrong : colors.border, backgroundColor: consent ? colors.softBlue : colors.background }}>
-              <Row style={{ alignItems: 'flex-start' }}><View accessible={false} style={{ width: 24, height: 24, borderWidth: 2, borderRadius: 5, borderColor: colors.blueStrong, alignItems: 'center', justifyContent: 'center', backgroundColor: consent ? colors.blueStrong : '#fff' }}><Txt accessible={false} style={{ color: '#fff', fontSize: 16, lineHeight: 20 }}>{consent ? '✓' : ''}</Txt></View><Txt style={{ flex: 1 }}>{t('deletionConsent')}</Txt></Row>
+              <Row style={{ alignItems: 'flex-start' }}><View accessible={false} style={{ width: 24, height: 24, borderWidth: 2, borderRadius: 5, borderColor: colors.blueStrong, alignItems: 'center', justifyContent: 'center', backgroundColor: consent ? colors.blueStrong : color.bgSurface }}><Txt accessible={false} style={{ color: color.onInteractive, fontSize: 16, lineHeight: 20 }}>{consent ? '✓' : ''}</Txt></View><Txt style={{ flex: 1 }}>{t('deletionConsent')}</Txt></Row>
             </Pressable>
             {formError && <Txt accessibilityRole="alert" style={{ color: colors.red }}>{t(formError)}</Txt>}
             <Button variant="danger" title={t(submitting ? 'deletionSubmitting' : 'deletionSubmit')} disabled={!password || !consent} busy={submitting} onPress={() => void submit()}/>

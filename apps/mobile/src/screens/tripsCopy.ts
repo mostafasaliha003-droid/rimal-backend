@@ -19,8 +19,8 @@ interface TripsCopy {
 }
 const en:TripsCopy={
   title:'My trips',filtersLabel:'Filter by stay dates',
-  filters:{all:'All',current:'Today',upcoming:'Upcoming',past:'Past',unknown:'Undated'},
-  groups:{current:'Today',upcoming:'Upcoming',past:'Past',unknown:'Undated'},
+  filters:{all:'All',current:'Today',upcoming:'Upcoming',past:'Past',cancelled:'Cancelled',unknown:'Undated'},
+  groups:{current:'Today',upcoming:'Upcoming',past:'Past',cancelled:'Cancelled',unknown:'Undated'},
   status:{confirmed:'Confirmed',cancelled:'Cancelled',pending:'Processing',failed:'Unsuccessful',unknown:'Status not confirmed'},
   statusLabel:'Booking status',checkin:'Check-in',checkout:'Check-out',arrivalToday:'Check-in today',departureToday:'Check-out today',
   dateUnknown:'Not supplied',datesIncomplete:'The complete stay dates were not supplied.',datesInvalid:'The stay dates could not be verified. Check this record with support.',hotelUnknown:'Hotel name unavailable',
@@ -38,8 +38,8 @@ const en:TripsCopy={
 };
 const ar:TripsCopy={
   title:'رحلاتي',filtersLabel:'التصفية حسب تواريخ الإقامة',
-  filters:{all:'الكل',current:'اليوم',upcoming:'القادمة',past:'السابقة',unknown:'دون تواريخ'},
-  groups:{current:'اليوم',upcoming:'القادمة',past:'السابقة',unknown:'دون تواريخ'},
+  filters:{all:'الكل',current:'اليوم',upcoming:'القادمة',past:'السابقة',cancelled:'الملغاة',unknown:'دون تواريخ'},
+  groups:{current:'اليوم',upcoming:'القادمة',past:'السابقة',cancelled:'الملغاة',unknown:'دون تواريخ'},
   status:{confirmed:'مؤكّد',cancelled:'ملغى',pending:'قيد المعالجة',failed:'تعذّر التأكيد',unknown:'الحالة غير مؤكّدة'},
   statusLabel:'حالة الحجز',checkin:'الوصول',checkout:'المغادرة',arrivalToday:'الوصول اليوم',departureToday:'المغادرة اليوم',
   dateUnknown:'لم يُحدّد',datesIncomplete:'لم ترد تواريخ الإقامة كاملة.',datesInvalid:'تعذّر التحقق من تواريخ الإقامة. راجع هذا السجل مع الدعم.',hotelUnknown:'اسم الفندق غير متاح',

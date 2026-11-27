@@ -206,7 +206,7 @@ function CareContents({ reference, intent, draft, signedIn, loading }: { referen
           <Pressable testID="care-send" accessibilityRole="button" accessibilityLabel={copy.send} accessibilityState={{ disabled: !canSend || tooLong }}
             disabled={!canSend || tooLong} onPress={() => void send(text)} hitSlop={6}
             style={state => [styles.send, (!canSend || tooLong) && styles.sendOff, state.pressed && { backgroundColor: color.actionPrimaryPressed }]}>
-            <Icon name="send" size={20} color={color.textOnDark}/>
+            <Icon name="send" size={20} color={color.onActionPrimary}/>
           </Pressable>
         </Row>
         {tooLong && <Txt kind="caption" tone="danger" accessibilityRole="alert">{copy.tooLong(MESSAGE_LIMIT)}</Txt>}

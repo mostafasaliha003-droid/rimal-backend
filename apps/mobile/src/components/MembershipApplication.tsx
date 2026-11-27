@@ -139,7 +139,7 @@ export default function MembershipApplication({ initial, finished }: { initial: 
       <Pressable accessibilityRole="checkbox" accessibilityState={{ checked: consent, disabled: busy }} aria-checked={consent} disabled={busy}
         onPress={() => setConsent(!consent)} style={[styles.option, consent && styles.optionOn]}>
         <Row style={{ alignItems: 'flex-start', gap: space.md }}>
-          <View style={[styles.box, consent && { backgroundColor: color.interactive, borderColor: color.interactive }]}>{consent && <Icon name="check" size={14} strokeWidth={3} color={color.textOnDark}/>}</View>
+          <View style={[styles.box, consent && { backgroundColor: color.interactive, borderColor: color.interactive }]}>{consent && <Icon name="check" size={14} strokeWidth={3} color={color.onInteractive}/>}</View>
           <Txt kind="small" tone="primary" style={{ flex: 1 }}>{text('أؤكد صحة البيانات وأوافق على استخدام الوثائق لمراجعة أهليتي للعضوية.', 'I confirm my information is accurate and consent to use of my documents to review eligibility.')}</Txt>
         </Row>
       </Pressable>

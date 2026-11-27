@@ -60,6 +60,8 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const suggestError = suggestionResult.key === suggestionKey && suggestionResult.error;
   const [draft, setDraft] = useState(() => ({ source: state.criteria, value: initialTravel(state.criteria) }));
   const [nationalityOpen, showNationality] = useState(false);
+  // "Continue your search" waits for the nationality only; once it is picked, the search runs at once.
+  const [resumeAfterNationality, setResumeAfterNationality] = useState(false);
   // Applying travel details elsewhere updates the dates on Explore and retains its destination input.
   const travel = draft.source === state.criteria ? draft.value : initialTravel(state.criteria);
   const { checkin, checkout, guests, residency } = travel;
@@ -184,7 +186,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         if (!restored) return;
         fillForm({ query: continueSource.name, selected: restored, checkin: continueSource.criteria.checkin, checkout: continueSource.criteria.checkout,
           guests: copyGuestRooms(continueSource.criteria.guests), residency: '' });
-        returnToForm(); setSubmitted(true); setErrors({ residency: true }); showNationality(true);
+        returnToForm(); setSubmitted(true); setErrors({ residency: true }); setResumeAfterNationality(true); showNationality(true);
         return;
       }
       state.setSearch({ ...resumeCriteria(state.lastSearch, currency, language), residency }, state.lastSearch.name);
@@ -299,7 +301,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   </View>;
 
   const membership = !savedOnly && <Pressable accessibilityRole="button" testID="home-membership" onPress={() => router.push('/membership')}
-    style={state => [styles.membership, (state.pressed || hovered(state)) && { backgroundColor: '#EEE4FC' }]}>
+    style={state => [styles.membership, (state.pressed || hovered(state)) && { backgroundColor: color.tonalHover }]}>
     <Row style={{ gap: space.md }}>
       <View style={styles.membershipIcon}><Icon name="sparkles" size={20} color={color.interactiveStrong}/></View>
       <View style={{ flex: 1, gap: space.xxs }}>
@@ -356,8 +358,15 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
         updateTravel({ guests: rooms });
         setErrors(current => ({ ...current, guests: false }));
       }}/>}
-    <CountryPicker visible={nationalityOpen} value={residency} title={t('residency')} onClose={() => showNationality(false)}
-      onChange={code => { updateTravel({ residency: code }); setErrors(current => ({ ...current, residency: false })); }}/>
+    <CountryPicker visible={nationalityOpen} value={residency} title={t('residency')} onClose={() => { showNationality(false); setResumeAfterNationality(false); }}
+      onChange={code => {
+        updateTravel({ residency: code }); setErrors(current => ({ ...current, residency: false }));
+        if (!resumeAfterNationality) return;
+        setResumeAfterNationality(false);
+        if (!state.lastSearch || !preference.ready || resumeState(state.lastSearch, todayDate()) !== 'ready' || !COUNTRY_CODES.includes(code)) return;
+        state.setSearch({ ...resumeCriteria(state.lastSearch, currency, language), residency: code }, state.lastSearch.name);
+        router.push('/results');
+      }}/>
     <CurrencyPicker visible={currencyOpen} value={preference.currency} automatic={preference.source !== 'manual'}
       onClose={() => showCurrency(false)} onChange={preference.choose} onAutomatic={preference.useAutomatic}/>
   </SafeAreaView>;

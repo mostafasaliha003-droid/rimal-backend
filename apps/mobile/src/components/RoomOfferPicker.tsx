@@ -11,7 +11,7 @@ import { useChargeMoney } from './ChargeCurrency';
 import OfferTermsSheet from './OfferTermsSheet';
 import { formatPrice } from './format';
 import { useLayout } from './motion';
-import { localizedRoomName } from './roomNameModel';
+import { localizedBedding, localizedRoomName } from './roomNameModel';
 import { haptic } from './haptics';
 
 interface OptionsProps {
@@ -89,7 +89,7 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
           </Row>
           {fees && <Txt kind="caption" tone="primary">{ar ? `يُدفع في الفندق: ${fees}` : `Due at the property: ${fees}`}</Txt>}
           {facts.meal !== title && <Txt kind="caption" tone="warning">{ar ? 'وجبات الأطفال غير مشمولة' : 'Children’s meals excluded'}</Txt>}
-          {offer.bedding && offer.bedding !== groupBedding && <Txt kind="caption" tone="primary">{offer.bedding}</Txt>}
+          {offer.bedding && offer.bedding !== groupBedding && <Txt kind="caption" tone="primary">{localizedBedding(offer.bedding, language)}</Txt>}
           {offer.name !== groupName && <Txt kind="caption">{shownName}</Txt>}
           {/* The difference to the lowest price matters while comparing; otherwise both prices are already on screen. */}
           {difference && compared && <Txt testID={`rate-difference-${number}`} kind="caption">{difference}</Txt>}
@@ -101,7 +101,7 @@ export default function RoomOfferPicker({ entries, selected, preferredKey, group
               disabled={disableCompare} onPress={() => { haptic(compared ? 'toggleOff' : 'toggleOn'); onToggle(entry); }} hitSlop={{ top: 6, bottom: 6 }}
               style={state => [styles.compare, (state.pressed || hovered(state)) && { opacity: 0.7 }, disableCompare && { opacity: 0.45 }]}>
               <Row style={{ gap: space.xs }}>
-                <View style={[styles.box, compared && styles.boxOn]}>{compared && <Icon name="check" size={12} strokeWidth={3} color={color.textOnDark}/>}</View>
+                <View style={[styles.box, compared && styles.boxOn]}>{compared && <Icon name="check" size={12} strokeWidth={3} color={color.onInteractive}/>}</View>
                 <Txt kind="small" tone="primary">{rate.compare}</Txt>
               </Row>
             </Pressable>}

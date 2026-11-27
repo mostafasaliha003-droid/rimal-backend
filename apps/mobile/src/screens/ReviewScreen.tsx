@@ -27,7 +27,7 @@ import { cancellationDecision } from '../components/cancellationDecision';
 import { useCancellationClock } from '../components/useCancellationClock';
 import { formatPrice, formatStayRange, formatWeekday, guestLine, nightsBetween, occupancy, roomLines, shortAddress, stayWords } from '../components/format';
 import { useLayout } from '../components/motion';
-import { localizedRoomName } from '../components/roomNameModel';
+import { localizedBedding, localizedRoomName } from '../components/roomNameModel';
 
 type ReviewSession = ReturnType<typeof useReviewSession>;
 
@@ -132,7 +132,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
   const cancelTone = decision?.kind === 'free' ? color.success : decision?.nonRefundable ? color.danger : color.textPrimary;
   const roomName = offer ? localizedRoomName(offer.name, language) : '';
   // Beds are stated once: not again when the room name already says them; a removed bedding term is still shown.
-  const showBedding = Boolean(offer && (offer.bedding ? !roomName.includes(offer.bedding) && !offer.name.includes(offer.bedding) : draft?.offer.bedding));
+  const showBedding = Boolean(offer && (offer.bedding ? !roomName.includes(localizedBedding(offer.bedding, language)) && !offer.name.includes(offer.bedding) : draft?.offer.bedding));
 
   const footerAction = !draft || !offer ? null : expired ? <Button fill variant="secondary" title={t('reviewRefreshOffers')} disabled={opening} onPress={returnToOffers}/>
     : showChanges && !changesAccepted ? <Button fill testID="review-see-changes" icon="alert" title={t('reviewSeeChanges')} disabled={opening} onPress={reviewChanges}/>
@@ -197,7 +197,7 @@ function ReviewContents({ session }: { session: ReviewSession }) {
                 <Txt kind="bodyStrong">{roomName}<Txt kind="small" tone="secondary"> · {mealDescription(offer, language)}</Txt></Txt>
                 {/* The supplier's own name is the booking identity the hotel sees; it is labelled, not repeated. */}
                 {roomName !== offer.name && <Txt kind="caption" numberOfLines={2}>{ar ? 'الاسم لدى الفندق: ' : 'Hotel’s name: '}<Txt kind="caption" style={{ writingDirection: 'ltr' }}>{offer.name}</Txt></Txt>}
-                {showBedding && <Txt testID="review-bedding" kind="caption">{rateLabels.bedding}: {offer.bedding || rateLabels.unknown}</Txt>}
+                {showBedding && <Txt testID="review-bedding" kind="caption">{rateLabels.bedding}: {offer.bedding ? localizedBedding(offer.bedding, language) : rateLabels.unknown}</Txt>}
               </InfoRow>
               <InfoRow icon={decision.kind === 'free' ? 'checkCircle' : decision.nonRefundable ? 'alertCircle' : 'clock'} tone={cancelTone} testID="review-cancellation">
                 <Txt kind="label" style={{ color: cancelTone }}>{decision.headline}</Txt>

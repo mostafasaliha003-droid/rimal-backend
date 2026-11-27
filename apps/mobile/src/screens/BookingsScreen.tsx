@@ -3,7 +3,7 @@ import { AppState, Platform, Pressable, ScrollView, SectionList, StyleSheet, Vie
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useRouter } from 'expo-router';
 import { api } from '../api';
-import type { BookingHistoryItem } from '../api/bookings';
+import { bookingHotelName, type BookingHistoryItem } from '../api/bookings';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
 import { color, radius, space, ui } from '../theme';
@@ -20,7 +20,7 @@ import { tripsCopy } from './tripsCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 import { useLayout } from '../components/motion';
 
-const buckets: TripBucket[] = ['current', 'upcoming', 'past', 'unknown'];
+const buckets: TripBucket[] = ['current', 'upcoming', 'past', 'cancelled', 'unknown'];
 const filters: TripFilter[] = ['all', ...buckets];
 const noBookings: readonly BookingHistoryItem[] = Object.freeze([]);
 type HistoryResult = { key: string; bookings: BookingHistoryItem[]; error: boolean };
@@ -73,7 +73,7 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
         <Badge tone={meta.tone} icon={meta.icon} label={statusText.title}/>
         {row.bucket === 'current' && <Badge tone="info" label={copy.groups.current}/>}
       </Row>
-      <Txt kind="subheading" accessibilityRole="header" numberOfLines={2}>{booking.hotelName || copy.hotelUnknown}</Txt>
+      <Txt kind="subheading" accessibilityRole="header" numberOfLines={2}>{bookingHotelName(booking, language) || copy.hotelUnknown}</Txt>
       <Row style={{ justifyContent: 'space-between', alignItems: 'flex-start', gap: space.md }}>
         <View style={{ flex: 1, minWidth: 0 }}>
           <InfoRow icon="calendar">
@@ -93,7 +93,7 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
           {canBookAgain && <TextLink testID={`trip-book-again-${booking.reference}`} icon="refresh" title={ar ? 'احجز مجدداً' : 'Book again'} onPress={bookAgain}/>}
         </Row>
         <Pressable testID={`trip-more-${booking.reference}`} accessibilityRole="button" accessibilityState={{ expanded }} aria-expanded={expanded}
-          accessibilityLabel={`${ar ? 'التفاصيل والإجراءات' : 'Details & actions'} · ${booking.hotelName || booking.reference}`}
+          accessibilityLabel={`${ar ? 'التفاصيل والإجراءات' : 'Details & actions'} · ${bookingHotelName(booking, language) || booking.reference}`}
           onPress={() => setExpanded(value => !value)} hitSlop={{ top: 6, bottom: 6 }} style={{ minHeight: 36, justifyContent: 'center' }}>
           <Row style={{ gap: space.xxs }}>
             <Txt kind="label" tone="link">{ar ? 'التفاصيل' : 'Details'}</Txt>

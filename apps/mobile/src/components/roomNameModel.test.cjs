@@ -2,7 +2,7 @@
 const test = require('node:test'), assert = require('node:assert/strict');
 const path = require('node:path');
 const load = require('../../scripts/test-support/load-typescript.cjs');
-const { arabicRoomName, localizedRoomName } = load(path.resolve(__dirname, './roomNameModel.ts'));
+const { arabicRoomName, localizedRoomName, localizedBedding } = load(path.resolve(__dirname, './roomNameModel.ts'));
 
 test('real RateHawk room names read naturally in Arabic with gender agreement', () => {
   const cases = {
@@ -36,4 +36,13 @@ test('names with any unknown part stay in the supplier wording instead of mixing
   assert.equal(localizedRoomName('Standard Double room', 'en'), 'Standard Double room');
   assert.equal(localizedRoomName('Standard Double room', 'ar'), 'غرفة قياسية مزدوجة');
   assert.equal(arabicRoomName('جناح ملكي'), 'جناح ملكي', 'already Arabic');
+});
+
+test('RateHawk bed lines read in Arabic only when every part is understood', () => {
+  assert.equal(localizedBedding('full double bed', 'ar'), 'سرير مزدوج');
+  assert.equal(localizedBedding('2 single beds, sofa bed', 'ar'), 'سريران منفردان، أريكة سرير');
+  assert.equal(localizedBedding('Full Double Bed', 'ar'), 'سرير مزدوج');
+  assert.equal(localizedBedding('full double bed', 'en'), 'full double bed');
+  assert.equal(localizedBedding('full double bed, murphy bed', 'ar'), 'full double bed, murphy bed', 'Never half-translated');
+  assert.equal(localizedBedding('سرير مزدوج', 'ar'), 'سرير مزدوج');
 });

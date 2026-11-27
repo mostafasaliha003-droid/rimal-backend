@@ -13,7 +13,7 @@ import BrandHeader, { AccountAvatar } from '../components/BrandHeader';
 import { Button, Chip, Field, Icon, Row, StatePanel, Txt } from '../components/Primitives';
 import { afterSignInRoute, normalizeVerificationCode, registrationFormReady } from '../components/foundationContracts';
 import { statusText } from '../components/membershipCopy';
-import { reportMembership } from '../components/MemberAccess';
+import { reportMembership, useMemberAccess } from '../components/MemberAccess';
 
 function AccountLink({ title, icon, onPress, hint, disabled }: {
   title: string; icon: React.ComponentProps<typeof Icon>['name']; onPress: () => void; hint?: string; disabled?: boolean;
@@ -155,9 +155,12 @@ export default function AccountScreen() {
     } catch (failure) { setError(mode === 'reset' ? resetError(failure) : t('authError')); }
     finally { setBusy(false); }
   };
+  // A visitor reaches Account from the welcome front, which it replaces, and has no tab bar:
+  // without this an iPhone (no system back) would have no visible way back to the welcome front.
+  const guest=useMemberAccess().access==='guest';
   const openPolicy=async(path:'/privacy'|'/terms')=>{try{await WebBrowser.openBrowserAsync(websiteUrl(path),{toolbarColor:colors.navy});}catch{setError(t('websiteError'));}};
   const visibleError=error||(status==='signedOut'&&sessionError&&!restorePending?t('authError'):'');
-  return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}>
+  return <SafeAreaView edges={['top']} style={ui.screen}><BrandHeader back={guest}/><KeyboardAvoidingView style={{flex:1}} behavior={Platform.OS==='ios'?'padding':undefined}><ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={ui.page}>
     <Txt kind="heading" accessibilityRole="header">{t('account')}</Txt>
     {status==='signedOut'&&<LanguageChoice/>}
     {status==='signedOut'&&restorePending&&<StatePanel title={language==='ar'?'تعذّر التحقق من جلستك':'We couldn’t verify your session'}

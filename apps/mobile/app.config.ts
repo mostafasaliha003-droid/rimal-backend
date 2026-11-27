@@ -10,17 +10,18 @@ const production = environment === 'production';
 const config: ExpoConfig = {
   name: production ? 'مخدة | pillow stays' : 'pillow stays Preview',
   slug: 'mkhadda',
-  version: '0.62.0',
+  version: '0.63.0',
   orientation: 'default',
   icon: './assets/pillow-icon.png',
   scheme: production ? 'mkhadda' : 'mkhadda-preview',
-  userInterfaceStyle: 'light',
+  // Follows the phone's light or dark appearance (read at launch; see src/theme.ts).
+  userInterfaceStyle: 'automatic',
   platforms: ['android', 'ios', 'web'],
   android: {
     // Production identity entered in the owner-created Play draft, 16 Nov 2026.
     // Keep internal previews separate from the store application.
     package: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
-    versionCode: 62,
+    versionCode: 63,
     adaptiveIcon: {
       foregroundImage: './assets/pillow-adaptive.png',
       backgroundColor: '#ffffff',
@@ -45,7 +46,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
     // Kept equal to android.versionCode so both stores count releases the same way.
-    buildNumber: '62',
+    buildNumber: '63',
     infoPlist: {
       // HTTPS only, no custom cryptography: exempt from export-compliance documentation.
       ITSAppUsesNonExemptEncryption: false,
@@ -59,10 +60,17 @@ const config: ExpoConfig = {
   },
   plugins: [
     'expo-router',
-    'expo-secure-store',
+    // Sessions are kept in the keychain without biometrics, so no Face ID usage string is declared.
+    ['expo-secure-store', { faceIDPermission: false }],
     'expo-system-ui',
+    // The pillow on the cream canvas: the same colour as the app's first (font-loading) frame,
+    // so launch flows into the app without a white flash.
+    ['expo-splash-screen', { image: './assets/pillow-symbol.png', imageWidth: 112, resizeMode: 'contain', backgroundColor: '#FAF8F4',
+      dark: { image: './assets/pillow-symbol.png', backgroundColor: '#0E0A11' } }],
     './plugins/with-local-ninja.cjs',
-    ['expo-localization', { supportedLocales: { android: ['ar', 'en'], ios: ['ar', 'en'] } }],
+    // The app mirrors its own layout for Arabic (and switches language in-app without a restart),
+    // so the native view tree must stay left-to-right; otherwise an Arabic-language phone flips it twice.
+    ['expo-localization', { supportedLocales: { android: ['ar', 'en'], ios: ['ar', 'en'] }, supportsRTL: false }],
     ['expo-font', { fonts: [
       './assets/fonts/IBMPlexSansArabic-Regular.ttf',
       './assets/fonts/Manrope-Regular.ttf',

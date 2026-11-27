@@ -71,7 +71,7 @@ test('rate summaries use confirmed payment and bed, exact source totals and indi
   assert.equal(facts.fees, 'EUR 0.0123 + AED 0.0123');
   assert.equal(missing.bedding, 'غير محدد');
   assert.equal(missing.payment, 'غير محدد');
-  assert.equal(missing.fees, 'الرسوم غير محددة');
+  assert.equal(missing.fees, 'أي رسوم محلية، إن وُجدت');
 });
 
 test('visible cancellation summary stops at the verified free interval even with a later advisory deadline', () => {

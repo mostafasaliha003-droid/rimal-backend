@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
-import { colors } from '../theme';
+import { color, colors } from '../theme';
 import { Icon, Photo, Row, Txt } from './Primitives';
 import { roomChoiceCopy } from './roomChoiceCopy';
 
@@ -63,18 +63,18 @@ export default function HotelGallery({ images, name, room = false }: {
       <SafeAreaView edges={['top','bottom','left','right']} style={styles.viewer}>
         <View accessibilityViewIsModal style={{ flex: 1 }}>
           <Row style={styles.bar}>
-            <View style={{ flex: 1, gap: 1 }}><Txt kind="small" style={{ color: colors.surface }}>{label}</Txt>
-              <Txt kind="label" style={{ color: colors.surface }}>{name}</Txt></View>
+            <View style={{ flex: 1, gap: 1 }}><Txt kind="small" style={{ color: color.textOnDark }}>{label}</Txt>
+              <Txt kind="label" style={{ color: color.textOnDark }}>{name}</Txt></View>
             <Pressable accessibilityRole="button" accessibilityLabel={rtl ? 'إغلاق الصور' : 'Close photos'}
               onPress={() => setExpanded(false)} style={styles.arrow}><Icon name="close" size={20}/></Pressable>
           </Row>
           <View style={{ flex: 1, justifyContent: 'center' }}>
             {uri ? <Photo uri={uri} label={name} height="100%" room={room} contain onFailed={reject}/>
-              : <Txt style={{ textAlign: 'center', color: colors.surface }}>{caption}</Txt>}
+              : <Txt style={{ textAlign: 'center', color: color.textOnDark }}>{caption}</Txt>}
           </View>
           {uri && <Row style={{ ...styles.bar, justifyContent: 'center', gap: 20 }}>
             {available.length > 1 && navigate(false)}
-            <Txt accessibilityLiveRegion="polite" kind="label" style={{ color: colors.surface }}>{count}</Txt>
+            <Txt accessibilityLiveRegion="polite" kind="label" style={{ color: color.textOnDark }}>{count}</Txt>
             {available.length > 1 && navigate(true)}
           </Row>}
         </View>
@@ -85,10 +85,10 @@ export default function HotelGallery({ images, name, room = false }: {
 
 const styles = StyleSheet.create({
   gallery: { gap: 3, borderRadius: 19, overflow: 'hidden', backgroundColor: colors.surface },
-  viewer: { flex: 1, backgroundColor: colors.ink, direction: 'ltr' },
+  viewer: { flex: 1, backgroundColor: color.photoBackdrop, direction: 'ltr' },
   bar: { paddingVertical: 10, paddingHorizontal: 16, gap: 10 },
   arrow: { width: 46, height: 46, borderRadius: 23, alignItems: 'center', justifyContent: 'center', backgroundColor: colors.surface },
   count: { position: 'absolute', bottom: 10, borderRadius: 16, backgroundColor: 'rgba(32,22,38,.84)', paddingVertical: 3, paddingHorizontal: 10 },
-  photoCount: { fontSize: 12, lineHeight: 19, color: colors.surface },
+  photoCount: { fontSize: 12, lineHeight: 19, color: color.textOnDark },
   empty: { minHeight: 44, gap: 7, paddingVertical: 8, paddingHorizontal: 12, backgroundColor: colors.softBlue, borderRadius: 12 },
 });

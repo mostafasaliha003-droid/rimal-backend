@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import { api } from '../api';
 import { ApiError } from '../api/errors';
-import type { BookingHistoryItem } from '../api/bookings';
+import { bookingHotelName, type BookingHistoryItem } from '../api/bookings';
 import { validReference, type CancellationOffer, type CancellationTracking } from '../api/cancellation';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
@@ -118,7 +118,7 @@ function CancelContents({ reference, signedIn, loading }: { reference: string; s
 
   const nights = booking?.checkin && booking.checkout ? nightsBetween(booking.checkin, booking.checkout) : null;
   const summary = booking && <Card testID="cancel-booking-summary" style={styles.card}>
-    <Txt kind="bodyStrong" numberOfLines={2} style={{ fontFamily: fonts.bold }}>{booking.hotelName || (ar ? 'حجزك' : 'Your booking')}</Txt>
+    <Txt kind="bodyStrong" numberOfLines={2} style={{ fontFamily: fonts.bold }}>{bookingHotelName(booking, language) || (ar ? 'حجزك' : 'Your booking')}</Txt>
     {booking.checkin && booking.checkout && <InfoRow icon="calendar"><Txt kind="small" tone="primary">
       {[formatStayRange(booking.checkin, booking.checkout, language), nights ? stayWords(language).nights(nights) : ''].filter(Boolean).join(' · ')}</Txt></InfoRow>}
     {booking.roomName && <InfoRow icon="bed"><Txt kind="small" tone="primary">{localizedRoomName(booking.roomName, language)}</Txt></InfoRow>}
@@ -193,7 +193,7 @@ function CancelContents({ reference, signedIn, loading }: { reference: string; s
           <Pressable testID="cancel-agree" accessibilityRole="checkbox" aria-checked={agreed} accessibilityState={{ checked: agreed }} onPress={() => setAgreed(value => !value)}
             style={[styles.agree, agreed && { backgroundColor: color.bgSelected }]}>
             <Row style={{ gap: space.sm, alignItems: 'flex-start' }}>
-              <View style={[styles.box, agreed && styles.boxOn]}>{agreed && <Icon name="check" size={13} strokeWidth={3} color={color.textOnDark}/>}</View>
+              <View style={[styles.box, agreed && styles.boxOn]}>{agreed && <Icon name="check" size={13} strokeWidth={3} color={color.onInteractive}/>}</View>
               <Txt kind="small" tone="primary" style={{ flex: 1 }}>{ar ? 'أفهم أن الإلغاء نهائي ولا يمكن التراجع عنه بعد التأكيد.' : 'I understand the cancellation is final once confirmed.'}</Txt>
             </Row>
           </Pressable>

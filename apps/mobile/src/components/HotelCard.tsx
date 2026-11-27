@@ -24,7 +24,8 @@ const hovered = (state: PressableStateCallbackType) => Boolean((state as { hover
 export function StarRating({ stars, size = 14 }: { stars?: number; size?: number }) {
   const { language } = useLanguage();
   const valid = Number.isInteger(stars) && Number(stars) >= 1 && Number(stars) <= 5;
-  if (!valid) return <Txt kind="caption">{language === 'ar' ? 'التصنيف غير متوفر' : 'Rating not supplied'}</Txt>;
+  // No stars supplied: nothing is shown. "Rating not supplied" on most cards read as a fault of every hotel.
+  if (!valid) return null;
   return <Row accessible accessibilityRole="image" accessibilityLabel={language === 'ar' ? `فندق ${stars} نجوم` : `${stars}-star hotel`} style={{ gap: 1 }}>
     {Array.from({ length: Number(stars) }, (_, index) => <Icon key={index} name="star" filled size={size} color={color.rating}/>)}
   </Row>;
@@ -46,6 +47,11 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
   const [feedback, setFeedback] = useState<{ context: string; code: 'limit' | 'context_changed' | 'unavailable' } | null>(null);
   const [failedPhotos, setFailedPhotos] = useState<ReadonlySet<string>>(() => new Set());
   const [pop] = useState(() => new Animated.Value(1));
+  // The card sinks a touch under the finger and springs back: the tap feels physical before the page opens.
+  const [press] = useState(() => new Animated.Value(1));
+  const sink = (to: number) => { if (!reduced) Animated.spring(press, { toValue: to, useNativeDriver: Platform.OS !== 'web', speed: 40, bounciness: to === 1 ? 6 : 0 }).start(); };
+  const touch = { onPressIn: () => sink(0.975), onPressOut: () => sink(1) };
+  const sunk = { transform: [{ scale: press }] };
   const hasPhoto = [hotel.imageUrl, ...(hotel.images || [])].some(uri => uri && !failedPhotos.has(uri));
   const shownPhoto = [hotel.imageUrl, ...(hotel.images || [])].find(uri => uri && !failedPhotos.has(uri));
   const open = () => {
@@ -94,7 +100,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
     style={state => [styles.compare, compared && styles.compared, (state.pressed || hovered(state)) && !compared && { backgroundColor: color.bgField },
       (comparisonDisabled || !comparisonContextKey) && { opacity: 0.45 }]}>
     <Row style={{ gap: space.xs }}>
-      <View style={[styles.box, compared && styles.boxChecked]}>{compared && <Icon name="check" size={11} strokeWidth={3} color={color.textOnDark}/>}</View>
+      <View style={[styles.box, compared && styles.boxChecked]}>{compared && <Icon name="check" size={11} strokeWidth={3} color={color.onInteractive}/>}</View>
       <Txt kind="micro" style={{ color: compared ? color.interactiveStrong : color.textSecondary }}>{L.compare}</Txt>
     </Row>
   </Pressable>;
@@ -141,9 +147,9 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
     {priceBlock}
   </Row>;
 
-  if (variant === 'photo') return <View testID={`hotel-card-${hotel.hid}`} style={[styles.card, recentlyViewed && styles.viewed]}>
+  if (variant === 'photo') return <Animated.View testID={`hotel-card-${hotel.hid}`} style={[styles.card, recentlyViewed && styles.viewed, sunk]}>
     <Pressable testID={`hotel-open-${hotel.hid}`} accessibilityRole="button" accessibilityHint={t('viewStay')}
-      onPress={open} style={state => [(state.pressed || hovered(state)) && styles.pressed]}>
+      onPress={open} {...touch} style={state => [(state.pressed || hovered(state)) && styles.pressed]}>
       <View style={{ aspectRatio: 16 / 10, width: '100%' }}>
         {hasPhoto ? <Photo uri={hotel.imageUrl} alternatives={hotel.images} label={hotel.name} height="100%" onFailed={onPhotoError}/>
           : <Photo label={hotel.name} height="100%"/>}
@@ -152,11 +158,11 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
     </Pressable>
     <View pointerEvents="box-none" style={[styles.overlay, rtl ? { left: space.sm } : { right: space.sm }]}>{heart}</View>
     {notice}
-  </View>;
+  </Animated.View>;
 
-  return <View testID={`hotel-card-${hotel.hid}`} style={[styles.card, recentlyViewed && styles.viewed]}>
+  return <Animated.View testID={`hotel-card-${hotel.hid}`} style={[styles.card, recentlyViewed && styles.viewed, sunk]}>
     <Pressable testID={`hotel-open-${hotel.hid}`} accessibilityRole="button" accessibilityHint={t('viewStay')}
-      onPress={open} style={state => [{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'stretch' }, (state.pressed || hovered(state)) && styles.pressed]}>
+      onPress={open} {...touch} style={state => [{ flexDirection: rtl ? 'row-reverse' : 'row', alignItems: 'stretch' }, (state.pressed || hovered(state)) && styles.pressed]}>
       <View style={[styles.thumb, { width: thumbWidth }]}>
         {hasPhoto ? <Photo uri={hotel.imageUrl} alternatives={hotel.images} label={hotel.name} height="100%" thumbnail onFailed={onPhotoError}/>
           : <Photo label={hotel.name} height="100%" thumbnail/>}
@@ -169,7 +175,7 @@ export default function HotelCard({ hotel, comparisonDisabled = false, variant =
     </Pressable>
     <View pointerEvents="box-none" style={[styles.thumbOverlay, rtl ? { right: space.sm } : { left: space.sm }]}>{heart}</View>
     {notice}
-  </View>;
+  </Animated.View>;
 }
 
 const styles = StyleSheet.create({
@@ -180,7 +186,7 @@ const styles = StyleSheet.create({
   thumb: { minHeight: 148, backgroundColor: color.photoPlaceholder },
   thumbOverlay: { position: 'absolute', top: space.sm },
   overlay: { position: 'absolute', top: space.sm },
-  heart: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.95)', margin: 2 },
+  heart: { width: 36, height: 36, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center', backgroundColor: color.onPhotoChip, margin: 2 },
   compare: { minHeight: 28, paddingHorizontal: space.xs + 2, borderRadius: radius.pill, justifyContent: 'center' },
   compared: { backgroundColor: color.bgSelected },
   box: { width: 15, height: 15, borderRadius: 4, borderWidth: 1.5, borderColor: color.borderControl, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSurface },

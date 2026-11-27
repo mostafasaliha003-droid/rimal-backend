@@ -29,7 +29,7 @@ const en = {
   reference: 'Request reference', supplierReference: 'Supplier reference', support: 'Contact support', clear: 'Choose another stay',
   clearError: 'This request could not be cleared safely. Check its status before starting another stay.',
   lastKnown: 'Last known server state', statusError: 'The latest status could not be loaded. The displayed state is the last known server state.',
-  voucherSent: 'Voucher sent', voucherPending: 'The booking is confirmed; voucher delivery is pending.', voucherReview: 'The booking is confirmed. Contact support about voucher delivery.',
+  voucherSent: 'Voucher sent', voucherPending: 'Your voucher is ready to download below; the email copy is on its way.', voucherReview: 'Your voucher is ready to download below. We couldn’t email it yet; support can send it again.',
   privacy: 'Privacy policy', terms: 'Terms & conditions',
   room: (i: number) => `Room ${i}`, traveler: (i: number, child: boolean, age?: number) => `Traveler ${i}${child ? ` · child, age ${age}` : ' · adult'}`,
 };
@@ -63,7 +63,7 @@ const ar: typeof en = {
   reference: 'مرجع الطلب', supplierReference: 'مرجع المورّد', support: 'التواصل مع الدعم', clear: 'اختيار إقامة أخرى',
   clearError: 'تعذر إغلاق متابعة الطلب بأمان. تحقق من حالته قبل بدء إقامة أخرى.',
   lastKnown: 'آخر حالة معروفة', statusError: 'تعذر تحميل آخر حالة. الحالة المعروضة هي آخر حالة معروفة من الخادم.',
-  voucherSent: 'تم إرسال القسيمة', voucherPending: 'الحجز مؤكّد وإرسال القسيمة قيد الانتظار.', voucherReview: 'الحجز مؤكّد. تواصل مع الدعم بشأن إرسال القسيمة.',
+  voucherSent: 'تم إرسال القسيمة', voucherPending: 'القسيمة جاهزة للتنزيل أدناه، ونسختها في طريقها إلى بريدك.', voucherReview: 'القسيمة جاهزة للتنزيل أدناه. تعذّر إرسالها إلى بريدك حتى الآن، ويمكن للدعم إعادة إرسالها.',
   privacy: 'سياسة الخصوصية', terms: 'الشروط والأحكام',
   room: i => `الغرفة ${i}`, traveler: (i,child,age) => `المسافر ${i}${child ? ` · طفل، العمر ${age}` : ' · بالغ'}`,
 };

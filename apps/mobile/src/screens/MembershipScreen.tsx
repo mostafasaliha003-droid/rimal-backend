@@ -24,7 +24,7 @@ const stateTone: Record<MemberState, { tone: BadgeTone; icon: IconName }> = {
 function Step({ number, title, body, done = false }: { number: number; title: string; body: string; done?: boolean }) {
   return <Row style={{ gap: space.md, alignItems: 'flex-start' }}>
     <View style={[styles.step, done && { backgroundColor: color.success, borderColor: color.success }]}>
-      {done ? <Icon name="check" size={14} strokeWidth={3} color={color.textOnDark}/> : <Txt kind="label" style={{ color: color.interactiveStrong }}>{number}</Txt>}
+      {done ? <Icon name="check" size={14} strokeWidth={3} color={color.onInteractive}/> : <Txt kind="label" style={{ color: color.interactiveStrong }}>{number}</Txt>}
     </View>
     <View style={{ flex: 1, gap: space.xxs }}><Txt kind="label">{title}</Txt><Txt kind="small">{body}</Txt></View>
   </Row>;
@@ -100,7 +100,7 @@ function MembershipContent() {
   </Card>;
 
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}><BrandHeader back/>
-    <ScrollView contentContainerStyle={[styles.page, { paddingHorizontal: gutter }]}>
+    <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.page, { paddingHorizontal: gutter }]}>
       <View style={{ gap: space.xs }}>
         <Txt kind="title" accessibilityRole="header">{ar ? 'عضوية مخدة' : 'Mkhadda membership'}</Txt>
         <Txt kind="body" tone="secondary">{ar ? 'أسعار خاصة للأعضاء المعتمدين، بشروط واضحة قبل الحجز.' : 'Private rates for approved members, with clear terms before you book.'}</Txt>

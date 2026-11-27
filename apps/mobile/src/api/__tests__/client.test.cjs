@@ -110,7 +110,7 @@ test('criteria and copied country allowlist follow the existing backend/website 
     { guests: [{ adults: 0, children: [] }] }, { guests: [{ adults: 2, children: [18] }] }, { regionId: undefined, hids: [] }]) {
     assert.equal(validateSearchCriteria({ ...value, ...patch }).valid, false);
   }
-  const original = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../../../../../shared/ratehawkResidencies.json'), 'utf8'));
+  const original = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../../../../../shared/ratehawkResidencies.json'), 'utf8'));
   assert.deepEqual(COUNTRY_CODES, original);
 });
 
@@ -729,4 +729,18 @@ test('guest ratings are requested for the shown hotels and read from the summary
   assert.deepEqual(ratings.get(11), { score: 8.6, count: 120 });
   assert.equal(ratings.get(12), null);
   assert.deepEqual(pending, []);
+});
+
+test('the cover photo is a room, the building or the view; kitchens and bathrooms go last, nothing is dropped', () => {
+  const photo = name => `https://cdn.worldota.net/t/{size}/content/${name}.jpeg`;
+  const shown = name => `https://cdn.worldota.net/t/1920x1080/content/${name}.jpeg`;
+  const hotel = { staticData: { images_ext: [
+    { url: photo('kitchen'), category_slug: 'kitchen' }, { url: photo('untagged-1'), category_slug: 'unspecified' },
+    { url: photo('bathroom'), category_slug: 'bathroom' }, { url: photo('room'), category_slug: 'guest_rooms' },
+    { url: photo('untagged-2') }, { url: photo('pool'), category_slug: 'pool' }] } };
+  assert.deepEqual(adapters.hotelPhotos(hotel), [shown('room'), shown('pool'), shown('untagged-1'), shown('untagged-2'), shown('kitchen'), shown('bathroom')]);
+  // Untagged photos keep the supplier's order exactly.
+  const plain = { images: [photo('a'), photo('b'), photo('c')] };
+  assert.deepEqual(adapters.hotelPhotos(plain), [shown('a'), shown('b'), shown('c')]);
+  assert.equal(adapters.normalizeHotel({ hid: 7, name: 'H', rates: [], ...hotel }, 'USD').imageUrl, shown('room'));
 });

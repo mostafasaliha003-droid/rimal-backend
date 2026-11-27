@@ -277,7 +277,7 @@ export default function WelcomeScreen() {
         </View>
         {!tiny && <Animated.View testID="welcome-benefits" style={[styles.benefits, { flexDirection: ar ? 'row-reverse' : 'row' }, rise(intro.benefits, 10)]}>
           {benefits.map(item => <View key={item.label} style={styles.benefit}>
-            <View style={styles.benefitIcon}><Icon name={item.icon} size={17} color={palette.plum600}/></View>
+            <View style={styles.benefitIcon}><Icon name={item.icon} size={17} color={color.interactiveStrong}/></View>
             <Text style={[styles.benefitText, { fontFamily: ar ? fonts.medium : latinFonts.medium }]} numberOfLines={2}>{item.label}</Text>
           </View>)}
         </Animated.View>}
@@ -312,9 +312,9 @@ const styles = StyleSheet.create({
   sheet: { gap: space.md, backgroundColor: color.bgCanvas, borderTopLeftRadius: 28, borderTopRightRadius: 28, paddingHorizontal: space.xl, paddingTop: space.md,
     shadowColor: '#000', shadowOffset: { width: 0, height: -8 }, shadowOpacity: 0.18, shadowRadius: 24, elevation: 16 },
   sheetWide: { alignSelf: 'center', width: 440, borderRadius: 28, marginBottom: space.xxl, paddingTop: space.xl },
-  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: palette.neutral200 },
+  handle: { alignSelf: 'center', width: 40, height: 4, borderRadius: 2, backgroundColor: color.border },
   benefits: { justifyContent: 'space-between', gap: space.sm },
   benefit: { flex: 1, alignItems: 'center', gap: 6 },
-  benefitIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: palette.lavender100 },
-  benefitText: { color: palette.plum800, fontSize: 12.5, lineHeight: 17, textAlign: 'center' },
+  benefitIcon: { width: 38, height: 38, borderRadius: 19, alignItems: 'center', justifyContent: 'center', backgroundColor: color.bgSelected },
+  benefitText: { color: color.textBrand, fontSize: 12.5, lineHeight: 17, textAlign: 'center' },
 });

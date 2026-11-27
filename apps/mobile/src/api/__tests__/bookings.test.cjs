@@ -22,7 +22,7 @@ function load(filename) {
   new Function('require', 'module', 'exports', output)(requireHere, module, module.exports);
   return module.exports;
 }
-const { normalizeBookingHistory, getOwnedBookings } = load('../bookings.ts');
+const { normalizeBookingHistory, getOwnedBookings, bookingHotelName } = load('../bookings.ts');
 const row = patch => ({ bookingReference: 'booking-123', provider: 'ratehawk', hotelName: 'Example Hotel',
   roomType: 'Double room', checkInDate: '2027-02-16', checkOutDate: '2027-02-18',
   status: 'active', supplierStatus: 'CONFIRMED', price: 25.5, priceCurrency: 'USD', ...patch });
@@ -33,7 +33,7 @@ test('owned history whitelists presentation fields and discards profile/contact/
     bookings: [row({ customerName: 'Private Guest', email: 'private@example.test', phone: '+10000000000',
       ownerSubject: 'private', realm: 'private', supplierReference: 'private', hotelConfirmationNumber: 'private',
       encrypted_details: { private: true }, supplier_price: 7 })] });
-  assert.deepEqual(Object.keys(result[0]).sort(), ['reference', 'hotelName', 'roomName', 'checkin', 'checkout',
+  assert.deepEqual(Object.keys(result[0]).sort(), ['reference', 'hotelName', 'hotelNameAr', 'roomName', 'checkin', 'checkout',
     'recordedStatus', 'supplierStatus', 'statusKind', 'price'].sort());
   assert.doesNotMatch(JSON.stringify(result), /private|Private Guest|cardToken|supplier_price/);
   assert.equal(result[0].reference, 'booking-123');
@@ -99,4 +99,15 @@ test('network/auth failures propagate to the caller instead of being misreported
   const error = new Error('session_expired');
   await assert.rejects(getOwnedBookings(async () => { throw error; }), value => value === error);
   await assert.rejects(getOwnedBookings(async () => ({ success: false, error: 'profile_unavailable' })), /invalid_response/);
+});
+
+test('the Arabic catalogue name is shown in Arabic; the booked English name stays everywhere else', () => {
+  const booking = normalize(row({ hotelName: 'LUX - Opulent Island Suite', hotelNameAr: 'لوكس - جناح الجزيرة الفخم' }));
+  assert.equal(booking.hotelName, 'LUX - Opulent Island Suite');
+  assert.equal(bookingHotelName(booking, 'ar'), 'لوكس - جناح الجزيرة الفخم');
+  assert.equal(bookingHotelName(booking, 'en'), 'LUX - Opulent Island Suite');
+  // Older servers send no Arabic name; a non-Arabic or unsafe value is never shown as one.
+  assert.equal(bookingHotelName(normalize(row({})), 'ar'), 'Example Hotel');
+  assert.equal(normalize(row({ hotelNameAr: 'Not Arabic' })).hotelNameAr, null);
+  assert.equal(normalize(row({ hotelNameAr: 'فندق\u202e' })).hotelNameAr, null);
 });

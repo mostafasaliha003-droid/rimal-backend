@@ -4,6 +4,8 @@ import { ApiError, invalidResponse } from './errors';
 import { assertCriteria, hotelId } from './validation';
 import { chargeCurrency, paymentCurrencyUnits as units } from './paymentCurrencies';
 import type { createTransport } from './transport';
+import { getOwnedBookings } from './bookings';
+import { AFTER_GUEST_CANCELLATION } from './checkoutStatuses';
 import { TABBY_REJECTIONS, type TabbyRejection } from '../components/tabbyModel';
 
 export type PaymentMode = 'sandbox' | 'production' | 'unconfigured';
@@ -37,7 +39,10 @@ export interface CheckoutAttemptView {
   paymentMethod?: 'tabby';
   /** Why a Tabby payment did not go through (tabby_expired, tabby_not_available ...). */
   paymentError?: string;
+  /** The hotel confirmed this booking and the guest later cancelled it; its refund is followed in My trips. */
+  guestCancelled?: true;
 }
+
 export interface CheckoutCapability { reference: string; accessToken: string }
 export interface CheckoutCreateResult { attempt: CheckoutAttemptView; capability: CheckoutCapability; paymentUrl?: string }
 export type CheckoutRecoveryResult = { found: false } | ({ found: true } & CheckoutCreateResult);
@@ -102,6 +107,10 @@ export function normalizeCheckoutAttempt(value: unknown, expectedReference?: str
   if (data.action_required !== undefined) {
     if (typeof data.action_required !== 'string' || !/^[a-z][a-z0-9_]{0,79}$/.test(data.action_required)) throw invalidResponse();
     view.actionRequired = data.action_required;
+  }
+  if (data.guest_cancelled !== undefined) {
+    if (data.guest_cancelled !== true || data.payment_verified !== true || !AFTER_GUEST_CANCELLATION.has(data.status as CheckoutStatus)) throw invalidResponse();
+    view.guestCancelled = true;
   }
   if (data.payment_method === 'tabby') view.paymentMethod = 'tabby';
   if (data.payment_error !== undefined) {
@@ -226,6 +235,14 @@ export function createCheckoutApi(request: Request, {
       return normalizeCheckoutCreate(await request('POST', '/payment/ziina/intent', { signal, timeoutMs: 90000, idempotencyKey,
         token: credential, body: { ...selected, ...guests, payment_quote: lockedQuote.token, app_return: appScheme(environment),
           ...(input.review.paymentMethod === 'tabby' ? { payment_method: 'tabby', language: input.review.paymentLanguage === 'en' ? 'en' : 'ar' } : {}) } }));
+    },
+    /**
+     * Whether the guest cancelled this booking after the hotel confirmed it. Only a confirmed booking has
+     * a record in the account, so a cancelled record under this exact reference answers it.
+     */
+    async bookingCancelled(reference: string, signal?: AbortSignal): Promise<boolean> {
+      if (!uuid.test(reference)) return false;
+      return (await getOwnedBookings(request, signal)).some(booking => booking.reference === reference && booking.statusKind === 'cancelled');
     },
     /** Tabby pre-scoring for this buyer and AED amount. A failed check never hides Tabby. */
     async tabbyEligibility(input: { amount: string; email: string; phone: string; language: string }, signal?: AbortSignal): Promise<TabbyEligibility> {

@@ -48,7 +48,9 @@ jobs:
         run: npx expo prebuild --platform ios --no-install
       - name: Install pods
         run: cd ios && pod install
-      - name: Build for the iOS simulator (Release, unsigned)
+      - name: Build for the iOS simulator (Release, ad-hoc signed)
+        # Ad-hoc ("-") signing needs no Apple account but embeds the entitlements the keychain
+        # requires; a CODE_SIGNING_ALLOWED=NO build cannot read SecureStore and opens on the offline cover.
         run: |
           WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
           SCHEME=$(basename "$WORKSPACE" .xcworkspace)
@@ -56,7 +58,7 @@ jobs:
           set -o pipefail
           xcodebuild -workspace "$WORKSPACE" -scheme "$SCHEME" -configuration Release \
             -sdk iphonesimulator -destination 'generic/platform=iOS Simulator' \
-            -derivedDataPath build CODE_SIGNING_ALLOWED=NO build | tail -n 60
+            -derivedDataPath build CODE_SIGN_IDENTITY=- CODE_SIGN_STYLE=Manual DEVELOPMENT_TEAM= build | tail -n 60
       - name: Build for iPhone hardware (Release, unsigned compile check)
         run: |
           WORKSPACE=$(ls -d ios/*.xcworkspace | head -1)
@@ -70,10 +72,12 @@ jobs:
           DEVICE=$(xcrun simctl list devices available -j | node -e 'const d=JSON.parse(require("fs").readFileSync(0,"utf8")).devices;const all=Object.entries(d).filter(([r])=>/iOS/.test(r)).sort(([a],[b])=>a.localeCompare(b,undefined,{numeric:true})).flatMap(([,v])=>v);const p=all.filter(x=>/^iPhone \d+ Pro$/.test(x.name)).pop()||all.filter(x=>/^iPhone/.test(x.name)).pop();console.log(p.udid)')
           xcrun simctl boot "$DEVICE"
           xcrun simctl bootstatus "$DEVICE" -b
+          # An Arabic device locale is the case that once mirrored the layout twice; reboot so it applies.
+          xcrun simctl spawn "$DEVICE" defaults write -g AppleLanguages -array ar en
+          xcrun simctl shutdown "$DEVICE" && xcrun simctl boot "$DEVICE" && xcrun simctl bootstatus "$DEVICE" -b
           xcrun simctl install "$DEVICE" "$APP"
           BUNDLE=$(/usr/libexec/PlistBuddy -c 'Print CFBundleIdentifier' "$APP/Info.plist")
           mkdir -p ios-shots
-          xcrun simctl spawn "$DEVICE" defaults write -g AppleLanguages -array ar en
           xcrun simctl launch "$DEVICE" "$BUNDLE"
           sleep 25
           xcrun simctl io "$DEVICE" screenshot ios-shots/01-launch.png

@@ -1,5 +1,5 @@
 import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
-import { ActivityIndicator, Alert, Animated, AppState, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { ActivityIndicator, Alert, Animated, AppState, Keyboard, KeyboardAvoidingView, Platform, Pressable, ScrollView, StyleSheet, TextInput, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { usePreventRemove, useRouter } from 'expo-router';
 import * as WebBrowser from 'expo-web-browser';
@@ -32,7 +32,7 @@ import { checkoutCopy } from './checkoutCopy';
 import { localizedRoomName } from '../components/roomNameModel';
 import VoucherButton from '../components/VoucherButton';
 import StayReceipt, { type StayReceiptData } from '../components/StayReceipt';
-import type { BookingHistoryItem } from '../api/bookings';
+import { bookingHotelName, type BookingHistoryItem } from '../api/bookings';
 import { matchOfferForNationality, samePrice } from '../components/nationalityRepriceModel';
 import { contextExpiry, REVIEW_CHECK_LIFETIME_MS } from '../components/offerReviewModel';
 import CountryPicker, { countryName } from '../components/CountryPicker';
@@ -109,7 +109,9 @@ export default function CheckoutScreen() {
     if (!url) return false;
     // Ziina returns app-started payments to this app address, which closes the
     // browser. The return is not evidence either way: the status check decides.
-    try { await WebBrowser.openAuthSessionAsync(url, paymentReturnUrl(APP_ENV), { toolbarColor: colors.navy }); }
+    // Ephemeral: the payment page shares no Safari cookies, so iOS does not interrupt a payment
+    // with its "wants to use … to sign in" prompt (and nothing of the payment stays in Safari).
+    try { await WebBrowser.openAuthSessionAsync(url, paymentReturnUrl(APP_ENV), { toolbarColor: colors.navy, preferEphemeralSession: true }); }
     catch { return false; }
     await session.refreshStatus(); return true;
   };
@@ -181,7 +183,23 @@ export interface CheckoutContentsProps {
   onRetryPayment?: (method: CheckoutPaymentMethod) => Promise<boolean>;
 }
 
-const scrollBehaviour = { keyboardShouldPersistTaps: 'handled' as const, keyboardDismissMode: Platform.OS === 'web' ? 'none' as const : 'on-drag' as const };
+// On iOS the scroll view itself makes room for the keyboard (UIKit then keeps the focused field in
+// view) and the keyboard can be dragged away. A KeyboardAvoidingView there lifted the pay bar over the
+// next field instead. Android keeps resizing the window.
+const scrollBehaviour = { keyboardShouldPersistTaps: 'handled' as const, automaticallyAdjustKeyboardInsets: Platform.OS === 'ios',
+  keyboardDismissMode: Platform.OS === 'web' ? 'none' as const : Platform.OS === 'ios' ? 'interactive' as const : 'on-drag' as const };
+
+/** True while the on-screen keyboard is up (never on the web). */
+function useKeyboardShown() {
+  const [shown, setShown] = useState(false);
+  useEffect(() => {
+    if (Platform.OS === 'web') return;
+    const show = Keyboard.addListener('keyboardDidShow', () => setShown(true));
+    const hide = Keyboard.addListener('keyboardDidHide', () => setShown(false));
+    return () => { show.remove(); hide.remove(); };
+  }, []);
+  return shown;
+}
 
 /*
  * The booking summary in a few lines: hotel, dates and guests; room and meals; the
@@ -265,15 +283,17 @@ export function CheckoutContents(props: CheckoutContentsProps) {
   // app is in front, so payment verification and the hotel's confirmation appear without a tap.
   const attemptStatus = session.attempt?.status ?? null, attemptReference = session.attempt?.reference ?? '';
   const recovering = session.phase === 'recovering', refreshStatus = session.refreshStatus;
+  const guestCancelled = session.attempt?.guestCancelled === true;
   const pollStart = useRef<{ reference: string; at: number } | null>(null);
   useEffect(() => {
-    if (!attemptStatus || !attemptReference || recovering) return;
+    // A booking the guest cancelled is followed in My trips; nothing here changes on its own.
+    if (!attemptStatus || !attemptReference || recovering || guestCancelled) return;
     if (pollStart.current?.reference !== attemptReference) pollStart.current = { reference: attemptReference, at: Date.now() };
     const delay = livePollDelay(attemptStatus, Date.now() - pollStart.current.at);
     if (delay === null) return;
     const timer = setTimeout(() => { if (AppState.currentState === 'active') void refreshStatus(); }, delay);
     return () => clearTimeout(timer);
-  }, [attemptStatus, attemptReference, recovering, refreshStatus]);
+  }, [attemptStatus, attemptReference, recovering, guestCancelled, refreshStatus]);
   const perform = async (kind: 'website'|'payment'|'clear', action: () => Promise<boolean>) => {
     if (opening) return; setOpening(true); setActionError(null);
     try { if (!await action()) setActionError(kind); } catch { setActionError(kind); }
@@ -298,11 +318,13 @@ export function CheckoutContents(props: CheckoutContentsProps) {
     return () => controller.abort();
   }, [confirmedReference]);
   const booked = record?.reference === confirmedReference ? record.item : null;
-  const sameStay = Boolean(booked && selected && booked.hotelName === selected.review.hotelName
+  // The selection carries the name shown while searching (Arabic in Arabic); the record carries the
+  // booked English name and, when the catalogue has it, the same Arabic name.
+  const sameStay = Boolean(booked && selected && [booked.hotelName, booked.hotelNameAr].includes(selected.review.hotelName)
     && booked.checkin === selected.review.criteria.checkin && booked.checkout === selected.review.criteria.checkout);
   const bookedNights = booked?.checkin && booked.checkout ? nightsBetween(booked.checkin, booked.checkout) : null;
   const receipt: StayReceiptData | null = booked ? {
-    hotelName: booked.hotelName,
+    hotelName: sameStay && selected ? selected.review.hotelName : bookingHotelName(booked, language),
     stay: booked.checkin && booked.checkout ? [formatStayRange(booked.checkin, booked.checkout, language), bookedNights ? stayWords(language).nights(bookedNights) : ''].filter(Boolean).join(' · ') : null,
     guests: sameStay && selected ? guestLine(selected.review.criteria.guests, language) : null,
     room: booked.roomName ? [localizedRoomName(booked.roomName, language), sameStay && selected ? mealDescription(selected.review.offer, language) : ''].filter(Boolean).join(' · ') : null,
@@ -323,7 +345,7 @@ export function CheckoutContents(props: CheckoutContentsProps) {
 
   return <SafeAreaView edges={['top','bottom']} style={ui.screen}>
     <BrandHeader back/>
-    <KeyboardAvoidingView style={{ flex: 1 }} enabled={Platform.OS !== 'web'} behavior={Platform.OS === 'ios' ? 'padding' : 'height'}>
+    <KeyboardAvoidingView style={{ flex: 1 }} enabled={Platform.OS === 'android'} behavior="height">
       {showForm && selected && offer && formQuote ? <CheckoutTravelerForm key={`${props.identityKey}:${selected.selectionId}`}
         draftKey={`${props.identityKey}:${selected.selectionId}`} onDirty={props.onTravelerDirty}
         occupancy={selected.review.criteria.guests} quote={formQuote} canSubmit={session.canSubmit} submitting={session.phase === 'submitting'}
@@ -337,7 +359,13 @@ export function CheckoutContents(props: CheckoutContentsProps) {
           {title}
           {existing ? <>
             {session.phase === 'unknown' && <StatePanel icon="hourglass" tone="warning" title={copy.unknown} body={copy.unknownBody}/>}
-            {session.attempt ? <LivePaymentStatus testID="checkout-live-status" key={session.attempt.reference} status={session.attempt.status}
+            {session.attempt?.guestCancelled ? <StatePanel testID="checkout-guest-cancelled" icon="checkCircle" tone="info"
+              title={ar ? 'ألغيتَ هذا الحجز' : 'You cancelled this booking'}
+              body={ar ? 'أكّد الفندق الإلغاء، ونتابع ردّ المبلغ إلى وسيلة الدفع في «رحلاتي». يمكنك حجز إقامة جديدة الآن.'
+                : 'The hotel confirmed the cancellation, and the refund to your payment method is followed in My trips. You can book a new stay now.'}>
+              {props.onTrips && <Button testID="checkout-cancelled-trips" icon="trips" variant="secondary" title={ar ? 'متابعة الاسترداد في رحلاتي' : 'Follow the refund in My trips'} onPress={props.onTrips}/>}
+            </StatePanel>
+            : session.attempt ? <LivePaymentStatus testID="checkout-live-status" key={session.attempt.reference} status={session.attempt.status}
               paymentMethod={session.attempt.paymentMethod === 'tabby' ? 'tabby' : 'card'}
               reference={session.attempt.reference} live={LIVE_STATUSES.includes(session.attempt.status)}>
               {session.error && <Badge tone="warning" icon="history" label={copy.lastKnown}/>}
@@ -413,6 +441,10 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
   const [collapsed,setCollapsed] = useState<Record<number, boolean>>({});
   const scroller = useRef<React.ComponentRef<typeof ScrollView>>(null);
   const formTop = useRef(0), consentTop = useRef(0);
+  // Every typed field, so the keyboard's "Next" walks the form in reading order. A stable registry
+  // (filled by ref callbacks, read only when a key is pressed), never read while rendering.
+  const [inputs] = useState(() => new Map<string, React.ComponentRef<typeof TextInput>>());
+  const keyboardShown = useKeyboardShown();
   const checking = nationalityCheck?.status === 'checking';
   const repricing = Boolean(residency && nationality && nationality !== residency);
   const money = (value?: Money | null) => formatPrice(value) || '';
@@ -477,6 +509,15 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
     : <>{first}{last}</>;
   const others = draft.rooms.map((room, r) => ({ r, guests: room.guests.map((person, p) => ({ person, p })).filter(({ p }) => !(r === 0 && p === 0)) })).filter(room => room.guests.length > 0);
   const fieldErrors = Object.keys(errors).length > 0;
+  const order = ['firstName', 'lastName', 'email', 'phone', ...others.flatMap(({ r, guests }) => guests.flatMap(({ p }) => [`traveler-${r}-${p}-firstName`, `traveler-${r}-${p}-lastName`]))];
+  const bind = (key: string) => (node: React.ComponentRef<typeof TextInput> | null) => { if (node) inputs.set(key, node); else inputs.delete(key); };
+  // "Next" goes to the following field that is on screen (a folded room is skipped, and past the
+  // last one the keyboard closes); the final field says "Done".
+  const nextAfter = (key: string) => {
+    const rest = order.slice(order.indexOf(key) + 1);
+    return rest.length ? () => { const next = rest.find(item => inputs.has(item)); if (next) inputs.get(next)?.focus(); else Keyboard.dismiss(); } : undefined;
+  };
+  const keys = (key: string) => ({ inputRef: bind(key), onNext: nextAfter(key), returnKeyType: nextAfter(key) ? undefined : 'done' as const });
   return <>
     <ScrollView ref={scroller} {...scrollBehaviour} contentContainerStyle={[ui.page, styles.page]}>
       {header}
@@ -486,10 +527,10 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
           <Txt kind="caption">{copy.detailsBody}</Txt>
         </View>
         {fieldErrors && <Notice tone="danger" live title={errors.occupancy ? copy.invalidOccupancy : copy.fieldsError}/>}
-        {pair(<Field label={copy.firstName} value={draft.guest.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="given-name" error={error('firstName')} invalid={missing('firstName')} onChangeText={v=>contact('firstName',v)}/>,
-          <Field label={copy.lastName} value={draft.guest.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" error={error('lastName')} invalid={missing('lastName')} onChangeText={v=>contact('lastName',v)}/>)}
-        <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" error={error('email')} invalid={missing('email')} onChangeText={v=>contact('email',v)}/>
-        <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" keyboardType="phone-pad" placeholder="+971" accessibilityHint={copy.phoneHint} error={error('phone')} invalid={missing('phone')} onChangeText={v=>contact('phone',v)}/>
+        {pair(<Field label={copy.firstName} value={draft.guest.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="given-name" {...keys('firstName')} error={error('firstName')} invalid={missing('firstName')} onChangeText={v=>contact('firstName',v)}/>,
+          <Field label={copy.lastName} value={draft.guest.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" autoComplete="family-name" {...keys('lastName')} error={error('lastName')} invalid={missing('lastName')} onChangeText={v=>contact('lastName',v)}/>)}
+        <Field label={copy.email} value={draft.guest.email} maxLength={254} ltr autoCorrect={false} autoCapitalize="none" autoComplete="email" keyboardType="email-address" textContentType="emailAddress" {...keys('email')} error={error('email')} invalid={missing('email')} onChangeText={v=>contact('email',v)}/>
+        <Field label={copy.phone} value={draft.guest.phone} maxLength={40} ltr autoComplete="tel" textContentType="telephoneNumber" keyboardType="phone-pad" {...keys('phone')} placeholder="+971" accessibilityHint={copy.phoneHint} error={error('phone')} invalid={missing('phone')} onChangeText={v=>contact('phone',v)}/>
         {residency && <View style={{gap:space.xs}}>
           {nationality ? <Row testID="checkout-nationality-fact" style={[styles.nationalityFact, repricing && !checking && { borderColor: color.warning, borderWidth: 1.5 }]}>
             <Icon name="globe" size={16} color={color.textSecondary}/>
@@ -536,8 +577,8 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
             </Pressable>
             {open && guests.map(({ person, p }) => <View key={p} style={{ gap: space.xs }}>
               <Txt kind="small" tone="primary" style={{ fontFamily: fonts.medium }}>{copy.traveler(p+1,person.is_child,person.age)}</Txt>
-              {pair(<Field label={copy.firstName} a11yLabel={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-firstName`)} invalid={missing(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>,
-                <Field label={copy.lastName} a11yLabel={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" error={error(`traveler-${r}-${p}-lastName`)} invalid={missing(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>)}
+              {pair(<Field label={copy.firstName} a11yLabel={`${copy.firstName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.firstName} maxLength={50} autoCorrect={false} autoCapitalize="words" {...keys(`traveler-${r}-${p}-firstName`)} error={error(`traveler-${r}-${p}-firstName`)} invalid={missing(`traveler-${r}-${p}-firstName`)} onChangeText={v=>traveler(r,p,'firstName',v)}/>,
+                <Field label={copy.lastName} a11yLabel={`${copy.lastName} · ${copy.room(r+1)} · ${copy.traveler(p+1,person.is_child,person.age)}`} value={person.lastName} maxLength={50} autoCorrect={false} autoCapitalize="words" {...keys(`traveler-${r}-${p}-lastName`)} error={error(`traveler-${r}-${p}-lastName`)} invalid={missing(`traveler-${r}-${p}-lastName`)} onChangeText={v=>traveler(r,p,'lastName',v)}/>)}
             </View>)}
           </View>;
         })}
@@ -568,7 +609,7 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
           onPress={()=>{ setConsent({quote,accepted:!accepted}); setConsentMissing(false); }}
           style={[styles.consent, consentMissing && !accepted && { borderColor: color.danger }]}>
           <Row style={{alignItems:'flex-start', gap: space.sm}}>
-            <View accessible={false} style={[styles.checkbox, accepted && styles.checkboxOn]}>{accepted && <Icon name="check" size={14} strokeWidth={3} color={color.textOnDark}/>}</View>
+            <View accessible={false} style={[styles.checkbox, accepted && styles.checkboxOn]}>{accepted && <Icon name="check" size={14} strokeWidth={3} color={color.onInteractive}/>}</View>
             <Txt kind="small" tone="primary" style={{flex:1}}>{copy.consent}</Txt>
           </Row>
         </Pressable>
@@ -577,10 +618,11 @@ export function CheckoutTravelerForm({ occupancy, quote, canSubmit, submitting =
       </View>
       {footer}
     </ScrollView>
-    <ActionBar testID="checkout-pay-bar" caption={copy.charge} amount={requoting ? '…' : formatPrice({ amount: quote.amount, currency: quote.currency })} amountTestID="checkout-pay-amount" note={note}>
+    {/* On Android the window shrinks above the keyboard; the bar steps aside while typing so it never covers the field. */}
+    {!(Platform.OS === 'android' && keyboardShown) && <ActionBar testID="checkout-pay-bar" caption={copy.charge} amount={requoting ? '…' : formatPrice({ amount: quote.amount, currency: quote.currency })} amountTestID="checkout-pay-amount" note={note}>
       <Button testID="checkout-pay" icon="lock" title={tabby ? (ar ? 'المتابعة مع تابي' : 'Continue with Tabby') : copy.create} busy={submitting || requoting}
         disabled={!canSubmit || repricing || checking || requoting || tabby && Boolean(tabbyChecking || tabbyRefusal)} onPress={submit}/>
-    </ActionBar>
+    </ActionBar>}
   </>;
 }
 
@@ -602,7 +644,7 @@ function PaymentOption({ selected, onPress, icon, mark, tag, tagTone = 'plum', t
   return <Animated.View style={[styles.option, selected && styles.optionOn, lift]}>
     <Pressable testID={testID} accessibilityRole="radio" aria-checked={selected} accessibilityState={{ checked: selected }}
       accessibilityLabel={body ? `${title}. ${body}` : title} onPress={onPress} style={{ gap: space.xs }}>
-      {tag && <View style={[styles.tag, tagTone === 'mint' && styles.tagMint]}><Txt kind="micro" style={{ color: tagTone === 'mint' ? '#04503C' : color.interactiveStrong }}>{tag}</Txt></View>}
+      {tag && <View style={[styles.tag, tagTone === 'mint' && styles.tagMint]}><Txt kind="micro" style={{ color: tagTone === 'mint' ? color.mint : color.interactiveStrong }}>{tag}</Txt></View>}
       <Row style={{ gap: space.sm, alignItems: 'center' }}>
         <View accessible={false} style={[styles.radio, selected && styles.radioOn]}><Animated.View style={[styles.radioDot, dot]}/></View>
         <View style={{ flex: 1, minWidth: 0, gap: 2 }}>
@@ -643,7 +685,7 @@ export function CheckoutProgress({ status }: { status: CheckoutStatus }) {
       <View style={{ width: 32, height: 32, borderRadius: 16, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: tint(state[i]),
         backgroundColor: state[i] === 'done' ? color.success : color.bgSurface }}>
         <Icon name={state[i] === 'done' ? 'check' : state[i] === 'failed' ? 'close' : state[i] === 'active' ? 'hourglass' : 'clock'} size={16}
-          color={state[i] === 'done' ? color.textOnDark : tint(state[i])}/>
+          color={state[i] === 'done' ? color.onInteractive : tint(state[i])}/>
       </View>
       <Txt kind="caption" align="center" style={{ color: state[i] === 'waiting' ? color.textSecondary : color.textPrimary }}>{label}</Txt>
     </View>)}
@@ -666,5 +708,5 @@ const styles = StyleSheet.create({
   radioOn: { borderColor: color.interactiveStrong },
   radioDot: { width: 10, height: 10, borderRadius: 5, backgroundColor: color.interactiveStrong },
   tag: { alignSelf: 'flex-start', paddingHorizontal: space.sm, paddingVertical: 2, borderRadius: radius.pill, backgroundColor: color.bgSelected },
-  tagMint: { backgroundColor: 'rgba(62,237,191,0.22)' },
+  tagMint: { backgroundColor: color.mintBg },
 });

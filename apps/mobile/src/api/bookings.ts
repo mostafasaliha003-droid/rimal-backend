@@ -6,6 +6,8 @@ export type BookingHistoryStatus = 'confirmed' | 'cancelled' | 'pending' | 'fail
 export interface BookingHistoryItem {
   reference: string;
   hotelName: string | null;
+  /** The supplier's approved Arabic name, when the catalogue has one (the English name stays the booking identity). */
+  hotelNameAr?: string | null;
   roomName: string | null;
   checkin: string | null;
   checkout: string | null;
@@ -58,6 +60,16 @@ function customerPrice(row: RecordValue): Money | null {
   return { amount, currency };
 }
 
+function arabicName(value: unknown): string | null {
+  const name = text(value, 256);
+  return name && /\p{Script=Arabic}/u.test(name) ? name : null;
+}
+
+/** The hotel's name in the interface language: the Arabic catalogue name in Arabic, otherwise the booked name. */
+export function bookingHotelName(booking: Pick<BookingHistoryItem, 'hotelName' | 'hotelNameAr'>, language: string): string | null {
+  return language === 'ar' && booking.hotelNameAr ? booking.hotelNameAr : booking.hotelName;
+}
+
 export function normalizeBookingHistory(value: unknown): BookingHistoryItem[] {
   if (!record(value) || value.success !== true || !Array.isArray(value.bookings)) throw invalidResponse();
   const references = new Set<string>();
@@ -72,7 +84,7 @@ export function normalizeBookingHistory(value: unknown): BookingHistoryItem[] {
     const recordedStatus = text(item.status, 80);
     const supplierStatus = text(item.supplierStatus, 80);
     return {
-      reference, hotelName: text(item.hotelName, 256), roomName: text(item.roomType, 256),
+      reference, hotelName: text(item.hotelName, 256), hotelNameAr: arabicName(item.hotelNameAr), roomName: text(item.roomType, 256),
       checkin, checkout, recordedStatus, supplierStatus,
       statusKind: statusKind(recordedStatus, supplierStatus), price: customerPrice(item),
     };

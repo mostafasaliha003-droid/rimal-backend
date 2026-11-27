@@ -3,7 +3,7 @@ import { FlatList, Modal, Pressable, View } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { COUNTRY_CODES } from '../api';
 import { useLanguage } from '../i18n';
-import { colors, ui } from '../theme';
+import { color, colors, ui } from '../theme';
 import { Button, Field, Row, Txt } from './Primitives';
 import { countryNames } from './countryNames';
 import { flagEmoji } from './flags';
@@ -53,7 +53,7 @@ export default function CountryPicker({ visible, value, onClose, onChange, title
       <FlatList keyboardShouldPersistTaps="handled" data={rows} keyExtractor={item => item.key} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 20 }}
         renderItem={({ item }) => <View>{!!item.header && <Txt kind="label" accessibilityRole="header" style={{ paddingTop: 12, paddingBottom: 6 }}>{item.header}</Txt>}<Pressable accessibilityRole="button" accessibilityLabel={`${item.name}، ${item.other}`} accessibilityState={{ selected: item.code === value }}
           onPress={() => { onChange(item.code); onClose(); setQuery(''); }}
-          style={{ paddingVertical: 8, paddingHorizontal: 16, minHeight: 56, justifyContent: 'center', backgroundColor: item.code === value ? colors.softBlue : '#fff', borderBottomColor: colors.border, borderBottomWidth: 1 }}>
+          style={{ paddingVertical: 8, paddingHorizontal: 16, minHeight: 56, justifyContent: 'center', backgroundColor: item.code === value ? colors.softBlue : color.bgSurface, borderBottomColor: colors.border, borderBottomWidth: 1 }}>
           <Row style={{ gap: 12 }}>
             <Txt accessible={false} style={{ fontSize: 24, lineHeight: 32 }}>{flagEmoji(item.code)}</Txt>
             <View style={{ flex: 1, minWidth: 0 }}>

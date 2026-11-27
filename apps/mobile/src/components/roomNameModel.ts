@@ -192,3 +192,13 @@ function translate(name: string): string | null {
 export function localizedRoomName(name: string, language: string): string {
   return language === 'ar' ? arabicRoomName(name) ?? name : name;
 }
+
+/**
+ * RateHawk's bed line ("full double bed", "2 single beds, sofa bed") in the interface language.
+ * Like room names, it is translated only when every part is understood; otherwise it stays as written.
+ */
+export function localizedBedding(text: string, language: string): string {
+  if (language !== 'ar' || typeof text !== 'string' || !text.trim() || /\p{Script=Arabic}/u.test(text)) return text;
+  const parts = text.split(',').map(part => note(part));
+  return parts.every(Boolean) ? parts.join('، ') : text;
+}

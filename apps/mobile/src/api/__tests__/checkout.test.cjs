@@ -231,3 +231,11 @@ test('Tabby promo settings are read only when Tabby is offered and never accept 
   assert.equal(normalizePaymentAvailability({ enabled: true, mode: 'sandbox', tabby: true, tabby_promo: { merchant_code: 'PillowStaysApp', public_key: 'sk_test_secret00000000' } }).tabbyPromo, undefined);
   assert.equal(normalizePaymentAvailability({ enabled: true, mode: 'sandbox', tabby: true }).tabbyPromo, undefined);
 });
+
+test('a guest cancellation is accepted only on a paid attempt in a cancellation or refund state', () => {
+  const cancelled = statusPayload({ status: 'refund_pending', confirmed: false, payment_verified: true, guest_cancelled: true });
+  assert.equal(normalizeCheckoutAttempt(cancelled).guestCancelled, true);
+  assert.equal(normalizeCheckoutAttempt({ ...cancelled, guest_cancelled: undefined }).guestCancelled, undefined);
+  for (const patch of [{ guest_cancelled: 'yes' }, { payment_verified: undefined }, { status: 'payment_failed' }, { status: 'booking_pending' }])
+    assert.throws(() => normalizeCheckoutAttempt({ ...cancelled, ...patch }), /invalid_response/);
+});

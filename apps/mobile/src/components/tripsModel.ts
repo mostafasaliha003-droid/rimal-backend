@@ -2,7 +2,7 @@ import type { BookingHistoryItem, BookingHistoryStatus } from '../api/bookings';
 import { todayDate, validDate } from './calendarModel';
 import { LOCALES } from './format';
 
-export type TripBucket = 'current' | 'upcoming' | 'past' | 'unknown';
+export type TripBucket = 'current' | 'upcoming' | 'past' | 'cancelled' | 'unknown';
 export type TripFilter = 'all' | TripBucket;
 export interface TripDates {
   checkin: string | null;
@@ -22,7 +22,7 @@ export interface TripsModel {
   counts: Readonly<Record<TripFilter, number>>;
 }
 
-const bucketOrder: Record<TripBucket, number> = { current: 0, upcoming: 1, past: 2, unknown: 3 };
+const bucketOrder: Record<TripBucket, number> = { current: 0, upcoming: 1, past: 2, cancelled: 3, unknown: 4 };
 const dayMilliseconds = 24 * 60 * 60 * 1000;
 
 /** Device-local calendar today, independent of the UTC date at this instant. */
@@ -50,7 +50,9 @@ function tripDates(booking: BookingHistoryItem): Readonly<TripDates> {
   return Object.freeze({ checkin, checkout, nights, issue });
 }
 
-function tripBucket(dates: Readonly<TripDates>, today: string): TripBucket {
+function tripBucket(dates: Readonly<TripDates>, today: string, status: BookingHistoryStatus): TripBucket {
+  // A cancelled booking is no longer a trip: it never counts as today's or an upcoming stay.
+  if (status === 'cancelled') return 'cancelled';
   if (dates.issue || !dates.checkin || !dates.checkout) return 'unknown';
   // The Today navigation group includes departure day so the reference stays
   // easy to find on checkout morning. This does not claim current occupancy;
@@ -69,12 +71,13 @@ function safeStatus(value: BookingHistoryStatus): BookingHistoryStatus {
 /** Date categories describe the supplied stay dates, never booking confirmation. */
 export function buildTripsModel(bookings: readonly BookingHistoryItem[], today = localTodayKey()): TripsModel {
   if (!dateKey(today)) throw new RangeError('invalid_trip_today');
-  const counts: Record<TripFilter, number> = { all: bookings.length, current: 0, upcoming: 0, past: 0, unknown: 0 };
+  const counts: Record<TripFilter, number> = { all: bookings.length, current: 0, upcoming: 0, past: 0, cancelled: 0, unknown: 0 };
   const indexed = bookings.map((booking, index) => {
     const dates = tripDates(booking);
-    const bucket = tripBucket(dates, today);
+    const statusKind = safeStatus(booking.statusKind);
+    const bucket = tripBucket(dates, today, statusKind);
     counts[bucket] += 1;
-    return { index, row: Object.freeze({ booking, bucket, dates, statusKind: safeStatus(booking.statusKind) }) };
+    return { index, row: Object.freeze({ booking, bucket, dates, statusKind }) };
   });
   indexed.sort((a, b) => {
     if (a.row.bucket !== b.row.bucket) return bucketOrder[a.row.bucket] - bucketOrder[b.row.bucket];
@@ -85,7 +88,7 @@ export function buildTripsModel(bookings: readonly BookingHistoryItem[], today =
     const right = b.row.dates[field];
     if (a.row.bucket !== 'unknown' && left && right && left !== right) {
       const ascending = left < right ? -1 : 1;
-      return a.row.bucket === 'past' ? -ascending : ascending;
+      return a.row.bucket === 'past' || a.row.bucket === 'cancelled' ? -ascending : ascending;
     }
     return a.index - b.index;
   });
@@ -103,7 +106,7 @@ export function filterTrips(model: TripsModel, filter: TripFilter, query = ''): 
   const needle = lookupText(query);
   if (filter === 'all' && !needle) return model.rows;
   return model.rows.filter(row => (filter === 'all' || row.bucket === filter)
-    && (!needle || lookupText(row.booking.hotelName || '').includes(needle) || lookupText(row.booking.reference).includes(needle)));
+    && (!needle || lookupText(row.booking.hotelName || '').includes(needle) || lookupText(row.booking.hotelNameAr || '').includes(needle) || lookupText(row.booking.reference).includes(needle)));
 }
 
 const dateFormatters = {

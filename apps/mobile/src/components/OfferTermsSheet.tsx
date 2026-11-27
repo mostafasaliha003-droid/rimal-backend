@@ -4,14 +4,14 @@ import React, { useState } from 'react';
 import { Modal, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
-import { colors } from '../theme';
+import { color, colors } from '../theme';
 import type { RoomOffer } from '../types';
 import Cancellation from './Cancellation';
 import HotelGallery from './HotelGallery';
 import { Button, Icon, Row, Txt, DisclosureMark } from './Primitives';
 import { mealPlanTitle, rateCopy, roomRateFacts } from './roomRateFacts';
 import Taxes from './Taxes';
-import { localizedRoomName } from './roomNameModel';
+import { localizedBedding, localizedRoomName } from './roomNameModel';
 
 interface OfferTermsProps { offer: RoomOffer; visible: boolean; onClose: () => void; now: number; roomName: string }
 
@@ -57,7 +57,7 @@ function TermsContent({ offer, now, roomName, onClose }: OfferTermsProps) {
             </Row>
             <View style={styles.priceRule}/>
             <Row style={styles.meal}><Icon name="meal" size={15} color={colors.pistachio}/><Txt kind="label" style={styles.included}>{facts.meal}</Txt></Row>
-            {offer.bedding && <Row style={styles.meal}><Icon name="bed" size={15} color={colors.pistachio}/><Txt kind="small" style={styles.included}>{offer.bedding}</Txt></Row>}
+            {offer.bedding && <Row style={styles.meal}><Icon name="bed" size={15} color={colors.pistachio}/><Txt kind="small" style={styles.included}>{localizedBedding(offer.bedding, language)}</Txt></Row>}
           </View>
           <Row style={styles.sections}>
             {(['cancellation','fees'] as const).map(key => <Pressable key={key} testID={'offer-terms-' + key}
@@ -93,15 +93,15 @@ const styles = StyleSheet.create({
   sheet: { width: '100%', maxWidth: 680, flexShrink: 1, backgroundColor: colors.surface, borderTopLeftRadius: 24, borderTopRightRadius: 24, overflow: 'hidden', direction: 'ltr' },
   header: { gap: 12, paddingHorizontal: 18, paddingVertical: 10, borderBottomWidth: 1, borderColor: colors.border },
   close: { minWidth: 48, minHeight: 48, borderRadius: 24, backgroundColor: colors.background, alignItems: 'center', justifyContent: 'center' },
-  body: { padding: 16, gap: 14 }, pricing: { padding: 15, borderRadius: 18, backgroundColor: colors.primary },
+  body: { padding: 16, gap: 14 }, pricing: { padding: 15, borderRadius: 18, backgroundColor: color.bgBrand },
   priceColumn: { flexGrow: 1, flexBasis: 0, minWidth: 0, gap: 2 },
   stackedPrice: { flexGrow: 0, flexBasis: 'auto' },
   priceLabel: { color: colors.pistachio, fontSize: 13, lineHeight: 20 },
-  amount: { color: colors.surface, fontSize: 22, lineHeight: 30 },
-  propertyAmount: { color: colors.surface, fontSize: 16, lineHeight: 24 },
+  amount: { color: color.textOnDark, fontSize: 22, lineHeight: 30 },
+  propertyAmount: { color: color.textOnDark, fontSize: 16, lineHeight: 24 },
   divider: { backgroundColor: colors.grape },
   priceRule: { height: 1, marginTop: 10, marginBottom: 3, backgroundColor: colors.grape },
-  meal: { gap: 7, paddingTop: 3 }, included: { color: colors.surface, flex: 1 },
+  meal: { gap: 7, paddingTop: 3 }, included: { color: color.textOnDark, flex: 1 },
   factText: { flex: 1, minWidth: 0 },
   payment: { gap: 8, padding: 12, borderRadius: 12, backgroundColor: colors.lavenderMist },
   sections: { padding: 3, gap: 4, borderRadius: 15, backgroundColor: colors.background },

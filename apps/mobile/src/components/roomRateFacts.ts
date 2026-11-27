@@ -8,12 +8,13 @@ import { compareStayPrices } from './offerChangeSummary';
 import { padStayPriceDifference } from './offerChangesCopy';
 import { cancellationTermsKey, canonicalDecimal, taxTermsKey } from './offerReviewModel';
 import { exactAmount } from './format';
+import { localizedBedding } from './roomNameModel';
 
 const en = {
   price: 'Room total for all nights', meal: 'Meals', cancellation: 'Cancellation', payment: 'Payment', fees: 'At the property', bedding: 'Beds',
   unknown: 'Not specified', noPrice: 'Price unavailable', partnerPayment: 'Through Mkhadda',
   included: 'Listed taxes included', other: 'Other fees unspecified',
-  feesUnknown: 'Fees not specified', unknownTotal: 'Total unspecified', terms: 'Full rate terms', compare: 'Compare',
+  feesUnknown: 'Local fees, if any', unknownTotal: 'Total unspecified', terms: 'Full rate terms', compare: 'Compare',
   selected: 'Added', compareTitle: 'Compare offers', clear: 'Clear', close: 'Close', differences: 'Differences only',
   compareCount: (count: number) => `${count} of 2 selected`, selectAnother: 'Select another offer',
   filters: 'Filter & sort', choose: 'Review offer', overview: 'Hotel details',
@@ -24,7 +25,7 @@ const en = {
 const ar: typeof en = {
   price: 'سعر الغرفة لكل الليالي', meal: 'الوجبات', cancellation: 'الإلغاء', payment: 'الدفع', fees: 'في الفندق', bedding: 'الأسرّة',
   unknown: 'غير محدد', noPrice: 'السعر غير متاح', partnerPayment: 'عبر مخدة',
-  included: 'الضرائب المذكورة مشمولة', other: 'رسوم أخرى غير محددة', feesUnknown: 'الرسوم غير محددة', unknownTotal: 'الإجمالي غير محدد',
+  included: 'الضرائب المذكورة مشمولة', other: 'رسوم أخرى غير محددة', feesUnknown: 'أي رسوم محلية، إن وُجدت', unknownTotal: 'الإجمالي غير محدد',
   terms: 'شروط العرض كاملة', compare: 'قارن', selected: 'مضاف', compareTitle: 'مقارنة العروض', clear: 'مسح', close: 'إغلاق',
   differences: 'الفروقات فقط', compareCount: count => `${count} من عرضين`, selectAnother: 'اختر عرضاً آخر',
   filters: 'التصفية والترتيب', choose: 'مراجعة العرض', overview: 'تفاصيل الفندق',
@@ -53,7 +54,7 @@ export function roomRateFacts(offer: RoomOffer, language: string, now: number, d
   const cancellation = [decision.headline, decision.detail].filter(Boolean).join('\n');
   return { price: shown ? `${shown.currency} ${shown.amount}` : copy.noPrice,
     meal: mealDescription(offer, language), cancellation, decision,
-    payment: roomPaymentLabel(offer, language), fees, bedding: offer.bedding || copy.unknown };
+    payment: roomPaymentLabel(offer, language), fees, bedding: offer.bedding ? localizedBedding(offer.bedding, language) : copy.unknown };
 }
 
 export function roomFactKeys(offer: RoomOffer) {

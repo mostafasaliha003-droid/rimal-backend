@@ -4,7 +4,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useFocusEffect, useLocalSearchParams, useRouter } from 'expo-router';
 import Svg, { Circle, Path, Rect } from 'react-native-svg';
 import { api } from '../api';
-import type { BookingHistoryItem } from '../api/bookings';
+import { bookingHotelName, type BookingHistoryItem } from '../api/bookings';
 import { validReference, type CancellationOffer } from '../api/cancellation';
 import { useAuth } from '../auth';
 import { useLanguage } from '../i18n';
@@ -100,7 +100,7 @@ function ChangeContents({ reference, signedIn }: { reference: string; signedIn: 
       </View>
 
       {booking ? <Card testID="change-summary" style={styles.card}>
-        <Txt kind="bodyStrong" numberOfLines={2} style={{ fontFamily: fonts.bold }}>{booking.hotelName || (ar ? 'حجزك' : 'Your booking')}</Txt>
+        <Txt kind="bodyStrong" numberOfLines={2} style={{ fontFamily: fonts.bold }}>{bookingHotelName(booking, language) || (ar ? 'حجزك' : 'Your booking')}</Txt>
         {booking.checkin && booking.checkout && <InfoRow icon="calendar"><Txt kind="small" tone="primary">
           {[formatStayRange(booking.checkin, booking.checkout, language), nights ? stayWords(language).nights(nights) : ''].filter(Boolean).join(' · ')}</Txt></InfoRow>}
         {booking.roomName && <InfoRow icon="bed"><Txt kind="small" tone="primary">{localizedRoomName(booking.roomName, language)}</Txt></InfoRow>}

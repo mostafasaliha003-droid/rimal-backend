@@ -24,7 +24,7 @@ function publicUser(user) {
 function publicBooking(booking) {
     const fields = [
         'bookingReference', 'supplierReference', 'hotelConfirmationNumber', 'supplierStatus',
-        'provider', 'customerName', 'hotelName', 'roomType', 'boardType', 'price', 'priceCurrency',
+        'provider', 'customerName', 'hotelName', 'hotelNameAr', 'roomType', 'boardType', 'price', 'priceCurrency',
         'checkInDate', 'checkOutDate', 'paymentMethod', 'supplierPaymentType', 'status',
         'cancellationPolicy', 'confirmedAt', 'freeCancelDeadline', 'refundType', 'createdAt'
     ];

@@ -164,7 +164,7 @@ export default function CalendarPicker({ initialField, checkin, checkout, onSele
 }
 
 const styles = StyleSheet.create({
-  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: '#2D173A66' },
+  backdrop: { flex: 1, justifyContent: 'flex-end', backgroundColor: color.scrim },
   sheet: { width: '100%', maxWidth: 520, maxHeight: '100%', alignSelf: 'center', direction: 'ltr',
     borderTopLeftRadius: tokens.space.xxl, borderTopRightRadius: tokens.space.xxl, backgroundColor: colors.surface, overflow: 'hidden' },
   scroll: { flexGrow: 0, flexShrink: 1 },

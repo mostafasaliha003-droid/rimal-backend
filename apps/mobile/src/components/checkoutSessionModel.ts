@@ -2,6 +2,7 @@ import type { AppEnvironment } from '../types';
 import type { CheckoutAttemptView, CheckoutCapability, CheckoutCreateResult, CheckoutGuestData,
   CheckoutQuote, CheckoutRecoveryResult, CheckoutReview } from '../api/checkout';
 import { chargeCurrency } from '../api/paymentCurrencies';
+import { AFTER_GUEST_CANCELLATION } from '../api/checkoutStatuses';
 import { ApiError, aborted, asApiError, invalidResponse } from '../api/errors';
 import { recoveryUuid, validRecoveryOwner, type CheckoutRecoveryOwner, type CheckoutRecoveryRecord,
   type CheckoutRecoveryStorage } from './checkoutRecoveryStorage.types';
@@ -16,6 +17,8 @@ export interface CheckoutSessionApi {
   create(input: { review: CheckoutReview; guests: CheckoutGuestData; quote: CheckoutQuote }, key: string, signal?: AbortSignal): Promise<CheckoutCreateResult>;
   status(capability: CheckoutCapability, signal?: AbortSignal): Promise<CheckoutAttemptView>;
   recover(key: string, signal?: AbortSignal): Promise<CheckoutRecoveryResult>;
+  /** Whether the guest cancelled this confirmed booking (read from the account's own booking records). */
+  bookingCancelled?(reference: string, signal?: AbortSignal): Promise<boolean>;
 }
 export type CheckoutPhase = 'idle' | 'quoting' | 'ready' | 'submitting' | 'recovering' | 'active' | 'unknown' | 'error';
 export type CheckoutQuoteView = Omit<CheckoutQuote, 'token'>;
@@ -40,7 +43,8 @@ function safeAttempt(value: CheckoutAttemptView): CheckoutAttemptView {
     ...(bounded(value.supplierReference, 256) ? { supplierReference: value.supplierReference } : {}),
     ...(bounded(value.actionRequired, 120) ? { actionRequired: value.actionRequired } : {}),
     ...(value.paymentMethod === 'tabby' ? { paymentMethod: 'tabby' as const } : {}),
-    ...(typeof value.paymentError === 'string' && /^tabby_[a-z_]{1,60}$/.test(value.paymentError) && value.status === 'payment_failed' ? { paymentError: value.paymentError } : {}) });
+    ...(typeof value.paymentError === 'string' && /^tabby_[a-z_]{1,60}$/.test(value.paymentError) && value.status === 'payment_failed' ? { paymentError: value.paymentError } : {}),
+    ...(value.guestCancelled === true && value.paymentVerified && AFTER_GUEST_CANCELLATION.has(value.status) ? { guestCancelled: true as const } : {}) });
 }
 // A locked price belongs to one room, one charge currency and one payment method: choosing Tabby
 // (always AED) or changing the currency asks for a new lock.
@@ -75,8 +79,10 @@ function abortable<T>(operation: Promise<T>, signal: AbortSignal): Promise<T> {
   });
 }
 const copy = <T,>(value: T): T => JSON.parse(JSON.stringify(value));
+// A booking the guest cancelled after confirmation is finished here too: its refund is followed in
+// My trips (the cancellation's own record), so it never holds the checkout for the next stay.
 function completed(attempt: CheckoutAttemptView | null) {
-  return Boolean(attempt && (attempt.status === 'booking_confirmed' || attempt.status === 'refund_completed'
+  return Boolean(attempt && (attempt.status === 'booking_confirmed' || attempt.status === 'refund_completed' || attempt.guestCancelled === true
     || !attempt.paymentVerified && ['preflight_failed', 'payment_failed', 'booking_cancelled'].includes(attempt.status)));
 }
 
@@ -161,7 +167,22 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
     capability = { reference: attempt.reference, accessToken: result.capability.accessToken };
     // The adapter validates provider URL scope. No URL enters public snapshots.
     paymentUrl = attempt.status === 'awaiting_payment' && typeof result.paymentUrl === 'string' ? result.paymentUrl : null;
-    publish({ phase: 'active', attempt, hasRecovery: true, error: null });
+    publish({ phase: 'active', attempt: known(attempt), hasRecovery: true, error: null });
+  }
+  // References this session has seen cancelled by the guest, so every later status keeps saying so.
+  const guestCancelled = new Set<string>();
+  const known = (attempt: CheckoutAttemptView): CheckoutAttemptView => attempt.guestCancelled || !guestCancelled.has(attempt.reference)
+    || !attempt.paymentVerified || !AFTER_GUEST_CANCELLATION.has(attempt.status) ? attempt : Object.freeze({ ...attempt, guestCancelled: true as const });
+  // A paid attempt in a cancellation/refund state is either a guest cancellation (the hotel confirmed
+  // it first) or a booking that failed. Older servers do not say which; the account's records do.
+  async function noteGuestCancellation(controller: AbortController, stamp: number, key: string) {
+    const attempt = snapshot.attempt;
+    if (!attempt || attempt.guestCancelled || !attempt.paymentVerified || !AFTER_GUEST_CANCELLATION.has(attempt.status) || !api.bookingCancelled) return;
+    let cancelled = false;
+    try { cancelled = await abortable(api.bookingCancelled(attempt.reference, controller.signal), controller.signal); } catch { return; }
+    if (!cancelled || !current(stamp, key) || snapshot.attempt?.reference !== attempt.reference) return;
+    guestCancelled.add(attempt.reference);
+    publish({ attempt: known(snapshot.attempt) });
   }
   function loadAvailability() {
     sync(); if (availabilityOperation) return availabilityOperation;
@@ -209,6 +230,7 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
       // Never clear or automatically replay this key after a missing response.
       if (!result.found) { capability = null; paymentUrl = null; publish({ phase: 'unknown', attempt: null }); return; }
       applyResult(result);
+      await noteGuestCancellation(controller, stamp, key);
     });
   }
   function submit(guests: CheckoutGuestData, termsAccepted: boolean) {
@@ -246,7 +268,8 @@ export function createCheckoutSession({ api, storage, getOwner, getReview, canCr
       if (!current(stamp, key)) return;
       if (attempt.reference !== selected.reference) throw invalidResponse();
       if (attempt.status !== 'awaiting_payment') paymentUrl = null;
-      publish({ phase: 'active', attempt, hasRecovery: true });
+      publish({ phase: 'active', attempt: known(attempt), hasRecovery: true });
+      await noteGuestCancellation(controller, stamp, key);
     });
   }
   function getPaymentHandoff() {

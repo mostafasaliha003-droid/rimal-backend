@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Animated, Easing, Image, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
+import { Image as CachedImage } from 'expo-image';
+import { ActivityIndicator, Animated, Easing, Image, InputAccessoryView, Keyboard, KeyboardAvoidingView, Modal, Platform, Pressable, ScrollView, StyleSheet, Text, TextInput, View, useWindowDimensions } from 'react-native';
 import Svg, { Defs, LinearGradient, Rect, Stop } from 'react-native-svg';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import type { DimensionValue, PressableStateCallbackType, StyleProp, TextInputProps, TextProps, TextStyle, ViewProps, ViewStyle } from 'react-native';
@@ -56,10 +57,10 @@ export function Row({ children, style, ...props }: ViewProps & { style?: StylePr
 export type ButtonVariant = 'primary' | 'secondary' | 'quiet' | 'danger' | 'tonal';
 const buttonColors: Record<ButtonVariant, { bg: string; pressed: string; hover: string; fg: string; border?: string }> = {
   primary: { bg: color.actionPrimary, pressed: color.actionPrimaryPressed, hover: color.actionPrimaryHover, fg: color.onActionPrimary },
-  secondary: { bg: color.bgField, pressed: color.bgFieldPressed, hover: '#EEE9E2', fg: color.onActionSecondary },
+  secondary: { bg: color.bgField, pressed: color.bgFieldPressed, hover: color.secondaryHover, fg: color.onActionSecondary },
   quiet: { bg: 'transparent', pressed: color.bgSelected, hover: color.bgMuted, fg: color.interactiveStrong },
-  danger: { bg: color.danger, pressed: '#8A2230', hover: '#952634', fg: color.textOnDark },
-  tonal: { bg: color.bgSelected, pressed: '#E7DBFA', hover: '#EEE4FC', fg: color.textBrand },
+  danger: { bg: color.danger, pressed: color.dangerPressed, hover: color.dangerHover, fg: color.onInteractive },
+  tonal: { bg: color.bgSelected, pressed: color.tonalPressed, hover: color.tonalHover, fg: color.textBrand },
 };
 
 export function Button({ title, onPress, variant = 'primary', disabled = false, busy = false, hint, label, compact = false, size, icon, iconEnd, testID, fill = false }: {
@@ -114,7 +115,7 @@ export function Chip({ label, selected = false, onPress, onRemove, icon, accessi
     aria-checked={checked ? selected : undefined} aria-pressed={role === 'button' && !removable ? selected : undefined}
     onPress={() => { haptic('select'); (onRemove || onPress)?.(); }} hitSlop={small ? { top: (touch.min - 36) / 2, bottom: (touch.min - 36) / 2 } : undefined}
     style={state => [styles.chip, small && styles.chipSmall, { flexDirection: rtl ? 'row-reverse' : 'row' },
-      active && styles.chipActive, (state.pressed || hovered(state)) && { backgroundColor: active ? '#EADFFB' : color.bgFieldPressed }]}>
+      active && styles.chipActive, (state.pressed || hovered(state)) && { backgroundColor: active ? color.chipActivePressed : color.bgFieldPressed }]}>
     {icon && !removable && <Icon name={icon} size={16} color={active ? color.interactiveStrong : color.textBrand}/>}
     {selected && !removable && !icon && <Icon name="check" size={16} color={color.interactiveStrong}/>}
     <Txt kind="label" numberOfLines={1} style={{ color: active ? color.interactiveStrong : color.textBrand, flexShrink: 1 }}>{label}</Txt>
@@ -221,19 +222,28 @@ export function Skeleton({ width = '100%', height = 16, rounded = radius.sm, sty
   </View>;
 }
 
-export function Field({ label, error, errorId, inputRef, style, ltr = false, hint, a11yLabel, invalid = false, ...props }: TextInputProps & {
+export function Field({ label, error, errorId, inputRef, style, ltr = false, hint, a11yLabel, invalid = false, onNext, ...props }: TextInputProps & {
   label: string; error?: string; errorId?: string; inputRef?: React.Ref<React.ComponentRef<typeof TextInput>>; ltr?: boolean; hint?: string;
   /** Full accessible name when the visible label relies on nearby context ("First name" under "Room 2 · Traveler 1"). */
   a11yLabel?: string;
   /** Marks the field (red edge, announced) when one message above the form explains the problem. */
   invalid?: boolean;
+  /** Moves to the next field: the keyboard's return key says "Next" and keeps the keyboard up. */
+  onNext?: () => void;
 }) {
   const { rtl, language } = useLanguage(); const [focused, focus] = useState(false);
   const errorLink = Platform.OS === 'web' && error && errorId ? { 'aria-invalid': true, 'aria-describedby': errorId } : undefined;
+  // iOS number and phone pads have no return key, so the guest could not leave the field or
+  // move on. A slim bar above the pad carries the same "Next" or "Done" the other keyboards have.
+  const accessoryId = `field-keys-${React.useId().replace(/[^A-Za-z0-9_-]/g, '')}`;
+  const padKeyboard = Platform.OS === 'ios' && NUMERIC_PADS.has(String(props.keyboardType));
+  const chain = onNext ? { returnKeyType: 'next' as const, submitBehavior: 'submit' as const, onSubmitEditing: () => onNext() } : null;
+  const ar = language === 'ar';
   return <View style={{ gap: space.xs, flexShrink: 1 }}>
     <Txt kind="label">{label}</Txt>
     <View style={[styles.fieldRing, { borderColor: focused ? color.focusRing : 'transparent' }]}>
-      <TextInput {...props} {...errorLink} ref={inputRef} accessibilityLabel={a11yLabel ? nameWithVisibleText(label, a11yLabel) : label}
+      <TextInput {...props} {...chain} {...errorLink} ref={inputRef} accessibilityLabel={a11yLabel ? nameWithVisibleText(label, a11yLabel) : label}
+        {...(padKeyboard ? { inputAccessoryViewID: accessoryId } : null)}
         accessibilityHint={error || (invalid ? (language === 'ar' ? 'هذا الحقل مطلوب' : 'Required') : undefined) || hint || props.accessibilityHint}
         placeholderTextColor={color.textSecondary}
         onFocus={event => { focus(true); props.onFocus?.(event); }} onBlur={event => { focus(false); props.onBlur?.(event); }}
@@ -251,8 +261,20 @@ export function Field({ label, error, errorId, inputRef, style, ltr = false, hin
       <View style={{ paddingTop: 2 }}><Icon name="alertCircle" size={16} color={color.danger}/></View>
       <Txt kind="small" style={{ color: color.danger, flex: 1 }} aria-hidden>{language === 'ar' ? 'هذا الحقل مطلوب' : 'Required'}</Txt>
     </Row>}
+    {padKeyboard && <InputAccessoryView nativeID={accessoryId}>
+      {/* The app mirrors its own layout, so the trailing edge is set here: right in English, left in Arabic. */}
+      <View testID="field-keys" style={[styles.keys, { flexDirection: ar ? 'row-reverse' : 'row' }]}>
+        {onNext ? <Pressable accessibilityRole="button" onPress={() => Keyboard.dismiss()} hitSlop={8} style={styles.keyButton}>
+          <Txt kind="label" tone="secondary">{ar ? 'تم' : 'Done'}</Txt>
+        </Pressable> : <View/>}
+        <Pressable testID="field-keys-primary" accessibilityRole="button" onPress={() => onNext ? onNext() : Keyboard.dismiss()} hitSlop={8} style={styles.keyButton}>
+          <Txt kind="label" style={{ color: color.interactiveStrong, fontFamily: fonts.bold }}>{onNext ? (ar ? 'التالي' : 'Next') : (ar ? 'تم' : 'Done')}</Txt>
+        </Pressable>
+      </View>
+    </InputAccessoryView>}
   </View>;
 }
+const NUMERIC_PADS = new Set(['phone-pad', 'number-pad', 'decimal-pad', 'numeric']);
 
 /**
  * Supplier photograph with a reserved footprint: the frame keeps its height while the
@@ -267,27 +289,44 @@ export function Photo({ uri, alternatives = [], label, room = false, height = 21
   const reduced = useReducedMotion();
   const [failed, setFailed] = useState<ReadonlySet<string>>(() => new Set());
   const [loaded, setLoaded] = useState<string | null>(null);
-  const [opacity] = useState(() => new Animated.Value(0));
   const source = uri && !failed.has(uri) ? uri : alternatives.find(item => !failed.has(item));
-  if (source) return <View style={{ width: '100%', height, backgroundColor: contain ? color.textPrimary : color.photoPlaceholder, overflow: 'hidden' }}>
+  // Cached in memory and on disk: a photo seen on a result card opens instantly on the hotel page,
+  // and scrolling back through results does not download it again.
+  if (source) return <View style={{ width: '100%', height, backgroundColor: contain ? color.photoBackdrop : color.photoPlaceholder, overflow: 'hidden' }}>
     {loaded !== source && !thumbnail && <View style={styles.photoWaiting} accessible={false}><Icon name={room ? 'bed' : 'image'} size={24} color={color.borderControl}/></View>}
-    <Animated.Image key={source} accessibilityLabel={label} source={{ uri: source }} resizeMode={contain ? 'contain' : 'cover'}
-      onLoad={() => {
-        setLoaded(source);
-        if (reduced) opacity.setValue(1);
-        else Animated.timing(opacity, { toValue: 1, duration: 180, useNativeDriver: Platform.OS !== 'web' }).start();
-      }}
+    <CachedImage key={source} accessibilityLabel={label} source={{ uri: source }} contentFit={contain ? 'contain' : 'cover'}
+      cachePolicy="memory-disk" transition={reduced ? 0 : 180} recyclingKey={source}
+      onLoad={() => setLoaded(source)}
       onError={() => { setFailed(previous => new Set(previous).add(source)); onFailed?.(source); }}
-      style={{ width: '100%', height: '100%', opacity: loaded === source ? opacity : 0 }}/>
+      style={{ width: '100%', height: '100%' }}/>
   </View>;
   const caption = (uri || alternatives.length) ? (language === 'ar' ? 'تعذّر تحميل الصورة' : 'Photo unavailable')
     : t(room ? 'roomPhotoUnknown' : 'photoUnknown');
-  return <View accessible accessibilityLabel={caption} style={{ height, alignItems: 'center', justifyContent: 'center',
-    backgroundColor: color.photoPlaceholder, padding: thumbnail ? space.xs : space.md, gap: space.xs }}>
-    <Icon name={room ? 'bed' : 'image'} size={thumbnail ? 18 : 24} color={color.textSecondary}/>
-    {!thumbnail && (uri || alternatives.length > 0) && <Txt kind="caption" align="center">{caption}</Txt>}
+  return <PhotoAbsent height={height} label={caption} room={room} thumbnail={thumbnail} showCaption={!thumbnail && (Boolean(uri) || alternatives.length > 0)}/>;
+}
+
+/**
+ * A stay without a photograph gets a deliberate brand panel, not a grey hole: deep plum light
+ * falling across the frame and the pillow mark (a bed for a room), the same in light and dark.
+ */
+function PhotoAbsent({ height, label, room, thumbnail, showCaption }: { height: number | '100%'; label: string; room: boolean; thumbnail: boolean; showCaption: boolean }) {
+  const gradient = `absent-${React.useId().replace(/[^A-Za-z0-9_-]/g, '')}`;
+  const mark = thumbnail ? 30 : 52;
+  // No padding on the panel itself: the gradient's 100% is measured inside it, so padding left a strip of the frame showing.
+  return <View accessible accessibilityRole="image" accessibilityLabel={label} style={[styles.absent, { height }]}>
+    <Svg style={StyleSheet.absoluteFill} width="100%" height="100%" preserveAspectRatio="none" viewBox="0 0 100 100" accessible={false}>
+      <Defs><LinearGradient id={gradient} x1="0" y1="0" x2="1" y2="1">
+        <Stop offset="0" stopColor={PHOTO_ABSENT[0]}/><Stop offset="0.55" stopColor={PHOTO_ABSENT[1]}/><Stop offset="1" stopColor={PHOTO_ABSENT[2]}/>
+      </LinearGradient></Defs>
+      <Rect x="0" y="0" width="100" height="100" fill={`url(#${gradient})`}/>
+    </Svg>
+    {room ? <Icon name="bed" size={mark * 0.7} color="rgba(243,235,253,0.55)"/>
+      : <Image accessible={false} source={PILLOW_MARK} resizeMode="contain" style={{ width: mark, height: mark, tintColor: 'rgba(243,235,253,0.5)' }}/>}
+    {showCaption && <Txt kind="caption" align="center" style={{ color: 'rgba(243,235,253,0.78)', paddingHorizontal: space.sm }}>{label}</Txt>}
   </View>;
 }
+const PILLOW_MARK = require('../../assets/pillow-symbol.png');
+const PHOTO_ABSENT = ['#513069', '#2D173A', '#201626'] as const;
 
 /** Customer price exactly as supplied, grouped for reading ("AED 1,234.50"). */
 export function MoneyText({ money, large = false, style, testID }: { money: Money | null | undefined; large?: boolean; style?: StyleProp<TextStyle>; testID?: string }) {
@@ -349,10 +388,13 @@ export function Sheet({ visible, title, subtitle, onClose, children, testID, clo
   const wide = width >= layout.breakpoints.expanded;
   if (!visible) return null;
   return <Modal visible transparent animationType={wide ? 'fade' : 'slide'} onRequestClose={onClose}>
-    <View style={[styles.scrim, wide && { justifyContent: 'center', padding: space.xl }]}>
+    {/* iOS does not resize the window for the keyboard: lift the sheet above it, so a filter
+        or search field near the bottom stays visible while typing. */}
+    <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+      style={[styles.scrim, wide && { justifyContent: 'center', padding: space.xl }]}>
       <Pressable accessible={false} onPress={onClose} style={StyleSheet.absoluteFill}/>
       <SafeAreaView edges={['bottom']} accessibilityViewIsModal testID={testID}
-        style={[styles.sheet, wide && styles.sheetDialog, { maxHeight: Math.max(240, height * (wide ? 0.86 : 0.9)) }, elevation.overlay]}>
+        style={[styles.sheet, wide && styles.sheetDialog, { flexShrink: 1, maxHeight: Math.max(240, height * (wide ? 0.86 : 0.9)) }, elevation.overlay]}>
         {!wide && <View style={styles.sheetHandle}/>}
         <Row style={styles.sheetHeader}>
           <View style={{ flex: 1, minWidth: 0, paddingHorizontal: space.sm }}>
@@ -364,7 +406,7 @@ export function Sheet({ visible, title, subtitle, onClose, children, testID, clo
         <ScrollView ref={scrollRef} keyboardShouldPersistTaps="handled" style={{ flexShrink: 1 }} contentContainerStyle={styles.sheetBody}>{children}</ScrollView>
         {footer && <View style={styles.sheetFooterBar}>{footer}</View>}
       </SafeAreaView>
-    </View>
+    </KeyboardAvoidingView>
   </Modal>;
 }
 
@@ -407,7 +449,7 @@ const styles = StyleSheet.create({
   pressed: { transform: [{ scale: 0.98 }] },
   iconButton: { minWidth: touch.min, minHeight: touch.min, borderRadius: radius.pill, alignItems: 'center', justifyContent: 'center' },
   iconOutline: { borderWidth: 1, borderColor: color.border, backgroundColor: color.bgSurface },
-  iconOnPhoto: { backgroundColor: 'rgba(255,255,255,0.94)', minWidth: 40, minHeight: 40, margin: 2 },
+  iconOnPhoto: { backgroundColor: color.onPhotoChip, minWidth: 40, minHeight: 40, margin: 2 },
   chip: { minHeight: touch.min, maxWidth: '100%', alignItems: 'center', justifyContent: 'center', gap: space.xs, paddingHorizontal: space.md, borderRadius: radius.pill,
     borderWidth: 1, borderColor: 'transparent', backgroundColor: color.bgField },
   chipActive: { borderColor: color.borderSelected, backgroundColor: color.bgSelected },
@@ -430,6 +472,10 @@ const styles = StyleSheet.create({
   notice: { borderRadius: radius.md, borderWidth: 1, padding: space.md, gap: space.md },
   card: { backgroundColor: color.bgSurface, borderRadius: radius.lg, padding: space.lg, borderWidth: 1, borderColor: color.borderCard, gap: space.md, ...elevation.card },
   fieldRing: { borderWidth: border.focus, borderRadius: radius.md + 2, margin: -border.focus },
+  keys: { justifyContent: 'space-between', alignItems: 'center', minHeight: 44, paddingHorizontal: space.md,
+    backgroundColor: color.bgSurface, borderTopWidth: StyleSheet.hairlineWidth, borderTopColor: color.border },
+  keyButton: { minHeight: 44, minWidth: 64, justifyContent: 'center', alignItems: 'center' },
+  absent: { width: '100%', alignItems: 'center', justifyContent: 'center', gap: space.sm, overflow: 'hidden' },
   photoWaiting: { position: 'absolute', top: 0, right: 0, bottom: 0, left: 0, alignItems: 'center', justifyContent: 'center' },
   state: { alignItems: 'center', paddingVertical: space.xl, gap: space.md },
   stateIcon: { width: 56, height: 56, borderRadius: 28, alignItems: 'center', justifyContent: 'center' },

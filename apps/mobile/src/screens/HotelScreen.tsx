@@ -1,4 +1,5 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { Image as CachedImage } from 'expo-image';
 import { Animated, Platform, Pressable, ScrollView, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -27,7 +28,7 @@ import { formatPrice, nightsBetween, occupancy, shortAddress, stayWords } from '
 import { useLayout, useReducedMotion } from '../components/motion';
 import { useToast } from '../components/Toast';
 import { useChargeMoney } from '../components/ChargeCurrency';
-import { localizedRoomName } from '../components/roomNameModel';
+import { localizedBedding, localizedRoomName } from '../components/roomNameModel';
 import { hotelPreview, type HotelPreview } from '../components/hotelPreview';
 import GuestRatingBadge from '../components/GuestRatingBadge';
 import { shownRating } from '../components/guestRatingModel';
@@ -46,9 +47,12 @@ function PreviewHero({ uri, name }: { uri: string; name: string }) {
   }, [settle, reduced]);
   const height = Math.min(300, Math.max(168, width * .46));
   return <View style={{ height, borderRadius: radius.lg, overflow: 'hidden', backgroundColor: color.photoPlaceholder }}>
-    <Animated.Image accessibilityLabel={name} source={{ uri }} resizeMode="cover" style={{ width: '100%', height: '100%',
+    {/* The card already cached this photo, so it is on screen in the first frame. */}
+    <Animated.View style={{ width: '100%', height: '100%',
       opacity: settle.interpolate({ inputRange: [0, 1], outputRange: [0.55, 1] }),
-      transform: [{ scale: settle.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] }) }] }}/>
+      transform: [{ scale: settle.interpolate({ inputRange: [0, 1], outputRange: [1.06, 1] }) }] }}>
+      <CachedImage accessibilityLabel={name} source={{ uri }} contentFit="cover" cachePolicy="memory-disk" style={{ width: '100%', height: '100%' }}/>
+    </Animated.View>
   </View>;
 }
 
@@ -91,7 +95,7 @@ function RoomGroup({ now, group, criteria, onReview, reviewError, onRefresh, onE
         <Txt accessibilityRole="header" accessibilityLabel={shownName} kind="subheading">{title}</Txt>
         {variant && <Txt kind="small" tone="primary">{variant}</Txt>}
         <Row style={{ gap: space.md, flexWrap: 'wrap', rowGap: space.xxs }}>
-          {bedding && <Row style={{ gap: space.xs }}><Icon name="bed" size={16} color={color.textSecondary}/><Txt kind="small" tone="primary">{bedding}</Txt></Row>}
+          {bedding && <Row style={{ gap: space.xs }}><Icon name="bed" size={16} color={color.textSecondary}/><Txt kind="small" tone="primary">{localizedBedding(bedding, language)}</Txt></Row>}
           <Row style={{ gap: space.xs }}><Icon name="users" size={16} color={color.textSecondary}/>
             <Txt kind="small" tone="primary">{ar ? `لـ ${after.guests(count.guests)} في ${after.rooms(count.rooms)}` : `For ${words.guests(count.guests)} in ${words.rooms(count.rooms)}`}</Txt></Row>
         </Row>
@@ -212,8 +216,8 @@ function HotelContents({ hotel, hid, criteria, onRefresh }: { hotel: HotelDetail
         <Row style={styles.tabs}>
           {(['rooms', 'about'] as const).map(key => <Pressable key={key} accessibilityRole="tab" aria-selected={section === key} accessibilityState={{ selected: section === key }}
             testID={`hotel-tab-${key}`} onPress={() => showSection(key)} style={[styles.tab, section === key && styles.activeTab]}>
-            <Row style={{ justifyContent: 'center', gap: space.xs }}><Icon name={key === 'rooms' ? 'bed' : 'info'} size={18} color={section === key ? color.textOnDark : color.textBrand}/>
-              <Txt kind="label" style={{ textAlign: 'center', color: section === key ? color.textOnDark : color.textBrand }}>{key === 'rooms' ? copy.rooms : short.overview}</Txt></Row>
+            <Row style={{ justifyContent: 'center', gap: space.xs }}><Icon name={key === 'rooms' ? 'bed' : 'info'} size={18} color={section === key ? color.onActionPrimary : color.textBrand}/>
+              <Txt kind="label" style={{ textAlign: 'center', color: section === key ? color.onActionPrimary : color.textBrand }}>{key === 'rooms' ? copy.rooms : short.overview}</Txt></Row>
           </Pressable>)}
         </Row>
       </View>
