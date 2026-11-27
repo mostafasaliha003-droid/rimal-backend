@@ -10,7 +10,7 @@ const copy = {
     ar: {
         eyebrow: 'مساحة خاصة. احتمالات أكبر.', title: 'إقامتك القادمة تستحق الدخول.',
         intro: 'شواطئ جميرا، أضواء المرسى، أو مدينة جديدة حول العالم. بعض الأماكن التي تنتظرك.',
-        destinations: ['جميرا والشاطئ', 'مرسى دبي', 'وجهات حول العالم'],
+        destinations: ['جميرا والشاطئ', 'مرسى دبي', 'إسطنبول'],
         places: ['برج العرب، جميرا', 'مرسى دبي', 'السلطان أحمد، إسطنبول'],
         descriptions: ['لإجازة قريبة تشبه السفر بعيدًا.', 'كن قريبًا من كل ما تحب اكتشافه.', 'مدينة جديدة. ذكريات تستحق الرحلة.'],
         styles: ['إجازات البحر', 'إقامات المدينة', 'رحلتك المقبلة'],
@@ -22,7 +22,7 @@ const copy = {
     en: {
         eyebrow: 'Private access. More possibilities.', title: 'Your next stay is worth getting in for.',
         intro: 'Jumeirah’s shores, the lights of the Marina, or a new city abroad. A few of the places waiting for you.',
-        destinations: ['Jumeirah & the beach', 'Dubai Marina', 'Destinations worldwide'],
+        destinations: ['Jumeirah & the beach', 'Dubai Marina', 'Istanbul'],
         places: ['Burj Al Arab, Jumeirah', 'Dubai Marina', 'Sultanahmet, Istanbul'],
         descriptions: ['A nearby escape that feels a world away.', 'Stay close to everything you want to explore.', 'A new city. Memories worth the journey.'],
         styles: ['Coastal escapes', 'City stays', 'Your next journey'],

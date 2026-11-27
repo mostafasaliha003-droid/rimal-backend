@@ -23,7 +23,7 @@ const TABBY_DISCLAIMER = 'Pay Later (Short Term Credit) is provided by Tabby LLC
 const copy = {
     ar: {
         badge: 'عضوية سفر خاصة', first: 'حجوزات أريح.', second: 'أسعار للأعضاء.',
-        lead: 'مخدتك جاهزة في مدن العالم. عضوية مجانية للمؤهلين، وبعد القبول تنفتح لك أسعار الفنادق المخصصة لأعضاء مخدة.',
+        lead: 'مخدتك جاهزة في مدن العالم. عضوية مجانية للمؤهلين، وأسعار خاصة بعد القبول.',
         facts: ['فنادق في مدن العالم', 'عناية خاصة بكل حجز', 'وثائقك مشفّرة'],
         floatTitle: 'حالة طلبك مباشرة', floatBody: 'تتابعها لحظة بلحظة بعد التقديم', photo: 'صورة', places: 'وجهات على مخدة',
         login: 'تسجيل الدخول',
@@ -38,11 +38,10 @@ const copy = {
         download: 'حمّل نسخة أندرويد', version: 'الإصدار', preview: 'نسخة تجريبية تُثبَّت من الملف مباشرة. متاح حاليًا لأندرويد.',
         tabbyWhere: 'عند الدفع في تطبيق مخدة', tabbyLead: 'ادفع على راحتك', tabbySupport: '4 دفعات بدون فوائد أو حتى 12 شهرًا.',
         faqEyebrow: 'أسئلة تتكرر', faqTitle: 'قبل أن تبدأ',
-        phoneTagline: 'مخدتك جاهزة في مدن العالم، بسعر الأعضاء',
     },
     en: {
         badge: 'A private travel membership', first: 'Stay easier.', second: 'Member rates.',
-        lead: 'Your pillow is ready in cities around the world. Membership is free for eligible travellers, and member hotel rates open once you are approved.',
+        lead: 'Your pillow is ready around the world. Free membership for eligible travellers, private rates once approved.',
         facts: ['Hotels in cities worldwide', 'Personal care for every booking', 'Your documents stay encrypted'],
         floatTitle: 'Live application status', floatBody: 'Follow it as it moves, right after you apply', photo: 'Photo', places: 'Destinations on Mkhadda',
         login: 'Sign in',
@@ -57,11 +56,10 @@ const copy = {
         download: 'Download for Android', version: 'Version', preview: 'A preview build installed directly from the file. Available on Android for now.',
         tabbyWhere: 'At checkout in the Mkhadda app', tabbyLead: 'Pay over time', tabbySupport: '4 interest-free payments or up to 12 months.',
         faqEyebrow: 'Common questions', faqTitle: 'Before you start',
-        phoneTagline: 'Your pillow is ready around the world, at member rates',
     },
     es: {
         badge: 'Una membresía de viaje privada', first: 'Viaja con calma.', second: 'Tarifas para miembros.',
-        lead: 'Tu almohada está lista en ciudades de todo el mundo. La membresía es gratuita para viajeros elegibles y las tarifas para miembros se abren tras la aprobación.',
+        lead: 'Tu almohada está lista en todo el mundo. Membresía gratuita para viajeros elegibles y tarifas privadas tras la aprobación.',
         facts: ['Hoteles en ciudades de todo el mundo', 'Atención personal en cada reserva', 'Tus documentos, cifrados'],
         floatTitle: 'Tu solicitud, en vivo', floatBody: 'Síguela al momento después de solicitar', photo: 'Foto', places: 'Destinos en Mkhadda',
         login: 'Iniciar sesión',
@@ -76,7 +74,6 @@ const copy = {
         download: 'Descargar para Android', version: 'Versión', preview: 'Versión preliminar que se instala desde el archivo. Disponible en Android por ahora.',
         tabbyWhere: 'Al pagar en la app Mkhadda', tabbyLead: 'Pay over time', tabbySupport: '4 interest-free payments or up to 12 months.',
         faqEyebrow: 'Preguntas frecuentes', faqTitle: 'Antes de empezar',
-        phoneTagline: 'Tu almohada está lista en el mundo, con tarifas para miembros',
     },
 };
 const landingCopy = language => copy[language] || copy.en;
@@ -209,12 +206,10 @@ export function AppShowcase() {
                     <p dir="ltr" lang="en">{TABBY_DISCLAIMER}</p>
                 </div>}
             </div>
+            {/* The app's real welcome screen, captured from the current build. */}
             <div className="mk-phone" aria-hidden="true">
                 <div className="mk-phone-screen">
-                    <img src="/pillow/hero-marina.webp" alt="" width="960" height="1200" loading="lazy" decoding="async" />
-                    <div className="mk-phone-veil" />
-                    <div className="mk-phone-brand"><span><img src="/pillow/symbol.svg" alt="" width="34" height="27" /></span><b>مخدة</b><i>PILLOW STAYS</i><p>{L.phoneTagline}</p></div>
-                    <div className="mk-phone-sheet"><i /><b /><span /><span /></div>
+                    <img src={`/pillow/app-welcome-${language === 'ar' ? 'ar' : 'en'}.webp`} alt="" width="540" height="1169" loading="lazy" decoding="async" />
                 </div>
             </div>
         </div>
