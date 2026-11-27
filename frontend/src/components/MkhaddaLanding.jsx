@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react';
+import { useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { BadgeCheck, BellRing, ChevronDown, Download, FileCheck2, KeyRound, LockKeyhole, MapPin, MessagesSquare, Activity, ShieldCheck, Sparkles, UserPlus } from 'lucide-react';
 import { useLanguage } from '../i18n';
 import { membershipCopy } from '../services/membershipCopy';
@@ -12,20 +12,21 @@ import './MkhaddaLanding.css';
  * Every statement here is something the product does today; nothing promises a price or a wait.
  */
 const PHOTOS = [
-    { src: '/pillow/hero-jumeirah.jpg', ar: 'جميرا، دبي', en: 'Jumeirah, Dubai' },
-    { src: '/pillow/hero-marina.jpg', ar: 'مرسى دبي', en: 'Dubai Marina' },
-    { src: '/pillow/hero-istanbul.jpg', ar: 'أورتاكوي، إسطنبول', en: 'Ortaköy, Istanbul' },
-    { src: '/pillow/hero-paris.jpg', ar: 'باريس', en: 'Paris' },
+    { src: '/pillow/hero-jumeirah.webp', ar: 'جميرا، دبي', en: 'Jumeirah, Dubai' },
+    { src: '/pillow/hero-marina.webp', ar: 'مرسى دبي', en: 'Dubai Marina' },
+    { src: '/pillow/hero-istanbul.webp', ar: 'السلطان أحمد، إسطنبول', en: 'Sultanahmet, Istanbul' },
+    { src: '/pillow/hero-paris.webp', ar: 'باريس', en: 'Paris' },
 ];
 const SLIDE_MS = 6500;
 const TABBY_DISCLAIMER = 'Pay Later (Short Term Credit) is provided by Tabby LLC. Terms and conditions apply. For more information or to contact us, visit tabby.ai.';
 
 const copy = {
     ar: {
-        badge: 'أسعار خاصة للأعضاء المعتمدين', first: 'حجوزات أريح.', second: 'أسعار للأعضاء.',
+        badge: 'عضوية سفر خاصة', first: 'حجوزات أريح.', second: 'أسعار للأعضاء.',
         lead: 'مخدتك جاهزة في مدن العالم. عضوية مجانية للمؤهلين، وبعد القبول تنفتح لك أسعار الفنادق المخصصة لأعضاء مخدة.',
-        facts: ['أسعار للأعضاء فقط', 'عناية خاصة بكل حجز', 'التسجيل مجاني بالكامل'],
-        floatTitle: 'أسعار الأعضاء', floatBody: 'تنكشف بعد قبول عضويتك', photo: 'صورة', places: 'وجهات على مخدة',
+        facts: ['فنادق في مدن العالم', 'عناية خاصة بكل حجز', 'وثائقك مشفّرة'],
+        floatTitle: 'حالة طلبك مباشرة', floatBody: 'تتابعها لحظة بلحظة بعد التقديم', photo: 'صورة', places: 'وجهات على مخدة',
+        login: 'تسجيل الدخول',
         stepsEyebrow: 'كيف تعمل العضوية', stepsTitle: 'ثلاث خطوات إلى أسعار الأعضاء',
         steps: [
             ['قدّم طلبك مجانًا', 'أنشئ حسابك وأكّد بريدك الإلكتروني برمز من 6 أرقام.'],
@@ -40,10 +41,11 @@ const copy = {
         phoneTagline: 'مخدتك جاهزة في مدن العالم، بسعر الأعضاء',
     },
     en: {
-        badge: 'Private rates for approved members', first: 'Stay easier.', second: 'Member rates.',
+        badge: 'A private travel membership', first: 'Stay easier.', second: 'Member rates.',
         lead: 'Your pillow is ready in cities around the world. Membership is free for eligible travellers, and member hotel rates open once you are approved.',
-        facts: ['Rates for members only', 'Personal care for every booking', 'Completely free to register'],
-        floatTitle: 'Member rates', floatBody: 'Revealed once you are approved', photo: 'Photo', places: 'Destinations on Mkhadda',
+        facts: ['Hotels in cities worldwide', 'Personal care for every booking', 'Your documents stay encrypted'],
+        floatTitle: 'Live application status', floatBody: 'Follow it as it moves, right after you apply', photo: 'Photo', places: 'Destinations on Mkhadda',
+        login: 'Sign in',
         stepsEyebrow: 'How membership works', stepsTitle: 'Three steps to member rates',
         steps: [
             ['Apply for free', 'Create your account and confirm your email with a 6-digit code.'],
@@ -58,10 +60,11 @@ const copy = {
         phoneTagline: 'Your pillow is ready around the world, at member rates',
     },
     es: {
-        badge: 'Tarifas para miembros aprobados', first: 'Viaja con calma.', second: 'Tarifas para miembros.',
+        badge: 'Una membresía de viaje privada', first: 'Viaja con calma.', second: 'Tarifas para miembros.',
         lead: 'Tu almohada está lista en ciudades de todo el mundo. La membresía es gratuita para viajeros elegibles y las tarifas para miembros se abren tras la aprobación.',
-        facts: ['Tarifas solo para miembros', 'Atención personal en cada reserva', 'Registro totalmente gratuito'],
-        floatTitle: 'Tarifas para miembros', floatBody: 'Se muestran tras tu aprobación', photo: 'Foto', places: 'Destinos en Mkhadda',
+        facts: ['Hoteles en ciudades de todo el mundo', 'Atención personal en cada reserva', 'Tus documentos, cifrados'],
+        floatTitle: 'Tu solicitud, en vivo', floatBody: 'Síguela al momento después de solicitar', photo: 'Foto', places: 'Destinos en Mkhadda',
+        login: 'Iniciar sesión',
         stepsEyebrow: 'Cómo funciona la membresía', stepsTitle: 'Tres pasos hacia las tarifas para miembros',
         steps: [
             ['Solicita gratis', 'Crea tu cuenta y confirma tu correo con un código de 6 dígitos.'],
@@ -79,18 +82,26 @@ const copy = {
 const landingCopy = language => copy[language] || copy.en;
 const reducedMotion = () => typeof matchMedia === 'function' && matchMedia('(prefers-reduced-motion: reduce)').matches;
 
-/** Adds `is-in` the first time the element scrolls into view, so sections arrive instead of sitting there. */
+/*
+ * Sections arrive as they scroll into view. Content is visible by default: only a section that is still
+ * below the fold is held back (`mk-wait`), and anything that stops the observer — no support, printing,
+ * a full-page capture — leaves it shown rather than blank.
+ */
 export function useReveal() {
     const ref = useRef(null);
-    useEffect(() => {
+    useLayoutEffect(() => {
         const node = ref.current;
         if (!node) return undefined;
-        if (typeof IntersectionObserver !== 'function' || reducedMotion()) { node.classList.add('is-in'); return undefined; }
+        const show = () => { node.classList.remove('mk-wait'); node.classList.add('is-in'); };
+        if (typeof IntersectionObserver !== 'function' || reducedMotion() || node.getBoundingClientRect().top < window.innerHeight * 0.92) { show(); return undefined; }
+        node.classList.add('mk-wait');
         const observer = new IntersectionObserver(entries => {
-            if (entries.some(entry => entry.isIntersecting)) { node.classList.add('is-in'); observer.disconnect(); }
-        }, { rootMargin: '0px 0px -12% 0px', threshold: 0.12 });
+            if (entries.some(entry => entry.isIntersecting)) { show(); observer.disconnect(); }
+        }, { rootMargin: '0px 0px -8% 0px', threshold: 0.08 });
         observer.observe(node);
-        return () => observer.disconnect();
+        const reveal = () => { show(); observer.disconnect(); };
+        window.addEventListener('beforeprint', reveal);
+        return () => { observer.disconnect(); window.removeEventListener('beforeprint', reveal); node.classList.remove('mk-wait'); };
     }, []);
     return ref;
 }
@@ -200,7 +211,7 @@ export function AppShowcase() {
             </div>
             <div className="mk-phone" aria-hidden="true">
                 <div className="mk-phone-screen">
-                    <img src="/pillow/hero-marina.jpg" alt="" width="960" height="1200" loading="lazy" decoding="async" />
+                    <img src="/pillow/hero-marina.webp" alt="" width="960" height="1200" loading="lazy" decoding="async" />
                     <div className="mk-phone-veil" />
                     <div className="mk-phone-brand"><span><img src="/pillow/symbol.svg" alt="" width="34" height="27" /></span><b>مخدة</b><i>PILLOW STAYS</i><p>{L.phoneTagline}</p></div>
                     <div className="mk-phone-sheet"><i /><b /><span /><span /></div>

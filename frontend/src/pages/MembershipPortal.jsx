@@ -20,11 +20,11 @@ const recoveryCopy={
     en:{forgot:'Forgot your password?',eyebrow:'Account recovery',askTitle:'Let’s get you back in',askHint:'Enter your email and we’ll send a 6-digit code to set a new password.',send:'Send the code',resetTitle:'Set a new password',resetHint:'If this address has an account, we’ve sent it a code that works for 10 minutes.',newPassword:'New password',save:'Save and sign in',resend:'Send a new code',resent:'We’ve asked for a new code. It may take a minute to arrive.',back:'Back to sign in',badCode:'That code is wrong or has expired. Ask for a new one.',tooMany:'Too many tries. Wait a few minutes and try again.',mailDown:'We couldn’t send the email right now. Try again shortly.',everywhere:'Saving signs your account out on every other device, to keep it safe.'},
     es:{forgot:'¿Olvidaste tu contraseña?',eyebrow:'Recuperar cuenta',askTitle:'Volvamos a tu cuenta',askHint:'Escribe tu correo y te enviaremos un código de 6 dígitos para crear una contraseña nueva.',send:'Enviar el código',resetTitle:'Crea una contraseña nueva',resetHint:'Si este correo tiene una cuenta, le hemos enviado un código válido durante 10 minutos.',newPassword:'Contraseña nueva',save:'Guardar y entrar',resend:'Enviar un código nuevo',resent:'Hemos pedido un código nuevo. Puede tardar un minuto en llegar.',back:'Volver a iniciar sesión',badCode:'El código es incorrecto o ha caducado. Pide uno nuevo.',tooMany:'Demasiados intentos. Espera unos minutos y vuelve a intentarlo.',mailDown:'No pudimos enviar el correo ahora. Inténtalo en un momento.',everywhere:'Al guardar cerramos tu sesión en los demás dispositivos, por seguridad.'}
 };
-export function MembershipChrome({children,compact=false}){
+export function MembershipChrome({children,compact=false,onLogin}){
     const {language,setLanguage,direction,t}=useLanguage(),L=membershipCopy(language);
     return <main className={`membership-site ${compact?'membership-compact':''}`} dir={direction}>
         <div className="membership-grain" aria-hidden="true" />
-        <header className="membership-header"><div className="membership-top"><a href="/" data-membership-logo><PillowBrand /></a><div className="membership-header-tools"><span className="membership-header-access"><ShieldCheck size={16}/>{L.brand}</span><label className="membership-language"><Globe2 size={16}/><select aria-label={t('nav.language','اللغة')} value={language} onChange={e=>setLanguage(e.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label></div></div></header>
+        <header className="membership-header"><div className="membership-top"><a href="/" data-membership-logo><PillowBrand /></a><div className="membership-header-tools">{onLogin?<button type="button" className="mk-header-login" data-header-login onClick={onLogin}>{L.login}</button>:<span className="membership-header-access"><ShieldCheck size={16}/>{L.brand}</span>}<label className="membership-language"><Globe2 size={16}/><select aria-label={t('nav.language','اللغة')} value={language} onChange={e=>setLanguage(e.target.value)}><option value="ar">العربية</option><option value="en">English</option><option value="es">Español</option></select></label></div></div></header>
         {children}
         <CompanyFooter />
     </main>;
@@ -35,6 +35,8 @@ export default function MembershipPortal({snapshot,refresh,go,onEnter}){
     const [mode,setMode]=useState('login'),[verify,setVerify]=useState(false),[busy,setBusy]=useState(false),[error,setError]=useState('');
     const R=recoveryCopy[language]||recoveryCopy.en,[recover,setRecover]=useState(null),[notice,setNotice]=useState('');
     const show=next=>{setMode(next);setVerify(false);setRecover(null);setError('');setNotice('');};
+    // The form closes the public page, so every invitation to apply or sign in brings the visitor to it.
+    const toForm=next=>event=>{event?.preventDefault?.();show(next);requestAnimationFrame(()=>{const panel=document.getElementById('membership-application');panel?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});panel?.querySelector('input')?.focus({preventScroll:true});});};
     const [resendAt,setResendAt]=useState(0),[clock,setClock]=useState(Date.now);
     useEffect(()=>{if(!verify)return;const timer=setInterval(()=>setClock(Date.now()),1000);return()=>clearInterval(timer);},[verify]);
     const waitSeconds=Math.max(0,Math.ceil((resendAt-clock)/1000));
@@ -61,10 +63,11 @@ export default function MembershipPortal({snapshot,refresh,go,onEnter}){
     const submit=event=>{event.preventDefault();if(!consent){setError(L.consentRequired);return;}void run(async()=>{await membershipRequest('/application/submit',{method:'POST',body:{consent:true}});go('/membership');await refresh();});};
     const pending=app&&!['draft','needs_information'].includes(app.status),required=details.category==='gcc_citizen'?['passport']:['eid_front','eid_back'];
     let countries=[];try{const names=new Intl.DisplayNames([language],{type:'region'});countries=countryCodes.map(code=>({code,name:names.of(code.toUpperCase())})).sort((a,b)=>a.name.localeCompare(b.name,language));}catch{}
-    return <MembershipChrome>
-        {!snapshot?.authenticated && <LandingHero applyLabel={L.apply} loginLabel={L.login} onApply={()=>show('apply')} onLogin={()=>show('login')} />}
-        <div className={`membership-layout ${snapshot?.authenticated?'membership-authenticated':''}`}>
-            <section className="membership-story"><span className="membership-eyebrow"><Sparkles size={15}/>{L.eyebrow}</span><h2>{L.brand}</h2><p>{L.intro}</p><div className="membership-benefits">{[[Hotel,L.benefit1],[Globe2,L.benefit2],[Tickets,L.benefit3]].map(([Icon,text])=><div key={text}><span className="membership-benefit-icon"><Icon size={19}/></span><span>{text}</span></div>)}</div><div className="membership-free"><ShieldCheck size={24}/><div><strong>{L.free}</strong><span>{L.approval}</span></div><Check size={18}/></div><small className="membership-conditions">{L.conditions}</small></section>
+    const visitor=!snapshot?.authenticated;
+    return <MembershipChrome onLogin={visitor?toForm('login'):undefined}>
+        {visitor && <><LandingHero applyLabel={L.apply} loginLabel={L.login} onApply={toForm('apply')} onLogin={toForm('login')} /><MembershipDiscover onApply={toForm('apply')} /><HowItWorks /><AppShowcase /><LandingFaq /></>}
+        <div className={`membership-layout ${snapshot?.authenticated?'membership-authenticated':'mk-closing'}`}>
+            <section className="membership-story"><span className="membership-eyebrow"><Sparkles size={15}/>{L.eyebrow}</span><h2>{L.brand}</h2><p>{L.intro}</p><div className="membership-benefits">{[[Hotel,L.benefit1],[Globe2,L.benefit2],[Tickets,L.benefit3]].map(([Icon,text])=><div key={text}><span className="membership-benefit-icon"><Icon size={19}/></span><span>{text}</span></div>)}</div>{!visitor&&<div className="membership-free"><ShieldCheck size={24}/><div><strong>{L.free}</strong><span>{L.approval}</span></div><Check size={18}/></div>}<small className="membership-conditions">{L.conditions}</small></section>
             <section id="membership-application" className="membership-panel" aria-label={L.brand}>
                 {snapshot?.authenticated&&<div className="membership-accountline"><span>{snapshot.user?.name}</span><button type="button" disabled={busy} onClick={()=>void run(async()=>{await BookingAPI.logoutUser();clearUserSession();await refresh();})}><LogOut size={15}/>{L.logout}</button></div>}
                 {error&&<p role="alert" className="membership-error">{error}</p>}
@@ -121,15 +124,5 @@ export default function MembershipPortal({snapshot,refresh,go,onEnter}){
                 </>}
             </section>
         </div>
-        {!snapshot?.authenticated && <HowItWorks />}
-        {!snapshot?.authenticated && <MembershipDiscover onApply={() => {
-            show('apply');
-            requestAnimationFrame(() => {
-                const panel=document.getElementById('membership-application');
-                panel?.scrollIntoView({block:'start',behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'instant':'smooth'});
-                panel?.querySelector('input')?.focus({preventScroll:true});
-            });
-        }} />}
-        {!snapshot?.authenticated && <><AppShowcase /><LandingFaq /></>}
     </MembershipChrome>;
 }

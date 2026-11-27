@@ -1,11 +1,13 @@
-import { StrictMode, Suspense } from 'react';
+import { StrictMode, Suspense, lazy } from 'react';
 import { createRoot } from 'react-dom/client';
-import App from './App';
 import './styles.css';
 import { LanguageProvider } from './i18n';
 import MembershipBoundary from './components/MembershipBoundary';
 import PillowWait from './components/PillowWait';
 import './pillow-stays.css';
+
+// The member experience (search, hotels, checkout) loads only once membership allows it; visitors get the public front alone.
+const App = lazy(() => import('./App'));
 
 if (import.meta.env.PROD && 'serviceWorker' in navigator) {
     window.addEventListener('load', () => {
