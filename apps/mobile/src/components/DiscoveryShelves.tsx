@@ -11,7 +11,7 @@ import { featuredCities, type DestinationId } from './searchJourneyModel';
 
 const destinations = [
   { id: 'dubai', ...featuredCities.dubai, place: 'Dubai Marina', placeAr: 'مرسى دبي', title: 'Dubai at dusk', titleAr: 'دبي عند الغروب', cover: require('../../assets/dubai-marina-dusk.jpg'), photo: require('../../assets/dubai-destination.jpg') },
-  { id: 'istanbul', ...featuredCities.istanbul, place: 'Ortaköy', placeAr: 'أورتاكوي', title: 'On the Bosphorus', titleAr: 'على ضفاف البوسفور', cover: require('../../assets/istanbul-destination.jpg'), photo: require('../../assets/istanbul-destination.jpg') },
+  { id: 'istanbul', ...featuredCities.istanbul, place: 'Sultanahmet', placeAr: 'السلطان أحمد', title: 'On the Bosphorus', titleAr: 'على ضفاف البوسفور', cover: require('../../assets/istanbul-destination.jpg'), photo: require('../../assets/istanbul-destination.jpg') },
   { id: 'paris', ...featuredCities.paris, place: 'Eiffel Tower', placeAr: 'برج إيفل', title: 'A day in Paris', titleAr: 'يوم في باريس', cover: require('../../assets/paris-destination.jpg'), photo: require('../../assets/paris-destination.jpg') },
 ] as const;
 type ChooseDestination = (id: DestinationId, name: string) => void;

@@ -246,6 +246,11 @@ export function Field({ label, error, errorId, inputRef, style, ltr = false, hin
       <View style={{ paddingTop: 2 }}><Icon name="alertCircle" size={16} color={color.danger}/></View>
       <Txt nativeID={errorId} accessibilityRole="alert" kind="small" style={{ color: color.danger, flex: 1 }}>{error}</Txt>
     </Row>}
+    {/* A red edge alone relies on colour; the word says it too. Screen readers already hear it through the hint. */}
+    {!error && invalid && <Row testID="field-required" style={{ gap: space.xs, alignItems: 'flex-start' }} accessible={false} importantForAccessibility="no-hide-descendants">
+      <View style={{ paddingTop: 2 }}><Icon name="alertCircle" size={16} color={color.danger}/></View>
+      <Txt kind="small" style={{ color: color.danger, flex: 1 }} aria-hidden>{language === 'ar' ? 'هذا الحقل مطلوب' : 'Required'}</Txt>
+    </Row>}
   </View>;
 }
 

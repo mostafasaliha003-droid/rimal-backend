@@ -10,7 +10,7 @@ const production = environment === 'production';
 const config: ExpoConfig = {
   name: production ? 'مخدة | pillow stays' : 'pillow stays Preview',
   slug: 'mkhadda',
-  version: '0.61.0',
+  version: '0.62.0',
   orientation: 'default',
   icon: './assets/pillow-icon.png',
   scheme: production ? 'mkhadda' : 'mkhadda-preview',
@@ -20,7 +20,7 @@ const config: ExpoConfig = {
     // Production identity entered in the owner-created Play draft, 16 Nov 2026.
     // Keep internal previews separate from the store application.
     package: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
-    versionCode: 61,
+    versionCode: 62,
     adaptiveIcon: {
       foregroundImage: './assets/pillow-adaptive.png',
       backgroundColor: '#ffffff',
@@ -45,7 +45,7 @@ const config: ExpoConfig = {
     supportsTablet: true,
     bundleIdentifier: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
     // Kept equal to android.versionCode so both stores count releases the same way.
-    buildNumber: '61',
+    buildNumber: '62',
     infoPlist: {
       // HTTPS only, no custom cryptography: exempt from export-compliance documentation.
       ITSAppUsesNonExemptEncryption: false,

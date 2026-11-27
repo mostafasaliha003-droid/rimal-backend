@@ -113,7 +113,7 @@ const rise = (value: Animated.Value, distance = 14) => ({ opacity: value, transf
 /* Destination photography (CC0 / public domain, see assets/DESTINATIONS.md). Places, not hotels. */
 const PHOTOS = [
   { source: require('../../assets/welcome-dubai-marina.jpg'), place: 'Dubai Marina', placeAr: 'مرسى دبي' },
-  { source: require('../../assets/istanbul-destination.jpg'), place: 'Ortaköy, Istanbul', placeAr: 'أورتاكوي، إسطنبول' },
+  { source: require('../../assets/istanbul-destination.jpg'), place: 'Sultanahmet, Istanbul', placeAr: 'السلطان أحمد، إسطنبول' },
   { source: require('../../assets/paris-destination.jpg'), place: 'Paris', placeAr: 'باريس' },
 ] as const;
 const CYCLE_MS = 7000 * PHOTOS.length;
