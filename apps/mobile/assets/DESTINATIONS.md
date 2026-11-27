@@ -7,3 +7,5 @@ The city photographs illustrate the destination search. Hotel and room galleries
 - Paris, the Eiffel Tower. BigBartimäus, released into the public domain. [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Eiffelturm.JPG)
 
 The welcome screen uses portrait 1200x2000 crops of the same three originals (Wikimedia 1920px and 3840px renditions); `welcome-dubai-marina.jpg` is the portrait crop of the Dubai Marina photograph above.
+
+`explore-marina.jpg` (the photograph behind Explore's opening) is a 1200x720 crop of Dubai Marina at sunset, photographed by Maaroo24 and released under CC0. [Wikimedia Commons](https://commons.wikimedia.org/wiki/File:Dubai_Marina_27.12.2024.jpg)

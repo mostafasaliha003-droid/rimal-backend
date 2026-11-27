@@ -25,6 +25,7 @@ import { useCurrencyPreference } from '../components/useCurrencyPreference';
 import { DateFields, GuestsField, NationalityField, SegmentGroup, SegmentRule, SegmentSplit } from '../components/StayFields';
 import CountryPicker from '../components/CountryPicker';
 import { ContinueSearchCard, UpcomingTripCard } from '../components/HomeCards';
+import ExploreHero, { EXPLORE_HERO_OVERLAP } from '../components/ExploreHero';
 import { resumeCriteria, resumeState } from '../components/lastSearchModel';
 import { todayDate } from '../components/calendarModel';
 import { formatDay, stayWords } from '../components/format';
@@ -51,7 +52,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
   const [pickedCity, setPickedCity] = useState<DestinationId | null>(null);
   const [suggestionResult, setSuggestionResult] = useState<{ key: string; values: Suggestion[]; error: unknown }>({ key: '', values: [], error: null });
   const [suggestionRetry, retrySuggestion] = useState(0);
-  const { status: authStatus, sessionRevision } = useAuth();
+  const { status: authStatus, sessionRevision, user } = useAuth();
   const suggestionKey = JSON.stringify([sessionRevision, authStatus, language, query.trim(), pickedCity, suggestionRetry]);
   const suggestions = suggestionResult.key === suggestionKey ? suggestionResult.values : [];
   const needsSuggestions = !savedOnly && shouldSuggestDestination(query, selected);
@@ -312,8 +313,9 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
 
   return <SafeAreaView edges={savedOnly ? ['top','bottom'] : ['top']} style={ui.screen}><BrandHeader back={savedOnly} />
     <ScrollView ref={scroll} keyboardShouldPersistTaps="handled" keyboardDismissMode={Platform.OS === 'web' ? 'none' : 'on-drag'} contentContainerStyle={{ paddingBottom: space.xxl }}>
-      <View style={[styles.page, { paddingHorizontal: gutter, maxWidth: desktop ? layout.maxContent : layout.maxReading }]}>
-        {!savedOnly && <UpcomingTripCard/>}
+      {!desktop && !savedOnly && <ExploreHero name={authStatus === 'signedIn' ? user?.name : null} rtl={rtl} gutter={gutter}/>}
+      <View style={[styles.page, { paddingHorizontal: gutter, maxWidth: desktop ? layout.maxContent : layout.maxReading }, !desktop && !savedOnly && styles.pageOverHero]}>
+        {desktop && !savedOnly && <UpcomingTripCard/>}
         {desktop && !savedOnly ? <>
           <Row style={{ alignItems: 'stretch', gap: space.xl }}>
             <View style={{ width: 460, gap: space.lg }}>
@@ -331,12 +333,10 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
           <DestinationPicks choose={chooseDestination}/>
           <DiscoveryShelves/>
         </> : <>
-          {!savedOnly && <View style={{ gap: 0 }}>
-            <Txt kind="heading" accessibilityRole="header" style={{ fontSize: 22, lineHeight: rtl ? 34 : 30 }}>{rtl ? 'إلى أين وجهتك القادمة؟' : 'Where to next?'}</Txt>
-            <Txt kind="caption">{rtl ? 'أسعار إجمالية لكامل الإقامة وشروط واضحة قبل أن تحجز.' : 'Full-stay prices and clear terms before you book.'}</Txt>
-          </View>}
+          {/* The search card rises into the photograph; the next trip follows it rather than pushing it down. */}
           {continueCard}
           {form}
+          {!savedOnly && <UpcomingTripCard/>}
           {recentList}
           {!savedOnly && <DestinationPicks choose={chooseDestination}/>}
           {!savedOnly && <DiscoveryShelves/>}
@@ -365,6 +365,7 @@ export default function SearchScreen({ savedOnly = false }: { savedOnly?: boolea
 
 const styles = StyleSheet.create({
   page: { width: '100%', alignSelf: 'center', paddingTop: space.md, gap: space.md },
+  pageOverHero: { paddingTop: 0, marginTop: -EXPLORE_HERO_OVERLAP },
   form: { gap: space.sm + 2, padding: space.sm + 2, borderRadius: radius.xl },
   destinationRow: { alignItems: 'center', gap: space.sm + 2, minHeight: 62, paddingHorizontal: space.md, paddingVertical: space.xs, borderWidth: 2, borderColor: 'transparent' },
   destinationFocused: { backgroundColor: color.bgFieldFocus, borderColor: color.interactive, borderRadius: radius.lg },
