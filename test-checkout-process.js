@@ -34,6 +34,17 @@ test('checkout tracking exposes only verified payment and normalized voucher del
     assert.equal(pending.confirmed, false);
 });
 
+test('a refund after a guest cancellation is told apart from a refund for a failed booking', () => {
+    const base = { reference: 'guest-cancel', payment_verified_at: new Date(), partner_order_id: 'supplier-ref' };
+    for (const state of ['booking_cancelled', 'refund_pending', 'refund_completed', 'refund_review']) {
+        assert.equal(checkout.publicView({ ...base, state, cancellation_request_hash: 'h'.repeat(64) }).guest_cancelled, true, state);
+        assert.equal(checkout.publicView({ ...base, state }).guest_cancelled, undefined, `${state} without a guest cancellation`);
+    }
+    assert.equal(checkout.publicView({ ...base, state: 'booking_confirmed', cancellation_request_hash: 'h'.repeat(64) }).guest_cancelled, undefined,
+        'a cancellation still in progress leaves the booking confirmed');
+    assert.equal(checkout.publicView({ reference: 'unpaid', state: 'booking_cancelled', cancellation_request_hash: 'h'.repeat(64) }).guest_cancelled, undefined);
+});
+
 const details = () => ({
     hid: 123, book_hash: 'fixture-hash', roomName: 'Test Double Room',
     checkin: '2099-10-15', checkout: '2099-10-17', currency: 'USD', total: 107,

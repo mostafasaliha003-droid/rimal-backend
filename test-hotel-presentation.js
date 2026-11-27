@@ -30,3 +30,27 @@ test('booking name enrichment uses only the exact supplier hotel id and leaves m
     assert.equal(records[0].hotelName, 'Hotel', 'Read-only presentation never mutates stored records');
     assert.equal(require('./services/userAuthRoutes').publicBooking(result[0]).providerHotelCode, undefined);
 });
+test('owned bookings carry the approved Arabic hotel name the guest saw while searching', async () => {
+    const records = [
+        { provider: 'ratehawk', providerHotelCode: '10', hotelName: 'LUX - Opulent Island Suite', bookingReference: 'a' },
+        { provider: 'ratehawk', providerHotelCode: '11', hotelName: 'Pending Name Hotel', bookingReference: 'b' },
+        { provider: 'ratehawk', providerHotelCode: '12', hotelName: 'Hotel', bookingReference: 'c' },
+        { provider: 'hotelbeds', providerHotelCode: '10', hotelName: 'Other', bookingReference: 'd' }
+    ];
+    const HotelModel = { find(query) {
+        assert.deepEqual(query, { hid: { $in: ['10', '11', '12'] } });
+        return { select: fields => { assert.match(fields, /translations\.ar/); return { lean: async () => [
+            { hid: '10', name: 'LUX - Opulent Island Suite', translations: { ar: { name: 'لوكس - جناح الجزيرة الفخم', reviewStatus: 'approved' } } },
+            { hid: '11', name: 'Pending Name Hotel', translations: { ar: { name: 'فندق قيد المراجعة', reviewStatus: 'pending' } } },
+            { hid: '12', name: 'Canonical', translations: new Map([['ar', { name: 'الاسم الرسمي', reviewStatus: 'approved' }]]) }
+        ] }; } };
+    } };
+    const result = await enrichBookingNames(records, HotelModel);
+    assert.equal(result[0].hotelName, 'LUX - Opulent Island Suite', 'The stored English name stays the booking identity');
+    assert.equal(result[0].hotelNameAr, 'لوكس - جناح الجزيرة الفخم');
+    assert.equal(result[1].hotelNameAr, undefined, 'Unapproved Arabic names are never shown');
+    assert.equal(result[2].hotelName, 'Canonical');
+    assert.equal(result[2].hotelNameAr, 'الاسم الرسمي');
+    assert.equal(result[3].hotelNameAr, undefined);
+    assert.equal(require('./services/userAuthRoutes').publicBooking(result[0]).hotelNameAr, 'لوكس - جناح الجزيرة الفخم');
+});
