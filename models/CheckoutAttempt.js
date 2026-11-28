@@ -50,6 +50,7 @@ const checkoutAttemptSchema = new mongoose.Schema({
     refund_notification_status: String,
     refund_notification_attempted_at: Date,
     refund_notification_sent_at: Date,
+    refund_alert_sent_at: Date,
     next_check_at: Date,
     lease_id: String,
     lease_until: Date,

@@ -210,6 +210,14 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
 }
 
 module.exports = {
+    // Internal alerts for the team (not customers): from operations@, plain text.
+    async sendStaffAlert({ to, subject, text }) {
+        if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD) throw new Error('staff_alert_unavailable');
+        const result = await transporter.sendMail({ from: { name: 'Pillow Stays alerts', address: 'operations@pillowstays.app' },
+            to, subject, text });
+        if (!result.messageId || !result.accepted?.includes(to)) throw new Error('staff_alert_outcome_unknown');
+        return { messageId: result.messageId };
+    },
     async sendSupportReply({ email, subject, text, html }) {
         const result = await transporter.sendMail({ ...documentBrand.customerMailHeaders(),
             to: email, subject, text, html, attachments: [documentBrand.emailSymbolAttachment()] });

@@ -658,3 +658,61 @@ test('a supplier account switch stops booking and voucher retrieval without chan
     assert.equal(scenario.record.action_required, 'supplier_environment_mismatch');
     assert.equal(voucher.mock.callCount(), 0);
 });
+
+test('a refund Ziina refuses goes to review with its reason and is not polled forever', async context => {
+    const scenario = fixture(context);
+    const reconciliation = require('./services/checkoutReconciliationService');
+    scenario.record.state = 'booking_failed';
+    scenario.record.payment_verified_at = new Date();
+    scenario.createRefund.mock.mockImplementation(async () => {
+        throw Object.assign(new Error('ziina_request_failed'), { code: 'ziina_request_failed', httpStatus: 400, ziinaCode: 'TRANSACTION_NOT_FOUND' });
+    });
+    await reconciliation.reconcileAttempt(scenario.record._id);
+    assert.equal(scenario.record.state, 'refund_review');
+    assert.equal(scenario.record.refund_status, 'failed');
+    assert.equal(scenario.record.action_required, 'refund_rejected');
+    assert.equal(scenario.record.error, 'refund_rejected:TRANSACTION_NOT_FOUND');
+    assert.equal(scenario.record.next_check_at, null);
+});
+
+test('a refund Ziina never received is sent again with the same id, only after 10 minutes', async context => {
+    const scenario = fixture(context);
+    const reconciliation = require('./services/checkoutReconciliationService');
+    scenario.record.state = 'refund_unknown';
+    scenario.record.payment_verified_at = new Date();
+    scenario.record.refund_id = crypto.randomUUID();
+    scenario.record.refund_amount_minor = 10000;
+    scenario.record.refund_sent_at = new Date(Date.now() - 2 * 60 * 1000);
+    const notFound = () => { throw Object.assign(new Error('ziina_request_failed'), { code: 'ziina_request_failed', httpStatus: 400, ziinaCode: 'REFUND_NOT_FOUND' }); };
+    scenario.getRefund.mock.mockImplementation(async () => notFound());
+    await reconciliation.reconcileAttempt(scenario.record._id);
+    assert.equal(scenario.record.state, 'refund_unknown', 'a send may still be in flight: keep checking');
+    assert.equal(scenario.createRefund.mock.callCount(), 0);
+    scenario.record.refund_sent_at = new Date(Date.now() - 11 * 60 * 1000);
+    scenario.record.next_check_at = new Date(0);
+    const savedId = scenario.record.refund_id;
+    scenario.createRefund.mock.mockImplementation(async ({ id }) => {
+        assert.equal(id, savedId, 'the same refund id, never a new one');
+        return { id, payment_intent_id: scenario.record.ziina_intent_id, amount: 10000, currency_code: 'USD', status: 'pending' };
+    });
+    await reconciliation.reconcileAttempt(scenario.record._id);
+    assert.equal(scenario.createRefund.mock.callCount(), 1);
+    assert.equal(scenario.record.state, 'refund_pending');
+    assert.equal(scenario.record.refund_id, savedId);
+});
+
+test('a pending refund is checked less often as it ages', async context => {
+    const scenario = fixture(context);
+    const reconciliation = require('./services/checkoutReconciliationService');
+    scenario.record.state = 'refund_pending';
+    scenario.record.payment_verified_at = new Date();
+    scenario.record.refund_id = crypto.randomUUID();
+    scenario.record.refund_amount_minor = 10000;
+    scenario.record.refund_sent_at = new Date(Date.now() - 3 * 60 * 60 * 1000);
+    scenario.getRefund.mock.mockImplementation(async id => ({ id, payment_intent_id: scenario.record.ziina_intent_id,
+        amount: 10000, currency_code: 'USD', status: 'pending' }));
+    await reconciliation.reconcileAttempt(scenario.record._id);
+    assert.equal(scenario.record.state, 'refund_pending');
+    const delay = new Date(scenario.record.next_check_at).getTime() - Date.now();
+    assert.ok(delay > 9 * 60 * 1000 && delay <= 10 * 60 * 1000, `three hours in, checks every 10 minutes (got ${delay} ms)`);
+});

@@ -64,7 +64,16 @@ async function request(path, { method = 'GET', payload, token = process.env.ZIIN
             ...(payload ? { body: JSON.stringify(payload) } : {}),
             signal: AbortSignal.timeout(15000), redirect: 'error'
         });
-        if (!response.ok) throw error('ziina_request_failed');
+    } catch {
+        throw error('ziina_request_failed');
+    }
+    if (!response.ok) {
+        // Keep Ziina's answer: a definite refusal (4xx with a code) must not be treated like a lost connection.
+        let code = '';
+        try { code = String((await response.json())?.code || '').slice(0, 64); } catch { code = ''; }
+        throw Object.assign(error('ziina_request_failed'), { httpStatus: response.status, ziinaCode: /^[A-Z0-9_]+$/.test(code) ? code : '' });
+    }
+    try {
         return await response.json();
     } catch {
         throw error('ziina_request_failed');
