@@ -12,11 +12,48 @@ const BRAND = {
     name: 'مخدة',
     latin: 'pillow stays',
     sender: 'مخدة | pillow stays',
-    // The From display name on every e-mail; the address is the Workspace mailbox (SMTP_USER).
+    // The From display name on every e-mail.
     senderName: 'Pillow Stays',
-    support: 'management@remaltourismllc.com',
+    support: 'support@pillowstays.app',
     operator: 'تديرها Remal Group LLC FZ · Operated by Remal Group LLC FZ',
 };
+
+/*
+ * Addresses on pillowstays.app are Google Workspace aliases of the SMTP_USER mailbox, so the
+ * mailbox can send as them (Gmail: Settings > Accounts > "Send mail as" must list each one, or
+ * Gmail quietly rewrites From to the mailbox address).
+ * - support@: customer-facing From and Reply-To.
+ * - accounts@: blind copy of every e-mail that carries an invoice or receipt, so accounting
+ *   keeps a copy of each one.
+ */
+const MAIL = Object.freeze({
+    from: Object.freeze({ name: BRAND.senderName, address: BRAND.support }),
+    replyTo: BRAND.support,
+    accountsBcc: 'accounts@pillowstays.app',
+});
+
+// Customer e-mail headers. withAccountsCopy adds the accounting blind copy.
+function customerMailHeaders({ withAccountsCopy = false } = {}) {
+    return { from: { ...MAIL.from }, replyTo: MAIL.replyTo, ...(withAccountsCopy ? { bcc: MAIL.accountsBcc } : {}) };
+}
+
+// The issue date as YYYYMMDD in the UAE (Asia/Dubai, UTC+4 all year, no daylight saving).
+function dubaiDateStamp(date = new Date()) {
+    const time = new Date(date).getTime();
+    if (!Number.isFinite(time)) throw new TypeError('document_date_invalid');
+    return new Date(time + 4 * 3600 * 1000).toISOString().slice(0, 10).replace(/-/g, '');
+}
+
+/*
+ * PDF attachment name with the booking reference and issue date, e.g.
+ * PillowStays-Confirmation-RB123-20261128.pdf, so a copy is easy to find in any mailbox.
+ */
+function documentFileName(kind, reference, date = new Date()) {
+    if (!/^[A-Za-z]{1,40}$/.test(kind)) throw new TypeError('document_kind_invalid');
+    const ref = String(reference ?? '').replace(/[^A-Za-z0-9_-]+/g, '-').replace(/^-+|-+$/g, '').slice(0, 80);
+    if (!ref) throw new TypeError('document_reference_invalid');
+    return `PillowStays-${kind}-${ref}-${dubaiDateStamp(date)}.pdf`;
+}
 
 const C = {
     plum900: '#201626', plum800: '#2D173A', plum600: '#513069',
@@ -75,4 +112,4 @@ function footer() {
         + `<span>${BRAND.operator}</span></div>`;
 }
 
-module.exports = { BRAND, C, FONT_STACK, EMAIL_SYMBOL_CID, emailSymbolAttachment, embeddedAssets, pdfFontFaces, wordmark, statusPill, footer };
+module.exports = { BRAND, MAIL, customerMailHeaders, dubaiDateStamp, documentFileName, C, FONT_STACK, EMAIL_SYMBOL_CID, emailSymbolAttachment, embeddedAssets, pdfFontFaces, wordmark, statusPill, footer };

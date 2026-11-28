@@ -54,16 +54,16 @@ async function sendVoucherConfirmation(input) {
     const confirmationPdf = await reservationConfirmation.generateConfirmationPdf(details);
     const { subject, text, html } = reservationConfirmation.renderConfirmationEmail(details);
     const result = await transporter.sendMail({
-        from: { name: documentBrand.BRAND.senderName, address: process.env.SMTP_USER }, to: email,
-        replyTo: 'management@remaltourismllc.com', subject, text, html,
-        attachments: [{ filename: `pillow-stays-confirmation-${reference}.pdf`, content: confirmationPdf, contentType: 'application/pdf' },
+        ...documentBrand.customerMailHeaders({ withAccountsCopy: true }), to: email, subject, text, html,
+        attachments: [{ filename: documentBrand.documentFileName('Confirmation', reference),
+            content: confirmationPdf, contentType: 'application/pdf' },
             documentBrand.emailSymbolAttachment()]
     });
     if (!result.messageId || !result.accepted?.includes(email)) throw new Error('confirmation_email_outcome_unknown');
     return { messageId: result.messageId };
 }
 
-async function sendRefundConfirmation({ email, guestName, reference, amountMinor, currency }) {
+async function sendRefundConfirmation({ email, guestName, reference, amountMinor, currency, sandbox = false }) {
     if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Number.isSafeInteger(amountMinor)
         || amountMinor <= 0 || !/^[A-Z]{3}$/.test(currency)) throw new Error('refund_email_unavailable');
     const amount = require('./ziinaClient').formatAmountMinor(amountMinor, currency);
@@ -73,8 +73,8 @@ async function sendRefundConfirmation({ email, guestName, reference, amountMinor
         + '<p dir="rtl">يُقدَّر ظهور المبلغ في بطاقتك خلال 5 إلى 14 يوم عمل بعد تأكيد بوابة الدفع معالجة الاسترداد، حسب البنك ودون احتساب عطلاته. إذا لم يظهر بعد هذه المدة، تواصل معنا بمرجع الطلب.</p>'
         + '<p>Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.</p>';
     const result = await transporter.sendMail({
-        from: { name: documentBrand.BRAND.senderName, address: process.env.SMTP_USER }, to: email, replyTo: 'management@remaltourismllc.com',
-        subject: `${documentBrand.BRAND.sender} | تأكيد الاسترداد · Refund confirmed | ${reference}`, text, html
+        ...documentBrand.customerMailHeaders({ withAccountsCopy: true }), to: email,
+        subject: `${sandbox === true ? '[SANDBOX] ' : ''}${documentBrand.BRAND.sender} | تأكيد الاسترداد · Refund confirmed | ${reference}`, text, html
     });
     if (!result.messageId || !result.accepted?.includes(email)) throw new Error('refund_email_outcome_unknown');
     return { messageId: result.messageId };
@@ -176,13 +176,13 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
         }
 
         let info = await transporter.sendMail({
-            from: process.env.SMTP_USER,
+            ...documentBrand.customerMailHeaders(),
             to: customerEmail,
-            subject: `تأكيد حجزك الفندقي من الرمال | المرجع: ${hcn}`,
+            subject: `${documentBrand.BRAND.sender} | تأكيد حجزك · Reservation confirmed | ${hcn}`,
             html: emailHtml,
             attachments: [
                 {
-                    filename: `Rimal-Voucher-${hcn}.pdf`,
+                    filename: documentBrand.documentFileName('Voucher', hcn),
                     content: pdfBuffer, // تمرير الـ Buffer المولد من Puppeteer مباشرة
                     contentType: 'application/pdf'
                 }
@@ -199,18 +199,19 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
 
 module.exports = {
     async sendSupportReply({ email, subject, text, html }) {
-        const result = await transporter.sendMail({ from: { name: documentBrand.BRAND.senderName, address: process.env.SMTP_USER },
-            to: email, replyTo: documentBrand.BRAND.support, subject, text, html, attachments: [documentBrand.emailSymbolAttachment()] });
+        const result = await transporter.sendMail({ ...documentBrand.customerMailHeaders(),
+            to: email, subject, text, html, attachments: [documentBrand.emailSymbolAttachment()] });
         if (!result.messageId || !result.accepted?.includes(email)) throw new Error('support_reply_email_outcome_unknown');
         return { messageId: result.messageId };
     },
     async sendCancellationReceipt({ details, buffer }) {
-        const result = await transporter.sendMail({ from: { name: documentBrand.BRAND.senderName, address: process.env.SMTP_USER },
-            to: details.email, replyTo: 'management@remaltourismllc.com',
-            subject: `${documentBrand.BRAND.sender} | تأكيد الإلغاء وطلب الاسترداد | ${details.reference}`,
+        const result = await transporter.sendMail({ ...documentBrand.customerMailHeaders({ withAccountsCopy: true }),
+            to: details.email,
+            subject: `${details.sandbox === true ? '[SANDBOX] ' : ''}${documentBrand.BRAND.sender} | تأكيد الإلغاء وطلب الاسترداد | ${details.reference}`,
             text: `Cancellation confirmed: ${details.reference}. Refund status: ${details.refundStatus}. Amount: ${details.refund} ${details.currency}. Estimated card-credit time: 5–14 business days after the gateway confirms refund processing, depending on your bank and excluding bank non-working days. Your cancellation receipt is attached.`,
             html: require('./cancellationReceiptService').renderReceipt(details),
-            attachments: [{ filename: `pillow-stays-cancellation-${details.reference}.pdf`, content: buffer, contentType: 'application/pdf' },
+            attachments: [{ filename: documentBrand.documentFileName('CancellationReceipt', details.reference, details.issuedAt || new Date()),
+                content: buffer, contentType: 'application/pdf' },
                 documentBrand.emailSymbolAttachment()] });
         if (!result.messageId || !result.accepted?.includes(details.email)) throw new Error('cancellation_email_outcome_unknown');
         return { messageId: result.messageId };

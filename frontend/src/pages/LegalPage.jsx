@@ -47,7 +47,7 @@ export default function LegalPage({ kind }) {
             <section><h2 className="text-lg font-bold text-slate-900">{membershipTitle}</h2><p className="mt-3 text-sm leading-8 text-slate-600">{membershipText}</p></section>
             {[[privacy ? copy.dataTitle : copy.bookingTitle, privacy ? copy.data : copy.booking], [privacy ? copy.googleTitle : copy.reviewsTitle, privacy ? copy.google : copy.reviews]].map(([title, text]) => <section key={title}><h2 className="text-lg font-bold text-slate-900">{title}</h2><p className="mt-3 text-sm leading-8 text-slate-600">{text}</p></section>)}
             <section className="space-y-4 border-t border-slate-200 pt-6"><p className="text-sm leading-8 text-slate-600">{privacy ? copy.external : copy.googleTerms}</p><ul className="space-y-3 text-sm font-bold text-blue-700"><li><a href="https://policies.google.com/privacy" target="_blank" rel="noopener noreferrer" className="underline">{copy.privacyLink}</a></li><li><a href="https://maps.google.com/help/terms_maps/" target="_blank" rel="noopener noreferrer" className="underline">{copy.termsLink}</a></li></ul></section>
-            <p className="break-words text-sm leading-8 text-slate-600">{copy.contact}: <a href="mailto:management@remaltourismllc.com" className="font-bold text-blue-700 underline">management@remaltourismllc.com</a></p>
+            <p className="break-words text-sm leading-8 text-slate-600">{copy.contact}: <a href="mailto:support@pillowstays.app" className="font-bold text-blue-700 underline">support@pillowstays.app</a></p>
         </article>
     </main>;
 }

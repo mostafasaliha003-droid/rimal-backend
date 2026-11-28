@@ -551,6 +551,7 @@ test('verified refund emails the customer once; an uncertain SMTP result stays u
         assert.equal(message.reference, scenario.record.reference);
         assert.equal(message.amountMinor, 4000);
         assert.equal(message.currency, 'USD');
+        assert.equal(message.sandbox, scenario.record.ziina_test === true);
         throw new Error('outcome unknown');
     });
     await reconciliation.reconcileAttempt(scenario.record._id);

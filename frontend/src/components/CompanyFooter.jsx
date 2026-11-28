@@ -54,7 +54,7 @@ export default function CompanyFooter() {
         <div className="remal-company-footer-bottom">
             <span>© {new Date().getFullYear()} {L.name} · {L.rights}</span>
             <nav aria-label={L.contact}>
-                <a href="mailto:management@remaltourismllc.com"><Mail size={15} aria-hidden="true" />{L.contact}</a>
+                <a href="mailto:support@pillowstays.app"><Mail size={15} aria-hidden="true" />{L.contact}</a>
                 <a href={`/privacy?lang=${language}`}>{L.privacy}</a>
                 <a href={`/account-deletion?lang=${language}`}>{L.deletion}</a>
                 <a href={`/terms?lang=${language}`}>{L.terms}</a>
