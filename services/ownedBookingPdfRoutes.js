@@ -53,7 +53,7 @@ function escapeHtml(value) {
 function createOwnedBookingPdfRouter({ BookingModel, HotelbedsContentModel, hotelbedsDatabase,
     env = process.env, puppeteer, templatePath, hotelbedsTemplatePath, requireUser, requireAdmin,
     realm = process.env.RIMAL_AUTH_REALM, sanitizeText = value => String(value || 'N/A'),
-    now = () => new Date() } = {}) {
+    now = () => new Date(), withChrome = require('./chromeQueue').withChrome } = {}) {
     if (!BookingModel || typeof BookingModel.findOne !== 'function' || typeof puppeteer?.launch !== 'function'
         || typeof templatePath !== 'string' || typeof requireUser !== 'function' || typeof requireAdmin !== 'function'
         || typeof sanitizeText !== 'function' || !env || typeof env !== 'object' || typeof now !== 'function'
@@ -69,7 +69,6 @@ function createOwnedBookingPdfRouter({ BookingModel, HotelbedsContentModel, hote
             'X-Content-Type-Options': 'nosniff',
             'X-Robots-Tag': 'noindex, nofollow'
         });
-        let browser;
         try {
             const reference = typeof req.params.reference === 'string' ? req.params.reference : '';
             if (!/^[A-Za-z0-9_-]{1,120}$/.test(reference)) return res.status(404).send('Booking not found');
@@ -161,25 +160,31 @@ function createOwnedBookingPdfRouter({ BookingModel, HotelbedsContentModel, hote
                 html = html.replace('/*{{brandFontFaces}}*/', require('./documentBrand').pdfFontFaces());
             }
 
-            browser = await puppeteer.launch({
-                headless: true,
-                executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath?.(),
-                args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+            // One Chrome at a time across the process (vouchers and e-mail PDFs share the queue).
+            const pdf = await withChrome(async () => {
+                let browser;
+                try {
+                    browser = await puppeteer.launch({
+                        headless: true,
+                        executablePath: process.env.PUPPETEER_EXECUTABLE_PATH || puppeteer.executablePath?.(),
+                        args: ['--no-sandbox', '--disable-setuid-sandbox', '--disable-dev-shm-usage']
+                    });
+                    const page = await browser.newPage();
+                    await page.setRequestInterception(true);
+                    page.on('request', request => request.abort().catch(() => {}));
+                    await page.setContent(html, { waitUntil: 'domcontentloaded' });
+                    return await page.pdf({ format: 'A4', printBackground: true,
+                        margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' } });
+                } finally {
+                    if (browser) await browser.close().catch(() => {});
+                }
             });
-            const page = await browser.newPage();
-            await page.setRequestInterception(true);
-            page.on('request', request => request.abort().catch(() => {}));
-            await page.setContent(html, { waitUntil: 'domcontentloaded' });
-            const pdf = await page.pdf({ format: 'A4', printBackground: true,
-                margin: { top: '0px', bottom: '0px', left: '0px', right: '0px' } });
             res.set('Content-Type', 'application/pdf');
             res.set('Content-Disposition', `attachment; filename="Pillow-Stays-Voucher-${reference}.pdf"`);
             return res.status(200).send(pdf);
         } catch {
             if (!res.headersSent) return res.status(503).send('Voucher unavailable');
             return undefined;
-        } finally {
-            if (browser) await browser.close().catch(() => {});
         }
     };
 
