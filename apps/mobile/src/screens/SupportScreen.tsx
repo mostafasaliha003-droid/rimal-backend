@@ -68,8 +68,8 @@ export default function SupportScreen() {
   // What this build actually does: booking in the app and payment on the secure payment page,
   // or (when in-app checkout is off) booking on the website.
   const note = NATIVE_CHECKOUT_ENABLED
-    ? (ar ? 'تحجز داخل التطبيق، وتدفع عبر صفحة الدفع الآمنة، وتتابع التأكيد في «رحلاتي» و«الإشعارات». إشعارات الهاتف واستعادة كلمة المرور غير متاحة بعد.'
-      : 'You book in the app, pay on the secure payment page and follow the confirmation in My trips and Notifications. Phone notifications and password recovery are not available yet.')
+    ? (ar ? 'تحجز داخل التطبيق، وتدفع عبر صفحة الدفع الآمنة، وتتابع التأكيد في «رحلاتي» و«الإشعارات». إشعارات الهاتف الفورية غير متاحة بعد.'
+      : 'You book in the app, pay on the secure payment page and follow the confirmation in My trips and Notifications. Push notifications on the phone are not available yet.')
     : t('foundationNote');
   const section = (title: string, children: React.ReactNode) => <View style={{ gap: space.xs }}>
     <Txt kind="caption" accessibilityRole="header" style={{ paddingHorizontal: space.xs }}>{title}</Txt>

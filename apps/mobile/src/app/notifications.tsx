@@ -48,8 +48,9 @@ function NoticeList({ signedIn, loading }: { signedIn: boolean; loading: boolean
     const booking = row.kind === 'booking', reply = row.kind === 'support' && !!row.reference;
     const headline = reply ? (rtl ? 'ردّ فريق مخدة على رسالتك' : 'The Mkhadda team replied')
       : row.event === 'confirmed' ? (rtl ? 'تم تأكيد حجزك' : 'Booking confirmed')
+      : row.event === 'cancelled' ? (rtl ? 'أُلغي حجزك، ونتابع الاسترداد' : 'Booking cancelled · refund under way')
       : row.event === 'refunded' ? (rtl ? 'تم التحقق من الاسترداد' : 'Refund verified') : statusText[row.event as keyof typeof statusText][rtl ? 0 : 1];
-    const icon: IconName = reply ? 'chat' : row.event === 'confirmed' ? 'checkCircle' : row.event === 'refunded' ? 'wallet' : 'users';
+    const icon: IconName = reply ? 'chat' : row.event === 'confirmed' ? 'checkCircle' : row.event === 'cancelled' ? 'close' : row.event === 'refunded' ? 'wallet' : 'users';
     const tint = row.event === 'confirmed' ? color.success : color.interactiveStrong;
     const when = row.at ? new Intl.DateTimeFormat(language === 'ar' ? 'ar-AE-u-nu-latn' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(row.at)) : '';
     const where = reply ? (rtl ? 'عناية مخدة' : 'Mkhadda care') : booking ? t('trips') : (rtl ? 'العضوية' : 'Membership');
@@ -84,7 +85,7 @@ function NoticeList({ signedIn, loading }: { signedIn: boolean; loading: boolean
         body={rtl ? 'تحقق من الاتصال ثم حاول مجدداً.' : 'Check your connection and try again.'}
         action={<Button variant="secondary" icon="refresh" title={t('retry')} onPress={refresh}/>}/>
         : !rows.length ? <EmptyState icon="bell" title={rtl ? 'لا توجد إشعارات بعد' : 'No notifications yet'}
-          body={rtl ? 'عندما يتأكد حجز أو يتم استرداد مبلغ أو تتغير حالة عضويتك، ستجد التحديث هنا.' : 'When a booking is confirmed, a refund is verified or your membership changes, the update appears here.'}
+          body={rtl ? 'عندما يتأكد حجز أو يُلغى أو يُسترد مبلغ أو تتغير حالة عضويتك، ستجد التحديث هنا.' : 'When a booking is confirmed or cancelled, a refund is verified or your membership changes, the update appears here.'}
           action={<Button variant="secondary" icon="search" title={rtl ? 'استكشف الفنادق' : 'Explore hotels'} onPress={() => router.navigate('/')}/>}/>
           : <View style={styles.menu}>{rows.map((row, index) => <View key={row.id}>{index > 0 && <View style={[styles.rule, rtl ? { marginRight: 64 } : { marginLeft: 64 }]}/>}{notice(row)}</View>)}</View>}
   </ScrollView></SafeAreaView>;

@@ -1,6 +1,6 @@
 {
   "name": "@remal/mkhadda",
-  "version": "0.63.0",
+  "version": "0.64.0",
   "main": "expo-router/entry",
   "dependencies": {
     "@react-native-async-storage/async-storage": "2.2.0",

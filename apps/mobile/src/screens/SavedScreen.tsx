@@ -152,7 +152,7 @@ export default function SavedScreen() {
   );
   const empty = state.savedLoading ? <StatePanel title={copy.loading} busy />
     : loadError ? <View style={{ gap: 14 }}><StatePanel title={copy.loadError} body={copy.loadErrorBody} /><Button title={copy.retryLoad} variant="secondary" onPress={retryStorage} /></View>
-      : <View style={{ gap: 14 }}>{!undo && <StatePanel title={copy.empty} body={copy.emptyBody} />}<Button title={copy.findStay} onPress={() => router.navigate('/')} /></View>;
+      : <View style={{ gap: 14 }}>{!undo && <StatePanel testID="saved-empty" icon="saved" title={copy.empty} body={copy.emptyBody} />}<Button title={copy.findStay} onPress={() => router.navigate('/')} /></View>;
 
   return (
     <SafeAreaView edges={['top']} style={ui.screen}>

@@ -744,3 +744,13 @@ test('the cover photo is a room, the building or the view; kitchens and bathroom
   assert.deepEqual(adapters.hotelPhotos(plain), [shown('a'), shown('b'), shown('c')]);
   assert.equal(adapters.normalizeHotel({ hid: 7, name: 'H', rates: [], ...hotel }, 'USD').imageUrl, shown('room'));
 });
+
+test('the inbox shows a cancelled booking as its own notice and still drops unknown events', async () => {
+  const { ownedNotices } = load('../notifications.ts');
+  const request = async () => ({ notifications: [
+    { id: 'n1', kind: 'booking', event: 'cancelled', at: '2026-11-28T00:00:00Z' },
+    { id: 'n2', kind: 'booking', event: 'confirmed', at: '2026-11-27T00:00:00Z' },
+    { id: 'n3', kind: 'booking', event: 'deleted', at: '2026-11-26T00:00:00Z' }] });
+  request.captureSessionToken = async () => 'session';
+  assert.deepEqual((await ownedNotices(request)).map(row => row.event), ['cancelled', 'confirmed']);
+});

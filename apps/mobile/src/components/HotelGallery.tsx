@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import { Modal, Pressable, StyleSheet, View, useWindowDimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLanguage } from '../i18n';
-import { color, colors } from '../theme';
+import { color, colors, radius } from '../theme';
 import { Icon, Photo, Row, Txt } from './Primitives';
 import { roomChoiceCopy } from './roomChoiceCopy';
 
@@ -33,6 +33,12 @@ export default function HotelGallery({ images, name, room = false }: {
       <Icon name={next ? 'chevron' : 'back'} size={19} color={colors.navy}/>
     </Pressable>;
   };
+  // A hotel without photographs opens on the brand panel (as its result card does), not on a notice.
+  if (!uri && !expanded && !room && !images.length) {
+    return <View testID="hotel-photo-absent" style={{ height: Math.min(200, Math.max(150, width * .38)), borderRadius: radius.lg, overflow: 'hidden' }}>
+      <Photo label={caption} height="100%"/>
+    </View>;
+  }
   if (!uri && !expanded) {
     return <Row style={styles.empty}>
       <Icon name={room ? 'bed' : 'pin'} size={18} color={colors.violetInk}/>

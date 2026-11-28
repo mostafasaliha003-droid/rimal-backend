@@ -15,14 +15,16 @@ import { afterSignInRoute, normalizeVerificationCode, registrationFormReady } fr
 import { statusText } from '../components/membershipCopy';
 import { reportMembership, useMemberAccess } from '../components/MemberAccess';
 
-function AccountLink({ title, icon, onPress, hint, disabled }: {
+function AccountLink({ title, icon, onPress, hint, disabled, danger = false }: {
   title: string; icon: React.ComponentProps<typeof Icon>['name']; onPress: () => void; hint?: string; disabled?: boolean;
+  /** A destructive step: said in the danger colour and kept apart from everyday links. */
+  danger?: boolean;
 }) {
   return <Pressable accessibilityRole="button" accessibilityLabel={title} accessibilityHint={hint} disabled={disabled}
     accessibilityState={{ disabled: Boolean(disabled) }} onPress={onPress}
     style={({ pressed }) => [accountStyles.link, pressed && { backgroundColor: colors.lavenderMist }]}>
-    <Row><View style={accountStyles.linkIcon}><Icon name={icon} size={18} color={colors.violetInk}/></View>
-      <View style={{ flex: 1 }}><Txt kind="label">{title}</Txt>{hint && <Txt kind="small">{hint}</Txt>}</View>
+    <Row><View style={[accountStyles.linkIcon, danger && { backgroundColor: color.dangerBg }]}><Icon name={icon} size={18} color={danger ? color.danger : colors.violetInk}/></View>
+      <View style={{ flex: 1 }}><Txt kind="label" style={danger ? { color: color.danger } : undefined}>{title}</Txt>{hint && <Txt kind="small">{hint}</Txt>}</View>
       <Icon name="chevron" size={14} color={colors.muted}/>
     </Row>
   </Pressable>;
@@ -177,15 +179,18 @@ export default function AccountScreen() {
       <LanguageChoice/>
       <AccountMembership key={sessionRevision}/>
       <View style={accountStyles.menu}>
-        <AccountLink icon="trips" title={t('bookingsTitle')} onPress={()=>router.navigate('/bookings')}/>
+        <AccountLink icon="trips" title={t('trips')} onPress={()=>router.navigate('/bookings')}/>
         <View style={ui.rule}/><AccountLink icon="saved" title={t('saved')} onPress={()=>router.navigate('/saved')}/>      </View>
       <View style={accountStyles.menu}>
         <AccountLink icon="support" title={t('support')} onPress={()=>router.push('/support')}/>
         <View style={ui.rule}/><AccountLink icon="info" title={language === 'ar' ? 'الإشعارات' : 'Notifications'} onPress={()=>router.push('/notifications')}/>
-        <View style={ui.rule}/><AccountLink icon="account" title={t('accountDeletion')} onPress={()=>router.push('/account-deletion')}/>
       </View>
       <Txt kind="small">{t('accountSecurity')}</Txt>
       <Button variant="quiet" title={t('signOut')} busy={busy} onPress={()=>{setBusy(true);void signOut().catch(()=>setError(t('authError'))).finally(()=>setBusy(false));}}/>
+      {/* Account deletion stays one tap away (store rules), but apart from everyday links and marked as destructive. */}
+      <View style={accountStyles.menu}>
+        <AccountLink icon="alertCircle" danger title={t('accountDeletion')} onPress={()=>router.push('/account-deletion')}/>
+      </View>
     </>:<View style={ui.card}>
       <Row>{(['login','register'] as const).map(value=><View key={value} style={{flex:1}}><Button title={t(value==='login'?'signIn':'createAccount')} variant={mode===value?'primary':'secondary'} disabled={busy} onPress={()=>goTo(value)}/></View>)}</Row>
       {mode==='forgot'&&<View testID="account-forgot" style={{gap:6}}><Txt kind="subheading" accessibilityRole="header">{resetCopy.forgotTitle}</Txt><Txt kind="small">{resetCopy.forgotBody}</Txt>

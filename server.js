@@ -215,6 +215,8 @@ const bookingSchema = new mongoose.Schema({
     checkInDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     checkOutDate: { type: String, match: /^\d{4}-\d{2}-\d{2}$/ },
     confirmedAt: Date,
+    // When the hotel confirmed the guest's cancellation (first time only); drives the "cancelled" notice.
+    cancelledAt: Date,
     freeCancelDeadline: { type: Date }, 
     refundType: { type: String, default: 'full_100' },
     createdAt: { type: Date, default: Date.now }

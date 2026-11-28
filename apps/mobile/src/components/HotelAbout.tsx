@@ -90,7 +90,10 @@ export default function HotelAbout({ hotel, criteria }: { hotel: HotelDetails; c
       {hotel.location && <HotelMapLink hotel={hotel}/>}
     </Section>}
     <Section testID="hotel-guide-about" icon="info" title={ar ? 'نبذة عن الفندق' : 'About the property'}>
-      {paragraphs.length ? <>{(allDescription ? paragraphs : paragraphs.slice(0, 1)).map((paragraph, index) =>
+      {paragraphs.length ? <>
+        {/* Supplier text is shown as written; in Arabic the guest is told it is the hotel's English description. */}
+        {ar && !paragraphs.some(paragraph => /\p{Script=Arabic}/u.test(paragraph)) && <Txt testID="hotel-description-language" kind="caption">وصف الفندق كما قدّمه، باللغة الإنجليزية</Txt>}
+        {(allDescription ? paragraphs : paragraphs.slice(0, 1)).map((paragraph, index) =>
         <Txt key={index} kind="small" tone="primary" numberOfLines={!allDescription && moreDescription ? 3 : undefined}>{paragraph}</Txt>)}
         {moreDescription && <More id="hotel-full-description" expanded={allDescription} onPress={() => setAllDescription(!allDescription)}
           title={allDescription ? (ar ? 'عرض أقل' : 'Show less') : (ar ? 'اقرأ الوصف كاملاً' : 'Read full description')}/>}</> :
