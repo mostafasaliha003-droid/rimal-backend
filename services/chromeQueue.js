@@ -11,8 +11,10 @@
  * Two guards keep the queue from becoming its own outage:
  * - holdLimitMs: a render that is still running after this long gives up its turn, so one hung
  *   Chrome cannot stall every later PDF (Puppeteer's own 30 s timeouts normally end it first).
- * - maxWaiting: past this many waiting renders a new one fails at once with `pdf_queue_full`;
- *   voucher downloads then answer 503 and e-mails are retried by their own delivery loop.
+ * - maxWaiting: past this many waiting renders a new one fails at once with `pdf_queue_full`,
+ *   like any other render failure: a voucher download answers 503 (the guest can tap again), a
+ *   cancellation receipt is retried up to 3 times a minute apart before staff review, and a
+ *   booking-confirmation e-mail is flagged for staff review (no automatic resend, by design).
  */
 function createChromeQueue({ holdLimitMs = 90_000, maxWaiting = 20, setTimer = setTimeout, clearTimer = clearTimeout } = {}) {
     const waiting = [];
