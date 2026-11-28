@@ -1,4 +1,4 @@
-const SITE_URL = 'https://remalbookings.com';
+const SITE_URL = 'https://pillowstays.app';
 const PAGES = require('../shared/pageRoutes.json');
 const PAGE_PATTERNS = PAGES.patterns.map(source => new RegExp(source));
 // The picture shown when a link to the site is shared (1200x630).

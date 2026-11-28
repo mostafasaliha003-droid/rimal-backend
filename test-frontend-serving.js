@@ -166,8 +166,8 @@ test('serves localized hotel SEO, sitemap, robots, and hides unavailable languag
     const sitemap = await (await fetch(`${base}/sitemap.xml`)).text();
     assert.match(sitemap, /hotel\/123\?lang=en/);
     assert.match(sitemap, /hreflang="es"/);
-    assert.doesNotMatch(sitemap, /hreflang="ar" href="https:\/\/remalbookings\.com\/hotel\/123/);
-    assert.match(await (await fetch(`${base}/robots.txt`)).text(), /Sitemap: https:\/\/remalbookings\.com\/sitemap\.xml/);
+    assert.doesNotMatch(sitemap, /hreflang="ar" href="https:\/\/pillowstays\.app\/hotel\/123/);
+    assert.match(await (await fetch(`${base}/robots.txt`)).text(), /Sitemap: https:\/\/pillowstays\.app\/sitemap\.xml/);
 
     const privatePage = await (await fetch(`${base}/account`)).text();
     assert.match(privatePage, /name="robots" content="noindex,follow"/);
@@ -175,7 +175,7 @@ test('serves localized hotel SEO, sitemap, robots, and hides unavailable languag
 
 test('CORS preflight permits the public site and known local preview origins', async context => {
     const base = await startSite(context, false);
-    for (const origin of ['https://remalbookings.com', 'https://www.remalbookings.com', 'http://127.0.0.1:5178', 'http://localhost:5178', 'http://localhost:5173']) {
+    for (const origin of ['https://pillowstays.app', 'https://www.pillowstays.app', 'https://remalbookings.com', 'https://www.remalbookings.com', 'http://127.0.0.1:5178', 'http://localhost:5178', 'http://localhost:5173']) {
         const response = await fetch(`${base}/api/search/suggest?query=DUBAI&language=ar`, {
             method: 'OPTIONS',
             headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'content-type,authorization,idempotency-key' }
@@ -195,7 +195,7 @@ test('CORS preflight permits the public site and known local preview origins', a
 
 test('CORS rejects untrusted domains, misleading hostnames and unapproved ports', async context => {
     const base = await startSite(context, false);
-    for (const origin of ['https://untrusted.example', 'https://www.remalbookings.com.untrusted.example', 'http://127.0.0.1:9999', 'http://localhost.untrusted.example:5178']) {
+    for (const origin of ['https://untrusted.example', 'https://www.remalbookings.com.untrusted.example', 'https://pillowstays.app.untrusted.example', 'http://pillowstays.app', 'http://127.0.0.1:9999', 'http://localhost.untrusted.example:5178']) {
         const response = await fetch(`${base}/api/search/suggest`, {
             method: 'OPTIONS',
             headers: { Origin: origin, 'Access-Control-Request-Method': 'GET', 'Access-Control-Request-Headers': 'authorization' }
@@ -209,7 +209,7 @@ test('each page names itself, the home page carries a share picture, and unknown
     const page = async route => { const response = await fetch(`${base}${route}`); return { status: response.status, html: await response.text() }; };
     const home = await page('/');
     assert.ok(home.html.includes(`property="og:image" content="${base}/pillow/share.jpg"`), 'the share picture comes from the host that answered');
-    assert.match(home.html, /rel="canonical" href="https:\/\/remalbookings\.com\/\?lang=ar"/);
+    assert.match(home.html, /rel="canonical" href="https:\/\/pillowstays\.app\/\?lang=ar"/);
     const membership = await page('/membership?lang=ar');
     assert.equal(membership.status, 200);
     assert.match(membership.html, /<title>عضوية مخدة \| pillow stays<\/title>/);

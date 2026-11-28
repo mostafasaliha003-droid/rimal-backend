@@ -83,7 +83,7 @@ function returnUrl(frontendUrl, result, reference, appReturn) {
     return url.href;
 }
 
-async function createIntent({ amount, currency, reference, accountId = process.env.ZIINA_ACCOUNT_ID, test = false, frontendUrl = process.env.FRONTEND_URL || 'https://remalbookings.com', appReturn = null, fetcher, token }) {
+async function createIntent({ amount, currency, reference, accountId = process.env.ZIINA_ACCOUNT_ID, test = false, frontendUrl = process.env.FRONTEND_URL || 'https://pillowstays.app', appReturn = null, fetcher, token }) {
     if (!SUPPORTED_CURRENCIES.has(currency) || !validId(reference) || !validId(accountId)) throw error('invalid_payment_context');
     const amountMinor = minorUnits(amount, currency);
     const intent = validateIntent(await request('/payment_intent', {

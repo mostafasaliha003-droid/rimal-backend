@@ -1721,6 +1721,11 @@ test('a provider key and checkout flag alone do not make collection ready', () =
         RATEHAWK_CANCELLATION_ENABLED: 'true', SMTP_USER: 'fixture-sender', SMTP_PASSWORD: 'fixture-password'
     };
     assert.equal(isCheckoutReady(production), true);
+    // Production returns guests to the public site: pillowstays.app, or remalbookings.com only for a rollback.
+    assert.equal(isCheckoutReady({ ...production, FRONTEND_URL: 'https://pillowstays.app' }), true);
+    for (const other of ['https://www.pillowstays.app', 'https://pillowstays.app.example.test', 'http://pillowstays.app', 'https://rimal-api.onrender.com']) {
+        assert.equal(isCheckoutReady({ ...production, FRONTEND_URL: other }), false, other);
+    }
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_BOOKING_TOKEN: '' }), false);
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_BOOKING_TOKEN: production.REMAL_SECURE_KEY }), false);
     assert.equal(isCheckoutReady({ ...production, RATEHAWK_KEY_ID: '' }), false);

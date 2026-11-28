@@ -77,7 +77,8 @@ for (const [name, sandbox, blank] of [
     assert.match(message.attachments[0].filename, /^pillow-stays-confirmation-/);
     assert.equal(message.attachments[1].cid, 'mkhadda-symbol@pillowstays');
     assert.match(message.html, /cid:mkhadda-symbol@pillowstays/);
-    assert.equal(message.from.name, 'مخدة | pillow stays');
+    assert.equal(message.from.name, 'Pillow Stays', 'display name only; the address stays the Workspace mailbox');
+    assert.equal(message.from.address, process.env.SMTP_USER);
     assert.doesNotMatch(message.html, /REMAL/);
     assert.match(message.html, /Remal Group LLC FZ/);
     assert.equal(message.attachments.some(item => item.content === value.pdfBuffer), false);
