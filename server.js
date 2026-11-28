@@ -423,7 +423,7 @@ if (process.env.HOTELBEDS_AVAILABILITY_PILOT_ENABLED === 'true') {
 // 🚀 5. دوال مساعدة القديمة
 // ==========================================
 async function sendProfessionalEmail(toEmail, subject, htmlContent, attachmentBuffer, attachmentFilename) {
-    const mailOptions = { from: '"Pillow Stays" <management@remaltourismllc.com>', to: toEmail, subject: subject, html: htmlContent };
+    const mailOptions = { ...require('./services/documentBrand').customerMailHeaders(), to: toEmail, subject: subject, html: htmlContent };
     if (attachmentBuffer && attachmentFilename) {
         mailOptions.attachments = [{ filename: attachmentFilename, content: attachmentBuffer, contentType: 'application/pdf' }];
     }

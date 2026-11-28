@@ -107,7 +107,7 @@ function renderStayVoucher(booking, { language, hotelbeds, snapshot, issuedAt = 
         guests: section('أسماء النزلاء', 'Guest details', guestRows), terms: section('الشروط والمعلومات المهمة', 'Terms & important information', terms),
         legal: hotelbeds ? '<p class="legal" lang="en" dir="ltr">' + value(hotelbeds.paymentStatement) + '</p>' : '',
         supportTitle: local('دعم النزلاء', 'Guest support'), support: local('اذكر رقم حجز مخدة عند التواصل مع الدعم.',
-            'Include your Pillow stays booking reference when contacting support.') + ' · <bdi>management@remaltourismllc.com</bdi>'
+            'Include your Pillow stays booking reference when contacting support.') + ' · <bdi>support@pillowstays.app</bdi>'
     };
     return template.replace(/\{\{(\w+)\}\}/g, (_match, key) => replacements[key]);
 }

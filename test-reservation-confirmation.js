@@ -74,16 +74,16 @@ for (const [name, sandbox, blank] of [
     await notification.sendVoucherConfirmation(value);
     // The confirmation PDF and the inline brand symbol; never the supplier's voucher.
     assert.equal(message.attachments.length, 2);
-    assert.match(message.attachments[0].filename, /^pillow-stays-confirmation-/);
+    assert.match(message.attachments[0].filename, /^PillowStays-Confirmation-fixture-reference-\d{8}\.pdf$/);
     assert.equal(message.attachments[1].cid, 'mkhadda-symbol@pillowstays');
     assert.match(message.html, /cid:mkhadda-symbol@pillowstays/);
-    assert.equal(message.from.name, 'Pillow Stays', 'display name only; the address stays the Workspace mailbox');
-    assert.equal(message.from.address, process.env.SMTP_USER);
+    assert.deepEqual(message.from, { name: 'Pillow Stays', address: 'support@pillowstays.app' });
+    assert.equal(message.bcc, 'accounts@pillowstays.app', 'accounting keeps a copy of every confirmation');
     assert.doesNotMatch(message.html, /REMAL/);
     assert.match(message.html, /Remal Group LLC FZ/);
     assert.equal(message.attachments.some(item => item.content === value.pdfBuffer), false);
     assert.match(message.html, /Double room/);
-    assert.equal(message.replyTo, 'management@remaltourismllc.com');
+    assert.equal(message.replyTo, 'support@pillowstays.app');
 });
 
 test('the PDF confirmation embeds the Mkhadda symbol and font because the renderer blocks network requests', () => {

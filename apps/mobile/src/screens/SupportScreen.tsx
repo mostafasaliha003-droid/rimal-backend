@@ -16,7 +16,7 @@ import { Icon, Row, Skeleton, Txt, type IconName } from '../components/Primitive
 import CareMark from '../components/CareMark';
 import { careCopy, sortConversations } from '../components/careModel';
 
-const SUPPORT_EMAIL = 'management@remaltourismllc.com';
+const SUPPORT_EMAIL = 'support@pillowstays.app';
 const hovered = (state: PressableStateCallbackType) => Boolean((state as { hovered?: boolean }).hovered);
 
 /** One support action as a list row: what it is, where it leads, and whether it leaves the app. */

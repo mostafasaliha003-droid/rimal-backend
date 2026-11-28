@@ -318,7 +318,7 @@ async function reconcileRefundNotification(record) {
         refund_notification_attempted_at: new Date(), next_check_at: followUp(120000) });
     try {
         await notification.sendRefundConfirmation({ ...contact, reference: claimed.reference,
-            currency: claimed.currency, amountMinor: claimed.refund_amount_minor });
+            currency: claimed.currency, amountMinor: claimed.refund_amount_minor, sandbox: claimed.ziina_test === true });
         await releaseClaim(claimed, { refund_notification_status: 'sent', refund_notification_sent_at: new Date(),
             next_check_at: null }, { error: '', action_required: '' });
     } catch {
