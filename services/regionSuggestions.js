@@ -9,9 +9,12 @@ const normalized = text => cleanTravelText(text).trim().toLowerCase();
 async function findArabicRegionSuggestions(query, { Region, language, limit = 5 }) {
     const raw = query.normalize('NFKC').trim();
     const clean = cleanTravelText(raw);
-    const english = englishTravelQuery(raw);
+    // A Latin query ("Dubai") is matched against the English names, so an Arabic page can still
+    // show the region's Arabic name; an Arabic query is matched both ways.
+    const latinQuery = /^[\p{Script=Latin}\d\s'’.,-]+$/u.test(raw) && raw.length >= 2;
+    const english = englishTravelQuery(raw) || (latinQuery ? raw.replace(/\s+/g, ' ') : null);
     const bare = clean.replace(/^(?:فنادق|فندق|منتجعات|منتجع)\s+(?:في\s+)?/u, '');
-    const arabic = [...new Set([raw, clean, bare].flatMap(name => name.startsWith('ا')
+    const arabic = latinQuery ? [] : [...new Set([raw, clean, bare].flatMap(name => name.startsWith('ا')
         ? [name,'أ'+name.slice(1),'إ'+name.slice(1),'آ'+name.slice(1)] : [name]))].filter(name => name.length >= 2);
     const latin = english ? [...new Set([english, english.replace(/\b\w/g,ch=>ch.toUpperCase())])] : [];
     const prefixes = [
