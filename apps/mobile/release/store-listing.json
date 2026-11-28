@@ -12,7 +12,7 @@
     "ios_bundle_id": "app.pillowstays"
   },
   "identity_status": "Old Play draft com.remalbookings.app never received a bundle (checked by the owner 28 Nov 2026); a new app is created with app.pillowstays when the first AAB is built. Play developer account name is still \"Remal SIM\" (rename pending). Apple enrolment PXZRQT6529 pending; the App Store seller name comes from the enrolled legal entity.",
-  "publication_status": "Unsubmitted. Copy approved by the owner on 28 Nov 2026, subject to the claim checks below.",
+  "publication_status": "Unsubmitted. Copy revised with the owner on 28 Nov 2026. Submission waits for the live approvals (RateHawk contract, Ziina live).",
   "urls": {
     "website": "https://pillowstays.app",
     "support_email": "support@pillowstays.app",
@@ -40,9 +40,9 @@
       "app_store": {
         "name": "Pillow Stays | مخدة",
         "subtitle": "Hotel booking, made simple",
-        "promotional_text": "Find your next stay in seconds. Search more than 3 million hotels, see the full price upfront, and get your voucher the moment you book.",
-        "keywords": "hotel,hotels,booking,travel,stay,dubai,uae,gcc,saudi,resort,trip,vacation,accommodation,holiday",
-        "description": "Pillow Stays makes booking a hotel simple, clear and fast, in Arabic or English.\n\nFIND THE RIGHT STAY\n• Search more than 3 million hotels worldwide, from city hotels to beach resorts\n• Filter by price, rating, location and amenities\n• See photos, room details and cancellation terms before you book\n\nKNOW WHAT YOU PAY\n• The full price is shown upfront, with no surprises at checkout\n• Pay securely by card, or split your payment into instalments where available\n\nTRAVEL WITH CONFIDENCE\n• Your confirmation and hotel voucher arrive instantly by email and stay in the app\n• Manage or cancel your booking from My Trips, according to the hotel's terms\n• Need help? Our support team is one tap away at support@pillowstays.app\n\nPillow Stays is operated by Remal Group L.L.C-FZ, a licensed travel agency in Dubai, UAE.",
+        "promotional_text": "Find your next stay in seconds. Search hotels around the world, see the full price before you pay, and get your voucher as soon as the hotel confirms.",
+        "keywords": "hotels,travel,dubai,uae,gcc,saudi,resort,trip,vacation,accommodation,holiday,qatar,riyadh,makkah",
+        "description": "Pillow Stays makes booking a hotel simple, clear and fast, in Arabic or English.\n\nFIND THE RIGHT STAY\n• Search hotels around the world, from city hotels to beach resorts\n• Filter by budget, star rating and free cancellation\n• See photos, room details and cancellation terms before you book\n\nKNOW WHAT YOU PAY\n• See the full price before you pay, including any fees payable at the hotel\n• Pay securely by card\n\nTRAVEL WITH CONFIDENCE\n• Your confirmation and hotel voucher arrive by email as soon as the hotel confirms, and stay in the app\n• Cancel from My Trips according to the hotel's terms, or send a change request to our team\n• Need help? Our support team is one tap away at support@pillowstays.app\n\nPillow Stays is operated by REMAL GROUP L.L.C-FZ, a company licensed in Meydan Free Zone, Dubai, UAE.",
         "counts": {
           "name": {
             "chars": 19,
@@ -53,32 +53,32 @@
             "bytes": 26
           },
           "promotional_text": {
-            "chars": 136,
-            "bytes": 136
+            "chars": 150,
+            "bytes": 150
           },
           "keywords": {
-            "chars": 95,
-            "bytes": 95
+            "chars": 96,
+            "bytes": 96
           },
           "description": {
-            "chars": 811,
-            "bytes": 827
+            "chars": 805,
+            "bytes": 821
           }
         }
       },
       "google_play": {
         "title": "Pillow Stays | مخدة",
-        "short_description": "Book hotels worldwide with clear prices and instant vouchers.",
-        "full_description": "Pillow Stays makes booking a hotel simple, clear and fast, in Arabic or English.\n\nFIND THE RIGHT STAY\n• Search more than 3 million hotels worldwide, from city hotels to beach resorts\n• Filter by price, rating, location and amenities\n• See photos, room details and cancellation terms before you book\n\nKNOW WHAT YOU PAY\n• The full price is shown upfront, with no surprises at checkout\n• Pay securely by card, or split your payment into instalments where available\n\nTRAVEL WITH CONFIDENCE\n• Your confirmation and hotel voucher arrive instantly by email and stay in the app\n• Manage or cancel your booking from My Trips, according to the hotel's terms\n• Need help? Our support team is one tap away at support@pillowstays.app\n\nPillow Stays is operated by Remal Group L.L.C-FZ, a licensed travel agency in Dubai, UAE.",
+        "short_description": "Book hotels around the world with clear prices and vouchers by email.",
+        "full_description": "Pillow Stays makes booking a hotel simple, clear and fast, in Arabic or English.\n\nFIND THE RIGHT STAY\n• Search hotels around the world, from city hotels to beach resorts\n• Filter by budget, star rating and free cancellation\n• See photos, room details and cancellation terms before you book\n\nKNOW WHAT YOU PAY\n• See the full price before you pay, including any fees payable at the hotel\n• Pay securely by card\n\nTRAVEL WITH CONFIDENCE\n• Your confirmation and hotel voucher arrive by email as soon as the hotel confirms, and stay in the app\n• Cancel from My Trips according to the hotel's terms, or send a change request to our team\n• Need help? Our support team is one tap away at support@pillowstays.app\n\nPillow Stays is operated by REMAL GROUP L.L.C-FZ, a company licensed in Meydan Free Zone, Dubai, UAE.",
         "counts": {
           "title": {
             "chars": 19
           },
           "short_description": {
-            "chars": 61
+            "chars": 69
           },
           "full_description": {
-            "chars": 811
+            "chars": 805
           }
         }
       }
@@ -87,9 +87,9 @@
       "app_store": {
         "name": "مخدة | Pillow Stays",
         "subtitle": "احجز فندقك بسهولة وثقة",
-        "promotional_text": "اعثر على إقامتك القادمة في ثوانٍ. ابحث بين أكثر من 3 ملايين فندق، واعرف السعر الكامل مسبقًا، واستلم قسيمة الإقامة فور الحجز.",
-        "keywords": "فنادق,فندق,حجز,سفر,إقامة,منتجع,دبي,الإمارات,السعودية,الخليج,رحلات,عطلة",
-        "description": "مخدة (Pillow Stays) يجعل حجز الفنادق بسيطًا وواضحًا وسريعًا، بالعربية أو الإنجليزية.\n\nاعثر على الإقامة المناسبة\n• ابحث بين أكثر من 3 ملايين فندق حول العالم، من فنادق المدن إلى منتجعات الشواطئ\n• صفِّ النتائج حسب السعر والتقييم والموقع والمرافق\n• شاهد الصور وتفاصيل الغرف وشروط الإلغاء قبل الحجز\n\nاعرف ما تدفعه\n• السعر الكامل واضح من البداية، دون مفاجآت عند الدفع\n• ادفع بأمان بالبطاقة، أو قسّط دفعتك حيثما يتوفر ذلك\n\nسافر بثقة\n• يصلك تأكيد الحجز وقسيمة الفندق فورًا على بريدك الإلكتروني، وتبقى محفوظة في التطبيق\n• أدِر حجزك أو ألغِه من «رحلاتي» وفق شروط الفندق\n• تحتاج مساعدة؟ فريق الدعم على بُعد لمسة عبر support@pillowstays.app\n\nيُدار تطبيق مخدة (Pillow Stays) من قِبل مجموعة رمال ش.ذ.م.م – م.ح، وكيل سفر مرخّص في دبي، الإمارات العربية المتحدة.",
+        "promotional_text": "اعثر على إقامتك القادمة في ثوانٍ. ابحث في فنادق حول العالم، واعرف السعر الكامل قبل الدفع، واستلم قسيمة الإقامة فور تأكيد الفندق.",
+        "keywords": "فنادق,حجز,سفر,إقامة,منتجع,دبي,الإمارات,السعودية,عطلة",
+        "description": "مخدة (Pillow Stays) يجعل حجز الفنادق بسيطًا وواضحًا وسريعًا، بالعربية أو الإنجليزية.\n\nاعثر على الإقامة المناسبة\n• ابحث في فنادق حول العالم، من فنادق المدن إلى منتجعات الشواطئ\n• صفِّ النتائج حسب الميزانية وعدد النجوم والإلغاء المجاني\n• شاهد الصور وتفاصيل الغرف وشروط الإلغاء قبل الحجز\n\nاعرف ما تدفعه\n• اعرف السعر الكامل قبل الدفع، بما في ذلك أي رسوم تُدفع في الفندق\n• ادفع بأمان بالبطاقة\n\nسافر بثقة\n• يصلك تأكيد الحجز وقسيمة الفندق على بريدك الإلكتروني فور تأكيد الفندق، وتبقى محفوظة في التطبيق\n• ألغِ حجزك من «رحلاتي» وفق شروط الفندق، أو أرسل طلب تعديل لفريقنا\n• تحتاج مساعدة؟ فريق الدعم على بُعد لمسة عبر support@pillowstays.app\n\nيُدار تطبيق مخدة (Pillow Stays) من قِبل مجموعة ريمال ش.ذ.م.م-منطقة حرة، شركة مرخّصة في المنطقة الحرة بميدان، دبي، الإمارات العربية المتحدة.",
         "counts": {
           "name": {
             "chars": 19,
@@ -100,54 +100,46 @@
             "bytes": 41
           },
           "promotional_text": {
-            "chars": 124,
-            "bytes": 224
+            "chars": 128,
+            "bytes": 233
           },
           "keywords": {
-            "chars": 70,
-            "bytes": 129
+            "chars": 52,
+            "bytes": 96
           },
           "description": {
-            "chars": 745,
-            "bytes": 1312
+            "chars": 770,
+            "bytes": 1361
           }
         }
       },
       "google_play": {
         "title": "مخدة | Pillow Stays",
-        "short_description": "احجز فنادق حول العالم بأسعار واضحة وقسيمة إقامة فورية.",
-        "full_description": "مخدة (Pillow Stays) يجعل حجز الفنادق بسيطًا وواضحًا وسريعًا، بالعربية أو الإنجليزية.\n\nاعثر على الإقامة المناسبة\n• ابحث بين أكثر من 3 ملايين فندق حول العالم، من فنادق المدن إلى منتجعات الشواطئ\n• صفِّ النتائج حسب السعر والتقييم والموقع والمرافق\n• شاهد الصور وتفاصيل الغرف وشروط الإلغاء قبل الحجز\n\nاعرف ما تدفعه\n• السعر الكامل واضح من البداية، دون مفاجآت عند الدفع\n• ادفع بأمان بالبطاقة، أو قسّط دفعتك حيثما يتوفر ذلك\n\nسافر بثقة\n• يصلك تأكيد الحجز وقسيمة الفندق فورًا على بريدك الإلكتروني، وتبقى محفوظة في التطبيق\n• أدِر حجزك أو ألغِه من «رحلاتي» وفق شروط الفندق\n• تحتاج مساعدة؟ فريق الدعم على بُعد لمسة عبر support@pillowstays.app\n\nيُدار تطبيق مخدة (Pillow Stays) من قِبل مجموعة رمال ش.ذ.م.م – م.ح، وكيل سفر مرخّص في دبي، الإمارات العربية المتحدة.",
+        "short_description": "احجز فنادق حول العالم بأسعار واضحة وقسيمة إقامة على بريدك الإلكتروني.",
+        "full_description": "مخدة (Pillow Stays) يجعل حجز الفنادق بسيطًا وواضحًا وسريعًا، بالعربية أو الإنجليزية.\n\nاعثر على الإقامة المناسبة\n• ابحث في فنادق حول العالم، من فنادق المدن إلى منتجعات الشواطئ\n• صفِّ النتائج حسب الميزانية وعدد النجوم والإلغاء المجاني\n• شاهد الصور وتفاصيل الغرف وشروط الإلغاء قبل الحجز\n\nاعرف ما تدفعه\n• اعرف السعر الكامل قبل الدفع، بما في ذلك أي رسوم تُدفع في الفندق\n• ادفع بأمان بالبطاقة\n\nسافر بثقة\n• يصلك تأكيد الحجز وقسيمة الفندق على بريدك الإلكتروني فور تأكيد الفندق، وتبقى محفوظة في التطبيق\n• ألغِ حجزك من «رحلاتي» وفق شروط الفندق، أو أرسل طلب تعديل لفريقنا\n• تحتاج مساعدة؟ فريق الدعم على بُعد لمسة عبر support@pillowstays.app\n\nيُدار تطبيق مخدة (Pillow Stays) من قِبل مجموعة ريمال ش.ذ.م.م-منطقة حرة، شركة مرخّصة في المنطقة الحرة بميدان، دبي، الإمارات العربية المتحدة.",
         "counts": {
           "title": {
             "chars": 19
           },
           "short_description": {
-            "chars": 54
+            "chars": 69
           },
           "full_description": {
-            "chars": 745
+            "chars": 770
           }
         }
       }
     }
   },
   "limit_findings": [
-    "ar keywords: 70 characters but 129 bytes. App Store Connect documents the keyword limit as 100 bytes, so it may be refused. Within 100 bytes (96): فنادق,حجز,سفر,إقامة,منتجع,دبي,الإمارات,السعودية,عطلة",
-    "Everything else is within its limit."
+    "All fields are within the store limits (App Store keywords also within 100 bytes)."
   ],
   "claims_to_confirm_before_submission": [
-    "Booking and payment: production payments and booking are off until the live approvals (RateHawk live contract, Ziina live, Tabby). The copy describes booking, paying, vouchers and cancelling; none of it works on production until then.",
-    "\"More than 3 million hotels\" / \"worldwide\": inventory is RateHawk's; production still runs on sandbox keys. Use the figure RateHawk confirms in the live contract, or drop the number.",
-    "\"Filter by price, rating, location and amenities\": the app filters by hotel name, budget, star rating and free cancellation, and sorts by price or stars. There is no location or amenities filter.",
-    "\"Split your payment into instalments where available\": Tabby is in the app but needs Tabby's merchant approval and payments switched on.",
-    "\"Arrive instantly\" / \"the moment you book\": the confirmation e-mail and voucher follow the supplier's confirmation, which can take up to about 3 minutes or go to staff review. \"As soon as the hotel confirms\" is accurate.",
-    "\"The full price is shown upfront, with no surprises\": some stays carry taxes or fees paid at the hotel (e.g. Dubai Tourism Dirham). The app shows them before payment, but they are not in the paid total.",
-    "\"Manage or cancel your booking\": cancellation is in the app per the rate's terms; changes (names, special requests) are sent to the team as requests, not changed instantly.",
-    "\"In Arabic or English\": the app interface is fully bilingual; hotel descriptions from the supplier can be English-only until production RateHawk content keys are in place.",
-    "Membership: production search is members-only. The copy doesn't say so; reviewers and users will meet a membership gate. Apple review needs a demo member account.",
-    "\"Licensed travel agency\": confirm the activity on licence 2312342.01 covers travel agency services.",
-    "Legal name: the English text uses \"Remal Group L.L.C-FZ\" and the Arabic text \"مجموعة رمال ش.ذ.م.م – م.ح\"; the licence name is REMAL GROUP L.L.C-FZ. Use the exact licence form in both unless the licence also has an Arabic name.",
-    "Keywords: \"hotel\", \"booking\" and \"stay\" already appear in the name or subtitle, which Apple indexes, so they use keyword space twice."
+    "Booking and payment: production payments and booking stay off until the live approvals (RateHawk live contract, Ziina live). The copy describes booking, card payment, vouchers and cancelling.",
+    "Instalments (Tabby) are left out; add them back once Tabby approves the merchant account and payments are on.",
+    "\"In Arabic or English\": the app interface is fully bilingual; supplier hotel descriptions can be English-only until production RateHawk content keys are in place.",
+    "Membership: not in the listing. Before submission, decide public search vs members-only, and prepare an approved demo account for Apple review.",
+    "Fees payable at the hotel are shown before payment only where the supplier provides them; check on the release build."
   ],
   "required_before_submission": [
     "Point pillowstays.app at production so the privacy, terms, account-deletion and support URLs answer.",
