@@ -129,6 +129,25 @@ test('region lookup queries actual bilingual stored names, prefers an exact city
     assert.deepEqual(await findArabicRegionSuggestions('باريس', {Region,language:'ar'}), []);
 });
 
+test('a region typed in Latin letters is shown by its Arabic name on an Arabic page', async () => {
+    const data = [
+        {id: 1, name: { ar:'دبي', en:'Dubai' }, type:'City', country_code:'AE'},
+        {id: 3, name: { ar:'دبي مارينا', en:'Dubai Marina' }, type:'Neighborhood', country_code:'AE'},
+        {id: 7, name: { en:'Dubrovnik' }, type:'City', country_code:'HR'},
+    ];
+    const Region = { find(query) {
+        const rows = data.filter(row=>query.$or.some(branch=>{
+            const [key] = Object.keys(branch);return new RegExp(branch[key].$regex).test(row.name[key.slice(5)] || '');
+        }));
+        return {select(){return this;},limit(){return this;},maxTimeMS(){return this;},lean:async()=>rows};
+    }};
+    const arabicPage = await findArabicRegionSuggestions('dubai', {Region,language:'ar'});
+    assert.deepEqual(arabicPage.map(region=>[region.id, region.name]), [[1,'دبي'],[3,'دبي مارينا']]);
+    // A region without an Arabic name keeps its English one; an English page keeps English names.
+    assert.deepEqual((await findArabicRegionSuggestions('Dubr', {Region,language:'ar'})).map(region=>region.name), ['Dubrovnik']);
+    assert.equal((await findArabicRegionSuggestions('Dubai', {Region,language:'en'}))[0].name, 'Dubai');
+});
+
 test('older English-only callers with Arabic input use the original Arabic supplier query before one English alternative', async context => {
     const client = require('./services/ratehawkClient');
     const { getAutocompleteSuggestions } = require('./services/ratehawkService');

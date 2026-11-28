@@ -510,7 +510,8 @@ async function getAutocompleteSuggestions(query, language = 'en', displayLanguag
     const [providerResult, hotelResult, regionResult] = await Promise.allSettled([
         supplierSuggestions(),
         connected ? findHotelSuggestions(raw, { Hotel: getHotelModel(), language: displayLanguage }) : [],
-        connected && arabic ? findArabicRegionSuggestions(raw, { Region: require('../models/Region'), language: displayLanguage }) : [],
+        // Arabic pages get the stored Arabic region name even when the guest types it in Latin letters.
+        connected && (arabic || displayLanguage === 'ar') ? findArabicRegionSuggestions(raw, { Region: require('../models/Region'), language: displayLanguage }) : [],
     ]);
     for (const result of [hotelResult,regionResult]) {
         if (result.status === 'rejected') logger.warn('Local autocomplete unavailable; using other suggestion sources', { error: result.reason?.message });
