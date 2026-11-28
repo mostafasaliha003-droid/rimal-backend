@@ -12,7 +12,7 @@ function createMembershipMailer({UserModel,Application=require('../models/Member
     const origin=()=>{const value=env.MEMBERSHIP_SITE_URL||env.SITE_URL||'https://rimal-api-staging.onrender.com';const u=new URL(value);if(u.protocol!=='https:'||u.pathname!=='/'||u.username||u.password)throw Error('membership_email_origin_invalid');return u.origin;};
     async function send(email,content,id){
         if(!env.SMTP_USER||!env.SMTP_PASSWORD)throw Error('membership_email_unavailable');
-        const result=await transporter.sendMail({from:`"Remal Membership" <${env.SMTP_USER}>`,to:email,...content,...(id?{messageId:`<membership-${id}@remaltourismllc.com>`}:{})});
+        const result=await transporter.sendMail({from:`"Pillow Stays" <${env.SMTP_USER}>`,to:email,...content,...(id?{messageId:`<membership-${id}@remaltourismllc.com>`}:{})});
         if(!result.messageId||!result.accepted?.includes(email))throw Error('membership_email_outcome_unknown');return true;
     }
     async function verification(email,code){try{return await send(email,mailContent({name:'',code,origin:origin()}));}catch{return false;}}

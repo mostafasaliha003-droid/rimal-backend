@@ -3,4 +3,4 @@ Allow: /
 Disallow: /checkout
 Disallow: /account
 Disallow: /loyalty
-Sitemap: https://remalbookings.com/sitemap.xml
+Sitemap: https://pillowstays.app/sitemap.xml

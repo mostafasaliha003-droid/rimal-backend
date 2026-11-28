@@ -32,7 +32,7 @@ const RATEHAWK_TEST_HOTEL_ID = '8473727'; // Used for testing real financial boo
 // Frontend base URL used to build the booking return_path. ETG's security check
 // extracts the HTTPS host from return_path and fails the booking if it doesn't
 // match the host registered in the ETG account settings.
-const FRONTEND_URL = process.env.FRONTEND_URL || 'https://remalbookings.com';
+const FRONTEND_URL = process.env.FRONTEND_URL || 'https://pillowstays.app';
 const RETURN_SUCCESS_PATH = process.env.RATEHAWK_RETURN_PATH || '/checkout/success';
 
 // Always emit an https:// URL regardless of how FRONTEND_URL was written.

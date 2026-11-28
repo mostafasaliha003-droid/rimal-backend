@@ -1,4 +1,6 @@
 const allowedOrigins = new Set([
+    'https://pillowstays.app',
+    'https://www.pillowstays.app',
     'https://remalbookings.com',
     'https://www.remalbookings.com',
     'http://localhost:10000',
@@ -12,7 +14,7 @@ const allowedOrigins = new Set([
 ]);
 
 // Configure only on the isolated Staging API, for example:
-// STAGING_FRONTEND_ORIGIN=https://staging.remalbookings.com
+// STAGING_FRONTEND_ORIGIN=https://staging.pillowstays.app
 const stagingFrontendOrigin = (() => {
     const configured = String(process.env.STAGING_FRONTEND_ORIGIN || '').trim();
     if (!configured) return null;

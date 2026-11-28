@@ -21,6 +21,6 @@ export function paymentReturnUrl(environment: AppEnvironment): string {
 export function endpoints(environment: AppEnvironment) {
   const env = resolveEnvironment(environment);
   return env === 'production'
-    ? { api: 'https://rimal-api.onrender.com/api', website: 'https://remalbookings.com' }
+    ? { api: 'https://rimal-api.onrender.com/api', website: 'https://pillowstays.app' }
     : { api: 'https://rimal-api-staging.onrender.com/api', website: 'https://rimal-api-staging.onrender.com' };
 }

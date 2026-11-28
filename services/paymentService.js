@@ -7,6 +7,10 @@ const { sandboxDatabaseConfigured } = require('./sandboxDatabase');
 
 const B2C_MARKUP_PERCENT = '7';
 
+// Public sites. Production payments must return guests to one of them; the sandbox must never point at any.
+const PRODUCTION_FRONTEND_ORIGINS = new Set(['https://pillowstays.app', 'https://remalbookings.com']);
+const PUBLIC_SITE_HOSTS = new Set(['pillowstays.app', 'www.pillowstays.app', 'remalbookings.com', 'www.remalbookings.com']);
+
 function customerPrice(rate) {
     const payment = rate?.payment_options?.payment_types?.find(item => item.type === 'deposit');
     // ETG sends show_* fields for customer-facing offers, but B2B prebook
@@ -86,7 +90,7 @@ function getCheckoutReadiness(environment = process.env) {
         check('RATEHAWK_BASE_URL', supplierHost(environment.RATEHAWK_BASE_URL, 'api-sandbox.ratehawk.com'));
         check('FRONTEND_URL', Boolean(frontend && (frontend.protocol === 'https:'
             || frontend.protocol === 'http:' && ['localhost', '127.0.0.1'].includes(frontend.hostname))
-            && !['remalbookings.com', 'www.remalbookings.com'].includes(frontend.hostname)));
+            && !PUBLIC_SITE_HOSTS.has(frontend.hostname)));
     } else {
         check('PAYMENT_PRODUCTION_APPROVED', environment.PAYMENT_PRODUCTION_APPROVED === 'true');
         check('PAYMENT_SANDBOX_ENABLED', environment.PAYMENT_SANDBOX_ENABLED === 'false');
@@ -97,7 +101,8 @@ function getCheckoutReadiness(environment = process.env) {
         check('SMTP_USER', Boolean(environment.SMTP_USER));
         check('SMTP_PASSWORD', Boolean(environment.SMTP_PASSWORD));
         check('RATEHAWK_BASE_URL', supplierHost(environment.RATEHAWK_BASE_URL, 'api.ratehawk.com'));
-        check('FRONTEND_URL', frontend?.origin === 'https://remalbookings.com');
+        // pillowstays.app is the public site; remalbookings.com stays accepted only for a rollback during the move.
+        check('FRONTEND_URL', PRODUCTION_FRONTEND_ORIGINS.has(frontend?.origin));
     }
     return { ready: blockers.length === 0, mode: sandbox ? 'sandbox' : environment.ZIINA_TEST_MODE === 'false' ? 'production' : 'unconfigured',
         blockers: [...new Set(blockers)] };

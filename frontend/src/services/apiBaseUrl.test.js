@@ -21,3 +21,12 @@ test('staging requires the explicit build mode and exact approved host', () => {
     assert.equal(resolveApiBaseUrl({ production: true, origin: 'https://rimal-api-staging.onrender.com' }), '/api');
     assert.equal(resolveApiBaseUrl({ production: true, origin: 'https://rimal-api-staging.onrender.com.example.test' }), 'https://rimal-api.onrender.com/api');
 });
+
+test('opened from pillowstays.app, the site calls its own API (rimal-api serves both)', () => {
+    for (const origin of ['https://pillowstays.app', 'https://www.pillowstays.app']) {
+        assert.equal(resolveApiBaseUrl({ production: true, origin }), '/api', origin);
+    }
+    for (const origin of ['https://pillowstays.app.example.test', 'http://pillowstays.app', 'https://remalbookings.com']) {
+        assert.equal(resolveApiBaseUrl({ production: true, origin }), 'https://rimal-api.onrender.com/api', origin);
+    }
+});

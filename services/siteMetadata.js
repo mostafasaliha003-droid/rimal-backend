@@ -1,4 +1,4 @@
-const SITE_URL = 'https://remalbookings.com';
+const SITE_URL = 'https://pillowstays.app';
 const LANGUAGES = {
     ar: { html: 'ar', locale: 'ar_AE', title: 'رمال وفِلّها | حجوزات الفنادق', description: 'ابحث عن إقامة مناسبة مع رمال. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة.' },
     en: { html: 'en', locale: 'en_US', title: 'Remal | Hotel bookings', description: 'Compare hotel prices, availability, and cancellation terms with Remal.' },

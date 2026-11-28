@@ -12,6 +12,8 @@ const BRAND = {
     name: 'مخدة',
     latin: 'pillow stays',
     sender: 'مخدة | pillow stays',
+    // The From display name on every e-mail; the address is the Workspace mailbox (SMTP_USER).
+    senderName: 'Pillow Stays',
     support: 'management@remaltourismllc.com',
     operator: 'تديرها Remal Group LLC FZ · Operated by Remal Group LLC FZ',
 };

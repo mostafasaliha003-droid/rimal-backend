@@ -54,7 +54,7 @@ async function sendVoucherConfirmation(input) {
     const confirmationPdf = await reservationConfirmation.generateConfirmationPdf(details);
     const { subject, text, html } = reservationConfirmation.renderConfirmationEmail(details);
     const result = await transporter.sendMail({
-        from: { name: documentBrand.BRAND.sender, address: process.env.SMTP_USER }, to: email,
+        from: { name: documentBrand.BRAND.senderName, address: process.env.SMTP_USER }, to: email,
         replyTo: 'management@remaltourismllc.com', subject, text, html,
         attachments: [{ filename: `pillow-stays-confirmation-${reference}.pdf`, content: confirmationPdf, contentType: 'application/pdf' },
             documentBrand.emailSymbolAttachment()]
@@ -73,7 +73,7 @@ async function sendRefundConfirmation({ email, guestName, reference, amountMinor
         + '<p dir="rtl">يُقدَّر ظهور المبلغ في بطاقتك خلال 5 إلى 14 يوم عمل بعد تأكيد بوابة الدفع معالجة الاسترداد، حسب البنك ودون احتساب عطلاته. إذا لم يظهر بعد هذه المدة، تواصل معنا بمرجع الطلب.</p>'
         + '<p>Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.</p>';
     const result = await transporter.sendMail({
-        from: process.env.SMTP_USER, to: email, subject: 'Reservation refund confirmation', text, html
+        from: { name: documentBrand.BRAND.senderName, address: process.env.SMTP_USER }, to: email, subject: 'Reservation refund confirmation', text, html
     });
     if (!result.messageId || !result.accepted?.includes(email)) throw new Error('refund_email_outcome_unknown');
     return { messageId: result.messageId };
@@ -174,7 +174,7 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
         }
 
         let info = await transporter.sendMail({
-            from: process.env.SMTP_USER,
+            from: { name: documentBrand.BRAND.senderName, address: process.env.SMTP_USER },
             to: customerEmail,
             subject: `تأكيد حجزك الفندقي من الرمال | المرجع: ${hcn}`,
             html: emailHtml,
@@ -197,7 +197,7 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
 
 module.exports = {
     async sendCancellationReceipt({ details, buffer }) {
-        const result = await transporter.sendMail({ from: { name: documentBrand.BRAND.sender, address: process.env.SMTP_USER },
+        const result = await transporter.sendMail({ from: { name: documentBrand.BRAND.senderName, address: process.env.SMTP_USER },
             to: details.email, replyTo: 'management@remaltourismllc.com',
             subject: `${documentBrand.BRAND.sender} | تأكيد الإلغاء وطلب الاسترداد | ${details.reference}`,
             text: `Cancellation confirmed: ${details.reference}. Refund status: ${details.refundStatus}. Amount: ${details.refund} ${details.currency}. Estimated card-credit time: 5–14 business days after the gateway confirms refund processing, depending on your bank and excluding bank non-working days. Your cancellation receipt is attached.`,

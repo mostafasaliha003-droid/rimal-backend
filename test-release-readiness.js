@@ -31,7 +31,9 @@ test('readiness identifies missing gates without disclosing configuration values
 });
 
 test('sandbox cannot target the public frontend or supplier production host', () => {
-    assert.equal(isCheckoutReady({ ...sandbox(), FRONTEND_URL: 'https://remalbookings.com' }), false);
+    for (const site of ['https://pillowstays.app', 'https://www.pillowstays.app', 'https://remalbookings.com', 'https://www.remalbookings.com']) {
+        assert.equal(isCheckoutReady({ ...sandbox(), FRONTEND_URL: site }), false, site);
+    }
     assert.equal(isCheckoutReady({ ...sandbox(), RATEHAWK_BASE_URL: 'https://api.ratehawk.com' }), false);
     assert.equal(isCheckoutReady({ ...sandbox(), FRONTEND_URL: 'https://user:pass@staging.example.test' }), false);
     assert.equal(isCheckoutReady({ ...sandbox(), MONGO_URI: 'mongodb://127.0.0.1/production' }), false);

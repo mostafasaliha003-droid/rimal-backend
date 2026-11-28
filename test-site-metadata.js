@@ -15,7 +15,7 @@ test('home pages receive language-specific crawlable metadata', () => {
     const output = renderMetadata(html, metadata);
     assert.match(output, /<html lang="es" dir="ltr">/);
     assert.match(output, /<title>Remal \| Reservas de hoteles<\/title>/);
-    assert.match(output, /rel="canonical" href="https:\/\/remalbookings\.com\/\?lang=es"/);
+    assert.match(output, /rel="canonical" href="https:\/\/pillowstays\.app\/\?lang=es"/);
     assert.match(output, /hreflang="x-default"/);
     assert.match(output, /application\/ld\+json/);
     assert.match(metadata.structuredData.url, /\?lang=es$/);
@@ -51,9 +51,9 @@ test('sitemap and robots publish only supported hotel language variants and excl
     assert.match(sitemap, /hotel\/123\?lang=en/);
     assert.match(sitemap, /hreflang="ar"/);
     assert.doesNotMatch(sitemap, /hotel%2F|private/);
-    assert.doesNotMatch(sitemap, /hreflang="es" href="https:\/\/remalbookings\.com\/hotel\/123/);
+    assert.doesNotMatch(sitemap, /hreflang="es" href="https:\/\/pillowstays\.app\/hotel\/123/);
     assert.match(buildRobots(), /Disallow: \/checkout/);
-    assert.match(buildRobots(), /Sitemap: https:\/\/remalbookings\.com\/sitemap\.xml/);
+    assert.match(buildRobots(), /Sitemap: https:\/\/pillowstays\.app\/sitemap\.xml/);
 });
 
 test('private page metadata can opt out of indexing', () => {

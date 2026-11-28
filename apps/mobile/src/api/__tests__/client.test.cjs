@@ -99,7 +99,7 @@ test('website handoff preserves only validated search context and never carries 
   assert.deepEqual([...url.searchParams.keys()].sort(), ['checkin', 'checkout', 'guests', 'lang', 'residency']);
   assert.deepEqual(JSON.parse(url.searchParams.get('guests')), input.guests);
   assert.doesNotMatch(url.href, /private|access_token|book_hash/);
-  assert.equal(websiteUrl('/account', 'production'), 'https://remalbookings.com/account');
+  assert.equal(websiteUrl('/account', 'production'), 'https://pillowstays.app/account');
   for (const invalid of ['/account?token=private', '//evil.test', 'https://evil.test', '/bookings']) assert.throws(() => websiteUrl(invalid));
   assert.throws(() => bookingWebsiteUrl('100/../auth', input, 'en'));
 });
@@ -579,7 +579,7 @@ test('deletion intake never invents completion from unknown, missing or malforme
 });
 
 test('public deletion resource is a fixed environment URL with no account or credential query', () => {
-  assert.equal(websiteUrl('/account-deletion', 'production'), 'https://remalbookings.com/account-deletion');
+  assert.equal(websiteUrl('/account-deletion', 'production'), 'https://pillowstays.app/account-deletion');
   assert.equal(websiteUrl('/account-deletion', 'staging'), 'https://rimal-api-staging.onrender.com/account-deletion');
   for (const invalid of ['/account-deletion?token=private', '/account-deletion/other', '//evil.test/account-deletion']) assert.throws(() => websiteUrl(invalid));
 });
