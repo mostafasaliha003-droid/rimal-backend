@@ -27,6 +27,7 @@ const COMPANY = Object.freeze({
     licence: '2312342.01',
     freeZone: 'Meydan Free Zone',
     address: 'Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, UAE',
+    addressAr: 'ميدان جراند ستاند، الطابق السادس، شارع الميدان، ند الشبا، دبي، الإمارات العربية المتحدة',
 });
 
 // The UAE Tax Registration Number (15 digits), from COMPANY_TRN; shown on receipts once set.
