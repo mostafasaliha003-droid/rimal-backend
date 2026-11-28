@@ -1,6 +1,6 @@
 const crypto = require('node:crypto');
 const { minorUnits, formatAmountMinor } = require('./ziinaClient');
-const { BRAND, C, FONT_STACK, EMAIL_SYMBOL_CID, embeddedAssets, pdfFontFaces, wordmark, statusPill, footer } = require('./documentBrand');
+const { BRAND, C, FONT_STACK, EMAIL_SYMBOL_CID, embeddedAssets, pdfFontFaces, wordmark, statusPill, footer, companyLegalLine } = require('./documentBrand');
 
 // ETG Sandbox's known placeholder: one empty page, titled "Blank PDF Document".
 const BLANK_SANDBOX_PDF = '0622971147486e1900037eff229d921d14f5b51aac7171729b2b66f81cdf6585';
@@ -41,8 +41,8 @@ function confirmationCopy(details) {
         title: details.sandbox ? 'تأكيد الحجز التجريبي · Sandbox confirmation' : 'تأكيد حجزك · Reservation confirmed',
         status: details.sandbox ? 'SANDBOX · تجريبي' : 'CONFIRMED · مؤكد',
         note: details.sandbox
-            ? 'حجز تجريبي فقط، غير صالح للإقامة. المرفق تأكيد من مخدة، وليس قسيمة رسمية من المورد. · Sandbox only; not valid for accommodation. The attachment is a pillow stays confirmation, not an official supplier voucher.'
-            : 'أرفقنا تأكيد مخدة بالمبلغ المدفوع. للمساعدة بشأن شروط الإقامة يرجى التواصل معنا بمرجع الحجز. · Your pillow stays confirmation with the amount paid is attached. Please contact us with your reservation reference for assistance with the stay terms.'
+            ? 'حجز تجريبي فقط، غير صالح للإقامة. المرفق تأكيد من مخدة، وليس قسيمة رسمية من المورد. · Sandbox only; not valid for accommodation. The attachment is a Pillow Stays confirmation, not an official supplier voucher.'
+            : 'أرفقنا تأكيد مخدة بالمبلغ المدفوع. للمساعدة بشأن شروط الإقامة يرجى التواصل معنا بمرجع الحجز. · Your Pillow Stays confirmation with the amount paid is attached. Please contact us with your reservation reference for assistance with the stay terms.'
     };
 }
 
@@ -54,13 +54,13 @@ function detailRows(details) {
 function confirmationDocument(details, { symbolSrc, pdf = false }) {
     const copy = confirmationCopy(details);
     const page = pdf ? `<style>@page{size:A4;margin:14mm}${pdfFontFaces()}</style>` : '';
-    return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${page}</head><body style="margin:0;background:${pdf ? C.white : C.cream};font-family:${FONT_STACK};color:${C.plum900}"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:${pdf ? 0 : 32}px ${pdf ? 0 : 12}px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:${pdf ? 760 : 640}px;background:${C.white};border:1px solid ${C.border};border-radius:20px;overflow:hidden"><tr><td style="padding:24px 30px;background:${C.cream};border-bottom:4px solid ${C.plum800}">${wordmark(symbolSrc)}</td></tr><tr><td style="padding:28px 30px">${statusPill(details.sandbox, copy.status)}<h1 style="font-size:23px;line-height:1.6;margin:14px 0 6px;color:${C.plum800}">${copy.title}</h1><p style="font-size:15px;line-height:1.8;margin:0 0 8px">مرحبًا ${escapeHtml(details.guestName)}،<br>تفاصيل حجزك المؤكد موضحة أدناه.<br><span dir="ltr">Your confirmed reservation details are below.</span></p><table width="100%" cellspacing="0" cellpadding="0">${detailRows(details)}</table><p style="margin:22px 0 0;padding:16px;background:${details.sandbox ? C.gold100 : C.lavender50};border:1px solid ${details.sandbox ? C.gold200 : C.lavender100};font-size:12px;line-height:1.9;border-radius:12px">${copy.note}</p></td></tr><tr><td style="padding:20px 30px;background:${C.sand}">${footer()}</td></tr></table></td></tr></table></body></html>`;
+    return `<!doctype html><html lang="ar" dir="rtl"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1">${page}</head><body style="margin:0;background:${pdf ? C.white : C.cream};font-family:${FONT_STACK};color:${C.plum900}"><table role="presentation" width="100%" cellspacing="0" cellpadding="0"><tr><td align="center" style="padding:${pdf ? 0 : 32}px ${pdf ? 0 : 12}px"><table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:${pdf ? 760 : 640}px;background:${C.white};border:1px solid ${C.border};border-radius:20px;overflow:hidden"><tr><td style="padding:24px 30px;background:${C.cream};border-bottom:4px solid ${C.plum800}">${wordmark(symbolSrc)}</td></tr><tr><td style="padding:28px 30px">${statusPill(details.sandbox, copy.status)}<h1 style="font-size:23px;line-height:1.6;margin:14px 0 6px;color:${C.plum800}">${copy.title}</h1><p style="font-size:15px;line-height:1.8;margin:0 0 8px">مرحبًا ${escapeHtml(details.guestName)}،<br>تفاصيل حجزك المؤكد موضحة أدناه.<br><span dir="ltr">Your confirmed reservation details are below.</span></p><table width="100%" cellspacing="0" cellpadding="0">${detailRows(details)}</table><p style="margin:22px 0 0;padding:16px;background:${details.sandbox ? C.gold100 : C.lavender50};border:1px solid ${details.sandbox ? C.gold200 : C.lavender100};font-size:12px;line-height:1.9;border-radius:12px">${copy.note}</p></td></tr><tr><td style="padding:20px 30px;background:${C.sand}">${footer({ legal: true })}</td></tr></table></td></tr></table></body></html>`;
 }
 
 function renderConfirmationEmail(details) {
     const copy = confirmationCopy(details);
     return { subject: `${details.sandbox ? '[SANDBOX] ' : ''}تأكيد حجزك | ${BRAND.sender} | ${details.reference}`,
-        text: [copy.title, ...rows(details).map(([label, value]) => `${label}: ${value}`), '', copy.note, BRAND.support, BRAND.operator].join('\n'),
+        text: [copy.title, ...rows(details).map(([label, value]) => `${label}: ${value}`), '', copy.note, BRAND.support, companyLegalLine()].join('\n'),
         html: confirmationDocument(details, { symbolSrc: `cid:${EMAIL_SYMBOL_CID}` }) };
 }
 

@@ -25,7 +25,7 @@ test('cancellation receipt binds the confirmed cancellation, original charge, ow
     assert.match(html, /does not confirm credit to your card/);
     assert.match(html, /SANDBOX/);
     assert.match(html, /16:00/);
-    assert.match(html, /مخدة/); assert.doesNotMatch(html, /REMAL/); assert.match(html, /cid:mkhadda-symbol@pillowstays/);
+    assert.match(html, /مخدة/); assert.match(html, /REMAL GROUP L\.L\.C-FZ/); assert.match(html, /مجموعة ريمال ش\.ذ\.م\.م-منطقة حرة/); assert.match(html, /Licence 2312342\.01/); assert.doesNotMatch(html, /Remal Group LLC FZ|Remal Tourism/); assert.match(html, /cid:mkhadda-symbol@pillowstays/);
     const pdfHtml = service.renderReceiptPdf(details);
     assert.match(pdfHtml, /data:image\/png;base64,/); assert.match(pdfHtml, /font-family:'Plex Arabic'/); assert.doesNotMatch(pdfHtml, /cid:/);
     for (const bookingChange of [{ ownerSubject: 'other' }, { realm: 'production' }, { status: 'active' }, { supplierReference: 'other' }]) {

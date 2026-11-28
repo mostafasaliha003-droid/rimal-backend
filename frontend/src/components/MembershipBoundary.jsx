@@ -58,7 +58,7 @@ export default function MembershipBoundary({children}){
         go(path);
     };
     // Each page names itself in the browser tab; an address the site does not have gets a real "not found" page.
-    useEffect(()=>{if(!/^\/hotel\//.test(pathname))document.title=pageTitle(pathname,language)||t('meta.title','مخدة | pillow stays');},[pathname,language,t]);
+    useEffect(()=>{if(!/^\/hotel\//.test(pathname))document.title=pageTitle(pathname,language)||t('meta.title','Pillow Stays | مخدة');},[pathname,language,t]);
     if(!knownRoute(pathname))return <Suspense fallback={pageWait}><NotFound go={go}/></Suspense>;
     // Public service and legal pages do not mount inventory/search hooks.
     if(pathname==='/membership-admin')return <Suspense fallback={pageWait}><MembershipAdmin/></Suspense>;

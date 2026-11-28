@@ -7,7 +7,7 @@ import TabbyBadge from './TabbyBadge';
 import './MkhaddaLanding.css';
 
 /*
- * The public front of the Mkhadda website: the same world as the app's welcome screen. Real places
+ * The public front of the Pillow Stays website: the same world as the app's welcome screen. Real places
  * cross-fading behind the promise, three steps to membership, the app, and plain answers.
  * Every statement here is something the product does today; nothing promises a price or a wait.
  */
@@ -43,36 +43,36 @@ const copy = {
         badge: 'A private travel membership', first: 'Stay easier.', second: 'Member rates.',
         lead: 'Your pillow is ready around the world. Free membership for eligible travellers, private rates once approved.',
         facts: ['Hotels in cities worldwide', 'Personal care for every booking', 'Your documents stay encrypted'],
-        floatTitle: 'Live application status', floatBody: 'Follow it as it moves, right after you apply', photo: 'Photo', places: 'Destinations on Mkhadda',
+        floatTitle: 'Live application status', floatBody: 'Follow it as it moves, right after you apply', photo: 'Photo', places: 'Destinations on Pillow Stays',
         login: 'Sign in',
         stepsEyebrow: 'How membership works', stepsTitle: 'Three steps to member rates',
         steps: [
             ['Apply for free', 'Create your account and confirm your email with a 6-digit code.'],
             ['Show your eligibility', 'Choose your membership category and upload your passport page or Emirates ID. Documents are encrypted and seen only by authorised reviewers.'],
-            ['Step into Mkhadda', 'Once approved, member rates are revealed and your bookings, vouchers and support live in one place.'],
+            ['Step into Pillow Stays', 'Once approved, member rates are revealed and your bookings, vouchers and support live in one place.'],
         ],
-        appEyebrow: 'The Mkhadda app', appTitle: 'Mkhadda in your pocket', appLead: 'Everything on the website, plus what makes a trip calmer.',
+        appEyebrow: 'The Pillow Stays app', appTitle: 'Pillow Stays in your pocket', appLead: 'Everything on the website, plus what makes a trip calmer.',
         appPoints: ['Live care chat tied to your confirmed booking', 'Booking, cancellation and refund status as it happens', 'Replies from the care team reach you in the app and by email'],
         download: 'Download for Android', version: 'Version', preview: 'A preview build installed directly from the file. Available on Android for now.',
-        tabbyWhere: 'At checkout in the Mkhadda app', tabbyLead: 'Pay over time', tabbySupport: '4 interest-free payments or up to 12 months.',
+        tabbyWhere: 'At checkout in the Pillow Stays app', tabbyLead: 'Pay over time', tabbySupport: '4 interest-free payments or up to 12 months.',
         faqEyebrow: 'Common questions', faqTitle: 'Before you start',
     },
     es: {
         badge: 'Una membresía de viaje privada', first: 'Viaja con calma.', second: 'Tarifas para miembros.',
         lead: 'Tu almohada está lista en todo el mundo. Membresía gratuita para viajeros elegibles y tarifas privadas tras la aprobación.',
         facts: ['Hoteles en ciudades de todo el mundo', 'Atención personal en cada reserva', 'Tus documentos, cifrados'],
-        floatTitle: 'Tu solicitud, en vivo', floatBody: 'Síguela al momento después de solicitar', photo: 'Foto', places: 'Destinos en Mkhadda',
+        floatTitle: 'Tu solicitud, en vivo', floatBody: 'Síguela al momento después de solicitar', photo: 'Foto', places: 'Destinos en Pillow Stays',
         login: 'Iniciar sesión',
         stepsEyebrow: 'Cómo funciona la membresía', stepsTitle: 'Tres pasos hacia las tarifas para miembros',
         steps: [
             ['Solicita gratis', 'Crea tu cuenta y confirma tu correo con un código de 6 dígitos.'],
             ['Acredita tu elegibilidad', 'Elige tu categoría y sube la página de tu pasaporte o tu Emirates ID. Los documentos están cifrados y solo los ven revisores autorizados.'],
-            ['Entra en Mkhadda', 'Tras la aprobación verás las tarifas para miembros, con tus reservas, bonos y asistencia en un solo lugar.'],
+            ['Entra en Pillow Stays', 'Tras la aprobación verás las tarifas para miembros, con tus reservas, bonos y asistencia en un solo lugar.'],
         ],
-        appEyebrow: 'La app Mkhadda', appTitle: 'Mkhadda en tu bolsillo', appLead: 'Todo lo del sitio, y lo que hace el viaje más tranquilo.',
+        appEyebrow: 'La app Pillow Stays', appTitle: 'Pillow Stays en tu bolsillo', appLead: 'Todo lo del sitio, y lo que hace el viaje más tranquilo.',
         appPoints: ['Chat de atención en vivo vinculado a tu reserva confirmada', 'Estado de reserva, cancelación y reembolso al momento', 'Las respuestas del equipo te llegan en la app y por correo'],
         download: 'Descargar para Android', version: 'Versión', preview: 'Versión preliminar que se instala desde el archivo. Disponible en Android por ahora.',
-        tabbyWhere: 'Al pagar en la app Mkhadda', tabbyLead: 'Pay over time', tabbySupport: '4 interest-free payments or up to 12 months.',
+        tabbyWhere: 'Al pagar en la app Pillow Stays', tabbyLead: 'Pay over time', tabbySupport: '4 interest-free payments or up to 12 months.',
         faqEyebrow: 'Preguntas frecuentes', faqTitle: 'Antes de empezar',
     },
 };

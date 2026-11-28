@@ -54,7 +54,7 @@ function SignIn({ onSignedIn, t, toggleLanguage }) {
     };
     return <main className="signin">
         <section className="signin-art"><Orbit />
-            <div className="signin-brand"><img src="/pillow/symbol.svg" alt="" width="54" height="46" /><div><b>{t.brand}</b><span>pillow stays · {t.desk}</span></div></div>
+            <div className="signin-brand"><img src="/pillow/symbol.svg" alt="" width="54" height="46" /><div><b>{t.brand}</b><span>Pillow Stays · {t.desk}</span></div></div>
             <h1>{t.signInTitle}</h1><p>{t.signInBody}</p>
         </section>
         <form className="signin-form" onSubmit={submit}>

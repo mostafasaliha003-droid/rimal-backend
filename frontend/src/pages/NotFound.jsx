@@ -6,8 +6,8 @@ import '../components/MkhaddaLanding.css';
 
 const copy = {
     ar: { title: 'هذه الصفحة نامت في مكان آخر', body: 'الرابط الذي فتحته غير موجود، أو تغيّر عنوانه. لنرجعك إلى مكان مريح.', home: 'الصفحة الرئيسية', care: 'عناية مخدة' },
-    en: { title: 'This page is asleep somewhere else', body: 'The link you opened does not exist, or its address has changed. Let’s take you somewhere comfortable.', home: 'Home page', care: 'Mkhadda care' },
-    es: { title: 'Esta página duerme en otro lugar', body: 'El enlace que abriste no existe o su dirección ha cambiado. Te llevamos a un lugar cómodo.', home: 'Página de inicio', care: 'Atención Mkhadda' },
+    en: { title: 'This page is asleep somewhere else', body: 'The link you opened does not exist, or its address has changed. Let’s take you somewhere comfortable.', home: 'Home page', care: 'Pillow Stays care' },
+    es: { title: 'Esta página duerme en otro lugar', body: 'El enlace que abriste no existe o su dirección ha cambiado. Te llevamos a un lugar cómodo.', home: 'Página de inicio', care: 'Atención Pillow Stays' },
 };
 
 /** A real "not found" page: the server answers 404 for these addresses and search engines are told not to index them. */

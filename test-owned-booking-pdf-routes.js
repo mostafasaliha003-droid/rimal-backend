@@ -139,7 +139,9 @@ test('owned booking voucher renders exact status, currency and stay dates withou
     assert.match(puppeteerFixture.state.html, /بانتظار تأكيد الفندق · Awaiting hotel confirmation/);
     assert.match(puppeteerFixture.state.html, /class="ar">مخدة</);
     assert.doesNotMatch(puppeteerFixture.state.html, /Remal &amp; Chill|Remal & Chill|رمال وفلّها|شركة الرمال/);
-    assert.match(puppeteerFixture.state.html, /Operated by Remal Group LLC FZ/);
+    // A voucher is not a receipt: brand and support contact, no company legal details.
+    assert.match(puppeteerFixture.state.html, /Pillow Stays \| مخدة/);
+    assert.doesNotMatch(puppeteerFixture.state.html, /Remal Group|REMAL GROUP/);
     assert.match(puppeteerFixture.state.html, /@font-face{font-family:.Plex Arabic./);
     assert.match(puppeteerFixture.state.html, /الدفع في الفندق · Pay at the hotel/);
     assert.match(puppeteerFixture.state.html, /495\.25 AED/);

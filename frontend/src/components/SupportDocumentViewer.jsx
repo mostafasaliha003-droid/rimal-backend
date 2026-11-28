@@ -23,6 +23,6 @@ export default function SupportDocumentViewer({ document, context, conversationI
         <p className="support-reference" dir="ltr">{context.reference}</p>
         {failed ? <div role="alert" className="support-document-empty"><FileText size={38} /><p>{L.pdfError}</p></div>
             : !url ? <div role="status" className="support-document-empty"><LoaderCircle className="motion-safe:animate-spin" size={30} /><p>{L.pdfLoading}</p></div>
-                : <><iframe data-support-pdf title={title} src={url} /><footer><span>{L.pdfHint}</span><a data-support-download href={url} download={`Mkhadda-${document}-${context.reference}.pdf`}><Download size={17} />{L.download}</a></footer></>}
+                : <><iframe data-support-pdf title={title} src={url} /><footer><span>{L.pdfHint}</span><a data-support-download href={url} download={`PillowStays-${document}-${context.reference}.pdf`}><Download size={17} />{L.download}</a></footer></>}
     </dialog>;
 }

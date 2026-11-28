@@ -3,8 +3,8 @@ import { useLanguage } from '../i18n';
 
 const copy = {
     ar: ['عضوية معتمدة', 'أسعار خاصة للأعضاء المعتمدين', 'حجوزات أريح.', 'أسعار للأعضاء.', 'وين نرتاح اليوم؟', 'إقامتك الجاية تبدأ من مخدة.'],
-    en: ['Approved member', 'Private rates for approved members', 'Stay easier.', 'Member rates.', 'Where shall we stay?', 'Find your next stay with pillow stays.'],
-    es: ['Miembro aprobado', 'Tarifas para miembros aprobados', 'Viaja con calma.', 'Tarifas para miembros.', '¿Dónde nos alojamos?', 'Encuentra tu próxima estancia con pillow stays.']
+    en: ['Approved member', 'Private rates for approved members', 'Stay easier.', 'Member rates.', 'Where shall we stay?', 'Find your next stay with Pillow Stays.'],
+    es: ['Miembro aprobado', 'Tarifas para miembros aprobados', 'Viaja con calma.', 'Tarifas para miembros.', '¿Dónde nos alojamos?', 'Encuentra tu próxima estancia con Pillow Stays.']
 };
 export default function PillowHero({ member = false, children }) {
     const { language } = useLanguage();

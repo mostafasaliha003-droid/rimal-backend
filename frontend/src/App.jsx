@@ -125,7 +125,7 @@ export default function App() {
         if (/^\/hotel\/[^/]+$/.test(pathname)) return;
         const noindex = ['/checkout', '/next-gen', '/next-gen/checkout', '/payment-status', '/mock-payment', '/account', '/bookings', '/favorites', '/support', '/customer-service', '/loyalty', '/account-deletion', '/account-deletion-requests'].includes(pathname);
         const canonical = new URL(`${pathname === '/' ? '/' : pathname}?lang=${language}`, window.location.origin).href;
-        const title = pageTitle(pathname, language) || t('meta.title', 'مخدة | pillow stays');
+        const title = pageTitle(pathname, language) || t('meta.title', 'Pillow Stays | مخدة');
         const description = t('meta.description', 'ابحث عن إقامة تناسبك مع مخدة وقارن عروض الفنادق.');
         setPageSeo({
             title,
@@ -137,7 +137,7 @@ export default function App() {
             image: new URL('/pillow/share.jpg', window.location.origin).href,
             languages: noindex ? [] : ['ar', 'en', 'es'],
             noindex,
-            structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'مخدة | pillow stays', url: canonical }
+            structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Pillow Stays | مخدة', url: canonical }
         });
     }, [pathname, language, t]);
 

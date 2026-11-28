@@ -2,21 +2,44 @@ const fs = require('node:fs');
 const path = require('node:path');
 
 /*
- * Mkhadda (مخدة | pillow stays) identity for customer documents: booking
- * confirmations and cancellation receipts, as email and PDF. Colours follow the
- * app's design tokens (apps/mobile/src/theme.ts). Remal Group LLC FZ, the licensed
- * company, remains the operator and the contact for support. Its name is shown
- * exactly as on the licence, in Latin script in both languages.
+ * Pillow Stays (مخدة) identity for customer documents: booking confirmations,
+ * cancellation receipts and stay vouchers, as email and PDF. Colours follow the
+ * app's design tokens (apps/mobile/src/theme.ts).
  */
 const BRAND = {
     name: 'مخدة',
-    latin: 'pillow stays',
-    sender: 'مخدة | pillow stays',
+    latin: 'Pillow Stays',
+    // Where both languages appear (subjects, titles, footers).
+    sender: 'Pillow Stays | مخدة',
     // The From display name on every e-mail.
     senderName: 'Pillow Stays',
     support: 'support@pillowstays.app',
-    operator: 'تديرها Remal Group LLC FZ · Operated by Remal Group LLC FZ',
 };
+
+/*
+ * The licensed company, exactly as on the licence. Shown only where the law needs
+ * it: invoices and receipts (confirmation with amount paid, cancellation receipt),
+ * Terms, Privacy Policy and the website footer. Not on vouchers or other e-mails.
+ */
+const COMPANY = Object.freeze({
+    name: 'REMAL GROUP L.L.C-FZ',
+    nameAr: 'مجموعة ريمال ش.ذ.م.م-منطقة حرة',
+    licence: '2312342.01',
+    freeZone: 'Meydan Free Zone',
+    address: 'Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, UAE',
+});
+
+// The UAE Tax Registration Number (15 digits), from COMPANY_TRN; shown on receipts once set.
+function companyTrn(env = process.env) {
+    const value = String(env.COMPANY_TRN || '').replace(/\s+/g, '');
+    return /^\d{15}$/.test(value) ? value : '';
+}
+
+// One line for receipts: legal name (Arabic and Latin), licence, address and TRN when set.
+function companyLegalLine(env = process.env) {
+    const trn = companyTrn(env);
+    return `${COMPANY.nameAr} · ${COMPANY.name} · Licence ${COMPANY.licence} · ${COMPANY.address}${trn ? ` · TRN ${trn}` : ''}`;
+}
 
 /*
  * Addresses on pillowstays.app are Google Workspace aliases of the SMTP_USER mailbox, so the
@@ -106,10 +129,12 @@ function statusPill(sandbox, label) {
     return `<span style="display:inline-block;padding:4px 12px;border-radius:999px;background:${bg};color:${fg};border:1px solid ${line};font-size:12px;font-weight:700">${label}</span>`;
 }
 
-function footer() {
+// Support contact; receipts (legal: true) add the company's legal details.
+function footer({ legal = false, env = process.env } = {}) {
     return `<div style="font-size:12px;line-height:1.9;color:${C.neutral600}">للمساعدة · Reservation support<br>`
-        + `<a href="mailto:${BRAND.support}" style="color:${C.plum600}">${BRAND.support}</a><br>`
-        + `<span>${BRAND.operator}</span></div>`;
+        + `<a href="mailto:${BRAND.support}" style="color:${C.plum600}">${BRAND.support}</a>`
+        + (legal ? `<br><span dir="auto" style="font-size:11px">${companyLegalLine(env)}</span>` : '')
+        + '</div>';
 }
 
-module.exports = { BRAND, MAIL, customerMailHeaders, dubaiDateStamp, documentFileName, C, FONT_STACK, EMAIL_SYMBOL_CID, emailSymbolAttachment, embeddedAssets, pdfFontFaces, wordmark, statusPill, footer };
+module.exports = { BRAND, COMPANY, companyTrn, companyLegalLine, MAIL, customerMailHeaders, dubaiDateStamp, documentFileName, C, FONT_STACK, EMAIL_SYMBOL_CID, emailSymbolAttachment, embeddedAssets, pdfFontFaces, wordmark, statusPill, footer };

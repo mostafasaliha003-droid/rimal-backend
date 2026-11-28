@@ -45,7 +45,7 @@ const ar = {
 };
 
 const en = {
-    brand: 'Mkhadda', desk: 'Desk', console: 'Operations room',
+    brand: 'Pillow Stays', desk: 'Desk', console: 'Operations room',
     signInTitle: 'Welcome to the operations room', signInBody: 'Finance, suppliers, net rates and customer care, live and in one place.',
     email: 'Email', password: 'Password', signIn: 'Sign in', signingIn: 'Signing in…', signOut: 'Sign out',
     badCredentials: 'Wrong email or password.', tooMany: 'Too many attempts. Wait a minute and try again.', offline: 'Could not reach the server.',
@@ -73,7 +73,7 @@ const en = {
     searchChats: 'Search reference, name or phone', noChats: 'No conversations here.', pickChat: 'Pick a conversation.',
     reply: 'Reply', note: 'Internal note', send: 'Send', assignMe: 'Assign to me', resolve: 'Resolve', reopen: 'Reopen', priority: 'High priority',
     customer: 'Customer', team: 'Team', internal: 'Internal', typeReply: 'Write your reply…', typeNote: 'A note the customer never sees…',
-    quick: ['Thank you for contacting Mkhadda. I am reviewing your booking and will update you here.', 'We have contacted the hotel and will update you as soon as they reply.', 'Done! The hotel confirmed your request.'],
+    quick: ['Thank you for contacting Pillow Stays. I am reviewing your booking and will update you here.', 'We have contacted the hotel and will update you as soon as they reply.', 'Done! The hotel confirmed your request.'],
     bookingPanel: 'Booking', liveStatus: 'Live status', policy: 'Cancellation policy', timeline: 'Timeline', contact: 'Contact', stay: 'Stay',
     cancellable: 'Cancellable now', notCancellable: 'Not cancellable automatically', penaltyNow: 'Penalty now', free: 'Free', unavailable: 'Unavailable',
     events: { created: 'Booking created', paid: 'Paid', confirmed: 'Hotel confirmed', voucher_sent: 'Voucher sent', cancellation_requested: 'Cancellation requested', cancelled: 'Cancelled', refunded: 'Refunded' },

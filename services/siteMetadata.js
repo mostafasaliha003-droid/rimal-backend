@@ -4,9 +4,9 @@ const PAGE_PATTERNS = PAGES.patterns.map(source => new RegExp(source));
 // The picture shown when a link to the site is shared (1200x630).
 const SHARE_IMAGE = '/pillow/share.jpg';
 const LANGUAGES = {
-    ar: { html: 'ar', locale: 'ar_AE', title: 'مخدة | pillow stays — حجوزات الفنادق', description: 'ابحث عن إقامة تناسبك مع مخدة. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة.' },
-    en: { html: 'en', locale: 'en_US', title: 'Mkhadda | pillow stays — Hotel bookings', description: 'Compare hotel prices, availability, and cancellation terms with Mkhadda (pillow stays).' },
-    es: { html: 'es', locale: 'es_ES', title: 'Mkhadda | pillow stays — Reservas de hoteles', description: 'Compara precios, disponibilidad y condiciones de cancelación de hoteles con Mkhadda (pillow stays).' }
+    ar: { html: 'ar', locale: 'ar_AE', title: 'Pillow Stays | مخدة — حجوزات الفنادق', description: 'ابحث عن إقامة تناسبك مع مخدة. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة.' },
+    en: { html: 'en', locale: 'en_US', title: 'Pillow Stays — Hotel bookings', description: 'Compare hotel prices, availability, and cancellation terms with Pillow Stays.' },
+    es: { html: 'es', locale: 'es_ES', title: 'Pillow Stays — Reservas de hoteles', description: 'Compara precios, disponibilidad y condiciones de cancelación de hoteles con Pillow Stays.' }
 };
 
 function escapeHtml(value) {
@@ -88,7 +88,7 @@ function buildHomeMetadata(language = 'ar', siteUrl = SITE_URL) {
         alternates: alternateLinks(path, siteUrl),
         type: 'website',
         image: new URL(SHARE_IMAGE, siteUrl).href,
-        structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'مخدة | pillow stays', alternateName: 'Mkhadda', url: canonical }
+        structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Pillow Stays', alternateName: ['مخدة', 'Mkhadda'], url: canonical }
     };
 }
 
@@ -105,7 +105,7 @@ function buildHotelMetadata({ hid, hotel, language = 'ar', siteUrl = SITE_URL })
     const path = `/hotel/${encodeURIComponent(String(hid))}`;
     const url = new URL(`${path}?lang=${locale}`, siteUrl);
     const location = [fields.city, fields.country].filter(Boolean).join(', ');
-    const title = `${fields.name}${location ? ` — ${location}` : ''} | مخدة · pillow stays`;
+    const title = `${fields.name}${location ? ` — ${location}` : ''} | Pillow Stays · مخدة`;
     const description = fields.description || (locale === 'ar'
         ? `استكشف تفاصيل ${fields.name}${location ? ` في ${location}` : ''} وقارن عروض الإقامة المتاحة.`
         : locale === 'es'

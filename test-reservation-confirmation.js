@@ -40,8 +40,8 @@ test('a KWD confirmation displays the actual charged currency and three-decimal 
 });
 
 for (const [name, sandbox, blank] of [
-    ['sandbox replaces the known blank placeholder with a marked pillow stays confirmation', true, true],
-    ['production emails only the pillow stays confirmation at the customer price', false, false],
+    ['sandbox replaces the known blank placeholder with a marked Pillow Stays confirmation', true, true],
+    ['production emails only the Pillow Stays confirmation at the customer price', false, false],
     ['production refuses the known blank supplier placeholder', false, true]
 ]) test(name, async context => {
     const oldUser = process.env.SMTP_USER, oldPassword = process.env.SMTP_PASSWORD;
@@ -79,8 +79,10 @@ for (const [name, sandbox, blank] of [
     assert.match(message.html, /cid:mkhadda-symbol@pillowstays/);
     assert.deepEqual(message.from, { name: 'Pillow Stays', address: 'support@pillowstays.app' });
     assert.equal(message.bcc, 'accounts@pillowstays.app', 'accounting keeps a copy of every confirmation');
-    assert.doesNotMatch(message.html, /REMAL/);
-    assert.match(message.html, /Remal Group LLC FZ/);
+    // The confirmation shows the amount paid, so it carries the company's legal details.
+    assert.match(message.html, /REMAL GROUP L\.L\.C-FZ · Licence 2312342\.01 · Meydan Grandstand/);
+    assert.doesNotMatch(message.html, /Remal Group LLC FZ|Remal Tourism/);
+    assert.match(message.subject, /Pillow Stays \| مخدة/);
     assert.equal(message.attachments.some(item => item.content === value.pdfBuffer), false);
     assert.match(message.html, /Double room/);
     assert.equal(message.replyTo, 'support@pillowstays.app');
@@ -92,5 +94,6 @@ test('the PDF confirmation embeds the Mkhadda symbol and font because the render
     assert.match(html, /data:image\/png;base64,/);
     assert.match(html, /font-family:'Plex Arabic'/);
     assert.match(html, /مخدة/);
-    assert.doesNotMatch(html, /REMAL|cid:/);
+    assert.doesNotMatch(html, /cid:/);
+    assert.match(html, /REMAL GROUP L\.L\.C-FZ/);
 });

@@ -347,7 +347,7 @@ export default function AccountCenter({ onNavigate, bookingsOnly = false }) {
         <main dir={direction} className="min-h-[calc(100vh-72px)] bg-[#f7f9fc] px-5 py-10 lg:px-10 lg:py-16">
             <div className="mx-auto grid max-w-5xl gap-8 lg:grid-cols-[0.85fr_1.15fr] lg:items-start">
                 <section className="rounded-3xl bg-gradient-to-br from-[#102a43] to-[#0f8fa3] p-7 text-white shadow-xl sm:p-9">
-                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">مخدة · pillow stays</p>
+                    <p className="text-xs font-black uppercase tracking-[0.16em] text-cyan-100">Pillow Stays · مخدة</p>
                     <h1 className="mt-4 text-4xl font-black leading-tight">{t('account.startAccount', 'حساب واحد لرحلاتك القادمة')}</h1>
                     <p className="mt-4 text-sm font-medium leading-7 text-white/80">{t('account.subtitle', 'احفظ بياناتك، تابع حجوزاتك، وابدأ جمع النقاط من أول إقامة.')}</p>
                     <div className="mt-8 space-y-3 text-sm font-bold text-white/90">

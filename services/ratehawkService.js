@@ -23,7 +23,7 @@ const { englishTravelQuery } = require('../shared/arabicTravelSearch');
 const offerContext = require('./ratehawkOfferContext');
 
 // Fallback name for hotels not yet present in our local static-content cache.
-const FALLBACK_HOTEL_NAME = 'فندق شريك لرمال وفلّها';
+const FALLBACK_HOTEL_NAME = 'فندق شريك';
 
 // Real hotel used to validate financial responsibilities in RateHawk's "Test
 // environment" (a bookable real property) before switching to Production keys.

@@ -18,7 +18,7 @@ const strings = {
         unavailable:'Reviews could not be loaded right now. You can keep exploring room offers.', retry:'Try again', more:'Show more reviews',
         outOf:'out of 10', average:'Average of available reviews', count:'available reviews', numeric:'Average calculated from {{count}} available numeric ratings.',
         positive:'What the guest liked', negative:'What could be improved', author:'Guest', nights:'Nights', excerpt:'Review excerpt',
-        notice:'Reviews are supplied by the provider and shown newest first. They do not imply a booking through Mkhadda.',
+        notice:'Reviews are supplied by the provider and shown newest first. They do not imply a booking through Pillow Stays.',
         sandbox:'Sandbox', sandboxHint:'Review availability and content may differ in the live environment.', language:'Review language: English',
         capped:'This section shows the latest 200 available provider reviews.', expand:'Read more', collapse:'Show less', google:'Additional source: Google Maps',
         cleanness:'Cleanliness', location:'Location', price:'Value for money', services:'Service', room:'Room', meal:'Meals'
@@ -30,7 +30,7 @@ const strings = {
         unavailable:'No se pudieron cargar las opiniones. Puedes seguir consultando las ofertas.', retry:'Reintentar', more:'Ver más opiniones',
         outOf:'de 10', average:'Promedio de opiniones disponibles', count:'opiniones disponibles', numeric:'Promedio de {{count}} puntuaciones numéricas disponibles.',
         positive:'Lo que gustó al huésped', negative:'Aspectos mejorables', author:'Huésped', nights:'Noches', excerpt:'Extracto de la opinión',
-        notice:'Opiniones facilitadas por el proveedor, de más reciente a más antigua. No implican una reserva a través de Mkhadda.',
+        notice:'Opiniones facilitadas por el proveedor, de más reciente a más antigua. No implican una reserva a través de Pillow Stays.',
         sandbox:'Entorno de pruebas', sandboxHint:'La disponibilidad y el contenido pueden variar en producción.', language:'Idioma de las opiniones: inglés',
         capped:'Se muestran las últimas 200 opiniones disponibles del proveedor.', expand:'Leer más', collapse:'Ver menos', google:'Fuente adicional: Google Maps',
         cleanness:'Limpieza', location:'Ubicación', price:'Relación calidad-precio', services:'Servicio', room:'Habitación', meal:'Comidas'
