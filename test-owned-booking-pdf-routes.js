@@ -365,3 +365,28 @@ test('approved room list is encrypted, scoped, and unavailable after five days f
     });
     assert.equal(browser.state.launches, 0);
 });
+
+test('simultaneous voucher downloads never run two Chromes at once, and all of them succeed', async context => {
+    const record = { bookingReference: 'OWNED-QUEUE-1', ownerSubject: 'owner-1', realm, status: 'active', supplierStatus: 'CONFIRMED',
+        supplierReference: 'PARTNER-QUEUE-1', hotelName: 'Queue Hotel', customerName: 'Ada Lovelace', roomType: 'Double room',
+        price: 100, priceCurrency: 'AED', checkInDate: '2026-11-10', checkOutDate: '2026-11-12' };
+    const fixture = createPuppeteerFixture();
+    let open = 0, peak = 0;
+    const launch = fixture.puppeteer.launch;
+    fixture.puppeteer.launch = async () => {
+        const browser = await launch();
+        open += 1; peak = Math.max(peak, open);
+        const page = await browser.newPage();
+        const slowPage = { ...page, on: page.on.bind(page), setContent: page.setContent.bind(page),
+            async pdf() { await new Promise(resolve => setTimeout(resolve, 40)); return page.pdf(); } };
+        return { async newPage() { return slowPage; }, async close() { open -= 1; await browser.close(); } };
+    };
+    const router = makeRouter(record, fixture);
+    await withServer(context, router, async baseUrl => {
+        const responses = await Promise.all([1, 2, 3].map(() => fetch(`${baseUrl}/api/owned/bookings/pdf/${record.bookingReference}`)));
+        assert.deepEqual(responses.map(response => response.status), [200, 200, 200]);
+    });
+    assert.equal(fixture.state.launches, 3);
+    assert.equal(peak, 1, 'one Chrome at a time');
+    assert.equal(open, 0, 'every Chrome is closed');
+});
