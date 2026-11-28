@@ -37,6 +37,43 @@ function followUp(delay = 5000) {
     return new Date(Date.now() + delay);
 }
 
+// Ziina refused the request outright (4xx with a reason), as opposed to a lost or ambiguous answer.
+function ziinaRefused(error) {
+    return Number.isInteger(error?.httpStatus) && error.httpStatus >= 400 && error.httpStatus < 500
+        && ![408, 409, 425, 429].includes(error.httpStatus);
+}
+const REFUND_RESEND_AFTER_MS = 10 * 60 * 1000;
+
+// Refund checks slow down as the refund ages: Ziina usually answers within minutes, banks take days.
+function refundCheckDelay(record, now = Date.now()) {
+    const age = now - new Date(record.refund_sent_at || now).getTime();
+    if (age < 10 * 60 * 1000) return 30 * 1000;
+    if (age < 60 * 60 * 1000) return 2 * 60 * 1000;
+    if (age < 6 * 60 * 60 * 1000) return 10 * 60 * 1000;
+    return 30 * 60 * 1000;
+}
+
+// Sends (or re-sends, with the same refund id) the Ziina refund already recorded on the claimed checkout.
+async function sendZiinaRefund(claimed) {
+    try {
+        const refund = await ziina.createRefund({ id: claimed.refund_id, intentId: claimed.ziina_intent_id,
+            amount: ziina.majorUnits(claimed.refund_amount_minor, claimed.currency), currency: claimed.currency, test: claimed.ziina_test });
+        ziina.validateRefund(refund, { id: claimed.refund_id, intentId: claimed.ziina_intent_id,
+            amount: claimed.refund_amount_minor, currency: claimed.currency });
+        await releaseClaim(claimed, { state: 'refund_pending', refund_status: 'pending', next_check_at: followUp(5000) },
+            { encrypted_details: '', error: '' });
+    } catch (error) {
+        if (ziinaRefused(error)) {
+            logger.error('Ziina refused the refund', { reference: claimed.reference, httpStatus: error.httpStatus, code: error.ziinaCode });
+            await releaseClaim(claimed, { state: 'refund_review', refund_status: 'failed', next_check_at: null,
+                action_required: 'refund_rejected', error: `refund_rejected${error.ziinaCode ? ':' + error.ziinaCode : ''}` });
+            return;
+        }
+        await releaseClaim(claimed, { state: 'refund_unknown', next_check_at: followUp(15000),
+            action_required: 'reconcile_refund', error: 'refund_outcome_unknown' });
+    }
+}
+
 function contactDetails(record) {
     const details = checkout.decryptDetails(record);
     const guest = details.rooms[0].guests[0];
@@ -255,17 +292,7 @@ async function reconcileRefund(record) {
         const claimed = await updateClaim(record, { state: 'refund_creating', refund_id: crypto.randomUUID(),
             refund_amount_minor: record.state === 'booking_failed' ? record.amount_minor : record.refund_amount_minor,
             refund_status: 'pending', refund_sent_at: new Date(), next_check_at: followUp(15000) });
-        try {
-            const refund = await ziina.createRefund({ id: claimed.refund_id, intentId: claimed.ziina_intent_id,
-                amount: ziina.majorUnits(claimed.refund_amount_minor, claimed.currency), currency: claimed.currency, test: claimed.ziina_test });
-            ziina.validateRefund(refund, { id: claimed.refund_id, intentId: claimed.ziina_intent_id,
-                amount: claimed.refund_amount_minor, currency: claimed.currency });
-            await releaseClaim(claimed, { state: 'refund_pending', refund_status: 'pending', next_check_at: followUp(5000) },
-                { encrypted_details: '', error: '' });
-        } catch {
-            await releaseClaim(claimed, { state: 'refund_unknown', next_check_at: followUp(15000),
-                action_required: 'reconcile_refund', error: 'refund_outcome_unknown' });
-        }
+        await sendZiinaRefund(claimed);
         return;
     }
     let refund;
@@ -274,10 +301,21 @@ async function reconcileRefund(record) {
         ziina.validateRefund(refund, { id: record.refund_id, intentId: record.ziina_intent_id,
             amount: record.refund_amount_minor || record.amount_minor, currency: record.currency });
     } catch (error) {
-        await releaseClaim(record, error.code === 'invalid_ziina_refund'
-            ? { state: 'refund_review', next_check_at: null, action_required: 'refund_identity_mismatch', error: 'refund_identity_mismatch' }
-            : { state: 'refund_unknown', next_check_at: followUp(60000),
-                action_required: 'reconcile_refund', error: 'refund_status_unavailable' });
+        if (error.code === 'invalid_ziina_refund') {
+            await releaseClaim(record, { state: 'refund_review', next_check_at: null, action_required: 'refund_identity_mismatch', error: 'refund_identity_mismatch' });
+            return;
+        }
+        // Ziina has no refund under our id: the original send never reached it. Once a send could no
+        // longer be in flight, send it again with the same id (one refund id per checkout, never a new one).
+        if (error.ziinaCode === 'REFUND_NOT_FOUND' && ['refund_unknown', 'refund_creating'].includes(record.state)
+            && Date.now() - new Date(record.refund_sent_at || 0).getTime() > REFUND_RESEND_AFTER_MS
+            && payment.isRefundReady()) {
+            logger.warn('Ziina has no record of the refund; sending it again with the same id', { reference: record.reference });
+            await sendZiinaRefund(record);
+            return;
+        }
+        await releaseClaim(record, { state: 'refund_unknown', next_check_at: followUp(refundCheckDelay(record)),
+            action_required: 'reconcile_refund', error: 'refund_status_unavailable' });
         return;
     }
     if (refund.status === 'completed') {
@@ -291,7 +329,7 @@ async function reconcileRefund(record) {
         await releaseClaim(record, { state: 'refund_review', refund_status: 'failed',
             action_required: 'refund_failed', next_check_at: null });
     } else {
-        await releaseClaim(record, { state: 'refund_pending', refund_status: 'pending', next_check_at: followUp(15000) });
+        await releaseClaim(record, { state: 'refund_pending', refund_status: 'pending', next_check_at: followUp(refundCheckDelay(record)) });
     }
 }
 
@@ -445,6 +483,7 @@ function startCheckoutWorker() {
                 { stayVoucherExpiresAt: { $lte: new Date() } },
                 { $unset: { stayVoucherEncrypted: '', stayVoucherExpiresAt: '' } });
             await require('./cancellationReceiptService').processPendingReceipts();
+            await require('./refundAlertService').alertStuckRefunds();
         } catch {
             logger.error('Checkout reconciliation unavailable');
         } finally {
