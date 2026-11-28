@@ -103,6 +103,10 @@ function createFrontendRouter(projectRoot, { Hotel, siteUrl = SITE_URL, privateM
 
     router.use(['/assets', '/dist/assets'], assetMiddleware);
     router.use('/pillow', express.static(path.join(publicRoot, 'pillow'), { index: false, maxAge: '1d' }));
+    // Public brand files for use outside the site (e-mail signatures): cached for a year, so a
+    // changed image gets a new file name. A missing file is a plain 404, never the app page.
+    router.use('/brand', express.static(path.join(publicRoot, 'brand'), { index: false, fallthrough: false, dotfiles: 'ignore',
+        setHeaders: res => res.setHeader('Cache-Control', ASSET_CACHE_CONTROL) }));
 
     for (const file of publicFiles) {
         router.get(`/${file}`, (req, res, next) => {
