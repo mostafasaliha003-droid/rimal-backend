@@ -88,3 +88,26 @@ test('receipts carry the licensed company details; the TRN appears once COMPANY_
     assert.match(footer({ legal: true, env: {} }), /REMAL GROUP L\.L\.C-FZ/);
     assert.doesNotMatch(footer(), /REMAL|ريمال/, 'other e-mails carry only the support contact');
 });
+
+test('receipt e-mails carry a bilingual text part with the legal line and TRN', async context => {
+    const previous = process.env.COMPANY_TRN;
+    process.env.COMPANY_TRN = '104389072000003';
+    context.after(() => { if (previous === undefined) delete process.env.COMPANY_TRN; else process.env.COMPANY_TRN = previous; });
+    const { notification, sent } = loadNotifications(context);
+    await notification.sendRefundConfirmation({ email: 'guest@example.test', guestName: 'Test Guest', reference: 'RB-3', amountMinor: 4000, currency: 'USD' });
+    await notification.sendCancellationReceipt({ details: { email: 'guest@example.test', reference: 'RB-4', cancellationReference: 'CAN-XYZ',
+        guestName: 'Test Guest', hotelName: 'Fixture Hotel', currency: 'AED', paid: '102.17', fee: '0.00', refund: '102.17', refundStatus: 'pending',
+        sandbox: false, issuedAt: '2026-11-28T12:26:13.000Z', requestedAt: '2026-11-28T12:26:09.000Z' }, buffer: Buffer.from('%PDF-1.4 fixture') });
+    const legal = 'مجموعة ريمال ش.ذ.م.م-منطقة حرة · REMAL GROUP L.L.C-FZ · Licence 2312342.01 · Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, UAE · TRN 104389072000003';
+    const [refund, receipt] = sent;
+    for (const message of [refund, receipt]) {
+        assert.ok(message.text.includes(legal), 'text part ends with the legal line and TRN');
+        assert.match(message.text, /[؀-ۿ]/, 'text part has Arabic');
+        assert.match(message.text, /support@pillowstays\.app/);
+    }
+    assert.match(receipt.text, /مرجع الإلغاء: CAN-XYZ/);
+    assert.match(receipt.text, /Cancellation reference: CAN-XYZ/);
+    assert.match(receipt.text, /الاسترداد قيد المعالجة/);
+    assert.match(refund.text, /المبلغ المسترد: 40\.00 USD/);
+    assert.ok(refund.html.includes('TRN 104389072000003'), 'refund HTML carries the legal line too');
+});

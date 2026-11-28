@@ -67,11 +67,23 @@ async function sendRefundConfirmation({ email, guestName, reference, amountMinor
     if (!process.env.SMTP_USER || !process.env.SMTP_PASSWORD || !Number.isSafeInteger(amountMinor)
         || amountMinor <= 0 || !/^[A-Z]{3}$/.test(currency)) throw new Error('refund_email_unavailable');
     const amount = require('./ziinaClient').formatAmountMinor(amountMinor, currency);
-    const text = `Your refund has been confirmed. Reference: ${reference}. Refunded amount: ${amount} ${currency}. Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.`;
-    const html = `<p>Dear ${escapeHtml(guestName)},</p><p>Your refund has been confirmed for reservation ${escapeHtml(reference)}.</p>`
+    const text = [
+        ...(sandbox === true ? ['SANDBOX · مستند تجريبي · Test document', ''] : []),
+        `تم تأكيد استرداد المبلغ لحجزك ${reference}. المبلغ المسترد: ${amount} ${currency}.`,
+        'يُقدَّر ظهور المبلغ في بطاقتك خلال 5 إلى 14 يوم عمل بعد تأكيد بوابة الدفع معالجة الاسترداد، حسب البنك ودون احتساب عطلاته. إذا لم يظهر بعد هذه المدة، تواصل معنا بمرجع الطلب.',
+        '',
+        `Your refund has been confirmed for reservation ${reference}. Refunded amount: ${amount} ${currency}.`,
+        'Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.',
+        '',
+        documentBrand.BRAND.support,
+        documentBrand.companyLegalLine(),
+    ].join('\n');
+    const html = `<p dir="rtl">تم تأكيد استرداد المبلغ لحجزك ${escapeHtml(reference)}. المبلغ المسترد: ${escapeHtml(amount)} ${escapeHtml(currency)}.</p>`
+        + `<p>Dear ${escapeHtml(guestName)},</p><p>Your refund has been confirmed for reservation ${escapeHtml(reference)}.</p>`
         + `<p>Refunded amount: ${escapeHtml(amount)} ${escapeHtml(currency)}.</p>`
         + '<p dir="rtl">يُقدَّر ظهور المبلغ في بطاقتك خلال 5 إلى 14 يوم عمل بعد تأكيد بوابة الدفع معالجة الاسترداد، حسب البنك ودون احتساب عطلاته. إذا لم يظهر بعد هذه المدة، تواصل معنا بمرجع الطلب.</p>'
-        + '<p>Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.</p>';
+        + '<p>Estimated card-credit time: 5–14 business days after gateway confirmation, depending on your bank and excluding bank non-working days. Contact us with your reference if the credit has not appeared after this period.</p>'
+        + documentBrand.footer({ legal: true });
     const result = await transporter.sendMail({
         ...documentBrand.customerMailHeaders({ withAccountsCopy: true }), to: email,
         subject: `${sandbox === true ? '[SANDBOX] ' : ''}Reservation refund confirmation | ${reference}`, text, html
@@ -201,7 +213,7 @@ module.exports = {
         const result = await transporter.sendMail({ ...documentBrand.customerMailHeaders({ withAccountsCopy: true }),
             to: details.email,
             subject: `${details.sandbox === true ? '[SANDBOX] ' : ''}${documentBrand.BRAND.sender} | تأكيد الإلغاء وطلب الاسترداد | ${details.reference}`,
-            text: `Cancellation confirmed: ${details.reference}. Refund status: ${details.refundStatus}. Amount: ${details.refund} ${details.currency}. Estimated card-credit time: 5–14 business days after the gateway confirms refund processing, depending on your bank and excluding bank non-working days. Your cancellation receipt is attached.`,
+            text: require('./cancellationReceiptService').renderReceiptText(details),
             html: require('./cancellationReceiptService').renderReceipt(details),
             attachments: [{ filename: documentBrand.documentFileName('CancellationReceipt', details.reference, details.issuedAt || new Date()),
                 content: buffer, contentType: 'application/pdf' },
