@@ -18,9 +18,9 @@ const config: ExpoConfig = {
   userInterfaceStyle: 'automatic',
   platforms: ['android', 'ios', 'web'],
   android: {
-    // Production identity entered in the owner-created Play draft, 16 Nov 2026.
-    // Keep internal previews separate from the store application.
-    package: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
+    // Store identity app.pillowstays (owner decision 2026-11-28: no bundle was ever uploaded under the
+    // old com.remalbookings.app draft). Internal previews stay a separate application.
+    package: production ? 'app.pillowstays' : 'app.pillowstays.preview',
     versionCode: 64,
     adaptiveIcon: {
       foregroundImage: './assets/pillow-adaptive.png',
@@ -44,7 +44,7 @@ const config: ExpoConfig = {
   },
   ios: {
     supportsTablet: true,
-    bundleIdentifier: production ? 'com.remalbookings.app' : 'com.remalbookings.app.preview',
+    bundleIdentifier: production ? 'app.pillowstays' : 'app.pillowstays.preview',
     // Kept equal to android.versionCode so both stores count releases the same way.
     buildNumber: '64',
     infoPlist: {

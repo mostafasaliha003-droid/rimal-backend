@@ -2,9 +2,9 @@
   "prepared_on": "2026-11-18",
   "brand": "Mkhadda",
   "operator": "Remal Tourism",
-  "identity_status": "Owner-approved exact title and completed Console draft creation; application dashboard observed. No binary uploaded or public release.",
-  "proposed_android_package": "com.remalbookings.app",
-  "package_status": "com.remalbookings.app entered in the owner-completed Play draft creation on 16 November 2026; verify final signed AAB namespace before upload.",
+  "identity_status": "Old draft com.remalbookings.app: never received a bundle (App bundle explorer empty, 0 production apps, checked by the owner 28 Nov 2026). New identity app.pillowstays; store title to follow the brand decision.",
+  "proposed_android_package": "app.pillowstays",
+  "package_status": "app.pillowstays chosen on 28 November 2026. Play Console showed no bundle under the old com.remalbookings.app draft; that draft is to be deleted and a new app created with app.pillowstays when the first AAB is built.",
   "publication_status": "Unpublished Play Console draft; store listing text remains unsubmitted pending native release verification.",
   "limits": {
     "title": 30,
@@ -61,7 +61,7 @@
   ],
   "required_before_submission": [
     "Validate all feature claims against the signed native build and remove any undelivered function.",
-    "Apply the owner-approved exact title مخدّة | Mkhadda and retain package com.remalbookings.app; verify the final Console form before creating an app record.",
+    "Apply the owner-approved exact title مخدّة | Mkhadda and use package app.pillowstays; verify the final Console form before creating an app record.",
     "Verify support email ownership and actual response process.",
     "Provide live branded privacy and account-deletion request URLs; do not insert placeholder URLs.",
     "Capture genuine native screenshots and final app icon assets while preserving the Remal Tourism operator identity.",

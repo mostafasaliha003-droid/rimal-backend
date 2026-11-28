@@ -2,7 +2,7 @@
 
 Prepared: **17 November 2026**. These are developer preparation documents, not a submitted Play declaration or evidence of an approved release.
 
-Owner-approved app title, exactly in both locales: **مخدّة | Mkhadda**. Brand: **Mkhadda**; operator and website/support identity: **Remal Tourism**. The planned, configured production package is `com.remalbookings.app`; first-AAB/Play assignment remains unverified. The application's Play Console dashboard was independently observed after creation on 16 November 2026. The application remains an unpublished draft.
+Owner-approved app title, exactly in both locales: **مخدّة | Mkhadda**. Brand: **Mkhadda**; operator and website/support identity: **Remal Tourism**. The production package is `app.pillowstays` (since 28 Nov 2026; the old `com.remalbookings.app` Play draft never received a bundle). The application's Play Console dashboard was independently observed after creation on 16 November 2026. The application remains an unpublished draft.
 
 ## Current evidence
 

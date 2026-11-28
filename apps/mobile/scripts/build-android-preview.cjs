@@ -11,7 +11,7 @@ const { spawnSync } = require('node:child_process');
 const { createAttempt, checkpointAttempt, loadAttempt, verifyAndPublish } = require('./android-preview-attempt.cjs');
 
 const PROJECT = path.resolve(__dirname, '..');
-const APPLICATION_ID = 'com.remalbookings.app.preview';
+const APPLICATION_ID = 'app.pillowstays.preview';
 const ARCHITECTURES = ['arm64-v8a'];
 const CMAKE_VERSION = '3.31.6';
 const FORBIDDEN_PERMISSIONS = new Set([
@@ -253,7 +253,7 @@ function buildPreview(options) {
   if (fs.existsSync(apkPath) && fs.statSync(apkPath).isFile()) fs.copyFileSync(apkPath, path.join(attempt.directory, 'previous-native-output.unverified.apk'), fs.constants.COPYFILE_EXCL);
   command(process.execPath, [expoCli, 'prebuild', '--platform', 'android', '--no-install', '--no-clean']);
   const gradleSource = fs.readFileSync(path.join(nativeDirectory, 'app', 'build.gradle'), 'utf8');
-  if (!/applicationId\s+['"]com\.remalbookings\.app\.preview['"]/.test(gradleSource)) throw new Error('Only the staging preview application may be built.');
+  if (!/applicationId\s+['"]app\.pillowstays\.preview['"]/.test(gradleSource)) throw new Error('Only the staging preview application may be built.');
   const debugKey = requireFile(path.join(nativeDirectory, 'app', 'debug.keystore'), 'Generated template debug keystore');
   if (sha256(fs.readFileSync(debugKey)) !== sha256(tools.templateKey)) throw new Error('Generated debug keystore differs from the installed Expo template.');
   const keyDescription = command(tools.keytool, ['-J-Duser.language=en', '-J-Duser.country=US', '-list', '-v', '-keystore', debugKey, '-storepass', 'android', '-alias', 'androiddebugkey'], { capture: true });

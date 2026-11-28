@@ -52,7 +52,7 @@ function fixture(t) {
     gradle: { exitCode: 0, task: ':app:assembleRelease' },
   });
   const verified = () => ({
-    metadata: { applicationId: 'com.remalbookings.app.preview', architectures: ['arm64-v8a'] },
+    metadata: { applicationId: 'app.pillowstays.preview', architectures: ['arm64-v8a'] },
     signerSha256: template.signerSha256,
   });
   const publish = (verifyCandidate = verified) => verifyAndPublish(attempt.checkpointPath, {
