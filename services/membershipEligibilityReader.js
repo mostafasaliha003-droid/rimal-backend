@@ -71,7 +71,13 @@ function parseTsv(tsv){
     }
     return {lines:[...lines.values()].map(line=>({text:line.words.join(' '),confidence:Math.min(...line.confidences)}))};
 }
-function createLocalDocumentReader({env=process.env,spawnProcess=spawn}={}){
+// OCR reads share the process-wide heavy-work queue with Chrome PDFs (services/chromeQueue.js), so an
+// OCR read and a PDF never run at once. An unconfigured reader still fails at once, without a turn.
+function createLocalDocumentReader({env=process.env,spawnProcess=spawn,withHeavyWork=require('./chromeQueue').withHeavyWork}={}){
+    const reader=createUnqueuedReader({env,spawnProcess});
+    return {configured:reader.configured,read:(buffer,options)=>reader.configured()?withHeavyWork(()=>reader.read(buffer,options)):reader.read(buffer,options)};
+}
+function createUnqueuedReader({env,spawnProcess}){
     if(env.MEMBERSHIP_OCR_ENGINE==='wasm')return require('./membershipWasmReader').createWasmDocumentReader({env,parseTsv});
     const configured=()=>env.MEMBERSHIP_OCR_ENABLED==='true'&&typeof env.MEMBERSHIP_TESSERACT_PATH==='string'&&env.MEMBERSHIP_TESSERACT_PATH.length>0;
     const read=buffer=>new Promise((resolve,reject)=>{
