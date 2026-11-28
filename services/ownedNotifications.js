@@ -21,9 +21,10 @@ function createOwnedNotificationsHandler({ Booking, Notice, Checkout, Conversati
         if (req.auth?.role !== 'user' || !req.auth.subject || !req.auth.realm) return res.sendStatus(401);
         const scope = { ownerSubject: req.auth.subject, realm: req.auth.realm };
         try {
-            const [membership, bookings, refunds, replies] = await Promise.all([
+            const [membership, bookings, cancellations, refunds, replies] = await Promise.all([
                 recent(Notice, { ...scope, event: { $in: membershipEvents } }, 'createdAt', 'event'),
                 recent(Booking, { ...scope, confirmedAt: { $type: 'date' } }, 'confirmedAt', 'bookingReference'),
+                recent(Booking, { ...scope, cancelledAt: { $type: 'date' } }, 'cancelledAt', 'bookingReference'),
                 recent(Checkout, { ...scope, state: 'refund_completed', refund_verified_at: { $type: 'date' } }, 'refund_verified_at', 'reference'),
                 // The team's latest reply in each of the guest's support conversations.
                 Conversation ? recent(Conversation, { ...scope, lastStaffAt: { $type: 'date' } }, 'lastStaffAt', 'reference customerReadAt') : []
@@ -31,6 +32,7 @@ function createOwnedNotificationsHandler({ Booking, Notice, Checkout, Conversati
             const notifications = [
                 ...membership.flatMap(row => notification(row, 'membership', row.event, 'createdAt')),
                 ...bookings.flatMap(row => notification(row, 'booking', 'confirmed', 'confirmedAt', row.bookingReference)),
+                ...cancellations.flatMap(row => notification(row, 'booking', 'cancelled', 'cancelledAt', row.bookingReference)),
                 ...refunds.flatMap(row => notification(row, 'booking', 'refunded', 'refund_verified_at', row.reference)),
                 ...replies.flatMap(row => notification(row, 'support', 'reply', 'lastStaffAt', row.reference,
                     { unread: !row.customerReadAt || new Date(row.customerReadAt) < new Date(row.lastStaffAt) }))

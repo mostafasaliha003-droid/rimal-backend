@@ -125,7 +125,9 @@ async function syncCancelled(partnerOrderId, cancellation) {
     const Booking = mongoose.models.Booking;
     if (Booking) {
         await Booking.updateOne({ provider: 'ratehawk', $or: [{ supplierReference: partnerOrderId }, { bookingReference: partnerOrderId }] }, {
-            $set: { status: 'cancelled', supplierStatus: 'CANCELLED' }
+            $set: { status: 'cancelled', supplierStatus: 'CANCELLED' },
+            // $min keeps the first confirmation time if this step runs again.
+            $min: { cancelledAt: new Date() }
         });
     }
     await BookingProcess.updateOne({ partner_order_id: partnerOrderId }, {
