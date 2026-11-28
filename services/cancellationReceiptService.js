@@ -3,7 +3,7 @@ const Cancellation = require('../models/BookingCancellation');
 const Checkout = require('../models/CheckoutAttempt');
 const ziina = require('./ziinaClient');
 const pdf = require('./reservationConfirmationService');
-const { C, FONT_STACK, EMAIL_SYMBOL_CID, embeddedAssets, pdfFontFaces, wordmark, statusPill, footer } = require('./documentBrand');
+const { C, FONT_STACK, EMAIL_SYMBOL_CID, embeddedAssets, pdfFontFaces, wordmark, statusPill, footer, BRAND, companyLegalLine } = require('./documentBrand');
 const esc = value => String(value ?? '').replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 const STATUS = {
     pending: ['الاسترداد قيد المعالجة', 'Refund processing'],
@@ -94,4 +94,25 @@ async function processPendingReceipts() {
         }
     }
 }
-module.exports = { receiptDetails, renderReceipt, renderReceiptPdf, loadReceipt, generateReceipt, sendReceipt, processPendingReceipts };
+// Plain-text part of the receipt e-mail: Arabic then English, with the same legal details as the HTML.
+function renderReceiptText(details, env = process.env) {
+    const status = STATUS[details.refundStatus];
+    if (!status) throw new Error('cancellation_receipt_status_invalid');
+    return [
+        ...(details.sandbox ? ['SANDBOX · مستند تجريبي · Test document', ''] : []),
+        'تم تأكيد إلغاء حجزك.',
+        `مرجع الحجز: ${details.reference} · مرجع الإلغاء: ${details.cancellationReference}`,
+        `حالة الاسترداد: ${status[0]} · المبلغ: ${details.refund} ${details.currency}`,
+        'يُقدَّر ظهور المبلغ في بطاقتك خلال 5 إلى 14 يوم عمل بعد تأكيد بوابة الدفع معالجة الاسترداد، حسب البنك ودون احتساب عطلاته. قسيمة الإلغاء مرفقة.',
+        '',
+        'Your booking is cancelled.',
+        `Booking reference: ${details.reference} · Cancellation reference: ${details.cancellationReference}`,
+        `Refund status: ${status[1]} · Amount: ${details.refund} ${details.currency}`,
+        'Estimated card-credit time: 5–14 business days after the gateway confirms refund processing, depending on your bank and excluding bank non-working days. Your cancellation receipt is attached.',
+        '',
+        BRAND.support,
+        companyLegalLine(env),
+    ].join('\n');
+}
+
+module.exports = { receiptDetails, renderReceipt, renderReceiptText, renderReceiptPdf, loadReceipt, generateReceipt, sendReceipt, processPendingReceipts };
