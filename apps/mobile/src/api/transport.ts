@@ -24,7 +24,7 @@ function bareCheckoutRoute(method: string, path: string) {
 export function allowedRoute(method: string, path: string) {
   if (method === 'GET' && (path === '/client-region' || path === '/payment/rates')) return true;
   if ((method === 'GET' || method === 'POST') && cancellationRoute(path)) return method === 'GET' || !path.endsWith('/status');
-  // Mkhadda care: list and open conversations, read one, post a message.
+  // Pillow Stays care: list and open conversations, read one, post a message.
   if (supportRoute(path)) return method === 'GET' ? !path.endsWith('/messages') : method === 'POST' && (path === '/support/conversations' || path.endsWith('/messages'));
   if (method === 'PUT') return path === '/membership/application' || /^\/membership\/application\/documents\/(passport|eid_front|eid_back)$/.test(path);
   if (method === 'GET') return ['/owned/notifications', '/membership/status', '/search/suggest', '/auth/session', '/auth/account-deletion', '/user/profile', '/payment/availability', '/v1/hotels/reviews/summary'].includes(path)

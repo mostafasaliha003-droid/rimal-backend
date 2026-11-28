@@ -118,7 +118,7 @@ export function AccessGate() {
     {access === 'offline' ? <View style={styles.panel}>
       <StatePanel icon="offline" title={ar ? 'لا يمكننا التحقق من عضويتك الآن' : 'We can’t check your membership right now'}
         body={ar ? 'مخدة للأعضاء فقط، ونحتاج اتصالاً بالإنترنت للتأكد من عضويتك. تحقق من الاتصال ثم أعد المحاولة.'
-          : 'Mkhadda is for members only, and we need a connection to confirm your membership. Check your connection and try again.'} retry={refresh}/>
+          : 'Pillow Stays is for members only, and we need a connection to confirm your membership. Check your connection and try again.'} retry={refresh}/>
     </View> : <>
       <Image accessible={false} source={require('../../assets/pillow-symbol.png')} resizeMode="contain" style={styles.symbol}/>
       <ActivityIndicator color={color.interactive} accessibilityLabel={ar ? 'جارٍ التحميل' : 'Loading'}/>

@@ -60,7 +60,7 @@ test('only an authenticated admin can join the admin room or send as the admin',
     assert.equal(admin.socket.rooms.has('admin_chat_room'), true);
     await admin.events.get('join_chat')({ referenceCode: 'RML-BOOKING-1' });
     await admin.events.get('send_message')({ referenceCode: 'RML-BOOKING-1', sender: 'customer', message: 'Approved reply' });
-    assert.equal(admin.emitted.find(event => event.event === 'receive_message')?.data.sender, 'الإدارة (Remal)');
+    assert.equal(admin.emitted.find(event => event.event === 'receive_message')?.data.sender, 'فريق مخدة');
 });
 
 test('chat bounds user text and escapes it before sending email', async () => {

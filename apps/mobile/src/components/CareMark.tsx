@@ -1,7 +1,7 @@
 import React from 'react';
 import Svg, { Circle, Defs, Path, RadialGradient, Rect, Stop } from 'react-native-svg';
 
-/** The Mkhadda care mark: a soft pillow-shaped speech bubble with three dots, on a glowing plum tile. */
+/** The Pillow Stays care mark: a soft pillow-shaped speech bubble with three dots, on a glowing plum tile. */
 export default function CareMark({ size = 56 }: { size?: number }) {
   return <Svg width={size} height={size} viewBox="0 0 56 56" accessible={false}>
     <Defs>

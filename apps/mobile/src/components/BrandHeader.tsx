@@ -10,13 +10,13 @@ import { Badge, Icon, Row, Txt } from './Primitives';
 import { useLayout } from './motion';
 import { useMemberAccess } from './MemberAccess';
 
-/** The approved Mkhadda symbol and bilingual wordmark. */
+/** The approved Pillow Stays symbol and bilingual wordmark. */
 export function PillowWordmark({ stacked = false }: { stacked?: boolean }) {
-  return <View accessible accessibilityRole="image" accessibilityLabel="مخدة pillow stays" style={{ flexDirection: stacked ? 'column' : 'row', alignItems: 'center', gap: stacked ? 2 : 6 }}>
+  return <View accessible accessibilityRole="image" accessibilityLabel="مخدة Pillow Stays" style={{ flexDirection: stacked ? 'column' : 'row', alignItems: 'center', gap: stacked ? 2 : 6 }}>
     <Image accessible={false} source={require('../../assets/pillow-symbol.png')} resizeMode="contain" style={{ width: stacked ? 67 : 32, height: stacked ? 51 : 32 }}/>
     <View style={{ alignItems: 'center' }}>
       <Text accessible={false} allowFontScaling={!stacked} style={{ fontFamily: fonts.bold, fontSize: stacked ? 28 : 21, lineHeight: stacked ? 36 : 26, color: color.textBrand, writingDirection: 'rtl' }}>مخدة</Text>
-      <Text accessible={false} allowFontScaling={!stacked} style={{ fontFamily: 'ManropeMedium', fontSize: stacked ? 12 : 10, lineHeight: stacked ? 16 : 13, letterSpacing: .4, color: color.textBrand, writingDirection: 'ltr' }}>pillow stays</Text>
+      <Text accessible={false} allowFontScaling={!stacked} style={{ fontFamily: 'ManropeMedium', fontSize: stacked ? 12 : 10, lineHeight: stacked ? 16 : 13, letterSpacing: .4, color: color.textBrand, writingDirection: 'ltr' }}>Pillow Stays</Text>
     </View>
   </View>;
 }

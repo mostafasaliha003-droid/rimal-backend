@@ -75,7 +75,7 @@ function renderStayVoucher(booking, { language, hotelbeds, snapshot, issuedAt = 
                     ? local('طفل', 'Child') + (Number.isInteger(person.age) ? ' (' + person.age + ')' : '')
                     : local('بالغ', 'Adult')) + '</td></tr>').join('') + '</tbody></table></div>';
     }).join('');
-    const references = cell('رقم حجز مخدة', 'Pillow stays reference', text(booking.bookingReference))
+    const references = cell('رقم حجز مخدة', 'Pillow Stays reference', text(booking.bookingReference))
         + (supplier ? cell('مرجع المورد', 'Supplier reference', supplier.hotelbedsBookingReference)
             + cell('مرجع الوكالة', 'Agency reference', supplier.agencyReference)
             : cell('مرجع طلب الشريك', 'Partner order reference', /^pending$/i.test(booking.supplierReference || '') ? '' : text(booking.supplierReference)));
@@ -107,7 +107,7 @@ function renderStayVoucher(booking, { language, hotelbeds, snapshot, issuedAt = 
         guests: section('أسماء النزلاء', 'Guest details', guestRows), terms: section('الشروط والمعلومات المهمة', 'Terms & important information', terms),
         legal: hotelbeds ? '<p class="legal" lang="en" dir="ltr">' + value(hotelbeds.paymentStatement) + '</p>' : '',
         supportTitle: local('دعم النزلاء', 'Guest support'), support: local('اذكر رقم حجز مخدة عند التواصل مع الدعم.',
-            'Include your Pillow stays booking reference when contacting support.') + ' · <bdi>support@pillowstays.app</bdi>'
+            'Include your Pillow Stays booking reference when contacting support.') + ' · <bdi>support@pillowstays.app</bdi>'
     };
     return template.replace(/\{\{(\w+)\}\}/g, (_match, key) => replacements[key]);
 }

@@ -74,7 +74,7 @@ function AccountMembership() {
   }
   return <View style={accountStyles.member}><Pressable testID="account-membership" accessibilityRole="button" onPress={() => router.push('/membership')} style={{ minHeight: 56, justifyContent: 'center' }}>
     <Row><View style={accountStyles.memberIcon}><Icon name={membership?.canAccess ? 'check' : 'users'} size={19} color={colors.leafInk}/></View><View style={{ flex: 1, gap: 2 }}>
-      <Txt kind="label">{ar ? 'عضوية مخدة' : 'Pillow stays membership'}</Txt>
+      <Txt kind="label">{ar ? 'عضوية مخدة' : 'Pillow Stays membership'}</Txt>
       <Txt kind="small" accessibilityLiveRegion="polite" style={membership?.canAccess ? { color: colors.success } : undefined}>{detail}</Txt>
     </View><Icon name="chevron" size={18}/></Row>
   </Pressable>

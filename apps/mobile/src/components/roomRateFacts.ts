@@ -12,7 +12,7 @@ import { localizedBedding } from './roomNameModel';
 
 const en = {
   price: 'Room total for all nights', meal: 'Meals', cancellation: 'Cancellation', payment: 'Payment', fees: 'At the property', bedding: 'Beds',
-  unknown: 'Not specified', noPrice: 'Price unavailable', partnerPayment: 'Through Mkhadda',
+  unknown: 'Not specified', noPrice: 'Price unavailable', partnerPayment: 'Through Pillow Stays',
   included: 'Listed taxes included', other: 'Other fees unspecified',
   feesUnknown: 'Local fees, if any', unknownTotal: 'Total unspecified', terms: 'Full rate terms', compare: 'Compare',
   selected: 'Added', compareTitle: 'Compare offers', clear: 'Clear', close: 'Close', differences: 'Differences only',

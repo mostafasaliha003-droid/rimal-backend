@@ -76,3 +76,15 @@ test('the cancellation receipt goes from support@, copies accounts@ and names it
     assert.equal(message.attachments[0].filename, 'PillowStays-CancellationReceipt-RB-2-20261128.pdf');
     assert.equal(message.attachments[0].contentType, 'application/pdf');
 });
+
+test('receipts carry the licensed company details; the TRN appears once COMPANY_TRN is set', () => {
+    const { companyLegalLine, footer, COMPANY } = documentBrand;
+    assert.equal(COMPANY.name, 'REMAL GROUP L.L.C-FZ');
+    assert.equal(COMPANY.nameAr, 'مجموعة ريمال ش.ذ.م.م-منطقة حرة');
+    assert.equal(companyLegalLine({}),
+        'مجموعة ريمال ش.ذ.م.م-منطقة حرة · REMAL GROUP L.L.C-FZ · Licence 2312342.01 · Meydan Grandstand, 6th floor, Meydan Road, Nad Al Sheba, Dubai, UAE');
+    assert.match(companyLegalLine({ COMPANY_TRN: '100 1234 5678 9003' }), / · TRN 100123456789003$/);
+    assert.doesNotMatch(companyLegalLine({ COMPANY_TRN: '12345' }), /TRN/, 'an invalid TRN is never printed');
+    assert.match(footer({ legal: true, env: {} }), /REMAL GROUP L\.L\.C-FZ/);
+    assert.doesNotMatch(footer(), /REMAL|ريمال/, 'other e-mails carry only the support contact');
+});

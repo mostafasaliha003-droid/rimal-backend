@@ -25,7 +25,7 @@ const textDirection = (body: string) => messageDirection(body) === 'rtl'
 const clock = () => Date.now();
 
 /*
- * Mkhadda care: the booking's private conversation with the team, inside the app. It is the
+ * Pillow Stays care: the booking's private conversation with the team, inside the app. It is the
  * same conversation the team answers from its dashboard, so the guest never signs in twice
  * or repeats the booking details. Messages send optimistically and retry with the same id.
  */

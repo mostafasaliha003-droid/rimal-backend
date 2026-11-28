@@ -46,14 +46,14 @@ function NoticeList({ signedIn, loading }: { signedIn: boolean; loading: boolean
   // Each notice is one row: what happened, when, and where it leads.
   const notice = (row: OwnedNotice) => {
     const booking = row.kind === 'booking', reply = row.kind === 'support' && !!row.reference;
-    const headline = reply ? (rtl ? 'ردّ فريق مخدة على رسالتك' : 'The Mkhadda team replied')
+    const headline = reply ? (rtl ? 'ردّ فريق مخدة على رسالتك' : 'The Pillow Stays team replied')
       : row.event === 'confirmed' ? (rtl ? 'تم تأكيد حجزك' : 'Booking confirmed')
       : row.event === 'cancelled' ? (rtl ? 'أُلغي حجزك، ونتابع الاسترداد' : 'Booking cancelled · refund under way')
       : row.event === 'refunded' ? (rtl ? 'تم التحقق من الاسترداد' : 'Refund verified') : statusText[row.event as keyof typeof statusText][rtl ? 0 : 1];
     const icon: IconName = reply ? 'chat' : row.event === 'confirmed' ? 'checkCircle' : row.event === 'cancelled' ? 'close' : row.event === 'refunded' ? 'wallet' : 'users';
     const tint = row.event === 'confirmed' ? color.success : color.interactiveStrong;
     const when = row.at ? new Intl.DateTimeFormat(language === 'ar' ? 'ar-AE-u-nu-latn' : 'en-GB', { dateStyle: 'medium', timeStyle: 'short' }).format(new Date(row.at)) : '';
-    const where = reply ? (rtl ? 'عناية مخدة' : 'Mkhadda care') : booking ? t('trips') : (rtl ? 'العضوية' : 'Membership');
+    const where = reply ? (rtl ? 'عناية مخدة' : 'Pillow Stays care') : booking ? t('trips') : (rtl ? 'العضوية' : 'Membership');
     return <Pressable key={row.id} testID={'notice-' + row.id} accessibilityRole="button" accessibilityLabel={[headline, when, where].filter(Boolean).join(' · ')}
       onPress={() => reply ? router.push({ pathname: '/care/[reference]', params: { reference: row.reference! } }) : router.navigate(booking ? '/bookings' : '/membership')}
       style={state => [styles.row, (state.pressed || hovered(state)) && { backgroundColor: color.bgMuted }]}>

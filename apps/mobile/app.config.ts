@@ -8,7 +8,14 @@ if (!['staging', 'production'].includes(environment)) {
 const production = environment === 'production';
 
 const config: ExpoConfig = {
-  name: production ? 'مخدة | pillow stays' : 'pillow stays Preview',
+  // Home-screen name: "Pillow Stays", and "مخدة" on Arabic devices (locales below).
+  name: production ? 'Pillow Stays' : 'Pillow Stays Preview',
+  locales: {
+    ar: {
+      ios: { CFBundleDisplayName: production ? 'مخدة' : 'مخدة Preview' },
+      android: { app_name: production ? 'مخدة' : 'مخدة Preview' },
+    },
+  },
   slug: 'mkhadda',
   version: '0.64.0',
   orientation: 'default',

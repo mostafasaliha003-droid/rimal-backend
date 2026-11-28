@@ -20,7 +20,7 @@ const copy = {
     },
     en: {
         eyebrow: 'Private access. More possibilities.', title: 'Your next stay is worth getting in for.',
-        intro: 'Jumeirah shores, the energy of Dubai, or somewhere new worldwide. Open the door to stay rates for approved pillow stays members.',
+        intro: 'Jumeirah shores, the energy of Dubai, or somewhere new worldwide. Open the door to stay rates for approved Pillow Stays members.',
         destinations: ['Jumeirah & the beach', 'Downtown Dubai', 'Destinations worldwide'],
         descriptions: ['A nearby escape that feels a world away.', 'Stay close to everything you want to explore.', 'A new city. Memories worth the journey.'],
         styles: ['Coastal escapes', 'City stays', 'Your next journey'],

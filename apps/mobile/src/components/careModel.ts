@@ -2,7 +2,7 @@ import type { SupportConversation, SupportMessage, SupportTopic } from '../api/s
 import { localeFor } from './format';
 
 /*
- * Mkhadda care: the words and the shape of a booking's conversation with the team.
+ * Pillow Stays care: the words and the shape of a booking's conversation with the team.
  * Nothing here promises a reply time or an outcome the hotel has not given: a request is
  * "sent to the team", a change is "asked of the hotel", and only the team's reply settles it.
  */
@@ -15,7 +15,7 @@ export const serverTopic = (intent: CareIntent): SupportTopic => intent === 'cha
 export function careCopy(language: string) {
   const ar = language === 'ar';
   return {
-    brand: ar ? 'عناية مخدة' : 'Mkhadda care',
+    brand: ar ? 'عناية مخدة' : 'Pillow Stays care',
     tagline: ar ? 'محادثة خاصة بحجزك مع فريقنا. ما تكتبه هنا يصل للفريق مرتبطاً بحجزك، فلا داعي لإعادة التفاصيل.'
       : 'A private conversation about your booking with our team. What you write arrives linked to the booking, so there is nothing to repeat.',
     promises: ar ? ['مرتبطة بحجزك', 'خاصة بك وحدك', 'الرد يصلك هنا'] : ['Linked to your booking', 'Private to you', 'Replies arrive here'],
@@ -23,7 +23,7 @@ export function careCopy(language: string) {
     send: ar ? 'إرسال' : 'Send',
     sending: ar ? 'جارٍ الإرسال' : 'Sending',
     failed: ar ? 'لم تُرسل. اضغط لإعادة المحاولة' : 'Not sent. Tap to retry',
-    team: ar ? 'فريق مخدة' : 'Mkhadda team',
+    team: ar ? 'فريق مخدة' : 'Pillow Stays team',
     you: ar ? 'أنت' : 'You',
     emptyTitle: ar ? 'كيف نقدر نساعدك؟' : 'How can we help?',
     emptyBody: ar ? 'اختر من الاقتراحات أو اكتب بكلماتك. يرد فريقنا هنا في هذه المحادثة.' : 'Pick a suggestion or write in your own words. Our team replies here, in this conversation.',

@@ -28,7 +28,7 @@ const isZero = (money: Money) => Number(money.amount) === 0;
  * Cancelling a booking inside the app. The traveler sees the exact fee and refund for cancelling
  * now (held for a few minutes), agrees once, and follows the cancellation with the hotel and the
  * refund live (to the card, or through Tabby for a Tabby payment). When the booking cannot be
- * cancelled automatically, the page says why and opens Mkhadda care in the app.
+ * cancelled automatically, the page says why and opens Pillow Stays care in the app.
  */
 export default function CancelBookingScreen() {
   const { reference: param } = useLocalSearchParams<{ reference?: string }>();
@@ -152,7 +152,7 @@ function CancelContents({ reference, signedIn, loading }: { reference: string; s
       {tracking.state === 'cancelled' && booking && <VoucherButton kind="cancellation" booking={booking}/>}
       <Button variant={tracking.pending || refundLive ? 'secondary' : 'primary'} icon="trips" title={ar ? 'العودة إلى رحلاتي' : 'Back to My trips'} onPress={() => router.navigate('/bookings')}/>
       {(tracking.state === 'cancel_failed' || tracking.refundStatus === 'review') && <Button testID="cancel-track-care" variant="quiet" icon="chat"
-        title={ar ? 'تحدّث مع فريق مخدة' : 'Talk to the Mkhadda team'} onPress={() => care(tracking.state === 'cancel_failed' ? 'cancellation' : 'refund')}/>}
+        title={ar ? 'تحدّث مع فريق مخدة' : 'Talk to the Pillow Stays team'} onPress={() => care(tracking.state === 'cancel_failed' ? 'cancellation' : 'refund')}/>}
     </LivePaymentStatus>;
   } else if (current?.error) body = <ApiState error={current.error} retry={() => setAttempt(value => value + 1)}/>;
   else if (!offer || offer.mode === 'checking') body = <Card style={styles.card} accessibilityLabel={ar ? 'نقرأ شروط الإلغاء' : 'Reading the cancellation terms'}>
@@ -172,7 +172,7 @@ function CancelContents({ reference, signedIn, loading }: { reference: string; s
         body={ar ? 'حدّثنا الأرقام أدناه حسب الشروط الحالية للفندق. راجعها قبل التأكيد.' : 'We updated the amounts below to the hotel’s current terms. Review them before confirming.'}/>}
       {notice === 'failed' && <Notice testID="cancel-failed" tone="danger" live title={ar ? 'لم يتم الإلغاء' : 'Not cancelled'}
         body={ar ? 'لم يكتمل الطلب وحجزك ما زال قائماً كما هو. حاول مجدداً، أو اكتب لفريقنا وسيتابع الإلغاء معك.' : 'The request did not complete and your booking stands as it is. Try again, or message our team and they will follow it up with you.'}
-        action={{ label: ar ? 'اكتب لفريق مخدة' : 'Message the Mkhadda team', onPress: () => care('cancellation') }}/>}
+        action={{ label: ar ? 'اكتب لفريق مخدة' : 'Message the Pillow Stays team', onPress: () => care('cancellation') }}/>}
       <Card testID="cancel-decision" style={styles.card}>
         <Notice tone={tone} title={headline}/>
         <View style={styles.amounts}>
@@ -212,7 +212,7 @@ function CancelContents({ reference, signedIn, loading }: { reference: string; s
       {offer.penalty && <Row style={styles.amountRow}><Txt kind="small" tone="primary">{ar ? 'رسوم الإلغاء الحالية لدى الفندق' : 'Hotel’s current cancellation fee'}</Txt>
         <Txt kind="label" tone="primary" style={{ writingDirection: 'ltr' }}>{isZero(offer.penalty) ? (ar ? 'مجاني' : 'Free') : formatPrice(offer.penalty)}</Txt></Row>}
       {!!offer.policy && <InfoRow icon="info"><Txt kind="caption">{offer.policy}</Txt></InfoRow>}
-      <Button testID="cancel-support-contact" icon="chat" title={ar ? 'اطلب الإلغاء من فريق مخدة' : 'Ask the Mkhadda team to cancel'} onPress={() => care('cancellation')}/>
+      <Button testID="cancel-support-contact" icon="chat" title={ar ? 'اطلب الإلغاء من فريق مخدة' : 'Ask the Pillow Stays team to cancel'} onPress={() => care('cancellation')}/>
     </Card>;
   }
 

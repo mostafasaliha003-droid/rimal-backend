@@ -1,5 +1,5 @@
 /**
- * App crash reports, kept on Mkhadda's own server (POST /api/app/errors): no third-party tracker,
+ * App crash reports, kept on Pillow Stays' own server (POST /api/app/errors): no third-party tracker,
  * no account, no token. The report carries the error text, the first stack lines, the app version,
  * the platform and the screen route. The server scrubs e-mails, numbers and ids again before storing.
  */

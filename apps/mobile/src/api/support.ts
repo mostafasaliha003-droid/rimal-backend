@@ -2,7 +2,7 @@ import type { createTransport } from './transport';
 import { ApiError, invalidResponse } from './errors';
 
 /*
- * Mkhadda care: one private conversation per booking with the support team, inside the app.
+ * Pillow Stays care: one private conversation per booking with the support team, inside the app.
  * It is the same conversation the team answers from its dashboard (and the website shows),
  * so nothing has to be repeated and no second sign-in is needed.
  */

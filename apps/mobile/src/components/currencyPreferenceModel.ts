@@ -10,7 +10,7 @@ type Storage = {
 type Region = { regionCode?: string | null; currencyCode?: string | null };
 type CurrencySelection = { currency: string; source: 'network' | 'device' | 'default' | 'manual'; country: string | null };
 type Snapshot = CurrencySelection & { ready: boolean; detecting: boolean; saveFailed: boolean };
-// Mkhadda is a UAE company and charges in dirhams: when neither the network nor the device names a
+// Pillow Stays is a UAE company and charges in dirhams: when neither the network nor the device names a
 // country we know, prices start in AED (the guest can still choose any display currency).
 const fallback: CurrencySelection = { currency: 'AED', source: 'default', country: null };
 

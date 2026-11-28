@@ -19,7 +19,7 @@ const en = {
     assign: 'Assign to me', resolve: 'Mark resolved', reopen: 'Reopen', priority: 'Priority', topic: 'How can we help?',
     staffLogin: 'Team sign-in', staffLoginHint: 'Use your existing administration account.', email: 'Email', password: 'Password',
     logout: 'Sign out', guest: 'Guest', team: 'Reservations team', private: 'Team only', event: 'Conversation updated',
-    quick: 'Quick replies', quick1: 'Thank you for contacting Mkhadda. I am reviewing your booking and will update you here.',
+    quick: 'Quick replies', quick1: 'Thank you for contacting Pillow Stays. I am reviewing your booking and will update you here.',
     quick2: 'We are checking the payment status with the gateway. Please do not submit another payment while we verify it.',
     quick3: 'We are reviewing the refund status. We will share an update here once it is verified.',
     updated: 'Updated', retry: 'Try again', verified: 'Verified request', newReply: 'Unread', pending: 'Under review',

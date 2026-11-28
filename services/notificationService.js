@@ -163,13 +163,13 @@ async function sendEmailConfirmation(customerEmail, guestName, hcn, pdfBuffer) {
             emailHtml = `
                 <div style="direction: rtl; font-family: Arial, sans-serif; padding: 20px; background: #f0f8ff; border: 2px solid #0077b6; border-radius: 10px;">
                     <h2 style="color: #0077b6;">مرحباً ${guestName}،</h2>
-                    <p>نشكرك على اختيار <b>شركة الرمال الدولية</b> لحجز إقامتك.</p>
+                    <p>نشكرك على اختيار <b>مخدة | Pillow Stays</b> لحجز إقامتك.</p>
                     <p>تم تأكيد حجزك بنجاح. يرجى إبراز رقم التأكيد التالي عند الوصول لمكتب الاستقبال في الفندق:</p>
                     <h3 style="color: #d90429; background: #ffffff; padding: 10px; border-radius: 8px; width: fit-content;">رقم التأكيد (HCN): ${hcn}</h3>
                     <p>لقد أرفقنا قسيمة الحجز المعتمدة (Voucher) كملف PDF مع هذه الرسالة. يرجى تحميله والاحتفاظ به.</p>
                     <br>
                     <p>نتمنى لك إقامة سعيدة!</p>
-                    <p><strong>فريق دعم Remalbookings</strong></p>
+                    <p><strong>فريق مخدة | Pillow Stays</strong></p>
                 </div>
             `;
         }

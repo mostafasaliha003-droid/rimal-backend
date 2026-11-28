@@ -38,7 +38,7 @@ function renderReturnPage(query = {}) {
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <meta name="robots" content="noindex">
-<title>مخدة | pillow stays</title>
+<title>Pillow Stays | مخدة</title>
 <style>
 body{margin:0;min-height:100vh;display:flex;align-items:center;justify-content:center;background:#F6F3EE;color:#14213D;font-family:system-ui,-apple-system,"Segoe UI",Tahoma,sans-serif;text-align:center}
 main{max-width:360px;padding:32px 24px}

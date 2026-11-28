@@ -102,7 +102,7 @@ function MembershipContent() {
   return <SafeAreaView edges={['top', 'bottom']} style={ui.screen}><BrandHeader back/>
     <ScrollView automaticallyAdjustKeyboardInsets keyboardShouldPersistTaps="handled" contentContainerStyle={[styles.page, { paddingHorizontal: gutter }]}>
       <View style={{ gap: space.xs }}>
-        <Txt kind="title" accessibilityRole="header">{ar ? 'عضوية مخدة' : 'Mkhadda membership'}</Txt>
+        <Txt kind="title" accessibilityRole="header">{ar ? 'عضوية مخدة' : 'Pillow Stays membership'}</Txt>
         <Txt kind="body" tone="secondary">{ar ? 'أسعار خاصة للأعضاء المعتمدين، بشروط واضحة قبل الحجز.' : 'Private rates for approved members, with clear terms before you book.'}</Txt>
       </View>
       {error ? <StatePanel icon="offline" title={ar ? 'تعذّر تحميل حالة العضوية' : 'Membership status unavailable'} body={t('networkError')} retry={retry}/> :

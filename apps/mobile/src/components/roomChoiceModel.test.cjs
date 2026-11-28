@@ -67,7 +67,7 @@ test('rate summaries use confirmed payment and bed, exact source totals and indi
   assert.equal(facts.price, 'USD 136.0001');
   assert.equal(facts.bedding, '2 single beds');
   assert.equal(facts.meal, 'Room only');
-  assert.equal(facts.payment, 'Through Mkhadda');
+  assert.equal(facts.payment, 'Through Pillow Stays');
   assert.equal(facts.fees, 'EUR 0.0123 + AED 0.0123');
   assert.equal(missing.bedding, 'غير محدد');
   assert.equal(missing.payment, 'غير محدد');

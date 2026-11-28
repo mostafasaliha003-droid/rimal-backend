@@ -25,7 +25,7 @@ export function changeCopy(language: string) {
       title: ar ? 'الاسم أو طلب خاص للفندق' : 'Guest name or a special request',
       body: ar ? 'يرسل فريقنا طلبك للفندق ويرد عليك هنا في محادثة حجزك.' : 'Our team asks the hotel and replies in your booking’s conversation.',
       examples: ar ? ['تصحيح الاسم', 'وصول متأخر', 'سرير إضافي', 'غرفة لغير المدخنين'] : ['Name correction', 'Late arrival', 'Extra bed', 'Non-smoking room'],
-      cta: ar ? 'اكتب طلبك لفريق مخدة' : 'Write to the Mkhadda team',
+      cta: ar ? 'اكتب طلبك لفريق مخدة' : 'Write to the Pillow Stays team',
       draft: ar ? 'أريد تعديل: ' : 'I would like to change: ',
     },
     other: {

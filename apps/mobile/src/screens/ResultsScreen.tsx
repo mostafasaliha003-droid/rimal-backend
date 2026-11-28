@@ -197,7 +197,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
         <Chip size="sm" testID="results-density" icon={variant === 'list' ? 'image' : 'list'} label={variant === 'list' ? (ar ? 'الصور' : 'Photos') : (ar ? 'القائمة' : 'List')}
           accessibilityLabel={variant === 'list' ? (ar ? 'عرض النتائج بصور كبيرة' : 'Show results with large photos') : L.compactView}
           onPress={() => setVariant(value => value === 'list' ? 'photo' : 'list')}/>
-        <View testID="results-member-rates" accessible accessibilityLabel={ar ? 'أسعار الأعضاء: الأسعار هنا خاصة بأعضاء مخدة.' : 'Member rates: these prices are for Mkhadda members.'}
+        <View testID="results-member-rates" accessible accessibilityLabel={ar ? 'أسعار الأعضاء: الأسعار هنا خاصة بأعضاء مخدة.' : 'Member rates: these prices are for Pillow Stays members.'}
           style={{ justifyContent: 'center' }}><Badge tone="accent" icon="sparkles" label={ar ? 'أسعار الأعضاء' : 'Member rates'}/></View>
       </Row>
       {activeCount > 0 && <Row style={{ flexWrap: 'wrap', gap: space.sm }}>
@@ -268,7 +268,7 @@ export default function ResultsScreen({ savedOnly = false }: { savedOnly?: boole
         <Row style={{ gap: space.xs, alignItems: 'flex-start' }}>
           <View style={{ paddingTop: 2 }}><Icon name="info" size={14} color={color.textSecondary}/></View>
           <Txt kind="caption" style={{ flex: 1 }}>{ar ? `أسعار خاصة بأعضاء مخدة. الأسعار إجمالية لكامل الإقامة (${stay}) بعملة البحث. تظهر أي رسوم تُدفع في الفندق في تفاصيل كل عرض.`
-            : `Member rates for Mkhadda members. Prices are totals for the whole stay (${stay}). Any fees payable at the hotel are shown on each room offer.`}</Txt>
+            : `Member rates for Pillow Stays members. Prices are totals for the whole stay (${stay}). Any fees payable at the hotel are shown on each room offer.`}</Txt>
         </Row></View> : undefined}
       refreshing={refreshing} onRefresh={enabled ? refreshResults : undefined}/>
     {sameContext && !pending && !error && comparisonItems.length > 0 && <View style={[styles.dock, elevation.raised]}>

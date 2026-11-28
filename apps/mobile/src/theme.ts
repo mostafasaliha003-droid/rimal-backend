@@ -1,7 +1,7 @@
 import { Appearance, Easing, Platform, StyleSheet } from 'react-native';
 
 /*
- * Mkhadda design tokens.
+ * Pillow Stays design tokens.
  *
  * The palette starts from the approved symbol: plum (#2D173A) and cream (#FAF8F4),
  * with the pillow-kit accents (lavender, pistachio, apricot). Components use the

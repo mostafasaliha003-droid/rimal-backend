@@ -1,8 +1,8 @@
 const SITE_URL = 'https://pillowstays.app';
 const LANGUAGES = {
-    ar: { html: 'ar', locale: 'ar_AE', title: 'رمال وفِلّها | حجوزات الفنادق', description: 'ابحث عن إقامة مناسبة مع رمال. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة.' },
-    en: { html: 'en', locale: 'en_US', title: 'Remal | Hotel bookings', description: 'Compare hotel prices, availability, and cancellation terms with Remal.' },
-    es: { html: 'es', locale: 'es_ES', title: 'Remal | Reservas de hoteles', description: 'Compara precios, disponibilidad y condiciones de cancelación de hoteles con Remal.' }
+    ar: { html: 'ar', locale: 'ar_AE', title: 'Pillow Stays | مخدة — حجوزات الفنادق', description: 'ابحث عن إقامة مناسبة مع مخدة. قارن عروض الفنادق وشروط الإلغاء وإجمالي الإقامة.' },
+    en: { html: 'en', locale: 'en_US', title: 'Pillow Stays — Hotel bookings', description: 'Compare hotel prices, availability, and cancellation terms with Pillow Stays.' },
+    es: { html: 'es', locale: 'es_ES', title: 'Pillow Stays — Reservas de hoteles', description: 'Compara precios, disponibilidad y condiciones de cancelación de hoteles con Pillow Stays.' }
 };
 
 function escapeHtml(value) {
@@ -62,7 +62,7 @@ function buildHomeMetadata(language = 'ar', siteUrl = SITE_URL) {
         canonical,
         alternates: alternateLinks(path, siteUrl),
         type: 'website',
-        structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Remal', url: canonical }
+        structuredData: { '@context': 'https://schema.org', '@type': 'WebSite', name: 'Pillow Stays', alternateName: ['مخدة', 'Mkhadda'], url: canonical }
     };
 }
 
@@ -79,7 +79,7 @@ function buildHotelMetadata({ hid, hotel, language = 'ar', siteUrl = SITE_URL })
     const path = `/hotel/${encodeURIComponent(String(hid))}`;
     const url = new URL(`${path}?lang=${locale}`, siteUrl);
     const location = [fields.city, fields.country].filter(Boolean).join(', ');
-    const title = `${fields.name}${location ? ` — ${location}` : ''} | Remal`;
+    const title = `${fields.name}${location ? ` — ${location}` : ''} | Pillow Stays · مخدة`;
     const description = fields.description || (locale === 'ar'
         ? `استكشف تفاصيل ${fields.name}${location ? ` في ${location}` : ''} وقارن عروض الإقامة المتاحة.`
         : locale === 'es'

@@ -76,7 +76,7 @@ export default function HotelDetails({ hid, onBack, displayCurrency, displayRate
         const availableLanguages = hotel.availableLanguages || ['en'];
         const seoLanguage = availableLanguages.includes(language) ? language : 'en';
         const location = [hotel.city, hotel.country].filter(Boolean).join(', ');
-        const title = `${hotel.name}${location ? ` — ${location}` : ''} | مخدة · pillow stays`;
+        const title = `${hotel.name}${location ? ` — ${location}` : ''} | Pillow Stays · مخدة`;
         const description = hotel.description || (seoLanguage === 'ar'
             ? `استكشف تفاصيل ${hotel.name}${location ? ` في ${location}` : ''} وقارن عروض الإقامة المتاحة.`
             : seoLanguage === 'es'

@@ -106,7 +106,7 @@ function BookingCard({ row, today }: { row: TripRow; today: string }) {
         {!!weekdays && <InfoRow icon="calendar"><Txt kind="small">{weekdays}</Txt></InfoRow>}
         {!urgent && <Txt kind="small">{statusText.body}</Txt>}
         <Row style={{ gap: space.lg, flexWrap: 'wrap', rowGap: space.xs }}>
-          {validRef ? <TextLink testID={`trip-care-${booking.reference}`} icon="chat" title={ar ? 'راسل فريق مخدة' : 'Message our team'} label={ar ? 'محادثة مع فريق مخدة عن هذا الحجز' : 'Conversation with the Mkhadda team about this booking'} onPress={openCare}/>
+          {validRef ? <TextLink testID={`trip-care-${booking.reference}`} icon="chat" title={ar ? 'راسل فريق مخدة' : 'Message our team'} label={ar ? 'محادثة مع فريق مخدة عن هذا الحجز' : 'Conversation with the Pillow Stays team about this booking'} onPress={openCare}/>
             : <TextLink icon="support" title={ar ? 'مساعدة' : 'Help'} label={ar ? 'مساعدة بهذا الحجز' : 'Help with this booking'} onPress={() => router.navigate('/support')}/>}
           {canAmend && validRef && <TextLink testID={`trip-change-${booking.reference}`} icon="edit" title={ar ? 'تعديل الحجز' : 'Change booking'} onPress={openChange}/>}
           {canCancel && <TextLink testID={`trip-cancel-${booking.reference}`} icon="close" title={ar ? 'إلغاء الحجز' : 'Cancel booking'}

@@ -149,7 +149,7 @@ function PhotoStage({ slide, reveal }: { slide: Animated.Value; reveal: Animated
 }
 
 /*
- * The front door: real places breathing behind the Mkhadda emblem, the promise in one line, Tabby's
+ * The front door: real places breathing behind the Pillow Stays emblem, the promise in one line, Tabby's
  * approved banner in its light theme, and the way in (apply for membership, or sign in). Everything
  * arrives once in sequence, then the decoration settles so the photos and the choice stay in focus;
  * with "reduce motion" on, it is all simply there.
@@ -236,7 +236,7 @@ export default function WelcomeScreen() {
       </Row>
 
       <View style={[styles.hero, { gap: tiny ? 4 : compact ? space.xs : space.sm }]} accessible accessibilityRole="header"
-        accessibilityLabel={`${ar ? 'مخدة' : 'Mkhadda'}, pillow stays. ${tagline}`}>
+        accessibilityLabel={`${ar ? 'مخدة' : 'Pillow Stays'}. ${tagline}`}>
         <Emblem size={emblemSize} spread={compact ? 1.6 : 1.85} emblem={intro.emblem} ring={ring} float={loops.float} glow={loops.glow} orbit={loops.orbit}/>
         <View style={{ alignItems: 'center', marginTop: -emblemSize * (compact ? 0.16 : 0.24) }}>
           <Animated.Text allowFontScaling={false} style={[styles.word, { fontSize: tiny ? 30 : compact ? 38 : 46, lineHeight: tiny ? 40 : compact ? 50 : 60 }, rise(intro.word)]}>مخدة</Animated.Text>
@@ -272,7 +272,7 @@ export default function WelcomeScreen() {
         { opacity: intro.sheet, transform: [{ translateY: intro.sheet.interpolate({ inputRange: [0, 1], outputRange: [80, 0] }) }] }]}>
         {!wide && <View style={styles.handle}/>}
         <View style={{ gap: 2 }}>
-          <Txt kind="heading" align="center" accessibilityRole="header">{ar ? 'عضوية مخدة مجانية' : 'Mkhadda membership is free'}</Txt>
+          <Txt kind="heading" align="center" accessibilityRole="header">{ar ? 'عضوية مخدة مجانية' : 'Pillow Stays membership is free'}</Txt>
           {!tiny && <Txt kind="small" align="center">{ar ? 'قدّم طلبك، ونراجعه، وبعد الموافقة تنفتح لك أسعار الأعضاء.' : 'Apply, we review it, and once approved member prices open up.'}</Txt>}
         </View>
         {!tiny && <Animated.View testID="welcome-benefits" style={[styles.benefits, { flexDirection: ar ? 'row-reverse' : 'row' }, rise(intro.benefits, 10)]}>
