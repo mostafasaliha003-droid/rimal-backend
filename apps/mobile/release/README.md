@@ -62,7 +62,7 @@ Do not create projects, enable billing, register OAuth clients, generate credent
 
 ## Files
 
-- `store-listing.json`: English/Arabic drafts, character limits and feature-claim gates. Not ready for submission until every claim is verified in the release binary.
+- `store-listing.json`: Pillow Stays App Store and Google Play copy (English/Arabic), measured against store limits, store URLs and the claims to confirm. Not ready for submission until every claim is verified in the release binary.
 - `data-safety-map.json`: source-backed data inventory and unresolved declaration questions. Not a Data Safety submission.
 - `acceptance-targets.json`: proposed quality, funnel, performance and operational targets with null results.
 
