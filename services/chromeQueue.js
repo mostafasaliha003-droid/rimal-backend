@@ -1,12 +1,13 @@
 'use strict';
 
 /**
- * One headless Chrome at a time for the whole process.
+ * One heavy job at a time for the whole process: a headless Chrome PDF or a membership OCR read.
  *
  * Every PDF (booking confirmation and cancellation receipt e-mails, voucher downloads) launches
- * its own Chrome, which needs roughly 100–200 MB on top of the Node process. On a 512 MB
- * instance two or three renders at once could run out of memory, so renders wait their turn in
- * arrival order instead.
+ * its own Chrome, roughly 100–200 MB on top of the Node process; an OCR read (in-process WASM
+ * Tesseract, or the Tesseract binary in the same container) adds about 160 MB more until it
+ * finishes. On a 512 MB instance two of these at once could run out of memory, so they wait
+ * their turn in arrival order instead.
  *
  * Two guards keep the queue from becoming its own outage:
  * - holdLimitMs: a render that is still running after this long gives up its turn, so one hung
@@ -55,4 +56,6 @@ function createChromeQueue({ holdLimitMs = 90_000, maxWaiting = 20, setTimer = s
 
 const shared = createChromeQueue();
 
-module.exports = { createChromeQueue, withChrome: task => shared.run(task), chromeQueueStats: () => shared.stats() };
+// withChrome and withHeavyWork are the same shared queue: a PDF and an OCR read never overlap.
+const withHeavyWork = task => shared.run(task);
+module.exports = { createChromeQueue, withChrome: withHeavyWork, withHeavyWork, chromeQueueStats: () => shared.stats() };
