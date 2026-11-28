@@ -56,6 +56,8 @@ async function startSite(context, withBuild) {
         // The Mkhadda brand folder ships with the build.
         await fs.mkdir(path.join(root, 'frontend', 'dist', 'pillow'), { recursive: true });
         await fs.writeFile(path.join(root, 'frontend', 'dist', 'pillow', 'symbol.svg'), '<svg>pillow</svg>');
+        await fs.mkdir(path.join(root, 'frontend', 'dist', 'brand'), { recursive: true });
+        await fs.writeFile(path.join(root, 'frontend', 'dist', 'brand', 'signature-logo.png'), 'signature logo');
         for (const [file, content] of Object.entries(files).filter(([file]) => ['index.html', 'assets/app.js', 'sw.js'].includes(file))) {
             const target = path.join(root, 'frontend', 'dist', file);
             await fs.mkdir(path.dirname(target), { recursive: true });
@@ -115,6 +117,13 @@ test('prefers the local frontend build when it exists', async context => {
     assert.equal(await symbol.text(), '<svg>pillow</svg>');
     assert.doesNotMatch(await (await fetch(`${base}/pillow/../server.js`)).text(), /PRIVATE/);
     assert.doesNotMatch(await (await fetch(`${base}/pillow/%2e%2e/server.js`)).text(), /PRIVATE/);
+    const signature = await fetch(`${base}/brand/signature-logo.png`);
+    assert.equal(signature.status, 200);
+    assert.equal(signature.headers.get('content-type'), 'image/png');
+    assert.equal(signature.headers.get('cache-control'), 'public, max-age=31536000, immutable');
+    assert.equal(await signature.text(), 'signature logo');
+    assert.equal((await fetch(`${base}/brand/missing.png`)).status, 404, 'a missing brand file is a 404, not the app page');
+    assert.doesNotMatch(await (await fetch(`${base}/brand/%2e%2e/%2e%2e/%2e%2e/server.js`)).text(), /PRIVATE/);
     const index = await fetch(`${base}/index.html`);
     assert.equal(index.headers.get('cache-control'), 'no-store, no-cache, must-revalidate, proxy-revalidate');
     const missingAsset = await fetch(`${base}/assets/old-build.js`);
